@@ -632,7 +632,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 		})
 
 		Context("optional fields", func() {
-			It("Should generate nil-check preamble for hard optional", func() {
+			It("Should generate nil-check preamble for optional", func() {
 				oldSchema := `
 					@go output "out"
 					Key = uuid

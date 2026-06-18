@@ -1312,8 +1312,8 @@ var _ = Describe("Go Types Plugin", func() {
 			})
 		})
 
-		Context("hard optional fields", func() {
-			It("Should generate pointer type with omitempty for hard optional fields", func(ctx SpecContext) {
+		Context("optional fields", func() {
+			It("Should generate pointer type with omitempty for optional fields", func(ctx SpecContext) {
 				source := `
 				@go output "core/user"
 
@@ -1337,7 +1337,7 @@ var _ = Describe("Go Types Plugin", func() {
 				// Required fields should not have omitempty
 				Expect(content).To(ContainSubstring("Key uuid.UUID `json:\"key\" msgpack:\"key\"`"))
 				Expect(content).To(ContainSubstring("Name string `json:\"name\" msgpack:\"name\"`"))
-				// Hard optional fields should have pointer type and omitempty
+				// Optional fields should have pointer type and omitempty
 				Expect(content).To(ContainSubstring("Nickname *string `json:\"nickname,omitempty\" msgpack:\"nickname,omitempty\"`"))
 				Expect(content).To(ContainSubstring("Age *int32 `json:\"age,omitempty\" msgpack:\"age,omitempty\"`"))
 			})

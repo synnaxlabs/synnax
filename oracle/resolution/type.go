@@ -235,7 +235,7 @@ func (r TypeRef) MustResolve(table *Table) Type {
 //
 // This is the shared primitive behind the analyzer's IsRecursive detection
 // and the C++ plugin's decision between std::optional<T> and
-// x::mem::indirect<T> for hard-optional fields.
+// x::mem::indirect<T> for optional fields.
 func RefersTo(ref TypeRef, targetQualifiedName string, table *Table) bool {
 	return refersTo(ref, targetQualifiedName, table, set.New[string]())
 }

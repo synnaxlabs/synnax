@@ -400,7 +400,6 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		GoType:              goType,
 		JSONName:            casing.FieldSnake(field.Name),
 		IsOptional:          field.Optional,
-		IsHardOptional:      field.Optional,
 		IsOptionalContainer: isOptionalContainer,
 		Doc:                 doc.Get(field.Domains),
 	}
@@ -507,7 +506,6 @@ type fieldData struct {
 	JSONName            string
 	Doc                 string
 	IsOptional          bool
-	IsHardOptional      bool
 	IsOptionalContainer bool
 }
 
@@ -515,7 +513,7 @@ type fieldData struct {
 // (nilable slices/maps) deliberately omit `,omitempty` so a nil container serializes
 // as null (not loaded) distinctly from a present empty container.
 func (f fieldData) TagSuffix() string {
-	if f.IsHardOptional && !f.IsOptionalContainer {
+	if f.IsOptional && !f.IsOptionalContainer {
 		return ",omitempty"
 	}
 	return ""

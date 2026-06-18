@@ -446,7 +446,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should handle hard optional any type fields", func(ctx SpecContext) {
+			It("Should handle optional any type fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
@@ -853,7 +853,7 @@ var _ = Describe("C++ PB Plugin", func() {
 			})
 		})
 
-		Context("hard optional uuid field", func() {
+		Context("optional uuid field", func() {
 			It("Should generate has_value check for optional uuid", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
@@ -1128,7 +1128,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should emit optional-guarded JSON-bridge conversion for hard-optional type-param field", func(ctx SpecContext) {
+			It("Should emit optional-guarded JSON-bridge conversion for optional type-param field", func(ctx SpecContext) {
 				source := `
 					@cpp output "x/cpp/status"
 					@pb output "x/go/status/pb"

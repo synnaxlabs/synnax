@@ -1249,13 +1249,12 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	needsGetter := isSelfReference(field.Type, parentType) || isForwardReference(field.Type, data, table)
 
 	fd := fieldData{
-		Name:           field.Name,
-		TSName:         fieldCamel(field.Name),
-		Doc:            doc.Get(field.Domains),
-		IsOptional:     field.Optional,
-		IsHardOptional: field.Optional,
-		IsArray:        isArray,
-		IsSelfRef:      needsGetter,
+		Name:       field.Name,
+		TSName:     fieldCamel(field.Name),
+		Doc:        doc.Get(field.Domains),
+		IsOptional: field.Optional,
+		IsArray:    isArray,
+		IsSelfRef:  needsGetter,
 	}
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
 		// A `@ts type` override may name either a primitive (e.g. `string`) or another
@@ -1380,7 +1379,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		} else if !field.Type.IsTypeParam() {
 			fd.ZodType += ".optional()"
 		} else if field.Optional {
-			// Hard-optional (??) on a type-param field: the field is ALWAYS
+			// Optional (?) on a type-param field: the field is ALWAYS
 			// optional, even when a caller passes a concrete schema. Wrap the
 			// whole "param ?? fallback" expression in .optional() so caller
 			// schemas get wrapped too. Strip a trailing .optional() from the
@@ -2275,10 +2274,10 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name, TSName, ZodType, TSType, ZodSchemaType   string
-	CoalescedTSType                                string
-	Doc                                            string
-	IsOptional, IsHardOptional, IsArray, IsSelfRef bool
+	Name, TSName, ZodType, TSType, ZodSchemaType string
+	CoalescedTSType                              string
+	Doc                                          string
+	IsOptional, IsArray, IsSelfRef               bool
 }
 
 type conditionalFieldData struct {
@@ -2419,7 +2418,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- if $.GenerateTypes }}
 export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.BareConstraint }}{{ if $p.HasDefault }} = {{ $p.BareDefault }}{{ end }}{{ end }}> {
 {{- range .Fields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
 {{- end }}
@@ -2432,7 +2431,7 @@ export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }
     {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
 {{- range .ConditionalFields }}
-    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ if .Field.IsHardOptional }}z.ZodOptional<{{ .TypeParamName }}>{{ else }}{{ .TypeParamName }}{{ end }};
+    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ if .Field.IsOptional }}z.ZodOptional<{{ .TypeParamName }}>{{ else }}{{ .TypeParamName }}{{ end }};
 {{- end }}
 }>;
 
@@ -2498,7 +2497,7 @@ export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }},
     {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
 {{- range .ConditionalFields }}
-    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ if .Field.IsHardOptional }}z.ZodOptional<{{ .TypeParamName }}>{{ else }}{{ .TypeParamName }}{{ end }};
+    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ if .Field.IsOptional }}z.ZodOptional<{{ .TypeParamName }}>{{ else }}{{ .TypeParamName }}{{ end }};
 {{- end }}
 }>;
 
@@ -2565,13 +2564,13 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- if .CoalesceTypeParams }}
 export type {{ .TSName }}<S extends {{ .TSName }}Schemas = {{ .TSName }}Schemas> = {{ if .PartialFields }}optional.Optional<{{ end }}{{ if .OmittedFields }}Omit<{{ end }}{{ .ExtendsTypeName }}<S>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .PartialFields }}, {{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}>{{ end }}{{ if .ExtendFields }} & {
 {{- range .ExtendFields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }{{ end }};
 {{- else }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {{ if .PartialFields }}optional.Optional<{{ end }}{{ if .OmittedFields }}Omit<{{ end }}{{ .ExtendsTypeName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .PartialFields }}, {{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}>{{ end }}{{ if .ExtendFields }} & {
 {{- range .ExtendFields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }{{ end }};
 {{- end }}
@@ -2580,27 +2579,27 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }
 {{- if .CoalesceTypeParams }}
 export type {{ .TSName }}<S extends {{ .TSName }}Schemas = {{ .TSName }}Schemas> = {
 {{- range .BaseFields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}{{ range .ConditionalFields }} & ([S["{{ .TypeParamName | camelCase }}"]] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsHardOptional }}?{{ end }}: {{ .Field.CoalescedTSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
+}{{ range .ConditionalFields }} & ([S["{{ .TypeParamName | camelCase }}"]] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsOptional }}?{{ end }}: {{ .Field.CoalescedTSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
 {{- else }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {
 {{- range .BaseFields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsHardOptional }}?{{ end }}: {{ .Field.TSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
+}{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsOptional }}?{{ end }}: {{ .Field.TSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
 {{- end }}
 {{- else }}
 {{- if .CoalesceTypeParams }}
 export interface {{ .TSName }}<S extends {{ .TSName }}Schemas = {{ .TSName }}Schemas> {
 {{- range .Fields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
 {{- else }}
 export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
 {{- range .Fields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
 {{- end }}
@@ -2645,7 +2644,7 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- if and .IsRecursive $.GenerateTypes }}
 export interface {{ .TSName }} {
 {{- range .Fields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
 export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({

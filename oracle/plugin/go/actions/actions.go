@@ -142,7 +142,7 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-// processField mirrors gotypes' optionality handling: hard-optional values get a
+// processField mirrors gotypes' optionality handling: optional values get a
 // pointer prefix only when the underlying type is not already a slice, map, or
 // msgpack.EncodedJSON (which carry their own nil semantics).
 func processField(
@@ -158,10 +158,10 @@ func processField(
 		goType = "*" + goType
 	}
 	return fieldData{
-		GoName:         naming.GetFieldName(field),
-		GoType:         goType,
-		JSONName:       casing.FieldSnake(field.Name),
-		IsHardOptional: field.Optional,
+		GoName:     naming.GetFieldName(field),
+		GoType:     goType,
+		JSONName:   casing.FieldSnake(field.Name),
+		IsOptional: field.Optional,
 	}
 }
 
@@ -186,16 +186,16 @@ type actionData struct {
 }
 
 type fieldData struct {
-	GoName         string
-	GoType         string
-	JSONName       string
-	IsHardOptional bool
+	GoName     string
+	GoType     string
+	JSONName   string
+	IsOptional bool
 }
 
 // TagSuffix returns the JSON/msgpack tag suffix that controls omitempty
-// emission for hard-optional fields.
+// emission for optional fields.
 func (f fieldData) TagSuffix() string {
-	if f.IsHardOptional {
+	if f.IsOptional {
 		return ",omitempty"
 	}
 	return ""

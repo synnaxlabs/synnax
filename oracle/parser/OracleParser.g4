@@ -160,8 +160,7 @@ actionBody
 //   name -@validate          (remove an inherited domain)
 // A standalone optionality marker overrides only the optionality, inheriting
 // the type from the parent:
-//   key?                     (inherit the type, make it soft-optional)
-//   key??                    (inherit the type, make it hard-optional)
+//   key?                     (inherit the type, make it optional)
 fieldDef
     : IDENT (typeRef | typeModifiers)? (EQUALS fieldDefault)? (inlineDomain | domainOmit)* fieldBody?
     ;

@@ -680,11 +680,10 @@ func processField(
 ) fieldData {
 	escapedName := keywords.Escape(field.Name)
 	fd := fieldData{
-		Name:           escapedName,
-		Doc:            doc.Get(field.Domains),
-		IsOptional:     field.Optional,
-		IsHardOptional: field.Optional,
-		IsArray:        field.Type.Name == "Array",
+		Name:       escapedName,
+		Doc:        doc.Get(field.Domains),
+		IsOptional: field.Optional,
+		IsArray:    field.Type.Name == "Array",
 	}
 	if escapedName != field.Name {
 		fd.Alias = field.Name
@@ -721,7 +720,7 @@ func processField(
 		fd.PyType = baseType
 	}
 
-	// Both soft optional (?) and hard optional (??) become T | None in Python
+	// Optional (?) fields become T | None in Python (no pointer distinction)
 	if field.Optional {
 		fd.PyType = fd.PyType + " | None"
 	}
@@ -1449,14 +1448,13 @@ type structData struct {
 }
 
 type fieldData struct {
-	Name           string
-	Alias          string
-	Doc            string
-	PyType         string
-	Default        string
-	IsOptional     bool
-	IsHardOptional bool
-	IsArray        bool
+	Name       string
+	Alias      string
+	Doc        string
+	PyType     string
+	Default    string
+	IsOptional bool
+	IsArray    bool
 }
 
 type enumData struct {

@@ -248,7 +248,7 @@ var _ = Describe("Plugin", func() {
 			Expect(content).To(ContainSubstring("message User"))
 			Expect(content).To(ContainSubstring("string key = 1;"))
 			Expect(content).To(ContainSubstring("string username = 2;"))
-			// Soft optional (?) is a regular field in proto
+			// Optional (?) is a regular field in proto
 			Expect(content).To(ContainSubstring("string email = 3;"))
 		})
 
@@ -661,8 +661,8 @@ var _ = Describe("Plugin", func() {
 			})
 		})
 
-		Context("hard optional fields", func() {
-			It("Should mark hard optional fields with optional keyword", func() {
+		Context("optional fields", func() {
+			It("Should mark optional fields with optional keyword", func() {
 				table := resolution.NewTable()
 				Expect(table.Add(resolution.Type{
 					Name:          "User",

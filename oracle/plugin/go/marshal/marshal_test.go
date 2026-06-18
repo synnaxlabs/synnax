@@ -93,7 +93,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
-		Context("hard optional field", func() {
+		Context("optional field", func() {
 			It("Should generate presence flag for pointer-based optional", func() {
 				source := `
 					@go output "core/pkg/test"
@@ -110,7 +110,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 					ToContain("if t.Description != nil {")
 			})
 
-			It("Should decode hard-optional string into a non-shadowing temp var", func() {
+			It("Should decode optional string into a non-shadowing temp var", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -127,7 +127,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				content.ToContain("t.Description = &hv")
 			})
 
-			It("Should compile a hard-optional string-based enum without shadowing the outer pointer target", func() {
+			It("Should compile a optional string-based enum without shadowing the outer pointer target", func() {
 				// Regression: the decode template for a string-based enum
 				// emitted "{ v, err := r.String(); v = TickType(v) }" which
 				// shadows the outer "var v TickType" declared by the hard-
@@ -157,7 +157,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 				content.ToNotContain("var v TickType")
 			})
 
-			It("Should compile a hard-optional integer-based enum without shadowing the outer pointer target", func() {
+			It("Should compile a optional integer-based enum without shadowing the outer pointer target", func() {
 				// Same regression class as the string case but exercising the
 				// integer leaf decoder, which uses the same shared inner var
 				// name and would have collided the same way under a hard-
@@ -500,7 +500,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
-		Context("soft optional array field", func() {
+		Context("optional array field", func() {
 			It("Should generate a single presence bit without a redundant inner nil check", func() {
 				source := `
 					@go output "core/pkg/test"
@@ -525,7 +525,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
-		Context("soft optional map field", func() {
+		Context("optional map field", func() {
 			It("Should generate a single presence bit without a redundant inner nil check", func() {
 				source := `
 					@go output "core/pkg/test"

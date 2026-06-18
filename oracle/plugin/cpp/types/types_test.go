@@ -269,7 +269,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::optional<bool> embedded;`))
 		})
 
-		It("Should use std::optional for hard optional types", func(ctx SpecContext) {
+		It("Should use std::optional for optional types", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -288,7 +288,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Only hard optionals (?) use std::optional in C++
+			// Only optionals (?) use std::optional in C++
 			Expect(content).To(ContainSubstring(`#include <optional>`))
 			Expect(content).To(ContainSubstring(`std::optional<std::uint32_t> parent;`))
 		})
@@ -342,7 +342,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
 		})
 
-		It("Should wrap hard optional arrays with std::optional", func(ctx SpecContext) {
+		It("Should wrap optional arrays with std::optional", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -361,7 +361,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Hard optional array wraps the vector with std::optional
+			// Optional array wraps the vector with std::optional
 			Expect(content).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
 		})
 
@@ -436,7 +436,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// New struct should have flattened fields with key hard optional and task_counter omitted
+			// New struct should have flattened fields with key optional and task_counter omitted
 			Expect(content).To(ContainSubstring(`struct New {`))
 			Expect(content).To(ContainSubstring(`std::optional<std::uint32_t> key;`))
 			Expect(content).To(ContainSubstring(`std::string name;`))

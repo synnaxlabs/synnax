@@ -285,7 +285,7 @@ func generateTestCodecFile(
 					var expr string
 					var err error
 					if f.Optional && b.isGoPointerField(f.Type) {
-						expr, err = b.hardOptionalExpr(r, f.Type)
+						expr, err = b.optionalExpr(r, f.Type)
 					} else {
 						expr, err = b.valueExpr(r, f.Type)
 					}
@@ -469,7 +469,7 @@ func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string,
 		var expr string
 		var err error
 		if f.Optional && b.isGoPointerField(f.Type) {
-			expr, err = b.hardOptionalExpr(resolved, f.Type)
+			expr, err = b.optionalExpr(resolved, f.Type)
 		} else {
 			expr, err = b.valueExpr(resolved, f.Type)
 		}
@@ -542,7 +542,7 @@ func (b *testValueBuilder) isGoPointerField(ref resolution.TypeRef) bool {
 	return true
 }
 
-func (b *testValueBuilder) hardOptionalExpr(
+func (b *testValueBuilder) optionalExpr(
 	resolved resolution.Type, ref resolution.TypeRef,
 ) (string, error) {
 	if b.mode == modeZeroValue {
@@ -628,7 +628,7 @@ func (b *testValueBuilder) valueExpr(
 				var expr string
 				var err error
 				if f.Optional && b.isGoPointerField(f.Type) {
-					expr, err = b.hardOptionalExpr(r, f.Type)
+					expr, err = b.optionalExpr(r, f.Type)
 				} else {
 					expr, err = b.valueExpr(r, f.Type)
 				}

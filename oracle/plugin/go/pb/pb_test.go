@@ -199,7 +199,7 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 			})
 
-			It("Should deref hard-optional typedef fields for conversion", func(ctx SpecContext) {
+			It("Should deref optional typedef fields for conversion", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/schematic"
 					@pb
@@ -621,8 +621,8 @@ var _ = Describe("Go PB Plugin", func() {
 				)
 		})
 
-		Context("hard optional fields", func() {
-			It("Should handle hard optional primitive with nil check", func(ctx SpecContext) {
+		Context("optional fields", func() {
+			It("Should handle optional primitive with nil check", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -639,8 +639,8 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("if pb.Name != nil {")
 			})
 
-			It("Should deref the pointer on forward and rebind on backward for hard-optional string enums", func(ctx SpecContext) {
-				// Regression: a hard-optional enum field was emitting
+			It("Should deref the pointer on forward and rebind on backward for optional string enums", func(ctx SpecContext) {
+				// Regression: a optional enum field was emitting
 				// `pb.Type, err = TickTypeToPB(r.Type)` even though r.Type
 				// is *TickType and TickTypeToPB takes a value. Backward
 				// emitted `r.Type = TickTypeFromPB(pb.Type)` ignoring both
@@ -673,7 +673,7 @@ var _ = Describe("Go PB Plugin", func() {
 				content.ToNotContain("TickTypeFromPB(pb.Type)")
 			})
 
-			It("Should deref the pointer on forward and rebind on backward for hard-optional integer enums", func(ctx SpecContext) {
+			It("Should deref the pointer on forward and rebind on backward for optional integer enums", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -1286,7 +1286,7 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("uint8 primitive conversion", func() {
-			It("Should dereference hard optional uint8 pointer for conversion", func(ctx SpecContext) {
+			It("Should dereference optional uint8 pointer for conversion", func(ctx SpecContext) {
 				source := `
 					@go output "arc/go/ir"
 					@pb
@@ -1521,8 +1521,8 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 	})
 
-	Describe("hard optional fields", func() {
-		It("Should handle hard optional struct reference with pointer", func(ctx SpecContext) {
+	Describe("optional fields", func() {
+		It("Should handle optional struct reference with pointer", func(ctx SpecContext) {
 			source := `
 				@go output "core/test"
 				@pb

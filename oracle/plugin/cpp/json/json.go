@@ -294,7 +294,7 @@ func (p *Plugin) processStruct(
 }
 
 // isSelfReference reports whether t directly or transitively references parent.
-// Stays consistent with the cpp types plugin's decision on hard-optional
+// Stays consistent with the cpp types plugin's decision on optional
 // fields by sharing resolution.RefersTo.
 func isSelfReference(t resolution.TypeRef, parent resolution.Type, table *resolution.Table) bool {
 	return resolution.RefersTo(t, parent.QualifiedName, table)
@@ -359,7 +359,7 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 		ToJSONExpr:      toJSONExpr,
 		IsGenericField:  isGenericField,
 		TypeParamName:   typeParamName,
-		IsHardOptional:  field.Optional,
+		IsOptional:      field.Optional,
 		JSONParseExpr:   jsonParseExpr,
 		StructParseExpr: structParseExpr,
 	}
@@ -722,7 +722,7 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
         j["%s"] = this->%s.to_json();`, typeName, jsonName, fieldName, typeName, jsonName, jsonName, fieldName)
 	}
 
-	// Self-referential hard-optional fields are wrapped as x::mem::indirect<T>
+	// Self-referential optional fields are wrapped as x::mem::indirect<T>
 	// by the types plugin. indirect<T> has the same has_value() + -> interface
 	// as std::optional<T>, and the underlying T (struct, or a distinct/alias
 	// resolving to one) always has to_json(). Emit the unwrap pattern here so
@@ -1072,5 +1072,5 @@ type fieldData struct {
 	JSONParseExpr   string
 	StructParseExpr string
 	IsGenericField  bool
-	IsHardOptional  bool
+	IsOptional      bool
 }

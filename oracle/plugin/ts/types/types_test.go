@@ -450,7 +450,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export interface New extends z.infer<typeof newZ> {}`))
 		})
 
-		It("Should handle soft optional types (?)", func(ctx SpecContext) {
+		It("Should handle optional types (?)", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -470,34 +470,8 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Soft optional (?) uses .optional() in TypeScript
+			// An optional (?) field uses .optional() in TypeScript
 			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
-		})
-
-		It("Should handle hard optional types (?)", func(ctx SpecContext) {
-			source := `
-				@ts output "out"
-
-				Task struct {
-					key uuid
-					name string
-					status string?
-					description string?
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp := MustSucceed(typesPlugin.Generate(req))
-
-			content := string(resp.Files[0].Content)
-			// Hard optional (?) also uses .optional() in TypeScript (no distinction from ?)
-			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
-			Expect(content).To(ContainSubstring(`description: z.string().optional()`))
 		})
 
 		It("Should handle required arrays with array.nullishToEmpty", func(ctx SpecContext) {
@@ -595,7 +569,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
 		})
 
-		It("Should handle hard optional record fields with zod.nullToUndefined", func(ctx SpecContext) {
+		It("Should handle optional record fields with zod.nullToUndefined", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -614,7 +588,7 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Hard optional record fields also use zod.nullToUndefined
+			// Optional record fields also use zod.nullToUndefined
 			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
 		})
 

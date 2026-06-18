@@ -440,7 +440,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`last_name: str | None = None`))
 		})
 
-		It("Should handle soft optional types (?)", func(ctx SpecContext) {
+		It("Should handle optional types (?)", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -460,34 +460,8 @@ var _ = Describe("Python Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Soft optional (?) becomes T | None = None in Python
+			// An optional (?) field becomes T | None = None in Python
 			Expect(content).To(ContainSubstring(`status: str | None = None`))
-		})
-
-		It("Should handle hard optional types (?)", func(ctx SpecContext) {
-			source := `
-				@py output "out"
-
-				Task struct {
-					key uuid
-					name string
-					status string?
-					description string?
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp := MustSucceed(typesPlugin.Generate(req))
-
-			content := string(resp.Files[0].Content)
-			// Hard optional (?) also becomes T | None = None in Python (no pointer distinction)
-			Expect(content).To(ContainSubstring(`status: str | None = None`))
-			Expect(content).To(ContainSubstring(`description: str | None = None`))
 		})
 
 		It("Should handle optional arrays", func(ctx SpecContext) {

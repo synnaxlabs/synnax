@@ -118,7 +118,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// Soft optional (?) wrapper types still use field<> with wrapper type
+						// Optional (?) wrapper types still use field<> with wrapper type
 						`parser.field<Params>("inputs")`,
 						`parser.field<Params>("outputs")`,
 					)
@@ -233,7 +233,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			})
 		})
 
-		Context("hard optional struct fields (non-self-referential)", func() {
+		Context("optional struct fields (non-self-referential)", func() {
 			It("Should generate correct to_json for optional struct fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
@@ -275,7 +275,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// Hard optional struct fields use std::optional<T> with implicit nullopt default
+						// Optional struct fields use std::optional<T> with implicit nullopt default
 						`parser.field<std::optional<Unit>>("unit")`,
 					)
 			})
@@ -330,7 +330,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// FunctionProperties fields use wrapper type (soft optional uses bare type)
+						// FunctionProperties fields use wrapper type (optional uses bare type)
 						`parser.field<Params>("inputs")`,
 						`parser.field<Params>("outputs")`,
 						`parser.field<Params>("config")`,
@@ -481,7 +481,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			})
 		})
 
-		Context("soft-optional primitive defaults", func() {
+		Context("optional primitive defaults", func() {
 			It("Should parse optional primitives as std::optional", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"

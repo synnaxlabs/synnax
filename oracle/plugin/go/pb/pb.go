@@ -607,8 +607,7 @@ func (p *Plugin) processFieldForTranslation(
 	goName := naming.GetFieldName(field)
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 
-	isHardOptional := field.Optional
-	isOptional := isHardOptional
+	isOptional := field.Optional
 	isOptionalStruct := isOptional &&
 		(isStructType(field.Type, data.table) || isUnionType(field.Type, data.table))
 	isOptionalEnum := isOptional && isEnumType(field.Type, data.table)
@@ -630,18 +629,18 @@ func (p *Plugin) processFieldForTranslation(
 
 	typeRef := field.Type
 
-	// Hard optional primitives that need type conversion (e.g., *uint8 <-> *uint32)
+	// Optional primitives that need type conversion (e.g., *uint8 <-> *uint32)
 	// require pointer dereference before casting and re-addressing after.
-	if isHardOptional && resolution.IsPrimitive(typeRef.Name) && primitiveNeedsConversion(typeRef.Name) {
+	if isOptional && resolution.IsPrimitive(typeRef.Name) && primitiveNeedsConversion(typeRef.Name) {
 		fd.NeedsPtrConversion = true
 		goFieldDeref := "*r." + goName
 		pbFieldDeref := "*pb." + pbName
 		fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generatePrimitiveConversion(typeRef.Name, goFieldDeref, pbFieldDeref, data)
 	}
 
-	// Hard optional typedefs over primitives (e.g. *channel.Key <-> *uint32)
+	// Optional typedefs over primitives (e.g. *channel.Key <-> *uint32)
 	// need the same deref-convert-readdress treatment.
-	if isHardOptional && !resolution.IsPrimitive(typeRef.Name) {
+	if isOptional && !resolution.IsPrimitive(typeRef.Name) {
 		if resolved, ok := typeRef.Resolve(data.table); ok {
 			if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct &&
 				resolution.IsPrimitive(form.Base.Name) {
@@ -670,7 +669,7 @@ func (p *Plugin) processFieldForTranslation(
 	// An optional list is a nullable wrapper message in proto (see pb/types). The
 	// forward converts the slice (to be wrapped in &Wrapper{Values: ...}); the
 	// backward reads from <pbField>.Values. A nil slice maps to a nil wrapper.
-	if isHardOptional && p.isArrayType(typeRef, data.table) && !p.isNestedArrayType(typeRef, data.table) {
+	if isOptional && p.isArrayType(typeRef, data.table) && !p.isNestedArrayType(typeRef, data.table) {
 		f, b, e, be := p.generateArrayConversion(field, data, "r."+goName, "pb."+pbName+".Values")
 		fd.IsOptionalArrayWrapper = true
 		fd.WrapperName = p.getOptionalArrayWrapperName(typeRef, data.table)
@@ -828,8 +827,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 	typeRef := field.Type
 
-	isHardOptional := field.Optional
-	isOptional := isHardOptional
+	isOptional := field.Optional
 
 	goFieldName := "r." + goName
 	pbFieldName := "pb." + pbName
@@ -885,15 +883,15 @@ func (p *Plugin) processGenericFieldForTranslation(
 		BackwardExpr:     backwardExpr,
 		BackwardCast:     backwardCast,
 		IsOptional:       isOptional,
-		IsOptionalStruct: isHardOptional && isStructType(typeRef, data.table),
-		IsOptionalEnum:   isHardOptional && isEnumType(typeRef, data.table),
+		IsOptionalStruct: isOptional && isStructType(typeRef, data.table),
+		IsOptionalEnum:   isOptional && isEnumType(typeRef, data.table),
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
 	}
 
 	// An optional list is a nullable wrapper message in proto (see pb/types),
 	// matching the non-generic path in processFieldForTranslation.
-	if isHardOptional && p.isArrayType(typeRef, data.table) && !p.isNestedArrayType(typeRef, data.table) {
+	if isOptional && p.isArrayType(typeRef, data.table) && !p.isNestedArrayType(typeRef, data.table) {
 		f, b, e, be := p.generateArrayConversion(field, data, "r."+goName, "pb."+pbName+".Values")
 		fd.IsOptionalArrayWrapper = true
 		fd.WrapperName = p.getOptionalArrayWrapperName(typeRef, data.table)
@@ -1325,7 +1323,7 @@ func (p *Plugin) generatePrimitiveConversion(
 func (p *Plugin) generateStructConversion(
 	typeRef resolution.TypeRef,
 	resolved resolution.Type,
-	isHardOptional bool,
+	isOptional bool,
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward, backwardCast string, hasError bool) {
@@ -1377,7 +1375,7 @@ func (p *Plugin) generateStructConversion(
 	}
 
 	if actualForm.IsGeneric() && len(typeArgs) > 0 {
-		return p.generateGenericStructConversion(typeRef, resolved, actualStruct, actualForm, typeArgs, data, goField, pbField, isHardOptional)
+		return p.generateGenericStructConversion(typeRef, resolved, actualStruct, actualForm, typeArgs, data, goField, pbField, isOptional)
 	}
 
 	// A fully-defaulted generic struct (every type param has a default and the
@@ -1386,7 +1384,7 @@ func (p *Plugin) generateStructConversion(
 	// branch below instead of returning the raw field names.
 	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(actualStruct, data)
 
-	if isHardOptional {
+	if isOptional {
 		return fmt.Sprintf("%s%sToPB(*%s)", translatorPrefix, translatorStructName, goField),
 			fmt.Sprintf("%s%sFromPB(%s)", translatorPrefix, translatorStructName, pbField), "", true
 	}
@@ -1403,7 +1401,7 @@ func (p *Plugin) generateGenericStructConversion(
 	typeArgs []resolution.TypeRef,
 	data *templateData,
 	goField, pbField string,
-	isHardOptional bool,
+	isOptional bool,
 ) (forward, backward, backwardCast string, hasError bool) {
 	translatorPrefix, structName := p.resolvePBTranslatorInfo(actualStruct, data)
 
@@ -1462,7 +1460,7 @@ func (p *Plugin) generateGenericStructConversion(
 	}
 
 	aliasGoName := naming.GetGoName(originalResolved)
-	if isHardOptional {
+	if isOptional {
 		if genericGoType != "" {
 			forward = fmt.Sprintf("%s%sToPB%s((%s)(*%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
 		} else {
@@ -1518,12 +1516,12 @@ func (p *Plugin) generateEnumConversion(
 	resolved resolution.Type,
 	data *templateData,
 	goField, pbField string,
-	isHardOptional bool,
+	isOptional bool,
 ) (forward, backward string) {
 	enumName := resolved.Name
 	forwardArg := goField
 	backwardArg := pbField
-	if isHardOptional {
+	if isOptional {
 		forwardArg = "*" + goField
 		backwardArg = "*" + pbField
 	}
@@ -2126,11 +2124,11 @@ type fieldTranslatorData struct {
 	BackwardCast     string
 	IsOptional       bool
 	IsOptionalStruct bool
-	// IsOptionalEnum is true for a hard-optional field whose underlying type is an
+	// IsOptionalEnum is true for a optional field whose underlying type is an
 	// enum. Triggers the same val/&val backward dance as IsOptionalStruct so the
 	// pointer-typed Go field is populated from the value-returning EnumFromPB call.
 	IsOptionalEnum bool
-	// NeedsPtrConversion is true when a hard-optional primitive needs type conversion
+	// NeedsPtrConversion is true when a optional primitive needs type conversion
 	// (e.g., *uint8 <-> *uint32). The template must dereference, convert, and re-address.
 	NeedsPtrConversion bool
 	// MapValueConversion holds the forward and backward conversion expressions for map

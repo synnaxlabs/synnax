@@ -317,11 +317,11 @@ func (b *encoderBuilder) processFields(
 		}
 
 		if f.Optional && !b.isGoNilable(f.Type) {
-			if err := b.processHardOptional(f, getPath, setPath); err != nil {
+			if err := b.processOptional(f, getPath, setPath); err != nil {
 				return err
 			}
 		} else if f.Optional && b.isGoNilable(f.Type) {
-			if err := b.processSoftOptionalNilable(f, getPath, setPath); err != nil {
+			if err := b.processOptionalNilable(f, getPath, setPath); err != nil {
 				return err
 			}
 		} else {
@@ -619,7 +619,7 @@ func buildUnionCodec(
 	}, nil
 }
 
-func (b *encoderBuilder) processHardOptional(
+func (b *encoderBuilder) processOptional(
 	f resolution.Field, getPath, setPath string,
 ) error {
 	if f.Type.Name == "nil" {
@@ -633,7 +633,7 @@ func (b *encoderBuilder) processHardOptional(
 
 	actual := b.unwrapType(resolved)
 
-	// Hard optional arrays/maps
+	// Optional arrays/maps
 	if bg, ok := actual.Form.(resolution.BuiltinGenericForm); ok && (bg.Name == "Array" || bg.Name == "Map") {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("if %s != nil {", getPath),
@@ -658,7 +658,7 @@ func (b *encoderBuilder) processHardOptional(
 		return nil
 	}
 
-	// Hard optional json/any
+	// Optional json/any
 	if prim, ok := actual.Form.(resolution.PrimitiveForm); ok && (prim.Name == "record" || prim.Name == "any") {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("if %s != nil {", getPath),
@@ -680,7 +680,7 @@ func (b *encoderBuilder) processHardOptional(
 		return nil
 	}
 
-	// Hard optional other (pointer to struct/primitive)
+	// Optional other (pointer to struct/primitive)
 	goType, err := b.goTypeName(resolved)
 	if err != nil {
 		return err
@@ -711,7 +711,7 @@ func (b *encoderBuilder) processHardOptional(
 	return nil
 }
 
-func (b *encoderBuilder) processSoftOptionalNilable(
+func (b *encoderBuilder) processOptionalNilable(
 	f resolution.Field, getPath, setPath string,
 ) error {
 	ind := b.indent()
@@ -756,7 +756,7 @@ func (b *encoderBuilder) processArray(
 	}
 
 	// Write a presence bit to distinguish nil from empty slices.
-	// When inside a hard-optional guard, the slice is already known non-nil.
+	// When inside a optional guard, the slice is already known non-nil.
 	if !b.skipNilCheck {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
@@ -821,7 +821,7 @@ func (b *encoderBuilder) processMap(
 	}
 
 	// Write a presence bit to distinguish nil from empty maps.
-	// When inside a hard-optional guard, the map is already known non-nil.
+	// When inside a optional guard, the map is already known non-nil.
 	if !b.skipNilCheck {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
