@@ -10,7 +10,6 @@
 package frame
 
 import (
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -66,7 +65,7 @@ func (f Frame) SplitByHost(host node.Key) (local Frame, remote Frame, free Frame
 	for key, series := range f.Entries() {
 		if key.Lease() == host {
 			local = local.Append(key, series)
-		} else if key.Lease().IsFree() {
+		} else if key.Free() {
 			free = free.Append(key, series)
 		} else {
 			remote = remote.Append(key, series)
@@ -81,7 +80,7 @@ func (f Frame) Extend(frame Frame) Frame { return Frame{f.Frame.Extend(frame.Fra
 // ToStorage converts the frame to the storage layer frame format. This is used when
 // persisting the frame to storage.
 func (f Frame) ToStorage() ts.Frame {
-	return telem.UnsafeReinterpretFrameKeysAs[channel.Key, cesium.ChannelKey](f.Frame)
+	return telem.UnsafeReinterpretFrameKeysAs[channel.Key, ts.ChannelKey](f.Frame)
 }
 
 // KeepKeys returns a new frame containing only the series for the specified keys. The
@@ -114,5 +113,5 @@ func Merge(frames []Frame) Frame {
 
 // NewFromStorage creates a new distribution layer frame from a storage layer frame.
 func NewFromStorage(frame ts.Frame) Frame {
-	return Frame{telem.UnsafeReinterpretFrameKeysAs[cesium.ChannelKey, channel.Key](frame)}
+	return Frame{telem.UnsafeReinterpretFrameKeysAs[ts.ChannelKey, channel.Key](frame)}
 }

@@ -46,7 +46,7 @@ var _ = Describe("Cluster", func() {
 
 			Eventually(func(g Gomega) {
 				var resChs []channel.Channel
-				g.Expect(coreThree.RetrieveChannelsInto(ctx, &resChs, ch.Key())).To(Succeed())
+				g.Expect(coreThree.RetrieveChannelsInto(&resChs, ch.Key())).To(Succeed())
 				g.Expect(resChs).To(HaveLen(1))
 				g.Expect(resChs[0].Key()).To(Equal(ch.Key()))
 			}, time.Millisecond*200).Should(Succeed())

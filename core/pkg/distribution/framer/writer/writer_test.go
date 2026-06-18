@@ -47,7 +47,7 @@ func uniqueChannelName() string {
 // distribution writer no longer resolves channels itself — its caller (the service layer
 // in production, this helper in tests) supplies them.
 func openWriter(ctx context.Context, n mock.Node, cfg writer.Config) (*writer.Writer, error) {
-	cfg.Channels = n.RetrieveChannels(ctx, cfg.Keys...)
+	cfg.Channels = n.RetrieveChannels(cfg.Keys...)
 	return n.Framer.OpenWriter(ctx, cfg)
 }
 
@@ -185,7 +185,7 @@ var _ = Describe("Writer", func() {
 		It("Should return an error if metadata is missing for a provided key", func(ctx SpecContext) {
 			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:     []channel.Key{channel.NewKey(0, 22), s.keys[0]},
-				Channels: s.dist.RetrieveChannels(ctx, s.keys[0]),
+				Channels: s.dist.RetrieveChannels(s.keys[0]),
 				Start:    10 * telem.SecondTS,
 				Sync:     new(true),
 			})).Error().To(SatisfyAll(
@@ -513,7 +513,7 @@ var _ = Describe("Writer", func() {
 			Expect(gw.CreateChannel(ctx, &data)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var chs []channel.Channel
-				g.Expect(gw.RetrieveChannelsInto(ctx, &chs, idx.Key(), data.Key())).To(Succeed())
+				g.Expect(gw.RetrieveChannelsInto(&chs, idx.Key(), data.Key())).To(Succeed())
 				g.Expect(chs).To(HaveLen(2))
 			}).Should(Succeed())
 
@@ -672,7 +672,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := dist.RetrieveChannelsInto(ctx, &chs, channel.KeysFromChannels(channels)...)
+		err := dist.RetrieveChannelsInto(&chs, channel.KeysFromChannels(channels)...)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
@@ -691,7 +691,7 @@ func mixedScenario(ctx context.Context) scenario {
 	Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.RetrieveChannelsInto(ctx, &chs, channel.KeysFromChannels(channels)...)
+		err := svc.RetrieveChannelsInto(&chs, channel.KeysFromChannels(channels)...)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
@@ -711,7 +711,7 @@ func freeWriterScenario(ctx context.Context) scenario {
 	Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.RetrieveChannelsInto(ctx, &chs, channel.KeysFromChannels(channels)...)
+		err := svc.RetrieveChannelsInto(&chs, channel.KeysFromChannels(channels)...)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())

@@ -30,7 +30,7 @@ var _ = Describe("Key", func() {
 			k := channel.NewKey(node.Key(1), 2)
 			Expect(k.LocalKey()).To(Equal(channel.LocalKey(2)))
 		})
-		It("Should correctly handle the maximum value of a 12 bit node key and 20 bit cesium key", func() {
+		It("Should correctly handle the maximum value of a 12 bit node key and 20 bit ts key", func() {
 			k := channel.NewKey(
 				node.Key(math.MaxUint12), channel.LocalKey(math.MaxUint20),
 			)

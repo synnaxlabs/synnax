@@ -153,7 +153,7 @@ var _ = Describe("Metrics", func() {
 			Expect(ch.DataType).To(Equal(telem.Float32T))
 			Expect(ch.IsCalculated()).To(BeTrue())
 		})
-		It("Should create ts (cesium) size metric channel", func(ctx SpecContext) {
+		It("Should create ts size metric channel", func(ctx SpecContext) {
 			expectedName := names[4]
 			var ch channel.Channel
 			Expect(channelSvc.NewRetrieve().
@@ -359,7 +359,7 @@ var _ = Describe("Metrics", func() {
 		// shared vars used by It blocks, so the context must outlive BeforeEach.
 		BeforeEach(func() {
 			ctx := context.Background()
-			// Write some data to cesium so disk size metrics are non-zero
+			// Write some data to time-series database so disk size metrics are non-zero
 			indexCh := &channel.Channel{
 				Name:     "metrics_test_index",
 				DataType: telem.TimeStampT,

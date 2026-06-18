@@ -55,13 +55,13 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(channelmock.ChannelService(mockCluster.Nodes[1]).Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
 				Expect(ch.LocalKey).To(Equal(channel.LocalKey(3)))
 			})
-			It("Should create the channel in the cesium gorpDB", func(ctx SpecContext) {
+			It("Should create the channel in the time-series database", func(ctx SpecContext) {
 				channels := MustSucceed(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()))
 				Expect(channels).To(HaveLen(1))
-				cesiumCh := channels[0]
-				Expect(cesiumCh.Key).To(Equal(ch.Key().StorageKey()))
-				Expect(cesiumCh.DataType).To(Equal(telem.TimeStampT))
-				Expect(cesiumCh.IsIndex).To(BeTrue())
+				tsCh := channels[0]
+				Expect(tsCh.Key).To(Equal(ch.Key().StorageKey()))
+				Expect(tsCh.DataType).To(Equal(telem.TimeStampT))
+				Expect(tsCh.IsIndex).To(BeTrue())
 			})
 			It("Should create the channel without error", func(ctx SpecContext) {
 				ch.Leaseholder = 1
@@ -88,12 +88,12 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().Lease()).To(Equal(aspen.NodeKey(2)))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(2)))
 			})
-			It("Should create the channel in cesium", func(ctx SpecContext) {
+			It("Should create the channel in time-series database", func(ctx SpecContext) {
 				channels := MustSucceed(mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()))
 				Expect(channels).To(HaveLen(1))
-				cesiumCh := channels[0]
-				Expect(cesiumCh.DataType).To(Equal(telem.TimeStampT))
-				Expect(cesiumCh.IsIndex).To(BeTrue())
+				tsCh := channels[0]
+				Expect(tsCh.DataType).To(Equal(telem.TimeStampT))
+				Expect(tsCh.IsIndex).To(BeTrue())
 			})
 			It("Should not create the channel on another nodes time-series DB", func(ctx SpecContext) {
 				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).Error().To(MatchError(query.ErrNotFound))

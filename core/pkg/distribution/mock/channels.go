@@ -43,7 +43,7 @@ func (s *ChannelStore) add(channels ...channel.Channel) {
 // RetrieveByKeys returns the channels matching the provided keys. It returns
 // query.ErrNotFound if any requested key has no matching channel, mirroring the gorp
 // retrieve semantics of the real service-layer channel service.
-func (s *ChannelStore) RetrieveByKeys(_ context.Context, keys ...channel.Key) ([]channel.Channel, error) {
+func (s *ChannelStore) RetrieveByKeys(keys ...channel.Key) ([]channel.Channel, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]channel.Channel, 0, len(keys))
@@ -83,15 +83,15 @@ func (n Node) CreateChannels(ctx context.Context, channels *[]channel.Channel) e
 }
 
 // RetrieveChannels returns the channels matching the provided keys from the shared store.
-func (n Node) RetrieveChannels(ctx context.Context, keys ...channel.Key) []channel.Channel {
-	return testutil.MustSucceed(n.channels.RetrieveByKeys(ctx, keys...))
+func (n Node) RetrieveChannels(keys ...channel.Key) []channel.Channel {
+	return testutil.MustSucceed(n.channels.RetrieveByKeys(keys...))
 }
 
 // RetrieveChannelsInto populates chs with the channels matching the provided keys. It
 // always returns a nil error, mirroring the shape of a retrieve query so tests can keep
 // asserting Succeed().
-func (n Node) RetrieveChannelsInto(ctx context.Context, chs *[]channel.Channel, keys ...channel.Key) error {
-	out, err := n.channels.RetrieveByKeys(ctx, keys...)
+func (n Node) RetrieveChannelsInto(chs *[]channel.Channel, keys ...channel.Key) error {
+	out, err := n.channels.RetrieveByKeys(keys...)
 	*chs = out
 	return err
 }

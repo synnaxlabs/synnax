@@ -70,18 +70,16 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // machinery for assigning local channel keys and creating, renaming, and deleting the
 // underlying storage channels, routing each operation to the channel's leaseholder.
 type Service struct {
-	cfg ServiceConfig
-	// leasedCounter and freeCounter drive local-key assignment for gateway-leased and
-	// free-virtual channels respectively. freeCounter is only populated on the
-	// bootstrapper node.
+	cfg           ServiceConfig
 	leasedCounter *counter
 	freeCounter   *counter
 	renameRouter  proxy.BatchFactory[renameBatchEntry]
 	deleteRouter  proxy.BatchFactory[Key]
 }
 
-// NewService opens the distribution-layer channel allocator. The allocator holds no
-// resources that require shutdown, so it has no Close method.
+// NewService opens the distribution-layer channel service, which is responsible for
+// assigning local keys and routing create, rename, and delete operations to the
+// appropriate nodes.
 func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {

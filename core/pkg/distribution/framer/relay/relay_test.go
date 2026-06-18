@@ -41,7 +41,7 @@ type scenario struct {
 }
 
 func openWriter(ctx context.Context, n mock.Node, cfg writer.Config) (*writer.Writer, error) {
-	cfg.Channels = n.RetrieveChannels(ctx, cfg.Keys...)
+	cfg.Channels = n.RetrieveChannels(cfg.Keys...)
 	return n.Framer.OpenWriter(ctx, cfg)
 }
 
@@ -534,7 +534,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.RetrieveChannelsInto(ctx, &chs, keys...)).To(Succeed())
+		g.Expect(dist.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
@@ -557,7 +557,7 @@ func mixedScenario(ctx context.Context) scenario {
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(gateway.RetrieveChannelsInto(ctx, &chs, keys...)).To(Succeed())
+		g.Expect(gateway.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
@@ -582,7 +582,7 @@ func freeScenario(ctx context.Context) scenario {
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.RetrieveChannelsInto(ctx, &chs, keys...)).To(Succeed())
+		g.Expect(dist.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{

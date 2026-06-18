@@ -14,10 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -66,7 +66,7 @@ var _ = Describe("Delete", Ordered, func() {
 				It("Should not be able to retrieve the channel from the time-series DB", func(ctx SpecContext) {
 					Expect(channelmock.ChannelService(mockCluster.Nodes[1]).Delete(ctx, ch.Key(), true)).To(Succeed())
 					channels, err := mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
-					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+					Expect(err).To(MatchError(ts.ErrChannelNotFound))
 					Expect(channels).To(BeEmpty())
 				})
 			})
@@ -99,7 +99,7 @@ var _ = Describe("Delete", Ordered, func() {
 				It("Should not be able to retrieve the channel from the time-series DB", func(ctx SpecContext) {
 					Expect(channelmock.ChannelService(mockCluster.Nodes[1]).Delete(ctx, ch.Key(), true)).To(Succeed())
 					channels, err := mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
-					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+					Expect(err).To(MatchError(ts.ErrChannelNotFound))
 					Expect(channels).To(BeEmpty())
 				})
 			})

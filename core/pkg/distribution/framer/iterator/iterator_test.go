@@ -27,7 +27,7 @@ import (
 )
 
 func openWriter(ctx context.Context, n mock.Node, cfg writer.Config) (*writer.Writer, error) {
-	cfg.Channels = n.RetrieveChannels(ctx, cfg.Keys...)
+	cfg.Channels = n.RetrieveChannels(cfg.Keys...)
 	return n.Framer.OpenWriter(ctx, cfg)
 }
 
@@ -171,7 +171,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := dist.RetrieveChannelsInto(ctx, &chs, channel.KeysFromChannels(channels)...)
+		err := dist.RetrieveChannelsInto(&chs, channel.KeysFromChannels(channels)...)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
@@ -190,7 +190,7 @@ func mixedScenario(ctx context.Context) scenario {
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.RetrieveChannelsInto(ctx, &chs, keys...)).To(Succeed())
+		g.Expect(dist.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: dist, close: builder}

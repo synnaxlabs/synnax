@@ -42,7 +42,7 @@ var _ = Describe("Deleter", Ordered, func() {
 				BeforeEach(func(ctx SpecContext) {
 					w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 						Keys:     s.keys,
-						Channels: s.dist.RetrieveChannels(ctx, s.keys...),
+						Channels: s.dist.RetrieveChannels(s.keys...),
 						Start:    10 * telem.SecondTS,
 					}))
 					Expect(w.Write(frame.NewMulti(
@@ -117,7 +117,7 @@ var _ = Describe("Deleter", Ordered, func() {
 		It("Should delete channels across gateway and peer nodes", func(ctx SpecContext) {
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:     s.keys,
-				Channels: s.dist.RetrieveChannels(ctx, s.keys...),
+				Channels: s.dist.RetrieveChannels(s.keys...),
 				Start:    10 * telem.SecondTS,
 				Sync:     new(true),
 			}))
@@ -152,7 +152,7 @@ var _ = Describe("Deleter", Ordered, func() {
 		It("Should delete all data across gateway and peer nodes", func(ctx SpecContext) {
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:     s.keys,
-				Channels: s.dist.RetrieveChannels(ctx, s.keys...),
+				Channels: s.dist.RetrieveChannels(s.keys...),
 				Start:    10 * telem.SecondTS,
 				Sync:     new(true),
 			}))
@@ -234,7 +234,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.RetrieveChannelsInto(ctx, &chs, keys...)).To(Succeed())
+		g.Expect(dist.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
@@ -258,7 +258,7 @@ func mixedScenario(ctx context.Context) scenario {
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.RetrieveChannelsInto(ctx, &chs, keys...)).To(Succeed())
+		g.Expect(dist.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
