@@ -17,8 +17,8 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	distmock "github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	distmock "github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 )
 

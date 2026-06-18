@@ -182,8 +182,8 @@ func (s *Service) Rename(ctx context.Context, keys Keys, names []string) error {
 }
 
 // Delete deletes the storage channels for the provided keys, routing each key to its
-// leaseholder. Free-virtual channels have no persistent storage and are skipped. It does
-// not touch channel metadata.
+// leaseholder. Free-virtual channels have no persistent storage and are skipped. It
+// does not touch channel metadata.
 func (s *Service) Delete(ctx context.Context, keys Keys) error {
 	batch := s.deleteRouter.Batch(keys)
 	for nodeKey, entries := range batch.Peers {
