@@ -327,6 +327,41 @@ TEST(StateTest, OptionalInput_UseDefault) {
     ASSERT_FALSE(consumer_node.refresh_inputs());
 }
 
+/// @brief reset() re-arms literal-valued inputs so a node whose stage is
+/// re-entered runs again instead of staying consumed from its first activation.
+TEST(StateTest, Reset_RearmsLiteralInputsOnStageReentry) {
+    arc::types::Param input1_param;
+    input1_param.name = "input1";
+    input1_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    input1_param.value = 42.0f;
+
+    arc::ir::Node consumer;
+    consumer.key = "consumer";
+    consumer.type = "consumer";
+    consumer.inputs.push_back(input1_param);
+
+    arc::ir::Function fn;
+    fn.key = "test";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(consumer);
+    ir.functions.push_back(fn);
+
+    Config cfg{.ir = ir, .channels = {}};
+    State s(cfg, arc::runtime::errors::noop_handler);
+
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
+
+    // Runs on first activation, then stays consumed on subsequent cycles.
+    ASSERT_TRUE(consumer_node.refresh_inputs());
+    ASSERT_FALSE(consumer_node.refresh_inputs());
+
+    // Stage re-entry must re-arm the literal input so the node runs again.
+    consumer_node.reset();
+    ASSERT_TRUE(consumer_node.refresh_inputs());
+    EXPECT_EQ(consumer_node.input(0)->at<float>(0), 42.0f);
+}
+
 /// @brief Test that connected input overrides default value
 TEST(StateTest, OptionalInput_OverrideDefault) {
     arc::types::Param output_param;

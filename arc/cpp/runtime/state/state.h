@@ -148,11 +148,12 @@ public:
     /// refresh_inputs does not block on them before they receive real data.
     void init_input(size_t param_index, const Series &data, const Series &time);
 
-    /// @brief Resets accumulated input state for runtime restart.
+    /// @brief Re-arms every input when the node's stage is (re)activated, so a node
+    /// whose gating inputs are all literal-valued re-runs instead of staying consumed.
     void reset() {
         for (auto &entry: this->accumulated) {
             entry.last_timestamp = x::telem::TimeStamp(0);
-            entry.consumed = true;
+            entry.consumed = false;
         }
     }
 
