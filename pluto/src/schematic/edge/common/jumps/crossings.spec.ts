@@ -51,7 +51,7 @@ describe("findCrossings", () => {
       polylines: [horizontal("a", 0), vertical("b", 1, 50, 50, 100)],
     },
     {
-      name: "crossing within the end buffer of a segment",
+      name: "crossing within the hop segment's end buffer",
       polylines: [horizontal("a", 0), vertical("b", 1, 50, 45, 100)],
     },
     {
@@ -74,6 +74,16 @@ describe("findCrossings", () => {
     },
   ])("produces no hop for $name", ({ polylines }) => {
     expect(Jumps.findCrossings(polylines).size).toBe(0);
+  });
+
+  it("keeps a hop when the crossing nears the crossed segment's end", () => {
+    // The horizontal edge is on top and draws the hop; the crossed vertical edge ends
+    // only 5px from the crossing, but only the small cross-buffer applies there.
+    const result = Jumps.findCrossings([
+      horizontal("h", 5),
+      vertical("v", 1, 50, 45, 100),
+    ]);
+    expect(result.get("h")).toEqual([{ x: 50, y: 50 }]);
   });
 
   it("records a separate crossing per vertical edge over a shared horizontal", () => {

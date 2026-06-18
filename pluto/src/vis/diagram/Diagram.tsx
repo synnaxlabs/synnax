@@ -95,6 +95,7 @@ const EDITABLE_PROPS: ReactFlowProps = {
   nodesDraggable: true,
   nodesConnectable: true,
   elementsSelectable: true,
+  nodesFocusable: true,
   zoomOnDoubleClick: false,
   nodeClickDistance: 5,
   reconnectRadius: 15,
