@@ -585,16 +585,13 @@ func processStruct(
 				for _, pf := range parentFields {
 					if pf.Name == omittedName {
 						data.imports.addPydantic("Field")
-						fd := fieldData{
-							Name:   pf.Name,
-							PyType: typeToPython(pf.Type, table, data),
-						}
-						if pf.Optional {
-							fd.PyType = fd.PyType + " | None"
-							fd.Default = " = Field(default=None, exclude=True)"
-						} else {
-							fd.Default = " = Field(exclude=True)"
-						}
+						// Run the inherited field through the normal field
+						// pipeline so it keeps its real type, default, and
+						// validation; processField adds exclude=True because the
+						// name is in OmittedFields. A hand-built default here
+						// would drop the parent's default and make an excluded
+						// defaulted field wrongly required.
+						fd := processField(pf, table, data, keyFields, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
 						break
 					}
