@@ -142,7 +142,7 @@ func (s *Service) validate(token string) (user.Key, *jwt.RegisteredClaims, error
 	claims := &jwt.RegisteredClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (any, error) {
 		return s.publicKey(), nil
-	})
+	}, jwt.WithTimeFunc(s.cfg.Now))
 	if err != nil {
 		if isVerificationError(err) {
 			return uuid.Nil, claims, auth.ErrInvalidToken
