@@ -11,6 +11,7 @@ package arc
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	arcv56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -100,21 +102,20 @@ func (s *Service) NewChannelResolver(tx gorp.Tx) arc.SymbolResolver {
 
 // NewSymbolResolver is the dynamic resolver attached to a program root's
 // GlobalResolver. It resolves cluster channels by name or numeric key. Static prelude
-// symbols (STL, status module) are attached to the ambient by NewRoot rather than
+// symbols (STL, status, ranges) are attached to the ambient by NewRoot rather than
 // chained behind this resolver.
 func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return s.NewChannelResolver(tx)
 }
 
-// NewRoot builds a program root populated with STL + status module + the cluster
-// channel resolver attached as the dynamic resolver. This is the production analysis
-// root: tx is consulted for channel lookups, nil means "use the service DB directly."
+// NewRoot builds the production analysis root: the STL, status, and ranges modules
+// plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
 func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
-	stlSyms := stl.NewSymbols()
-	statusSyms := status.NewSymbols()
-	syms := make([]*arcsymbol.Symbol, 0, len(stlSyms)+len(statusSyms))
-	syms = append(syms, stlSyms...)
-	syms = append(syms, statusSyms...)
+	syms := slices.Concat(
+		stl.NewSymbols(),
+		status.NewSymbols(),
+		ranges.NewSymbols(),
+	)
 	return arcsymbol.NewRoot(s.NewSymbolResolver(tx), syms)
 }
 
