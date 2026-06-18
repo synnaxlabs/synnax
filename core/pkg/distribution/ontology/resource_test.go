@@ -30,7 +30,7 @@ var _ = Describe("Resource", func() {
 			It("Should return an error if the ID does not have a type", func() {
 				id := ontology.ID{Key: "foo"}
 				Expect(id.Validate()).To(And(
-					MatchError(ContainSubstring("type: invalid Type")),
+					MatchError(ContainSubstring("type: invalid type")),
 				))
 			})
 			It("Should return nil if the resource ID is valid", func() {

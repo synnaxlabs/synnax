@@ -33,8 +33,8 @@ type TimestampConfig struct {
 
 func (t TimestampConfig) Validate() error {
 	v := validate.New("TimestampConfig")
-	v.Ternaryf("format", !t.Format.IsValid(), "invalid Format: %v", t.Format)
-	v.Ternaryf("tz", !t.Tz.IsValid(), "invalid Tz: %v", t.Tz)
+	v.Ternaryf("format", !t.Format.IsValid(), "invalid format: %v", t.Format)
+	v.Ternaryf("tz", !t.Tz.IsValid(), "invalid tz: %v", t.Tz)
 	return v.Error()
 }
 
@@ -67,7 +67,7 @@ func (c ChannelEntry) ApplyDefaults() ChannelEntry {
 
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
-	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid Notation: %v", c.Notation)
+	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
 	return v.Error()
 }
 

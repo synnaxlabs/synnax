@@ -70,7 +70,7 @@ type Operation struct {
 
 func (o Operation) Validate() error {
 	v := validate.New("Operation")
-	v.Ternaryf("type", !o.Type.IsValid(), "invalid Type: %v", o.Type)
+	v.Ternaryf("type", !o.Type.IsValid(), "invalid type: %v", o.Type)
 	return v.Error()
 }
 

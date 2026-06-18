@@ -263,8 +263,8 @@ type CornerLocation struct {
 
 func (c CornerLocation) Validate() error {
 	v := validate.New("CornerLocation")
-	v.Ternaryf("x", !c.X.IsValid(), "invalid X: %v", c.X)
-	v.Ternaryf("y", !c.Y.IsValid(), "invalid Y: %v", c.Y)
+	v.Ternaryf("x", !c.X.IsValid(), "invalid x: %v", c.X)
+	v.Ternaryf("y", !c.Y.IsValid(), "invalid y: %v", c.Y)
 	return v.Error()
 }
 
@@ -278,8 +278,8 @@ type StickyUnits struct {
 
 func (s StickyUnits) Validate() error {
 	v := validate.New("StickyUnits")
-	v.Ternaryf("x", !s.X.IsValid(), "invalid X: %v", s.X)
-	v.Ternaryf("y", !s.Y.IsValid(), "invalid Y: %v", s.Y)
+	v.Ternaryf("x", !s.X.IsValid(), "invalid x: %v", s.X)
+	v.Ternaryf("y", !s.Y.IsValid(), "invalid y: %v", s.Y)
 	return v.Error()
 }
 

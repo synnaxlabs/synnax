@@ -56,12 +56,6 @@ var (
 				Group:    g,
 				Search:   searchIdx,
 			}))
-			userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Search:   searchIdx,
-			}))
 		)
 		svc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 			DB:       db,
