@@ -57,19 +57,18 @@ export const resolveEndpoint = (
   const handles = [...(handleBounds?.source ?? []), ...(handleBounds?.target ?? [])];
   const handle = handleKey ? handles.find((h) => h.id === handleKey) : handles[0];
   if (handle == null) return null;
-  const x = positionAbsolute.x + handle.x;
-  const y = positionAbsolute.y + handle.y;
-  const { width: w, height: h } = handle;
+  const { x, y, width: w, height: h } = handle;
+  const origin = xy.translate(positionAbsolute, { x, y });
   const orientation = handle.position as location.Outer;
   switch (orientation) {
     case "top":
-      return { position: { x: x + w / 2, y }, orientation };
+      return { position: xy.translateX(origin, w / 2), orientation };
     case "right":
-      return { position: { x: x + w, y: y + h / 2 }, orientation };
+      return { position: xy.translate(origin, { x: w, y: h / 2 }), orientation };
     case "bottom":
-      return { position: { x: x + w / 2, y: y + h }, orientation };
+      return { position: xy.translate(origin, { x: w / 2, y: h }), orientation };
     default:
-      return { position: { x, y: y + h / 2 }, orientation };
+      return { position: xy.translateY(origin, h / 2), orientation };
   }
 };
 
