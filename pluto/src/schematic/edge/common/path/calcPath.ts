@@ -32,7 +32,6 @@ const lerp = (a: xy.XY, b: xy.XY, t: number): xy.XY => ({
 
 interface Run {
   a: xy.XY;
-  b: xy.XY;
   from: xy.XY;
   to: xy.XY;
 }
@@ -120,7 +119,6 @@ export const calcPath = (coords: xy.XY[], jumps: xy.XY[] = []): string => {
     const t = Math.min(RADIUS / Math.hypot(b.x - a.x, b.y - a.y), 0.5);
     runs.push({
       a,
-      b,
       from: i === 0 ? a : lerp(a, b, t),
       to: i === last ? b : lerp(a, b, 1 - t),
     });

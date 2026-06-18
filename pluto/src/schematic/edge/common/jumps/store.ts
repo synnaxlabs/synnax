@@ -51,13 +51,20 @@ export const create = (): Store => {
     },
     get: (key) => current.get(key) ?? EMPTY,
     commit: (next) => {
+      const merged = new Map<string, xy.XY[]>();
       const changed: string[] = [];
       for (const [key, points] of next) {
         const prev = current.get(key);
-        if (prev == null || !pointsEqual(prev, points)) changed.push(key);
+        // Preserve the previous array reference when a key's hops are unchanged so
+        // getSnapshot stays stable and the edge does not re-render.
+        if (prev != null && pointsEqual(prev, points)) merged.set(key, prev);
+        else {
+          merged.set(key, points);
+          changed.push(key);
+        }
       }
       for (const key of current.keys()) if (!next.has(key)) changed.push(key);
-      current = next;
+      current = merged;
       for (const key of changed) notify(key);
     },
   };

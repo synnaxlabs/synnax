@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { type location, type record, type xy } from "@synnaxlabs/x";
-import { type InternalNode, useReactFlow, useStoreApi } from "@xyflow/react";
+import { type InternalNode, useStoreApi } from "@xyflow/react";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -30,7 +30,7 @@ import {
   useSelectElementConfig,
 } from "@/schematic/queries";
 import { Diagram as Base } from "@/vis/diagram";
-import { selectNodeBox } from "@/vis/diagram/util";
+import { internalNodeBox } from "@/vis/diagram/util";
 
 interface Endpoint {
   position: xy.XY;
@@ -116,57 +116,68 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
   const edgeKeys = useMemo(() => edges.map((e) => e.key), [edges]);
   const configs = useSelectConfigs({ key, keys: edgeKeys });
   const store = useStoreApi();
-  const flow = useReactFlow();
-  const jumps = useRef(Edge.Jumps.create()).current;
+  const jumpsRef = useRef<Edge.Jumps.Store | null>(null);
+  jumpsRef.current ??= Edge.Jumps.create();
+  const jumps = jumpsRef.current;
 
   const recompute = useCallback(() => {
     const { nodeLookup, transform } = store.getState();
     const zoom = transform[2];
     const polylines: Edge.Jumps.Polyline[] = [];
     edges.forEach((edge, order) => {
-      try {
-        const sourceNode = nodeLookup.get(edge.source.node);
-        const targetNode = nodeLookup.get(edge.target.node);
-        if (sourceNode == null || targetNode == null) return;
-        const source = resolveEndpoint(sourceNode, edge.source.param);
-        const target = resolveEndpoint(targetNode, edge.target.param);
-        if (source == null || target == null) return;
-        const cfg = configs.get(edge.key) as { segments?: Edge.Segmented.Segment[] };
-        const middleSegments = cfg?.segments ?? [];
-        const segments =
-          middleSegments.length === 0
-            ? Edge.Segmented.createConnector({
-                sourcePos: source.position,
-                targetPos: target.position,
-                sourceOrientation: source.orientation,
-                targetOrientation: target.orientation,
-                sourceBox: selectNodeBox(flow, edge.source.node),
-                targetBox: selectNodeBox(flow, edge.target.node),
-              })
-            : Edge.Segmented.stitchEdge({
-                sourceOrientation: source.orientation,
-                targetOrientation: target.orientation,
-                sourcePos: source.position,
-                targetPos: target.position,
-                middleSegments,
-              });
-        const points = Edge.Segmented.segmentsToPoints(
-          source.position,
-          segments,
-          zoom,
-          true,
-        );
-        if (points.length >= 2) polylines.push({ key: edge.key, points, order });
-      } catch {
-        // The node is not yet measured or mounted; skip it until the next recompute.
-      }
+      const sourceNode = nodeLookup.get(edge.source.node);
+      const targetNode = nodeLookup.get(edge.target.node);
+      if (sourceNode == null || targetNode == null) return;
+      const source = resolveEndpoint(sourceNode, edge.source.param);
+      const target = resolveEndpoint(targetNode, edge.target.param);
+      if (source == null || target == null) return;
+      const cfg = configs.get(edge.key) as { segments?: Edge.Segmented.Segment[] };
+      const middleSegments = cfg?.segments ?? [];
+      const segments =
+        middleSegments.length === 0
+          ? Edge.Segmented.createConnector({
+              sourcePos: source.position,
+              targetPos: target.position,
+              sourceOrientation: source.orientation,
+              targetOrientation: target.orientation,
+              sourceBox: internalNodeBox(sourceNode),
+              targetBox: internalNodeBox(targetNode),
+            })
+          : Edge.Segmented.stitchEdge({
+              sourceOrientation: source.orientation,
+              targetOrientation: target.orientation,
+              sourcePos: source.position,
+              targetPos: target.position,
+              middleSegments,
+            });
+      const points = Edge.Segmented.segmentsToPoints(
+        source.position,
+        segments,
+        zoom,
+        true,
+      );
+      if (points.length >= 2) polylines.push({ key: edge.key, points, order });
     });
     jumps.commit(Edge.Jumps.findCrossings(polylines));
-  }, [edges, configs, store, flow, jumps]);
+  }, [edges, configs, store, jumps]);
 
+  // React Flow emits many store updates per interaction; coalesce them so the crossings
+  // are recomputed at most once per frame.
+  const frameRef = useRef<number | null>(null);
   useEffect(() => {
     recompute();
-    return store.subscribe(recompute);
+    const schedule = (): void => {
+      if (frameRef.current != null) return;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        recompute();
+      });
+    };
+    const unsubscribe = store.subscribe(schedule);
+    return () => {
+      unsubscribe();
+      if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
+    };
   }, [recompute, store]);
 
   return <Edge.Jumps.Provider value={jumps}>{children}</Edge.Jumps.Provider>;

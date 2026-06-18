@@ -36,44 +36,44 @@ const vertical = (
 });
 
 describe("findCrossings", () => {
-  it("assigns a crossing of a horizontal and vertical edge to the edge on top", () => {
-    const result = findCrossings([horizontal("a", 0), vertical("b", 1)]);
-    expect(result.get("b")).toEqual([{ x: 50, y: 50 }]);
-    expect(result.has("a")).toBe(false);
+  it.each([
+    { name: "vertical edge on top", h: 0, v: 1, winner: "v", loser: "h" },
+    { name: "horizontal edge on top", h: 5, v: 1, winner: "h", loser: "v" },
+  ])("assigns a crossing to the edge on top ($name)", ({ h, v, winner, loser }) => {
+    const result = findCrossings([horizontal("h", h), vertical("v", v)]);
+    expect(result.get(winner)).toEqual([{ x: 50, y: 50 }]);
+    expect(result.has(loser)).toBe(false);
   });
 
-  it("assigns to the horizontal edge when it renders on top", () => {
-    const result = findCrossings([horizontal("a", 5), vertical("b", 1)]);
-    expect(result.get("a")).toEqual([{ x: 50, y: 50 }]);
-    expect(result.has("b")).toBe(false);
-  });
-
-  it("ignores a T-junction where one segment ends on the other", () => {
-    const result = findCrossings([horizontal("a", 0), vertical("b", 1, 50, 50, 100)]);
-    expect(result.size).toBe(0);
-  });
-
-  it("ignores crossings within the end buffer of a segment", () => {
-    const result = findCrossings([horizontal("a", 0), vertical("b", 1, 50, 45, 100)]);
-    expect(result.size).toBe(0);
-  });
-
-  it("ignores parallel (collinear-capable) segments that never form an x/y pair", () => {
-    const result = findCrossings([horizontal("a", 0, 50), horizontal("b", 1, 50)]);
-    expect(result.size).toBe(0);
-  });
-
-  it("does not cross an edge with itself", () => {
-    const elbow: Polyline = {
-      key: "a",
-      order: 0,
-      points: [
-        { x: 0, y: 50 },
-        { x: 50, y: 50 },
-        { x: 50, y: 100 },
+  it.each<{ name: string; polylines: Polyline[] }>([
+    {
+      name: "T-junction where one segment ends on the other",
+      polylines: [horizontal("a", 0), vertical("b", 1, 50, 50, 100)],
+    },
+    {
+      name: "crossing within the end buffer of a segment",
+      polylines: [horizontal("a", 0), vertical("b", 1, 50, 45, 100)],
+    },
+    {
+      name: "parallel segments that never form an x/y pair",
+      polylines: [horizontal("a", 0, 50), horizontal("b", 1, 50)],
+    },
+    {
+      name: "a single edge crossing itself",
+      polylines: [
+        {
+          key: "a",
+          order: 0,
+          points: [
+            { x: 0, y: 50 },
+            { x: 50, y: 50 },
+            { x: 50, y: 100 },
+          ],
+        },
       ],
-    };
-    expect(findCrossings([elbow]).size).toBe(0);
+    },
+  ])("produces no hop for $name", ({ polylines }) => {
+    expect(findCrossings(polylines).size).toBe(0);
   });
 
   it("records a separate crossing per vertical edge over a shared horizontal", () => {
