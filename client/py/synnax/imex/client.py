@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import overload
 
-from freighter import DownloadClient, FilePath, UnaryClient, UploadClient
+from freighter import FileClient, FilePath, UnaryClient
 from synnax.imex.types import Envelope
 from synnax.ontology.payload import ID
 
@@ -28,15 +28,11 @@ class Client:
     """
 
     _unary: UnaryClient
-    _upload: UploadClient
-    _download: DownloadClient
+    _file: FileClient
 
-    def __init__(
-        self, unary: UnaryClient, upload: UploadClient, download: DownloadClient
-    ) -> None:
+    def __init__(self, unary: UnaryClient, files: FileClient) -> None:
         self._unary = unary
-        self._upload = upload
-        self._download = download
+        self._file = files
 
     def import_(self, source: FilePath | Envelope) -> ID:
         """Imports the resource described by source and returns its new ontology id.
@@ -47,7 +43,7 @@ class Client:
         """
         if isinstance(source, Envelope):
             return self._unary.send(_IMPORT_PATH, source, ID)
-        return self._upload.upload(_IMPORT_PATH, source, ID)
+        return self._file.upload(_IMPORT_PATH, source, ID)
 
     @overload
     def export(self, id: ID) -> Envelope: ...
@@ -67,5 +63,5 @@ class Client:
         """
         if dest is None:
             return self._unary.send(_EXPORT_PATH, id, Envelope)
-        self._download.download(_EXPORT_PATH, id, dest)
+        self._file.download(_EXPORT_PATH, id, dest)
         return None

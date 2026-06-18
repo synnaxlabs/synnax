@@ -15,13 +15,12 @@ from freighter import (
     AsyncMiddleware,
     AsyncStreamClient,
     AsyncWebsocketClient,
-    DownloadClient,
+    FileClient,
     HTTPClient,
     JSONCodec,
     MessagePackCodec,
     Middleware,
     UnaryClient,
-    UploadClient,
     WebsocketClient,
     async_instrumentation_middleware,
     instrumentation_middleware,
@@ -34,8 +33,7 @@ class Transport:
     stream: WebsocketClient
     stream_async: AsyncStreamClient
     unary: UnaryClient
-    upload: UploadClient
-    download: DownloadClient
+    files: FileClient
     secure: bool
 
     def __init__(
@@ -73,8 +71,7 @@ class Transport:
             retries=Retry(total=max_retries),
         )
         self.unary = http
-        self.upload = http
-        self.download = http
+        self.files = http
         self.use(instrumentation_middleware(instrumentation))
         self.use_async(async_instrumentation_middleware(instrumentation))
 

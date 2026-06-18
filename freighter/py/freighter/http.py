@@ -47,15 +47,16 @@ class FileCodec(Codec, Protocol):
 
 class HTTPClient(MiddlewareCollector):
     """
-    HTTPClient is a urllib3-backed unary transport implementing UnaryClient,
-    UploadClient, and DownloadClient:
+    HTTPClient is a urllib3-backed transport implementing UnaryClient and FileClient:
 
-    - send: typed request, typed response, both via the configured encoder/decoders.
+    - send: typed request, typed response, both via the configured encoder/decoders
+      (UnaryClient).
     - upload: a file path as the request body, with a typed response. Bytes are streamed
       from disk via chunked transfer; the Content-Type is inferred from the path's
-      extension.
+      extension (FileClient).
     - download: a typed request, with the response streamed directly into a destination
-      file path; the Accept header is derived from the destination extension.
+      file path; the Accept header is derived from the destination extension
+      (FileClient).
     """
 
     _pool: PoolManager
