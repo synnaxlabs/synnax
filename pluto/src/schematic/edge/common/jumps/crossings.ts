@@ -16,9 +16,12 @@ export interface Polyline {
   order: number;
 }
 
-/// @brief minimum distance a crossing must sit from a segment's ends, keeping hops clear
-/// of corners and shared handles.
-const END_BUFFER = 14;
+/// @brief clearance a crossing needs from the ends of the hop-bearing segment, so the arc
+/// fits clear of that segment's corners.
+const WINNER_BUFFER = 14;
+/// @brief clearance from the ends of the crossed segment, only enough to skip a true
+/// T-junction so hops persist almost to where the crossed line ends.
+const CROSS_BUFFER = 2;
 
 /// @brief off-axis tolerance for treating a segment as axis-aligned.
 const AXIS_EPSILON = 0.5;
@@ -73,9 +76,14 @@ export const findCrossings = (polylines: Polyline[]): Map<string, xy.XY[]> => {
       if (h.key === v.key) continue;
       const x = v.cross;
       const y = h.cross;
-      if (x <= h.lo + END_BUFFER || x >= h.hi - END_BUFFER) continue;
-      if (y <= v.lo + END_BUFFER || y >= v.hi - END_BUFFER) continue;
-      const winner = h.order >= v.order ? h.key : v.key;
+      // The hop is drawn along the winner's segment, so only it needs the wide clearance;
+      // the crossed segment just needs to clear a T-junction.
+      const hWins = h.order >= v.order;
+      const hBuf = hWins ? WINNER_BUFFER : CROSS_BUFFER;
+      const vBuf = hWins ? CROSS_BUFFER : WINNER_BUFFER;
+      if (x <= h.lo + hBuf || x >= h.hi - hBuf) continue;
+      if (y <= v.lo + vBuf || y >= v.hi - vBuf) continue;
+      const winner = hWins ? h.key : v.key;
       const existing = result.get(winner);
       if (existing == null) result.set(winner, [{ x, y }]);
       else existing.push({ x, y });
