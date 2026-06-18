@@ -11,13 +11,58 @@ package channel
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 )
+
+// Create assigns local keys to the provided new channels (those with a zero LocalKey)
+// by routing to each channel's leaseholder to draw from that node's key counter, and
+// creates the corresponding storage channels there. The returned channels carry their
+// assigned keys, in the same order as the input. Free-virtual channels draw their keys
+// from the bootstrapper. A channel with an unspecified (zero) leaseholder defaults to
+// the host node.
+func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, error) {
+	out := make([]Channel, len(channels))
+	indicesByTarget := make(map[node.Key][]int)
+	freeIndices := make([]int, 0)
+	host := s.cfg.HostResolver.HostKey()
+	for i, ch := range channels {
+		out[i] = ch
+		if out[i].Leaseholder == 0 {
+			out[i].Leaseholder = host
+		}
+		lease := out[i].Lease()
+		if lease.IsFree() {
+			freeIndices = append(freeIndices, i)
+		} else {
+			indicesByTarget[lease] = append(indicesByTarget[lease], i)
+		}
+	}
+	for target, indices := range indicesByTarget {
+		if target == host {
+			if err := s.allocateGateway(ctx, out, indices); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if err := s.allocateRemote(ctx, target, out, indices); err != nil {
+			return nil, err
+		}
+	}
+	if len(freeIndices) > 0 {
+		if host.IsBootstrapper() {
+			if err := s.allocateFree(ctx, out, freeIndices); err != nil {
+				return nil, err
+			}
+		} else if err := s.allocateRemote(ctx, node.KeyBootstrapper, out, freeIndices); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
 
 func (s *Service) createHandler(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
 	allocated, err := s.Create(ctx, msg.Channels)
@@ -25,14 +70,6 @@ func (s *Service) createHandler(ctx context.Context, msg CreateMessage) (CreateM
 		return CreateMessage{}, err
 	}
 	return CreateMessage{Channels: allocated}, nil
-}
-
-func (s *Service) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.cfg.TSDB.DeleteChannels(msg.Keys.Storage())
-}
-
-func (s *Service) renameHandler(ctx context.Context, msg RenameRequest) (types.Nil, error) {
-	return types.Nil{}, s.cfg.TSDB.RenameChannels(ctx, msg.Keys.Storage(), msg.Names)
 }
 
 // assignKeys draws len(channels with a zero LocalKey) values from the provided counter
@@ -81,7 +118,9 @@ func (s *Service) allocateGateway(ctx context.Context, out []Channel, indices []
 	if err := assignKeys(ctx, s.leasedCounter, chs); err != nil {
 		return err
 	}
-	if err := s.cfg.TSDB.CreateChannel(ctx, toStorage(chs)...); err != nil {
+	if err := s.cfg.TSDB.CreateChannel(ctx, lo.Map(chs, func(c Channel, _ int) ts.Channel {
+		return c.Storage()
+	})...); err != nil {
 		return err
 	}
 	putBack(out, indices, chs)
@@ -124,43 +163,4 @@ func (s *Service) allocateRemote(
 	}
 	putBack(out, indices, res.Channels)
 	return nil
-}
-
-func (s *Service) deleteRemote(ctx context.Context, target node.Key, keys Keys) error {
-	addr, err := s.cfg.HostResolver.Resolve(target)
-	if err != nil {
-		return err
-	}
-	_, err = s.cfg.Transport.DeleteClient().Send(ctx, addr, DeleteRequest{Keys: keys})
-	return err
-}
-
-func (s *Service) renameRemote(ctx context.Context, target node.Key, keys Keys, names []string) error {
-	addr, err := s.cfg.HostResolver.Resolve(target)
-	if err != nil {
-		return err
-	}
-	_, err = s.cfg.Transport.RenameClient().Send(ctx, addr, RenameRequest{Keys: keys, Names: names})
-	return err
-}
-
-type renameBatchEntry struct {
-	name string
-	key  Key
-}
-
-var _ proxy.Entry = renameBatchEntry{}
-
-func (r renameBatchEntry) Lease() node.Key { return r.key.Lease() }
-
-func unzipRenameBatch(entries []renameBatchEntry) (Keys, []string) {
-	return lo.UnzipBy2(entries, func(e renameBatchEntry) (Key, string) {
-		return e.key, e.name
-	})
-}
-
-func newRenameBatch(keys Keys, names []string) []renameBatchEntry {
-	return lo.ZipBy2(keys, names, func(k Key, n string) renameBatchEntry {
-		return renameBatchEntry{key: k, name: n}
-	})
 }

@@ -23,39 +23,14 @@ import (
 	"github.com/synnaxlabs/x/unsafe"
 )
 
+// LocalKey is a 20-bit unsigned integer representing the locally-unique portion of a
+// channel key within a node. Combined with a [node.Key] to form the global channel Key.
+type LocalKey types.Uint20
+
 // Key is a unique identifier for a channel in the Synnax database. Composed of a
 // cluster node key (first 12 bits) and a local key (last 20 bits), enabling distributed
 // assignment while maintaining global uniqueness.
 type Key uint32
-
-// LocalKey is a 20-bit unsigned integer representing the locally-unique portion of a
-// channel key within a node. Combined with a NodeKey to form the global channel Key.
-type LocalKey types.Uint20
-
-// Channel is the minimal, distribution-layer representation of a channel. It carries
-// only the storage and routing metadata the distribution layer needs to allocate local
-// keys, create storage, and route frames across the cluster.
-type Channel struct {
-	// Name is the human-readable channel name.
-	Name string `json:"name" msgpack:"name"`
-	// Leaseholder is the cluster node that holds the lease for this channel and is
-	// authorized to accept writes.
-	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
-	// DataType is the data type of samples stored in this channel.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// IsIndex is true if this channel is an index channel.
-	IsIndex bool `json:"is_index" msgpack:"is_index"`
-	// LocalKey is the locally-unique portion of this channel's key.
-	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
-	// LocalIndex is the local key of the channel used to index this channel's values.
-	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
-	// Virtual is true if this channel does not persist data and is used only for
-	// streaming.
-	Virtual bool `json:"virtual" msgpack:"virtual"`
-	// Concurrency sets the policy for concurrent writes to the channel's data. Only
-	// virtual channels can have a policy of shared concurrency.
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
-}
 
 // NewKey generates a new Key from the provided components.
 func NewKey(nodeKey node.Key, localKey LocalKey) Key {
@@ -65,6 +40,9 @@ func NewKey(nodeKey node.Key, localKey LocalKey) Key {
 	k2 := uint32(localKey)
 	return Key(k1 | k2)
 }
+
+// LocalKey returns the local key for the Key.
+func (k Key) LocalKey() LocalKey { return LocalKey(k & 0xFFFFF) }
 
 // Leaseholder returns the id of the node embedded in the key. This node is the
 // leaseholder node for the Channel.
@@ -77,15 +55,12 @@ func (k Key) Free() bool { return k.Leaseholder() == node.KeyFree }
 // StorageKey returns the storage layer representation of the channel key.
 func (k Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(k) }
 
-// LocalKey returns the local key for the Channel. See the LocalKey type for more.
-func (k Key) LocalKey() LocalKey { return LocalKey(k & 0xFFFFF) }
-
 // Lease implements the proxy.Entry interface, which routes Channel operations to the
 // correct node in the cluster.
 func (k Key) Lease() node.Key { return k.Leaseholder() }
 
 // String implements fmt.Stringer.
-func (k Key) String() string { return strconv.Itoa(int(k)) }
+func (k Key) String() string { return strconv.FormatUint(uint64(k), 10) }
 
 // Keys extends []Key with a few convenience methods.
 type Keys []Key
@@ -117,6 +92,31 @@ func (k Keys) Contains(key Key) bool { return slices.Contains(k, key) }
 
 // Unique removes duplicate keys from the slice and returns the result.
 func (k Keys) Unique() Keys { return lo.Uniq(k) }
+
+// Channel is the minimal, distribution-layer representation of a channel. It carries
+// only the storage and routing metadata the distribution layer needs to allocate local
+// keys, create storage, and route frames across the cluster.
+type Channel struct {
+	// Name is the human-readable channel name.
+	Name string
+	// Leaseholder is the cluster node that holds the lease for this channel and is
+	// authorized to accept writes.
+	Leaseholder node.Key
+	// DataType is the data type of samples stored in this channel.
+	DataType telem.DataType
+	// IsIndex is true if this channel is an index channel.
+	IsIndex bool
+	// LocalKey is the locally-unique portion of this channel's key.
+	LocalKey LocalKey
+	// LocalIndex is the local key of the channel used to index this channel's values.
+	LocalIndex LocalKey
+	// Virtual is true if this channel does not persist data and is used only for
+	// streaming.
+	Virtual bool
+	// Concurrency sets the policy for concurrent writes to the channel's data. Only
+	// virtual channels can have a policy of shared concurrency.
+	Concurrency control.Concurrency
+}
 
 // String implements stringer, returning a nicely formatted string representation of the
 // Channel.
@@ -153,13 +153,8 @@ func (c Channel) Storage() ts.Channel {
 		Name:        c.Name,
 		IsIndex:     c.IsIndex,
 		DataType:    c.DataType,
-		Index:       ts.ChannelKey(c.Index()),
+		Index:       c.Index().StorageKey(),
 		Virtual:     c.Virtual,
 		Concurrency: c.Concurrency,
 	}
-}
-
-// toStorage converts a slice of channels to their storage layer equivalent.
-func toStorage(channels []Channel) []ts.Channel {
-	return lo.Map(channels, func(c Channel, _ int) ts.Channel { return c.Storage() })
 }

@@ -76,7 +76,6 @@ type Service struct {
 	// bootstrapper node.
 	leasedCounter *counter
 	freeCounter   *counter
-	createRouter  proxy.BatchFactory[Channel]
 	renameRouter  proxy.BatchFactory[renameBatchEntry]
 	deleteRouter  proxy.BatchFactory[Key]
 }
@@ -90,7 +89,6 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{
 		cfg:          cfg,
-		createRouter: proxy.NewBatchFactory[Channel](cfg.HostResolver.HostKey()),
 		deleteRouter: proxy.NewBatchFactory[Key](cfg.HostResolver.HostKey()),
 		renameRouter: proxy.NewBatchFactory[renameBatchEntry](cfg.HostResolver.HostKey()),
 	}
@@ -116,83 +114,4 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg.Transport.DeleteServer().BindHandler(s.deleteHandler)
 	cfg.Transport.RenameServer().BindHandler(s.renameHandler)
 	return s, nil
-}
-
-// Create assigns local keys to the provided new channels (those with a zero LocalKey)
-// by routing to each channel's leaseholder to draw from that node's key counter, and
-// creates the corresponding storage channels there. The returned channels carry their
-// assigned keys, in the same order as the input. Free-virtual channels draw their keys
-// from the bootstrapper. A channel with an unspecified (zero) leaseholder defaults to
-// the host node.
-func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, error) {
-	out := make([]Channel, len(channels))
-	indicesByTarget := make(map[node.Key][]int)
-	freeIndices := make([]int, 0)
-	host := s.cfg.HostResolver.HostKey()
-	for i, ch := range channels {
-		out[i] = ch
-		if out[i].Leaseholder == 0 {
-			out[i].Leaseholder = host
-		}
-		lease := out[i].Lease()
-		if lease.IsFree() {
-			freeIndices = append(freeIndices, i)
-		} else {
-			indicesByTarget[lease] = append(indicesByTarget[lease], i)
-		}
-	}
-	for target, indices := range indicesByTarget {
-		if target == host {
-			if err := s.allocateGateway(ctx, out, indices); err != nil {
-				return nil, err
-			}
-			continue
-		}
-		if err := s.allocateRemote(ctx, target, out, indices); err != nil {
-			return nil, err
-		}
-	}
-	if len(freeIndices) > 0 {
-		if host.IsBootstrapper() {
-			if err := s.allocateFree(ctx, out, freeIndices); err != nil {
-				return nil, err
-			}
-		} else if err := s.allocateRemote(ctx, node.KeyBootstrapper, out, freeIndices); err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
-}
-
-// Rename renames the storage channels for the provided keys, routing each key to its
-// leaseholder. Free-virtual channels have no persistent storage and are skipped.
-func (s *Service) Rename(ctx context.Context, keys Keys, names []string) error {
-	batch := s.renameRouter.Batch(newRenameBatch(keys, names))
-	for nodeKey, entries := range batch.Peers {
-		keys, names := unzipRenameBatch(entries)
-		if err := s.renameRemote(ctx, nodeKey, keys, names); err != nil {
-			return err
-		}
-	}
-	if len(batch.Gateway) == 0 {
-		return nil
-	}
-	keys, names = unzipRenameBatch(batch.Gateway)
-	return s.cfg.TSDB.RenameChannels(ctx, keys.Storage(), names)
-}
-
-// Delete deletes the storage channels for the provided keys, routing each key to its
-// leaseholder. Free-virtual channels have no persistent storage and are skipped. It
-// does not touch channel metadata.
-func (s *Service) Delete(ctx context.Context, keys Keys) error {
-	batch := s.deleteRouter.Batch(keys)
-	for nodeKey, entries := range batch.Peers {
-		if err := s.deleteRemote(ctx, nodeKey, entries); err != nil {
-			return err
-		}
-	}
-	if len(batch.Gateway) == 0 {
-		return nil
-	}
-	return s.cfg.TSDB.DeleteChannels(Keys(batch.Gateway).Storage())
 }
