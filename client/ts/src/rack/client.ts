@@ -127,15 +127,7 @@ export class Client {
       .toArray(payloads)
       .map(
         ({ key, name, status, integrations, taskCounter, embedded }) =>
-          new Rack(
-            key,
-            name,
-            this.tasks,
-            status,
-            integrations,
-            taskCounter,
-            embedded,
-          ),
+          new Rack(key, name, this.tasks, status, integrations, taskCounter, embedded),
       );
     return isSingle ? sugared[0] : sugared;
   }

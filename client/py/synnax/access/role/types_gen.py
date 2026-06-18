@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from typing import TypeAlias
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -35,7 +35,7 @@ class Base(BaseModel):
         internal: Is true if this is a built-in system role that cannot be deleted.
     """
 
-    key: Key = Field(default_factory=uuid4)
+    key: Key
     name: str
     description: str = Field(default="")
     internal: bool = Field(default=False)
@@ -44,9 +44,22 @@ class Base(BaseModel):
         return hash(self.key)
 
 
-class New(Base):
-    def __hash__(self) -> int:
-        return hash(self.key)
+class Role(BaseModel):
+    """Contains parameters for creating a new role.
+
+    Attributes:
+        key: Is the unique identifier for this role.
+        name: Is a human-readable name for the role (e.g., 'Administrator',
+            'Engineer').
+        description: Is an optional description explaining what permissions the role
+            provides.
+        internal: Is true if this is a built-in system role that cannot be deleted.
+    """
+
+    key: Key | None = None
+    name: str
+    description: str = Field(default="")
+    internal: bool = Field(default=False)
 
 
 ONTOLOGY_TYPE = ID(type="role")

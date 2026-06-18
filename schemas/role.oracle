@@ -16,7 +16,7 @@ Key = uuid {
 }
 
 Role struct {
-    key         Key = create {
+    key         Key    {
         @doc value "is the unique identifier for this role."
         @key
     }
@@ -46,9 +46,17 @@ Role struct {
         perform on resources.
     """
     @ontology type "role"
-    @create
     @retrieve
     @go marshal
     @go migrate
     @py name       "Base"
+}
+
+New struct extends Role {
+    key?
+
+    @doc value    "contains parameters for creating a new role."
+    @ts use_input
+    @go omit
+    @py name      "Role"
 }

@@ -35,7 +35,7 @@ export type Status = z.infer<typeof statusZ>;
  */
 export const payloadZ = z.object({
   /** key is the composite identifier for this rack. */
-  key: keyZ.default(0),
+  key: keyZ,
   /** name is a human-readable name for the rack. */
   name: z.string().min(1, "Name is required"),
   /** taskCounter is an internal counter used for generating unique local task keys. */
@@ -52,7 +52,11 @@ export const payloadZ = z.object({
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = payloadZ.omit({ taskCounter: true, embedded: true });
+export const newZ = payloadZ
+  .omit({ taskCounter: true, embedded: true, key: true })
+  .extend({
+    key: z.uint32().default(0),
+  });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("rack");

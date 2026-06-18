@@ -40,7 +40,7 @@ Status = status.Status<StatusDetails> {
 }
 
 Rack struct {
-    key          Key = 0 {
+    key          Key      {
         @doc value "is the composite identifier for this rack."
         @key
     }
@@ -53,14 +53,12 @@ Rack struct {
         @doc value """
             is an internal counter used for generating unique local task keys.
         """
-        @output
     }
     embedded     bool = false {
         @doc value """
             is true if this rack is embedded within the Synnax server process.
         """
         @filter
-        @output
     }
     status       Status?  {
         @doc value  "is the current operational status of the rack."
@@ -84,9 +82,23 @@ Rack struct {
     @go marshal
     @go migrate
     @retrieve custom
-    @create
     @search
     @py name         "Base"
     @cpp methods     "task::Client tasks"
     @cpp includes    "client/cpp/task/task.h"
+}
+
+New struct extends Rack {
+    -task_counter
+    -embedded
+    key uint32 = 0 {
+        @doc value "is an optional key for the rack. If 0, one will be automatically assigned."
+    }
+
+    @doc value    "contains parameters for creating a new rack."
+    @ts use_input
+    @go omit
+    @pb omit
+    @cpp omit
+    @py name      "Rack"
 }
