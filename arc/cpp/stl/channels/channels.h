@@ -89,7 +89,6 @@ public:
 
     void reset() override {
         runtime::node::Node::reset();
-        this->state.reset();
         auto [data, index_data, ok] = this->state.read_series(this->channel_key);
         if (!ok || data.series.empty()) return;
         const auto &last = data.series.back();

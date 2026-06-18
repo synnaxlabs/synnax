@@ -108,7 +108,6 @@ public:
     }
 
     void reset() override {
-        this->state.reset();
         this->value = std::nullopt;
         this->last_sent = std::nullopt;
         this->last_changed = x::telem::TimeStamp(0);

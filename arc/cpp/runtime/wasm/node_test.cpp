@@ -255,48 +255,85 @@ func double(val f32) f32 {
     EXPECT_TRUE(changed_outputs.empty());
 }
 
-/// @brief reset() re-arms a node whose only gating input is literal-valued so it
-/// runs again on stage re-entry.
-TEST(NodeTest, ResetRearmsLiteralInputOnStageReentry) {
+/// @brief reset() re-arms inputs so the node re-runs on stage re-entry.
+TEST(NodeTest, ResetRearmsInputsOnStageReentry) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("trigger"), x::telem::FLOAT32_T, true)
-    );
+
+    auto input_idx_name = random_name("input_idx");
+    auto input_name = random_name("input_val");
+
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client.channels.create(input_idx));
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
+    ASSERT_NIL(client.channels.create(input_ch));
 
     const std::string source = R"(
-func scaled(k f32) f32 {
-    return k * 2.0
+func double(val f32) f32 {
+    return val * 2.0
 }
-)" + ch.name + " -> scaled{k=5}";
+)" + input_name + " -> double{}";
 
     auto mod = compile_arc(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
-    const auto *func_node = find_node_by_type(mod, "scaled");
+    const auto *func_node = find_node_by_type(mod, "double");
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels =
+                {{input_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {input_ch.key, x::telem::FLOAT32_T, input_idx.key}}
+        },
         arc::runtime::errors::noop_handler
     );
-    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
-    auto func = ASSERT_NIL_P(wasm_mod->func("scaled"));
 
+    // Feed the upstream 'on' node so 'double' has an unconsumed input.
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+    auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
+    auto on_data = x::telem::Series(std::vector{5.0f, 10.0f, 15.0f});
+    on_data.alignment = x::telem::Alignment(1, 0);
+    on_node_state.output(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::move(on_data)
+    );
+    auto on_time = x::telem::Series(
+        std::vector{
+            x::telem::TimeStamp(1 * x::telem::MICROSECOND),
+            x::telem::TimeStamp(2 * x::telem::MICROSECOND),
+            x::telem::TimeStamp(3 * x::telem::MICROSECOND)
+        }
+    );
+    on_time.alignment = x::telem::Alignment(1, 0);
+    on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::move(on_time)
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("double"));
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
 
     auto ctx = make_context();
     int changes = 0;
     ctx.mark_changed = [&](size_t) { changes++; };
 
-    // Runs on first activation: the literal input is unconsumed.
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changes, 1);
 
-    // Does not re-run on the next cycle: the literal input stays consumed.
+    // Same upstream data already consumed: no re-run.
     changes = 0;
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changes, 0);
 
-    // Stage re-entry must re-arm the literal input so the node runs again.
+    // Stage re-entry re-arms the inputs so the node runs again.
     node.reset();
     changes = 0;
     ASSERT_NIL(node.next(ctx));
