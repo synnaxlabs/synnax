@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("ProgramState", func() {
@@ -798,6 +799,44 @@ var _ = Describe("ProgramState", func() {
 			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
 
+		It("Should seed an unconnected TimeSpan literal input as a timestamp series", func(ctx SpecContext) {
+			g := graph.Graph{
+				Functions: []graph.Function{
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+					},
+					{
+						Key: "windowed",
+						Inputs: types.Params{
+							{Name: "data", Type: types.F32()},
+							{Name: "duration", Type: types.TimeSpan(), Value: telem.TimeSpan(5)},
+						},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "windowed", Type: "windowed"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "windowed", Param: "data"},
+					},
+				},
+			}
+			inter, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			s := node.New(inter)
+			source := s.Node("source")
+			windowed := s.Node("windowed")
+			*source.Output(0) = telem.NewSeriesV[float32](5.0)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			Expect(windowed.RefreshInputs()).To(BeTrue())
+			Expect(windowed.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[telem.TimeStamp](5)))
+		})
+
 		It("Should override default value when input is connected", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{
@@ -1329,6 +1368,37 @@ var _ = Describe("ProgramState", func() {
 				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
+		})
+	})
+
+	Describe("ResolveInput", func() {
+		buildNode := func(ctx SpecContext) *node.State {
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: "n", Type: "n"}},
+				Functions: []graph.Function{{
+					Key: "n",
+					Inputs: types.Params{
+						{Name: ir.DefaultInputParam, Type: types.F32(), Value: float32(0)},
+						{Name: "reset", Type: types.U8(), Value: uint8(0)},
+					},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+				}},
+			}
+			prog, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			return node.New(prog).Node("n")
+		}
+
+		It("Should return the position of a present input", func(ctx SpecContext) {
+			n := buildNode(ctx)
+			Expect(MustSucceed(n.ResolveInput(ir.DefaultInputParam))).To(Equal(0))
+			Expect(MustSucceed(n.ResolveInput("reset"))).To(Equal(1))
+		})
+
+		It("Should return ErrInputNotFound for an absent input", func(ctx SpecContext) {
+			n := buildNode(ctx)
+			Expect(n.ResolveInput("missing")).Error().
+				To(MatchError(node.ErrInputNotFound))
 		})
 	})
 

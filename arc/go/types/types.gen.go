@@ -11,8 +11,7 @@
 
 package types
 
-// Params is a collection of named, typed parameters for function inputs, outputs, or
-// configuration.
+// Params is a collection of named, typed parameters for function inputs or outputs.
 type Params []Param
 
 // Kind is the type category for Arc's type system, including primitives, compound
@@ -46,7 +45,7 @@ const (
 	KindStage
 )
 
-// ChanDirection indicates read/write direction for channel-typed config parameters.
+// ChanDirection indicates read/write direction for channel-typed parameters.
 type ChanDirection uint8
 
 //go:generate stringer -type=ChanDirection
@@ -63,8 +62,6 @@ type FunctionProperties struct {
 	Inputs Params `json:"inputs" msgpack:"inputs"`
 	// Outputs contains output parameter definitions.
 	Outputs Params `json:"outputs" msgpack:"outputs"`
-	// Config contains configuration parameter definitions.
-	Config Params `json:"config" msgpack:"config"`
 }
 
 // Type is a type in Arc's type system with optional element type for compounds,
@@ -81,7 +78,7 @@ type Type struct {
 	Unit *Unit `json:"unit,omitempty" msgpack:"unit,omitempty"`
 	// Constraint is the type constraint for type variables.
 	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
-	// ChanDirection indicates read/write direction for channel-typed config parameters.
+	// ChanDirection indicates read/write direction for channel-typed parameters.
 	ChanDirection ChanDirection `json:"chan_direction" msgpack:"chan_direction"`
 }
 

@@ -153,17 +153,6 @@ func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	if fp.Config != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(fp.Config)))
-		for j := range fp.Config {
-			if err := fp.Config[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
 	return nil
 }
 
@@ -203,24 +192,6 @@ func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
 			fp.Outputs = make([]Param, n)
 			for j := range fp.Outputs {
 				if err = fp.Outputs[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			fp.Config = make([]Param, n)
-			for j := range fp.Config {
-				if err = fp.Config[j].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -285,17 +256,6 @@ func (t Type) EncodeOrc(w *orc.Writer) error {
 		w.Uint32(uint32(len(t.Outputs)))
 		for j := range t.Outputs {
 			if err := t.Outputs[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if t.Config != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(t.Config)))
-		for j := range t.Config {
-			if err := t.Config[j].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -369,24 +329,6 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 			t.Outputs = make([]Param, n)
 			for j := range t.Outputs {
 				if err = t.Outputs[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			t.Config = make([]Param, n)
-			for j := range t.Config {
-				if err = t.Config[j].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
