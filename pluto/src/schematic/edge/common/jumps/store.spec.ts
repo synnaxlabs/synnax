@@ -10,27 +10,27 @@
 import { type xy } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { create } from "@/schematic/edge/common/jumps/store";
+import { Jumps } from "@/schematic/edge/common/jumps";
 
 const map = (entries: Record<string, xy.XY[]>): Map<string, xy.XY[]> =>
   new Map(Object.entries(entries));
 
 describe("jumps store", () => {
   it("returns a stable empty reference for an unknown key", () => {
-    const store = create();
+    const store = Jumps.create();
     expect(store.get("missing")).toBe(store.get("missing"));
     expect(store.get("missing")).toHaveLength(0);
   });
 
   it("exposes committed hops and keeps the reference stable between reads", () => {
-    const store = create();
+    const store = Jumps.create();
     store.commit(map({ a: [{ x: 1, y: 2 }] }));
     expect(store.get("a")).toEqual([{ x: 1, y: 2 }]);
     expect(store.get("a")).toBe(store.get("a"));
   });
 
   it("preserves the array reference across a commit that did not change the key", () => {
-    const store = create();
+    const store = Jumps.create();
     store.commit(map({ a: [{ x: 1, y: 2 }] }));
     const before = store.get("a");
     store.commit(map({ a: [{ x: 1, y: 2 }], b: [{ x: 3, y: 4 }] }));
@@ -38,7 +38,7 @@ describe("jumps store", () => {
   });
 
   it("swaps the reference and notifies only when a key's hops change", () => {
-    const store = create();
+    const store = Jumps.create();
     store.commit(map({ a: [{ x: 1, y: 2 }] }));
     const before = store.get("a");
     const onA = vi.fn();
@@ -49,7 +49,7 @@ describe("jumps store", () => {
   });
 
   it("does not notify a key whose hops are unchanged", () => {
-    const store = create();
+    const store = Jumps.create();
     store.commit(map({ a: [{ x: 1, y: 2 }], b: [{ x: 3, y: 4 }] }));
     const onA = vi.fn();
     store.subscribe("a", onA);
@@ -58,7 +58,7 @@ describe("jumps store", () => {
   });
 
   it("notifies and clears a key dropped from the next commit", () => {
-    const store = create();
+    const store = Jumps.create();
     store.commit(map({ a: [{ x: 1, y: 2 }] }));
     const onA = vi.fn();
     store.subscribe("a", onA);
@@ -68,7 +68,7 @@ describe("jumps store", () => {
   });
 
   it("stops notifying after unsubscribe", () => {
-    const store = create();
+    const store = Jumps.create();
     const onA = vi.fn();
     const unsubscribe = store.subscribe("a", onA);
     unsubscribe();

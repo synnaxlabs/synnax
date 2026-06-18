@@ -10,19 +10,15 @@
 import { type xy } from "@synnaxlabs/x";
 
 const RADIUS = 6;
-/// @brief radius of the semicircle a hop arcs over a crossed edge.
+/// @brief radius of a hop's semicircle.
 const HOP_RADIUS = 5;
-/// @brief radius of the quadratic fillet blending each foot of a hop into the straight
-/// run, so the joints are rounded rather than meeting at a sharp right angle. The arc and
-/// the two fillets together rise HOP_RADIUS + FOOT above the line, matching the footprint
-/// of a plain semicircular hop.
+/// @brief fillet radius rounding each foot of a hop into the run; arc plus fillets rise
+/// HOP_RADIUS + FOOT, matching a plain semicircle's footprint.
 const FOOT = 2;
-/// @brief half the length a hop occupies along its run: the arc plus a fillet on each
-/// side.
+/// @brief half a hop's length along the run (arc plus a fillet each side).
 const HOP_SPAN = HOP_RADIUS + FOOT;
-/// @brief the largest perpendicular gap (in flow units) allowed between a jump point and
-/// the run it is snapped onto. Generous because jump points are derived from a polyline
-/// reconstructed from the flow store, which can sit a few pixels off the drawn line.
+/// @brief largest perpendicular gap allowed when snapping a jump onto a run; generous
+/// since reconstructed jump points can sit a few pixels off the drawn line.
 const MAX_SNAP = 16;
 
 const lerp = (a: xy.XY, b: xy.XY, t: number): xy.XY => ({
@@ -36,12 +32,9 @@ interface Run {
   to: xy.XY;
 }
 
-/// @brief emits the straight run from `from` to `to`, arcing a hop over each scalar
-/// offset along it. The hop is a semicircle lifted clear of the line, joined to the run
-/// by a quadratic fillet at each foot so every junction is tangent-continuous. Hops
-/// bulge up on horizontal runs and left on vertical runs, regardless of the direction
-/// the run is drawn. With no offsets this emits a single lineto, identical to the
-/// un-jumped path.
+/// @brief emits the run from `from` to `to`, arcing a tangent-continuous hop at each
+/// offset. Hops bulge up on horizontal runs, left on vertical. No offsets yields a plain
+/// lineto.
 const straight = (from: xy.XY, to: xy.XY, offsets: number[]): string => {
   const tail = `L${to.x},${to.y}`;
   if (offsets.length === 0) return tail;
@@ -52,11 +45,10 @@ const straight = (from: xy.XY, to: xy.XY, offsets: number[]): string => {
   const ux = dx / len;
   const uy = dy / len;
   const horizontal = Math.abs(ux) >= Math.abs(uy);
-  // Bulge horizontal runs up and vertical runs left.
+  // Bulge horizontal runs up, vertical runs left.
   const nx = horizontal ? 0 : -1;
   const ny = horizontal ? -1 : 0;
-  // Sweep that arcs toward that side given the run's drawn direction (derived from the
-  // SVG arc-center rules for each of the four axis-aligned orientations).
+  // Sweep toward that side for the run's drawn direction (per SVG arc-center rules).
   const sweep = ux - uy > 0 ? 1 : 0;
   let path = "";
   let last = -Infinity;
@@ -75,9 +67,8 @@ const straight = (from: xy.XY, to: xy.XY, offsets: number[]): string => {
   return `${path}${tail}`;
 };
 
-/// @brief returns, for each run, the scalar offsets at which a jump should hop. Each jump
-/// is snapped to the single nearest run whose interior its projection falls within, so a
-/// jump point that sits a few pixels off the drawn line still lands on the correct run.
+/// @brief per-run offsets at which to hop. Each jump snaps to the nearest run it projects
+/// onto, so a slightly-off jump point still lands on the right run.
 const assignJumps = (runs: Run[], jumps: xy.XY[]): number[][] => {
   const byRun: number[][] = runs.map(() => []);
   for (const j of jumps) {
@@ -105,10 +96,9 @@ const assignJumps = (runs: Run[], jumps: xy.XY[]): number[][] => {
   return byRun;
 };
 
-/// @brief builds an SVG path string through coords with rounded corners. When jumps are
-/// provided, a hop is arced wherever a jump point falls on a run, used to lift an edge
-/// over another it crosses. Passing no jumps reproduces the plain rounded path exactly.
-export const calcPath = (coords: xy.XY[], jumps: xy.XY[] = []): string => {
+/// @brief builds a rounded-corner SVG path through coords, arcing a hop wherever a jump
+/// falls on a run. No jumps reproduces the plain rounded path exactly.
+export const rounded = (coords: xy.XY[], jumps: xy.XY[] = []): string => {
   if (coords.length === 0) return "";
   if (coords.length === 1) return `M${coords[0].x},${coords[0].y}`;
   const last = coords.length - 2;

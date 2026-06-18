@@ -18,12 +18,10 @@ const [Context, useStore] = context.create<Store>({
   providerName: "Schematic.Diagram",
 });
 
-/// @brief provides the per-edge hop store to descendant edges. Render directly as
-/// `<Context value={store}>`.
+/// @brief per-edge hop store context; render as `<Context value={store}>`.
 export { Context };
 
-/// @brief returns the hop points for the edge with the given key, subscribing to only
-/// that edge's hops. The returned array is reference-stable until the edge's hops change.
+/// @brief hop points for the given edge, subscribing to only that edge's hops.
 export const useCrossings = (key: string): xy.XY[] => {
   const store = useStore("useCrossings");
   const subscribe = useCallback(

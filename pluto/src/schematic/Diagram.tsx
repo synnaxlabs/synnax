@@ -37,9 +37,8 @@ interface Endpoint {
   orientation: location.Outer;
 }
 
-// Mirror of React Flow's getHandlePosition: the connection point sits on the handle's
-// edge for its side, not at the handle center, so the reconstructed polyline matches the
-// one the edge actually draws.
+// Mirrors React Flow's getHandlePosition (point on the handle's side edge, not center) so
+// the reconstructed polyline matches what the edge draws.
 const resolveEndpoint = (node: InternalNode, handleKey: string): Endpoint | null => {
   const bounds = node.internals.handleBounds;
   const handles = [...(bounds?.source ?? []), ...(bounds?.target ?? [])];
@@ -161,8 +160,7 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
     jumps.commit(Edge.Jumps.findCrossings(polylines));
   }, [edges, configs, store, jumps]);
 
-  // React Flow emits many store updates per interaction; coalesce them so the crossings
-  // are recomputed at most once per frame.
+  // Coalesce React Flow's many per-interaction store updates into one recompute per frame.
   const frameRef = useRef<number | null>(null);
   useEffect(() => {
     recompute();

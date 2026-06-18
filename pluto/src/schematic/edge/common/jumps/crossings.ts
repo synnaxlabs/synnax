@@ -9,21 +9,18 @@
 
 import { type xy } from "@synnaxlabs/x";
 
-/// @brief a single edge's polyline together with the z-order at which it renders.
-/// order is the edge's index in the render list; higher values paint on top.
+/// @brief an edge's polyline and render order; higher order paints on top.
 export interface Polyline {
   key: string;
   points: xy.XY[];
   order: number;
 }
 
-/// @brief the minimum distance (in flow units) a crossing must sit from either
-/// crossed segment's endpoints. Keeps hops clear of the rounded corners at vertices
-/// and of the handles where edges legitimately meet.
+/// @brief minimum distance a crossing must sit from a segment's ends, keeping hops clear
+/// of corners and shared handles.
 const END_BUFFER = 14;
 
-/// @brief a segment is treated as axis-aligned only when its off-axis extent is below
-/// this threshold, absorbing sub-pixel noise in endpoint coordinates.
+/// @brief off-axis tolerance for treating a segment as axis-aligned.
 const AXIS_EPSILON = 0.5;
 
 interface Span {
@@ -63,13 +60,9 @@ const pushSpans = (
   }
 };
 
-/// @brief finds the points at which a horizontal segment of one edge strictly crosses a
-/// vertical segment of another, and assigns each crossing to whichever edge renders on
-/// top (the one that should draw the hop). Crossings within END_BUFFER of either
-/// segment's endpoints are dropped so hops never collide with corners or shared
-/// handles. Collinear overlaps and same-edge self-crossings are ignored by
-/// construction. Returns a map from edge key to the hop points on that edge; edges
-/// without hops are absent.
+/// @brief returns the hop points per edge: where a horizontal run of one edge crosses a
+/// vertical run of another, assigned to the edge on top. Crossings near a segment's ends
+/// are dropped; collinear overlaps and self-crossings are ignored by construction.
 export const findCrossings = (polylines: Polyline[]): Map<string, xy.XY[]> => {
   const horizontal: Span[] = [];
   const vertical: Span[] = [];

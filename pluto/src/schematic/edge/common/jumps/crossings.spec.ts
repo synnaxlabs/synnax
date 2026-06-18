@@ -9,9 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { findCrossings, type Polyline } from "@/schematic/edge/common/jumps/crossings";
+import { Jumps } from "@/schematic/edge/common/jumps";
 
-const horizontal = (key: string, order: number, y = 50): Polyline => ({
+const horizontal = (key: string, order: number, y = 50): Jumps.Polyline => ({
   key,
   order,
   points: [
@@ -26,7 +26,7 @@ const vertical = (
   x = 50,
   fromY = 0,
   toY = 100,
-): Polyline => ({
+): Jumps.Polyline => ({
   key,
   order,
   points: [
@@ -40,12 +40,12 @@ describe("findCrossings", () => {
     { name: "vertical edge on top", h: 0, v: 1, winner: "v", loser: "h" },
     { name: "horizontal edge on top", h: 5, v: 1, winner: "h", loser: "v" },
   ])("assigns a crossing to the edge on top ($name)", ({ h, v, winner, loser }) => {
-    const result = findCrossings([horizontal("h", h), vertical("v", v)]);
+    const result = Jumps.findCrossings([horizontal("h", h), vertical("v", v)]);
     expect(result.get(winner)).toEqual([{ x: 50, y: 50 }]);
     expect(result.has(loser)).toBe(false);
   });
 
-  it.each<{ name: string; polylines: Polyline[] }>([
+  it.each<{ name: string; polylines: Jumps.Polyline[] }>([
     {
       name: "T-junction where one segment ends on the other",
       polylines: [horizontal("a", 0), vertical("b", 1, 50, 50, 100)],
@@ -73,11 +73,11 @@ describe("findCrossings", () => {
       ],
     },
   ])("produces no hop for $name", ({ polylines }) => {
-    expect(findCrossings(polylines).size).toBe(0);
+    expect(Jumps.findCrossings(polylines).size).toBe(0);
   });
 
   it("records a separate crossing per vertical edge over a shared horizontal", () => {
-    const result = findCrossings([
+    const result = Jumps.findCrossings([
       horizontal("a", 0),
       vertical("b", 1, 30),
       vertical("c", 2, 70),

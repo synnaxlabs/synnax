@@ -10,21 +10,21 @@
 import { type xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { calcPath } from "@/schematic/edge/common/path/calcPath";
+import { Path } from "@/schematic/edge/common/path";
 
 const HORIZONTAL: xy.XY[] = [
   { x: 0, y: 50 },
   { x: 100, y: 50 },
 ];
 
-describe("calcPath", () => {
+describe("Path.rounded", () => {
   it("draws a straight segment", () => {
-    expect(calcPath(HORIZONTAL)).toEqual("M0,50L100,50");
+    expect(Path.rounded(HORIZONTAL)).toEqual("M0,50L100,50");
   });
 
   it("rounds corners with a quadratic curve", () => {
     expect(
-      calcPath([
+      Path.rounded([
         { x: 0, y: 0 },
         { x: 100, y: 0 },
         { x: 100, y: 100 },
@@ -39,14 +39,14 @@ describe("calcPath", () => {
     { name: "on the line", jump: { x: 50, y: 50 } },
     { name: "a few pixels off the line", jump: { x: 50, y: 54 } },
   ])("hops up over a jump $name on a horizontal run", ({ jump }) => {
-    expect(calcPath(HORIZONTAL, [jump])).toContain(
+    expect(Path.rounded(HORIZONTAL, [jump])).toContain(
       "L43,50Q45,50 45,48A5,5 0 0 1 55,48Q55,50 57,50L100,50",
     );
   });
 
   it("hops left over a jump on a vertical run", () => {
     expect(
-      calcPath(
+      Path.rounded(
         [
           { x: 0, y: 0 },
           { x: 0, y: 100 },
@@ -61,7 +61,7 @@ describe("calcPath", () => {
     { name: "is too close to a run's end", jump: { x: 2, y: 0 } },
   ])("ignores a jump that $name", ({ jump }) => {
     expect(
-      calcPath(
+      Path.rounded(
         [
           { x: 0, y: 0 },
           { x: 100, y: 0 },

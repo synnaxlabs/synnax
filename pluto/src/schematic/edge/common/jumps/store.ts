@@ -9,9 +9,8 @@
 
 import { type xy } from "@synnaxlabs/x";
 
-/// @brief the shared, frozen empty result returned for edges with no hops. Returning a
-/// stable reference is required by useSyncExternalStore, which loops if getSnapshot
-/// yields a fresh value each call.
+/// @brief stable empty result for edges with no hops; useSyncExternalStore requires a
+/// constant reference here.
 const EMPTY: xy.XY[] = [];
 
 const pointsEqual = (a: xy.XY[], b: xy.XY[]): boolean => {
@@ -21,10 +20,8 @@ const pointsEqual = (a: xy.XY[], b: xy.XY[]): boolean => {
   return true;
 };
 
-/// @brief a per-edge external store of hop points, suitable for useSyncExternalStore.
-/// get returns a reference-stable array per key (the same array until that key's hops
-/// actually change), and commit diffs a freshly computed result against the current
-/// one, notifying only the listeners of keys whose hops changed.
+/// @brief per-edge external store of hop points for useSyncExternalStore. get is
+/// reference-stable per key; commit diffs against current and notifies only changed keys.
 export interface Store {
   subscribe: (key: string, onChange: () => void) => () => void;
   get: (key: string) => xy.XY[];
@@ -55,8 +52,7 @@ export const create = (): Store => {
       const changed: string[] = [];
       for (const [key, points] of next) {
         const prev = current.get(key);
-        // Preserve the previous array reference when a key's hops are unchanged so
-        // getSnapshot stays stable and the edge does not re-render.
+        // Reuse the previous reference for unchanged keys so getSnapshot stays stable.
         if (prev != null && pointsEqual(prev, points)) merged.set(key, prev);
         else {
           merged.set(key, points);
