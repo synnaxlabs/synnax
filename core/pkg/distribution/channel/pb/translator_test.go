@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
 	"github.com/synnaxlabs/x/control"
+	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -57,6 +58,22 @@ var _ = Describe("Translator", func() {
 		It("Should round-trip an empty channel list", func() {
 			msg := channel.CreateMessage{Channels: []channel.Channel{}}
 			Expect(MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg))))).To(Equal(msg))
+		})
+		It("Should return an error when forwarding an unrecognized concurrency value", func() {
+			msg := channel.CreateMessage{Channels: []channel.Channel{
+				{Name: "bad", Concurrency: control.Concurrency(99)},
+			}}
+			Expect(t.Forward(ctx, msg)).Error().To(
+				MatchError(ContainSubstring("unrecognized control.Concurrency value")),
+			)
+		})
+		It("Should return an error when reversing an unrecognized concurrency value", func() {
+			msg := &pb.CreateMessage{Channels: []*pb.Channel{
+				{Name: "bad", Concurrency: controlpb.Concurrency(99)},
+			}}
+			Expect(t.Backward(ctx, msg)).Error().To(
+				MatchError(ContainSubstring("unrecognized Concurrency value")),
+			)
 		})
 	})
 	Describe("DeleteRequest", func() {
