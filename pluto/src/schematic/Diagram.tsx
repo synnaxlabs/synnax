@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type location, type record, type xy } from "@synnaxlabs/x";
-import { type InternalNode, useStoreApi } from "@xyflow/react";
+import { type record } from "@synnaxlabs/x";
+import { useStoreApi } from "@xyflow/react";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -30,41 +30,7 @@ import {
   useSelectElementConfig,
 } from "@/schematic/queries";
 import { Diagram as Base } from "@/vis/diagram";
-import { internalNodeBox } from "@/vis/diagram/util";
-
-interface Endpoint {
-  position: xy.XY;
-  orientation: location.Outer;
-}
-
-// Mirrors React Flow's getHandlePosition (point on the handle's side edge, not center) so
-// the reconstructed polyline matches what the edge draws.
-const resolveEndpoint = (node: InternalNode, handleKey: string): Endpoint | null => {
-  const bounds = node.internals.handleBounds;
-  const handles = [...(bounds?.source ?? []), ...(bounds?.target ?? [])];
-  const handle = handleKey ? handles.find((h) => h.id === handleKey) : handles[0];
-  if (handle == null) return null;
-  const abs = node.internals.positionAbsolute;
-  const x = abs.x + handle.x;
-  const y = abs.y + handle.y;
-  const { width: w, height: h } = handle;
-  const orientation = handle.position as location.Outer;
-  let position: xy.XY;
-  switch (orientation) {
-    case "top":
-      position = { x: x + w / 2, y };
-      break;
-    case "right":
-      position = { x: x + w, y: y + h / 2 };
-      break;
-    case "bottom":
-      position = { x: x + w / 2, y: y + h };
-      break;
-    default:
-      position = { x, y: y + h / 2 };
-  }
-  return { position, orientation };
-};
+import { internalNodeBox, resolveEndpoint } from "@/vis/diagram/util";
 
 const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
   const { nodeKey } = rest;
@@ -127,28 +93,19 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       const sourceNode = nodeLookup.get(edge.source.node);
       const targetNode = nodeLookup.get(edge.target.node);
       if (sourceNode == null || targetNode == null) return;
-      const source = resolveEndpoint(sourceNode, edge.source.param);
-      const target = resolveEndpoint(targetNode, edge.target.param);
+      const source = resolveEndpoint(sourceNode.internals, edge.source.param);
+      const target = resolveEndpoint(targetNode.internals, edge.target.param);
       if (source == null || target == null) return;
       const cfg = configs.get(edge.key) as { segments?: Edge.Segmented.Segment[] };
-      const middleSegments = cfg?.segments ?? [];
-      const segments =
-        middleSegments.length === 0
-          ? Edge.Segmented.createConnector({
-              sourcePos: source.position,
-              targetPos: target.position,
-              sourceOrientation: source.orientation,
-              targetOrientation: target.orientation,
-              sourceBox: internalNodeBox(sourceNode),
-              targetBox: internalNodeBox(targetNode),
-            })
-          : Edge.Segmented.stitchEdge({
-              sourceOrientation: source.orientation,
-              targetOrientation: target.orientation,
-              sourcePos: source.position,
-              targetPos: target.position,
-              middleSegments,
-            });
+      const segments = Edge.Segmented.build({
+        sourcePos: source.position,
+        targetPos: target.position,
+        sourceOrientation: source.orientation,
+        targetOrientation: target.orientation,
+        sourceBox: internalNodeBox(sourceNode),
+        targetBox: internalNodeBox(targetNode),
+        middleSegments: cfg?.segments ?? [],
+      });
       const points = Edge.Segmented.segmentsToPoints(
         source.position,
         segments,

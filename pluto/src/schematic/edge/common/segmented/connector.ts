@@ -840,6 +840,23 @@ export const stitchEdge = ({
   ]);
 };
 
+export interface BuildProps extends BuildNew {
+  middleSegments: Segment[];
+}
+
+/// @brief routes an edge's full segment list: a fresh orthogonal connector when there are
+/// no middle segments, otherwise the user's middle segments stitched to the endpoints.
+export const build = ({ middleSegments, ...endpoints }: BuildProps): Segment[] =>
+  middleSegments.length === 0
+    ? createConnector(endpoints)
+    : stitchEdge({
+        sourceOrientation: endpoints.sourceOrientation,
+        targetOrientation: endpoints.targetOrientation,
+        sourcePos: endpoints.sourcePos,
+        targetPos: endpoints.targetPos,
+        middleSegments,
+      });
+
 export const extractMiddle = (
   segments: Segment[],
   sourceOrientation: location.Outer,

@@ -11,13 +11,30 @@ import { box, xy } from "@synnaxlabs/x";
 import { type InternalNode } from "@xyflow/react";
 import { describe, expect, it } from "vitest";
 
-import { internalNodeBox } from "@/vis/diagram/util";
+import { internalNodeBox, resolveEndpoint } from "@/vis/diagram/util";
 
 const node = (
   positionAbsolute: xy.XY,
   measured: { width?: number; height?: number },
 ): InternalNode =>
   ({ measured, internals: { positionAbsolute } }) as unknown as InternalNode;
+
+const handle = (id: string, position: string) => ({
+  id,
+  position,
+  x: 40,
+  y: 10,
+  width: 8,
+  height: 8,
+});
+
+const internals = (
+  positionAbsolute: xy.XY,
+  ...source: ReturnType<typeof handle>[]
+) => ({
+  positionAbsolute,
+  handleBounds: { source, target: [] },
+});
 
 describe("internalNodeBox", () => {
   it("builds a flow-coordinate box from the node's absolute position and dimensions", () => {
@@ -33,5 +50,34 @@ describe("internalNodeBox", () => {
 
   it("returns box.ZERO when the node has not been measured yet", () => {
     expect(internalNodeBox(node({ x: 500, y: 80 }, {}))).toEqual(box.ZERO);
+  });
+});
+
+describe("resolveEndpoint", () => {
+  it.each([
+    { side: "right", expected: { x: 148, y: 64 } },
+    { side: "top", expected: { x: 144, y: 60 } },
+    { side: "bottom", expected: { x: 144, y: 68 } },
+    { side: "left", expected: { x: 140, y: 64 } },
+  ])("places the point on the $side edge of the handle", ({ side, expected }) => {
+    const geom = internals({ x: 100, y: 50 }, handle("a", side));
+    expect(resolveEndpoint(geom, "a")).toEqual({
+      position: expected,
+      orientation: side,
+    });
+  });
+
+  it("returns null when the named handle is absent", () => {
+    const geom = internals({ x: 100, y: 50 }, handle("a", "right"));
+    expect(resolveEndpoint(geom, "missing")).toBeNull();
+  });
+
+  it("uses the first handle when no handle is named", () => {
+    const geom = internals(
+      { x: 100, y: 50 },
+      handle("a", "left"),
+      handle("b", "right"),
+    );
+    expect(resolveEndpoint(geom, "")?.orientation).toEqual("left");
   });
 });

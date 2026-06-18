@@ -32,12 +32,11 @@ import {
   createDefaultConfig,
 } from "@/schematic/edge/common/segmented/config";
 import {
-  createConnector,
+  build,
   dragSegment,
   extractMiddle,
   type Segment,
   segmentsToPoints,
-  stitchEdge,
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
 import { type Edge, type Spec } from "@/schematic/edge/spec";
@@ -67,32 +66,27 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
   }): ReactElement | null => {
     const flow = useReactFlow();
     const crossings = Jumps.useCrossings(edgeKey);
-    const visualSegments = useMemo(() => {
-      if (middleSegments.length === 0)
-        return createConnector({
+    const visualSegments = useMemo(
+      () =>
+        build({
           sourcePos: source.position,
           targetPos: target.position,
           sourceOrientation: source.orientation,
           targetOrientation: target.orientation,
           sourceBox: selectNodeBox(flow, sourceNode),
           targetBox: selectNodeBox(flow, targetNode),
-        });
-      return stitchEdge({
-        sourceOrientation: source.orientation,
-        targetOrientation: target.orientation,
-        sourcePos: source.position,
-        targetPos: target.position,
+          middleSegments,
+        }),
+      [
+        source.position.x,
+        source.position.y,
+        target.position.x,
+        target.position.y,
+        source.orientation,
+        target.orientation,
         middleSegments,
-      });
-    }, [
-      source.position.x,
-      source.position.y,
-      target.position.x,
-      target.position.y,
-      source.orientation,
-      target.orientation,
-      middleSegments,
-    ]);
+      ],
+    );
 
     const persistMiddle = useCallback(
       (segs: Segment[]) => {

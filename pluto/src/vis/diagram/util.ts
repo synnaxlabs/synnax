@@ -10,6 +10,8 @@
 import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
 import { type InternalNode, type ReactFlowInstance } from "@xyflow/react";
 
+import { createEndpoint, type EdgeEndpoint } from "@/vis/diagram/aether/types";
+
 import { type Diagram } from ".";
 
 export const selectNode = (key: string): HTMLDivElement => {
@@ -26,6 +28,49 @@ export const internalNodeBox = (node: InternalNode | null): box.Box => {
   const { width, height } = node.measured;
   if (width == null || height == null) return box.ZERO;
   return box.construct(node.internals.positionAbsolute, { width, height });
+};
+
+interface HandleGeometry {
+  id?: string | null;
+  position: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface NodeGeometry {
+  positionAbsolute: xy.XY;
+  handleBounds?: {
+    source?: HandleGeometry[] | null;
+    target?: HandleGeometry[] | null;
+  } | null;
+}
+
+/// @brief the connection point and side of a node's handle, matching React Flow's
+/// getHandlePosition (the point sits on the handle's edge for its side, not its center).
+/// Returns null when the named handle is absent; an empty handleKey uses the first handle.
+export const resolveEndpoint = (
+  { positionAbsolute, handleBounds }: NodeGeometry,
+  handleKey: string,
+): EdgeEndpoint | null => {
+  const handles = [...(handleBounds?.source ?? []), ...(handleBounds?.target ?? [])];
+  const handle = handleKey ? handles.find((h) => h.id === handleKey) : handles[0];
+  if (handle == null) return null;
+  const x = positionAbsolute.x + handle.x;
+  const y = positionAbsolute.y + handle.y;
+  const { width: w, height: h } = handle;
+  const orientation = handle.position as location.Outer;
+  switch (orientation) {
+    case "top":
+      return createEndpoint(x + w / 2, y, orientation);
+    case "right":
+      return createEndpoint(x + w, y + h / 2, orientation);
+    case "bottom":
+      return createEndpoint(x + w / 2, y + h, orientation);
+    default:
+      return createEndpoint(x, y + h / 2, orientation);
+  }
 };
 
 export const selectNodeBox = (flow: ReactFlowInstance, key: string): box.Box => {

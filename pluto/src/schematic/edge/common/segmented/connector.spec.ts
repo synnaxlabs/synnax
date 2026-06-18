@@ -943,4 +943,34 @@ describe("connector", () => {
         expect(actualTarget).toEqual(expectedTarget);
       });
   });
+
+  describe("build", () => {
+    const props = {
+      sourcePos: { x: 0, y: 0 },
+      targetPos: { x: 100, y: 100 },
+      sourceOrientation: "right" as const,
+      targetOrientation: "left" as const,
+      sourceBox: box.construct({ x: 0, y: 0 }),
+      targetBox: box.construct({ x: 100, y: 100 }),
+    };
+
+    it("routes a fresh connector when there are no middle segments", () => {
+      expect(Segmented.build({ ...props, middleSegments: [] })).toEqual(
+        Segmented.createConnector(props),
+      );
+    });
+
+    it("stitches the middle segments to the endpoints when present", () => {
+      const middleSegments = [{ direction: "x" as const, length: 30 }];
+      expect(Segmented.build({ ...props, middleSegments })).toEqual(
+        Segmented.stitchEdge({
+          sourceOrientation: props.sourceOrientation,
+          targetOrientation: props.targetOrientation,
+          sourcePos: props.sourcePos,
+          targetPos: props.targetPos,
+          middleSegments,
+        }),
+      );
+    });
+  });
 });
