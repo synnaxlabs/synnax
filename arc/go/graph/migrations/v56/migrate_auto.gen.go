@@ -16,6 +16,7 @@ import (
 	graph "github.com/synnaxlabs/arc/graph"
 	ir "github.com/synnaxlabs/arc/ir"
 	irv56 "github.com/synnaxlabs/arc/ir/migrations/v56"
+	msgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	spatial "github.com/synnaxlabs/x/spatial"
 )
 
@@ -45,11 +46,21 @@ func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
 			return graph.Graph{}, err
 		}
 	}
+	configs := make(map[string]msgpack.EncodedJSON, len(old.Nodes))
+	for _, v := range old.Nodes {
+		cfg := msgpack.EncodedJSON{}
+		for k, val := range v.Config {
+			cfg[k] = val
+		}
+		cfg["type"] = v.Type
+		configs[v.Key] = cfg
+	}
 	return graph.Graph{
 		Viewport:  viewport,
 		Functions: functions,
 		Edges:     edges,
 		Nodes:     nodes,
+		Configs:   configs,
 	}, nil
 }
 
@@ -71,8 +82,6 @@ func AutoMigrateEdge(_ context.Context, old irv56.Edge) (ir.Edge, error) {
 func AutoMigrateNode(_ context.Context, old Node) (graph.Node, error) {
 	return graph.Node{
 		Key:      old.Key,
-		Type:     old.Type,
-		Config:   old.Config,
 		Position: spatial.XY(old.Position),
 	}, nil
 }

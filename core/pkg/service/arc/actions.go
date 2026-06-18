@@ -9,7 +9,10 @@
 
 package arc
 
-import "github.com/synnaxlabs/arc/ir"
+import (
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+)
 
 // Handle replaces the Arc module's name.
 func (p RenamePayload) Handle(state Arc) (Arc, error) {
@@ -48,15 +51,13 @@ func (p SetNodePositionPayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle replaces the configuration of the named node. No-op if no node
-// matches.
+// Handle stores the config, holding the node's function type and parameter
+// values, under the given key in the graph configs map.
 func (p SetNodeConfigPayload) Handle(state Arc) (Arc, error) {
-	for i := range state.Graph.Nodes {
-		if state.Graph.Nodes[i].Key == p.Key {
-			state.Graph.Nodes[i].Config = p.Config
-			break
-		}
+	if state.Graph.Configs == nil {
+		state.Graph.Configs = make(map[string]msgpack.EncodedJSON)
 	}
+	state.Graph.Configs[p.Key] = p.Config
 	return state, nil
 }
 
@@ -69,6 +70,7 @@ func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 			break
 		}
 	}
+	delete(state.Graph.Configs, p.Key)
 	kept := make(ir.Edges, 0, len(state.Graph.Edges))
 	for _, e := range state.Graph.Edges {
 		if e.Source.Node == p.Key || e.Target.Node == p.Key {
