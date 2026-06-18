@@ -8,28 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { type xy } from "@synnaxlabs/x";
-import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
+import { context } from "@/context";
 import { type Store } from "@/schematic/edge/common/jumps/store";
 
-const Context = createContext<Store | null>(null);
-Context.displayName = "Jumps.Context";
+const [Context, useStore] = context.create<Store>({
+  displayName: "Jumps.Context",
+  providerName: "Schematic.Diagram",
+});
 
-/// @brief provides the per-edge hop store to descendant edges. When absent, edges
-/// render with no hops, so it doubles as the feature's on/off switch.
+/// @brief provides the per-edge hop store to descendant edges.
 export const Provider = Context.Provider;
 
-const EMPTY: xy.XY[] = [];
-
 /// @brief returns the hop points for the edge with the given key, subscribing to only
-/// that edge's hops. Returns an empty list when no Provider is mounted. The returned
-/// array is reference-stable until the edge's hops change.
+/// that edge's hops. The returned array is reference-stable until the edge's hops change.
 export const useCrossings = (key: string): xy.XY[] => {
-  const store = useContext(Context);
+  const store = useStore("useCrossings");
   const subscribe = useCallback(
-    (onChange: () => void) => store?.subscribe(key, onChange) ?? (() => {}),
+    (onChange: () => void) => store.subscribe(key, onChange),
     [store, key],
   );
-  const getSnapshot = useCallback(() => store?.get(key) ?? EMPTY, [store, key]);
+  const getSnapshot = useCallback(() => store.get(key), [store, key]);
   return useSyncExternalStore(subscribe, getSnapshot);
 };
