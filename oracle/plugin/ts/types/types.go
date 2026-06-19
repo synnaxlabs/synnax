@@ -789,6 +789,35 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				}
 			}
 
+			// An input type makes defaulted base fields optional: the default fills any
+			// absent value. The non-concrete path gets this from `z.input` plus each
+			// field's own `.default()`, but the concrete factory's type is an
+			// `optional.Optional<...>` wrapper rather than `z.input`, so the defaulted
+			// fields must be folded into the partial set explicitly here.
+			if sd.UseInput && sd.ConcreteTypes {
+				handled := make(set.Set[string])
+				for _, f := range sd.PartialFields {
+					handled.Add(f.TSName)
+				}
+				for _, f := range sd.OmittedFields {
+					handled.Add(f)
+				}
+				for _, f := range sd.ExtendFields {
+					handled.Add(f.TSName)
+				}
+				for _, extendsRef := range form.Extends {
+					parentType, _ := extendsRef.Resolve(table)
+					for _, pf := range resolution.UnifiedFields(parentType, table) {
+						name := fieldCamel(pf.Name)
+						if pf.Default == nil || handled.Contains(name) {
+							continue
+						}
+						handled.Add(name)
+						sd.PartialFields = append(sd.PartialFields, fieldData{TSName: name})
+					}
+				}
+			}
+
 			if sd.ConcreteTypes && len(sd.PartialFields) > 0 {
 				addXImport(data, xImport{name: "optional", submodule: "optional"})
 			}

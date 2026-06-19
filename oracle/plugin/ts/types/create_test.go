@@ -44,6 +44,29 @@ var _ = Describe("Derived New from @create", func() {
 		)
 	})
 
+	It("Should derive a generic factory New that partials defaulted fields and keeps non-defaulted keys required", func(ctx SpecContext) {
+		source := `
+			@ts output "client/ts/src/thing"
+
+			Thing struct<Properties extends record = record> {
+				key        string         @key
+				name       string
+				configured bool = false
+				properties Properties
+				@create
+				@ts concrete_types
+			}
+		`
+		resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			".partial({ configured: true })",
+			`optional.Optional<Thing<Properties>, "configured">`,
+		)
+		ExpectContent(resp, "types.gen.ts").ToNotContain(
+			".partial({ key: true",
+		)
+	})
+
 	It("Should derive New under its own name when the base is renamed", func(ctx SpecContext) {
 		source := `
 			@ts output "client/ts/src/thing"
