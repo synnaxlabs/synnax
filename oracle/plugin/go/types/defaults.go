@@ -272,6 +272,20 @@ func validateHasOwn(f resolution.Field, data *templateData) bool {
 	return len(goConstraintChecks(f, data)) > 0
 }
 
+// neverSkip is the skip predicate for ApplyDefaults: defaults apply to every field.
+func neverSkip(resolution.Field, *templateData) bool { return false }
+
+// validateSkip reports whether a field carries `@validate skip`, excluding it from
+// generated validation and any recursion into it. Used for reference fields (a parent
+// key, label keys) that hold a stub rather than embedded data.
+func validateSkip(f resolution.Field, _ *templateData) bool {
+	domain, ok := f.Domains["validate"]
+	if !ok {
+		return false
+	}
+	return validation.Parse(domain).Skip
+}
+
 // resolvesToMethodType reports whether ref resolves directly to a struct or union — a
 // type that can carry an ApplyDefaults/Validate method — rather than a primitive, a
 // builtin container (Array/Map), or a type parameter.
@@ -299,6 +313,7 @@ func typeNeedsMethod(
 	data *templateData,
 	visited set.Set[string],
 	hasOwn fieldHasOwn,
+	skip fieldHasOwn,
 ) bool {
 	if ref.IsTypeParam() {
 		return false
@@ -306,10 +321,10 @@ func typeNeedsMethod(
 	switch ref.Name {
 	case "Array":
 		return len(ref.TypeArgs) == 1 &&
-			typeNeedsMethod(ref.TypeArgs[0], data, visited, hasOwn)
+			typeNeedsMethod(ref.TypeArgs[0], data, visited, hasOwn, skip)
 	case "Map":
 		return len(ref.TypeArgs) == 2 &&
-			typeNeedsMethod(ref.TypeArgs[1], data, visited, hasOwn)
+			typeNeedsMethod(ref.TypeArgs[1], data, visited, hasOwn, skip)
 	}
 	if visited.Contains(ref.Name) {
 		return false
@@ -325,21 +340,24 @@ func typeNeedsMethod(
 			return false
 		}
 		for _, field := range resolution.UnifiedFields(resolved, data.table) {
+			if skip(field, data) {
+				continue
+			}
 			if hasOwn(field, data) ||
-				typeNeedsMethod(field.Type, data, visited, hasOwn) {
+				typeNeedsMethod(field.Type, data, visited, hasOwn, skip) {
 				return true
 			}
 		}
 	case resolution.UnionForm:
 		for _, variant := range form.Variants {
-			if typeNeedsMethod(variant.Type, data, visited, hasOwn) {
+			if typeNeedsMethod(variant.Type, data, visited, hasOwn, skip) {
 				return true
 			}
 		}
 	case resolution.AliasForm:
-		return typeNeedsMethod(form.Target, data, visited, hasOwn)
+		return typeNeedsMethod(form.Target, data, visited, hasOwn, skip)
 	case resolution.DistinctForm:
-		return typeNeedsMethod(form.Base, data, visited, hasOwn)
+		return typeNeedsMethod(form.Base, data, visited, hasOwn, skip)
 	}
 	return false
 }
@@ -361,6 +379,7 @@ func goRecurseStep(
 	field resolution.Field,
 	data *templateData,
 	hasOwn fieldHasOwn,
+	skip fieldHasOwn,
 ) (recurseStepData, bool) {
 	ref := field.Type
 	step := recurseStepData{
@@ -369,7 +388,7 @@ func goRecurseStep(
 	}
 	needs := func(r resolution.TypeRef) bool {
 		return resolvesToMethodType(r, data) &&
-			typeNeedsMethod(r, data, set.New[string](), hasOwn)
+			typeNeedsMethod(r, data, set.New[string](), hasOwn, skip)
 	}
 	switch ref.Name {
 	case "Array":

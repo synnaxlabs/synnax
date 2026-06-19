@@ -139,8 +139,8 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		for _, e := range embeds {
 			vd.Embeds = append(vd.Embeds, e.rendered)
 		}
-		vd.DefaultRecurse = variantRecurseSteps(embeds, inlineFields, data, defaultsHasOwn)
-		vd.ValidateRecurse = variantRecurseSteps(embeds, inlineFields, data, validateHasOwn)
+		vd.DefaultRecurse = variantRecurseSteps(embeds, inlineFields, data, defaultsHasOwn, neverSkip)
+		vd.ValidateRecurse = variantRecurseSteps(embeds, inlineFields, data, validateHasOwn, validateSkip)
 		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0
 		vd.NeedsValidate = len(vd.ValidateRecurse) > 0
 		if vd.NeedsApplyDefaults {
@@ -177,16 +177,20 @@ func variantRecurseSteps(
 	inlineFields []resolution.Field,
 	data *templateData,
 	hasOwn fieldHasOwn,
+	skip fieldHasOwn,
 ) []recurseStepData {
 	var steps []recurseStepData
 	for _, e := range embeds {
 		if resolvesToMethodType(e.ref, data) &&
-			typeNeedsMethod(e.ref, data, set.New[string](), hasOwn) {
+			typeNeedsMethod(e.ref, data, set.New[string](), hasOwn, skip) {
 			steps = append(steps, recurseStepData{GoName: embedFieldName(e.rendered), Kind: recurseValue})
 		}
 	}
 	for _, f := range inlineFields {
-		if step, ok := goRecurseStep(f, data, hasOwn); ok {
+		if skip(f, data) {
+			continue
+		}
+		if step, ok := goRecurseStep(f, data, hasOwn, skip); ok {
 			steps = append(steps, step)
 		}
 	}
