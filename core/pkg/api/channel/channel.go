@@ -58,6 +58,28 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}, nil
 }
 
+// RetrieveDataTypes resolves the data types of the channels with the given keys by way
+// of the API-layer Retrieve call. Keys that do not correspond to an existing channel are
+// omitted from the returned map. Its signature satisfies codec.DataTypeResolver, allowing
+// a dynamic framer codec to resolve channel data types through the API layer.
+func (s *Service) RetrieveDataTypes(
+	ctx context.Context,
+	keys channel.Keys,
+) (map[channel.Key]telem.DataType, error) {
+	if len(keys) == 0 {
+		return map[channel.Key]telem.DataType{}, nil
+	}
+	res, err := s.Retrieve(ctx, RetrieveRequest{Keys: keys})
+	if err != nil {
+		return nil, err
+	}
+	dataTypes := make(map[channel.Key]telem.DataType, len(res.Channels))
+	for _, ch := range res.Channels {
+		dataTypes[ch.Key] = ch.DataType
+	}
+	return dataTypes, nil
+}
+
 // CreateRequest is a request to create a Channel in the cluster.
 type CreateRequest struct {
 	// Channels is a template for the Channels to create.

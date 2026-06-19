@@ -200,7 +200,7 @@ func (s *Service) NewRetrieve() Retrieve {
 // RetrieveDataTypes resolves the data types of the channels with the given keys. Keys
 // that do not correspond to an existing channel are omitted from the returned map. Its
 // signature satisfies codec.DataTypeResolver, allowing a dynamic framer codec to resolve
-// channel data types through the service.
+// channel data types directly through the service layer.
 func (s *Service) RetrieveDataTypes(
 	ctx context.Context,
 	keys Keys,

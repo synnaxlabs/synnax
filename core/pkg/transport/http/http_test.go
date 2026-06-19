@@ -26,7 +26,7 @@ var _ = Describe("HTTP", func() {
 		var app *fiber.App
 		BeforeEach(func() {
 			router := MustSucceed(fhttp.NewRouter())
-			thttp.Bind(apiLayer, router, svc.Channel)
+			thttp.Bind(apiLayer, router, apiLayer.Channel)
 			app = fiber.New()
 			router.BindTo(app)
 		})

@@ -26,9 +26,8 @@ var _ = Describe("Transport", func() {
 		DescribeTable("Should return a validation error when a required field is missing",
 			func(field string, omit func(*transport.LayerConfig)) {
 				cfg := transport.LayerConfig{
-					API:     apiLayer,
-					Router:  MustSucceed(fhttp.NewRouter()),
-					Channel: svc.Channel,
+					API:    apiLayer,
+					Router: MustSucceed(fhttp.NewRouter()),
 				}
 				omit(&cfg)
 				Expect(transport.NewLayer(cfg)).Error().
@@ -36,15 +35,13 @@ var _ = Describe("Transport", func() {
 			},
 			Entry("missing API", "api", func(c *transport.LayerConfig) { c.API = nil }),
 			Entry("missing Router", "router", func(c *transport.LayerConfig) { c.Router = nil }),
-			Entry("missing Channel", "channel", func(c *transport.LayerConfig) { c.Channel = nil }),
 		)
 
 		It("Should bind the API layer to both transport protocols", func() {
 			router := MustSucceed(fhttp.NewRouter())
 			tl := MustSucceed(transport.NewLayer(transport.LayerConfig{
-				API:     apiLayer,
-				Router:  router,
-				Channel: svc.Channel,
+				API:    apiLayer,
+				Router: router,
 			}))
 
 			Expect(tl.GRPC).To(HaveLen(13))
