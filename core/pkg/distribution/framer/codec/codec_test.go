@@ -34,6 +34,8 @@ import (
 // absent from the map are omitted from the result, mirroring the channel service.
 type mapResolver map[channel.Key]telem.DataType
 
+var _ codec.DataTypeResolver = mapResolver{}
+
 func (m mapResolver) RetrieveDataTypes(
 	_ context.Context,
 	keys channel.Keys,
@@ -45,6 +47,10 @@ func (m mapResolver) RetrieveDataTypes(
 		}
 	}
 	return resolved, nil
+}
+
+func (m mapResolver) RetrieveName(_ context.Context, key channel.Key) (string, error) {
+	return fmt.Sprintf("channel-%d", key), nil
 }
 
 var _ = Describe("Codec", func() {

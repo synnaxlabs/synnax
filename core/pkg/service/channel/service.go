@@ -219,6 +219,20 @@ func (s *Service) RetrieveDataTypes(
 	return dataTypes, nil
 }
 
+// RetrieveName resolves the name of the channel with the given key. It returns
+// query.ErrNotFound if no channel with the key exists. Its signature satisfies
+// codec.DataTypeResolver.
+func (s *Service) RetrieveName(ctx context.Context, key Key) (string, error) {
+	var ch Channel
+	if err := s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, nil); err != nil {
+		return "", err
+	}
+	return ch.Name, nil
+}
+
 // CountExternalNonVirtual returns the number of external non-virtual channels in the
 // service.
 func (s *Service) CountExternalNonVirtual() uint32 {

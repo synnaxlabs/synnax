@@ -61,7 +61,7 @@ type (
 	]
 )
 
-// Transport is a grpc backed implementation of the channel.Transport interface.
+// Transport is a gRPC-backed implementation of the channel.Transport interface.
 type Transport struct {
 	alamos.ReportProvider
 	createClient *createClient
@@ -72,19 +72,36 @@ type Transport struct {
 	renameServer *renameServer
 }
 
+var (
+	_ channel.Transport       = (*Transport)(nil)
+	_ fgrpc.BindableTransport = (*Transport)(nil)
+)
+
 // CreateClient implements the channel.Transport interface.
-func (t Transport) CreateClient() channel.CreateTransportClient { return t.createClient }
+func (t Transport) CreateClient() channel.CreateTransportClient {
+	return t.createClient
+}
 
 // CreateServer implements the channel.Transport interface.
-func (t Transport) CreateServer() channel.CreateTransportServer { return t.createServer }
+func (t Transport) CreateServer() channel.CreateTransportServer {
+	return t.createServer
+}
 
-func (t Transport) DeleteClient() channel.DeleteTransportClient { return t.deleteClient }
+func (t Transport) DeleteClient() channel.DeleteTransportClient {
+	return t.deleteClient
+}
 
-func (t Transport) DeleteServer() channel.DeleteTransportServer { return t.deleteServer }
+func (t Transport) DeleteServer() channel.DeleteTransportServer {
+	return t.deleteServer
+}
 
-func (t Transport) RenameClient() channel.RenameTransportClient { return t.renameClient }
+func (t Transport) RenameClient() channel.RenameTransportClient {
+	return t.renameClient
+}
 
-func (t Transport) RenameServer() channel.RenameTransportServer { return t.renameServer }
+func (t Transport) RenameServer() channel.RenameTransportServer {
+	return t.renameServer
+}
 
 // BindTo implements the fgrpc.BindableTransport interface.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
@@ -92,14 +109,6 @@ func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
 	t.deleteServer.BindTo(reg)
 	t.renameServer.BindTo(reg)
 }
-
-var (
-	_ channel.CreateTransportClient = (*createClient)(nil)
-	_ channel.CreateTransportServer = (*createServer)(nil)
-	_ channelpb.CreateServiceServer = (*createServer)(nil)
-	_ channel.Transport             = (*Transport)(nil)
-	_ fgrpc.BindableTransport       = (*Transport)(nil)
-)
 
 // New creates a new grpc Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
@@ -174,4 +183,6 @@ func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.createServer.Use(middleware...)
 	t.deleteClient.Use(middleware...)
 	t.deleteServer.Use(middleware...)
+	t.renameClient.Use(middleware...)
+	t.renameServer.Use(middleware...)
 }

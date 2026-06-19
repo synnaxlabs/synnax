@@ -176,13 +176,16 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType, opts ...Opt
 
 // DataTypeResolver resolves the data types of a set of channels by key. It is supplied
 // to NewDynamic so the codec can look up the data types of channels when Update is
-// called. The channel service implementations satisfy this interface, allowing a dynamic
-// codec to resolve data types through them without depending on the service layer.
+// called. The channel service implementations satisfy this interface, allowing a
+// dynamic codec to resolve data types through them without depending on the service
+// layer.
 type DataTypeResolver interface {
 	// RetrieveDataTypes returns the data types of the channels with the given keys. The
 	// returned map must contain an entry for every key that resolves to an existing
 	// channel; keys absent from the map are treated as unknown by the codec.
-	RetrieveDataTypes(ctx context.Context, keys channel.Keys) (map[channel.Key]telem.DataType, error)
+	RetrieveDataTypes(context.Context, channel.Keys) (map[channel.Key]telem.DataType, error)
+	// RetrieveName returns the name of the channel with the given key.
+	RetrieveName(context.Context, channel.Key) (string, error)
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by resolving channel
