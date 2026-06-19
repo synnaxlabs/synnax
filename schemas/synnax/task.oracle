@@ -26,7 +26,7 @@ Key uint64 {
 }
 
 StatusDetails struct<Data? = record> {
-    task    Key    {
+    task    Key = 0 {
         @doc value "is the key of the task this status pertains to."
     }
     running bool   {
@@ -49,42 +49,12 @@ Status<Data? = record> = status.Status<StatusDetails<Data>> {
     """
 }
 
-NewStatusDetails struct<Data? = record> {
-    task    Key?   {
-        @doc value "is an optional task key."
-    }
-    running bool   {
-        @doc value "indicates whether the task is running."
-    }
-    cmd     string = "" {
-        @doc value "is the command being executed."
-    }
-    data    Data?  {
-        @doc value "contains task-specific status data."
-    }
-
-    @doc value         "contains details for creating a new task status."
-    @ts concrete_types
-    @go omit
-    @pb omit
-    @py omit
-    @cpp omit
-}
-
-NewStatus<Data? = record> = status.Status<NewStatusDetails<Data>> {
-    @doc value "contains parameters for creating a new task status."
-    @go omit
-    @pb omit
-    @py omit
-    @cpp omit
-}
-
 Task struct<
     Type extends string = string,
     Config extends record = record,
     StatusData? = record
 > {
-    key      Key                 {
+    key      Key = 0 {
         @doc value "is the composite identifier for this task."
         @key
     }
@@ -134,30 +104,7 @@ Task struct<
     @go marshal
     @go migrate
     @py name       "Payload"
-}
-
-New struct<
-    Type extends string = string,
-    Config extends record = record,
-    StatusData? = record
-> extends Task<Type, Config, StatusData> {
-    -internal
-    -snapshot
-    key?
-    status NewStatus<StatusData>? {
-        @doc value "is an optional initial status for the task."
-    }
-
-    @doc value "contains parameters for creating a new task."
-    @ts {
-        use_input
-        concrete_types
-        coalesce_type_params
-    }
-    @go omit
-    @pb omit
-    @py omit
-    @cpp omit
+    @create
 }
 
 Command struct {

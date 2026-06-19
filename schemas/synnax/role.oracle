@@ -49,6 +49,5 @@ Role struct {
     @retrieve
     @go marshal
     @go migrate
-    @py name       "Base"
     @create
 }

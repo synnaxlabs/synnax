@@ -21,7 +21,7 @@ export const keyZ = z
 export type Key = z.infer<typeof keyZ>;
 
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
-  task: typeof keyZ;
+  task: z.ZodDefault<typeof keyZ>;
   running: z.ZodBoolean;
   cmd: z.ZodDefault<z.ZodString>;
   data: [Data] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : z.ZodOptional<Data>;
@@ -36,43 +36,13 @@ export const statusDetailsZ: StatusDetailsZFunction = <Data extends z.ZodType>(
   data?: Data,
 ) =>
   z.object({
-    task: keyZ,
+    task: keyZ.default("0"),
     running: z.boolean(),
     cmd: z.string().default(""),
     data: (data ?? z.unknown()).optional(),
   });
 export type StatusDetails<Data extends z.ZodType = z.ZodNever> = {
   task: Key;
-  running: boolean;
-  cmd: string;
-} & ([Data] extends [z.ZodNever] ? {} : { data?: z.infer<Data> });
-
-export type NewStatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> =
-  z.ZodObject<{
-    task: z.ZodOptional<typeof keyZ>;
-    running: z.ZodBoolean;
-    cmd: z.ZodDefault<z.ZodString>;
-    data: [Data] extends [z.ZodNever]
-      ? z.ZodOptional<z.ZodUnknown>
-      : z.ZodOptional<Data>;
-  }>;
-
-export interface NewStatusDetailsZFunction {
-  <Data extends z.ZodType>(data: Data): NewStatusDetailsZodObject<Data>;
-  <Data extends z.ZodType = z.ZodNever>(data?: Data): NewStatusDetailsZodObject<Data>;
-}
-
-export const newStatusDetailsZ: NewStatusDetailsZFunction = <Data extends z.ZodType>(
-  data?: Data,
-) =>
-  z.object({
-    task: keyZ.optional(),
-    running: z.boolean(),
-    cmd: z.string().default(""),
-    data: (data ?? z.unknown()).optional(),
-  });
-export type NewStatusDetails<Data extends z.ZodType = z.ZodNever> = {
-  task?: Key;
   running: boolean;
   cmd: string;
 } & ([Data] extends [z.ZodNever] ? {} : { data?: z.infer<Data> });
@@ -96,12 +66,6 @@ export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
   ReturnType<typeof statusZ<Data>>
 >;
 
-export const newStatusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
-  status.statusZ({ details: newStatusDetailsZ(data) });
-export type NewStatus<Data extends z.ZodType = z.ZodNever> = z.infer<
-  ReturnType<typeof newStatusZ<Data>>
->;
-
 export interface PayloadSchemas<
   Type extends z.ZodType<string> = z.ZodType<string>,
   Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -122,7 +86,7 @@ export const payloadZ = <
   statusData,
 }: Partial<PayloadSchemas<Type, Config, StatusData>> = {}) =>
   z.object({
-    key: keyZ,
+    key: keyZ.default("0"),
     name: z.string(),
     type: type ?? z.string(),
     config: config ?? record.nullishToEmpty(),
@@ -139,34 +103,10 @@ export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   snapshot: boolean;
   status?: Status<S["statusData"]>;
 }
-
-export interface NewSchemas<
-  Type extends z.ZodType<string> = z.ZodType<string>,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodType,
-> {
-  type: Type;
-  config: Config;
-  statusData: StatusData;
-}
-
-export const newZ = <
-  Type extends z.ZodType<string> = z.ZodString,
-  Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  StatusData extends z.ZodType = z.ZodNever,
->({ type, config, statusData }: Partial<NewSchemas<Type, Config, StatusData>> = {}) =>
-  payloadZ({ type, config, statusData })
-    .omit({ internal: true, snapshot: true, status: true })
-    .partial({ key: true })
-    .extend({
-      status: status.statusZ({ details: newStatusDetailsZ(statusData) }).optional(),
-    });
-export type New<S extends NewSchemas = NewSchemas> = optional.Optional<
-  Omit<Payload<S>, "internal" | "snapshot" | "status">,
-  "key"
-> & {
-  status?: NewStatus<S["statusData"]>;
-};
+export type New<S extends PayloadSchemas = PayloadSchemas> = optional.Optional<
+  Payload<S>,
+  "key" | "internal" | "snapshot"
+>;
 
 export const ontologyID = ontology.createIDFactory<Key>("task");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

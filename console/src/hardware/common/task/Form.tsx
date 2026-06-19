@@ -156,14 +156,14 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         }
         if (nonZeroRackKey) form.set("rackKey", rackKey);
         form.set("config", newConfig);
-        const status: task.NewStatus = {
+        const status: task.New<S>["status"] = {
           key: id.create(),
           name,
           description: "",
           time: TimeStamp.now(),
           variant: "loading",
           message: "Configuring task",
-          details: { running: true, cmd: "", data: null },
+          details: { task: "0", running: true, cmd: "", data: null },
         };
         form.set("status", status);
         return true;

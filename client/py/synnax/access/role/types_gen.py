@@ -21,7 +21,7 @@ from synnax.ontology.payload import ID
 Key: TypeAlias = UUID
 
 
-class Base(BaseModel):
+class Role(BaseModel):
     """Is a named collection of policies that can be assigned to users, enabling
     group-based permission management. Roles define what actions users can
     perform on resources.
@@ -44,7 +44,7 @@ class Base(BaseModel):
         return hash(self.key)
 
 
-class New(Base):
+class New(Role):
     def __hash__(self) -> int:
         return hash(self.key)
 

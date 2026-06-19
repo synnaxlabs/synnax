@@ -49,12 +49,12 @@ describe("Task", async () => {
     it("should create a task with a custom status", async () => {
       const customStatus = {
         key: "",
-        name: "",
+        name: "Status",
         variant: "success" as const,
         message: "Custom task status",
         description: "Task is running",
         time: TimeStamp.now(),
-        details: { running: true, cmd: "", data: { customData: true } },
+        details: { task: "0", running: true, cmd: "", data: { customData: true } },
       };
       const m = await testRack.createTask({
         name: "task-with-status",

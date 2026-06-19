@@ -32,7 +32,7 @@ class StatusDetails(BaseModel):
         data: Contains task-specific status data.
     """
 
-    task: Key = Field(ge=0, le=18446744073709551615)
+    task: Key = Field(default=Key(0), ge=0, le=18446744073709551615)
     running: bool
     cmd: str = Field(default="")
     data: dict[str, Any] | None = None
@@ -76,7 +76,7 @@ class Payload(BaseModel):
         status: Is the current execution status of the task.
     """
 
-    key: Key = Field(ge=0, le=18446744073709551615)
+    key: Key = Field(default=Key(0), ge=0, le=18446744073709551615)
     name: str
     type: str
     config: dict[str, Any]
@@ -84,6 +84,11 @@ class Payload(BaseModel):
     snapshot: bool = Field(default=False)
     status: Status | None = None
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class New(Payload):
     def __hash__(self) -> int:
         return hash(self.key)
 
