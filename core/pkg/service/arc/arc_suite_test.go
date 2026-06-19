@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -38,18 +37,13 @@ func TestArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	svc      *arc.Service
-	chSvc    *channel.Service
-	tx       gorp.Tx
-	dist     mock.Node
-	groupSvc *group.Service
-	labelSvc *label.Service
-	statSvc  *status.Service
-	rackSvc  *rack.Service
-	taskSvc  *task.Service
-	testRack *rack.Rack
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	svc        *arc.Service
+	channelSvc *channel.Service
+	tx         gorp.Tx
+	taskSvc    *task.Service
+	testRack   *rack.Rack
 )
 
 var (
@@ -57,30 +51,32 @@ var (
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.Open())
-		dist = mock.NewNode(ctx)
-		chSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
-		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		dist := mock.NewNode(ctx)
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      dist.Channel,
+			DB:           dist.DB,
+			HostResolver: dist.Cluster,
+			Ontology:     dist.Ontology,
+			Group:        dist.Group,
+			Search:       dist.Search,
+		}))
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
+			Group:    dist.Group,
 			Search:   searchIdx,
 		}))
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		statSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-		}))
-		statSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
+			Group:    dist.Group,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
-		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
-			Group:               groupSvc,
+			Group:               dist.Group,
 			HostProvider:        mock.StaticHostProvider(1),
 			Status:              statSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
@@ -89,7 +85,7 @@ var (
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    groupSvc,
+			Group:    dist.Group,
 			Rack:     rackSvc,
 			Status:   statSvc,
 			Search:   searchIdx,
@@ -99,11 +95,10 @@ var (
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Channel:  chSvc,
+			Channel:  channelSvc,
 			Task:     taskSvc,
 			Search:   searchIdx,
 		}))
 	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

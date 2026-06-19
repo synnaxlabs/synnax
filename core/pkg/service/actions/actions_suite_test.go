@@ -29,17 +29,29 @@ func TestActions(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	dist  mock.Node
-	chSvc *channel.Service
-	sigs  *signals.Provider
+	node       mock.Node
+	channelSvc *channel.Service
+	sigs       *signals.Provider
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = mock.NewNode(ctx)
-	chSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
+	node = mock.NewNode(ctx)
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
+	}))
+	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		DB:      node.DB,
+	}))
 	sigs = MustSucceed(signals.New(signals.Config{
-		Channel: chSvc,
-		Framer:  MustOpen(framer.OpenService(ctx, framer.ServiceConfig{Framer: dist.Framer, Channel: chSvc})),
+		Channel: channelSvc,
+		Framer:  framerSvc,
 	}))
 })
 

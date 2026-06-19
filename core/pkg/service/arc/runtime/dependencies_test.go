@@ -26,14 +26,18 @@ import (
 )
 
 var _ = Describe("Dependencies", Ordered, func() {
-	var (
-		dist  mock.Node
-		chSvc *channel.Service
-	)
+	var channelSvc *channel.Service
 
 	BeforeAll(func(ctx SpecContext) {
-		dist = mock.NewNode(ctx)
-		chSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
+		dist := mock.NewNode(ctx)
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      dist.Channel,
+			DB:           dist.DB,
+			HostResolver: dist.Cluster,
+			Ontology:     dist.Ontology,
+			Group:        dist.Group,
+			Search:       dist.Search,
+		}))
 	})
 
 	Describe("NewDependencies", func() {
@@ -43,7 +47,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(chSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -59,7 +63,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Reads.Contains(ch.Key())).To(BeTrue())
 			Expect(deps.Writes.Contains(ch.Key())).To(BeFalse())
 			Expect(deps.ChannelDigests).To(HaveLen(1))
@@ -73,7 +77,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float64T,
 			}
-			Expect(chSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -89,7 +93,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -100,7 +104,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Int32T,
 			}
-			Expect(chSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -116,7 +120,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -128,7 +132,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(chSvc.Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
 
 			dataCh := &channel.Channel{
 				Name:       "data_with_index",
@@ -136,7 +140,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(chSvc.Create(ctx, dataCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -152,7 +156,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Reads.Contains(dataCh.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(indexCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(2))
@@ -165,7 +169,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(chSvc.Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
 
 			dataCh := &channel.Channel{
 				Name:       "write_data_with_index",
@@ -173,7 +177,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(chSvc.Create(ctx, dataCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -189,7 +193,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Writes.Contains(dataCh.Key())).To(BeTrue())
 			Expect(deps.Writes.Contains(indexCh.Key())).To(BeTrue())
 		})
@@ -200,14 +204,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(chSvc.Create(ctx, readCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, readCh)).To(Succeed())
 
 			writeCh := &channel.Channel{
 				Name:     "output_actuator",
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(chSvc.Create(ctx, writeCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, writeCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -224,7 +228,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Reads.Contains(readCh.Key())).To(BeTrue())
 			Expect(deps.Writes.Contains(writeCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(2))
@@ -236,7 +240,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(chSvc.Create(ctx, sharedCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, sharedCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -259,7 +263,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Reads.Contains(sharedCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(1))
 		})
@@ -270,7 +274,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 					Nodes: []ir.Node{},
 				},
 			}
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Reads).To(BeEmpty())
 			Expect(deps.Writes).To(BeEmpty())
 			Expect(deps.ChannelDigests).To(BeEmpty())
@@ -289,7 +293,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Reads).To(BeEmpty())
 			Expect(deps.Writes).To(BeEmpty())
 			Expect(deps.ChannelDigests).To(BeEmpty())
@@ -310,7 +314,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			Expect(runtime.NewDependencies(ctx, chSvc, prog)).
+			Expect(runtime.NewDependencies(ctx, channelSvc, prog)).
 				Error().To(MatchError(query.ErrNotFound))
 		})
 
@@ -321,7 +325,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: 0,
 			}
-			Expect(chSvc.Create(ctx, virtualCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, virtualCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -337,7 +341,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Reads.Contains(virtualCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(1))
 		})
@@ -348,7 +352,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(chSvc.Create(ctx, virtCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, virtCh)).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
@@ -361,10 +365,10 @@ var _ = Describe("Dependencies", Ordered, func() {
 				`, virtCh.Name),
 			}
 
-			resolver := chSvc.NewArcSymbolResolver(nil)
+			resolver := channelSvc.NewArcSymbolResolver(nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, compiled))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, compiled))
 			Expect(deps.Reads).To(BeEmpty())
 			Expect(deps.Writes.Contains(virtCh.Key())).To(BeTrue())
 			Expect(deps.Writes).To(HaveLen(1))
@@ -379,14 +383,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Uint8T,
 			}
-			Expect(chSvc.Create(ctx, triggerCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, triggerCh)).To(Succeed())
 
 			valveCh := &channel.Channel{
 				Name:     "dyn_auth_valve",
 				Virtual:  true,
 				DataType: telem.Uint8T,
 			}
-			Expect(chSvc.Create(ctx, valveCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, valveCh)).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
@@ -399,10 +403,10 @@ var _ = Describe("Dependencies", Ordered, func() {
 				`, valveCh.Name, triggerCh.Name),
 			}
 
-			resolver := chSvc.NewArcSymbolResolver(nil)
+			resolver := channelSvc.NewArcSymbolResolver(nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, compiled))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, compiled))
 			Expect(deps.Writes.Contains(valveCh.Key())).To(BeTrue(),
 				"channel referenced only in set_authority config should be in writes")
 		})
@@ -413,7 +417,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float64T,
 			}
-			Expect(chSvc.Create(ctx, authOnlyCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, authOnlyCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -426,7 +430,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(1))
 			Expect(deps.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
@@ -439,7 +443,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(chSvc.Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
 
 			readCh1 := &channel.Channel{
 				Name:       "complex_read_1",
@@ -447,14 +451,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(chSvc.Create(ctx, readCh1)).To(Succeed())
+			Expect(channelSvc.Create(ctx, readCh1)).To(Succeed())
 
 			readCh2 := &channel.Channel{
 				Name:     "complex_read_2",
 				Virtual:  true,
 				DataType: telem.Float64T,
 			}
-			Expect(chSvc.Create(ctx, readCh2)).To(Succeed())
+			Expect(channelSvc.Create(ctx, readCh2)).To(Succeed())
 
 			writeCh := &channel.Channel{
 				Name:       "complex_write",
@@ -462,7 +466,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Int32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(chSvc.Create(ctx, writeCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, writeCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -491,7 +495,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
 			Expect(deps.Reads.Contains(readCh1.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(readCh2.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(indexCh.Key())).To(BeTrue())

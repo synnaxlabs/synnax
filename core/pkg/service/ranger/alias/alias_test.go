@@ -30,50 +30,54 @@ import (
 
 var _ = Describe("Alias", Ordered, func() {
 	var (
-		dist      mock.Node
-		rangerSvc *ranger.Service
-		aliasSvc  *alias.Service
-		labelSvc  *label.Service
-		chSvc     *channel.Service
-		tx        gorp.Tx
+		node       mock.Node
+		rangerSvc  *ranger.Service
+		aliasSvc   *alias.Service
+		labelSvc   *label.Service
+		channelSvc *channel.Service
+		tx         gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
-		dist = mock.NewNode(ctx)
-		chSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
+		node = mock.NewNode(ctx)
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostResolver: node.Cluster,
+			Ontology:     node.Ontology,
+			Group:        node.Group,
+			Search:       node.Search,
+		}))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Search:   dist.Search,
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Search:   node.Search,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
 			Label:    labelSvc,
-			Search:   dist.Search,
+			Search:   node.Search,
 		}))
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
-			DB:              dist.DB,
-			Ontology:        dist.Ontology,
-			Channel:         chSvc,
+			DB:              node.DB,
+			Ontology:        node.Ontology,
+			Channel:         channelSvc,
 			ParentRetriever: rangerSvc,
-			Search:          dist.Search,
+			Search:          node.Search,
 		}))
-		Expect(dist.Search.Initialize(ctx)).To(Succeed())
+		Expect(node.Search.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func() {
-		tx = dist.DB.OpenTx()
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
+		tx = DeferClose(node.DB.OpenTx())
 	})
 
 	channelCount := 0
 	createChannel := func(ctx context.Context) channel.Channel {
 		channelCount++
 		ch := channel.Channel{DataType: telem.Float32T, Name: fmt.Sprintf("test_%d", channelCount), Virtual: true}
-		Expect(chSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		return ch
 	}
 
@@ -317,7 +321,7 @@ var _ = Describe("Alias", Ordered, func() {
 			ch := createChannel(ctx)
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
 			var res ontology.Resource
-			Expect(dist.Ontology.NewRetrieve().
+			Expect(node.Ontology.NewRetrieve().
 				WhereIDs(alias.OntologyID(r.Key, ch.Key())).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
