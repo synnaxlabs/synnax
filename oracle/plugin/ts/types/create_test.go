@@ -64,6 +64,45 @@ var _ = Describe("Derived New from @create", func() {
 		ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
 	})
 
+	It("Should substitute a base field's @create struct type with its New variant", func(ctx SpecContext) {
+		loader.Add("schemas/bbase", `
+			@ts output "client/ts/src/bbase"
+
+			B struct<Data? = record> {
+				task    string
+				running bool = false
+				@create
+				@ts concrete_types
+			}
+		`)
+		source := `
+			import "schemas/bbase"
+
+			@ts output "client/ts/src/athing"
+
+			BAlias<Data? = record> = bbase.B<Data> {
+			}
+
+			A struct<StatusData? = record> {
+				key   string @key
+				name  string
+				inner BAlias<StatusData>?
+				@create
+				@ts concrete_types
+				@ts coalesce_type_params
+			}
+		`
+		resp := MustGenerate(ctx, source, "athing", loader, typesPlugin)
+		// The synthesized New omits the inner field (whose output type is BAlias)
+		// and re-extends it with bbase.New so the consumer can omit B's defaulted
+		// nested fields when building a creation payload.
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`export type New<S extends ASchemas = ASchemas> = Omit<A<S>, "inner"> & {`,
+			`inner?: bbase.New<S["statusData"]>;`,
+		)
+		ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
+	})
+
 	It("Should derive New under its own name when the base is renamed", func(ctx SpecContext) {
 		source := `
 			@ts output "client/ts/src/thing"
