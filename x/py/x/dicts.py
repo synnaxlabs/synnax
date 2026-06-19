@@ -7,13 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
 
-
-def none_to_empty(v: Any) -> Any:
-    """Coerce None to an empty dict for required record fields.
-
-    The wire treats a null record the same as an absent one: no entries. Used as a
-    pydantic BeforeValidator so an explicit null validates as {} instead of raising.
-    """
-    return {} if v is None else v
+def none_to_empty[K, V](v: dict[K, V] | None) -> dict[K, V]:
+    """Return v unchanged, or an empty dict if v is None."""
+    return dict() if v is None else v
