@@ -296,6 +296,22 @@ type StickyXY struct {
 	Units StickyUnits `json:"units" msgpack:"units"`
 }
 
+func (s StickyXY) ApplyDefaults() StickyXY {
+	if s.Root.X == "" {
+		s.Root.X = XLocationLeft
+	}
+	if s.Root.Y == "" {
+		s.Root.Y = YLocationTop
+	}
+	if s.Units.X == "" {
+		s.Units.X = StickyUnitPx
+	}
+	if s.Units.Y == "" {
+		s.Units.Y = StickyUnitPx
+	}
+	return s
+}
+
 func (s StickyXY) Validate() error {
 	v := validate.New("StickyXY")
 	v.Exec(func() error { return validate.PathedError(s.Root.Validate(), "root") })

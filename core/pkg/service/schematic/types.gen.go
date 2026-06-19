@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -68,4 +69,10 @@ type Schematic struct {
 	// each value is determined by the element's variant; the wire format intentionally
 	// stores it as an opaque record.
 	Configs map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
+}
+
+func (s Schematic) Validate() error {
+	v := validate.New("Schematic")
+	validate.NotEmptyString(v, "name", s.Name)
+	return v.Error()
 }

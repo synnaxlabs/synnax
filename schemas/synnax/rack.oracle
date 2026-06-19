@@ -41,8 +41,9 @@ Status = status.Status<StatusDetails> {
 
 Rack struct {
     key          Key      {
-        @doc value "is the composite identifier for this rack."
+        @doc value         "is the composite identifier for this rack."
         @key
+        @validate required
     }
     name         string   {
         @doc value         "is a human-readable name for the rack."

@@ -31,7 +31,7 @@ const edge = (
 });
 
 const empty = (overrides: Partial<schematic.Schematic> = {}): schematic.Schematic =>
-  schematic.newZ.parse({ name: "", ...overrides });
+  schematic.newZ.parse({ name: "Test Schematic", ...overrides });
 
 const apply = (
   state: schematic.Schematic,

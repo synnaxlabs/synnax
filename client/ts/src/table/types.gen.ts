@@ -68,7 +68,7 @@ export const tableZ = z.object({
   /** key is the unique identifier for this table. */
   key: keyZ.default(() => uuid.create()),
   /** name is a human-readable name for the table. */
-  name: z.string(),
+  name: z.string().min(1, "name is required"),
   /** rows are the table rows in display order, top to bottom. */
   rows: array.nullishToEmpty(rowZ),
   /** columns are the table columns in display order, left to right. */

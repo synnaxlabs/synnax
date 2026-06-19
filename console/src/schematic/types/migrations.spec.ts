@@ -205,6 +205,7 @@ describe("migrations", () => {
         x: 123,
         y: 456,
         units: { x: "px", y: "px" },
+        root: { x: "left", y: "top" },
       });
       expect(migrated.legend.colors.a).toEqual(color.construct("#ff0000"));
       expect(migrated.legend.colors.b).toEqual(color.construct("#00ff00"));

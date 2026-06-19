@@ -67,7 +67,8 @@ Log struct {
         @key
     }
     name                   string         {
-        @doc value "is a human-readable name for the log."
+        @doc value         "is a human-readable name for the log."
+        @validate required
     }
     channels               ChannelEntry[] = [] {
         @doc value "are the channels displayed in this log, in order."

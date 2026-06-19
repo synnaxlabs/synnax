@@ -35,9 +35,9 @@ export type Status = z.infer<typeof statusZ>;
  */
 export const payloadZ = z.object({
   /** key is the composite identifier for this rack. */
-  key: keyZ,
+  key: keyZ.refine((v) => v !== 0, "key is required"),
   /** name is a human-readable name for the rack. */
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "name is required"),
   /** taskCounter is an internal counter used for generating unique local task keys. */
   taskCounter: z.uint32().default(0),
   /** embedded is true if this rack is embedded within the Synnax server process. */

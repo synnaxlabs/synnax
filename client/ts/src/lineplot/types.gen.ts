@@ -216,7 +216,7 @@ export const linePlotZ = z.object({
   /** key is the unique identifier for this line plot. */
   key: keyZ.default(() => uuid.create()),
   /** name is a human-readable name for the line plot. */
-  name: z.string(),
+  name: z.string().min(1, "name is required"),
   /** title is the plot title configuration. */
   title: titleZ.prefault({}),
   /** legend is the plot legend configuration. */

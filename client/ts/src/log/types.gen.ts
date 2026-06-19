@@ -57,7 +57,7 @@ export const logZ = z.object({
   /** key is the unique identifier for this log. */
   key: keyZ.default(() => uuid.create()),
   /** name is a human-readable name for the log. */
-  name: z.string(),
+  name: z.string().min(1, "name is required"),
   /** channels are the channels displayed in this log, in order. */
   channels: array.nullishToEmpty(channelEntryZ),
   /** timestampPrecision is the precision of displayed timestamps (0-3). */

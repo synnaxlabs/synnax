@@ -48,11 +48,11 @@ export const deviceZ = <
 >({ properties, make, model }: Partial<DeviceSchemas<Properties, Make, Model>> = {}) =>
   z.object({
     key: keyZ,
-    rack: rack.keyZ,
-    location: z.string().min(1, "Location is required"),
-    make: make ?? z.string().min(1, "Make is required"),
-    model: model ?? z.string().min(1, "Model is required"),
-    name: z.string().min(1, "Name is required"),
+    rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+    location: z.string().min(1, "location is required"),
+    make: make ?? z.string().min(1, "make is required"),
+    model: model ?? z.string().min(1, "model is required"),
+    name: z.string().min(1, "name is required"),
     configured: z.boolean().default(false),
     properties: properties ?? record.nullishToEmpty(),
     status: statusZ.optional(),

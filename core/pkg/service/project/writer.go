@@ -32,6 +32,9 @@ func (w Writer) Create(
 	if p.Key == uuid.Nil {
 		p.Key = uuid.New()
 	}
+	if err = p.Validate(); err != nil {
+		return
+	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return
 	}

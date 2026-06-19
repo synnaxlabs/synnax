@@ -150,6 +150,29 @@ type Legend struct {
 	Position spatial.StickyXY `json:"position" msgpack:"position"`
 }
 
+func (l Legend) ApplyDefaults() Legend {
+	if l.Position.X == 0 {
+		l.Position.X = 50
+	}
+	if l.Position.Y == 0 {
+		l.Position.Y = 50
+	}
+	if l.Position.Root.X == "" {
+		l.Position.Root.X = spatial.XLocationLeft
+	}
+	if l.Position.Root.Y == "" {
+		l.Position.Root.Y = spatial.YLocationTop
+	}
+	if l.Position.Units.X == "" {
+		l.Position.Units.X = spatial.StickyUnitPx
+	}
+	if l.Position.Units.Y == "" {
+		l.Position.Units.Y = spatial.StickyUnitPx
+	}
+	l.Position = l.Position.ApplyDefaults()
+	return l
+}
+
 func (l Legend) Validate() error {
 	v := validate.New("Legend")
 	v.Exec(func() error { return validate.PathedError(l.Position.Validate(), "position") })
@@ -256,6 +279,36 @@ type Axes struct {
 }
 
 func (a Axes) ApplyDefaults() Axes {
+	if a.X1.Key == "" {
+		a.X1.Key = AxisKeyX1
+	}
+	if a.X2.Key == "" {
+		a.X2.Key = AxisKeyX2
+	}
+	if a.Y1.Key == "" {
+		a.Y1.Key = AxisKeyY1
+	}
+	if a.Y1.LabelDirection == "" {
+		a.Y1.LabelDirection = spatial.DirectionY
+	}
+	if a.Y2.Key == "" {
+		a.Y2.Key = AxisKeyY2
+	}
+	if a.Y2.LabelDirection == "" {
+		a.Y2.LabelDirection = spatial.DirectionY
+	}
+	if a.Y3.Key == "" {
+		a.Y3.Key = AxisKeyY3
+	}
+	if a.Y3.LabelDirection == "" {
+		a.Y3.LabelDirection = spatial.DirectionY
+	}
+	if a.Y4.Key == "" {
+		a.Y4.Key = AxisKeyY4
+	}
+	if a.Y4.LabelDirection == "" {
+		a.Y4.LabelDirection = spatial.DirectionY
+	}
 	a.X1 = a.X1.ApplyDefaults()
 	a.X2 = a.X2.ApplyDefaults()
 	a.Y1 = a.Y1.ApplyDefaults()
@@ -376,6 +429,7 @@ type LinePlot struct {
 
 func (l LinePlot) ApplyDefaults() LinePlot {
 	l.Title = l.Title.ApplyDefaults()
+	l.Legend = l.Legend.ApplyDefaults()
 	l.Axes = l.Axes.ApplyDefaults()
 	for i := range l.Lines {
 		l.Lines[i] = l.Lines[i].ApplyDefaults()
@@ -388,6 +442,7 @@ func (l LinePlot) ApplyDefaults() LinePlot {
 
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
+	validate.NotEmptyString(v, "name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })

@@ -69,7 +69,8 @@ Schematic struct {
         @key
     }
     name     string              {
-        @doc value "is a human-readable name for the schematic."
+        @doc value         "is a human-readable name for the schematic."
+        @validate required
     }
     snapshot bool = false {
         @doc value """

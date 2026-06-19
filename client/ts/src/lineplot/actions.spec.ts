@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { lineplot } from "@/lineplot";
 
 const createEmpty = (overrides: Partial<lineplot.LinePlot> = {}): lineplot.LinePlot =>
-  lineplot.newZ.parse({ name: "", ...overrides });
+  lineplot.newZ.parse({ name: "Test Line Plot", ...overrides });
 
 const apply = (
   state: lineplot.LinePlot,
@@ -841,7 +841,7 @@ describe("lineplot reducer", () => {
       ]);
       // first inverse popped is for the LAST action applied
       expect(inverse[0]).toEqual(lineplot.rename({ name: "a" }));
-      expect(inverse[1]).toEqual(lineplot.rename({ name: "" }));
+      expect(inverse[1]).toEqual(lineplot.rename({ name: "Test Line Plot" }));
     });
     it("should deduplicate targets", () => {
       const created = createEmpty();

@@ -62,6 +62,7 @@ var (
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
+		proj.Name = "test-project"
 		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

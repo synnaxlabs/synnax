@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a range, represented as a UUID.
@@ -39,4 +40,10 @@ type Range struct {
 	// Parent is an optional parent range for hierarchical organization. Ranges can be
 	// nested within other ranges.
 	Parent *Range `json:"parent,omitempty" msgpack:"parent,omitempty"`
+}
+
+func (r Range) Validate() error {
+	v := validate.New("Range")
+	validate.NotEmptyString(v, "name", r.Name)
+	return v.Error()
 }

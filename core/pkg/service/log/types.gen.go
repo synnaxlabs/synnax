@@ -63,12 +63,20 @@ func (c ChannelEntry) ApplyDefaults() ChannelEntry {
 	if c.Precision == 0 {
 		c.Precision = -1
 	}
+	if c.Timestamp.Format == "" {
+		c.Timestamp.Format = "preciseDate"
+	}
+	if c.Timestamp.Tz == "" {
+		c.Timestamp.Tz = "local"
+	}
 	return c
 }
 
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
+	validate.GreaterThanEq(v, "precision", c.Precision, -1)
+	validate.LessThanEq(v, "precision", c.Precision, 17)
 	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
 	return v.Error()
 }
@@ -102,6 +110,9 @@ func (l Log) ApplyDefaults() Log {
 
 func (l Log) Validate() error {
 	v := validate.New("Log")
+	validate.NotEmptyString(v, "name", l.Name)
+	validate.GreaterThanEq(v, "timestamp_precision", l.TimestampPrecision, 0)
+	validate.LessThanEq(v, "timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}

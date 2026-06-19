@@ -271,7 +271,8 @@ LinePlot struct {
         @key
     }
     name     string   {
-        @doc value "is a human-readable name for the line plot."
+        @doc value         "is a human-readable name for the line plot."
+        @validate required
     }
     title    Title = {} {
         @doc value "is the plot title configuration."

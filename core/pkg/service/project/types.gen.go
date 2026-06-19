@@ -14,6 +14,7 @@ package project
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a project, represented as a UUID.
@@ -30,4 +31,10 @@ type Project struct {
 	// Layout is the mosaic tree structure that defines how visualizations are arranged.
 	// Contains tab layout, split configurations, and window positions.
 	Layout msgpack.EncodedJSON `json:"layout" msgpack:"layout"`
+}
+
+func (p Project) Validate() error {
+	v := validate.New("Project")
+	validate.NotEmptyString(v, "name", p.Name)
+	return v.Error()
 }

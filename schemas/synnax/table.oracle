@@ -78,7 +78,8 @@ Table struct {
         @key
     }
     name    string            {
-        @doc value "is a human-readable name for the table."
+        @doc value         "is a human-readable name for the table."
+        @validate required
     }
     rows    Row[] = [] {
         @doc value "are the table rows in display order, top to bottom."

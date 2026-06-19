@@ -24,21 +24,21 @@ import (
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create an Arc with generated key", func(ctx SpecContext) {
-			a := arc.Arc{Name: "test-arc"}
+			a := arc.Arc{Name: "test-arc", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(a.Key).ToNot(Equal(uuid.Nil))
 		})
 
 		It("Should create an Arc with explicit key", func(ctx SpecContext) {
 			key := uuid.New()
-			a := arc.Arc{Key: key, Name: "test-arc-with-key"}
+			a := arc.Arc{Key: key, Name: "test-arc-with-key", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(a.Key).To(Equal(key))
 		})
 
 		It("Should handle multiple arc creations", func(ctx SpecContext) {
-			a1 := arc.Arc{Name: "arc-1"}
-			a2 := arc.Arc{Name: "arc-2"}
+			a1 := arc.Arc{Name: "arc-1", Mode: arc.ModeText}
+			a2 := arc.Arc{Name: "arc-2", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &a2)).To(Succeed())
 			Expect(a1.Key).ToNot(Equal(uuid.Nil))
@@ -50,8 +50,8 @@ var _ = Describe("Writer", func() {
 	Describe("CreateMany", func() {
 		It("Should create multiple Arcs", func(ctx SpecContext) {
 			arcs := []arc.Arc{
-				{Name: "arc-many-1"},
-				{Name: "arc-many-2"},
+				{Name: "arc-many-1", Mode: arc.ModeText},
+				{Name: "arc-many-2", Mode: arc.ModeText},
 			}
 			Expect(svc.NewWriter(tx).CreateMany(ctx, &arcs)).To(Succeed())
 
@@ -70,6 +70,7 @@ var _ = Describe("Writer", func() {
 			a := arc.Arc{
 				Key:   key,
 				Name:  "existing-arc",
+				Mode:  arc.ModeText,
 				Graph: graph.Graph{},
 				Text:  text.Text{},
 			}
@@ -86,6 +87,7 @@ var _ = Describe("Writer", func() {
 		It("Should delete an Arc", func(ctx SpecContext) {
 			a := arc.Arc{
 				Name:  "arc-to-delete",
+				Mode:  arc.ModeText,
 				Graph: graph.Graph{},
 				Text:  text.Text{},
 			}
@@ -96,8 +98,8 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should delete multiple Arcs", func(ctx SpecContext) {
-			a1 := arc.Arc{Name: "arc-to-delete-1"}
-			a2 := arc.Arc{Name: "arc-to-delete-2"}
+			a1 := arc.Arc{Name: "arc-to-delete-1", Mode: arc.ModeText}
+			a2 := arc.Arc{Name: "arc-to-delete-2", Mode: arc.ModeText}
 			w := svc.NewWriter(tx)
 			Expect(w.Create(ctx, &a1)).To(Succeed())
 			Expect(w.Create(ctx, &a2)).To(Succeed())
@@ -114,7 +116,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should delete child tasks when deleting an arc", func(ctx SpecContext) {
-			a := arc.Arc{Name: "arc-with-task"}
+			a := arc.Arc{Name: "arc-with-task", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 			t := &task.Task{
@@ -140,7 +142,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should handle arc deletion when arc has no child tasks", func(ctx SpecContext) {
-			a := arc.Arc{Name: "arc-without-tasks"}
+			a := arc.Arc{Name: "arc-without-tasks", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Exec(ctx, tx)).
@@ -148,7 +150,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should delete multiple child tasks when deleting an arc", func(ctx SpecContext) {
-			a := arc.Arc{Name: "arc-with-multiple-tasks"}
+			a := arc.Arc{Name: "arc-with-multiple-tasks", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 			t1 := &task.Task{

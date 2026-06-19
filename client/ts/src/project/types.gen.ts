@@ -26,7 +26,7 @@ export const projectZ = z.object({
   /** key is the unique identifier for this project. */
   key: keyZ.default(() => uuid.create()),
   /** name is a human-readable name for the project. */
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "name is required"),
   /**
    * layout is the mosaic tree structure that defines how visualizations are
    * arranged. Contains tab layout, split configurations, and window

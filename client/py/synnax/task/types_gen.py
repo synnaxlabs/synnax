@@ -52,7 +52,7 @@ class Command(BaseModel):
     type: str
     key: str
     args: Annotated[dict[str, Any], BeforeValidator(dicts.none_to_empty)] = Field(
-        default_factory=lambda: record()
+        default_factory=dict
     )
 
 
