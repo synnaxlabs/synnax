@@ -161,16 +161,16 @@ New struct<
 }
 
 Command struct {
-    task Key     {
+    task Key    {
         @doc value "is the key of the target task."
     }
-    type string  {
+    type string {
         @doc value "is the command type (e.g., 'start', 'stop', 'configure')."
     }
-    key  string  {
+    key  string {
         @doc value "is a unique identifier for this command instance."
     }
-    args record? {
+    args record = {} {
         @doc value        "contains optional arguments for the command."
         @ts preserve_case
     }

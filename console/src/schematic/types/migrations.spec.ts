@@ -190,7 +190,12 @@ describe("migrations", () => {
         ...v5.ZERO_STATE,
         legend: {
           visible: true,
-          position: { x: 123, y: 456, units: { x: "px", y: "px" } },
+          position: {
+            x: 123,
+            y: 456,
+            root: { x: "left", y: "top" },
+            units: { x: "px", y: "px" },
+          },
           colors: { a: "#ff0000", b: "#00ff00" },
         },
       };

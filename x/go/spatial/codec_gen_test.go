@@ -85,17 +85,17 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", spatial.StickyXY{
 				X: 1.5,
 				Y: 2.5,
-				Root: new(spatial.CornerLocation{
+				Root: spatial.CornerLocation{
 					X: spatial.XLocation("left"),
 					Y: spatial.YLocation("top"),
-				}),
-				Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+				},
+				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 			}),
 			Entry("zero values", spatial.StickyXY{
 				X:     0,
 				Y:     0,
-				Root:  nil,
-				Units: nil,
+				Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
+				Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 			}),
 		)
 	})
@@ -174,11 +174,11 @@ func BenchmarkEncodeDecodeStickyXY(b *testing.B) {
 	sxy := spatial.StickyXY{
 		X: 1.5,
 		Y: 2.5,
-		Root: new(spatial.CornerLocation{
+		Root: spatial.CornerLocation{
 			X: spatial.XLocation("left"),
 			Y: spatial.YLocation("top"),
-		}),
-		Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+		},
+		Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -358,11 +358,11 @@ func FuzzDecodeStickyXY(f *testing.F) {
 		seed := spatial.StickyXY{
 			X: 1.5,
 			Y: 2.5,
-			Root: new(spatial.CornerLocation{
+			Root: spatial.CornerLocation{
 				X: spatial.XLocation("left"),
 				Y: spatial.YLocation("top"),
-			}),
-			Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+			},
+			Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -374,8 +374,8 @@ func FuzzDecodeStickyXY(f *testing.F) {
 		seed := spatial.StickyXY{
 			X:     0,
 			Y:     0,
-			Root:  nil,
-			Units: nil,
+			Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
+			Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

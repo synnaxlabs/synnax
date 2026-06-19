@@ -66,7 +66,8 @@ inline Command Command::parse(x::json::Parser parser) {
         .task = parser.field<Key>("task"),
         .type = parser.field<std::string>("type"),
         .key = parser.field<std::string>("key"),
-        .args = parser.field<std::optional<x::json::json::object_t>>("args"),
+        .args = parser
+                    .field<x::json::json::object_t>("args", x::json::json::object_t{}),
     };
 }
 

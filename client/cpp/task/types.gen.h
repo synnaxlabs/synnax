@@ -61,7 +61,7 @@ struct Command {
     /// @brief key is a unique identifier for this command instance.
     std::string key;
     /// @brief args contains optional arguments for the command.
-    std::optional<x::json::json::object_t> args;
+    x::json::json::object_t args = {};
 
     static Command parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

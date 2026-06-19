@@ -290,10 +290,10 @@ type StickyXY struct {
 	X float64 `json:"x" msgpack:"x"`
 	// Y is the vertical coordinate.
 	Y float64 `json:"y" msgpack:"y"`
-	// Root is the optional anchor corner for the position.
-	Root *CornerLocation `json:"root,omitempty" msgpack:"root,omitempty"`
-	// Units is the optional unit specification for the coordinates.
-	Units *StickyUnits `json:"units,omitempty" msgpack:"units,omitempty"`
+	// Root is the anchor corner for the position.
+	Root CornerLocation `json:"root" msgpack:"root"`
+	// Units is the unit specification for the coordinates.
+	Units StickyUnits `json:"units" msgpack:"units"`
 }
 
 // Dimensions is a 2D size with width and height values.

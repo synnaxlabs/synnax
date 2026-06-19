@@ -66,5 +66,5 @@ type Command struct {
 	// Key is a unique identifier for this command instance.
 	Key string `json:"key" msgpack:"key"`
 	// Args contains optional arguments for the command.
-	Args msgpack.EncodedJSON `json:"args,omitempty" msgpack:"args,omitempty"`
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }

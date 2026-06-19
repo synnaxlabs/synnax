@@ -251,11 +251,11 @@ var _ = Describe("Codec", func() {
 				Position: spatial.StickyXY{
 					X: 3.5,
 					Y: 4.5,
-					Root: new(spatial.CornerLocation{
+					Root: spatial.CornerLocation{
 						X: spatial.XLocation("left"),
 						Y: spatial.YLocation("top"),
-					}),
-					Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+					},
+					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 				},
 			}),
 			Entry("zero values", lineplot.Legend{
@@ -263,8 +263,8 @@ var _ = Describe("Codec", func() {
 				Position: spatial.StickyXY{
 					X:     0,
 					Y:     0,
-					Root:  nil,
-					Units: nil,
+					Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
+					Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 				},
 			}),
 		)
@@ -323,11 +323,11 @@ var _ = Describe("Codec", func() {
 					Position: spatial.StickyXY{
 						X: 9.5,
 						Y: 10.5,
-						Root: new(spatial.CornerLocation{
+						Root: spatial.CornerLocation{
 							X: spatial.XLocation("left"),
 							Y: spatial.YLocation("top"),
-						}),
-						Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+						},
+						Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 					},
 				},
 				Channels: lineplot.Channels{
@@ -443,8 +443,8 @@ var _ = Describe("Codec", func() {
 					Position: spatial.StickyXY{
 						X:     0,
 						Y:     0,
-						Root:  nil,
-						Units: nil,
+						Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
+						Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 					},
 				},
 				Channels: lineplot.Channels{
@@ -530,11 +530,11 @@ var _ = Describe("Codec", func() {
 					Position: spatial.StickyXY{
 						X: 9.5,
 						Y: 10.5,
-						Root: new(spatial.CornerLocation{
+						Root: spatial.CornerLocation{
 							X: spatial.XLocation("left"),
 							Y: spatial.YLocation("top"),
-						}),
-						Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+						},
+						Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 					},
 				},
 				Channels: lineplot.Channels{
@@ -833,11 +833,11 @@ func BenchmarkEncodeDecodeLegend(b *testing.B) {
 		Position: spatial.StickyXY{
 			X: 3.5,
 			Y: 4.5,
-			Root: new(spatial.CornerLocation{
+			Root: spatial.CornerLocation{
 				X: spatial.XLocation("left"),
 				Y: spatial.YLocation("top"),
-			}),
-			Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+			},
+			Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -894,11 +894,11 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			Position: spatial.StickyXY{
 				X: 9.5,
 				Y: 10.5,
-				Root: new(spatial.CornerLocation{
+				Root: spatial.CornerLocation{
 					X: spatial.XLocation("left"),
 					Y: spatial.YLocation("top"),
-				}),
-				Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+				},
+				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 			},
 		},
 		Channels: lineplot.Channels{
@@ -1416,11 +1416,11 @@ func FuzzDecodeLegend(f *testing.F) {
 			Position: spatial.StickyXY{
 				X: 3.5,
 				Y: 4.5,
-				Root: new(spatial.CornerLocation{
+				Root: spatial.CornerLocation{
 					X: spatial.XLocation("left"),
 					Y: spatial.YLocation("top"),
-				}),
-				Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+				},
+				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1435,8 +1435,8 @@ func FuzzDecodeLegend(f *testing.F) {
 			Position: spatial.StickyXY{
 				X:     0,
 				Y:     0,
-				Root:  nil,
-				Units: nil,
+				Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
+				Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1550,11 +1550,11 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Position: spatial.StickyXY{
 					X: 9.5,
 					Y: 10.5,
-					Root: new(spatial.CornerLocation{
+					Root: spatial.CornerLocation{
 						X: spatial.XLocation("left"),
 						Y: spatial.YLocation("top"),
-					}),
-					Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+					},
+					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 				},
 			},
 			Channels: lineplot.Channels{
@@ -1677,8 +1677,8 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Position: spatial.StickyXY{
 					X:     0,
 					Y:     0,
-					Root:  nil,
-					Units: nil,
+					Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
+					Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 				},
 			},
 			Channels: lineplot.Channels{
@@ -1771,11 +1771,11 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Position: spatial.StickyXY{
 					X: 9.5,
 					Y: 10.5,
-					Root: new(spatial.CornerLocation{
+					Root: spatial.CornerLocation{
 						X: spatial.XLocation("left"),
 						Y: spatial.YLocation("top"),
-					}),
-					Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+					},
+					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 				},
 			},
 			Channels: lineplot.Channels{

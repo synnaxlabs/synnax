@@ -94,7 +94,14 @@ describe("lineplot reducer", () => {
     it("should set legend position, leaving visibility unchanged", () => {
       const out = apply(
         createEmpty(),
-        lineplot.setLegendPosition({ position: { x: 10, y: 20 } }),
+        lineplot.setLegendPosition({
+          position: {
+            x: 10,
+            y: 20,
+            root: { x: "left", y: "top" },
+            units: { x: "px", y: "px" },
+          },
+        }),
       );
       expect(out.legend.position.x).toEqual(10);
       expect(out.legend.hidden).toEqual(createEmpty().legend.hidden);
@@ -102,8 +109,17 @@ describe("lineplot reducer", () => {
     it("should round-trip the previous position through its inverse", () => {
       const state = createEmpty();
       expect(
-        roundTrip(state, lineplot.setLegendPosition({ position: { x: 1, y: 2 } }))
-          .legend,
+        roundTrip(
+          state,
+          lineplot.setLegendPosition({
+            position: {
+              x: 1,
+              y: 2,
+              root: { x: "left", y: "top" },
+              units: { x: "px", y: "px" },
+            },
+          }),
+        ).legend,
       ).toEqual(state.legend);
     });
   });

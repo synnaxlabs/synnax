@@ -81,7 +81,12 @@ export const ZERO_STATE: State = {
   authority: 1,
   legend: {
     visible: true,
-    position: { x: 50, y: 50, units: { x: "px", y: "px" } },
+    position: {
+      x: 50,
+      y: 50,
+      root: { x: "left", y: "top" },
+      units: { x: "px", y: "px" },
+    },
     colors: {},
   },
   toolbar: { activeTab: "symbols", selectedSymbolGroup: "general" },
@@ -218,6 +223,7 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
       position: state.legend?.position ?? {
         x: 50,
         y: 50,
+        root: { x: "left", y: "top" },
         units: { x: "px", y: "px" },
       },
       colors: migrateLegendColors(state.legend?.colors),

@@ -11,12 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import Annotated, Any, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 from synnax import status as status_
 from synnax.ontology.payload import ID
+from x import dicts
 
 Key: TypeAlias = int
 
@@ -50,7 +51,9 @@ class Command(BaseModel):
     task: Key = Field(ge=0, le=18446744073709551615)
     type: str
     key: str
-    args: dict[str, Any] | None = None
+    args: Annotated[dict[str, Any], BeforeValidator(dicts.none_to_empty)] = Field(
+        default_factory=lambda: record()
+    )
 
 
 Status: TypeAlias = status_.Status[StatusDetails]

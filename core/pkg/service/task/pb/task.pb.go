@@ -220,7 +220,7 @@ type Command struct {
 	// key is a unique identifier for this command instance.
 	Key string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
 	// args contains optional arguments for the command.
-	Args          *structpb.Struct `protobuf:"bytes,4,opt,name=args,proto3,oneof" json:"args,omitempty"`
+	Args          *structpb.Struct `protobuf:"bytes,4,opt,name=args,proto3" json:"args,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -302,13 +302,12 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\binternal\x18\x05 \x01(\bR\binternal\x12\x1a\n" +
 	"\bsnapshot\x18\x06 \x01(\bR\bsnapshot\x126\n" +
 	"\x06status\x18\a \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
-	"\a_status\"~\n" +
+	"\a_status\"p\n" +
 	"\aCommand\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\x04R\x04task\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x10\n" +
-	"\x03key\x18\x03 \x01(\tR\x03key\x120\n" +
-	"\x04args\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\x04args\x88\x01\x01B\a\n" +
-	"\x05_argsB\xb0\x01\n" +
+	"\x03key\x18\x03 \x01(\tR\x03key\x12+\n" +
+	"\x04args\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04argsB\xb0\x01\n" +
 	"\x13com.service.task.pbB\tTaskProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/task/pb\xa2\x02\x03STP\xaa\x02\x0fService.Task.Pb\xca\x02\x0fService\\Task\\Pb\xe2\x02\x1bService\\Task\\Pb\\GPBMetadata\xea\x02\x11Service::Task::Pbb\x06proto3"
 
 var (
@@ -350,7 +349,6 @@ func file_core_pkg_service_task_pb_task_proto_init() {
 	}
 	file_core_pkg_service_task_pb_task_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_task_pb_task_proto_msgTypes[1].OneofWrappers = []any{}
-	file_core_pkg_service_task_pb_task_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
