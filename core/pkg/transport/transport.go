@@ -19,6 +19,7 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/config"
@@ -37,6 +38,12 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	API *api.Layer
+	// Channel is the service-layer channel service used by the frame codec to resolve
+	// channel data types. The codec uses it directly rather than the API layer so that
+	// per-frame data-type resolution bypasses access control.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
 	// Router is the HTTP router onto which API HTTP endpoints are registered. It is
 	// shared with other HTTP branches (e.g. the embedded console), so the transport
 	// layer binds onto it rather than owning it.
@@ -51,6 +58,7 @@ var _ config.Config[LayerConfig] = LayerConfig{}
 func (c LayerConfig) Validate() error {
 	v := validate.New("transport")
 	validate.NotNil(v, "api", c.API)
+	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "http_router", c.Router)
 	return v.Error()
 }
@@ -59,6 +67,7 @@ func (c LayerConfig) Validate() error {
 func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.API = override.Nil(c.API, other.API)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Router = override.Nil(c.Router, other.Router)
 	return c
 }
@@ -79,6 +88,6 @@ func NewLayer(cfgs ...LayerConfig) (Layer, error) {
 	if err != nil {
 		return Layer{}, err
 	}
-	http.Bind(cfg.API, cfg.Router)
-	return Layer{GRPC: grpc.Bind(cfg.API)}, nil
+	http.Bind(cfg.API, cfg.Router, cfg.Channel)
+	return Layer{GRPC: grpc.Bind(cfg.API, cfg.Channel)}, nil
 }

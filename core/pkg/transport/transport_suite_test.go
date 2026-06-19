@@ -20,12 +20,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	apiLayer *api.Layer
-	dist     *distribution.Layer
+	apiLayer   *api.Layer
+	dist       *distribution.Layer
+	channelSvc *channel.Service
 )
 
 func TestTransport(t *testing.T) {
@@ -46,6 +48,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Security:     sec,
 		Storage:      cluster.Nodes[1].Storage,
 	}))
+	channelSvc = svc.Channel
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
 		Distribution: dist,

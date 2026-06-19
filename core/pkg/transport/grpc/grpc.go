@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	channelsvc "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
@@ -48,12 +49,13 @@ import (
 // Bind constructs the gRPC transport for every API service, binds the API
 // layer's handlers and middleware to it, and returns the bindable transports
 // for registration with the server's gRPC branch. The frame codec resolves
-// channel keys through layer.Channel.
-func Bind(layer *api.Layer) []grpc.BindableTransport {
+// channel keys through the service-layer channel service, bypassing the API
+// layer's access control.
+func Bind(layer *api.Layer, channelSvc *channelsvc.Service) []grpc.BindableTransport {
 	var t api.Transport
 	transports := grpc.CompoundBindableTransport{
 		channel.New(&t),
-		framer.New(&t, layer.Channel),
+		framer.New(&t, channelSvc),
 		connectivity.New(&t),
 		auth.New(&t),
 		ranger.New(&t),

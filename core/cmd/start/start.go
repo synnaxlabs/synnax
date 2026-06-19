@@ -250,6 +250,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	if transportLayer, err = transport.NewLayer(transport.LayerConfig{
 		Instrumentation: cfg.Child("transport"),
 		API:             apiLayer,
+		Channel:         serviceLayer.Channel,
 		Router:          r,
 	}); !ok(err, nil) {
 		return err

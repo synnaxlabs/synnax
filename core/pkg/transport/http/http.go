@@ -38,15 +38,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	channelsvc "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
 )
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
 // layer's handlers and middleware to them. The frame codec resolves channel keys
-// through layer.Channel.
-func Bind(layer *api.Layer, router *http.Router) {
-	framerServerOption := framer.WithCodec(layer.Channel)
+// through the service-layer channel service, bypassing the API layer's access control.
+func Bind(layer *api.Layer, router *http.Router, channelSvc *channelsvc.Service) {
+	framerServerOption := framer.WithCodec(channelSvc)
 	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin:          http.NewUnaryServer[auth.LoginRequest, auth.LoginResponse](router, "/api/v1/auth/login"),
