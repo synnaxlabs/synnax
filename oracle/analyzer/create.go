@@ -15,8 +15,9 @@ import (
 )
 
 // synthesizeCreateTypes derives a `New` input type for every struct marked `@create`
-// (RFC 0043 section 6). The derived type extends the base and omits every `@output`
-// field, and carries `@ts use_input` / `@go omit` / `@pb omit`, so the existing
+// (RFC 0043 section 6). The derived type extends the base (mirroring its generic type
+// parameters) and omits every `@output` field, and carries `@ts use_input` / `@go omit`
+// / `@pb omit`, so the existing
 // New-struct codegen produces the input projection: a `z.input` type in TypeScript, a
 // pydantic model in Python, and nothing in Go (where the base struct is reused).
 //
@@ -51,6 +52,7 @@ func synthesizeCreateTypes(c *analysisCtx) {
 			QualifiedName: c.namespace + ".New",
 			FilePath:      c.filePath,
 			Form: resolution.StructForm{
+				TypeParams:    form.TypeParams,
 				Extends:       []resolution.TypeRef{{Name: typ.QualifiedName}},
 				OmittedFields: omitted,
 			},
