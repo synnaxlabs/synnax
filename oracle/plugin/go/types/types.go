@@ -337,11 +337,12 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		if chk, ok := goEnumCheck(field, data); ok {
 			sd.EnumChecks = append(sd.EnumChecks, chk)
 		}
+		sd.ConstraintChecks = append(sd.ConstraintChecks, goConstraintChecks(field, data)...)
 		if step, ok := goRecurseStep(field, data, validateHasOwn); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 		}
 	}
-	if len(sd.EnumChecks) > 0 || len(sd.ValidateRecurse) > 0 {
+	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 || len(sd.ValidateRecurse) > 0 {
 		data.imports.AddExternal(validateImportPath)
 	}
 	if hasSliceRecurse(sd.ValidateRecurse) {
@@ -489,21 +490,22 @@ func (d *templateData) InternalImports() []imports.InternalImportData {
 }
 
 type structData struct {
-	Name            string
-	Doc             string
-	AliasOf         string
-	Receiver        string
-	Fields          []fieldData
-	TypeParams      []typeParamData
-	ExtendsTypes    []string
-	ExtraFields     []string
-	DefaultFills    []defaultFillData
-	DefaultRecurse  []recurseStepData
-	EnumChecks      []enumCheckData
-	ValidateRecurse []recurseStepData
-	IsGeneric       bool
-	IsAlias         bool
-	HasExtends      bool
+	Name             string
+	Doc              string
+	AliasOf          string
+	Receiver         string
+	Fields           []fieldData
+	TypeParams       []typeParamData
+	ExtendsTypes     []string
+	ExtraFields      []string
+	DefaultFills     []defaultFillData
+	DefaultRecurse   []recurseStepData
+	EnumChecks       []enumCheckData
+	ConstraintChecks []constraintCheckData
+	ValidateRecurse  []recurseStepData
+	IsGeneric        bool
+	IsAlias          bool
+	HasExtends       bool
 }
 
 type typeParamData struct {
@@ -699,12 +701,25 @@ func ({{$s.Receiver}} {{$s.Name}}) ApplyDefaults() {{$s.Name}} {
 	return {{$s.Receiver}}
 }
 {{- end}}
-{{- if or .EnumChecks .ValidateRecurse}}
+{{- if or .EnumChecks .ConstraintChecks .ValidateRecurse}}
 
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
 	v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$s.Receiver}}.{{.GoName}})
+{{- end}}
+{{- range $s.ConstraintChecks}}
+{{- if eq .Kind "non_empty_string"}}
+	validate.NotEmptyString(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
+{{- else if eq .Kind "min_len"}}
+	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+{{- else if eq .Kind "max_len"}}
+	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+{{- else if eq .Kind "ge"}}
+	validate.GreaterThanEq(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
+{{- else if eq .Kind "le"}}
+	validate.LessThanEq(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
+{{- end}}
 {{- end}}
 {{- range $s.ValidateRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}

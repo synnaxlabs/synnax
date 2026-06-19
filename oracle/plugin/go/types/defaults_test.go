@@ -239,6 +239,77 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		})
 	})
 
+	Describe("@validate constraints", func() {
+		It("Should emit NotEmptyString for a required string", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					name string {
+						@validate required
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c Cfg) Validate() error {",
+				`validate.NotEmptyString(v, "name", c.Name)`,
+			)
+		})
+
+		It("Should classify a distinct numeric type by its primitive base", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Key uint32
+
+				Cfg struct {
+					rack Key {
+						@validate min 1
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`validate.GreaterThanEq(v, "rack", c.Rack, 1)`,
+			)
+		})
+
+		It("Should emit LessThanEq for a numeric max", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					level int32 {
+						@validate max 17
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`validate.LessThanEq(v, "level", c.Level, 17)`,
+			)
+		})
+
+		It("Should recurse into a nested type that only has a constraint", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Inner struct {
+					name string {
+						@validate required
+					}
+				}
+				Outer struct { inner Inner }
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (o Outer) Validate() error {",
+				`validate.PathedError(o.Inner.Validate(), "inner")`,
+			)
+		})
+	})
+
 	Describe("Recursion into union variants", func() {
 		const source = `
 			@go output "core/pkg/service/x"

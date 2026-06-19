@@ -88,6 +88,71 @@ func goDefaultFill(field resolution.Field, data *templateData) (defaultFillData,
 	return defaultFillData{}, false
 }
 
+// constraintCheckData describes a single @validate constraint assertion emitted by a
+// generated Validate method.
+type constraintCheckData struct {
+	GoName    string
+	FieldName string
+	// Kind selects the assertion form: non_empty_string, min_len, max_len (string), or
+	// ge, le (numeric).
+	Kind string
+	// Arg is the length or numeric threshold literal for the kinds that take one.
+	Arg string
+}
+
+// goConstraintChecks returns the @validate constraint assertions for a field, classified
+// against the field type's underlying primitive so a distinct numeric type (e.g. a Key
+// over uint32) validates as a number. Optional fields are skipped: a bound on an absent
+// value is ambiguous.
+func goConstraintChecks(field resolution.Field, data *templateData) []constraintCheckData {
+	if field.Optional {
+		return nil
+	}
+	domain, ok := field.Domains["validate"]
+	if !ok {
+		return nil
+	}
+	rules := validation.Parse(domain)
+	if validation.IsEmpty(rules) {
+		return nil
+	}
+	name := naming.GetFieldName(field)
+	jsonName := casing.FieldSnake(field.Name)
+	base := resolution.PrimitiveBase(field.Type, data.table)
+	check := func(kind, arg string) constraintCheckData {
+		return constraintCheckData{GoName: name, FieldName: jsonName, Kind: kind, Arg: arg}
+	}
+	var checks []constraintCheckData
+	if resolution.IsStringPrimitive(base) {
+		switch {
+		case rules.Required, rules.MinLength != nil && *rules.MinLength <= 1:
+			checks = append(checks, check("non_empty_string", ""))
+		case rules.MinLength != nil:
+			checks = append(checks, check("min_len", strconv.FormatInt(*rules.MinLength, 10)))
+		}
+		if rules.MaxLength != nil {
+			checks = append(checks, check("max_len", strconv.FormatInt(*rules.MaxLength, 10)))
+		}
+	}
+	if resolution.IsNumberPrimitive(base) {
+		if rules.Min != nil {
+			checks = append(checks, check("ge", numberLiteral(rules.Min)))
+		}
+		if rules.Max != nil {
+			checks = append(checks, check("le", numberLiteral(rules.Max)))
+		}
+	}
+	return checks
+}
+
+// numberLiteral renders a numeric constraint value as a Go literal.
+func numberLiteral(n *validation.Number) string {
+	if n.IsInt {
+		return strconv.FormatInt(n.Int, 10)
+	}
+	return strconv.FormatFloat(n.Float, 'g', -1, 64)
+}
+
 // goEnumCheck returns an enum-membership validation for a required field whose type is
 // an enum (RFC 0043 section 5.2). Nullable and optional fields are skipped: their
 // pointer may be nil, and absence is legitimate.
@@ -149,8 +214,10 @@ func defaultsHasOwn(f resolution.Field, data *templateData) bool {
 }
 
 func validateHasOwn(f resolution.Field, data *templateData) bool {
-	_, ok := goEnumCheck(f, data)
-	return ok
+	if _, ok := goEnumCheck(f, data); ok {
+		return true
+	}
+	return len(goConstraintChecks(f, data)) > 0
 }
 
 // resolvesToMethodType reports whether ref resolves directly to a struct or union — a

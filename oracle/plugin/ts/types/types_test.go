@@ -229,6 +229,20 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`age: z.int32().min(0).max(150)`))
 		})
 
+		It("Should classify a distinct numeric type by its primitive base", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Key uint32
+
+				Device struct {
+					rack Key @validate { min 1 }
+				}
+			`
+			resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain("rack: keyZ.min(1)")
+		})
+
 		It("Should generate enums", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
