@@ -564,7 +564,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Rack:            l.Rack,
 		Task:            l.Task,
-		Framer:          cfg.Distribution.Framer,
+		Framer:          l.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
 		Factories:       []driver.Factory{arcFactory, pdFactory},
