@@ -29,13 +29,20 @@ import (
 // LayerConfig is all required configuration parameters and services necessary to bind
 // the API layer to its supported transport protocols.
 type LayerConfig struct {
+	// Instrumentation is for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// API is the API layer whose service handlers are bound to each protocol.
+	//
+	// [REQUIRED]
 	API *api.Layer
-	// Router is the HTTP router onto which API HTTP endpoints are registered. It is
+	// HTTPRouter is the HTTP router onto which API HTTP endpoints are registered. It is
 	// shared with other HTTP branches (e.g. the embedded console), so the transport
 	// layer binds onto it rather than owning it.
-	Router *fhttp.Router
+	//
+	// [REQUIRED]
+	HTTPRouter *fhttp.Router
 }
 
 var _ config.Config[LayerConfig] = LayerConfig{}
@@ -44,7 +51,7 @@ var _ config.Config[LayerConfig] = LayerConfig{}
 func (c LayerConfig) Validate() error {
 	v := validate.New("transport")
 	validate.NotNil(v, "api", c.API)
-	validate.NotNil(v, "router", c.Router)
+	validate.NotNil(v, "http_router", c.HTTPRouter)
 	return v.Error()
 }
 
@@ -52,7 +59,7 @@ func (c LayerConfig) Validate() error {
 func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.API = override.Nil(c.API, other.API)
-	c.Router = override.Nil(c.Router, other.Router)
+	c.HTTPRouter = override.Nil(c.HTTPRouter, other.HTTPRouter)
 	return c
 }
 
@@ -72,6 +79,6 @@ func NewLayer(cfgs ...LayerConfig) (Layer, error) {
 	if err != nil {
 		return Layer{}, err
 	}
-	http.Bind(cfg.API, cfg.Router, cfg.API.Channel)
+	http.Bind(cfg.API, cfg.HTTPRouter)
 	return Layer{GRPC: grpc.Bind(cfg.API)}, nil
 }
