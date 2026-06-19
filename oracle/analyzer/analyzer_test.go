@@ -1467,6 +1467,209 @@ var _ = Describe("Analyzer", func() {
 		})
 	})
 
+	Describe("Action Extension", func() {
+		findAction := func(table *resolution.Table, qname, name string) resolution.Action {
+			form := table.MustGet(qname).Form.(resolution.StructForm)
+			for _, a := range form.Actions {
+				if a.Name == name {
+					return a
+				}
+			}
+			Fail("action not found: " + name)
+			return resolution.Action{}
+		}
+
+		It("Should flatten an extended struct's fields into the action payload", func(ctx SpecContext) {
+			source := `
+				Named struct {
+					name string
+				}
+
+				Schematic struct {
+					key uuid
+
+					action Rename extends Named {
+						@doc value "renames the schematic"
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Schematic", "Rename")
+			Expect(action.Fields).To(HaveLen(1))
+			Expect(action.Fields[0].Name).To(Equal("name"))
+			Expect(action.Fields[0].Type.Name).To(Equal("string"))
+		})
+
+		It("Should prepend inherited fields before the action's own fields", func(ctx SpecContext) {
+			source := `
+				NodeRef struct {
+					key      string
+					position int32
+				}
+
+				Schematic struct {
+					id uuid
+
+					action SetNodePosition extends NodeRef {
+						animate int32
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Schematic", "SetNodePosition")
+			names := make([]string, len(action.Fields))
+			for i, f := range action.Fields {
+				names[i] = f.Name
+			}
+			Expect(names).To(Equal([]string{"key", "position", "animate"}))
+		})
+
+		It("Should let an action's own field override an inherited field", func(ctx SpecContext) {
+			source := `
+				Base struct {
+					value int32
+				}
+
+				Container struct {
+					key uuid
+
+					action SetValue extends Base {
+						value string
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Container", "SetValue")
+			Expect(action.Fields).To(HaveLen(1))
+			Expect(findField(action.Fields, "value").Type.Name).To(Equal("string"))
+		})
+
+		It("Should flatten fields from multiple extended structs (first wins)", func(ctx SpecContext) {
+			source := `
+				A struct {
+					a string
+				}
+				B struct {
+					a int32
+					b string
+				}
+
+				Container struct {
+					key uuid
+
+					action Combine extends A, B {}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Container", "Combine")
+			names := make([]string, len(action.Fields))
+			for i, f := range action.Fields {
+				names[i] = f.Name
+			}
+			Expect(names).To(Equal([]string{"a", "b"}))
+			Expect(findField(action.Fields, "a").Type.Name).To(Equal("string"))
+		})
+
+		It("Should inherit transitively through the extended struct's own parents", func(ctx SpecContext) {
+			source := `
+				GrandParent struct { a string }
+				Parent struct extends GrandParent { b string }
+
+				Container struct {
+					key uuid
+
+					action Apply extends Parent {
+						c string
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Container", "Apply")
+			names := make([]string, len(action.Fields))
+			for i, f := range action.Fields {
+				names[i] = f.Name
+			}
+			Expect(names).To(Equal([]string{"a", "b", "c"}))
+		})
+
+		It("Should substitute type arguments when extending a generic struct", func(ctx SpecContext) {
+			source := `
+				Box struct<T extends record> {
+					data T
+				}
+
+				Details struct {
+					message string
+				}
+
+				Container struct {
+					key uuid
+
+					action Load extends Box<Details> {}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Container", "Load")
+			Expect(action.Fields).To(HaveLen(1))
+			Expect(action.Fields[0].Name).To(Equal("data"))
+			Expect(action.Fields[0].Type.Name).To(Equal("test.Details"))
+		})
+
+		It("Should error when an action extends an unresolved type", func(ctx SpecContext) {
+			source := `
+				Container struct {
+					key uuid
+
+					action Apply extends Missing {}
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("extends unresolved type"))
+		})
+
+		It("Should error when an action extends a non-struct type", func(ctx SpecContext) {
+			source := `
+				Color enum {
+					red = 0
+					green = 1
+				}
+
+				Container struct {
+					key uuid
+
+					action Apply extends Color {}
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("extends non-struct type"))
+		})
+
+		It("Should error when extending a generic struct without type arguments", func(ctx SpecContext) {
+			source := `
+				Box struct<T extends record> {
+					data T
+				}
+
+				Container struct {
+					key uuid
+
+					action Load extends Box {}
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("type arguments"))
+		})
+	})
+
 	Describe("TypeDef", func() {
 		It("Should analyze a distinct type (primitive alias)", func(ctx SpecContext) {
 			// Grammar: IDENT qualifiedIdent (no 'type' keyword or '=')
@@ -1910,23 +2113,18 @@ var _ = Describe("Analyzer", func() {
 				resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 1.5}),
 			Entry("string", "name string = \"untitled\"",
 				resolution.ExpressionValue{Kind: resolution.ValueKindString, StringValue: "untitled"}),
-			Entry("bool", "active bool? = true",
-				resolution.ExpressionValue{Kind: resolution.ValueKindBool, BoolValue: true}),
+			Entry("bool", "active bool = false",
+				resolution.ExpressionValue{Kind: resolution.ValueKindBool, BoolValue: false}),
 			Entry("ident", "key string = create",
 				resolution.ExpressionValue{Kind: resolution.ValueKindIdent, IdentValue: "create"}),
 			Entry("qualified ident", "mode string = control.Exclusive",
 				resolution.ExpressionValue{Kind: resolution.ValueKindIdent, IdentValue: "control.Exclusive"}),
-			Entry("optional type", "name string? = \"\"",
-				resolution.ExpressionValue{Kind: resolution.ValueKindString, StringValue: ""}),
 		)
 
-		It("Should mark a defaulted optional field as optional", func(ctx SpecContext) {
+		It("Should reject a field that is both optional and defaulted", func(ctx SpecContext) {
 			source := "Item struct {\n\tname string? = \"\"\n}\n"
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
-			form := table.MustGet("test.Item").Form.(resolution.StructForm)
-			Expect(form.Fields[0].Optional).To(BeTrue())
-			Expect(form.Fields[0].Default).NotTo(BeNil())
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Error()).To(ContainSubstring("both nullable"))
 		})
 
 		It("Should leave Default nil when no default is declared", func(ctx SpecContext) {

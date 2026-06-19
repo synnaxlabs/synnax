@@ -83,17 +83,87 @@ var _ = Describe("Default Invariant", func() {
 				}
 			`,
 			""),
-		Entry("exempts a nullable field, whose absence is itself meaningful",
+		Entry("abstains on a non-zero numeric default (numeric bounds are a follow-up)",
+			`
+				Cfg struct {
+					precision int32 = 2
+				}
+			`,
+			""),
+	)
+})
+
+var _ = Describe("Optional Default Invariant", func() {
+	var loader *MockFileLoader
+	BeforeEach(func() { loader = NewMockFileLoader() })
+
+	// A field may be nullable (`?`) or carry a default, but never both. The check is
+	// structural and fires for every field type, so the table exercises bools,
+	// strings, numbers, enums, and struct references, not just the bool case.
+	DescribeTable("a field that is both nullable and defaulted",
+		func(ctx SpecContext, source, wantErr string) {
+			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			if wantErr == "" {
+				Expect(diag.Ok()).To(BeTrue())
+			} else {
+				Expect(diag.Error()).To(ContainSubstring(wantErr))
+			}
+		},
+		Entry("rejects a nullable bool with a default",
 			`
 				Cfg struct {
 					visible bool? = true
 				}
 			`,
-			""),
-		Entry("abstains on a non-zero numeric default (numeric bounds are a follow-up)",
+			`field "visible" in "Cfg" is both nullable`),
+		Entry("rejects a nullable string with a default",
 			`
 				Cfg struct {
-					precision int32 = 2
+					name string? = "untitled"
+				}
+			`,
+			`field "name" in "Cfg" is both nullable`),
+		Entry("rejects a nullable number with a default",
+			`
+				Cfg struct {
+					precision int32? = 2
+				}
+			`,
+			`field "precision" in "Cfg" is both nullable`),
+		Entry("rejects a nullable enum with a default",
+			`
+				Priority enum {
+					low = 0
+					high = 1
+				}
+
+				Cfg struct {
+					priority Priority? = PriorityHigh
+				}
+			`,
+			`field "priority" in "Cfg" is both nullable`),
+		Entry("rejects a nullable struct reference with a default",
+			`
+				Inner struct {
+					x int32 = 0
+				}
+
+				Cfg struct {
+					inner Inner? = nil
+				}
+			`,
+			`field "inner" in "Cfg" is both nullable`),
+		Entry("accepts a plain nullable field with no default",
+			`
+				Cfg struct {
+					name string?
+				}
+			`,
+			""),
+		Entry("accepts a required defaulted field",
+			`
+				Cfg struct {
+					name string = "untitled"
 				}
 			`,
 			""),

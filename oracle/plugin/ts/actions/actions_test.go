@@ -116,6 +116,31 @@ var _ = Describe("TS Actions Plugin", func() {
 					)
 			})
 
+			It("Should flatten fields from an extended struct into the action payload", func(ctx SpecContext) {
+				source := `
+					@ts output "client/ts/src/counter"
+
+					Named struct {
+						name string
+					}
+
+					Counter struct {
+						key uuid
+
+						action Rename extends Named {
+							force int32
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "counter", loader, p)
+				ExpectContent(resp, "actions.gen.ts").
+					ToContain(
+						"export const renamePayloadZ = z.object({",
+						"name: z.string()",
+						"force: z.int32()",
+					)
+			})
+
 			It("Should emit scopedActionZ and dispatchReqZ bound to keyZ and actionZ", func(ctx SpecContext) {
 				source := `
 					@ts output "client/ts/src/counter"

@@ -157,6 +157,10 @@ type Action struct {
 	Domains map[string]Domain
 	Name    string
 	Fields  []Field
+	// Extends names struct types whose fields are flattened into the action's
+	// payload. The analyzer resolves these and prepends the inherited fields to
+	// Fields, so by code-generation time Fields already holds the unified list.
+	Extends []TypeRef
 }
 
 type Field struct {
