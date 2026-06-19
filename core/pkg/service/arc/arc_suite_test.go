@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -48,10 +47,10 @@ var (
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.Open())
 		dist := mock.NewNode(ctx)
+		db = dist.DB
+		otg = dist.Ontology
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      dist.Channel,
 			DB:           dist.DB,
