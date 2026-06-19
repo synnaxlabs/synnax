@@ -2010,6 +2010,12 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		case resolution.ValueKindString:
 			zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(defaultVal.StringValue))
 		case resolution.ValueKindInt:
+			if tsTypeOverride == "string" {
+				// A uint64 key rendered as a string accepts string input, so an
+				// integer default must be emitted as a string literal.
+				zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(fmt.Sprintf("%d", defaultVal.IntValue)))
+				break
+			}
 			expr, ok := "", false
 			if tsTypeOverride == "" {
 				expr, ok = tsTelemNumericDefault(
