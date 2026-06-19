@@ -329,14 +329,17 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 			continue
 		}
 		sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
-		if step, ok := goRecurseStep(field, data, defaultsHasOwn); ok {
+		if step, ok := goRecurseStep(field, data, defaultsHasOwn, neverSkip); ok {
 			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
+		}
+		if validateSkip(field, data) {
+			continue
 		}
 		if chk, ok := goEnumCheck(field, data); ok {
 			sd.EnumChecks = append(sd.EnumChecks, chk)
 		}
 		sd.ConstraintChecks = append(sd.ConstraintChecks, goConstraintChecks(field, data)...)
-		if step, ok := goRecurseStep(field, data, validateHasOwn); ok {
+		if step, ok := goRecurseStep(field, data, validateHasOwn, validateSkip); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 		}
 	}

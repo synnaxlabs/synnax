@@ -108,6 +108,39 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 	})
 
+	Describe("@validate skip", func() {
+		It("Should exclude a reference field from Validate recursion", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Item struct {
+					label string {
+						@validate required
+					}
+				}
+
+				Range struct {
+					name string {
+						@validate required
+					}
+					parent Range? {
+						@validate skip
+					}
+					item Item {
+						@validate skip
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			content := ExpectContent(resp, "types.gen.go")
+			content.ToContain(
+				"func (r Range) Validate() error {",
+				`validate.NotEmptyString(v, "name", r.Name)`,
+			)
+			content.ToNotContain("r.Parent.Validate()", "r.Item.Validate()")
+		})
+	})
+
 	Describe("Struct-literal field defaults", func() {
 		It("Should fill a nested component from a struct default before recursing", func(ctx SpecContext) {
 			source := `
