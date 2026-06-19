@@ -29,6 +29,4 @@ export const labelZ = z.object({
   color: color.colorZ,
 });
 export interface Label extends z.infer<typeof labelZ> {}
-
-export const newZ = labelZ;
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof labelZ> {}

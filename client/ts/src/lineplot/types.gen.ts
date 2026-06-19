@@ -237,9 +237,7 @@ export const linePlotZ = z.object({
   rules: array.nullishToEmpty(ruleZ),
 });
 export interface LinePlot extends z.infer<typeof linePlotZ> {}
-
-export const newZ = linePlotZ;
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof linePlotZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("lineplot");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

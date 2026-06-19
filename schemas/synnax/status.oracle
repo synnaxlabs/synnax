@@ -67,32 +67,5 @@ Status struct<Details?, V extends Variant = Variant> {
         carry a human-readable name and labels for categorization and filtering.
     """
     @ts concrete_types
-}
-
-New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
-    key         string?          {
-        @doc value """
-            is an optional key for the status. If not provided, one will
-            be automatically generated.
-        """
-    }
-    name        string?          {
-        @doc value "is an optional name for the status."
-    }
-    description string?          {
-        @doc value "is an optional detailed description providing additional context."
-    }
-    time        telem.TimeStamp? {
-        @doc value "is an optional timestamp. Defaults to the current time."
-    }
-
-    @doc value         """
-        contains parameters for creating a new status. Most fields have
-        sensible defaults.
-    """
-    @ts concrete_types
-    @pb omit
-    @cpp omit
-    @go omit
-    @py omit
+    @create
 }

@@ -19,7 +19,7 @@ const createChannelEntry = (
   log.channelEntryZ.parse({ channel, color: color.ZERO, ...overrides });
 
 const createEmpty = (overrides: Partial<log.Log> = {}): log.Log =>
-  log.newZ.parse({ name: "Test Log", ...overrides });
+  log.logZ.parse({ name: "Test Log", ...overrides });
 
 const apply = (state: log.Log, ...actions: log.Action[]): log.Log =>
   log.reduceAll(state, actions).next;

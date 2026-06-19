@@ -68,9 +68,7 @@ export const logZ = z.object({
   hideReceiptTimestamp: z.boolean().default(false),
 });
 export interface Log extends z.infer<typeof logZ> {}
-
-export const newZ = logZ;
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof logZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("log");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

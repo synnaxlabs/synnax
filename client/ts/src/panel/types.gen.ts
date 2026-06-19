@@ -166,9 +166,7 @@ export const panelZ = z.object({
   parent: ontology.idZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}
-
-export const newZ = panelZ;
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof panelZ> {}
 
 export const nodeLeafZ = leafZ.extend({
   variant: z.literal("leaf"),

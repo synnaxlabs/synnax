@@ -97,7 +97,7 @@ export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
 >;
 
 export const newStatusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
-  status.newZ({ details: newStatusDetailsZ(data) });
+  status.statusZ({ details: newStatusDetailsZ(data) });
 export type NewStatus<Data extends z.ZodType = z.ZodNever> = z.infer<
   ReturnType<typeof newStatusZ<Data>>
 >;
@@ -159,7 +159,7 @@ export const newZ = <
     .omit({ internal: true, snapshot: true, status: true })
     .partial({ key: true })
     .extend({
-      status: status.newZ({ details: newStatusDetailsZ(statusData) }).optional(),
+      status: status.statusZ({ details: newStatusDetailsZ(statusData) }).optional(),
     });
 export type New<S extends NewSchemas = NewSchemas> = optional.Optional<
   Omit<Payload<S>, "internal" | "snapshot" | "status">,

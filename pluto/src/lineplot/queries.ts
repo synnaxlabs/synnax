@@ -529,7 +529,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const optimistic = lineplot.newZ.parse(data);
+    const optimistic = lineplot.linePlotZ.parse(data);
     rollbacks.push(store.lineplots.set(optimistic));
     const project = data.project ?? uuid.ZERO;
     const created = await client.lineplots.create(project, optimistic);

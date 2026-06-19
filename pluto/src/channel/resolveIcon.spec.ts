@@ -24,7 +24,7 @@ describe("resolveIcon", () => {
   });
 
   it("should return Icon.Calculation for a calculated channel", () => {
-    const ch: channel.Payload = channel.newZ.parse({
+    const ch: channel.Payload = channel.payloadZ.parse({
       key: 1,
       name: "calc",
       dataType: DataType.FLOAT32,
@@ -35,7 +35,7 @@ describe("resolveIcon", () => {
   });
 
   it("should return Icon.Decimal for a float channel", () => {
-    const ch: channel.Payload = channel.newZ.parse({
+    const ch: channel.Payload = channel.payloadZ.parse({
       key: 1,
       name: "temp",
       dataType: DataType.FLOAT32,
@@ -44,7 +44,7 @@ describe("resolveIcon", () => {
   });
 
   it("should return Icon.Binary for an integer channel", () => {
-    const ch: channel.Payload = channel.newZ.parse({
+    const ch: channel.Payload = channel.payloadZ.parse({
       key: 1,
       name: "count",
       dataType: DataType.INT32,
@@ -53,7 +53,7 @@ describe("resolveIcon", () => {
   });
 
   it("should return Icon.Time for a timestamp channel", () => {
-    const ch: channel.Payload = channel.newZ.parse({
+    const ch: channel.Payload = channel.payloadZ.parse({
       key: 1,
       name: "time",
       dataType: DataType.TIMESTAMP,

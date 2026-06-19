@@ -22,7 +22,7 @@ import {
 } from "@/log/slice";
 import { stateZ } from "@/log/types";
 
-const PENDING = log.newZ.omit({ name: true }).parse({
+const PENDING = log.logZ.omit({ name: true }).parse({
   channels: [log.channelEntryZ.parse({ channel: 42, color: color.ZERO })],
 });
 

@@ -36,9 +36,7 @@ export const viewZ = z.object({
   query: record.nullishToEmpty(),
 });
 export interface View extends z.infer<typeof viewZ> {}
-
-export const newZ = viewZ;
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof viewZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("view");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

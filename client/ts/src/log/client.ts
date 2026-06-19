@@ -12,7 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Action, dispatchReqZ, rename as renameAction } from "@/log/actions.gen";
-import { type Key, keyZ, type Log, logZ, type New, newZ } from "@/log/types.gen";
+import { type Key, keyZ, type Log, logZ, type New } from "@/log/types.gen";
 import { project } from "@/project";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -32,7 +32,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ logs: array.nullishToEmpty(logZ) });
 
-const createReqZ = z.object({ project: project.keyZ, logs: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, logs: logZ.array() });
 const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});

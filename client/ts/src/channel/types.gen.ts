@@ -117,9 +117,7 @@ export const payloadZ = z.object({
   status: statusZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
-
-export const newZ = payloadZ;
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof payloadZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("channel");
 export const TYPE_ONTOLOGY_ID = ontologyID(0);

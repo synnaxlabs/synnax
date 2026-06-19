@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { lineplot } from "@/lineplot";
 
 const createEmpty = (overrides: Partial<lineplot.LinePlot> = {}): lineplot.LinePlot =>
-  lineplot.newZ.parse({ name: "Test Line Plot", ...overrides });
+  lineplot.linePlotZ.parse({ name: "Test Line Plot", ...overrides });
 
 const apply = (
   state: lineplot.LinePlot,

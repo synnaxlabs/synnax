@@ -82,9 +82,7 @@ export const tableZ = z.object({
   cells: caseconv.preserveCase(record.nullishToEmpty(z.string(), cellZ)),
 });
 export interface Table extends z.infer<typeof tableZ> {}
-
-export const newZ = tableZ;
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof tableZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("table");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

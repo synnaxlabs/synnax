@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { access, ontology, user } from "@synnaxlabs/client";
-import { array, uuid } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { role } from "@/access/role/aether";
+import { type role } from "@/access/role/aether";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
 import { Ontology } from "@/ontology";
@@ -204,7 +204,7 @@ export const useChangeRoleForm = Flux.createForm<
   },
 });
 
-export const formSchema = access.role.newZ
+export const formSchema = access.role.roleZ
   .extend({
     policies: access.policy.keyZ.array(),
   })

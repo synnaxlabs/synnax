@@ -79,9 +79,7 @@ export const schematicZ = z.object({
   configs: caseconv.preserveCase(record.nullishToEmpty(z.string(), record.unknownZ())),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
-
-export const newZ = schematicZ;
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof schematicZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("schematic");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

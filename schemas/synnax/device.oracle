@@ -111,4 +111,5 @@ Device struct<
     @go migrate
     @retrieve
     @search
+    @ts concrete_types
 }

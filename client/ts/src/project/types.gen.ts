@@ -35,9 +35,7 @@ export const projectZ = z.object({
   layout: caseconv.preserveCase(record.nullishToEmpty()),
 });
 export interface Project extends z.infer<typeof projectZ> {}
-
-export const newZ = projectZ;
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof projectZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("project");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

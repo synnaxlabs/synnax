@@ -31,7 +31,7 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-export const logStateZ = log.newZ
+export const logStateZ = log.logZ
   .pick({
     channels: true,
     timestampPrecision: true,

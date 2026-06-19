@@ -179,7 +179,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const optimistic = panel.newZ.parse(data);
+    const optimistic = panel.panelZ.parse(data);
     rollbacks.push(store.panels.set(optimistic));
     const created = await client.panels.create(optimistic);
     store.panels.set(created);

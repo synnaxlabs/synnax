@@ -95,25 +95,6 @@ export type Status<
   time: telem.TimeStamp;
   labels?: label.Label[];
 } & ([Details] extends [z.ZodNever] ? {} : { details: z.infer<Details> });
-
-export interface NewSchemas<
-  Details extends z.ZodType = z.ZodType,
-  V extends z.ZodType<Variant> = z.ZodType<Variant>,
-> {
-  details: Details;
-  v: V;
-}
-
-export const newZ = <
-  Details extends z.ZodType = z.ZodNever,
-  V extends z.ZodType<Variant> = typeof variantZ,
->({ details, v }: Partial<NewSchemas<Details, V>> = {}) =>
-  statusZ({ details, v }).partial({
-    key: true,
-    name: true,
-    description: true,
-    time: true,
-  });
 export type New<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,

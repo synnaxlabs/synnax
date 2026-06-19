@@ -71,7 +71,7 @@ NewStatusDetails struct<Data? = record> {
     @cpp omit
 }
 
-NewStatus<Data? = record> = status.New<NewStatusDetails<Data>> {
+NewStatus<Data? = record> = status.Status<NewStatusDetails<Data>> {
     @doc value "contains parameters for creating a new task status."
     @go omit
     @pb omit

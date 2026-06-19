@@ -229,7 +229,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const optimistic = log.newZ.parse(data);
+    const optimistic = log.logZ.parse(data);
     rollbacks.push(store.logs.set(optimistic));
     const project = data.project ?? uuid.ZERO;
     const created = await client.logs.create(project, optimistic);

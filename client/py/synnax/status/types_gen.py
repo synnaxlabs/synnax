@@ -70,3 +70,8 @@ class Status(BaseModel, Generic[Details]):
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class New(Status, Generic[Details]):
+    def __hash__(self) -> int:
+        return hash(self.key)

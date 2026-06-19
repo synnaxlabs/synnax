@@ -74,23 +74,6 @@ export interface Device<
   status?: Status;
   parent?: ontology.ID;
 }
-
-export interface NewSchemas<
-  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string> = z.ZodType<string>,
-  Model extends z.ZodType<string> = z.ZodType<string>,
-> {
-  properties: Properties;
-  make: Make;
-  model: Model;
-}
-
-export const newZ = <
-  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string> = z.ZodString,
-  Model extends z.ZodType<string> = z.ZodString,
->({ properties, make, model }: Partial<NewSchemas<Properties, Make, Model>> = {}) =>
-  deviceZ({ properties, make, model }).partial({ configured: true });
 export type New<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,

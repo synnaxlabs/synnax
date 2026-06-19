@@ -50,7 +50,7 @@ interface FluxSubStore extends Status.FluxSubStore {
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }
 
-export const formSchema = channel.newZ
+export const formSchema = channel.payloadZ
   .required({ expression: true })
   .extend({
     name: channel.nameZ,

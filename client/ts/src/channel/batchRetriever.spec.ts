@@ -44,7 +44,7 @@ describe("channelchannel.Retriever", () => {
       called(batch);
       const { normalized } = channel.analyzeParams(batch);
       return normalized.map((key) =>
-        channel.newZ.parse({
+        channel.payloadZ.parse({
           key: key as number,
           name: `channel-${key}`,
           dataType: DataType.FLOAT32,
@@ -70,7 +70,7 @@ describe("channelchannel.Retriever", () => {
       called(batch);
       const { normalized } = channel.analyzeParams(batch);
       return normalized.map((key) =>
-        channel.newZ.parse({
+        channel.payloadZ.parse({
           key: key as number,
           name: `channel-${key}`,
           dataType: DataType.FLOAT32,

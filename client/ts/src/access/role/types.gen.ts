@@ -39,9 +39,7 @@ export const roleZ = z.object({
   internal: z.boolean().default(false),
 });
 export interface Role extends z.infer<typeof roleZ> {}
-
-export const newZ = roleZ;
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof roleZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("role");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

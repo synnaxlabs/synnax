@@ -247,7 +247,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const optimistic = schematic.newZ.parse(data);
+    const optimistic = schematic.schematicZ.parse(data);
     rollbacks.push(store.schematics.set(optimistic));
     const project = data.project ?? uuid.ZERO;
     const created = await client.schematics.create(project, optimistic);

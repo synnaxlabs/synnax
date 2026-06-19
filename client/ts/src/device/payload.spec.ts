@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { deviceZ, newZ } from "@/device/types.gen";
+import { deviceZ } from "@/device/types.gen";
 
 const VALID_DEVICE = {
   key: "dev-1",
@@ -104,12 +104,12 @@ describe("deviceZ", () => {
 
 describe("newZ", () => {
   it("should encode properties to a JSON string", () => {
-    const result = newZ().parse(VALID_DEVICE);
+    const result = deviceZ().parse(VALID_DEVICE);
     expect(result.properties).toEqual(VALID_DEVICE.properties);
   });
 
   it("should accept a device with an optional parent ontology ID", () => {
-    const result = newZ().safeParse({
+    const result = deviceZ().safeParse({
       ...VALID_DEVICE,
       parent: { type: "rack", key: "rack-1" },
     });
@@ -119,13 +119,13 @@ describe("newZ", () => {
   });
 
   it("should accept a device without a parent", () => {
-    const result = newZ().safeParse(VALID_DEVICE);
+    const result = deviceZ().safeParse(VALID_DEVICE);
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.parent).toBeUndefined();
   });
 
   it("should reject a device with an invalid parent type", () => {
-    const result = newZ().safeParse({
+    const result = deviceZ().safeParse({
       ...VALID_DEVICE,
       parent: { type: "invalid_type", key: "key-1" },
     });
@@ -134,9 +134,9 @@ describe("newZ", () => {
 
   it("should still validate make and model with custom schemas", () => {
     const makeZ = z.literal("ni");
-    const result = newZ({ make: makeZ }).safeParse(VALID_DEVICE);
+    const result = deviceZ({ make: makeZ }).safeParse(VALID_DEVICE);
     expect(result.success).toBe(true);
-    const bad = newZ({ make: makeZ }).safeParse({ ...VALID_DEVICE, make: "opc" });
+    const bad = deviceZ({ make: makeZ }).safeParse({ ...VALID_DEVICE, make: "opc" });
     expect(bad.success).toBe(false);
   });
 });
