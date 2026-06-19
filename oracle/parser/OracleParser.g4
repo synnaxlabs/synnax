@@ -129,8 +129,13 @@ domainOmit
 //       props record?
 //       @doc value "adds a node to the schematic"
 //   }
+// An action may extend one or more structs to pull their fields into its
+// payload, exactly as struct inheritance flattens parent fields:
+//   action Rename extends Named {
+//       @doc value "renames the resource"
+//   }
 actionDef
-    : ACTION IDENT nl* LBRACE nl* actionBody RBRACE
+    : ACTION IDENT (EXTENDS typeRefList)? nl* LBRACE nl* actionBody RBRACE
     ;
 
 // Action body contains payload fields and/or action-level domains

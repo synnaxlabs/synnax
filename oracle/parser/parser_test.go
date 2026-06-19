@@ -193,6 +193,59 @@ var _ = Describe("Parser", func() {
 		})
 	})
 
+	Describe("Action Definitions", func() {
+		It("Should parse an action with no extends clause", func() {
+			schema := MustSucceed(parser.Parse(`
+				Schematic struct {
+					key uuid
+
+					action Rename {
+						name string
+					}
+				}
+			`))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			actions := structDef.StructBody().AllActionDef()
+			Expect(actions).To(HaveLen(1))
+			Expect(actions[0].IDENT().GetText()).To(Equal("Rename"))
+			Expect(actions[0].EXTENDS()).To(BeNil())
+		})
+
+		It("Should parse an action that extends a single struct", func() {
+			schema := MustSucceed(parser.Parse(`
+				Schematic struct {
+					key uuid
+
+					action Rename extends Named {
+						extra string
+					}
+				}
+			`))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			action := structDef.StructBody().AllActionDef()[0]
+			Expect(action.EXTENDS()).NotTo(BeNil())
+			refs := action.TypeRefList().AllTypeRef()
+			Expect(refs).To(HaveLen(1))
+			Expect(asTypeRefNormal(refs[0]).QualifiedIdent().IDENT(0).GetText()).To(Equal("Named"))
+		})
+
+		It("Should parse an action that extends multiple structs", func() {
+			schema := MustSucceed(parser.Parse(`
+				Schematic struct {
+					key uuid
+
+					action Combine extends A, B {}
+				}
+			`))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			action := structDef.StructBody().AllActionDef()[0]
+			refs := action.TypeRefList().AllTypeRef()
+			Expect(refs).To(HaveLen(2))
+			Expect(asTypeRefNormal(refs[0]).QualifiedIdent().IDENT(0).GetText()).To(Equal("A"))
+			Expect(asTypeRefNormal(refs[1]).QualifiedIdent().IDENT(0).GetText()).To(Equal("B"))
+		})
+	})
+
 	Describe("Inline Field Domains", func() {
 		It("Should parse a field with an inline domain", func() {
 			schema := MustSucceed(parser.Parse(`
