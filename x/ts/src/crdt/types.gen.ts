@@ -11,9 +11,7 @@
 
 import { z } from "zod";
 
-export const SIDES = ["left", "right"] as const;
-export const sideZ = z.enum(SIDES);
-export type Side = z.infer<typeof sideZ>;
+import { spatial } from "@/spatial";
 
 /**
  * ID uniquely identifies a character within a replicated text document. It pairs the
@@ -43,8 +41,11 @@ export const insertZ = z.object({
    * the start of the document.
    */
   origin: idZ,
-  /** side is the side of origin the character anchors to. */
-  side: sideZ,
+  /**
+   * side is the side of origin the character anchors to: left places it immediately
+   * before the origin, right immediately after.
+   */
+  side: spatial.xLocationZ,
   /** char is the inserted Unicode code point. */
   char: z.int32(),
 });

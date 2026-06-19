@@ -98,8 +98,7 @@ type Service struct {
 	table  *gorp.Table[Key, Arc]
 	closer xio.MultiCloser
 	cfg    ServiceConfig
-	// state owns the observer that collaborative-edit dispatches are broadcast through.
-	state *actions.State[Key, Action]
+	state  *actions.State[Key, Action]
 }
 
 // NewChannelResolver returns the dynamic resolver that the analyzer consults for

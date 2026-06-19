@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Delete, type ID, type Insert, type Side } from "@/crdt/types.gen";
+import { type Delete, type ID, type Insert } from "@/crdt/types.gen";
+import { type spatial } from "@/spatial";
 
 const ROOT_ID: ID = { replica: 0, counter: 0n };
 
@@ -18,9 +19,13 @@ const idLess = (a: ID, b: ID): boolean =>
 
 const idKey = (id: ID): string => `${id.replica}:${id.counter}`;
 
+// TO_STRING_CHUNK bounds how many code points are passed to a single
+// String.fromCodePoint call. Spreading an unbounded array of arguments overflows the
+// call stack for large documents, so the materialization is built in chunks.
+const TO_STRING_CHUNK = 8192;
+
 interface Element {
   id: ID;
-  side: Side;
   char: number;
   deleted: boolean;
   left: Element[];
@@ -55,7 +60,6 @@ export class Text {
     this.replica = replica;
     this.root = {
       id: ROOT_ID,
-      side: "right",
       char: 0,
       deleted: false,
       left: [],
@@ -71,14 +75,33 @@ export class Text {
   private rebuild(): void {
     if (!this.dirty) return;
     this.order = [];
-    this.walk(this.root);
+    this.walk();
     this.dirty = false;
   }
 
-  private walk(e: Element): void {
-    for (const c of e.left) this.walk(c);
-    if (e !== this.root) this.order.push(e);
-    for (const c of e.right) this.walk(c);
+  /** walk performs the in-order traversal of the document tree into order, visiting
+   * each node's left children, then the node, then its right children. The traversal
+   * is iterative with an explicit stack because a document built by typing in a single
+   * direction forms a tree as deep as it is long, which would overflow the call stack
+   * under recursion. */
+  private walk(): void {
+    const stack: Array<{ node: Element; emit: boolean }> = [
+      { node: this.root, emit: false },
+    ];
+    while (stack.length > 0) {
+      const frame = stack.pop();
+      if (frame == null) break;
+      if (frame.emit) {
+        this.order.push(frame.node);
+        continue;
+      }
+      const { node } = frame;
+      for (let i = node.right.length - 1; i >= 0; i--)
+        stack.push({ node: node.right[i], emit: false });
+      if (node !== this.root) stack.push({ node, emit: true });
+      for (let i = node.left.length - 1; i >= 0; i--)
+        stack.push({ node: node.left[i], emit: false });
+    }
   }
 
   private visible(): Element[] {
@@ -93,7 +116,13 @@ export class Text {
 
   /** toString materializes the document into its current string value. */
   toString(): string {
-    return String.fromCodePoint(...this.visible().map((e) => e.char));
+    const vis = this.visible();
+    let out = "";
+    for (let i = 0; i < vis.length; i += TO_STRING_CHUNK) {
+      const codes = vis.slice(i, i + TO_STRING_CHUNK).map((e) => e.char);
+      out += String.fromCodePoint(...codes);
+    }
+    return out;
   }
 
   /** indexToID returns the id of the character at the given live index, or null when
@@ -120,7 +149,7 @@ export class Text {
     const ops: Insert[] = [];
     for (const ch of chars) {
       let origin: ID;
-      let side: Side;
+      let side: spatial.XLocation;
       if (right != null && left.right.length > 0) {
         origin = right.id;
         side = "left";
@@ -194,13 +223,12 @@ export class Text {
     }
     const e: Element = {
       id: op.id,
-      side: op.side,
       char: op.char,
       deleted: this.tombstones.delete(key),
       left: [],
       right: [],
     };
-    if (e.side === "left") sortedInsert(origin.left, e);
+    if (op.side === "left") sortedInsert(origin.left, e);
     else sortedInsert(origin.right, e);
     this.elements.set(key, e);
     this.dirty = true;

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/x/spatial"
+
 @ts output "x/ts/src/crdt"
 @go output "x/go/crdt"
 
@@ -31,30 +33,23 @@ ID struct {
     """
 }
 
-Side enum {
-    left  = "left"
-    right = "right"
-
-    @doc value """
-        is the side a character anchors to relative to its origin: left places it
-        immediately before the origin, right immediately after.
-    """
-}
-
 Insert struct {
-    id     ID    {
+    id     ID                {
         @doc value "is the identity of the inserted character."
     }
-    origin ID    {
+    origin ID                {
         @doc value """
             is the existing character this one anchors to. The root sentinel anchors to
             the start of the document.
         """
     }
-    side   Side  {
-        @doc value "is the side of origin the character anchors to."
+    side   spatial.XLocation {
+        @doc value """
+            is the side of origin the character anchors to: left places it immediately
+            before the origin, right immediately after.
+        """
     }
-    char   int32 {
+    char   int32             {
         @doc value "is the inserted Unicode code point."
     }
 

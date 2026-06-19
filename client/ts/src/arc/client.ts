@@ -114,10 +114,7 @@ export class Client {
   }
 
   /** dispatch relays a sequence of collaborative-edit actions for the arc with the given
-   * key to the other clients editing it. dispatchKey is a client-generated identifier
-   * for the batch, echoed back on the broadcast so the sender can recognize its own
-   * edits. The other clients receive the actions by streaming the SET_CHANNEL_NAME
-   * channel and decoding each sample with the generated scopedActionZ schema. */
+   * key to the other clients editing it. */
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
     await this.client.send(
       "/arc/dispatch",
