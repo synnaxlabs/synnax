@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -37,17 +38,14 @@ import (
 // permitted number of external channels.
 type IntOverflowChecker = func(types.Uint20) error
 
-// Allocator is the distribution-layer channel allocator the service drives to assign
-// local keys and create, rename, and delete storage channels across the cluster.
-type Allocator = *dischannel.Service
-
 // ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
 	alamos.Instrumentation
+	// Channel is the distribution-layer channel service the service drives to assign
+	// local keys and create, rename, and delete storage channels across the cluster.
+	Channel *dischannel.Service
 	// DB is the cluster-wide metadata database backing the channel table.
 	DB *gorp.DB
-	// Allocator is the distribution-layer channel allocator.
-	Allocator Allocator
 	// HostResolver provides this node's key for default leaseholder assignment.
 	HostResolver node.HostResolver
 	// Ontology integrates channels into the resource ontology.
@@ -68,8 +66,8 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
+	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "allocator", c.Allocator)
 	validate.NotNil(v, "host_resolver", c.HostResolver)
 	validate.NotNil(v, "int_overflow_check", c.IntOverflowCheck)
 	validate.NotNil(v, "validate_names", c.ValidateNames)
@@ -79,8 +77,8 @@ func (c ServiceConfig) Validate() error {
 
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Allocator = override.Nil(c.Allocator, other.Allocator)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -91,8 +89,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// DefaultServiceConfig is the default configuration for the channel service.
-var DefaultServiceConfig = ServiceConfig{ValidateNames: new(true)}
+// DefaultServiceConfig is the default configuration for the channel service. The overflow
+// check defaults to the free tier; production overrides it with the verification service.
+var DefaultServiceConfig = ServiceConfig{
+	ValidateNames:    new(true),
+	IntOverflowCheck: verification.FreeOverflowCheck,
+}
 
 // Service is the top-level channel service. It owns the channel metadata table,
 // retrieval, ontology and search integration, and the create/delete/rename

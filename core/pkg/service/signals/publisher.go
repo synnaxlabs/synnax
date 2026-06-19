@@ -13,6 +13,8 @@ import (
 	"context"
 	"io"
 
+	"github.com/samber/lo"
+	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -149,10 +151,16 @@ func (p *Provider) PublishFromObservable(
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)
-	distChannels, err := p.cfg.Channel.RetrieveByKeys(ctx, keys...)
-	if err != nil {
+	var richChannels []channel.Channel
+	if err := p.cfg.Channel.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Entries(&richChannels).
+		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
+	distChannels := lo.Map(richChannels, func(c channel.Channel, _ int) dischannel.Channel {
+		return c.Distribution()
+	})
 	w, err := p.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Keys:        keys,
 		Channels:    distChannels,

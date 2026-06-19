@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	. "github.com/synnaxlabs/x/testutil"
@@ -27,14 +27,16 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	dist mock.Node
-	sigs *signals.Provider
+	dist  mock.Node
+	chSvc *channel.Service
+	sigs  *signals.Provider
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.NewNode(ctx)
+	chSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
 	sigs = MustSucceed(signals.New(signals.Config{
-		Channel: channelmock.ChannelService(dist),
-		Framer:  framer.Wrap(dist.Framer, channelmock.ChannelService(dist)),
+		Channel: chSvc,
+		Framer:  framer.Wrap(dist.Framer, chSvc),
 	}))
 })

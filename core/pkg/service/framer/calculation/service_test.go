@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
+	serviceframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -36,9 +36,10 @@ import (
 
 var _ = Describe("Calculation", Ordered, func() {
 	var (
-		c         *calculation.Service
-		dist      mock.Node
-		statusSvc *status.Service
+		c          *calculation.Service
+		dist       mock.Node
+		statusSvc  *status.Service
+		channelSvc *channel.Service
 	)
 	open := func(
 		ctx context.Context,
@@ -48,7 +49,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		streamKeys func([]channel.Channel) channel.Keys,
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
 		if indexChannels != nil {
-			Expect(channelmock.ChannelService(dist).CreateMany(ctx, indexChannels)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, indexChannels)).To(Succeed())
 		}
 		for i, channel := range *baseChannels {
 			if channel.Virtual {
@@ -61,8 +62,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			channel.LocalIndex = (*indexChannels)[toGet].LocalKey
 			(*baseChannels)[i] = channel
 		}
-		Expect(channelmock.ChannelService(dist).CreateMany(ctx, baseChannels)).To(Succeed())
-		Expect(channelmock.ChannelService(dist).CreateMany(ctx, calculations)).To(Succeed())
+		Expect(channelSvc.CreateMany(ctx, baseChannels)).To(Succeed())
+		Expect(channelSvc.CreateMany(ctx, calculations)).To(Succeed())
 		rm := c.OpenRequestManager()
 		Expect(rm.Set(ctx, channel.KeysFromChannels(*calculations))).To(Succeed())
 		writerKeys := channel.KeysFromChannels(*baseChannels)
@@ -70,10 +71,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
 		}
 		sCtx, cancel := signal.Isolated()
-		w := MustSucceed(channelmock.OpenWriter(
+		w := MustSucceed(serviceframer.Wrap(dist.Framer, channelSvc).OpenWriter(
 			ctx,
-			dist,
-			channelmock.ChannelService(dist),
 			framer.WriterConfig{
 				Start: 1 * telem.SecondTS,
 				Keys:  writerKeys,
@@ -113,12 +112,12 @@ var _ = Describe("Calculation", Ordered, func() {
 			Label:    labelSvc,
 			Search:   dist.Search,
 		}))
-		channelSvc := channelmock.ChannelService(dist)
+		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
 			Channel:           channelSvc,
-			ChannelObservable: channelmock.ChannelService(dist).Observe(),
+			ChannelObservable: channelSvc.Observe(),
 			Status:            statusSvc,
 		}))
 	})
@@ -477,7 +476,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			}}
 			// Bypass create-time analysis so the invalid expression reaches the
 			// calculation request manager, whose error-status handling is under test.
-			Expect(channelmock.ChannelService(dist).NewWriterNoAnalysis(nil).CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(channelSvc.NewWriterNoAnalysis(nil).CreateMany(ctx, &calcs)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
@@ -502,12 +501,12 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			Expect(channelmock.ChannelService(dist).CreateMany(ctx, &bases)).To(Succeed())
-			Expect(channelmock.ChannelService(dist).CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, &calcs)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			calcs[0].Expression = "invalid expression without return"
-			Expect(channelmock.ChannelService(dist).NewWriterNoAnalysis(nil).Create(ctx, &calcs[0])).To(Succeed())
+			Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, &calcs[0])).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
 			Eventually(func(g Gomega) {
@@ -529,7 +528,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Expression:  "invalid expression",
 			}}
-			Expect(channelmock.ChannelService(dist).NewWriterNoAnalysis(nil).CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(channelSvc.NewWriterNoAnalysis(nil).CreateMany(ctx, &calcs)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
@@ -568,7 +567,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", bases[0].Name)
-			Expect(channelmock.ChannelService(dist).Create(ctx, &calcs[0])).To(Succeed())
+			Expect(channelSvc.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
@@ -609,7 +608,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
-			Expect(channelmock.ChannelService(dist).Create(ctx, &calcs[0])).To(Succeed())
+			Expect(channelSvc.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2))))

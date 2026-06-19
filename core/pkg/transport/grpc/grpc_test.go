@@ -18,7 +18,7 @@ import (
 var _ = Describe("GRPC", func() {
 	Describe("Bind", func() {
 		It("Should return one bindable transport per gRPC service", func() {
-			transports := grpc.Bind(apiLayer, svc.Channel)
+			transports := grpc.Bind(apiLayer, channelSvc)
 			Expect(transports).To(HaveLen(13))
 			for _, t := range transports {
 				Expect(t).ToNot(BeNil())
@@ -26,8 +26,8 @@ var _ = Describe("GRPC", func() {
 		})
 
 		It("Should return the same set of transports when bound repeatedly", func() {
-			Expect(grpc.Bind(apiLayer, svc.Channel)).To(HaveLen(13))
-			Expect(grpc.Bind(apiLayer, svc.Channel)).To(HaveLen(13))
+			Expect(grpc.Bind(apiLayer, channelSvc)).To(HaveLen(13))
+			Expect(grpc.Bind(apiLayer, channelSvc)).To(HaveLen(13))
 		})
 	})
 })

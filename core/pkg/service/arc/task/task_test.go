@@ -28,8 +28,8 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	serviceframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -49,13 +49,16 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.Arc, error) {
 
 var _ = Describe("Task", Ordered, func() {
 	var (
-		dist      mock.Node
-		statusSvc *status.Service
+		dist       mock.Node
+		statusSvc  *status.Service
+		channelSvc *channel.Service
+		frameSvc   *serviceframer.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
 		dist = mock.NewNode(ctx)
-		channelmock.ChannelService(dist) // pre-wrap so observable goroutines predate the leak baseline
+		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
+		frameSvc = serviceframer.Wrap(dist.Framer, channelSvc)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
@@ -73,7 +76,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
 		return MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-			Channel:    channelmock.ChannelService(dist),
+			Channel:    channelSvc,
 			Framer:     dist.Framer,
 			Status:     statusSvc,
 			GetProgram: getModule,
@@ -82,7 +85,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-			resolver := channelmock.ChannelService(dist).NewArcSymbolResolver(nil)
+			resolver := channelSvc.NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileGraph(ctx, g, root)
 			if err != nil {
@@ -94,7 +97,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := channelmock.ChannelService(dist).NewArcSymbolResolver(nil)
+			resolver := channelSvc.NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
@@ -133,7 +136,7 @@ var _ = Describe("Task", Ordered, func() {
 			Virtual:  true,
 			DataType: dataType,
 		}
-		Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
+		Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 		return ch
 	}
 
@@ -208,7 +211,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return ErrTaskNotHandled for non-arc task types", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				Channel: channelmock.ChannelService(dist),
+				Channel: channelSvc,
 				Framer:  dist.Framer,
 				Status:  statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
@@ -226,14 +229,14 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should create Task for arc type", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "factory_test_ch", Virtual: true, DataType: telem.Float32T}
-			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 			Expect(t).ToNot(BeNil())
 		})
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				Channel:    channelmock.ChannelService(dist),
+				Channel:    channelSvc,
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -249,7 +252,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				Channel:    channelmock.ChannelService(dist),
+				Channel:    channelSvc,
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
@@ -265,7 +268,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				Channel:    channelmock.ChannelService(dist),
+				Channel:    channelSvc,
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -289,7 +292,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				Channel:    channelmock.ChannelService(dist),
+				Channel:    channelSvc,
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
@@ -317,7 +320,7 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 4),
 				Name:   "test-config-success",
@@ -345,7 +348,7 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			svcTask := task.Task{
 				Key:  task.NewKey(rack.NewKey(1, 1), 5),
 				Name: "test-auto-start",
@@ -380,7 +383,7 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			arcTask = newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 		})
 
@@ -440,7 +443,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Alarm Flow", func() {
 		It("Should update alarm statuses based on telemetry", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "ox_pt_1", Virtual: true, DataType: telem.Float32T}
-			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 
 			alarmGraph := graph.Graph{
 				Nodes: []graph.Node{
@@ -491,7 +494,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			time.Sleep(20 * time.Millisecond)
 
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  []channel.Key{ch.Key()},
 				Start: telem.Now(),
 			}))
@@ -514,7 +517,6 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Status Reporting", func() {
 		It("Should set a task-level warning when status.set matches multiple statuses by name", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "report_trigger", Virtual: true, DataType: telem.Float32T}
-			channelSvc := channelmock.ChannelService(dist)
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 
 			dupName := "dup_alarm_" + uuid.NewString()[:8]
@@ -554,7 +556,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
-			fw := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			fw := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  []channel.Key{ch.Key()},
 				Start: telem.Now(),
 			}))
@@ -581,13 +583,13 @@ var _ = Describe("Task", Ordered, func() {
 				IsIndex:  true,
 				DataType: telem.TimeStampT,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "interval_data_" + uuid.NewString()[:8],
 				LocalIndex: indexCh.LocalKey,
 				DataType:   telem.Uint8T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
@@ -646,7 +648,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  channel.Keys{inputCh.Key()},
 			}))
@@ -807,7 +809,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(fr.Frame.Get(triggerOut.Key()).Len()).To(BeZero())
 			}
 
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -896,7 +898,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(200)},
@@ -928,7 +930,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
@@ -959,7 +961,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(254)},
@@ -993,7 +995,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			wA := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			wA := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch1.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(150)},
@@ -1002,7 +1004,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(wA.Close()).To(Succeed()) }()
 			Expect(wA.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 
-			wB := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			wB := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(150)},
@@ -1070,7 +1072,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			trigW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			trigW := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1081,7 +1083,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(responses).Should(Receive(&fr))
 			Eventually(responses).Should(Receive(&fr))
 
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{dataCh.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(150)},
@@ -1124,7 +1126,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			wBefore := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			wBefore := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{dataCh.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
@@ -1133,7 +1135,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(wBefore.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 			Expect(wBefore.Close()).To(Succeed())
 
-			trigW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			trigW := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1144,7 +1146,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(responses).Should(Receive(&fr))
 			Eventually(responses).Should(Receive(&fr))
 
-			wAfter := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			wAfter := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{dataCh.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
@@ -1187,7 +1189,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			trigW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			trigW := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1213,7 +1215,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
-			startW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			startW := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{startSignal.Key()},
 				Start: telem.Now(),
 			}))
@@ -1223,7 +1225,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
 
-			clearW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			clearW := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{startSignal.Key()},
 				Start: telem.Now(),
 			}))
@@ -1231,7 +1233,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(clearW.Close()).To(Succeed())
 			time.Sleep(100 * time.Millisecond)
 
-			stopW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			stopW := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{stopSignal.Key()},
 				Start: telem.Now(),
 			}))
@@ -1240,7 +1242,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			time.Sleep(300 * time.Millisecond)
 
-			w1 := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w1 := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch1.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(1)},
@@ -1249,7 +1251,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(w1.Close()).To(Succeed()) }()
 			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 
-			w2 := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w2 := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(1)},
@@ -1273,7 +1275,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
-			startW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			startW := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{startSignal.Key()},
 				Start: telem.Now(),
 			}))
@@ -1283,7 +1285,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
 
-			stopW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			stopW := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{stopSignal.Key()},
 				Start: telem.Now(),
 			}))
@@ -1292,7 +1294,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			time.Sleep(300 * time.Millisecond)
 
-			w1 := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w1 := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch1.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
@@ -1301,7 +1303,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(w1.Close()).To(Succeed()) }()
 			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 
-			w2 := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w2 := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
@@ -1340,7 +1342,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			time.Sleep(20 * time.Millisecond)
 
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  []channel.Key{inputCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1398,7 +1400,7 @@ var _ = Describe("Task", Ordered, func() {
 			time.Sleep(20 * time.Millisecond)
 
 			// Write max value of 5.0 to the max channel
-			wMax := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			wMax := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  []channel.Key{maxCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1408,7 +1410,7 @@ var _ = Describe("Task", Ordered, func() {
 			time.Sleep(20 * time.Millisecond)
 
 			// Write a rising edge (0 -> 1) to the input channel
-			wInput := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			wInput := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  []channel.Key{inputCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1463,7 +1465,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			time.Sleep(20 * time.Millisecond)
 
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(frameSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  []channel.Key{inputCh.Key()},
 				Start: telem.Now(),
 			}))

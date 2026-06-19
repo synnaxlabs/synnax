@@ -120,7 +120,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if len(cfg.Keys) == 0 {
 		return nil, errors.Wrap(validate.ErrValidation, "keys must be non-empty")
 	}
-	exists, err := s.cfg.Channel.ContainsKeys(ctx, cfg.Keys...)
+	exists, err := s.cfg.Channel.NewRetrieve().Where(channel.MatchKeys(cfg.Keys...)).Exists(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

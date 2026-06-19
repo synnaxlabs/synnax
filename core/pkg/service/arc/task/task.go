@@ -15,6 +15,7 @@ import (
 	"io"
 	stdtime "time"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
@@ -31,6 +32,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/wasm"
+	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -259,11 +261,17 @@ func (t *impl) start(ctx context.Context) (err error) {
 		// Critical: ToSlice is extracted from a map, so we need to convert it to a
 		// slice ONCE in order go guarantee stable order.
 		writeKeys := deps.Writes.Slice()
-		writeChannels, err := t.factoryCfg.Channel.RetrieveByKeys(ctx, writeKeys...)
-		if err != nil {
+		var richChannels []channel.Channel
+		if err := t.factoryCfg.Channel.NewRetrieve().
+			Where(channel.MatchKeys(writeKeys...)).
+			Entries(&richChannels).
+			Exec(ctx, nil); err != nil {
 			t.setStatus(ctx, status.VariantError, false, err.Error())
 			return err
 		}
+		writeChannels := lo.Map(richChannels, func(c channel.Channel, _ int) dischannel.Channel {
+			return c.Distribution()
+		})
 		writerCfg := framer.WriterConfig{
 			ControlSubject: control.Subject{
 				Name: t.prog.Name,

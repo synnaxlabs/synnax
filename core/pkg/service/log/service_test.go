@@ -119,7 +119,14 @@ var _ = Describe("OpenService", func() {
 
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
 		dist := mock.NewNode(ctx)
-		channelSvc := channel.Wrap(dist.Layer)
+		channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+			Channel:      dist.Channel,
+			DB:           dist.DB,
+			HostResolver: dist.Cluster,
+			Ontology:     dist.Ontology,
+			Group:        dist.Group,
+			Search:       dist.Search,
+		}))
 		sigs := MustSucceed(signals.New(signals.Config{
 			Channel: channelSvc,
 			Framer:  framer.Wrap(dist.Framer, channelSvc),

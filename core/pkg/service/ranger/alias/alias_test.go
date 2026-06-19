@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
@@ -35,10 +34,12 @@ var _ = Describe("Alias", Ordered, func() {
 		rangerSvc *ranger.Service
 		aliasSvc  *alias.Service
 		labelSvc  *label.Service
+		chSvc     *channel.Service
 		tx        gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
 		dist = mock.NewNode(ctx)
+		chSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
@@ -55,7 +56,7 @@ var _ = Describe("Alias", Ordered, func() {
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              dist.DB,
 			Ontology:        dist.Ontology,
-			Channel:         channelmock.ChannelService(dist),
+			Channel:         chSvc,
 			ParentRetriever: rangerSvc,
 			Search:          dist.Search,
 		}))
@@ -72,7 +73,7 @@ var _ = Describe("Alias", Ordered, func() {
 	createChannel := func(ctx context.Context) channel.Channel {
 		channelCount++
 		ch := channel.Channel{DataType: telem.Float32T, Name: fmt.Sprintf("test_%d", channelCount), Virtual: true}
-		Expect(channelmock.ChannelService(dist).NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(chSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		return ch
 	}
 

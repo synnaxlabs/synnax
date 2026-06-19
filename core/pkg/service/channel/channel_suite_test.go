@@ -10,15 +10,17 @@
 package channel_test
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,6 +35,33 @@ func TestChannel(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// openService opens a channel service for the node and creates the node's internal
+// control channel, mirroring what the service layer's OpenLayer does in production.
+// Tests rely on the control channel for their local-key and channel-count expectations.
+// Extra configs override the derived distribution-layer fields.
+func openService(ctx context.Context, n mock.Node, cfgs ...channel.ServiceConfig) *channel.Service {
+	GinkgoHelper()
+	base := channel.ServiceConfig{
+		Channel:      n.Channel,
+		DB:           n.DB,
+		HostResolver: n.Cluster,
+		Ontology:     n.Ontology,
+		Group:        n.Group,
+		Search:       n.Search,
+	}
+	s := MustSucceed(channel.NewService(ctx, append([]channel.ServiceConfig{base}, cfgs...)...))
+	controlCh := channel.Channel{
+		Name:        fmt.Sprintf("sy_node_%v_control", n.Cluster.HostKey()),
+		Leaseholder: n.Cluster.HostKey(),
+		Virtual:     true,
+		DataType:    telem.StringT,
+		Internal:    true,
+	}
+	Expect(s.Create(ctx, &controlCh, channel.RetrieveIfNameExists())).To(Succeed())
+	Expect(n.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key())).To(Succeed())
+	return s
+}
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.NewNode(ctx)
@@ -49,15 +78,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   dist.Search,
 	}))
-	svc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		DB:               dist.DB,
-		Allocator:        dist.Channel,
-		HostResolver:     dist.Cluster,
-		Ontology:         dist.Ontology,
-		Group:            dist.Group,
-		Search:           dist.Search,
-		IntOverflowCheck: verification.FreeOverflowCheck,
-		ValidateNames:    new(true),
-		Status:           statusSvc,
-	}))
+	svc = openService(ctx, dist, channel.ServiceConfig{Status: statusSvc})
 })

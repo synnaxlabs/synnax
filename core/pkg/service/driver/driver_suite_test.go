@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -73,7 +72,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
-	channelSvc = channelmock.ChannelService(dist)
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
 	framerSvc = dist.Framer
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
@@ -81,7 +80,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    dist.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
-		Channel:  channelmock.ChannelService(dist),
+		Channel:  channelSvc,
 		Search:   searchIdx,
 	}))
 })

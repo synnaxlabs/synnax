@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
+	sframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,12 +35,13 @@ func fixedOverflowChecker(limit int) channel.IntOverflowChecker {
 
 var _ = Describe("Limit", Ordered, func() {
 	var (
-		limit = 5
-		dist  mock.Node
+		limit    = 5
+		dist     mock.Node
+		limitSvc *channel.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		dist = mock.NewNode(ctx)
-		channelmock.ChannelService(dist, channel.WithIntOverflowCheck(fixedOverflowChecker(limit)))
+		limitSvc = openService(ctx, dist, channel.ServiceConfig{IntOverflowCheck: fixedOverflowChecker(limit)})
 	})
 	It("Should not allow creating channels over the limit", func(ctx SpecContext) {
 		// Create channels up to the limit
@@ -51,7 +52,7 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, &ch)).To(Succeed())
+			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
 		}
 
 		// Try to create one more channel over the limit
@@ -61,7 +62,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		Expect(channelmock.ChannelService(dist).Create(ctx, &overLimitCh)).
+		Expect(limitSvc.Create(ctx, &overLimitCh)).
 			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 	})
 
@@ -75,7 +76,7 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, &ch)).To(Succeed())
+			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
 			channels[i] = ch
 		}
 
@@ -86,11 +87,11 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		Expect(channelmock.ChannelService(dist).Create(ctx, &overLimitCh)).
+		Expect(limitSvc.Create(ctx, &overLimitCh)).
 			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 
 		// Delete one channel
-		writer := channelmock.ChannelService(dist).NewWriter(nil)
+		writer := limitSvc.NewWriter(nil)
 		Expect(writer.Delete(ctx, channels[0].Key(), false)).To(Succeed())
 
 		// Now we should be able to create a new channel
@@ -100,7 +101,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "NewAfterDelete",
 			Leaseholder: 1,
 		}
-		Expect(channelmock.ChannelService(dist).Create(ctx, &newCh)).To(Succeed())
+		Expect(limitSvc.Create(ctx, &newCh)).To(Succeed())
 
 		// Try to create one more channel (should fail again)
 		anotherCh := channel.Channel{
@@ -109,7 +110,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "AnotherOverLimit",
 			Leaseholder: 1,
 		}
-		Expect(channelmock.ChannelService(dist).Create(ctx, &anotherCh)).
+		Expect(limitSvc.Create(ctx, &anotherCh)).
 			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 	})
 
@@ -123,7 +124,7 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, &ch)).To(Succeed())
+			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
 			createdChannels[i] = ch
 		}
 
@@ -134,12 +135,12 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		Expect(channelmock.ChannelService(dist).Create(ctx, &overLimitCh)).
+		Expect(limitSvc.Create(ctx, &overLimitCh)).
 			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 
 		// Retrieve all channels - this should work fine even at the limit
 		var retrievedChannels []channel.Channel
-		retrieve := channelmock.ChannelService(dist).NewRetrieve()
+		retrieve := limitSvc.NewRetrieve()
 		Expect(retrieve.Entries(&retrievedChannels).Where(channel.MatchLeaseholders(1)).Exec(ctx, nil)).To(Succeed())
 		Expect(retrievedChannels).To(HaveLen(limit + internalChannelCount))
 
@@ -157,13 +158,13 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, &ch)).To(Succeed())
+			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
 			createdChannels[i] = ch
 		}
-		writer := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+		writer := MustSucceed(sframer.Wrap(dist.Framer, limitSvc).OpenWriter(ctx, framer.WriterConfig{
 			Keys: []channel.Key{createdChannels[0].Key()},
 		}))
-		Expect(channelmock.ChannelService(dist).Delete(ctx, createdChannels[0].Key(), false)).
+		Expect(limitSvc.Delete(ctx, createdChannels[0].Key(), false)).
 			To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 		newCh := channel.Channel{
 			IsIndex:     true,
@@ -171,7 +172,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "NewAfterDelete",
 			Leaseholder: 1,
 		}
-		Expect(channelmock.ChannelService(dist).Create(ctx, &newCh)).
+		Expect(limitSvc.Create(ctx, &newCh)).
 			To(MatchError(ContainSubstring("channel limit exceeded")))
 		Expect(writer.Close()).To(Succeed())
 	})

@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
+	serviceframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -27,6 +27,8 @@ import (
 type benchIterEnv struct {
 	ctx         context.Context
 	dist        mock.Node
+	channelSvc  *channel.Service
+	fr          *serviceframer.Service
 	iteratorSvc *iterator.Service
 }
 
@@ -34,9 +36,14 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
 	dist := mock.OpenNode(b.Context())
 
+	channelSvc, err := channel.NewService(b.Context(), channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search})
+	if err != nil {
+		b.Fatalf("failed to open channel service: %v", err)
+	}
+
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: dist.Framer,
-		Channel:    channelmock.ChannelService(dist),
+		Channel:    channelSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open iterator service: %v", err)
@@ -45,6 +52,8 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	return &benchIterEnv{
 		ctx:         b.Context(),
 		dist:        dist,
+		channelSvc:  channelSvc,
+		fr:          serviceframer.Wrap(dist.Framer, channelSvc),
 		iteratorSvc: iteratorSvc,
 	}
 }
@@ -65,7 +74,7 @@ func (e *benchIterEnv) createChannels(
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	if err := channelmock.ChannelService(e.dist).Create(e.ctx, indexCh); err != nil {
+	if err := e.channelSvc.Create(e.ctx, indexCh); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
@@ -75,7 +84,7 @@ func (e *benchIterEnv) createChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := channelmock.ChannelService(e.dist).Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.channelSvc.Create(e.ctx, dataChannels[i]); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -93,7 +102,7 @@ func (e *benchIterEnv) writeData(
 	for i, ch := range dataChannels {
 		keys[i+1] = ch.Key()
 	}
-	w, err := channelmock.OpenWriter(e.ctx, e.dist, channelmock.ChannelService(e.dist), framer.WriterConfig{
+	w, err := e.fr.OpenWriter(e.ctx, framer.WriterConfig{
 		Start:            telem.SecondTS,
 		Keys:             keys,
 		EnableAutoCommit: new(true),
@@ -133,7 +142,7 @@ func (e *benchIterEnv) createCalculation(
 		DataType:   telem.Float32T,
 		Expression: expression,
 	}
-	if err := channelmock.ChannelService(e.dist).Create(e.ctx, calc); err != nil {
+	if err := e.channelSvc.Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc
@@ -317,7 +326,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			if err := channelmock.ChannelService(env.dist).Create(env.ctx, indexCh); err != nil {
+			if err := env.channelSvc.Create(env.ctx, indexCh); err != nil {
 				b.Fatalf("failed to create index channel: %v", err)
 			}
 			dataCh := &channel.Channel{
@@ -325,14 +334,14 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			if err := channelmock.ChannelService(env.dist).Create(env.ctx, dataCh); err != nil {
+			if err := env.channelSvc.Create(env.ctx, dataCh); err != nil {
 				b.Fatalf("failed to create data channel: %v", err)
 			}
 
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
 			for d := range numDomains {
 				startTS := telem.TimeStamp(d*1000+1) * telem.SecondTS
-				w, err := channelmock.OpenWriter(env.ctx, env.dist, channelmock.ChannelService(env.dist), framer.WriterConfig{
+				w, err := env.fr.OpenWriter(env.ctx, framer.WriterConfig{
 					Start:            startTS,
 					Keys:             keys,
 					EnableAutoCommit: new(true),

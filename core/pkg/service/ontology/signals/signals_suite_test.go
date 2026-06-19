@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
 	svcsignals "github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -31,17 +31,19 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	dist mock.Node
-	svc  *changeService
+	dist  mock.Node
+	chSvc *channel.Service
+	svc   *changeService
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.NewNode(ctx)
+	chSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
 	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
 	dist.Ontology.RegisterService(svc)
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
-		Channel: channelmock.ChannelService(dist),
-		Framer:  framer.Wrap(dist.Framer, channelmock.ChannelService(dist)),
+		Channel: chSvc,
+		Framer:  framer.Wrap(dist.Framer, chSvc),
 	}))
 	MustOpen(signals.Publish(ctx, sigs, dist.Ontology))
 })

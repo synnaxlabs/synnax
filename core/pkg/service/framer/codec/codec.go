@@ -204,19 +204,28 @@ func (c *Codec) channelStringer(ctx context.Context, key channel.Key) string {
 	if c.channels == nil {
 		return key.String()
 	}
-	chs, err := c.channels.RetrieveByKeys(ctx, key)
-	if err != nil || len(chs) == 0 {
+	var chs []svcchannel.Channel
+	if err := c.channels.NewRetrieve().
+		Where(svcchannel.MatchKeys(key)).
+		Entries(&chs).
+		Exec(ctx, nil); err != nil || len(chs) == 0 {
 		return key.String()
 	}
-	return chs[0].String()
+	return chs[0].Distribution().String()
 }
 
 // Update updates the codec to use the given keys in its state.
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
-	channels, err := c.channels.RetrieveByKeys(ctx, keys...)
-	if err != nil {
+	var richChannels []svcchannel.Channel
+	if err := c.channels.NewRetrieve().
+		Where(svcchannel.MatchKeys(keys...)).
+		Entries(&richChannels).
+		Exec(ctx, nil); err != nil {
 		return err
 	}
+	channels := lo.Map(richChannels, func(ch svcchannel.Channel, _ int) channel.Channel {
+		return ch.Distribution()
+	})
 	keyDataTypes := make(map[channel.Key]telem.DataType, len(channels))
 	for _, ch := range channels {
 		keyDataTypes[ch.Key()] = ch.DataType

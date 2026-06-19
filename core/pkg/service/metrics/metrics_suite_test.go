@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -54,15 +53,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 	}))
 	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		DB:               dist.DB,
-		Allocator:        dist.Channel,
-		HostResolver:     dist.Cluster,
-		Ontology:         dist.Ontology,
-		Group:            dist.Group,
-		Search:           dist.Search,
-		IntOverflowCheck: verification.FreeOverflowCheck,
-		ValidateNames:    new(true),
-		Status:           statusSvc,
+		Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search,
+		Status: statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  dist.Framer,

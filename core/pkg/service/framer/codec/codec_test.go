@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/codec"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -339,7 +338,7 @@ var _ = Describe("Codec", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			dist = mock.NewNode(ctx)
-			channelSvc = channelmock.ChannelService(dist)
+			channelSvc = MustSucceed(svcchannel.NewService(ctx, svcchannel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
 			idxCh = svcchannel.Channel{
 				DataType: telem.TimeStampT,
 				Name:     "time",

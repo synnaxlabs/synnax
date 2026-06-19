@@ -20,18 +20,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Dependencies", Ordered, func() {
-	var dist mock.Node
+	var (
+		dist  mock.Node
+		chSvc *channel.Service
+	)
 
 	BeforeAll(func(ctx SpecContext) {
 		dist = mock.NewNode(ctx)
-		channelmock.ChannelService(dist) // pre-wrap so observable goroutines predate the leak baseline
+		chSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
 	})
 
 	Describe("NewDependencies", func() {
@@ -41,7 +43,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
+			Expect(chSvc.Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -57,7 +59,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Reads.Contains(ch.Key())).To(BeTrue())
 			Expect(deps.Writes.Contains(ch.Key())).To(BeFalse())
 			Expect(deps.ChannelDigests).To(HaveLen(1))
@@ -71,7 +73,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float64T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
+			Expect(chSvc.Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -87,7 +89,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -98,7 +100,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Int32T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
+			Expect(chSvc.Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -114,7 +116,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -126,7 +128,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, indexCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, indexCh)).To(Succeed())
 
 			dataCh := &channel.Channel{
 				Name:       "data_with_index",
@@ -134,7 +136,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -150,7 +152,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Reads.Contains(dataCh.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(indexCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(2))
@@ -163,7 +165,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, indexCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, indexCh)).To(Succeed())
 
 			dataCh := &channel.Channel{
 				Name:       "write_data_with_index",
@@ -171,7 +173,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -187,7 +189,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Writes.Contains(dataCh.Key())).To(BeTrue())
 			Expect(deps.Writes.Contains(indexCh.Key())).To(BeTrue())
 		})
@@ -198,14 +200,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, readCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, readCh)).To(Succeed())
 
 			writeCh := &channel.Channel{
 				Name:     "output_actuator",
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, writeCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, writeCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -222,7 +224,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Reads.Contains(readCh.Key())).To(BeTrue())
 			Expect(deps.Writes.Contains(writeCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(2))
@@ -234,7 +236,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, sharedCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, sharedCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -257,7 +259,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Reads.Contains(sharedCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(1))
 		})
@@ -268,7 +270,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 					Nodes: []ir.Node{},
 				},
 			}
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Reads).To(BeEmpty())
 			Expect(deps.Writes).To(BeEmpty())
 			Expect(deps.ChannelDigests).To(BeEmpty())
@@ -287,7 +289,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Reads).To(BeEmpty())
 			Expect(deps.Writes).To(BeEmpty())
 			Expect(deps.ChannelDigests).To(BeEmpty())
@@ -308,7 +310,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			Expect(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog)).
+			Expect(runtime.NewDependencies(ctx, chSvc, prog)).
 				Error().To(MatchError(query.ErrNotFound))
 		})
 
@@ -319,7 +321,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: 0,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, virtualCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, virtualCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -335,7 +337,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Reads.Contains(virtualCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(1))
 		})
@@ -346,7 +348,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, virtCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, virtCh)).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
@@ -359,10 +361,10 @@ var _ = Describe("Dependencies", Ordered, func() {
 				`, virtCh.Name),
 			}
 
-			resolver := channelmock.ChannelService(dist).NewArcSymbolResolver(nil)
+			resolver := chSvc.NewArcSymbolResolver(nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), compiled))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, compiled))
 			Expect(deps.Reads).To(BeEmpty())
 			Expect(deps.Writes.Contains(virtCh.Key())).To(BeTrue())
 			Expect(deps.Writes).To(HaveLen(1))
@@ -377,14 +379,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Uint8T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, triggerCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, triggerCh)).To(Succeed())
 
 			valveCh := &channel.Channel{
 				Name:     "dyn_auth_valve",
 				Virtual:  true,
 				DataType: telem.Uint8T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, valveCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, valveCh)).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
@@ -397,10 +399,10 @@ var _ = Describe("Dependencies", Ordered, func() {
 				`, valveCh.Name, triggerCh.Name),
 			}
 
-			resolver := channelmock.ChannelService(dist).NewArcSymbolResolver(nil)
+			resolver := chSvc.NewArcSymbolResolver(nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), compiled))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, compiled))
 			Expect(deps.Writes.Contains(valveCh.Key())).To(BeTrue(),
 				"channel referenced only in set_authority config should be in writes")
 		})
@@ -411,7 +413,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float64T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, authOnlyCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, authOnlyCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -424,7 +426,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
 			Expect(deps.ChannelDigests).To(HaveLen(1))
 			Expect(deps.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
@@ -437,7 +439,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, indexCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, indexCh)).To(Succeed())
 
 			readCh1 := &channel.Channel{
 				Name:       "complex_read_1",
@@ -445,14 +447,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, readCh1)).To(Succeed())
+			Expect(chSvc.Create(ctx, readCh1)).To(Succeed())
 
 			readCh2 := &channel.Channel{
 				Name:     "complex_read_2",
 				Virtual:  true,
 				DataType: telem.Float64T,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, readCh2)).To(Succeed())
+			Expect(chSvc.Create(ctx, readCh2)).To(Succeed())
 
 			writeCh := &channel.Channel{
 				Name:       "complex_write",
@@ -460,7 +462,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Int32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, writeCh)).To(Succeed())
+			Expect(chSvc.Create(ctx, writeCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -489,7 +491,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				},
 			}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelmock.ChannelService(dist), prog))
+			deps := MustSucceed(runtime.NewDependencies(ctx, chSvc, prog))
 			Expect(deps.Reads.Contains(readCh1.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(readCh2.Key())).To(BeTrue())
 			Expect(deps.Reads.Contains(indexCh.Key())).To(BeTrue())

@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -35,6 +35,7 @@ var (
 	db       *gorp.DB
 	otg      *ontology.Ontology
 	svc      *panel.Service
+	chSvc    *channel.Service
 	parentID ontology.ID
 	tx       gorp.Tx
 )
@@ -43,9 +44,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.NewNode(ctx)
 	db = dist.DB
 	otg = dist.Ontology
+	chSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
 	sigs := MustSucceed(signals.New(signals.Config{
-		Channel: channelmock.ChannelService(dist),
-		Framer:  framer.Wrap(dist.Framer, channelmock.ChannelService(dist)),
+		Channel: chSvc,
+		Framer:  framer.Wrap(dist.Framer, chSvc),
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:       dist.DB,

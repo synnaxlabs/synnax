@@ -12,7 +12,9 @@ package framer
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -147,10 +149,16 @@ func (s *Service) resolveWriterChannels(
 	if len(cfg.Keys) == 0 {
 		return cfg, errors.Wrap(validate.ErrValidation, "keys must be non-empty")
 	}
-	channels, err := s.channels.RetrieveByKeys(ctx, cfg.Keys...)
-	if err != nil {
+	var richChannels []channel.Channel
+	if err := s.channels.NewRetrieve().
+		Where(channel.MatchKeys(cfg.Keys...)).
+		Entries(&richChannels).
+		Exec(ctx, nil); err != nil {
 		return cfg, err
 	}
+	channels := lo.Map(richChannels, func(c channel.Channel, _ int) dischannel.Channel {
+		return c.Distribution()
+	})
 	if len(channels) != len(cfg.Keys) {
 		return cfg, errors.Wrapf(query.ErrNotFound, "some channel keys %v not found", cfg.Keys)
 	}

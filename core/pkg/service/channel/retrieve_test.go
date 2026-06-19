@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -23,11 +23,15 @@ import (
 const internalChannelCount = 1
 
 var _ = Describe("Retrieve", Ordered, func() {
-	var mockCluster *mock.Cluster
+	var (
+		mockCluster *mock.Cluster
+		services    map[node.Key]*channel.Service
+	)
 	BeforeAll(func(ctx SpecContext) {
 		mockCluster = mock.NewCluster(ctx, 2)
-		for _, n := range mockCluster.Nodes {
-			channelmock.ChannelService(n)
+		services = make(map[node.Key]*channel.Service)
+		for k, n := range mockCluster.Nodes {
+			services[k] = openService(ctx, n)
 			Expect(n.Search.Initialize(ctx)).To(Succeed())
 		}
 	})
@@ -44,11 +48,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 					DataType: telem.Float32T,
 					Name:     channel.NewRandomName(),
 				}}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
 			var resChannels []channel.Channel
 
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).
+			Expect(services[1].
 				NewRetrieve().
 				Where(channel.MatchLeaseholders(1)).
 				Entries(&resChannels).
@@ -58,7 +62,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var resChannelsTwo []channel.Channel
 
-				g.Expect(channelmock.ChannelService(mockCluster.Nodes[2]).
+				g.Expect(services[2].
 					NewRetrieve().
 					Where(channel.MatchLeaseholders(1)).
 					Entries(&resChannelsTwo).
@@ -80,10 +84,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     channel.NewRandomName(),
 				},
 			}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).
+			Expect(services[1].
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
 				Entries(&resChannels).
@@ -100,10 +104,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     n,
 				},
 			}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).
+			Expect(services[1].
 				NewRetrieve().
 				Where(channel.MatchNames(n)).
 				Entries(&resChannels).
@@ -124,10 +128,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "SG223",
 				},
 			}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).
+			Expect(services[1].
 				NewRetrieve().
 				Where(channel.MatchNames("SG22.*")).
 				Entries(&resChannels).
@@ -136,7 +140,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 		It("Should return a well formatted error if a channel cannot be found by its key", func(ctx SpecContext) {
 			var resChannels []channel.Channel
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).
+			Expect(services[1].
 				NewRetrieve().
 				Where(channel.MatchKeys(435)).
 				Entries(&resChannels).
@@ -155,10 +159,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "catalina",
 				},
 			}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var resChannels []channel.Channel
-				g.Expect(channelmock.ChannelService(mockCluster.Nodes[1]).
+				g.Expect(services[1].
 					NewRetrieve().
 					Search("catalina").
 					Entries(&resChannels).
@@ -170,7 +174,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 		It("Should return an error when retrieving a channel with a key of 0", func(ctx SpecContext) {
 			var resChannels []channel.Channel
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).
+			Expect(services[1].
 				NewRetrieve().
 				Where(channel.MatchKeys(0)).
 				Entries(&resChannels).
@@ -191,11 +195,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Name:       "wc_calc",
 				Expression: "return wc_base * 2",
 			}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).Create(ctx, &base)).To(Succeed())
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).Create(ctx, &calc)).To(Succeed())
+			Expect(services[1].Create(ctx, &base)).To(Succeed())
+			Expect(services[1].Create(ctx, &calc)).To(Succeed())
 
 			var results []channel.Channel
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).
+			Expect(services[1].
 				NewRetrieve().
 				Where(channel.MatchCalculated()).
 				Entries(&results).
@@ -210,15 +214,16 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 		It("Should return empty when no calculated channels exist in a fresh cluster", func(ctx SpecContext) {
 			freshCluster := mock.NewCluster(ctx, 1)
+			freshSvc := openService(ctx, freshCluster.Nodes[1])
 			base := channel.Channel{
 				Virtual:  true,
 				DataType: telem.Float32T,
 				Name:     "wc_only_base",
 			}
-			Expect(channelmock.ChannelService(freshCluster.Nodes[1]).NewWriter(nil).CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
+			Expect(freshSvc.NewWriter(nil).CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
 
 			var results []channel.Channel
-			Expect(channelmock.ChannelService(freshCluster.Nodes[1]).
+			Expect(freshSvc.
 				NewRetrieve().
 				Where(channel.MatchCalculated()).
 				Entries(&results).
@@ -241,9 +246,9 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     channel.NewRandomName(),
 				},
 			}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
-			exists := MustSucceed(channelmock.ChannelService(mockCluster.Nodes[1]).
+			exists := MustSucceed(services[1].
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
 				Exists(ctx, nil))

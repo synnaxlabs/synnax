@@ -19,16 +19,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Rename", Ordered, func() {
-	var mockCluster *mock.Cluster
+	var (
+		mockCluster *mock.Cluster
+		services    map[node.Key]*channel.Service
+	)
 	BeforeAll(func(ctx SpecContext) {
 		mockCluster = mock.NewCluster(context.Background(), 3)
-		for _, n := range mockCluster.Nodes {
-			channelmock.ChannelService(n)
+		services = make(map[node.Key]*channel.Service)
+		for k, n := range mockCluster.Nodes {
+			services[k] = openService(ctx, n)
 		}
 	})
 	Context("Single channel", func() {
@@ -37,15 +40,15 @@ var _ = Describe("Rename", Ordered, func() {
 			ch.Virtual = true
 			ch.Name = channel.NewRandomName()
 			ch.DataType = telem.Float64T
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).Create(ctx, &ch)).To(Succeed())
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
 		})
 		Context("Node is local", func() {
 			BeforeEach(func() { ch.Leaseholder = 1 })
 			It("Should rename the channel without error", func(ctx SpecContext) {
 				name := channel.NewRandomName()
-				Expect(channelmock.ChannelService(mockCluster.Nodes[1]).Rename(ctx, ch.Key(), name, false)).To(Succeed())
+				Expect(services[1].Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
-				Expect(channelmock.ChannelService(mockCluster.Nodes[1]).NewRetrieve().
+				Expect(services[1].NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Entry(&resCh).
 					Exec(ctx, nil)).To(Succeed())
@@ -56,9 +59,9 @@ var _ = Describe("Rename", Ordered, func() {
 			BeforeEach(func() { ch.Leaseholder = 2 })
 			It("Should rename the channel without error", func(ctx SpecContext) {
 				name := channel.NewRandomName()
-				Expect(channelmock.ChannelService(mockCluster.Nodes[2]).Rename(ctx, ch.Key(), name, false)).To(Succeed())
+				Expect(services[2].Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
-				Expect(channelmock.ChannelService(mockCluster.Nodes[2]).NewRetrieve().
+				Expect(services[2].NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Entry(&resCh).
 					Exec(ctx, nil)).To(Succeed())
@@ -67,7 +70,7 @@ var _ = Describe("Rename", Ordered, func() {
 		})
 		Context("new name is invalid", func() {
 			It("Should return an error", func(ctx SpecContext) {
-				Expect(channelmock.ChannelService(mockCluster.Nodes[1]).Rename(ctx, ch.Key(), "invalid name", false)).To(MatchError(ContainSubstring("contains invalid characters")))
+				Expect(services[1].Rename(ctx, ch.Key(), "invalid name", false)).To(MatchError(ContainSubstring("contains invalid characters")))
 			})
 		})
 		Context("new name is a duplicate", func() {
@@ -77,8 +80,8 @@ var _ = Describe("Rename", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float64T,
 				}
-				Expect(channelmock.ChannelService(mockCluster.Nodes[1]).Create(ctx, &secondCh)).To(Succeed())
-				Expect(channelmock.ChannelService(mockCluster.Nodes[1]).Rename(ctx, ch.Key(), secondCh.Name, false)).
+				Expect(services[1].Create(ctx, &secondCh)).To(Succeed())
+				Expect(services[1].Rename(ctx, ch.Key(), secondCh.Name, false)).
 					To(MatchError(ContainSubstring("channel with name '%s' already exists", secondCh.Name)))
 			})
 		})
@@ -103,17 +106,17 @@ var _ = Describe("Rename", Ordered, func() {
 					Virtual:     true,
 				},
 			}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(services[1].CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 			names := []string{channel.NewRandomName(), channel.NewRandomName(), channel.NewRandomName()}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).RenameMany(
+			Expect(services[1].RenameMany(
 				ctx,
 				keys,
 				names,
 				false,
 			)).To(Succeed())
 			var resChannels []channel.Channel
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+			Expect(services[1].NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 			Expect(channel.KeysFromChannels(resChannels)).To(Equal(keys))
 			Expect(resChannels[0].Name).To(Equal(names[0]))
 			Expect(resChannels[1].Name).To(Equal(names[1]))
@@ -141,21 +144,21 @@ var _ = Describe("Rename", Ordered, func() {
 				Virtual:     true,
 			}
 			channels := []channel.Channel{ch1, ch2, ch3}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(services[1].CreateMany(ctx, &channels)).To(Succeed())
 			nameMap := map[string]string{
 				ch1.Name: fmt.Sprintf("old_fermat_%s", id),
 				ch2.Name: fmt.Sprintf("old_laplace_%s", id),
 				ch3.Name: fmt.Sprintf("old_newton_%s", id),
 			}
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).MapRename(ctx, nameMap, false)).To(Succeed())
+			Expect(services[1].MapRename(ctx, nameMap, false)).To(Succeed())
 			var resChannels []channel.Channel
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).NewRetrieve().
+			Expect(services[1].NewRetrieve().
 				Where(channel.MatchNames(lo.Keys(nameMap)...)).
 				Entries(&resChannels).
 				Exec(ctx, nil),
 			).To(Succeed())
 			Expect(resChannels).To(BeEmpty())
-			Expect(channelmock.ChannelService(mockCluster.Nodes[1]).NewRetrieve().
+			Expect(services[1].NewRetrieve().
 				Where(channel.MatchNames(lo.Values(nameMap)...)).
 				Entries(&resChannels).
 				Exec(ctx, nil),

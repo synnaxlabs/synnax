@@ -13,7 +13,9 @@ import (
 	"context"
 	"io"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
@@ -103,10 +105,16 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		return nil, err
 	}
 
-	writeChannels, err := cfg.Channels.RetrieveByKeys(ctx, writeKeys...)
-	if err != nil {
+	var richChannels []channel.Channel
+	if err := cfg.Channels.NewRetrieve().
+		Where(channel.MatchKeys(writeKeys...)).
+		Entries(&richChannels).
+		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
+	writeChannels := lo.Map(richChannels, func(c channel.Channel, _ int) dischannel.Channel {
+		return c.Distribution()
+	})
 	wrt, err := cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Keys:     writeKeys,
 		Channels: writeChannels,

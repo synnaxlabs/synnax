@@ -132,7 +132,7 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 		return nil, err
 	}
 	if len(cfg.Keys) > 0 {
-		exists, err := s.cfg.Channel.ContainsKeys(ctx, cfg.Keys...)
+		exists, err := s.cfg.Channel.NewRetrieve().Where(channel.MatchKeys(cfg.Keys...)).Exists(ctx, nil)
 		if err != nil {
 			return nil, err
 		}

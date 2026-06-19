@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	serviceframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -63,7 +63,7 @@ var _ = Describe("Driver", func() {
 	}
 
 	writeCommand := func(ctx context.Context, cmd task.Command) {
-		w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelSvc, writer.Config{
+		w := MustSucceed(serviceframer.Wrap(dist.Framer, channelSvc).OpenWriter(ctx, writer.Config{
 			Keys:  channel.Keys{taskService.CommandChannelKey()},
 			Start: telem.Now(),
 		}))
@@ -785,7 +785,7 @@ var _ = Describe("Driver", func() {
 
 			// Write valid JSON that won't unmarshal into task.Command
 			// (task field expects a number, not a string).
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelSvc, writer.Config{
+			w := MustSucceed(serviceframer.Wrap(dist.Framer, channelSvc).OpenWriter(ctx, writer.Config{
 				Keys:  channel.Keys{taskService.CommandChannelKey()},
 				Start: telem.Now(),
 			}))

@@ -19,20 +19,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type benchEnv struct {
-	ctx  context.Context
-	dist mock.Node
+	ctx        context.Context
+	dist       mock.Node
+	channelSvc *channel.Service
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
 	dist := mock.OpenNode(b.Context())
-	return &benchEnv{ctx: b.Context(), dist: dist}
+	channelSvc := MustSucceed(channel.NewService(b.Context(), channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
+	return &benchEnv{ctx: b.Context(), dist: dist, channelSvc: channelSvc}
 }
 
 func (e *benchEnv) close(b *testing.B) {
@@ -47,7 +49,7 @@ func (e *benchEnv) openCalculator(
 	calc *channel.Channel,
 ) *calculator.Calculator {
 	if len(indexes) > 0 {
-		if err := channelmock.ChannelService(e.dist).CreateMany(e.ctx, &indexes); err != nil {
+		if err := e.channelSvc.CreateMany(e.ctx, &indexes); err != nil {
 			b.Fatalf("failed to create index channels: %v", err)
 		}
 	}
@@ -63,15 +65,15 @@ func (e *benchEnv) openCalculator(
 			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
-		if err := channelmock.ChannelService(e.dist).CreateMany(e.ctx, &bases); err != nil {
+		if err := e.channelSvc.CreateMany(e.ctx, &bases); err != nil {
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := channelmock.ChannelService(e.dist).Create(e.ctx, calc); err != nil {
+	if err := e.channelSvc.Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
-		ChannelService: channelmock.ChannelService(e.dist),
+		ChannelService: e.channelSvc,
 		Channel:        *calc,
 	})
 	if err != nil {

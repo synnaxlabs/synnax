@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/query"
@@ -116,7 +115,7 @@ var _ = Describe("NewLSP", func() {
 		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
 
 		ch := channel.Channel{Name: "test_lsp_channel", DataType: telem.Float32T, Virtual: true}
-		Expect(channelmock.ChannelService(dist).NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(chSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 
 		Eventually(func() int {
 			return len(client.Diagnostics())

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -35,7 +34,7 @@ const (
 var _ = Describe("Signals", func() {
 	openStreamer := func(ctx context.Context, name string) confluence.Outlet[framer.StreamerResponse] {
 		var ch channel.Channel
-		Expect(channelmock.ChannelService(dist).NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
+		Expect(chSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 			Exec(ctx, nil)).To(Succeed())
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{ch.Key()},
@@ -56,7 +55,7 @@ var _ = Describe("Signals", func() {
 	It("Should create the set and delete signal channels", func(ctx SpecContext) {
 		for _, name := range []string{setChannelName, deleteChannelName} {
 			var ch channel.Channel
-			Expect(channelmock.ChannelService(dist).NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
+			Expect(chSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())

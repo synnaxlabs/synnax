@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
+	serviceframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,13 +28,17 @@ import (
 var _ = Describe("StreamIterator", Ordered, func() {
 	var (
 		dist        mock.Node
+		channelSvc  *channel.Service
+		fr          *serviceframer.Service
 		iteratorSvc *iterator.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		dist = mock.NewNode(ctx)
+		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
+		fr = serviceframer.Wrap(dist.Framer, channelSvc)
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,
-			Channel:    channelmock.ChannelService(dist),
+			Channel:    channelSvc,
 		}))
 	})
 	Describe("Basic Iteration", func() {
@@ -44,8 +48,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+			w := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  []channel.Key{ch.Key()},
 			}))
@@ -77,21 +81,21 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				}
-				Expect(channelmock.ChannelService(dist).Create(ctx, indexCh)).To(Succeed())
+				Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
 				dataCh1 = &channel.Channel{
 					Name:       "sensor_1",
 					DataType:   telem.Float32T,
 					LocalIndex: indexCh.LocalKey,
 				}
-				Expect(channelmock.ChannelService(dist).Create(ctx, dataCh1)).To(Succeed())
+				Expect(channelSvc.Create(ctx, dataCh1)).To(Succeed())
 				dataCh2 = &channel.Channel{
 					Name:       "sensor_2",
 					DataType:   telem.Float32T,
 					LocalIndex: indexCh.LocalKey,
 				}
-				Expect(channelmock.ChannelService(dist).Create(ctx, dataCh2)).To(Succeed())
+				Expect(channelSvc.Create(ctx, dataCh2)).To(Succeed())
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-				w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+				w := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS,
 					Keys:             keys,
 					EnableAutoCommit: new(true),
@@ -100,7 +104,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
 					telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10),
 				}}
-				fr := frame.NewMulti(
+				f := frame.NewMulti(
 					keys,
 					[]telem.Series{
 						idxData.Series[0],
@@ -108,14 +112,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						telem.NewSeriesV[float32](-2, -3, -4, -5, -6),
 					},
 				)
-				MustSucceed(w.Write(fr))
+				MustSucceed(w.Write(f))
 				Expect(w.Close()).To(Succeed())
-				w = MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+				w = MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS * 6,
 					Keys:             keys,
 					EnableAutoCommit: new(true),
 				}))
-				fr = frame.NewMulti(
+				f = frame.NewMulti(
 					keys,
 					[]telem.Series{
 						idxData.Series[1],
@@ -123,7 +127,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						telem.NewSeriesV[float32](-3, -4, -5, -6, -7),
 					},
 				)
-				MustSucceed(w.Write(fr))
+				MustSucceed(w.Write(f))
 				Expect(w.Close()).To(Succeed())
 			})
 
@@ -133,7 +137,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					DataType:   telem.Float32T,
 					Expression: "return sensor_1",
 				}
-				Expect(channelmock.ChannelService(dist).Create(ctx, calculation)).To(Succeed())
+				Expect(channelSvc.Create(ctx, calculation)).To(Succeed())
 				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 					Keys:   []channel.Key{calculation.Key(), calculation.Index()},
 					Bounds: telem.TimeRangeMax,
@@ -164,7 +168,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1 * 2",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcB)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcB)).To(Succeed())
 
 					// Create C: calculated channel that depends on calculated channel B
 					calcC := &channel.Channel{
@@ -172,7 +176,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return calc_b + 10",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcC)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcC)).To(Succeed())
 
 					// Open iterator requesting only the top-level calculated channel C
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -213,7 +217,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1 * 2",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcB)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcB)).To(Succeed())
 
 					// Create C: depends on B (calculated)
 					calcC := &channel.Channel{
@@ -221,7 +225,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return calc_b_3level + 5",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcC)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcC)).To(Succeed())
 
 					// Create D: depends on C (calculated)
 					calcD := &channel.Channel{
@@ -229,7 +233,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return calc_c_3level * 3",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcD)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcD)).To(Succeed())
 
 					// Open iterator requesting only the top-level calculated channel D
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -277,7 +281,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1 + 10",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcC)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcC)).To(Succeed())
 
 					// Create D: also depends on sensor_1 (concrete)
 					calcD := &channel.Channel{
@@ -285,7 +289,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1 * 5",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcD)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcD)).To(Succeed())
 
 					// Create E: depends on both C and D (calculated)
 					calcE := &channel.Channel{
@@ -293,7 +297,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return calc_c_diamond + calc_d_diamond",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcE)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcE)).To(Succeed())
 
 					// Open iterator requesting only the top-level calculated channel E
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -343,7 +347,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					// Bypass create-time analysis: these channels intentionally form a
 					// cycle (and forward-reference), which the iterator's topological sort
 					// is what's under test.
-					Expect(channelmock.ChannelService(dist).NewWriterNoAnalysis(nil).Create(ctx, calcB)).To(Succeed())
+					Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, calcB)).To(Succeed())
 
 					// Create calc_circ_a that depends on calc_circ_b (creating the cycle)
 					calcA := &channel.Channel{
@@ -351,7 +355,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return calc_circ_b + 1",
 					}
-					Expect(channelmock.ChannelService(dist).NewWriterNoAnalysis(nil).Create(ctx, calcA)).To(Succeed())
+					Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, calcA)).To(Succeed())
 
 					// Now try to open an iterator - this should fail with circular dependency error
 					Expect(iteratorSvc.Open(ctx, iterator.Config{
@@ -370,7 +374,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1 + sensor_2",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcMixed)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcMixed)).To(Succeed())
 
 					// Create another calculated that depends on the first
 					calcMixedNested := &channel.Channel{
@@ -378,7 +382,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return calc_mixed * 2",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcMixedNested)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcMixedNested)).To(Succeed())
 
 					// Request both concrete channels (sensor_1, sensor_2) and calculated channels
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -433,13 +437,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, threeDomainIndexCh)).To(Succeed())
+					Expect(channelSvc.Create(ctx, threeDomainIndexCh)).To(Succeed())
 					threeDomainDataCh = &channel.Channel{
 						Name:       "three_domain_sensor",
 						DataType:   telem.Float32T,
 						LocalIndex: threeDomainIndexCh.LocalKey,
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, threeDomainDataCh)).To(Succeed())
+					Expect(channelSvc.Create(ctx, threeDomainDataCh)).To(Succeed())
 					keys := []channel.Key{threeDomainIndexCh.Key(), threeDomainDataCh.Key()}
 
 					threeDomainIdxData = telem.MultiSeries{Series: []telem.Series{
@@ -449,51 +453,51 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}}
 
 					// First domain
-					w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+					w := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
 					}))
-					fr := frame.NewMulti(
+					f := frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[0],
 							telem.NewSeriesV[float32](1, 2),
 						},
 					)
-					MustSucceed(w.Write(fr))
+					MustSucceed(w.Write(f))
 					Expect(w.Close()).To(Succeed())
 
 					// Second domain
-					w = MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+					w = MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS * 5,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
 					}))
-					fr = frame.NewMulti(
+					f = frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[1],
 							telem.NewSeriesV[float32](5, 6),
 						},
 					)
-					MustSucceed(w.Write(fr))
+					MustSucceed(w.Write(f))
 					Expect(w.Close()).To(Succeed())
 
 					// Third domain
-					w = MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+					w = MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS * 10,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
 					}))
-					fr = frame.NewMulti(
+					f = frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[2],
 							telem.NewSeriesV[float32](10, 11),
 						},
 					)
-					MustSucceed(w.Write(fr))
+					MustSucceed(w.Write(f))
 					Expect(w.Close()).To(Succeed())
 				})
 
@@ -503,7 +507,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor * 2",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calc)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calc)).To(Succeed())
 
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -547,7 +551,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor * 2",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcB)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcB)).To(Succeed())
 
 					// C depends on B (calculated)
 					calcC := &channel.Channel{
@@ -555,7 +559,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_calc_b + 10",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcC)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcC)).To(Succeed())
 
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcC.Key(), calcC.Index()},
@@ -599,7 +603,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor + 10",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcC)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcC)).To(Succeed())
 
 					// D also depends on three_domain_sensor
 					calcD := &channel.Channel{
@@ -607,7 +611,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor * 5",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcD)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcD)).To(Succeed())
 
 					// E depends on both C and D
 					calcE := &channel.Channel{
@@ -615,7 +619,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_diamond_c + three_domain_diamond_d",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcE)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcE)).To(Succeed())
 
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcE.Key(), calcE.Index()},
@@ -653,7 +657,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor * 3",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcMixed)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcMixed)).To(Succeed())
 
 					// Request both concrete and calculated channels
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -699,17 +703,17 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, gapIndexCh)).To(Succeed())
+					Expect(channelSvc.Create(ctx, gapIndexCh)).To(Succeed())
 					gapDataCh := &channel.Channel{
 						Name:       "gap_domain_sensor",
 						DataType:   telem.Float32T,
 						LocalIndex: gapIndexCh.LocalKey,
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, gapDataCh)).To(Succeed())
+					Expect(channelSvc.Create(ctx, gapDataCh)).To(Succeed())
 					keys := []channel.Key{gapIndexCh.Key(), gapDataCh.Key()}
 
 					// First domain at t=1s
-					w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+					w := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
@@ -724,7 +728,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 
 					// Second domain at t=1000s (large gap)
-					w = MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+					w = MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS * 1000,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
@@ -743,7 +747,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return gap_domain_sensor + 100",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calc)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calc)).To(Succeed())
 
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -774,21 +778,21 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor * 2",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcDouble)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcDouble)).To(Succeed())
 
 					calcSquare := &channel.Channel{
 						Name:       "three_domain_square",
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor * three_domain_sensor",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcSquare)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcSquare)).To(Succeed())
 
 					calcPlusTen := &channel.Channel{
 						Name:       "three_domain_plus_ten",
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor + 10",
 					}
-					Expect(channelmock.ChannelService(dist).Create(ctx, calcPlusTen)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcPlusTen)).To(Succeed())
 
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcDouble.Key(), calcSquare.Key(), calcPlusTen.Key()},
@@ -842,29 +846,29 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				}
-				Expect(channelmock.ChannelService(dist).Create(ctx, idxA)).To(Succeed())
+				Expect(channelSvc.Create(ctx, idxA)).To(Succeed())
 				idxB := &channel.Channel{
 					Name:     "interleaved_time_b",
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				}
-				Expect(channelmock.ChannelService(dist).Create(ctx, idxB)).To(Succeed())
+				Expect(channelSvc.Create(ctx, idxB)).To(Succeed())
 				dataA := &channel.Channel{
 					Name:       "interleaved_sensor_a",
 					DataType:   telem.Float32T,
 					LocalIndex: idxA.LocalKey,
 				}
-				Expect(channelmock.ChannelService(dist).Create(ctx, dataA)).To(Succeed())
+				Expect(channelSvc.Create(ctx, dataA)).To(Succeed())
 				dataB := &channel.Channel{
 					Name:       "interleaved_sensor_b",
 					DataType:   telem.Float32T,
 					LocalIndex: idxB.LocalKey,
 				}
-				Expect(channelmock.ChannelService(dist).Create(ctx, dataB)).To(Succeed())
+				Expect(channelSvc.Create(ctx, dataB)).To(Succeed())
 
 				// Write channel A with index A
 				keysA := []channel.Key{idxA.Key(), dataA.Key()}
-				wA := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+				wA := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS,
 					Keys:             keysA,
 					EnableAutoCommit: new(true),
@@ -880,7 +884,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 				// Write channel B with index B
 				keysB := []channel.Key{idxB.Key(), dataB.Key()}
-				wB := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+				wB := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS,
 					Keys:             keysB,
 					EnableAutoCommit: new(true),
@@ -899,7 +903,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					DataType:   telem.Float32T,
 					Expression: "return interleaved_sensor_a + interleaved_sensor_b",
 				}
-				Expect(channelmock.ChannelService(dist).Create(ctx, calc)).To(Succeed())
+				Expect(channelSvc.Create(ctx, calc)).To(Succeed())
 
 				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 					Keys:   []channel.Key{calc.Key(), calc.Index()},
@@ -925,15 +929,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "downsample_sensor_2",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, dataCh)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -977,15 +981,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "downsample_sensor_3",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, dataCh)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1032,15 +1036,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "downsample_sensor" + suffix,
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, dataCh)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1078,29 +1082,29 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
 			dataCh1 := &channel.Channel{
 				Name:       "downsample_calc_sensor1",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh1)).To(Succeed())
+			Expect(channelSvc.Create(ctx, dataCh1)).To(Succeed())
 			dataCh2 := &channel.Channel{
 				Name:       "downsample_calc_sensor2",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh2)).To(Succeed())
+			Expect(channelSvc.Create(ctx, dataCh2)).To(Succeed())
 
 			calculation := &channel.Channel{
 				Name:       "downsample_calc_output",
 				DataType:   telem.Float32T,
 				Expression: "return downsample_calc_sensor1 + downsample_calc_sensor2",
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, calculation)).To(Succeed())
+			Expect(channelSvc.Create(ctx, calculation)).To(Succeed())
 
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1140,17 +1144,17 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "downsample_multi_sensor",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh)).To(Succeed())
+			Expect(channelSvc.Create(ctx, dataCh)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
 
 			// First domain
-			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w := MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1165,7 +1169,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			// Second domain
-			w = MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
+			w = MustSucceed(fr.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS * 10,
 				Keys:             keys,
 				EnableAutoCommit: new(true),

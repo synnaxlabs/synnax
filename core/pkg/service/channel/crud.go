@@ -190,7 +190,7 @@ func (s *Service) resolveExistingAndAssignKeys(
 	if len(minimal) == 0 {
 		return toCreate, nil
 	}
-	allocated, allocErr := s.cfg.Allocator.Create(ctx, minimal)
+	allocated, allocErr := s.cfg.Channel.Create(ctx, minimal)
 	if allocErr != nil {
 		return nil, allocErr
 	}
@@ -376,7 +376,7 @@ func (s *Service) deleteOverwritten(ctx context.Context, tx gorp.Tx, channels *[
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	return s.cfg.Allocator.Delete(ctx, keysToDelete)
+	return s.cfg.Channel.Delete(ctx, keysToDelete)
 }
 
 func (s *Service) maybeSetResources(
@@ -443,7 +443,7 @@ func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIntern
 	}
 	// Storage deletion goes last, as it is the only operation that can fail without an
 	// atomic guarantee.
-	if err := s.cfg.Allocator.Delete(ctx, keys); err != nil {
+	if err := s.cfg.Channel.Delete(ctx, keys); err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -492,5 +492,5 @@ func (s *Service) rename(
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	return s.cfg.Allocator.Rename(ctx, keys, names)
+	return s.cfg.Channel.Rename(ctx, keys, names)
 }
