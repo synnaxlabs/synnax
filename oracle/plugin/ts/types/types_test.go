@@ -243,6 +243,20 @@ var _ = Describe("TS Types Plugin", func() {
 			ExpectContent(resp, "types.gen.ts").ToContain("rack: keyZ.min(1)")
 		})
 
+		It("Should treat required on a numeric type as non-zero", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Key uint32
+
+				Device struct {
+					rack Key @validate { required }
+				}
+			`
+			resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(`rack: keyZ.refine((v) => v !== 0, "rack is required")`)
+		})
+
 		It("Should generate enums", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
@@ -738,8 +752,8 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`username: z.string().min(1, "Username is required")`))
-			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "First Name is required")`))
+			Expect(content).To(ContainSubstring(`username: z.string().min(1, "username is required")`))
+			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "first_name is required")`))
 		})
 
 		It("Should use z.input when use_input is specified", func(ctx SpecContext) {

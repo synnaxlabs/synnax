@@ -352,7 +352,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.min(1, "Name is required")`)
+			ToContain(`.min(1, "name is required")`)
 	})
 
 	It("Should leave fields without validation untouched", func(ctx SpecContext) {

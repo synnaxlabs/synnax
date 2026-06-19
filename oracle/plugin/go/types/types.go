@@ -711,6 +711,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- range $s.ConstraintChecks}}
 {{- if eq .Kind "non_empty_string"}}
 	validate.NotEmptyString(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
+{{- else if eq .Kind "non_zero"}}
+	validate.NonZero(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
 {{- else if eq .Kind "min_len"}}
 	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
 {{- else if eq .Kind "max_len"}}
