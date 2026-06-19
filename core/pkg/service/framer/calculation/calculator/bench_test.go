@@ -33,7 +33,14 @@ type benchEnv struct {
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
 	dist := mock.OpenNode(b.Context())
-	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
+	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
+		Channel:      dist.Channel,
+		DB:           dist.DB,
+		HostResolver: dist.Cluster,
+		Ontology:     dist.Ontology,
+		Group:        dist.Group,
+		Search:       dist.Search,
+	}))
 	return &benchEnv{ctx: b.Context(), dist: dist, channelSvc: channelSvc}
 }
 

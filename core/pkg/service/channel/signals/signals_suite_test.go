@@ -28,16 +28,23 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	dist  mock.Node
-	chSvc *channel.Service
+	dist       mock.Node
+	channelSvc *channel.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.NewNode(ctx)
-	chSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
-	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
-		Channel: chSvc,
-		Framer:  MustOpen(framer.OpenService(ctx, framer.ServiceConfig{Framer: dist.Framer, Channel: chSvc})),
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      dist.Channel,
+		DB:           dist.DB,
+		HostResolver: dist.Cluster,
+		Ontology:     dist.Ontology,
+		Group:        dist.Group,
+		Search:       dist.Search,
 	}))
-	MustOpen(signals.Publish(ctx, sigs, chSvc.Observe()))
+	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
+		Channel: channelSvc,
+		Framer:  MustOpen(framer.OpenService(ctx, framer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})),
+	}))
+	MustOpen(signals.Publish(ctx, sigs, channelSvc.Observe()))
 })

@@ -28,7 +28,14 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.NewNode(ctx)
-	channelSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      dist.Channel,
+		DB:           dist.DB,
+		HostResolver: dist.Cluster,
+		Ontology:     dist.Ontology,
+		Group:        dist.Group,
+		Search:       dist.Search,
+	}))
 })
 
 var _ = Describe("Compile", func() {

@@ -33,7 +33,7 @@ func openStreamer(ctx context.Context, name string) (
 	confluence.Outlet[framer.StreamerResponse], io.Closer,
 ) {
 	var sigCh channel.Channel
-	Expect(chSvc.NewRetrieve().
+	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchNames(name)).
 		Entry(&sigCh).
 		Exec(ctx, nil),
@@ -56,7 +56,7 @@ var _ = Describe("Signals", func() {
 		ch := channel.Channel{
 			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
-		Expect(chSvc.Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.Create(ctx, &ch)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		payloads := MustSucceed(telem.UnmarshalJSONSeries[channelPayload](
@@ -76,9 +76,9 @@ var _ = Describe("Signals", func() {
 		ch := channel.Channel{
 			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
-		Expect(chSvc.Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.Create(ctx, &ch)).To(Succeed())
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_delete")
-		Expect(chSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		keys := telem.UnmarshalSeries[uint32](res.Frame.SeriesAt(0))

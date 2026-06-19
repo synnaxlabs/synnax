@@ -50,7 +50,7 @@ func openService(ctx context.Context, n mock.Node, cfgs ...channel.ServiceConfig
 		Group:        n.Group,
 		Search:       n.Search,
 	}
-	s := MustSucceed(channel.OpenService(ctx, append([]channel.ServiceConfig{base}, cfgs...)...))
+	channelSvc := MustOpen(channel.OpenService(ctx, append([]channel.ServiceConfig{base}, cfgs...)...))
 	controlCh := channel.Channel{
 		Name:        fmt.Sprintf("sy_node_%v_control", n.Cluster.HostKey()),
 		Leaseholder: n.Cluster.HostKey(),
@@ -58,9 +58,9 @@ func openService(ctx context.Context, n mock.Node, cfgs ...channel.ServiceConfig
 		DataType:    telem.StringT,
 		Internal:    true,
 	}
-	Expect(s.Create(ctx, &controlCh, channel.RetrieveIfNameExists())).To(Succeed())
+	Expect(channelSvc.Create(ctx, &controlCh, channel.RetrieveIfNameExists())).To(Succeed())
 	Expect(n.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key())).To(Succeed())
-	return s
+	return channelSvc
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
