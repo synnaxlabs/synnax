@@ -37,12 +37,12 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	API *api.Layer
-	// HTTPRouter is the HTTP router onto which API HTTP endpoints are registered. It is
+	// Router is the HTTP router onto which API HTTP endpoints are registered. It is
 	// shared with other HTTP branches (e.g. the embedded console), so the transport
 	// layer binds onto it rather than owning it.
 	//
 	// [REQUIRED]
-	HTTPRouter *fhttp.Router
+	Router *fhttp.Router
 }
 
 var _ config.Config[LayerConfig] = LayerConfig{}
@@ -51,7 +51,7 @@ var _ config.Config[LayerConfig] = LayerConfig{}
 func (c LayerConfig) Validate() error {
 	v := validate.New("transport")
 	validate.NotNil(v, "api", c.API)
-	validate.NotNil(v, "http_router", c.HTTPRouter)
+	validate.NotNil(v, "http_router", c.Router)
 	return v.Error()
 }
 
@@ -59,7 +59,7 @@ func (c LayerConfig) Validate() error {
 func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.API = override.Nil(c.API, other.API)
-	c.HTTPRouter = override.Nil(c.HTTPRouter, other.HTTPRouter)
+	c.Router = override.Nil(c.Router, other.Router)
 	return c
 }
 
@@ -79,6 +79,6 @@ func NewLayer(cfgs ...LayerConfig) (Layer, error) {
 	if err != nil {
 		return Layer{}, err
 	}
-	http.Bind(cfg.API, cfg.HTTPRouter)
+	http.Bind(cfg.API, cfg.Router)
 	return Layer{GRPC: grpc.Bind(cfg.API)}, nil
 }

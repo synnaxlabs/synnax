@@ -52,13 +52,7 @@ type StreamerConfig struct {
 	ExcludeGroups []uint32 `json:"exclude_groups" msgpack:"exclude_groups"`
 }
 
-var (
-	_ config.Config[StreamerConfig] = StreamerConfig{}
-	// DefaultStreamerConfig is the default configuration for opening a new streamer.
-	// This configuration is valid and will create a streamer that does
-	// not stream from any channels.
-	DefaultStreamerConfig = StreamerConfig{SendOpenAck: new(false)}
-)
+var _ config.Config[StreamerConfig] = StreamerConfig{}
 
 // Override implements config.Config.
 func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
@@ -79,7 +73,7 @@ func (c StreamerConfig) Validate() error {
 // relay. Each subsequent StreamerConfig overrides the parameters specified in the
 // previous config. See the StreamerConfig struct for information on required fields.
 func (r *Relay) NewStreamer(_ context.Context, cfgs ...StreamerConfig) (Streamer, error) {
-	cfg, err := config.New(DefaultStreamerConfig, cfgs...)
+	cfg, err := config.New(StreamerConfig{SendOpenAck: new(false)}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

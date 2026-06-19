@@ -45,7 +45,7 @@ type LayerConfig struct {
 	// [REQUIRED]
 	FrameTransport framer.Transport
 	// GorpCodec sets the codec used to encode/decode data structures within the cluster
-	// meta-data DB (gorp).
+	// meta-data DB (Gorp).
 	//
 	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
 	GorpCodec encoding.Codec
@@ -68,7 +68,7 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	AdvertiseAddress address.Address
-	// AspenOptions are additional options to pass when opening the aspen key-value
+	// AspenOptions are additional options to pass when opening the Aspen key-value
 	// store.
 	//
 	// [OPTIONAL] - Defaults to []
@@ -81,13 +81,7 @@ type LayerConfig struct {
 	PeerAddresses []address.Address
 }
 
-var (
-	_ config.Config[LayerConfig] = LayerConfig{}
-	// DefaultLayerConfig is the default configuration for opening the distribution
-	// layer. This configuration is not valid on its own and must be overridden by the
-	// required fields specific in Config.
-	DefaultLayerConfig = LayerConfig{GorpCodec: orc.NewCodec(msgpack.Codec)}
-)
+var _ config.Config[LayerConfig] = LayerConfig{}
 
 // Override implements config.Config.
 func (c LayerConfig) Override(other LayerConfig) LayerConfig {
@@ -141,31 +135,28 @@ type Layer struct {
 	// in Synnax.
 	Ontology *ontology.Ontology
 	// Search is the full-text search index for ontology resources.
-	// [REQUIRED]
 	Search *search.Index
 	// Group is for grouping related resources in the cluster.
-	Group *group.Service
-	// closer is for properly shutting down the distribution layer.
+	Group  *group.Service
 	closer io.MultiCloser
 }
 
 // Open opens the distribution Layer using the provided configuration(s). Later
-// configurations override the fields set in previous configurations. If the configuration is
-// invalid, or any services fail to open, Open returns a nil layer and an error.
+// configurations override the fields set in previous configurations. If the
+// configuration is invalid, or any services fail to open, Open returns a nil layer and
+// an error.
 //
 // If the returned error is nil, the Layer must be closed by calling Close after use.
 // None of the services in the Layer should be used after Close is called. It is the
 // caller's responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
-	cfg, err := config.New(DefaultLayerConfig, cfgs...)
+	cfg, err := config.New(LayerConfig{GorpCodec: orc.NewCodec(msgpack.Codec)}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
-	defer func() {
-		err = cleanup(err)
-	}()
+	defer func() { err = cleanup(err) }()
 
 	aspenOptions := append([]aspen.Option{
 		aspen.WithEngine(cfg.Storage.KV),
@@ -242,7 +233,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	return l, nil
 }
 
-// Close closes the Layer. Close must be called when the Layer is no longer in use.
-// the caller must ensure that all routines interacting with the Layer have finished
-// before calling Close.
+// Close closes the Layer. Close must be called when the Layer is no longer in use. It
+// is the caller's responsibility to ensure that all routines interacting with the Layer
+// have finished before calling Close.
 func (l *Layer) Close() error { return l.closer.Close() }

@@ -10,13 +10,24 @@
 package framer_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	apiconfig "github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/security"
+	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -24,7 +35,26 @@ var (
 	mockCluster *mock.Cluster
 	dist        *distribution.Layer
 	chSvc       *channel.Service
+	resolver    apiChannelResolver
 )
+
+// apiChannelResolver adapts the API-layer channel service into a codec.DataTypeResolver.
+// It injects the root user as the request subject so the API layer's access checks pass;
+// in production this subject is supplied by the auth middleware that runs ahead of the
+// codec.
+type apiChannelResolver struct {
+	svc     *apichannel.Service
+	subject ontology.ID
+}
+
+func (r apiChannelResolver) RetrieveDataTypes(
+	ctx context.Context,
+	keys channel.Keys,
+) (map[channel.Key]telem.DataType, error) {
+	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
+	fctx.Set("Subject", r.subject)
+	return r.svc.RetrieveDataTypes(fctx, keys)
+}
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -35,5 +65,26 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	mockCluster = mock.NewCluster(ctx, 1)
 	node := mockCluster.Nodes[1]
 	dist = node.Layer
-	chSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: node.Channel, DB: node.DB, HostResolver: node.Cluster, Ontology: node.Ontology, Group: node.Group, Search: node.Search}))
+	insecure := true
+	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
+		Insecure: &insecure,
+		KeySize:  secmock.SmallKeySize,
+	}))
+	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
+		Distribution:    dist,
+		Security:        sec,
+		Storage:         node.Storage,
+		RootCredentials: auth.Credentials{Username: "synnax", Password: "seldon"},
+	}))
+	chSvc = svc.Channel
+	apiChSvc := MustSucceed(apichannel.NewService(apiconfig.LayerConfig{
+		Service:      svc,
+		Distribution: dist,
+	}))
+	var root user.User
+	Expect(svc.User.NewRetrieve().
+		Where(user.MatchRootUser(true)).
+		Entry(&root).
+		Exec(ctx, nil)).To(Succeed())
+	resolver = apiChannelResolver{svc: apiChSvc, subject: user.OntologyID(root.Key)}
 })
