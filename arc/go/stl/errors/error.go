@@ -34,6 +34,7 @@ func NewSymbols() []*symbol.Symbol {
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
 		}),
+		Trigger: symbol.TriggerOnly,
 	})
 	return []*symbol.Symbol{mod}
 }

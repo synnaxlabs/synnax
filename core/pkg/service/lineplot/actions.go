@@ -443,8 +443,8 @@ func xAxisRangeSlice(r *Ranges, k XAxisKey) *[]string {
 const lineKeySeparator = "---"
 
 // Default styling for a newly materialized line. These mirror the Oracle schema
-// defaults on Line. Oracle does not currently emit Go-side struct defaults, so
-// they are duplicated here and must be kept in sync with schemas/lineplot.oracle.
+// defaults on Line. Oracle does not currently emit Go-side struct defaults, so they are
+// duplicated here and must be kept in sync with schemas/synnax/lineplot.oracle.
 const (
 	defaultLineStrokeWidth    = 2
 	defaultLineDownsample     = 1

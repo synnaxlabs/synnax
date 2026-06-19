@@ -18,6 +18,7 @@ import (
 	textv54 "github.com/synnaxlabs/arc/text/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
+	arcv56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
 	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	statusv54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
 	colorv54 "github.com/synnaxlabs/x/color/migrations/v54"
@@ -68,10 +69,8 @@ var _ = Describe("v54 -> current Arc migration", func() {
 
 		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration("v54_drop_program_status", arc.MigrateArc),
-				},
+				DB:         db,
+				Migrations: arcMigrations(),
 			},
 		))
 
@@ -133,17 +132,8 @@ var _ = Describe("v54 -> current Arc migration", func() {
 
 		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration("v54_drop_program_status", arc.MigrateArc),
-					migrate.WithAddedDeps(
-						gorp.NewEntryMigration(
-							"v55_rename_set_status",
-							arc.RenameSetStatus,
-						),
-						"v54_drop_program_status",
-					),
-				},
+				DB:         db,
+				Migrations: arcMigrations(),
 			},
 		))
 
@@ -184,17 +174,8 @@ var _ = Describe("v54 -> current Arc migration", func() {
 
 		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration("v54_drop_program_status", arc.MigrateArc),
-					migrate.WithAddedDeps(
-						gorp.NewEntryMigration(
-							"v55_rename_set_status",
-							arc.RenameSetStatus,
-						),
-						"v54_drop_program_status",
-					),
-				},
+				DB:         db,
+				Migrations: arcMigrations(),
 			},
 		))
 
@@ -239,10 +220,8 @@ var _ = Describe("v54 -> current Arc migration", func() {
 
 		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration("v54_drop_program_status", arc.MigrateArc),
-				},
+				DB:         db,
+				Migrations: arcMigrations(),
 			},
 		))
 
@@ -256,3 +235,17 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		Expect(got.Program).To(BeNil())
 	})
 })
+
+func arcMigrations() []migrate.Migration {
+	return []migrate.Migration{
+		gorp.NewEntryMigration("v54_drop_program_status", arcv56.MigrateArc),
+		migrate.WithAddedDeps(
+			gorp.NewEntryMigration("v55_rename_set_status", arcv56.RenameSetStatus),
+			"v54_drop_program_status",
+		),
+		migrate.WithAddedDeps(
+			gorp.NewEntryMigration("v56_to_live", arc.MigrateArc),
+			"v55_rename_set_status",
+		),
+	}
+}

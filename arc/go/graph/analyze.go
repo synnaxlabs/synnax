@@ -78,10 +78,6 @@ func Analyze(
 			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
-		if err = bindParams(aCtx, funcScope, fn.Config, symbol.KindConfig); err != nil {
-			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
-			return ir.IR{}, aCtx.Diagnostics
-		}
 		if err = bindParams(aCtx, funcScope, fn.Inputs, symbol.KindInput); err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
@@ -130,31 +126,31 @@ func Analyze(
 			Key:      n.Key,
 			Type:     n.Type,
 			Channels: fnSym.Channels.Copy(),
-			Config:   freshType.Config,
 			Inputs:   freshType.Inputs,
 			Outputs:  freshType.Outputs,
 		}
-		// Process provided config values
-		for j, configParam := range freshType.Config {
-			configValue, ok := n.Config[configParam.Name]
+		// n.Config is the editor-supplied value map (a generated graph field),
+		// not the removed type-level Config.
+		for j, param := range freshType.Inputs {
+			paramValue, ok := n.Config[param.Name]
 			if !ok {
 				continue
 			}
-			if configParam.Type.Kind == types.KindChan {
+			if param.Type.Kind == types.KindChan {
 				var k uint32
-				if err = zyn.Uint32().Coerce().Parse(configValue, &k); err != nil {
+				if err = zyn.Uint32().Coerce().Parse(paramValue, &k); err != nil {
 					return ir.IR{}, aCtx.Diagnostics
 				}
 				channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))
 				if err == nil && channelSym.Type.Kind == types.KindChan {
-					if err := configParam.Type.ChanDirection.CheckCompatibility(channelSym.Type.ChanDirection); err != nil {
+					if err := param.Type.ChanDirection.CheckCompatibility(channelSym.Type.ChanDirection); err != nil {
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
 					if err = atypes.Check(
 						aCtx.Constraints,
 						channelSym.Type,
-						configParam.Type,
+						param.Type,
 						nil,
 						"",
 					); err != nil {
@@ -164,28 +160,15 @@ func Analyze(
 					symbol.ResolveConfigChannel(
 						&node.Channels,
 						fnSym,
-						configParam.Name,
+						param.Name,
 						k,
 						channelSym.Name,
 					)
 				}
 			}
-			node.Config[j].Value = configValue
+			node.Inputs[j].Value = paramValue
 		}
 		irNodes[i] = node
-
-		// Validate all required config parameters are provided
-		for _, configParam := range freshType.Config {
-			if configParam.Value == nil {
-				aCtx.Diagnostics.Add(diagnostics.Errorf(
-					nil,
-					"node '%s' (%s) missing required config parameter '%s'",
-					n.Key,
-					n.Type,
-					configParam.Name,
-				))
-			}
-		}
 	}
 
 	// Step 5: Check Types Across Edges, Unify, and Apply Substitutions
@@ -245,8 +228,8 @@ func Analyze(
 	return out, aCtx.Diagnostics
 }
 
-// bindParams adds function parameters to the symbol scope with the specified kind.
-// Used internally to bind Config, Input, and Output parameters during function
+// bindParams adds function parameters to the symbol scope with the specified
+// kind. Used internally to bind input and output parameters during function
 // registration.
 func bindParams(
 	ctx context.Context,

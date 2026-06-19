@@ -13,18 +13,18 @@ package v54
 
 import (
 	"context"
-	compiler "github.com/synnaxlabs/arc/compiler"
+	compilerv56 "github.com/synnaxlabs/arc/compiler/migrations/v56"
 	irv54 "github.com/synnaxlabs/arc/ir/migrations/v54"
-	program "github.com/synnaxlabs/arc/program"
+	programv56 "github.com/synnaxlabs/arc/program/migrations/v56"
 )
 
-func AutoMigrateProgram(ctx context.Context, old Program) (program.Program, error) {
+func AutoMigrateProgram(ctx context.Context, old Program) (programv56.Program, error) {
 	ir, err := irv54.MigrateIR(ctx, old.IR)
 	if err != nil {
-		return program.Program{}, err
+		return programv56.Program{}, err
 	}
-	return program.Program{
+	return programv56.Program{
 		IR:     ir,
-		Output: compiler.Output(old.Output),
+		Output: compilerv56.Output(old.Output),
 	}, nil
 }

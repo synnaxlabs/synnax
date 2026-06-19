@@ -41,11 +41,9 @@ var (
 
 func newSymbolType() types.Type {
 	return types.Function(types.FunctionProperties{
-		Config: types.Params{
-			{Name: "duration", Type: types.TimeSpan()},
-		},
 		Inputs: types.Params{
 			{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
+			{Name: "duration", Type: types.TimeSpan()},
 		},
 		Outputs: types.Params{
 			{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)},
@@ -58,11 +56,12 @@ func newSymbolType() types.Type {
 // alias whose Deprecated field points at the canonical stable.for member.
 func NewSymbols() []*symbol.Symbol {
 	member := &symbol.Symbol{
-		Name: qualifiedMemberName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: newSymbolType(),
-		Doc:  memberDoc,
+		Name:    qualifiedMemberName,
+		Kind:    symbol.KindFunction,
+		Exec:    symbol.ExecFlow,
+		Type:    newSymbolType(),
+		Trigger: symbol.TriggerInput(ir.DefaultInputParam),
+		Doc:     memberDoc,
 	}
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
 	mod.AddChild(member)
@@ -100,10 +99,19 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return nil, query.ErrNotFound
 	}
 	var cfgVals config
-	if err := configSchema.Parse(cfg.Node.Config.ValueMap(), &cfgVals); err != nil {
+	if err := configSchema.Parse(cfg.Node.Inputs.ValueMap(), &cfgVals); err != nil {
 		return nil, err
 	}
-	return &forNode{State: cfg.State, duration: cfgVals.Duration, now: h.now}, nil
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	return &forNode{
+		State:    cfg.State,
+		inputIdx: inputIdx,
+		duration: cfgVals.Duration,
+		now:      h.now,
+	}, nil
 }
 
 type config struct {
@@ -119,6 +127,7 @@ type forNode struct {
 	value       *uint8
 	lastSent    *uint8
 	now         func() telem.TimeStamp
+	inputIdx    int
 	duration    telem.TimeSpan
 	lastChanged telem.TimeStamp
 }
@@ -134,8 +143,8 @@ var _ node.Node = (*forNode)(nil)
 
 func (s *forNode) Next(ctx node.Context) {
 	if s.RefreshInputs() {
-		inputData := s.Input(0)
-		inputTime := s.InputTime(0)
+		inputData := s.Input(s.inputIdx)
+		inputTime := s.InputTime(s.inputIdx)
 		if inputData.Len() > 0 {
 			for i := int64(0); i < inputData.Len(); i++ {
 				currentValue := telem.ValueAt[uint8](inputData, int(i))

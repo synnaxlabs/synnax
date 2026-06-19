@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/paths"
+	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
 	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -51,21 +52,12 @@ func runMigrate(cmd *cobra.Command) error {
 		return errors.Wrap(err, "migrate must be run within a git repository")
 	}
 
-	schemaFiles, err := expandGlobs([]string{"schemas/*.oracle"}, repoRoot)
+	normalizedFiles, err := pipeline.DiscoverSchemas(repoRoot)
 	if err != nil {
 		return err
 	}
-	if len(schemaFiles) == 0 {
+	if len(normalizedFiles) == 0 {
 		return errors.New("no schema files found")
-	}
-
-	normalizedFiles := make([]string, 0, len(schemaFiles))
-	for _, f := range schemaFiles {
-		relPath, err := paths.Normalize(f, repoRoot)
-		if err != nil {
-			return errors.Wrapf(err, "failed to normalize schema path %q", f)
-		}
-		normalizedFiles = append(normalizedFiles, relPath)
 	}
 
 	printSchemaCount(len(normalizedFiles))

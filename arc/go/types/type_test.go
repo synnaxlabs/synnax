@@ -624,16 +624,6 @@ var _ = Describe("Types", func() {
 			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
-
-		It("Should return false for function types with different config", func() {
-			props1 := types.FunctionProperties{
-				Config: types.Params{{Name: "option", Type: types.I32()}},
-			}
-			props2 := types.FunctionProperties{
-				Config: types.Params{{Name: "option", Type: types.F64()}},
-			}
-			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
-		})
 	})
 
 	Describe("UnitsAssignable", func() {
@@ -654,13 +644,12 @@ var _ = Describe("Types", func() {
 	})
 
 	Describe("Function constructor", func() {
-		It("Should create function with nil inputs/outputs/config", func() {
+		It("Should create function with nil inputs/outputs", func() {
 			var props types.FunctionProperties
 			fn := types.Function(props)
 			Expect(fn.Kind).To(Equal(types.KindFunction))
 			Expect(fn.Inputs).To(BeNil())
 			Expect(fn.Outputs).To(BeNil())
-			Expect(fn.Config).To(BeNil())
 		})
 
 		It("Should preserve provided inputs/outputs/config", func() {
@@ -791,6 +780,30 @@ var _ = Describe("Types", func() {
 			fnType := types.Function(types.FunctionProperties{})
 			Expect(types.ToTelem(fnType)).To(Equal(telem.UnknownT))
 		})
+
+		// The value type mirrors what literal.Parse emits per kind, so a missing
+		// cast case in NewSeriesFromAny (the TimeSpan regression) is caught here.
+		DescribeTable("ToTelem output must seed a series via NewSeriesFromAny",
+			func(arcType types.Type, value any) {
+				dt := types.ToTelem(arcType)
+				s := telem.NewSeriesFromAny(value, dt)
+				Expect(s.DataType).To(Equal(dt))
+				Expect(s.Len()).To(Equal(int64(1)))
+			},
+			Entry("U8", types.U8(), uint8(1)),
+			Entry("U16", types.U16(), uint16(1)),
+			Entry("U32", types.U32(), uint32(1)),
+			Entry("U64", types.U64(), uint64(1)),
+			Entry("I8", types.I8(), int8(1)),
+			Entry("I16", types.I16(), int16(1)),
+			Entry("I32", types.I32(), int32(1)),
+			Entry("I64", types.I64(), int64(1)),
+			Entry("F32", types.F32(), float32(1)),
+			Entry("F64", types.F64(), float64(1)),
+			Entry("String", types.String(), "x"),
+			Entry("TimeStamp", types.TimeStamp(), telem.TimeSpan(1)),
+			Entry("TimeSpan", types.TimeSpan(), telem.TimeSpan(1)),
+		)
 	})
 
 	Describe("Density", func() {
@@ -888,6 +901,25 @@ var _ = Describe("Types", func() {
 			It("Should return false for empty params", func() {
 				empty := types.Params{}
 				Expect(empty.Has("x")).To(BeFalse())
+			})
+		})
+		Describe("Positional", func() {
+			It("Should return all params when the trigger is empty", func() {
+				Expect(params.Positional("")).To(Equal(params))
+			})
+			It("Should exclude the trigger param", func() {
+				positional := params.Positional("y")
+				Expect(positional).To(HaveLen(2))
+				Expect(positional.Has("y")).To(BeFalse())
+				Expect(positional.Has("x")).To(BeTrue())
+				Expect(positional.Has("flag")).To(BeTrue())
+			})
+			It("Should return all params when the trigger names no param", func() {
+				Expect(params.Positional("nonexistent")).To(HaveLen(3))
+			})
+			It("Should return empty for empty params", func() {
+				empty := types.Params{}
+				Expect(empty.Positional("y")).To(BeEmpty())
 			})
 		})
 		Describe("ValueMap", func() {
