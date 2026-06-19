@@ -45,11 +45,6 @@ class Project(BaseModel):
         return hash(self.key)
 
 
-class New(Project):
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 ONTOLOGY_TYPE = ID(type="project")
 
 

@@ -21,7 +21,6 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import (
-    New,
     Operation,
     Payload,
     Status,
@@ -297,12 +296,12 @@ class Client:
         :returns: The created channels.
         """
 
-        _channels: list[Payload | New]
+        _channels: list[Payload]
         if channels is None:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
             _channels = [
-                New(
+                Payload(
                     name=name,
                     leaseholder=leaseholder,
                     data_type=DataType(data_type),

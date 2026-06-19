@@ -110,11 +110,6 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
-class New(Payload):
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 ONTOLOGY_TYPE = ID(type="channel")
 
 

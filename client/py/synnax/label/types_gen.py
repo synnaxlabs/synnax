@@ -38,8 +38,3 @@ class Label(BaseModel):
 
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class New(Label):
-    def __hash__(self) -> int:
-        return hash(self.key)

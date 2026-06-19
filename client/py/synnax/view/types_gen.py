@@ -46,11 +46,6 @@ class View(BaseModel):
         return hash(self.key)
 
 
-class New(View):
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 ONTOLOGY_TYPE = ID(type="view")
 
 

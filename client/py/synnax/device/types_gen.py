@@ -75,11 +75,6 @@ class Device(BaseModel):
         return hash(self.key)
 
 
-class New(Device):
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 ONTOLOGY_TYPE = ID(type="device")
 
 
