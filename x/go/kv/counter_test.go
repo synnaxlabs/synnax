@@ -49,8 +49,8 @@ var _ = Describe("Counter", Ordered, func() {
 			It("Should load the value of the existing counter", func(ctx SpecContext) {
 				c := MustSucceed(kv.NewCounter(ctx, db, []byte("test-two")))
 				Expect(c.Value()).To(Equal(int64(0)))
-				MustSucceed(c.Add(ctx, 10))
-				MustSucceed(c.Add(ctx, 10))
+				Expect(c.Add(ctx, 10)).To(Equal(int64(10)))
+				Expect(MustSucceed(c.Add(ctx, 10))).To(Equal(int64(20)))
 				cTwo := MustSucceed(kv.NewCounter(ctx, db, []byte("test-two")))
 				Expect(cTwo.Value()).To(Equal(int64(20)))
 			})
@@ -62,9 +62,9 @@ var _ = Describe("Counter", Ordered, func() {
 			})
 			It("Should reflect the latest value after Add", func(ctx SpecContext) {
 				c := MustSucceed(kv.NewCounter(ctx, db, []byte("value-add")))
-				MustSucceed(c.Add(ctx, 7))
+				Expect(c.Add(ctx, 7)).To(Equal(int64(7)))
 				Expect(c.Value()).To(Equal(int64(7)))
-				MustSucceed(c.Add(ctx, -3))
+				Expect(c.Add(ctx, -3)).To(Equal(int64(4)))
 				Expect(c.Value()).To(Equal(int64(4)))
 			})
 			It("Should reflect the latest value after Set", func(ctx SpecContext) {

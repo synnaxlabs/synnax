@@ -57,7 +57,10 @@ func (c *AtomicInt64Counter) Add(ctx context.Context, delta int64) (int64, error
 	next := c.value.Add(delta)
 	var buf [8]byte
 	binary.LittleEndian.PutUint64(buf[:], uint64(next))
-	return next, c.db.Set(ctx, c.key, buf[:])
+	if err := c.db.Set(ctx, c.key, buf[:]); err != nil {
+		return 0, err
+	}
+	return next, nil
 }
 
 // Set sets the counter to the given value.

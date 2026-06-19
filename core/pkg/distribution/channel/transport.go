@@ -25,20 +25,21 @@ type CreateMessage struct {
 	Channels []Channel
 }
 
-// RenameRequest is the cluster-internal request to rename channels on their leaseholder.
-// Keys and Names are parallel: the channel identified by Keys[i] is renamed to Names[i],
-// so the two slices must have equal length.
+// DeleteRequest is the cluster-internal request to delete channels on their
+// leaseholder.
+type DeleteRequest struct {
+	// Keys identifies the channels to delete.
+	Keys Keys
+}
+
+// RenameRequest is the cluster-internal request to rename channels on their
+// leaseholder. Keys and Names are parallel: the channel identified by Keys[i] is
+// renamed to Names[i], so the two slices must have equal length.
 type RenameRequest struct {
 	// Keys identifies the channels to rename, parallel to Names.
 	Keys Keys
 	// Names holds the new name for each channel, parallel to Keys.
 	Names []string
-}
-
-// DeleteRequest is the cluster-internal request to delete channels on their leaseholder.
-type DeleteRequest struct {
-	// Keys identifies the channels to delete.
-	Keys Keys
 }
 
 type (
@@ -59,11 +60,12 @@ type (
 )
 
 // Transport bundles the unary client and server endpoints used to forward channel
-// create, rename, and delete operations from a gateway node to the leaseholder that owns
-// the channels. Implementations bind these endpoints over a concrete protocol (e.g.
-// gRPC, or an in-memory mock for tests).
+// create, rename, and delete operations from a gateway node to the leaseholder that
+// owns the channels. Implementations bind these endpoints over a concrete protocol
+// (e.g. gRPC, or an in-memory mock for tests).
 type Transport interface {
-	// CreateClient returns the client used to send allocation requests to a leaseholder.
+	// CreateClient returns the client used to send allocation requests to a
+	// leaseholder.
 	CreateClient() CreateTransportClient
 	// CreateServer returns the server that handles allocation requests on this node.
 	CreateServer() CreateTransportServer
