@@ -219,13 +219,13 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}
 
 	if serviceLayer, err = service.OpenLayer(ctx, service.LayerConfig{
-		Instrumentation: cfg.Child("service"),
-		Distribution:    distributionLayer,
-		Security:        securityProvider,
-		Storage:         storageLayer,
-		RootCredentials: cfg.rootCredentials,
-		Verifier:        cfg.verifier,
-		ValidateNames:   cfg.validateChannelNames,
+		Instrumentation:      cfg.Child("service"),
+		Distribution:         distributionLayer,
+		Security:             securityProvider,
+		Storage:              storageLayer,
+		RootCredentials:      cfg.rootCredentials,
+		Verifier:             cfg.verifier,
+		ValidateChannelNames: cfg.validateChannelNames,
 	}); !ok(err, serviceLayer) {
 		return err
 	}

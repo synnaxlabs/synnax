@@ -31,23 +31,35 @@ func TestPanel(t *testing.T) {
 }
 
 var (
-	dist     mock.Node
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	svc      *panel.Service
-	chSvc    *channel.Service
-	parentID ontology.ID
-	tx       gorp.Tx
+	dist       mock.Node
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	svc        *panel.Service
+	channelSvc *channel.Service
+	parentID   ontology.ID
+	tx         gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.NewNode(ctx)
 	db = dist.DB
 	otg = dist.Ontology
-	chSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      dist.Channel,
+		DB:           dist.DB,
+		HostResolver: dist.Cluster,
+		Ontology:     dist.Ontology,
+		Group:        dist.Group,
+		Search:       dist.Search,
+	}))
+	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		Framer:  dist.Framer,
+		Channel: channelSvc,
+		DB:      dist.DB,
+	}))
 	sigs := MustSucceed(signals.New(signals.Config{
-		Channel: chSvc,
-		Framer:  MustOpen(framer.OpenService(ctx, framer.ServiceConfig{Framer: dist.Framer, Channel: chSvc})),
+		Channel: channelSvc,
+		Framer:  framerSvc,
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:       dist.DB,

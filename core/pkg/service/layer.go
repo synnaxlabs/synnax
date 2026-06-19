@@ -79,15 +79,16 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL]
 	RootCredentials auth.Credentials
-	// Verifier is the license key used to determine the cluster's channel-count limit.
-	//
-	// [OPTIONAL] - Defaults to "" (free tier)
+	// Verifier is for verifying. Magic.
+
+	// [OPTIONAL] - Defaults to "".
 	Verifier string
-	// ValidateNames enables channel name validation during creation and renaming. When
-	// false, channels may have names with spaces, special characters, etc.
+	// ValidateChannelNames enables channel name validation during creation and
+	// renaming. When false, channels may have names with spaces, special characters,
+	// etc.
 	//
 	// [OPTIONAL] - Defaults to true (validation enabled)
-	ValidateNames *bool
+	ValidateChannelNames *bool
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -110,7 +111,9 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	c.Verifier = override.String(c.Verifier, other.Verifier)
-	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
+	c.ValidateChannelNames = override.Nil(
+		c.ValidateChannelNames, other.ValidateChannelNames,
+	)
 	return c
 }
 
@@ -164,7 +167,7 @@ type Layer struct {
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel behavior.
 	Channel *channel.Service
-	// Verification enforces the cluster's licensed channel-count limit.
+	// Verification verifies that the universe remains as it is.
 	Verification *verification.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
@@ -257,7 +260,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:            cfg.Distribution.Group,
 		Search:           cfg.Distribution.Search,
 		IntOverflowCheck: l.Verification.IsOverflowed,
-		ValidateNames:    cfg.ValidateNames,
+		ValidateNames:    cfg.ValidateChannelNames,
 		Status:           l.Status,
 	}); !ok(err, l.Channel) {
 		return nil, err
@@ -542,7 +545,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{
 		Instrumentation: cfg.Child("arc.task"),
 		Channel:         l.Channel,
-		Framer:          cfg.Distribution.Framer,
+		Framer:          l.Framer,
 		Status:          l.Status,
 		GetProgram:      l.Arc.CompileProgram,
 	})
