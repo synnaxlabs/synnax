@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -47,7 +46,7 @@ var _ = Describe("Create", Ordered, func() {
 		Context("Node is local", func() {
 			BeforeEach(func() { ch.Leaseholder = 1 })
 			It("Should create the channel without error", func(ctx SpecContext) {
-				Expect(ch.Key().Lease()).To(Equal(aspen.NodeKey(1)))
+				Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(2)))
 			})
 			It("Should not create the channel if it already exists by name", func(ctx SpecContext) {
@@ -66,7 +65,7 @@ var _ = Describe("Create", Ordered, func() {
 				ch.Leaseholder = 1
 				ch.Name = channel.NewRandomName()
 				Expect(services[1].Create(ctx, &ch, channel.CreateWithoutGroupRelationship())).To(Succeed())
-				Expect(ch.Key().Lease()).To(Equal(aspen.NodeKey(1)))
+				Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 				entries := []ontology.Resource{}
 				Expect(mockCluster.
 					Nodes[1].
@@ -84,7 +83,7 @@ var _ = Describe("Create", Ordered, func() {
 		Context("Node is remote", func() {
 			BeforeEach(func() { ch.Leaseholder = 2 })
 			It("Should create the channel without error", func(ctx SpecContext) {
-				Expect(ch.Key().Lease()).To(Equal(aspen.NodeKey(2)))
+				Expect(ch.Key().Lease()).To(Equal(node.Key(2)))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(2)))
 			})
 			It("Should create the channel in time-series database", func(ctx SpecContext) {
@@ -106,7 +105,7 @@ var _ = Describe("Create", Ordered, func() {
 						Leaseholder: 1,
 					}
 					Expect(services[1].NewWriter(nil).Create(ctx, ch2)).To(Succeed())
-					Expect(ch2.Key().Lease()).To(Equal(aspen.NodeKey(1)))
+					Expect(ch2.Key().Lease()).To(Equal(node.Key(1)))
 					Expect(ch2.Key().LocalKey()).To(Equal(channel.LocalKey(7)))
 				})
 			It("Should correctly create a virtual channel", func(ctx SpecContext) {
@@ -117,7 +116,7 @@ var _ = Describe("Create", Ordered, func() {
 					Virtual:     true,
 				}
 				Expect(services[1].Create(ctx, ch3)).To(Succeed())
-				Expect(ch3.Key().Lease()).To(Equal(aspen.NodeKey(2)))
+				Expect(ch3.Key().Lease()).To(Equal(node.Key(2)))
 				Eventually(func(g Gomega) {
 					channels := MustSucceed(mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch3.Key().StorageKey()))
 					g.Expect(channels).To(HaveLen(1))
@@ -133,7 +132,7 @@ var _ = Describe("Create", Ordered, func() {
 					IsIndex:     true,
 				}
 				Expect(services[1].Create(ctx, ch4)).To(Succeed())
-				Expect(ch4.Key().Lease()).To(Equal(aspen.NodeKey(2)))
+				Expect(ch4.Key().Lease()).To(Equal(node.Key(2)))
 				Expect(ch4.Key().LocalKey()).To(Equal(channel.LocalKey(9)))
 				Expect(ch4.LocalIndex).To(Equal(channel.LocalKey(9)))
 				channels := MustSucceed(mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch4.Key().StorageKey()))
@@ -147,7 +146,7 @@ var _ = Describe("Create", Ordered, func() {
 				ch.Virtual = true
 			})
 			It("Should create the channel without error", func(ctx SpecContext) {
-				Expect(ch.Key().Lease()).To(Equal(aspen.NodeKeyFree))
+				Expect(ch.Key().Lease()).To(Equal(node.KeyFree))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).
 					Error().To(MatchError(query.ErrNotFound))
@@ -188,9 +187,9 @@ var _ = Describe("Create", Ordered, func() {
 				},
 			}
 			Expect(services[1].CreateMany(ctx, &chs)).To(Succeed())
-			Expect(chs[0].Key().Lease()).To(Equal(aspen.NodeKey(1)))
+			Expect(chs[0].Key().Lease()).To(Equal(node.Key(1)))
 			Expect(chs[0].Key().LocalKey()).ToNot(BeZero())
-			Expect(chs[1].Key().Lease()).To(Equal(aspen.NodeKey(1)))
+			Expect(chs[1].Key().Lease()).To(Equal(node.Key(1)))
 			Expect(chs[1].Key().LocalKey()).ToNot(BeZero())
 			Expect(chs[0].Key()).ToNot(Equal(chs[1].Key()))
 		})
@@ -221,7 +220,7 @@ var _ = Describe("Create", Ordered, func() {
 		})
 		It("Should create the channel without error", func(ctx SpecContext) {
 			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
-			Expect(ch.Key().Lease()).To(Equal(aspen.NodeKey(1)))
+			Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 			Expect(ch.Key().LocalKey()).ToNot(BeZero())
 		})
 		It("Should not create the channel if it already exists by name", func(ctx SpecContext) {
@@ -231,7 +230,7 @@ var _ = Describe("Create", Ordered, func() {
 			ch.LocalKey = 0
 			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
-			Expect(ch.Key().Lease()).To(Equal(aspen.NodeKey(1)))
+			Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 		})
 		Describe("OverwriteIfNameExists", func() {
 
@@ -300,13 +299,13 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Virtual = true
 			ch.Leaseholder = node.KeyFree
 			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
-			Expect(ch.Key().Lease()).To(Equal(aspen.NodeKeyFree))
+			Expect(ch.Key().Lease()).To(Equal(node.KeyFree))
 			k := ch.Key()
 			ch.LocalKey = 0
 			ch.Leaseholder = 0
 			Expect(services[1].Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
-			Expect(ch.Key().Lease()).To(Equal(aspen.NodeKeyFree))
+			Expect(ch.Key().Lease()).To(Equal(node.KeyFree))
 		})
 	})
 	Context("Calculated Channel with Auto-Created Index", func() {

@@ -98,7 +98,7 @@ type Codec struct {
 	reader *binary.Reader
 	// resolver is used in dynamic codecs to look up the data types of channels when
 	// Update is called. It is nil for codecs created with NewStatic.
-	resolver DataTypeResolver
+	resolver Resolver
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
@@ -174,25 +174,25 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType, opts ...Opt
 	return c
 }
 
-// DataTypeResolver resolves the data types of a set of channels by key. It is supplied
-// to NewDynamic so the codec can look up the data types of channels when Update is
-// called. The channel service implementations satisfy this interface, allowing a
-// dynamic codec to resolve data types through them without depending on the service
-// layer.
-type DataTypeResolver interface {
-	// RetrieveDataTypes returns the data types of the channels with the given keys. The
-	// returned map must contain an entry for every key that resolves to an existing
-	// channel; keys absent from the map are treated as unknown by the codec.
-	RetrieveDataTypes(context.Context, channel.Keys) (map[channel.Key]telem.DataType, error)
-	// RetrieveName returns the name of the channel with the given key.
-	RetrieveName(context.Context, channel.Key) (string, error)
+// Resolver resolves channel metadata (data types and names) by key. It is supplied to
+// NewDynamic so the codec can look up channel information when Update is called. The
+// channel service implementations satisfy this interface, allowing a dynamic codec to
+// resolve channel metadata through them without depending on the service layer.
+type Resolver interface {
+	// RetrieveDataTypes returns the data types of the channels with the given keys in
+	// the same order as keys. The returned slice must contain exactly one entry per
+	// key; Codec.Update returns an error if the lengths differ.
+	RetrieveDataTypes(context.Context, channel.Keys) ([]telem.DataType, error)
+	// RetrieveName returns the name of the channel with the given key, or an empty
+	// string if no channel with the key exists.
+	RetrieveName(context.Context, channel.Key) string
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by resolving channel
-// data types through the provided DataTypeResolver with default configuration (alignment
-// compression enabled). Codec.Update must be called before the first call to Codec.Encode
-// and Codec.Decode.
-func NewDynamic(resolver DataTypeResolver, opts ...Option) *Codec {
+// data types through the provided Resolver with default configuration (alignment
+// compression enabled). Codec.Update must be called before the first call to
+// Codec.Encode and Codec.Decode.
+func NewDynamic(resolver Resolver, opts ...Option) *Codec {
 	c := newCodec(opts...)
 	c.resolver = resolver
 	return c
@@ -212,11 +212,22 @@ func newCodec(opts ...Option) *Codec {
 }
 
 // Update updates the codec to use the given keys in its state, resolving their data
-// types through the codec's DataTypeResolver.
+// types through the codec's Resolver. It returns an error if the resolver does not
+// return exactly one data type per key.
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
-	keyDataTypes, err := c.resolver.RetrieveDataTypes(ctx, keys)
+	dataTypes, err := c.resolver.RetrieveDataTypes(ctx, keys)
 	if err != nil {
 		return err
+	}
+	if len(dataTypes) != len(keys) {
+		return errors.Newf(
+			"resolver returned %d data types for %d channel keys",
+			len(dataTypes), len(keys),
+		)
+	}
+	keyDataTypes := make(map[channel.Key]telem.DataType, len(keys))
+	for i, key := range keys {
+		keyDataTypes[key] = dataTypes[i]
 	}
 	c.update(keys, keyDataTypes)
 	return nil
@@ -492,9 +503,18 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 	return err
 }
 
+func (c *Codec) retrieveName(ctx context.Context, key channel.Key) string {
+	if c.resolver != nil {
+		if name := c.resolver.RetrieveName(ctx, key); name != "" {
+			return name
+		}
+	}
+	return key.String()
+}
+
 // encodeInternal encodes the frame into c.buf. After calling this method,
 // c.buf.Bytes() contains the encoded data.
-func (c *Codec) encodeInternal(_ context.Context, src framer.Frame) error {
+func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
@@ -513,7 +533,7 @@ func (c *Codec) encodeInternal(_ context.Context, src framer.Frame) error {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"encoder was provided a key %s not present in current state",
-				key,
+				c.retrieveName(ctx, key),
 			)
 		}
 		isEquivalent := (dt == telem.Int64T || dt == telem.TimeStampT) &&
@@ -521,7 +541,7 @@ func (c *Codec) encodeInternal(_ context.Context, src framer.Frame) error {
 		if dt != s.DataType && !isEquivalent {
 			return errors.Wrapf(
 				validate.ErrValidation, "data type %s for channel %s does not match series data type %s",
-				dt, key, s.DataType,
+				dt, c.retrieveName(ctx, key), s.DataType,
 			)
 		}
 	}

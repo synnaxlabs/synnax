@@ -197,14 +197,15 @@ func (s *Service) NewRetrieve() Retrieve {
 	return r
 }
 
-// RetrieveDataTypes resolves the data types of the channels with the given keys. Keys
-// that do not correspond to an existing channel are omitted from the returned map. Its
-// signature satisfies codec.DataTypeResolver, allowing a dynamic framer codec to resolve
-// channel data types directly through the service layer.
+// RetrieveDataTypes resolves the data types of the channels with the given keys,
+// returning them in the same order as keys. Keys that do not correspond to an existing
+// channel are omitted, so the returned slice is shorter than keys when any key is
+// unknown. Its signature satisfies codec.Resolver, allowing a dynamic framer codec to
+// resolve channel data types directly through the service layer.
 func (s *Service) RetrieveDataTypes(
 	ctx context.Context,
 	keys Keys,
-) (map[Key]telem.DataType, error) {
+) ([]telem.DataType, error) {
 	var channels []Channel
 	if err := s.NewRetrieve().
 		Where(MatchKeys(keys...)).
@@ -212,25 +213,30 @@ func (s *Service) RetrieveDataTypes(
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	dataTypes := make(map[Key]telem.DataType, len(channels))
+	dataTypeByKey := make(map[Key]telem.DataType, len(channels))
 	for _, ch := range channels {
-		dataTypes[ch.Key()] = ch.DataType
+		dataTypeByKey[ch.Key()] = ch.DataType
+	}
+	dataTypes := make([]telem.DataType, 0, len(keys))
+	for _, key := range keys {
+		if dt, ok := dataTypeByKey[key]; ok {
+			dataTypes = append(dataTypes, dt)
+		}
 	}
 	return dataTypes, nil
 }
 
-// RetrieveName resolves the name of the channel with the given key. It returns
-// query.ErrNotFound if no channel with the key exists. Its signature satisfies
-// codec.DataTypeResolver.
-func (s *Service) RetrieveName(ctx context.Context, key Key) (string, error) {
+// RetrieveName resolves the name of the channel with the given key, returning an empty
+// string if no channel with the key exists. Its signature satisfies codec.Resolver.
+func (s *Service) RetrieveName(ctx context.Context, key Key) string {
 	var ch Channel
 	if err := s.NewRetrieve().
 		Where(MatchKeys(key)).
 		Entry(&ch).
 		Exec(ctx, nil); err != nil {
-		return "", err
+		return ""
 	}
-	return ch.Name, nil
+	return ch.Name
 }
 
 // CountExternalNonVirtual returns the number of external non-virtual channels in the
