@@ -328,9 +328,7 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		if !genMethods {
 			continue
 		}
-		if fill, ok := goDefaultFill(field, data); ok {
-			sd.DefaultFills = append(sd.DefaultFills, fill)
-		}
+		sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
 		if step, ok := goRecurseStep(field, data, defaultsHasOwn); ok {
 			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
 		}

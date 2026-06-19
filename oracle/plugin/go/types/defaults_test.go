@@ -108,6 +108,49 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 	})
 
+	Describe("Struct-literal field defaults", func() {
+		It("Should fill a nested component from a struct default before recursing", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				AxisKey enum { x1 = "x1" }
+
+				Axis struct {
+					key  AxisKey
+					tick float64 = 75
+				}
+
+				Axes struct {
+					x1 Axis = { key = AxisKeyX1 }
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (a Axes) ApplyDefaults() Axes {",
+				"if a.X1.Key == \"\" {",
+				"a.X1.Key = AxisKeyX1",
+				"a.X1 = a.X1.ApplyDefaults()",
+			)
+		})
+
+		It("Should ignore an all-zero struct default", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Bounds struct {
+					lower float64
+					upper float64
+				}
+
+				Cfg struct {
+					bounds Bounds = { lower = 0, upper = 0 }
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
+		})
+	})
+
 	Describe("Recursion into nested types", func() {
 		It("Should recurse ApplyDefaults into a nested struct field", func(ctx SpecContext) {
 			source := `
