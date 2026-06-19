@@ -17,6 +17,7 @@ export const GROUP: Group = {
   symbols: [
     "value",
     "gauge",
+    "scale",
     "setpoint",
     "textBox",
     "offPageReference",

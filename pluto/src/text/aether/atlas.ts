@@ -87,7 +87,9 @@ export class MonospacedAtlas {
   ): void {
     const { width, height } = this.charDims;
     const cols = Math.ceil(Math.sqrt(this.charMap.size));
-    if (ctx.textAlign === "center") x -= (width * text.length) / 2;
+    const totalWidth = width * text.length;
+    if (ctx.textAlign === "center") x -= totalWidth / 2;
+    else if (ctx.textAlign === "right" || ctx.textAlign === "end") x -= totalWidth;
     if (ctx.textBaseline === "middle") y += height / 2;
 
     for (let i = 0; i < text.length; i++) {
