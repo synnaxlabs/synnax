@@ -41,34 +41,88 @@ type enumCheckData struct {
 	FieldName string
 }
 
-// goDefaultFill returns the fill for a required field whose static default differs
-// from its type's zero value (RFC 0043 section 5). It returns ok=false for fields with
-// no default, nullable/optional fields, defaults that equal the zero value (nothing to
-// fill), and non-static defaults such as `create`/`now`.
-func goDefaultFill(field resolution.Field, data *templateData) (defaultFillData, bool) {
+// goDefaultFills returns the fills for a field's static default (RFC 0043 section 5). A
+// scalar default yields a single fill; a struct-literal default (e.g.
+// `x1 Axis = { key = AxisKeyX1 }`) yields one fill per non-zero leaf component, keyed by a
+// nested selector (X1.Key). It returns nil for fields with no default, nullable/optional
+// fields, defaults that equal the zero value (nothing to fill), and non-static defaults
+// such as create/now.
+func goDefaultFills(field resolution.Field, data *templateData) []defaultFillData {
 	if field.Default == nil || field.Optional {
-		return defaultFillData{}, false
+		return nil
 	}
 	name := naming.GetFieldName(field)
-	d := field.Default
+	if field.Default.Kind == resolution.ValueKindStruct {
+		return structDefaultFills(name, field.Type, *field.Default, data)
+	}
+	if fill, ok := scalarFill(name, field.Type, field.Default, data); ok {
+		return []defaultFillData{fill}
+	}
+	return nil
+}
+
+// structDefaultFills walks a struct-literal default, emitting a fill per non-zero leaf
+// component. prefix is the Go selector to the struct field (e.g. "X1"), structRef its
+// type, and val the literal. Nested struct components recurse with an extended selector.
+func structDefaultFills(
+	prefix string,
+	structRef resolution.TypeRef,
+	val resolution.ExpressionValue,
+	data *templateData,
+) []defaultFillData {
+	resolved, ok := structRef.Resolve(data.table)
+	if !ok {
+		return nil
+	}
+	form, ok := resolved.Form.(resolution.StructForm)
+	if !ok {
+		return nil
+	}
+	var fills []defaultFillData
+	for _, comp := range val.Fields {
+		f, ok := form.Field(comp.Name)
+		if !ok {
+			continue
+		}
+		selector := prefix + "." + naming.GetFieldName(f)
+		if comp.Value.Kind == resolution.ValueKindStruct {
+			fills = append(fills, structDefaultFills(selector, f.Type, comp.Value, data)...)
+			continue
+		}
+		if fill, ok := scalarFill(selector, f.Type, &comp.Value, data); ok {
+			fills = append(fills, fill)
+		}
+	}
+	return fills
+}
+
+// scalarFill returns the fill assigning the scalar or enum default d to the Go selector
+// goName of type typeRef. It returns ok=false when d equals the type's zero value (nothing
+// to fill) or is an integer-enum default (whose zeroth member is the zero value).
+func scalarFill(
+	goName string,
+	typeRef resolution.TypeRef,
+	d *resolution.ExpressionValue,
+	data *templateData,
+) (defaultFillData, bool) {
 	switch d.Kind {
 	case resolution.ValueKindString:
 		if d.StringValue == "" {
 			return defaultFillData{}, false
 		}
-		return defaultFillData{GoName: name, ZeroLit: `""`, Expr: strconv.Quote(d.StringValue)}, true
+		return defaultFillData{GoName: goName, ZeroLit: `""`, Expr: strconv.Quote(d.StringValue)}, true
 	case resolution.ValueKindInt:
 		if d.IntValue == 0 {
 			return defaultFillData{}, false
 		}
-		return defaultFillData{GoName: name, ZeroLit: "0", Expr: fmt.Sprintf("%d", d.IntValue)}, true
+		return defaultFillData{GoName: goName, ZeroLit: "0", Expr: fmt.Sprintf("%d", d.IntValue)}, true
 	case resolution.ValueKindFloat:
 		if d.FloatValue == 0 {
 			return defaultFillData{}, false
 		}
-		return defaultFillData{GoName: name, ZeroLit: "0", Expr: strconv.FormatFloat(d.FloatValue, 'g', -1, 64)}, true
+		return defaultFillData{GoName: goName, ZeroLit: "0", Expr: strconv.FormatFloat(d.FloatValue, 'g', -1, 64)}, true
 	case resolution.ValueKindIdent:
-		ev, ok := validation.ResolveEnumVariant(d.IdentValue, field.Type, data.table)
+		ev, ok := validation.ResolveEnumVariant(d.IdentValue, typeRef, data.table)
 		if !ok {
 			return defaultFillData{}, false
 		}
@@ -78,12 +132,8 @@ func goDefaultFill(field resolution.Field, data *templateData) (defaultFillData,
 			// there is nothing to fill; a non-zeroth default is an invariant violation.
 			return defaultFillData{}, false
 		}
-		enumType := stripPointer(data.resolver.ResolveTypeRef(field.Type, data.ctx))
-		return defaultFillData{
-			GoName:  name,
-			ZeroLit: `""`,
-			Expr:    enumType + naming.ToPascalCase(ev.Variant.Name),
-		}, true
+		enumType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+		return defaultFillData{GoName: goName, ZeroLit: `""`, Expr: enumType + naming.ToPascalCase(ev.Variant.Name)}, true
 	}
 	return defaultFillData{}, false
 }
@@ -212,8 +262,7 @@ type recurseStepData struct {
 type fieldHasOwn func(resolution.Field, *templateData) bool
 
 func defaultsHasOwn(f resolution.Field, data *templateData) bool {
-	_, ok := goDefaultFill(f, data)
-	return ok
+	return len(goDefaultFills(f, data)) > 0
 }
 
 func validateHasOwn(f resolution.Field, data *templateData) bool {
