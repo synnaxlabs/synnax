@@ -331,12 +331,21 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		if fill, ok := goDefaultFill(field, data); ok {
 			sd.DefaultFills = append(sd.DefaultFills, fill)
 		}
+		if step, ok := goRecurseStep(field, data, defaultsHasOwn); ok {
+			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
+		}
 		if chk, ok := goEnumCheck(field, data); ok {
 			sd.EnumChecks = append(sd.EnumChecks, chk)
 		}
+		if step, ok := goRecurseStep(field, data, validateHasOwn); ok {
+			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
+		}
 	}
-	if len(sd.EnumChecks) > 0 {
+	if len(sd.EnumChecks) > 0 || len(sd.ValidateRecurse) > 0 {
 		data.imports.AddExternal(validateImportPath)
+	}
+	if hasSliceRecurse(sd.ValidateRecurse) {
+		data.imports.AddExternal(strconvImportPath)
 	}
 	if len(sd.Name) > 0 {
 		sd.Receiver = strings.ToLower(sd.Name[:1])
@@ -480,19 +489,21 @@ func (d *templateData) InternalImports() []imports.InternalImportData {
 }
 
 type structData struct {
-	Name         string
-	Doc          string
-	AliasOf      string
-	Receiver     string
-	Fields       []fieldData
-	TypeParams   []typeParamData
-	ExtendsTypes []string
-	ExtraFields  []string
-	DefaultFills []defaultFillData
-	EnumChecks   []enumCheckData
-	IsGeneric    bool
-	IsAlias      bool
-	HasExtends   bool
+	Name            string
+	Doc             string
+	AliasOf         string
+	Receiver        string
+	Fields          []fieldData
+	TypeParams      []typeParamData
+	ExtendsTypes    []string
+	ExtraFields     []string
+	DefaultFills    []defaultFillData
+	DefaultRecurse  []recurseStepData
+	EnumChecks      []enumCheckData
+	ValidateRecurse []recurseStepData
+	IsGeneric       bool
+	IsAlias         bool
+	HasExtends      bool
 }
 
 type typeParamData struct {
@@ -659,7 +670,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 }
 {{end -}}
 {{- $s := .}}
-{{- if .DefaultFills}}
+{{- if or .DefaultFills .DefaultRecurse}}
 
 func ({{$s.Receiver}} {{$s.Name}}) ApplyDefaults() {{$s.Name}} {
 {{- range $s.DefaultFills}}
@@ -667,15 +678,50 @@ func ({{$s.Receiver}} {{$s.Name}}) ApplyDefaults() {{$s.Name}} {
 		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
 	}
 {{- end}}
+{{- range $s.DefaultRecurse}}
+{{- if eq (printf "%s" .Kind) "value"}}
+	{{$s.Receiver}}.{{.GoName}} = {{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
+{{- else if eq (printf "%s" .Kind) "pointer"}}
+	if {{$s.Receiver}}.{{.GoName}} != nil {
+		applied := {{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
+		{{$s.Receiver}}.{{.GoName}} = &applied
+	}
+{{- else if eq (printf "%s" .Kind) "slice"}}
+	for i := range {{$s.Receiver}}.{{.GoName}} {
+		{{$s.Receiver}}.{{.GoName}}[i] = {{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
+	}
+{{- else if eq (printf "%s" .Kind) "map"}}
+	for key, value := range {{$s.Receiver}}.{{.GoName}} {
+		{{$s.Receiver}}.{{.GoName}}[key] = value.ApplyDefaults()
+	}
+{{- end}}
+{{- end}}
 	return {{$s.Receiver}}
 }
 {{- end}}
-{{- if .EnumChecks}}
+{{- if or .EnumChecks .ValidateRecurse}}
 
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
 	v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$s.Receiver}}.{{.GoName}})
+{{- end}}
+{{- range $s.ValidateRecurse}}
+{{- if eq (printf "%s" .Kind) "value"}}
+	v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}.Validate(), "{{.JSONName}}") })
+{{- else if eq (printf "%s" .Kind) "pointer"}}
+	if {{$s.Receiver}}.{{.GoName}} != nil {
+		v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}.Validate(), "{{.JSONName}}") })
+	}
+{{- else if eq (printf "%s" .Kind) "slice"}}
+	for i := range {{$s.Receiver}}.{{.GoName}} {
+		v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}[i].Validate(), "{{.JSONName}}", strconv.Itoa(i)) })
+	}
+{{- else if eq (printf "%s" .Kind) "map"}}
+	for key, value := range {{$s.Receiver}}.{{.GoName}} {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "{{.JSONName}}", key) })
+	}
+{{- end}}
 {{- end}}
 	return v.Error()
 }
@@ -712,6 +758,59 @@ type {{.TypeName}} struct {
 }
 
 func ({{.TypeName}}) {{$u.Marker}}() {}
+{{- $vt := .}}
+{{- if .NeedsApplyDefaults}}
+
+func ({{$vt.Receiver}} {{$vt.TypeName}}) ApplyDefaults() {{$vt.TypeName}} {
+{{- range $vt.DefaultRecurse}}
+{{- if eq (printf "%s" .Kind) "value"}}
+	{{$vt.Receiver}}.{{.GoName}} = {{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
+{{- else if eq (printf "%s" .Kind) "pointer"}}
+	if {{$vt.Receiver}}.{{.GoName}} != nil {
+		applied := {{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
+		{{$vt.Receiver}}.{{.GoName}} = &applied
+	}
+{{- else if eq (printf "%s" .Kind) "slice"}}
+	for i := range {{$vt.Receiver}}.{{.GoName}} {
+		{{$vt.Receiver}}.{{.GoName}}[i] = {{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
+	}
+{{- else if eq (printf "%s" .Kind) "map"}}
+	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
+		{{$vt.Receiver}}.{{.GoName}}[key] = value.ApplyDefaults()
+	}
+{{- end}}
+{{- end}}
+	return {{$vt.Receiver}}
+}
+{{- end}}
+{{- if .NeedsValidate}}
+
+func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
+	v := validate.New("{{$vt.TypeName}}")
+{{- range $vt.ValidateRecurse}}
+{{- if eq (printf "%s" .Kind) "value"}}
+{{- if .JSONName}}
+	v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}.Validate(), "{{.JSONName}}") })
+{{- else}}
+	v.Exec({{$vt.Receiver}}.{{.GoName}}.Validate)
+{{- end}}
+{{- else if eq (printf "%s" .Kind) "pointer"}}
+	if {{$vt.Receiver}}.{{.GoName}} != nil {
+		v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}.Validate(), "{{.JSONName}}") })
+	}
+{{- else if eq (printf "%s" .Kind) "slice"}}
+	for i := range {{$vt.Receiver}}.{{.GoName}} {
+		v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}[i].Validate(), "{{.JSONName}}", strconv.Itoa(i)) })
+	}
+{{- else if eq (printf "%s" .Kind) "map"}}
+	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "{{.JSONName}}", key) })
+	}
+{{- end}}
+{{- end}}
+	return v.Error()
+}
+{{- end}}
 {{end -}}
 {{if .Doc}}{{formatDoc .Name .Doc}}
 {{end -}}
@@ -773,5 +872,33 @@ func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+{{- if .NeedsApplyDefaults}}
+
+func (u {{.Name}}) ApplyDefaults() {{.Name}} {
+	switch variant := u.Variant.(type) {
+{{- range .Variants}}
+{{- if .NeedsApplyDefaults}}
+	case {{.TypeName}}:
+		u.Variant = variant.ApplyDefaults()
+{{- end}}
+{{- end}}
+	}
+	return u
+}
+{{- end}}
+{{- if .NeedsValidate}}
+
+func (u {{.Name}}) Validate() error {
+	switch variant := u.Variant.(type) {
+{{- range .Variants}}
+{{- if .NeedsValidate}}
+	case {{.TypeName}}:
+		return variant.Validate()
+{{- end}}
+{{- end}}
+	}
+	return nil
+}
+{{- end}}
 {{end -}}
 `))
