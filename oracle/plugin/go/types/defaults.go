@@ -135,6 +135,9 @@ func goConstraintChecks(field resolution.Field, data *templateData) []constraint
 		}
 	}
 	if resolution.IsNumberPrimitive(base) {
+		if rules.Required {
+			checks = append(checks, check("non_zero", ""))
+		}
 		if rules.Min != nil {
 			checks = append(checks, check("ge", numberLiteral(rules.Min)))
 		}

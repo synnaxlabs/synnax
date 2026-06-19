@@ -1966,8 +1966,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 	isNumber := resolution.IsPrimitive(effectiveType) && resolution.IsNumberPrimitive(effectiveType)
 	if isString {
 		if rules.Required {
-			humanName := lo.Capitalize(strings.ReplaceAll(fieldName, "_", " "))
-			zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, humanName)
+			zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, fieldName)
 		}
 		if rules.MinLength != nil {
 			zodType = fmt.Sprintf("%s.min(%d)", zodType, *rules.MinLength)
@@ -1984,6 +1983,9 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		}
 	}
 	if isNumber {
+		if rules.Required {
+			zodType = fmt.Sprintf("%s.refine((v) => v !== 0, \"%s is required\")", zodType, fieldName)
+		}
 		if rules.Min != nil {
 			if rules.Min.IsInt {
 				zodType = fmt.Sprintf("%s.min(%d)", zodType, rules.Min.Int)

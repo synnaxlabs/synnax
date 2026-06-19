@@ -275,6 +275,24 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should emit NonZero for a required numeric (distinct) type", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Key uint32
+
+				Cfg struct {
+					rack Key {
+						@validate required
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`validate.NonZero(v, "rack", c.Rack)`,
+			)
+		})
+
 		It("Should emit LessThanEq for a numeric max", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"
