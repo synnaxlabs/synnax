@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Oracle does not emit Go struct defaults, so the defaults a newly added channel
-// entry receives are duplicated here. They must stay in sync with the field
-// defaults declared on ChannelEntry in schemas/log.oracle and with the TypeScript
+// Oracle does not emit Go struct defaults, so the defaults a newly added channel entry
+// receives are duplicated here. They must stay in sync with the field defaults declared
+// on ChannelEntry in schemas/synnax/log.oracle and with the TypeScript
 // defaultChannelEntry in client/ts/src/log/actions.ts.
 const (
 	defaultPrecision         int32                 = -1
@@ -32,7 +32,7 @@ const (
 
 // minTimestampPrecision and maxTimestampPrecision bound the log-level timestamp
 // precision. They mirror the @validate constraints on Log.timestamp_precision in
-// schemas/log.oracle.
+// schemas/synnax/log.oracle.
 const (
 	minTimestampPrecision int32 = 0
 	maxTimestampPrecision int32 = 3
