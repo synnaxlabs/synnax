@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
@@ -97,9 +96,9 @@ type Codec struct {
 	// reader is reused for each decode operation. Unlike the standard library
 	// binary.Read, this avoids reflection overhead.
 	reader *binary.Reader
-	// channels is used in dynamic codecs to retrieve information about channels when
-	// Update is called.
-	channels *svcchannel.Service
+	// resolver is used in dynamic codecs to look up the data types of channels when
+	// Update is called. It is nil for codecs created with NewStatic.
+	resolver DataTypeResolver
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
@@ -175,13 +174,24 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType, opts ...Opt
 	return c
 }
 
-// NewDynamic creates a new codec that can be dynamically updated by retrieving channels
-// from the provided channel service with default configuration (alignment compression
-// enabled). Codec.Update must be called before the first call to Codec.Encode and
-// Codec.Decode.
-func NewDynamic(channels *svcchannel.Service, opts ...Option) *Codec {
+// DataTypeResolver resolves the data types of a set of channels by key. It is supplied
+// to NewDynamic so the codec can look up the data types of channels when Update is
+// called. The channel service implementations satisfy this interface, allowing a dynamic
+// codec to resolve data types through them without depending on the service layer.
+type DataTypeResolver interface {
+	// RetrieveDataTypes returns the data types of the channels with the given keys. The
+	// returned map must contain an entry for every key that resolves to an existing
+	// channel; keys absent from the map are treated as unknown by the codec.
+	RetrieveDataTypes(ctx context.Context, keys channel.Keys) (map[channel.Key]telem.DataType, error)
+}
+
+// NewDynamic creates a new codec that can be dynamically updated by resolving channel
+// data types through the provided DataTypeResolver with default configuration (alignment
+// compression enabled). Codec.Update must be called before the first call to Codec.Encode
+// and Codec.Decode.
+func NewDynamic(resolver DataTypeResolver, opts ...Option) *Codec {
 	c := newCodec(opts...)
-	c.channels = channels
+	c.resolver = resolver
 	return c
 }
 
@@ -198,37 +208,12 @@ func newCodec(opts ...Option) *Codec {
 	return c
 }
 
-// channelStringer returns a human-readable representation of the channel with the given
-// key, falling back to the key's string form if it cannot be retrieved.
-func (c *Codec) channelStringer(ctx context.Context, key channel.Key) string {
-	if c.channels == nil {
-		return key.String()
-	}
-	var chs []svcchannel.Channel
-	if err := c.channels.NewRetrieve().
-		Where(svcchannel.MatchKeys(key)).
-		Entries(&chs).
-		Exec(ctx, nil); err != nil || len(chs) == 0 {
-		return key.String()
-	}
-	return chs[0].Distribution().String()
-}
-
-// Update updates the codec to use the given keys in its state.
+// Update updates the codec to use the given keys in its state, resolving their data
+// types through the codec's DataTypeResolver.
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
-	var richChannels []svcchannel.Channel
-	if err := c.channels.NewRetrieve().
-		Where(svcchannel.MatchKeys(keys...)).
-		Entries(&richChannels).
-		Exec(ctx, nil); err != nil {
+	keyDataTypes, err := c.resolver.RetrieveDataTypes(ctx, keys)
+	if err != nil {
 		return err
-	}
-	channels := lo.Map(richChannels, func(ch svcchannel.Channel, _ int) channel.Channel {
-		return ch.Distribution()
-	})
-	keyDataTypes := make(map[channel.Key]telem.DataType, len(channels))
-	for _, ch := range channels {
-		keyDataTypes[ch.Key()] = ch.DataType
 	}
 	c.update(keys, keyDataTypes)
 	return nil
@@ -506,7 +491,7 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 
 // encodeInternal encodes the frame into c.buf. After calling this method,
 // c.buf.Bytes() contains the encoded data.
-func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
+func (c *Codec) encodeInternal(_ context.Context, src framer.Frame) error {
 	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
@@ -525,7 +510,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"encoder was provided a key %s not present in current state",
-				c.channelStringer(ctx, key),
+				key,
 			)
 		}
 		isEquivalent := (dt == telem.Int64T || dt == telem.TimeStampT) &&
@@ -533,7 +518,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		if dt != s.DataType && !isEquivalent {
 			return errors.Wrapf(
 				validate.ErrValidation, "data type %s for channel %s does not match series data type %s",
-				dt, c.channelStringer(ctx, key), s.DataType,
+				dt, key, s.DataType,
 			)
 		}
 	}

@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	xservice "github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -194,6 +195,28 @@ func (s *Service) NewRetrieve() Retrieve {
 	r := s.newRetrieve()
 	r.gorp = r.gorp.Validate(s.validateChannels)
 	return r
+}
+
+// RetrieveDataTypes resolves the data types of the channels with the given keys. Keys
+// that do not correspond to an existing channel are omitted from the returned map. Its
+// signature satisfies codec.DataTypeResolver, allowing a dynamic framer codec to resolve
+// channel data types through the service.
+func (s *Service) RetrieveDataTypes(
+	ctx context.Context,
+	keys Keys,
+) (map[Key]telem.DataType, error) {
+	var channels []Channel
+	if err := s.NewRetrieve().
+		Where(MatchKeys(keys...)).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	dataTypes := make(map[Key]telem.DataType, len(channels))
+	for _, ch := range channels {
+		dataTypes[ch.Key()] = ch.DataType
+	}
+	return dataTypes, nil
 }
 
 // CountExternalNonVirtual returns the number of external non-virtual channels in the
