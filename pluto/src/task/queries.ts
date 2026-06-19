@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type rack, status, task } from "@synnaxlabs/client";
-import { array, type optional, TimeStamp } from "@synnaxlabs/x";
+import { array, type optional } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
 

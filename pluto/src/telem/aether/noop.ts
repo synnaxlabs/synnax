@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { bounds, color, MultiSeries, observe, TimeStamp } from "@synnaxlabs/x";
+import { bounds, color, MultiSeries, observe } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";

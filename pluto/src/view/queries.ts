@@ -10,7 +10,7 @@
 import { view } from "@synnaxlabs/client";
 import { array, type optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
