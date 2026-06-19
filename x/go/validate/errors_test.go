@@ -39,7 +39,7 @@ var _ = Describe("Errors", func() {
 			Expect(parent).To(MatchError(ContainSubstring("title.notation: dog")))
 		})
 		It("Should return nil when the error is nil", func() {
-			Expect(validate.PathedError(nil, "field")).To(BeNil())
+			Expect(validate.PathedError(nil, "field")).To(Succeed())
 		})
 
 		Describe("Encoding + Decoding", func() {
