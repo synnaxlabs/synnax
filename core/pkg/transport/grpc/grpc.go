@@ -50,9 +50,7 @@ import (
 // handlers and middleware to it, and returns the bindable transports for registration
 // with the server's gRPC branch. channelSvc is used for the framer codec to resolve
 // channel data types.
-func Bind(
-	apiLayer *api.Layer, channelSvc *svcchannel.Service,
-) []grpc.BindableTransport {
+func Bind(layer *api.Layer, channelSvc *svcchannel.Service) []grpc.BindableTransport {
 	var t api.Transport
 	transports := grpc.CompoundBindableTransport{
 		channel.New(&t),
@@ -164,6 +162,6 @@ func Bind(
 	// ARC LSP
 	t.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
 
-	apiLayer.BindTo(t)
+	layer.BindTo(t)
 	return transports
 }

@@ -29,7 +29,7 @@ import (
 type Service struct{ internal *rbac.Service }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.LayerConfig{}, cfgs...)
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

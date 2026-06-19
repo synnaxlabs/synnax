@@ -46,9 +46,9 @@ import (
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
 // layer's handlers and middleware to them. The frame codec resolves channel keys
 // through the service-layer channel service, bypassing the API layer's access control.
-func Bind(apiLayer *api.Layer, router *http.Router, channelSvc *svcchannel.Service) {
+func Bind(layer *api.Layer, router *http.Router, channelSvc *svcchannel.Service) {
 	framerServerOption := framer.WithCodec(channelSvc)
-	apiLayer.BindTo(api.Transport{
+	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin:          http.NewUnaryServer[auth.LoginRequest, auth.LoginResponse](router, "/api/v1/auth/login"),
 		AuthChangePassword: http.NewUnaryServer[auth.ChangePasswordRequest, types.Nil](router, "/api/v1/auth/change-password"),

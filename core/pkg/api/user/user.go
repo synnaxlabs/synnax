@@ -37,7 +37,7 @@ type Service struct {
 // NewService creates a new Service that allows for registering, updating, and removing
 // users.
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.LayerConfig{}, cfgs...)
+	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
