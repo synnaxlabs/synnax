@@ -161,7 +161,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
 			createdChannels[i] = ch
 		}
-		writer := MustSucceed(sframer.Wrap(dist.Framer, limitSvc).OpenWriter(ctx, framer.WriterConfig{
+		writer := MustSucceed(MustSucceed(sframer.OpenService(ctx, sframer.ServiceConfig{Framer: dist.Framer, Channel: limitSvc})).OpenWriter(ctx, framer.WriterConfig{
 			Keys: []channel.Key{createdChannels[0].Key()},
 		}))
 		Expect(limitSvc.Delete(ctx, createdChannels[0].Key(), false)).

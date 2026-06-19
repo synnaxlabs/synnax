@@ -58,7 +58,7 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		dist = mock.NewNode(ctx)
 		channelSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
-		frameSvc = serviceframer.Wrap(dist.Framer, channelSvc)
+		frameSvc = MustSucceed(serviceframer.OpenService(ctx, serviceframer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,

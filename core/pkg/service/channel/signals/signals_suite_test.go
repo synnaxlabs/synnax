@@ -37,7 +37,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	chSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search}))
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		Channel: chSvc,
-		Framer:  framer.Wrap(dist.Framer, chSvc),
+		Framer:  MustOpen(framer.OpenService(ctx, framer.ServiceConfig{Framer: dist.Framer, Channel: chSvc})),
 	}))
 	MustOpen(signals.Publish(ctx, sigs, chSvc.Observe()))
 })

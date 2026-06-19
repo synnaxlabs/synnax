@@ -69,8 +69,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("framer")
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
@@ -92,17 +90,6 @@ type Service struct {
 	// channels resolves the distribution-layer metadata supplied to the distribution
 	// writer for each key in a writer's config.
 	channels *channel.Service
-}
-
-// Wrap builds a Service from an existing distribution-layer framer service without a
-// full ServiceConfig. The provided channels retriever resolves writer channel metadata
-// (the same role cfg.Channel plays in OpenService). The returned Service supports the
-// writer operations that delegate directly to the distribution framer (e.g.
-// NewStreamWriter and OpenWriter), but not the calculation-backed streaming and
-// iteration that NewService wires up. It suits tests and other lightweight contexts;
-// use OpenService when a complete configuration is available.
-func Wrap(dist *framer.Service, channels *channel.Service) *Service {
-	return &Service{cfg: ServiceConfig{Framer: dist}, channels: channels}
 }
 
 func (s *Service) OpenIterator(
@@ -137,15 +124,10 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 
 // resolveWriterChannels populates cfg.Channels with the distribution-layer metadata for
 // every key in cfg.Keys, so the distribution writer needs no channel retriever. It
-// returns query.ErrNotFound if any key does not reference an existing channel. When the
-// Service has no channels retriever (an empty Wrap), resolution is skipped and the
-// caller is responsible for populating cfg.Channels.
+// returns query.ErrNotFound if any key does not reference an existing channel.
 func (s *Service) resolveWriterChannels(
 	ctx context.Context, cfg WriterConfig,
 ) (WriterConfig, error) {
-	if s.channels == nil {
-		return cfg, nil
-	}
 	if len(cfg.Keys) == 0 {
 		return cfg, errors.Wrap(validate.ErrValidation, "keys must be non-empty")
 	}
@@ -183,6 +165,12 @@ func (s *Service) NewStreamer(
 
 func (s *Service) Close() error { return s.closer.Close() }
 
+// OpenService opens a framer Service from the provided configuration. Framer and Channel
+// are always required. When DB and Status are also provided, OpenService wires up the
+// calculation-backed streaming and iteration (NewStreamer, OpenIterator,
+// NewStreamIterator). When they are omitted, the returned Service supports only the
+// writer operations that delegate directly to the distribution framer (OpenWriter,
+// NewStreamWriter, DeleteTimeRange); the streaming and iteration methods will panic.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -191,6 +179,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{cfg: cfg, channels: cfg.Channel}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if cfg.DB == nil || cfg.Status == nil {
+		return s, nil
+	}
 	var calcSvc *calculation.Service
 	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation:   cfg.Child("calculation"),

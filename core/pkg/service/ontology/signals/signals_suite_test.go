@@ -43,7 +43,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dist.Ontology.RegisterService(svc)
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		Channel: chSvc,
-		Framer:  framer.Wrap(dist.Framer, chSvc),
+		Framer:  MustOpen(framer.OpenService(ctx, framer.ServiceConfig{Framer: dist.Framer, Channel: chSvc})),
 	}))
 	MustOpen(signals.Publish(ctx, sigs, dist.Ontology))
 })

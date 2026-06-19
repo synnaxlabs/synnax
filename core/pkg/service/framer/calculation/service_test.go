@@ -71,7 +71,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
 		}
 		sCtx, cancel := signal.Isolated()
-		w := MustSucceed(serviceframer.Wrap(dist.Framer, channelSvc).OpenWriter(
+		w := MustSucceed(MustSucceed(serviceframer.OpenService(ctx, serviceframer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})).OpenWriter(
 			ctx,
 			framer.WriterConfig{
 				Start: 1 * telem.SecondTS,

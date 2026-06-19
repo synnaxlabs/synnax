@@ -129,7 +129,7 @@ var _ = Describe("OpenService", func() {
 		}))
 		sigs := MustSucceed(signals.New(signals.Config{
 			Channel: channelSvc,
-			Framer:  framer.Wrap(dist.Framer, channelSvc),
+			Framer:  MustOpen(framer.OpenService(ctx, framer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})),
 		}))
 		MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       dist.DB,

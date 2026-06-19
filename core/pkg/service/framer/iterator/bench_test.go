@@ -49,11 +49,16 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		b.Fatalf("failed to open iterator service: %v", err)
 	}
 
+	fr, err := serviceframer.OpenService(b.Context(), serviceframer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})
+	if err != nil {
+		b.Fatalf("failed to open framer service: %v", err)
+	}
+
 	return &benchIterEnv{
 		ctx:         b.Context(),
 		dist:        dist,
 		channelSvc:  channelSvc,
-		fr:          serviceframer.Wrap(dist.Framer, channelSvc),
+		fr:          fr,
 		iteratorSvc: iteratorSvc,
 	}
 }

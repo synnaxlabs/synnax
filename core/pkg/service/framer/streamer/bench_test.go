@@ -73,7 +73,10 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
-	fr := serviceframer.Wrap(dist.Framer, channelSvc)
+	fr, err := serviceframer.OpenService(b.Context(), serviceframer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})
+	if err != nil {
+		b.Fatalf("failed to open framer service: %v", err)
+	}
 	calc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
 		DB:                dist.DB,
 		Framer:            dist.Framer,
