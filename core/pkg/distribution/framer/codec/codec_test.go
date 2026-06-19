@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -51,6 +52,39 @@ func (m mapResolver) RetrieveDataTypes(
 
 func (m mapResolver) RetrieveName(_ context.Context, key channel.Key) string {
 	return fmt.Sprintf("channel-%d", key)
+}
+
+// configResolver is a configurable codec.Resolver used to exercise the codec's resolver
+// error and naming paths. When dataTypesErr is non-nil it is returned from
+// RetrieveDataTypes; otherwise data types are returned in key order for keys present in
+// dataTypes (so a missing key yields a shorter slice). name is returned verbatim from
+// RetrieveName.
+type configResolver struct {
+	dataTypes    map[channel.Key]telem.DataType
+	dataTypesErr error
+	name         string
+}
+
+var _ codec.Resolver = configResolver{}
+
+func (r configResolver) RetrieveDataTypes(
+	_ context.Context,
+	keys channel.Keys,
+) ([]telem.DataType, error) {
+	if r.dataTypesErr != nil {
+		return nil, r.dataTypesErr
+	}
+	resolved := make([]telem.DataType, 0, len(keys))
+	for _, k := range keys {
+		if dt, ok := r.dataTypes[k]; ok {
+			resolved = append(resolved, dt)
+		}
+	}
+	return resolved, nil
+}
+
+func (r configResolver) RetrieveName(context.Context, channel.Key) string {
+	return r.name
 }
 
 var _ = Describe("Codec", func() {
@@ -1036,6 +1070,55 @@ var _ = Describe("Codec", func() {
 			Expect(dat.Series).To(HaveLen(2))
 			Expect(dat.Series[0]).To(telem.MatchSeriesData(datA))
 			Expect(dat.Series[1]).To(telem.MatchSeriesData(datB))
+		})
+	})
+
+	Describe("Resolver", Ordered, func() {
+		ShouldNotLeakGoroutinesPerSpec()
+
+		It("Should return the error when the resolver fails to retrieve data types", func(ctx SpecContext) {
+			resolveErr := errors.New("failed to resolve data types")
+			c := codec.NewDynamic(configResolver{dataTypesErr: resolveErr})
+			Expect(c.Update(ctx, []channel.Key{1})).To(MatchError(resolveErr))
+		})
+
+		It("Should return an error when the resolver returns the wrong number of data types", func(ctx SpecContext) {
+			// Key 1 resolves but key 2 does not, so the resolver returns one data type
+			// for two keys.
+			c := codec.NewDynamic(configResolver{
+				dataTypes: map[channel.Key]telem.DataType{1: telem.TimeStampT},
+			})
+			Expect(c.Update(ctx, []channel.Key{1, 2})).To(MatchError(
+				ContainSubstring("resolver returned 1 data types for 2 channel keys"),
+			))
+		})
+
+		Describe("Name Resolution", func() {
+			It("Should include the resolved channel name in a data type mismatch error", func(ctx SpecContext) {
+				c := codec.NewDynamic(configResolver{
+					dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
+					name:      "my-channel",
+				})
+				Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
+				fr := frame.NewUnary(777, telem.NewSeriesSecondsTSV(1, 2, 3))
+				Expect(c.Encode(ctx, fr)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("my-channel")),
+				))
+			})
+
+			It("Should fall back to the key string when the resolver returns an empty name", func(ctx SpecContext) {
+				c := codec.NewDynamic(configResolver{
+					dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
+					name:      "",
+				})
+				Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
+				fr := frame.NewUnary(777, telem.NewSeriesSecondsTSV(1, 2, 3))
+				Expect(c.Encode(ctx, fr)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(channel.Key(777).String())),
+				))
+			})
 		})
 	})
 })

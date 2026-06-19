@@ -31,18 +31,22 @@ import (
 
 // Config the configuration for opening an Iterator or StreamIterator.
 type Config struct {
-	// Keys are the keys of the channels to iterator over. At least one key must
-	// be specified. An iterator cannot iterate over non-calculated virtual channels
-	// or free channels, and calls to Open or NewStream will return an error when
+	// Keys are the keys of the channels to iterator over. At least one key must be
+	// specified. An iterator cannot iterate over non-calculated virtual channels or
+	// free channels, and calls to Open or NewStream will return an error when
 	// attempting to iterate over channels of these types.
+	//
 	// [REQUIRED] - must have at least one key.
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Bounds sets the time range to iterate over. This time range must be valid i.e.,
 	// the start value must be before or equal to the end value.
+	//
 	// [REQUIRED]
 	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
 	// ChunkSize sets the default number of samples to iterate over per-channel when
 	// calling Next or Prev with AutoSpan.
+	//
+	// [OPTIONAL]
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
 }
 
@@ -63,13 +67,7 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a new iterator
-	// service. This configuration is not valid on its own and must be overridden
-	// with the required fields specified in ServiceConfig.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -100,7 +98,7 @@ type Service struct {
 // NewService opens a new iterator service using the provided configuration. If the
 // configuration is invalid, NewService returns a nil service and an error.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -139,8 +137,8 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
-// NewStream returns an iterator for reading historical data from a Synnax cluster.
-// The returned StreamIterator is a confluence.Segment that uses a channel-based interface,
+// NewStream returns an iterator for reading historical data from a Synnax cluster. The
+// returned StreamIterator is a confluence.Segment that uses a channel-based interface,
 // where requests are sent through an input stream, and responses are received through
 // an output stream.
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {

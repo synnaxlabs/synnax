@@ -20,7 +20,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/bit"
@@ -334,7 +333,7 @@ func newFlags() flags {
 
 // Encode encodes the given frame into bytes. The returned byte slice is a copy
 // and safe to retain after subsequent Encode calls.
-func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
+func (c *Codec) Encode(ctx context.Context, src frame.Frame) ([]byte, error) {
 	err := c.encodeInternal(ctx, src)
 	if err != nil {
 		return nil, err
@@ -372,7 +371,7 @@ type mergedSeriesInfo struct {
 func (c *Codec) mergeContiguousSeries(
 	sortedKeys []channel.Key,
 	sortedIndices []int,
-	src framer.Frame,
+	src frame.Frame,
 	count int,
 ) []mergedSeriesInfo {
 	// Reuse the result slice, growing capacity only if needed
@@ -495,7 +494,7 @@ const (
 
 // EncodeStream encodes the given frame into the provided io writer, returning any
 // encoding errors encountered.
-func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame) error {
+func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src frame.Frame) error {
 	if err := c.encodeInternal(ctx, src); err != nil {
 		return err
 	}
@@ -514,7 +513,7 @@ func (c *Codec) retrieveName(ctx context.Context, key channel.Key) string {
 
 // encodeInternal encodes the frame into c.buf. After calling this method,
 // c.buf.Bytes() contains the encoded data.
-func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
+func (c *Codec) encodeInternal(ctx context.Context, src frame.Frame) error {
 	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
@@ -695,12 +694,12 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 }
 
 // Decode decodes a frame from the given src bytes.
-func (c *Codec) Decode(src []byte) (dst framer.Frame, err error) {
+func (c *Codec) Decode(src []byte) (dst frame.Frame, err error) {
 	return c.DecodeStream(bytes.NewReader(src))
 }
 
 // DecodeStream decodes a frame from the given io reader.
-func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
+func (c *Codec) DecodeStream(reader io.Reader) (frame.Frame, error) {
 	c.processUpdates()
 	c.panicIfNotUpdated("Decode")
 	c.reader.Reset(reader)
@@ -709,39 +708,39 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		dataLen      uint32
 		refTr        telem.TimeRange
 		refAlignment telem.Alignment
-		fr           framer.Frame
+		fr           frame.Frame
 		err          error
 	)
 
 	flagB, err := c.reader.Uint8()
 	if err != nil {
-		return framer.Frame{}, err
+		return frame.Frame{}, err
 	}
 	seqNum, err := c.reader.Uint32()
 	if err != nil {
-		return framer.Frame{}, err
+		return frame.Frame{}, err
 	}
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
 		states := lo.Keys(c.mu.states)
 		err = errors.Wrapf(validate.ErrValidation, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
-		return framer.Frame{}, err
+		return frame.Frame{}, err
 	}
 	fgs := decodeFlags(flagB)
 	if fgs.equalLens {
 		if dataLen, err = c.reader.Uint32(); err != nil {
-			return framer.Frame{}, err
+			return frame.Frame{}, err
 		}
 	}
 	if fgs.equalTimeRanges && !fgs.timeRangesZero {
 		if refTr, err = c.readTimeRange(); err != nil {
-			return framer.Frame{}, err
+			return frame.Frame{}, err
 		}
 	}
 	if fgs.equalAlignments && !fgs.zeroAlignments {
 		v, readErr := c.reader.Uint64()
 		if readErr != nil {
-			return framer.Frame{}, readErr
+			return frame.Frame{}, readErr
 		}
 		refAlignment = telem.Alignment(v)
 	}
@@ -787,7 +786,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		fr = frame.Alloc(len(cState.keys))
 		for _, k := range cState.keys {
 			if err = decodeSeries(k); err != nil {
-				return framer.Frame{}, err
+				return frame.Frame{}, err
 			}
 		}
 		return fr, nil
@@ -799,10 +798,10 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 			if errors.Is(readErr, io.EOF) {
 				return fr, nil
 			}
-			return framer.Frame{}, readErr
+			return frame.Frame{}, readErr
 		}
 		if err = decodeSeries(channel.Key(k)); err != nil {
-			return framer.Frame{}, err
+			return frame.Frame{}, err
 		}
 	}
 }
