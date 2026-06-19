@@ -73,5 +73,5 @@ func NewLayer(cfgs ...LayerConfig) (Layer, error) {
 		return Layer{}, err
 	}
 	http.Bind(cfg.API, cfg.Router, cfg.API.Channel)
-	return Layer{GRPC: grpc.Bind(cfg.API, cfg.API.Channel)}, nil
+	return Layer{GRPC: grpc.Bind(cfg.API)}, nil
 }

@@ -49,11 +49,11 @@ import (
 // layer's handlers and middleware to it, and returns the bindable transports
 // for registration with the server's gRPC branch. channelSvc resolves channel
 // keys for the frame codec.
-func Bind(layer *api.Layer, channelSvc *apichannel.Service) []grpc.BindableTransport {
+func Bind(layer *api.Layer) []grpc.BindableTransport {
 	var t api.Transport
 	transports := grpc.CompoundBindableTransport{
 		channel.New(&t),
-		framer.New(&t, channelSvc),
+		framer.New(&t, layer.Channel),
 		connectivity.New(&t),
 		auth.New(&t),
 		ranger.New(&t),
