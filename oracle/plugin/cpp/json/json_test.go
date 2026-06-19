@@ -812,6 +812,22 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			)
 	})
 
+	It("Should parse record fields with an empty default as an empty object", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Command struct {
+				type string
+				args record = {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`.args = parser.field<x::json::json::object_t>("args", x::json::json::object_t{}),`,
+			)
+	})
+
 	It("Should parse defaulted distinct-typed fields with their schema defaults", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"

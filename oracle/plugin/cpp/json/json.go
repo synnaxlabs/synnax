@@ -883,7 +883,8 @@ func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool 
 
 // jsonDefaultLiteral renders a field's schema default as a C++ literal usable as
 // parser.field's fallback argument. Returns "" when the default has no inline
-// scalar rendering (arrays, structs), leaving the caller's behavior unchanged.
+// scalar rendering (arrays, non-empty structs), leaving the caller's behavior
+// unchanged.
 func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string {
 	if field.Default == nil {
 		return ""
@@ -898,6 +899,11 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 		return fmt.Sprintf("%f", v.FloatValue)
 	case resolution.ValueKindBool:
 		return fmt.Sprintf("%t", v.BoolValue)
+	case resolution.ValueKindStruct:
+		if len(v.Fields) == 0 && field.Type.Name == "record" {
+			return "x::json::json::object_t{}"
+		}
+		return ""
 	case resolution.ValueKindIdent:
 		if ev, ok := validation.ResolveEnumVariant(v.IdentValue, field.Type, table); ok {
 			return fmt.Sprintf("%q", ev.Variant.StringValue())
