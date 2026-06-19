@@ -53,7 +53,7 @@ const TYPED_EXPORT = {
   name: "My Plot",
   type: "lineplot",
   title: { level: "p", visible: false },
-  legend: { visible: false, position: { x: 0, y: 0 } },
+  legend: { hidden: true, position: { x: 0, y: 0 } },
   channels: { x1: 0, x2: 0, y1: [65538], y2: [], y3: [], y4: [] },
   ranges: { x1: [], x2: [] },
   axes: {
@@ -93,6 +93,7 @@ describe("lineplot import", () => {
       const out = parseImport(TYPED_EXPORT, undefined);
       expect(out.lines).toHaveLength(1);
       expect(out.channels?.y1).toEqual([65538]);
+      expect(out.legend?.hidden).toBe(true);
     });
 
     it("should drop the source key from a legacy export so the server assigns a fresh one", () => {
