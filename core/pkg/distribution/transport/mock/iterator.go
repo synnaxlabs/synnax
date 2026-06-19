@@ -27,7 +27,9 @@ func (c *FramerIteratorNetwork) New(addr address.Address, buffers ...int) iterat
 }
 
 func NewIteratorNetwork() *FramerIteratorNetwork {
-	return &FramerIteratorNetwork{Internal: mock.NewNetwork[iterator.Request, iterator.Response]()}
+	return &FramerIteratorNetwork{
+		Internal: mock.NewNetwork[iterator.Request, iterator.Response](),
+	}
 }
 
 type FramerIteratorTransport struct {

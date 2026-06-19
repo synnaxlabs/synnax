@@ -10,10 +10,11 @@
 package mock
 
 import (
+	"go/types"
+
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
-	"go/types"
 )
 
 type ChannelNetwork struct {
@@ -52,14 +53,26 @@ type ChannelTransport struct {
 
 var _ channel.Transport = (*ChannelTransport)(nil)
 
-func (c ChannelTransport) CreateClient() channel.CreateTransportClient { return c.createClient }
+func (c ChannelTransport) CreateClient() channel.CreateTransportClient {
+	return c.createClient
+}
 
-func (c ChannelTransport) CreateServer() channel.CreateTransportServer { return c.createServer }
+func (c ChannelTransport) CreateServer() channel.CreateTransportServer {
+	return c.createServer
+}
 
-func (c ChannelTransport) DeleteClient() channel.DeleteTransportClient { return c.deleteClient }
+func (c ChannelTransport) DeleteClient() channel.DeleteTransportClient {
+	return c.deleteClient
+}
 
-func (c ChannelTransport) DeleteServer() channel.DeleteTransportServer { return c.deleteServer }
+func (c ChannelTransport) DeleteServer() channel.DeleteTransportServer {
+	return c.deleteServer
+}
 
-func (c ChannelTransport) RenameClient() channel.RenameTransportClient { return c.renameClient }
+func (c ChannelTransport) RenameClient() channel.RenameTransportClient {
+	return c.renameClient
+}
 
-func (c ChannelTransport) RenameServer() channel.RenameTransportServer { return c.renameServer }
+func (c ChannelTransport) RenameServer() channel.RenameTransportServer {
+	return c.renameServer
+}

@@ -19,7 +19,9 @@ type FramerWriterNetwork struct {
 	Internal *mock.Network[writer.Request, writer.Response]
 }
 
-func (c *FramerWriterNetwork) New(addr address.Address, buffers ...int) writer.Transport {
+func (c *FramerWriterNetwork) New(
+	addr address.Address, buffers ...int,
+) writer.Transport {
 	return &FramerWriterTransport{
 		client: c.Internal.StreamClient(buffers...),
 		server: c.Internal.StreamServer(addr, buffers...),

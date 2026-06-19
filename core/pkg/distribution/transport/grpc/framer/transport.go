@@ -102,7 +102,10 @@ func New(pool *fgrpc.Pool) Transport {
 				ClientFunc: func(
 					ctx context.Context,
 					conn grpc.ClientConnInterface,
-				) (fgrpc.GRPCClientStream[*framerpb.WriterRequest, *framerpb.WriterResponse], error) {
+				) (fgrpc.GRPCClientStream[
+					*framerpb.WriterRequest,
+					*framerpb.WriterResponse,
+				], error) {
 					return framerpb.NewWriterServiceClient(conn).Write(ctx)
 				},
 				ServiceDesc: &framerpb.WriterService_ServiceDesc,
@@ -127,7 +130,10 @@ func New(pool *fgrpc.Pool) Transport {
 				ClientFunc: func(
 					ctx context.Context,
 					conn grpc.ClientConnInterface,
-				) (fgrpc.GRPCClientStream[*framerpb.IteratorRequest, *framerpb.IteratorResponse], error) {
+				) (fgrpc.GRPCClientStream[
+					*framerpb.IteratorRequest,
+					*framerpb.IteratorResponse,
+				], error) {
 					return framerpb.NewIteratorServiceClient(conn).Iterate(ctx)
 				},
 				ServiceDesc: &framerpb.IteratorService_ServiceDesc,
@@ -146,7 +152,10 @@ func New(pool *fgrpc.Pool) Transport {
 				ClientFunc: func(
 					ctx context.Context,
 					conn grpc.ClientConnInterface,
-				) (fgrpc.GRPCClientStream[*framerpb.RelayRequest, *framerpb.RelayResponse], error) {
+				) (fgrpc.GRPCClientStream[
+					*framerpb.RelayRequest,
+					*framerpb.RelayResponse,
+				], error) {
 					return framerpb.NewRelayServiceClient(conn).Relay(ctx)
 				},
 				ServiceDesc: &framerpb.RelayService_ServiceDesc,
