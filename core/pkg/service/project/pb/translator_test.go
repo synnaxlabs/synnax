@@ -23,7 +23,7 @@ import (
 
 func TestProjectPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Project PB Suite")
+	RunSpecs(t, "Service Project PB Suite")
 }
 
 // sample builds a fully-populated project whose layout holds string and bool

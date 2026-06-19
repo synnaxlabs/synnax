@@ -18,5 +18,5 @@ import (
 
 func TestV4(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Line Plot v4 Legacy Migration Suite")
+	RunSpecs(t, "Service Line Plot v4 Legacy Migration Suite")
 }
