@@ -287,6 +287,43 @@ func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string
 	return false
 }
 
+// PrimitiveBase follows ref through distinct-type and alias chains to the underlying
+// primitive type name (e.g. a distinct Key over uint32 resolves to "uint32"). It returns
+// the primitive name when ref bottoms out at a primitive, or "" when it does not (a
+// struct, union, builtin container, or unresolved reference). A reference whose surface
+// name is already a primitive is returned directly. Used to classify named numeric and
+// string types for validation, where the constraint applies to the underlying primitive.
+func PrimitiveBase(ref TypeRef, table *Table) string {
+	return primitiveBase(ref, table, set.New[string]())
+}
+
+func primitiveBase(ref TypeRef, table *Table, visited set.Set[string]) string {
+	if ref.IsTypeParam() {
+		if ref.TypeParam != nil && ref.TypeParam.Constraint != nil {
+			return primitiveBase(*ref.TypeParam.Constraint, table, visited)
+		}
+		return ""
+	}
+	if IsPrimitive(ref.Name) {
+		return ref.Name
+	}
+	if visited.Contains(ref.Name) {
+		return ""
+	}
+	visited.Add(ref.Name)
+	resolved, ok := table.Get(ref.Name)
+	if !ok {
+		return ""
+	}
+	switch form := resolved.Form.(type) {
+	case DistinctForm:
+		return primitiveBase(form.Base, table, visited)
+	case AliasForm:
+		return primitiveBase(form.Target, table, visited)
+	}
+	return ""
+}
+
 type TypeParam struct {
 	Constraint *TypeRef
 	Default    *TypeRef

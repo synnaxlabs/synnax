@@ -1955,6 +1955,12 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 	// the overridden primitive, not the underlying schema type.
 	if tsTypeOverride != "" {
 		effectiveType = tsTypeOverride
+	} else if !resolution.IsPrimitive(effectiveType) {
+		// A named numeric or string type (e.g. a distinct Key over uint32) carries its
+		// constraints on the underlying primitive, so classify by that base.
+		if base := resolution.PrimitiveBase(typeRef, table); base != "" {
+			effectiveType = base
+		}
 	}
 	isString := resolution.IsPrimitive(effectiveType) && resolution.IsStringPrimitive(effectiveType)
 	isNumber := resolution.IsPrimitive(effectiveType) && resolution.IsNumberPrimitive(effectiveType)
