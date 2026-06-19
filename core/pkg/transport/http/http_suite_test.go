@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	distmock "github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
@@ -23,11 +22,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	apiLayer *api.Layer
-	dist     *distribution.Layer
-	svc      *service.Layer
-)
+var apiLayer *api.Layer
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -35,20 +30,18 @@ func TestHTTP(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	cluster := distmock.NewCluster(ctx, 1)
-	dist = DeferClose(cluster.Nodes[1].Layer)
-	insecure := true
+	node := distmock.NewNode(ctx)
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
-		Insecure: &insecure,
+		Insecure: new(true),
 		KeySize:  secmock.SmallKeySize,
 	}))
-	svc = MustOpen(service.OpenLayer(ctx, service.LayerConfig{
-		Distribution: dist,
+	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
+		Distribution: node.Layer,
 		Security:     sec,
-		Storage:      cluster.Nodes[1].Storage,
+		Storage:      node.Storage,
 	}))
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
-		Distribution: dist,
+		Distribution: node.Layer,
 	}))
 })

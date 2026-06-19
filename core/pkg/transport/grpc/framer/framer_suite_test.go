@@ -14,17 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	mockCluster *mock.Cluster
-	dist        *distribution.Layer
-	channelSvc  *channel.Service
-)
+var channelSvc *channel.Service
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -32,8 +27,13 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	mockCluster = mock.NewCluster(ctx, 1)
-	node := mockCluster.Nodes[1]
-	dist = node.Layer
-	channelSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: node.Channel, DB: node.DB, HostResolver: node.Cluster, Ontology: node.Ontology, Group: node.Group, Search: node.Search}))
+	node := mock.NewNode(ctx)
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
+	}))
 })

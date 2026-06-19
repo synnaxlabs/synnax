@@ -59,7 +59,7 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("transport")
 	validate.NotNil(v, "api", c.API)
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "http_router", c.Router)
+	validate.NotNil(v, "router", c.Router)
 	return v.Error()
 }
 

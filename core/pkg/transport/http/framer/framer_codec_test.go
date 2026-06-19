@@ -87,9 +87,9 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(chSvc.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(chSvc)
+			cdec := codec.NewDynamic(channelSvc)
 			v := framer.Codec{
 				Codec:          cdec,
 				LowerPerfCodec: json.Codec,
@@ -160,9 +160,9 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(chSvc.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(chSvc)
+			cdec := codec.NewDynamic(channelSvc)
 			v := framer.Codec{
 				Codec:          cdec,
 				LowerPerfCodec: json.Codec,
@@ -177,7 +177,7 @@ var _ = Describe("FramerCodec", func() {
 		})
 
 		It("Should not call Update when the request has no keys", func(ctx SpecContext) {
-			cdec := codec.NewDynamic(chSvc)
+			cdec := codec.NewDynamic(channelSvc)
 			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 			msg := http.WSMessage[framer.StreamerRequest]{
 				Type:    "data",
@@ -197,9 +197,9 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(chSvc.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(chSvc)
+			cdec := codec.NewDynamic(channelSvc)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 
@@ -319,9 +319,9 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(chSvc.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(chSvc)
+			cdec := codec.NewDynamic(channelSvc)
 			v := framer.Codec{
 				Codec:          cdec,
 				LowerPerfCodec: json.Codec,
@@ -502,9 +502,9 @@ var _ = Describe("FramerCodec", func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			Expect(chSvc.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(chSvc)
+			cdec := codec.NewDynamic(channelSvc)
 			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 
 			openReq := http.WSMessage[framer.IteratorRequest]{
