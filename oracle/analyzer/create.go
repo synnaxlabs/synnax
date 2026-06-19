@@ -14,12 +14,13 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// synthesizeCreateTypes derives a `New` input type for every struct marked `@create`
-// (RFC 0043 section 6). The derived type extends the base (mirroring its generic type
-// parameters) and omits every `@output` field, and carries `@ts use_input` / `@go omit`
-// / `@pb omit`, so the existing
-// New-struct codegen produces the input projection: a `z.input` type in TypeScript, a
-// pydantic model in Python, and nothing in Go (where the base struct is reused).
+// synthesizeCreateTypes derives a `New` input type for every struct marked `@create`.
+// The derived type extends the base (mirroring its generic type parameters) and omits
+// every `@output` field, and carries `@ts use_input` plus `omit` for Go, Python,
+// protobuf, and C++, so the existing New-struct codegen produces the input projection
+// only where it adds value: a `z.input` type in TypeScript, and nothing elsewhere (where
+// the base struct is reused, since its defaulted fields are already optional at
+// construction).
 //
 // Defaulted fields become optional automatically through `z.input`, so they need no
 // per-field handling here. If a hand-written `New` already exists in the namespace it is
@@ -70,29 +71,26 @@ func synthesizeCreateTypes(c *analysisCtx) {
 }
 
 // newTypeDomains builds the domains for a synthesized New. It inherits the base type's
-// TypeScript and Python output paths (so the New lands in the same files) and adds
-// `use_input` and `type_only` for TS, so the New emits only as an input-typed type
-// referencing the base schema, never as its own runtime zod const. The New is omitted
-// from Go, protobuf, and C++, where the base struct is reused rather than a distinct
-// input type.
+// TypeScript output path (so the New lands in the same file) and adds `use_input` and
+// `type_only` for TS, so the New emits only as an input-typed type referencing the base
+// schema, never as its own runtime zod const. The New is omitted from Go, Python,
+// protobuf, and C++, where the base struct is reused rather than a distinct input type:
+// in those languages defaulted fields are already optional at construction, so a New
+// projection adds nothing the base does not already provide.
 //
-// The base's `name` expression is deliberately dropped: the New is a distinct sibling
-// that emits under its own name (`New`), so it must not adopt the base's renamed
-// identifier (which would collide with the base). A base `omit` is preserved, since the
-// New mirrors the base's per-language presence: a type that does not exist in a language
-// cannot be created there, so a `@py omit` base yields a `@py omit` New.
+// The base's `name` expression is deliberately dropped from the TS domain: the New is a
+// distinct sibling that emits under its own name (`New`), so it must not adopt the base's
+// renamed identifier (which would collide with the base).
 func newTypeDomains(base resolution.Type) map[string]resolution.Domain {
 	domains := map[string]resolution.Domain{
 		"go":  {Name: "go", Expressions: resolution.Expressions{{Name: "omit"}}},
 		"pb":  {Name: "pb", Expressions: resolution.Expressions{{Name: "omit"}}},
 		"cpp": {Name: "cpp", Expressions: resolution.Expressions{{Name: "omit"}}},
+		"py":  {Name: "py", Expressions: resolution.Expressions{{Name: "omit"}}},
 	}
 	tsExprs := inheritedNewExpressions(base, "ts")
 	tsExprs = append(tsExprs, resolution.Expression{Name: "use_input"}, resolution.Expression{Name: "type_only"})
 	domains["ts"] = resolution.Domain{Name: "ts", Expressions: tsExprs}
-	if _, ok := base.Domains["py"]; ok {
-		domains["py"] = resolution.Domain{Name: "py", Expressions: inheritedNewExpressions(base, "py")}
-	}
 	return domains
 }
 
