@@ -42,7 +42,7 @@ var _ = Describe("Deleter", Ordered, func() {
 				BeforeEach(func(ctx SpecContext) {
 					w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 						Keys:     s.keys,
-						Channels: s.dist.RetrieveChannels(s.keys...),
+						Channels: s.channels,
 						Start:    10 * telem.SecondTS,
 					}))
 					Expect(w.Write(frame.NewMulti(
@@ -117,7 +117,7 @@ var _ = Describe("Deleter", Ordered, func() {
 		It("Should delete channels across gateway and peer nodes", func(ctx SpecContext) {
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:     s.keys,
-				Channels: s.dist.RetrieveChannels(s.keys...),
+				Channels: s.channels,
 				Start:    10 * telem.SecondTS,
 				Sync:     new(true),
 			}))
@@ -152,7 +152,7 @@ var _ = Describe("Deleter", Ordered, func() {
 		It("Should delete all data across gateway and peer nodes", func(ctx SpecContext) {
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:     s.keys,
-				Channels: s.dist.RetrieveChannels(s.keys...),
+				Channels: s.channels,
 				Start:    10 * telem.SecondTS,
 				Sync:     new(true),
 			}))
@@ -180,11 +180,12 @@ var _ = Describe("Deleter", Ordered, func() {
 })
 
 type scenario struct {
-	dist   mock.Node
-	closer io.Closer
-	name   string
-	keys   channel.Keys
-	names  []string
+	dist     mock.Node
+	closer   io.Closer
+	name     string
+	keys     channel.Keys
+	channels []channel.Channel
+	names    []string
 }
 
 func newChannelSet() []channel.Channel {
@@ -211,15 +212,16 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.OpenCluster(ctx, 1)
 	dist := builder.Nodes[1]
-	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{
-		name:   "Gateway Only",
-		keys:   keys,
-		names:  names,
-		dist:   dist,
-		closer: builder,
+		name:     "Gateway Only",
+		keys:     keys,
+		channels: channels,
+		names:    names,
+		dist:     dist,
+		closer:   builder,
 	}
 }
 
@@ -230,20 +232,16 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 2)
 	}
-	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		g.Expect(dist.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{
-		name:   "Peer Only",
-		keys:   keys,
-		names:  names,
-		dist:   dist,
-		closer: builder,
+		name:     "Peer Only",
+		keys:     keys,
+		channels: channels,
+		names:    names,
+		dist:     dist,
+		closer:   builder,
 	}
 }
 
@@ -254,19 +252,15 @@ func mixedScenario(ctx context.Context) scenario {
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 1)
 	}
-	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		g.Expect(dist.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{
-		name:   "Mixed Gateway and Peer",
-		keys:   keys,
-		names:  names,
-		dist:   dist,
-		closer: builder,
+		name:     "Mixed Gateway and Peer",
+		keys:     keys,
+		channels: channels,
+		names:    names,
+		dist:     dist,
+		closer:   builder,
 	}
 }

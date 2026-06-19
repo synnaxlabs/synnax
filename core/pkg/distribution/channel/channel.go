@@ -156,3 +156,24 @@ func (c Channel) Storage() ts.Channel {
 		Concurrency: c.Concurrency,
 	}
 }
+
+// FromStorage returns the distribution-layer representation of a storage-layer channel.
+// It is the inverse of Storage: the storage key carries the full distribution key, so the
+// leaseholder and local keys are recovered without loss.
+func FromStorage(c ts.Channel) Channel {
+	return Channel{
+		Name:        c.Name,
+		Leaseholder: Key(c.Key).Lease(),
+		LocalKey:    Key(c.Key).LocalKey(),
+		DataType:    c.DataType,
+		IsIndex:     c.IsIndex,
+		LocalIndex:  Key(c.Index).LocalKey(),
+		Virtual:     c.Virtual,
+		Concurrency: c.Concurrency,
+	}
+}
+
+// FromStorageMany applies FromStorage to each of the provided storage-layer channels.
+func FromStorageMany(channels []ts.Channel) []Channel {
+	return lo.Map(channels, func(c ts.Channel, _ int) Channel { return FromStorage(c) })
+}

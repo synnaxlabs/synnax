@@ -40,8 +40,8 @@ type scenario struct {
 	resCount int
 }
 
-func openWriter(ctx context.Context, n mock.Node, cfg writer.Config) (*writer.Writer, error) {
-	cfg.Channels = n.RetrieveChannels(cfg.Keys...)
+func openWriter(ctx context.Context, n mock.Node, channels []channel.Channel, cfg writer.Config) (*writer.Writer, error) {
+	cfg.Channels = channels
 	return n.Framer.OpenWriter(ctx, cfg)
 }
 
@@ -69,7 +69,7 @@ var _ = Describe("Relay", func() {
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				// We need to give a few milliseconds for the reader to boot up.
 				time.Sleep(10 * time.Millisecond)
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(openWriter(ctx, s.dist, s.channels, writer.Config{
 					Keys:  keys,
 					Start: 10 * telem.SecondTS,
 				}))
@@ -117,7 +117,7 @@ var _ = Describe("Relay", func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
 			svc := builder.Nodes[1]
-			Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
+			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -130,7 +130,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, channels, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "grouped", Key: "grouped", Group: 99},
@@ -156,7 +156,7 @@ var _ = Describe("Relay", func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
 			svc := builder.Nodes[1]
-			Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
+			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -169,7 +169,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, channels, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "other", Key: "other", Group: 200},
@@ -198,7 +198,7 @@ var _ = Describe("Relay", func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
 			svc := builder.Nodes[1]
-			Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
+			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -211,7 +211,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, channels, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -243,7 +243,7 @@ var _ = Describe("Relay", func() {
 				ch.Virtual = true
 				channels[i] = ch
 			}
-			Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
+			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -256,7 +256,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, channels, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "free-grouped", Key: "free-grouped", Group: 55},
@@ -304,8 +304,7 @@ var _ = Describe("Relay", func() {
 					Leaseholder: node.KeyFree,
 				}
 			}
-			Expect(svc.CreateChannels(ctx, &chs)).To(Succeed())
-			return chs
+			return MustSucceed(svc.Channel.Create(ctx, chs))
 		}
 
 		It("Should deliver a write issued immediately after the open ack on a free channel", func(ctx SpecContext) {
@@ -325,7 +324,7 @@ var _ = Describe("Relay", func() {
 			Eventually(res.Outlet()).Should(Receive(&ack))
 			Expect(ack.Frame.Empty()).To(BeTrue())
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, chs, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -363,8 +362,7 @@ var _ = Describe("Relay", func() {
 			// node, so they route through the gateway tap rather than the free
 			// write tap. This exercises the path where updateTaps does not
 			// create an applied channel and the demand returns immediately.
-			chs := newChannelSet()
-			Expect(svc.CreateChannels(ctx, &chs)).To(Succeed())
+			chs := MustSucceed(svc.Channel.Create(ctx, newChannelSet()))
 			keys := channel.KeysFromChannels(chs)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -425,7 +423,7 @@ var _ = Describe("Relay", func() {
 				Expect(ack.Frame.Empty()).To(BeTrue())
 			}
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, chs, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -466,7 +464,7 @@ var _ = Describe("Relay", func() {
 
 			req.Inlet() <- relay.Request{Keys: keys}
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, chs, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -512,7 +510,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.OpenCluster(ctx, 1)
 	svc := builder.Nodes[1]
-	Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
+	channels = MustSucceed(svc.Channel.Create(ctx, channels))
 	return scenario{
 		resCount: 1,
 		name:     "Gateway Only",
@@ -530,13 +528,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
 	}
-	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
-	keys := channel.KeysFromChannels(channels)
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		g.Expect(dist.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	return scenario{
 		resCount: 3,
 		name:     "Peer Only",
@@ -553,13 +545,7 @@ func mixedScenario(ctx context.Context) scenario {
 		ch.Leaseholder = node.Key(i + 1)
 		channels[i] = ch
 	}
-	Expect(gateway.CreateChannels(ctx, &channels)).To(Succeed())
-	keys := channel.KeysFromChannels(channels)
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		g.Expect(gateway.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
+	channels = MustSucceed(gateway.Channel.Create(ctx, channels))
 	return scenario{
 		resCount: 3,
 		name:     "Mixed Gateway and Peer",
@@ -578,13 +564,7 @@ func freeScenario(ctx context.Context) scenario {
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
-	keys := channel.KeysFromChannels(channels)
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		g.Expect(dist.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	return scenario{
 		name:     "Free Channel",
 		resCount: 1,

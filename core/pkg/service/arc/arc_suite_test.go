@@ -79,7 +79,7 @@ var (
 			DB:                  db,
 			Ontology:            otg,
 			Group:               groupSvc,
-			HostProvider:        mock.StaticHostKeyProvider(1),
+			HostProvider:        mock.StaticHostProvider(1),
 			Status:              statSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,

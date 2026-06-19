@@ -33,10 +33,6 @@ import (
 type Node struct {
 	*distribution.Layer
 	Storage *storage.Layer
-	// channels is the cluster-shared in-memory channel metadata store, bound as this
-	// node's channel retriever. It lets distribution-layer tests create and resolve
-	// channels without depending on the service layer.
-	channels *ChannelStore
 	// owner is non-nil only for the Node returned by OpenNode, where the node owns its
 	// single-node cluster. When set, Close tears down the whole cluster (including
 	// storage) rather than just this node's layer.
@@ -56,7 +52,6 @@ func (n Node) Close() error {
 
 type Cluster struct {
 	storage     *mock.Cluster
-	channels    *ChannelStore
 	Nodes       map[node.Key]Node
 	writerNet   *tmock.FramerWriterNetwork
 	iterNet     *tmock.FramerIteratorNetwork
@@ -121,7 +116,6 @@ func newCluster(cfgs ...distribution.LayerConfig) *Cluster {
 	return &Cluster{
 		cfg:         cfg,
 		storage:     mock.NewCluster(),
-		channels:    newChannelStore(),
 		writerNet:   tmock.NewWriterNetwork(),
 		iterNet:     tmock.NewIteratorNetwork(),
 		channelNet:  tmock.NewChannelNetwork(),
@@ -158,20 +152,14 @@ func (c *Cluster) Provision(
 			},
 		}, c.cfg}, cfgs...)...))
 	)
-	node := Node{Layer: distributionLayer, Storage: storageLayer, channels: c.channels}
+	node := Node{Layer: distributionLayer, Storage: storageLayer}
 	c.Nodes[distributionLayer.Cluster.HostKey()] = node
-	c.WaitForTopologyToStabilize()
-	return node
-}
-
-// WaitForTopologyToStabilize waits for all nodes in the cluster to be aware of each
-// other.
-func (c *Cluster) WaitForTopologyToStabilize() {
 	for _, node := range c.Nodes {
 		gomega.Eventually(func() int {
 			return len(node.Cluster.Nodes())
 		}).Should(gomega.Equal(len(c.Nodes)))
 	}
+	return node
 }
 
 func (b *Cluster) Close() error {
@@ -199,14 +187,12 @@ func (m mockFramerTransport) Relay() relay.Transport { return m.relay }
 
 func (m mockFramerTransport) Deleter() deleter.Transport { return m.deleter }
 
-type StaticHostProvider struct{ Node node.Node }
+type staticHostProvider struct{ node node.Node }
 
-var _ node.HostProvider = StaticHostProvider{}
-
-func StaticHostKeyProvider(key node.Key) StaticHostProvider {
-	return StaticHostProvider{Node: node.Node{Key: key}}
+func StaticHostProvider(key node.Key) node.HostProvider {
+	return staticHostProvider{node: node.Node{Key: key}}
 }
 
-func (s StaticHostProvider) Host() node.Node { return s.Node }
+func (s staticHostProvider) Host() node.Node { return s.node }
 
-func (s StaticHostProvider) HostKey() node.Key { return s.Node.Key }
+func (s staticHostProvider) HostKey() node.Key { return s.node.Key }

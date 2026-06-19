@@ -19,7 +19,7 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/config"

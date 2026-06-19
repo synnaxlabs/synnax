@@ -37,7 +37,7 @@ var (
 	channelSvc   *channel.Service
 	framerSvc    *framer.Service
 	statusSvc    *status.Service
-	hostProvider = mock.StaticHostKeyProvider(1)
+	hostProvider = mock.StaticHostProvider(1)
 )
 
 func TestDriver(t *testing.T) {

@@ -10,8 +10,6 @@
 package mock_test
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -41,15 +39,12 @@ var _ = Describe("Cluster", func() {
 				Leaseholder: 1,
 			}
 
-			Expect(coreOne.CreateChannel(ctx, &ch)).To(Succeed())
+			ch = MustSucceed(coreOne.Channel.Create(ctx, []channel.Channel{ch}))[0]
 			Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 
-			Eventually(func(g Gomega) {
-				var resChs []channel.Channel
-				g.Expect(coreThree.RetrieveChannelsInto(&resChs, ch.Key())).To(Succeed())
-				g.Expect(resChs).To(HaveLen(1))
-				g.Expect(resChs[0].Key()).To(Equal(ch.Key()))
-			}, time.Millisecond*200).Should(Succeed())
+			chs := MustSucceed(coreOne.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()))
+			Expect(chs).To(HaveLen(1))
+			Expect(chs[0].Key).To(Equal(ch.Key().StorageKey()))
 
 			Expect(mockCluster.Close()).To(Succeed())
 		})

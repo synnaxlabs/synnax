@@ -26,8 +26,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func openWriter(ctx context.Context, n mock.Node, cfg writer.Config) (*writer.Writer, error) {
-	cfg.Channels = n.RetrieveChannels(cfg.Keys...)
+func openWriter(ctx context.Context, n mock.Node, channels []channel.Channel, cfg writer.Config) (*writer.Writer, error) {
+	cfg.Channels = channels
 	return n.Framer.OpenWriter(ctx, cfg)
 }
 
@@ -43,7 +43,7 @@ var _ = Describe("Iterator", func() {
 			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
 				BeforeAll(func(ctx SpecContext) {
 					s = sF(ctx)
-					writer := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+					writer := MustSucceed(openWriter(ctx, s.dist, s.channels, writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
 						Sync:  new(true),
@@ -135,10 +135,11 @@ var _ = Describe("Iterator", func() {
 })
 
 type scenario struct {
-	dist  mock.Node
-	close io.Closer
-	name  string
-	keys  channel.Keys
+	dist     mock.Node
+	close    io.Closer
+	name     string
+	keys     channel.Keys
+	channels []channel.Channel
 }
 
 func newChannelSet() []channel.Channel {
@@ -155,9 +156,9 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.OpenCluster(ctx, 1)
 	dist := builder.Nodes[1]
-	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: builder}
+	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: builder, channels: channels}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
@@ -168,15 +169,9 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
 	}
-	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		err := dist.RetrieveChannelsInto(&chs, channel.KeysFromChannels(channels)...)
-		g.Expect(err).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Peer Only", keys: keys, dist: dist, close: builder}
+	return scenario{name: "Peer Only", keys: keys, dist: dist, close: builder, channels: channels}
 }
 
 func mixedScenario(ctx context.Context) scenario {
@@ -186,12 +181,7 @@ func mixedScenario(ctx context.Context) scenario {
 	}
 	builder := mock.OpenCluster(ctx, 2)
 	dist := builder.Nodes[1]
-	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		g.Expect(dist.RetrieveChannelsInto(&chs, keys...)).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
-	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: dist, close: builder}
+	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: dist, close: builder, channels: channels}
 }

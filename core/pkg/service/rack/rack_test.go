@@ -76,7 +76,7 @@ var _ = Describe("Rack", Ordered, func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
+			HostProvider: mock.StaticHostProvider(1),
 			Status:       stat,
 
 			HealthCheckInterval: 10 * telem.Millisecond,
@@ -769,7 +769,7 @@ var _ = Describe("Migration", func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
+			HostProvider: mock.StaticHostProvider(1),
 			Status:       stat,
 			Search:       searchIdx,
 		}))

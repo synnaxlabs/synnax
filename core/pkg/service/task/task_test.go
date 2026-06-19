@@ -70,7 +70,7 @@ var _ = Describe("Task", Ordered, func() {
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
-			HostProvider:        mock.StaticHostKeyProvider(1),
+			HostProvider:        mock.StaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
@@ -556,7 +556,7 @@ var _ = Describe("Task", Ordered, func() {
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
-				HostProvider: mock.StaticHostKeyProvider(1),
+				HostProvider: mock.StaticHostProvider(1),
 				Status:       stat,
 				Search:       searchIdx,
 			}))
@@ -617,7 +617,7 @@ var _ = Describe("Task", Ordered, func() {
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
-				HostProvider: mock.StaticHostKeyProvider(1),
+				HostProvider: mock.StaticHostProvider(1),
 				Status:       stat,
 				Search:       searchIdx,
 			}))
