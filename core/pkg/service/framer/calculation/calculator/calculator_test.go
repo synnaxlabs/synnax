@@ -26,19 +26,17 @@ import (
 )
 
 var _ = Describe("Calculator", Ordered, func() {
-	var (
-		dist       mock.Node
-		channelSvc *channel.Service
-	)
+	var channelSvc *channel.Service
+
 	BeforeAll(func(ctx SpecContext) {
-		dist = mock.NewNode(ctx)
+		node := mock.NewNode(ctx)
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      dist.Channel,
-			DB:           dist.DB,
-			HostResolver: dist.Cluster,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			Search:       dist.Search,
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostResolver: node.Cluster,
+			Ontology:     node.Ontology,
+			Group:        node.Group,
+			Search:       node.Search,
 		}))
 	})
 

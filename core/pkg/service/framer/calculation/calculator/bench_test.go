@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -27,6 +28,7 @@ import (
 type benchEnv struct {
 	ctx        context.Context
 	dist       mock.Node
+	closer     io.MultiCloser
 	channelSvc *channel.Service
 }
 
@@ -41,12 +43,19 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		Group:        dist.Group,
 		Search:       dist.Search,
 	}))
-	return &benchEnv{ctx: b.Context(), dist: dist, channelSvc: channelSvc}
+	var closer io.MultiCloser
+	closer = append(closer, dist)
+	closer = append(closer, channelSvc)
+	return &benchEnv{
+		ctx:        b.Context(),
+		dist:       dist,
+		channelSvc: channelSvc,
+		closer:     closer}
 }
 
 func (e *benchEnv) close(b *testing.B) {
-	if err := e.dist.Close(); err != nil {
-		b.Errorf("failed to close distribution: %v", err)
+	if err := e.closer.Close(); err != nil {
+		b.Errorf("failed to close env: %v", err)
 	}
 }
 
