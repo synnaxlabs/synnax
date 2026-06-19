@@ -29,6 +29,18 @@ var _ = Describe("Errors", func() {
 			parent := validate.PathedError(first, "parent")
 			Expect(parent).To(MatchError(ContainSubstring("parent.first: cat")))
 		})
+		It("Should prefix every member of a joined error independently", func() {
+			joined := errors.Join(
+				validate.PathedError(errors.New("cat"), "level"),
+				validate.PathedError(errors.New("dog"), "notation"),
+			)
+			parent := validate.PathedError(joined, "title")
+			Expect(parent).To(MatchError(ContainSubstring("title.level: cat")))
+			Expect(parent).To(MatchError(ContainSubstring("title.notation: dog")))
+		})
+		It("Should return nil when the error is nil", func() {
+			Expect(validate.PathedError(nil, "field")).To(BeNil())
+		})
 
 		Describe("Encoding + Decoding", func() {
 			It("Should correctly encode and decode", func(ctx SpecContext) {
