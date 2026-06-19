@@ -215,7 +215,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("channel"),
 		HostResolver:    l.Cluster,
 		KVReadWriter:    l.DB,
-		TSDB:            cfg.Storage.TS,
+		TS:              cfg.Storage.TS,
 		Transport:       cfg.ChannelTransport,
 	}); !ok(err, nil) {
 		return nil, err

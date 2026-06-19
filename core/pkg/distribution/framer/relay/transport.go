@@ -17,7 +17,7 @@ import (
 )
 
 type Request struct {
-	Keys channel.Keys
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
 }
 
 type Response struct {

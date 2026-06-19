@@ -29,11 +29,11 @@ func (s *Service) Delete(ctx context.Context, keys Keys) error {
 	if len(batch.Gateway) == 0 {
 		return nil
 	}
-	return s.cfg.TSDB.DeleteChannels(Keys(batch.Gateway).Storage())
+	return s.cfg.TS.DeleteChannels(Keys(batch.Gateway).Storage())
 }
 
 func (s *Service) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.cfg.TSDB.DeleteChannels(msg.Keys.Storage())
+	return types.Nil{}, s.cfg.TS.DeleteChannels(msg.Keys.Storage())
 }
 
 func (s *Service) deleteRemote(ctx context.Context, target node.Key, keys Keys) error {

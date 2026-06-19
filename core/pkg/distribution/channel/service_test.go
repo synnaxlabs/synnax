@@ -54,7 +54,7 @@ var _ = Describe("Service", func() {
 				valid = channel.ServiceConfig{
 					HostResolver: n.Cluster,
 					KVReadWriter: n.DB,
-					TSDB:         n.Storage.TS,
+					TS:           n.Storage.TS,
 					Transport:    stubTransport{},
 				}
 			})

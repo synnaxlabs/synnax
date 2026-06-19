@@ -56,7 +56,7 @@ type Config struct {
 	// AutoIndexPersistInterval.
 	//
 	// [OPTIONAL] - Defaults to true.
-	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
+	EnableAutoCommit *bool
 	// Sync is set to true if the writer should send acknowledgements for every write
 	// request, not just on failed requests.
 	//
@@ -68,15 +68,15 @@ type Config struct {
 	// considerable performance impact.
 	//
 	// [OPTIONAL] - Defaults to false.
-	Sync *bool `json:"sync" msgpack:"sync"`
+	Sync *bool
 	// ControlSubject is an identifier for the writer.
-	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
+	ControlSubject control.Subject
 	// Keys are the channel keys to write to. At least one key must be provided. All
 	// Frames written to the Writer must have a array specified for each key, and all
 	// series must be the same length (i.e. calls Frame.Even must return true).
 	//
 	// [REQUIRED]
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys
 	// Channels carries the resolved distribution-layer metadata for every key in Keys
 	// (the validator reads data types from it; the free-channel writer reads index
 	// relationships). The caller supplies it — the service layer resolves it from the
@@ -85,7 +85,7 @@ type Config struct {
 	// receive only Keys and open storage writers directly from them.
 	//
 	// [REQUIRED]
-	Channels []channel.Channel `json:"-" msgpack:"-"`
+	Channels []channel.Channel
 	// Authorities sets the control authority the writer has on each channel for the
 	// write. This should either be a single authority for all channels or a slice of
 	// authorities with the same length as the number of channels where each authority
@@ -93,24 +93,24 @@ type Config struct {
 	// all channels.
 	//
 	// [OPTIONAL]
-	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
+	Authorities []control.Authority
 	// Start marks the starting timestamp of the first sample in the first frame. If
 	// telemetry occupying the given timestamp already exists for the provided keys, the
 	// writer will fail to open.
 	//
 	// [OPTIONAL] - Defaults to 0, or telem.Now() if AutoIndex is true.
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	Start telem.TimeStamp
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set
 	// AutoIndexPersistInterval to AlwaysAutoPersist.
 	//
 	// [OPTIONAL] - Defaults to 1s.
-	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
+	AutoIndexPersistInterval telem.TimeSpan
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream.
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
-	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
+	Mode ts.WriterMode
 	// AutoIndex causes each leaseholder to generate timestamps for any index channel
 	// local to it (and in the writer's Keys) whose series is omitted from a Write
 	// frame. The first sample in each Write call is stamped with telem.Now() on the
@@ -123,7 +123,7 @@ type Config struct {
 	// writer at open time so the storage layer opens them for writing.
 	//
 	// [OPTIONAL] - Defaults to false.
-	AutoIndex *bool `json:"auto_index" msgpack:"auto_index"`
+	AutoIndex *bool
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -209,7 +209,12 @@ func (c Config) Validate() error {
 	)
 	if len(c.Keys) > 0 {
 		missing, _ := lo.Difference(c.Keys, channel.KeysFromChannels(c.Channels))
-		v.Ternaryf("channels", len(missing) > 0, "missing channel metadata for keys: %v", missing)
+		v.Ternaryf(
+			"channels",
+			len(missing) > 0,
+			"missing channel metadata for keys: %v",
+			missing,
+		)
 	}
 	return v.Error()
 }
@@ -350,8 +355,6 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
-	channels := cfg.Channels
-
 	var (
 		hostKey           = s.cfg.HostResolver.HostKey()
 		batch             = proxy.NewBatchFactory[keyAuthority](hostKey).Batch(cfg.keyAuthorities())
@@ -363,8 +366,8 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		routeValidatorTo  address.Address
 	)
 
-	channelMap := make(map[channel.Key]channel.Channel, len(channels))
-	for _, ch := range channels {
+	channelMap := make(map[channel.Key]channel.Channel, len(cfg.Channels))
+	for _, ch := range cfg.Channels {
 		channelMap[ch.Key()] = ch
 	}
 	v := &validator{keys: cfg.Keys, channels: channelMap}
@@ -409,7 +412,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasFree {
 		routeValidatorTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
-		w := s.newFree(cfg.Mode, *cfg.Sync, channels, cfg.ControlSubject.Group)
+		w := s.newFree(cfg.Mode, *cfg.Sync, cfg.Channels, cfg.ControlSubject.Group)
 		plumber.SetSegment(pipe, freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}

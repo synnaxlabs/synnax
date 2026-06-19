@@ -14,8 +14,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
@@ -37,33 +37,53 @@ type Config struct {
 	// attempting to iterate over channels of these types.
 	//
 	// [REQUIRED] - must have at least one key.
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys
 	// Bounds sets the time range to iterate over. This time range must be valid i.e.,
 	// the start value must be before or equal to the end value.
 	//
 	// [REQUIRED]
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	Bounds telem.TimeRange
 	// ChunkSize sets the default number of samples to iterate over per-channel when
 	// calling Next or Prev with AutoSpan.
 	//
 	// [OPTIONAL]
-	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
+	ChunkSize int64
+}
+
+// Validate ensures that Keys is non-empty and contains no free channels, which cannot
+// be iterated over as they have no underlying storage.
+func (cfg Config) Validate() error {
+	v := validate.New("distribution.framer.iterator")
+	if validate.NotEmptySlice(v, "keys", cfg.Keys) {
+		return v.Error()
+	}
+	for _, k := range cfg.Keys {
+		if k.Free() {
+			return errors.Wrapf(validate.ErrValidation, "cannot read from free channel %v", k)
+		}
+	}
+	return v.Error()
 }
 
 // ServiceConfig is the configuration for opening the iterator Service, the main
 // entrypoint for using iterators.
 type ServiceConfig struct {
-	// HostResolver is used to resolve reachable addresses for nodes in a Synnax cluster.
+	// HostResolver is used to resolve reachable addresses for nodes in a Synnax
+	// cluster.
+	//
 	// [REQUIRED]
-	HostResolver aspen.HostResolver
+	HostResolver node.HostResolver
 	// Transport is the network transport for moving telemetry frames across nodes.
+	//
 	// [REQUIRED]
 	Transport Transport
 	// TS is the underlying storage layer time-series database for reading frames.
+	//
 	// [REQUIRED]
 	TS *ts.DB
-	// Instrumentation is used for Logging, Tracing, and Metrics.
-	// [OPTIONAL]
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
@@ -82,7 +102,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.iterator")
 	validate.NotNil(v, "ts", cfg.TS)
-	validate.NotNil(v, "aspen_transport", cfg.Transport)
+	validate.NotNil(v, "transport", cfg.Transport)
 	validate.NotNil(v, "resolver", cfg.HostResolver)
 	return v.Error()
 }
@@ -142,7 +162,7 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 // where requests are sent through an input stream, and responses are received through
 // an output stream.
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
-	if err := s.validateChannelKeys(cfg.Keys); err != nil {
+	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	cfg.Keys = cfg.Keys.Unique()
@@ -212,17 +232,4 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	lo.Must0(seg.RouteOutletFrom(synchronizerAddr))
 	lo.Must0(seg.RouteInletTo(routeInletTo))
 	return seg, nil
-}
-
-func (s *Service) validateChannelKeys(keys channel.Keys) error {
-	v := validate.New("distribution.framer.iterator")
-	if validate.NotEmptySlice(v, "keys", keys) {
-		return v.Error()
-	}
-	for _, k := range keys {
-		if k.Free() {
-			return errors.Wrapf(validate.ErrValidation, "cannot read from free channel %v", k)
-		}
-	}
-	return nil
 }

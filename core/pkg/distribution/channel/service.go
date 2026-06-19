@@ -36,10 +36,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	KVReadWriter kv.ReadWriter
-	// TSDB is the storage-layer time-series database where channel storage is created.
+	// TS is the storage-layer time-series database where channel storage is created.
 	//
 	// [REQUIRED]
-	TSDB *ts.DB
+	TS *ts.DB
 	// Transport routes allocation, rename, and delete operations to leaseholders.
 	//
 	// [REQUIRED]
@@ -52,7 +52,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.channel")
 	validate.NotNil(v, "host_resolver", c.HostResolver)
 	validate.NotNil(v, "kv_read_writer", c.KVReadWriter)
-	validate.NotNil(v, "ts_db", c.TSDB)
+	validate.NotNil(v, "ts", c.TS)
 	validate.NotNil(v, "transport", c.Transport)
 	return v.Error()
 }
@@ -61,7 +61,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.KVReadWriter = override.Nil(c.KVReadWriter, other.KVReadWriter)
-	c.TSDB = override.Nil(c.TSDB, other.TSDB)
+	c.TS = override.Nil(c.TS, other.TS)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	return c
 }

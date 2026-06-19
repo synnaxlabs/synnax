@@ -24,9 +24,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -117,16 +115,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
-	if len(cfg.Keys) == 0 {
-		return nil, errors.Wrap(validate.ErrValidation, "keys must be non-empty")
-	}
-	exists, err := s.cfg.Channel.NewRetrieve().Where(channel.MatchKeys(cfg.Keys...)).Exists(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.Wrapf(query.ErrNotFound, "some channel keys %v not found", cfg.Keys)
-	}
 	p := plumber.New()
 	calcTransform, err := s.newCalculationTransform(ctx, &cfg)
 	if err != nil {

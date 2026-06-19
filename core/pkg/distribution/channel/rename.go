@@ -58,13 +58,13 @@ func (s *Service) Rename(ctx context.Context, keys Keys, names []string) error {
 		return nil
 	}
 	keys, names = unzipRenameBatch(batch.Gateway)
-	return s.cfg.TSDB.RenameChannels(ctx, keys.Storage(), names)
+	return s.cfg.TS.RenameChannels(ctx, keys.Storage(), names)
 }
 
 func (s *Service) renameHandler(
 	ctx context.Context, req RenameRequest,
 ) (types.Nil, error) {
-	return types.Nil{}, s.cfg.TSDB.RenameChannels(ctx, req.Keys.Storage(), req.Names)
+	return types.Nil{}, s.cfg.TS.RenameChannels(ctx, req.Keys.Storage(), req.Names)
 }
 
 func unzipRenameBatch(entries []renameBatchEntry) (Keys, []string) {

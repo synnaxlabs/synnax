@@ -118,7 +118,7 @@ func (s *Service) allocateGateway(ctx context.Context, out []Channel, indices []
 	if err := assignKeys(ctx, s.leasedCounter, chs); err != nil {
 		return err
 	}
-	if err := s.cfg.TSDB.CreateChannel(ctx, lo.Map(chs, func(c Channel, _ int) ts.Channel {
+	if err := s.cfg.TS.CreateChannel(ctx, lo.Map(chs, func(c Channel, _ int) ts.Channel {
 		return c.Storage()
 	})...); err != nil {
 		return err
