@@ -190,7 +190,7 @@ var _ = Describe("Python Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`labels: list[UUID]`))
+			Expect(content).To(ContainSubstring(`labels: Annotated[list[UUID], BeforeValidator(lists.none_to_empty)] = Field(default_factory=list)`))
 			Expect(content).To(ContainSubstring(`parent: UUID | None = None`))
 			Expect(content).To(ContainSubstring(`tags: list[str] | None = None`))
 		})
@@ -404,7 +404,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("uint64", "uint64", "int = Field(ge=0, le=18446744073709551615)"),
 				Entry("float32", "float32", "float"),
 				Entry("float64", "float64", "float"),
-				Entry("record", "record", "dict[str, Any]"),
+				Entry("record", "record", "Annotated[dict[str, Any], BeforeValidator(dicts.none_to_empty)] = Field(default_factory=dict)"),
 				Entry("bytes", "bytes", "bytes"),
 			)
 
@@ -524,8 +524,8 @@ var _ = Describe("Python Types Plugin", func() {
 			`
 			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`empty: list[float] = Field(default_factory=list)`))
-			Expect(content).To(ContainSubstring(`vals: list[float] = Field(default_factory=lambda: [1.500000, 2.500000])`))
+			Expect(content).To(ContainSubstring(`empty: Annotated[list[float], BeforeValidator(lists.none_to_empty)] = Field(default_factory=list)`))
+			Expect(content).To(ContainSubstring(`vals: Annotated[list[float], BeforeValidator(lists.none_to_empty)] = Field(default_factory=lambda: [1.500000, 2.500000])`))
 		})
 
 		It("Should emit create defaults for string and uuid keys", func(ctx SpecContext) {
@@ -1153,6 +1153,25 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 			})
 
+			It("Should make a field typed as an optional type param optional", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Status struct<Details?> {
+						message string
+						details Details
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`Details = TypeVar("Details")`,
+						`class Status(BaseModel, Generic[Details]):`,
+						`details: Details | None = None`,
+					).
+					ToNotContain(`from typing_extensions import`)
+			})
+
 			It("Should skip type params with defaults in Generic[]", func(ctx SpecContext) {
 				source := `
 					@py output "out"
@@ -1210,7 +1229,7 @@ var _ = Describe("Python Types Plugin", func() {
 					ToContain(
 						`from_: State[R] | None`,
 						`to: State[R] | None`,
-						`transfers: list[Transfer[R]]`,
+						`transfers: Annotated[list[Transfer[R]], BeforeValidator(lists.none_to_empty)] = Field(default_factory=list)`,
 					)
 			})
 
@@ -1770,6 +1789,6 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 
 	It("Should resolve an array-of-union field to a list of the alias", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
-		ExpectContent(resp, "types_gen.py").ToContain("scales: list[Scale]")
+		ExpectContent(resp, "types_gen.py").ToContain("scales: Annotated[list[Scale], BeforeValidator(lists.none_to_empty)] = Field(default_factory=list)")
 	})
 })

@@ -490,6 +490,9 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		innerType := p.typeRefToCpp(elemType, data)
 
 		if elemType.TypeParam != nil {
+			if field.Optional {
+				return fmt.Sprintf(`parser.field<std::optional<std::vector<%s>>>("%s")`, elemType.TypeParam.Name, jsonName)
+			}
 			return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, elemType.TypeParam.Name, jsonName)
 		}
 
@@ -515,6 +518,9 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 						structType = fmt.Sprintf("%s<%s>", structType, strings.Join(args, ", "))
 					}
 				}
+				if field.Optional {
+					return fmt.Sprintf(`parser.field<std::optional<std::vector<%s>>>("%s")`, structType, jsonName)
+				}
 				return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, structType, jsonName)
 			}
 			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
@@ -538,6 +544,9 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 			}
 		}
 
+		if field.Optional {
+			return fmt.Sprintf(`parser.field<std::optional<std::vector<%s>>>("%s")`, innerType, jsonName)
+		}
 		return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, innerType, jsonName)
 	}
 
@@ -758,6 +767,9 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
 			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
+				if field.Optional {
+					return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = x::json::to_array(*this->%s);`, fieldName, jsonName, fieldName)
+				}
 				return fmt.Sprintf(`j["%s"] = x::json::to_array(this->%s);`, jsonName, fieldName)
 			}
 			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
@@ -795,6 +807,9 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 			}
 		}
 
+		if field.Optional {
+			return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = *this->%s;`, fieldName, jsonName, fieldName)
+		}
 		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
 	}
 
