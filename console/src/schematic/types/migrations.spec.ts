@@ -289,6 +289,7 @@ describe("migrations", () => {
       expect(migrated.pendingUpload?.nodes[0]).toEqual({
         key: "n1",
         position: { x: 10, y: 20 },
+        zIndex: 0,
       });
       expect(migrated.pendingUpload?.nodes[0]).not.toHaveProperty("selected");
       expect(migrated.pendingUpload?.nodes[0]).not.toHaveProperty("staleField");
@@ -312,7 +313,7 @@ describe("migrations", () => {
       const migrated = migrateState(populated);
       expect(migrated.version).toBe(v6.VERSION);
       expect(migrated.pendingUpload?.nodes).toEqual([
-        { key: "n1", position: { x: 10, y: 20 } },
+        { key: "n1", position: { x: 10, y: 20 }, zIndex: 0 },
       ]);
       expect(migrated.pendingUpload?.edges[0]).toEqual({
         key: "e1",

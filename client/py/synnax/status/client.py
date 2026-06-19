@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from freighter import Empty, UnaryClient
 from synnax.ontology import ID
 from synnax.status.types_gen import Status, Variant
-from x.normalize import normalize
+from x.lists import normalize
 from x.params import require_named_params
 
 

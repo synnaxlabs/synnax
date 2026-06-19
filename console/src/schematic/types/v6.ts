@@ -99,11 +99,11 @@ export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
 export const ZERO_SLICE_STATE: SliceState = { version: VERSION, schematics: {} };
 
-const migrateNode = (node: v0.Node): Node => {
-  const next: Node = { key: node.key, position: node.position };
-  if (node.zIndex != null) next.zIndex = node.zIndex;
-  return next;
-};
+const migrateNode = (node: v0.Node): Node => ({
+  key: node.key,
+  position: node.position,
+  zIndex: node.zIndex ?? 0,
+});
 
 type Segment = Schematic.Edge.Segmented.Segment;
 

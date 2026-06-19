@@ -50,7 +50,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
 	"name":       zyn.String(),
-	"color":      color.Schema,
+	"color":      color.Schema.Optional(),
 	"time_range": telem.TimeRangeSchema,
 })
 

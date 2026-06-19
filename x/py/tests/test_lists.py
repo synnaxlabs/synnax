@@ -9,7 +9,7 @@
 
 from typing import Any
 
-from x.normalize import check_for_none, normalize, override
+from x.lists import check_for_none, normalize, override
 
 
 class TestNormalize:

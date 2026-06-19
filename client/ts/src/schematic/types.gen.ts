@@ -26,12 +26,6 @@ export const nodeZ = z.object({
    * send-to-back / bring-to-front actions.
    */
   zIndex: zod.int16.default(0),
-  /**
-   * measured is the rendered pixel size of the node. Populated by the
-   * renderer after the node is mounted and used to keep diagram
-   * measurements consistent across re-renders.
-   */
-  measured: spatial.dimensionsZ.optional(),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 

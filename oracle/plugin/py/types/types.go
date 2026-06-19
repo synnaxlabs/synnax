@@ -717,14 +717,49 @@ func processField(
 		fd.PyType = baseType
 	}
 
-	// Optional (?) fields become T | None in Python (no pointer distinction)
-	if field.Optional {
+	// Optional (?) fields become T | None in Python (no pointer distinction). A field
+	// typed as an optional type parameter (e.g. details Details, where Details?) is
+	// likewise optional: an unspecialized struct may omit it. A required collection
+	// instead coerces a null or absent value to its empty form, so it is always
+	// present and iterable.
+	isRecord := field.Type.Name == "record"
+	isOptionalTypeParam := field.Type.IsTypeParam() &&
+		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
+	if field.Optional || isOptionalTypeParam {
 		fd.PyType = fd.PyType + " | None"
+	} else if fd.IsArray {
+		fd.PyType = wrapNoneToEmpty(fd.PyType, "lists", data)
+		fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
+	} else if isRecord {
+		fd.PyType = wrapNoneToEmpty(fd.PyType, "dicts", data)
+		fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
 	}
 
-	fd.Default = buildDefault(field, fieldConstraints, fd.Alias, data)
+	fd.Default = buildDefault(field, fieldConstraints, fd.Alias, data, isOptionalTypeParam)
 
 	return fd
+}
+
+// wrapNoneToEmpty wraps pyType in an Annotated carrying a BeforeValidator that maps a
+// null value to the empty form of the given x submodule ("lists" -> [], "dicts" ->
+// {}). It registers the typing, pydantic, and x imports the annotation needs.
+func wrapNoneToEmpty(pyType, module string, data *templateData) string {
+	data.imports.addTyping("Annotated")
+	data.imports.addPydantic("BeforeValidator")
+	alias := data.imports.addModuleImport("x", module)
+	return fmt.Sprintf("Annotated[%s, BeforeValidator(%s.none_to_empty)]", pyType, alias)
+}
+
+// ensureDefaultFactory appends a default_factory constraint unless one is already
+// present, so a required collection with no declared default still defaults to empty
+// when the field is absent.
+func ensureDefaultFactory(constraints []string, factory string) []string {
+	for _, c := range constraints {
+		if strings.HasPrefix(c, "default_factory=") {
+			return constraints
+		}
+	}
+	return append(constraints, "default_factory="+factory)
 }
 
 func buildDefault(
@@ -732,8 +767,9 @@ func buildDefault(
 	constraints []string,
 	alias string,
 	data *templateData,
+	optionalTypeParam bool,
 ) string {
-	isAnyOptional := field.Optional
+	isAnyOptional := field.Optional || optionalTypeParam
 
 	// When field is optional, filter out any default= constraints from validation
 	// since we'll be using default=None for the optional field

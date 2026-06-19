@@ -16,7 +16,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.project.types_gen import Key, New, Project
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):

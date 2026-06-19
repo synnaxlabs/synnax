@@ -31,18 +31,6 @@ export const setNodePositionPayloadZ = z.object({
 export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
- * SetNodeMeasured updates the rendered pixel size of a node. Emitted by the
- * renderer after measuring the mounted node and stored on the
- * node so diagram measurements stay consistent across re-renders.
- */
-export const setNodeMeasuredPayloadZ = z.object({
-  key: z.string(),
-  measured: spatial.dimensionsZ,
-});
-
-export type SetNodeMeasuredPayload = z.infer<typeof setNodeMeasuredPayloadZ>;
-
-/**
  * SetNode inserts the node if no node with the same key exists, otherwise
  * replaces the existing node in place. If config is non-empty it is
  * stored under the node's key in the schematic configs map.
@@ -99,10 +87,6 @@ export const actionZ = z.discriminatedUnion("type", [
     type: z.literal("set_node_position"),
     setNodePosition: setNodePositionPayloadZ,
   }),
-  z.object({
-    type: z.literal("set_node_measured"),
-    setNodeMeasured: setNodeMeasuredPayloadZ,
-  }),
   z.object({ type: z.literal("set_node"), setNode: setNodePayloadZ }),
   z.object({ type: z.literal("remove_node"), removeNode: removeNodePayloadZ }),
   z.object({ type: z.literal("add_edge"), addEdge: addEdgePayloadZ }),
@@ -120,11 +104,6 @@ export const rename = (payload: RenamePayload): Action => ({
 export const setNodePosition = (payload: SetNodePositionPayload): Action => ({
   type: "set_node_position",
   setNodePosition: payload,
-});
-
-export const setNodeMeasured = (payload: SetNodeMeasuredPayload): Action => ({
-  type: "set_node_measured",
-  setNodeMeasured: payload,
 });
 
 export const setNode = (payload: SetNodePayload): Action => ({
@@ -162,10 +141,6 @@ export interface Handlers {
     state: Draft<Schematic>,
     payload: SetNodePositionPayload,
   ) => HandlerResult;
-  setNodeMeasured: (
-    state: Draft<Schematic>,
-    payload: SetNodeMeasuredPayload,
-  ) => HandlerResult;
   setNode: (state: Draft<Schematic>, payload: SetNodePayload) => HandlerResult;
   removeNode: (state: Draft<Schematic>, payload: RemoveNodePayload) => HandlerResult;
   addEdge: (state: Draft<Schematic>, payload: AddEdgePayload) => HandlerResult;
@@ -180,8 +155,6 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.rename(state, action.rename);
       case "set_node_position":
         return handlers.setNodePosition(state, action.setNodePosition);
-      case "set_node_measured":
-        return handlers.setNodeMeasured(state, action.setNodeMeasured);
       case "set_node":
         return handlers.setNode(state, action.setNode);
       case "remove_node":

@@ -370,11 +370,6 @@ export const { actions, reducer } = createSlice({
             arc.graph.selected = arc.graph.selected.filter((k) => k !== change.key);
             break;
           }
-          case "dimensions": {
-            const node = arc.graph.nodes.find((n) => n.key === change.key);
-            if (node != null) node.measured = change.dimensions;
-            break;
-          }
         }
     },
     applyEdgeChanges: (state, { payload }: PayloadAction<ApplyEdgeChangesPayload>) => {

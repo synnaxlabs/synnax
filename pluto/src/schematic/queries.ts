@@ -343,7 +343,6 @@ export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
   preprocess: augmentWithEdgeSegments,
   channel: schematic.SET_CHANNEL_NAME,
   schema: schematic.scopedActionZ,
-  isUndoable: schematic.isUndoable,
   kindOf: kindOfTransaction,
 });
 
@@ -400,7 +399,7 @@ export const useAddNode = (resourceKey: string) => {
         key: resourceKey,
         actions: [
           schematic.setNode({
-            node: { key, position: position ?? xy.ZERO },
+            node: { key, position: position ?? xy.ZERO, zIndex: 0 },
             config: { ...config, ...override, variant },
           }),
         ],

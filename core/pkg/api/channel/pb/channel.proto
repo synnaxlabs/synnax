@@ -55,7 +55,7 @@ message Channel {
   repeated .distribution.channel.pb.Operation operations = 11;
   // concurrency sets the policy for concurrent writes to the channel's data. Only virtual
   // channels can have a policy of shared concurrency.
-  optional .x.control.pb.Concurrency concurrency = 12;
+  .x.control.pb.Concurrency concurrency = 12;
   // status is the current operational status of the channel.
   optional .service.status.pb.Status status = 13;
 }

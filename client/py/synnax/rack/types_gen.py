@@ -11,12 +11,13 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import Annotated, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 from synnax import status as status_
 from synnax.ontology.payload import ID
+from x import lists
 
 Key: TypeAlias = int
 
@@ -54,7 +55,9 @@ class Base(BaseModel):
     task_counter: int = Field(default=0, ge=0, le=4294967295)
     embedded: bool = Field(default=False)
     status: Status | None = None
-    integrations: list[str] = Field(default_factory=list)
+    integrations: Annotated[list[str], BeforeValidator(lists.none_to_empty)] = Field(
+        default_factory=list
+    )
 
     def __hash__(self) -> int:
         return hash(self.key)

@@ -32,19 +32,6 @@ func (p SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle records the rendered pixel size of the named node. No-op if no node
-// matches.
-func (p SetNodeMeasuredPayload) Handle(state Schematic) (Schematic, error) {
-	for i := range state.Nodes {
-		if state.Nodes[i].Key == p.Key {
-			measured := p.Measured
-			state.Nodes[i].Measured = &measured
-			break
-		}
-	}
-	return state, nil
-}
-
 // Handle inserts the node if no node with the same key exists, otherwise
 // replaces the existing node in place. If Config is non-nil, it is stored
 // under the node's key.

@@ -43,18 +43,13 @@ describe("channelchannel.Retriever", () => {
     const base = new MockRetriever(async (batch): Promise<channel.Payload[]> => {
       called(batch);
       const { normalized } = channel.analyzeParams(batch);
-      return normalized.map((key) => ({
-        key: key as number,
-        name: `channel-${key}`,
-        dataType: DataType.FLOAT32,
-        internal: false,
-        isIndex: false,
-        leaseholder: 1,
-        index: 0,
-        virtual: false,
-        expression: "",
-        operations: [],
-      }));
+      return normalized.map((key) =>
+        channel.newZ.parse({
+          key: key as number,
+          name: `channel-${key}`,
+          dataType: DataType.FLOAT32,
+        }),
+      );
     });
     const retriever = new channel.DebouncedBatchRetriever(
       base,
@@ -74,18 +69,14 @@ describe("channelchannel.Retriever", () => {
     const base = new MockRetriever(async (batch): Promise<channel.Payload[]> => {
       called(batch);
       const { normalized } = channel.analyzeParams(batch);
-      return normalized.map((key) => ({
-        key: key as number,
-        name: `channel-${key}`,
-        dataType: DataType.FLOAT32,
-        internal: false,
-        isIndex: false,
-        leaseholder: 1,
-        index: 0,
-        virtual: false,
-        expression: "",
-        operations: [],
-      }));
+      return normalized.map((key) =>
+        channel.newZ.parse({
+          key: key as number,
+          name: `channel-${key}`,
+          dataType: DataType.FLOAT32,
+          leaseholder: 1,
+        }),
+      );
     });
     const retriever = new channel.DebouncedBatchRetriever(
       base,

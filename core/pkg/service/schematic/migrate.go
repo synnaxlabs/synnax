@@ -79,7 +79,7 @@ func migrateNode(n v0.Node) Node {
 	}
 	if n.ZIndex != nil {
 		z := int16(*n.ZIndex)
-		out.ZIndex = &z
+		out.ZIndex = z
 	}
 	return out
 }

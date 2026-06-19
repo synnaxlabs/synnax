@@ -65,7 +65,7 @@ class Status(BaseModel, Generic[Details]):
         ge=-9223372036854775808,
         le=9223372036854775807,
     )
-    details: Details
+    details: Details | None = None
     labels: list[label.Label] | None = None
 
     def __hash__(self) -> int:

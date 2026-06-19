@@ -16,7 +16,6 @@ import (
 
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/spatial"
 )
 
 func (e Edge) EncodeOrc(w *orc.Writer) error {
@@ -67,14 +66,6 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 		return err
 	}
 	w.Int16(int16(nv.ZIndex))
-	if nv.Measured != nil {
-		w.Bool(true)
-		if err := (*nv.Measured).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
 	return nil
 }
 
@@ -88,19 +79,6 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	}
 	if nv.ZIndex, err = r.Int16(); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv spatial.Dimensions
-			if err = hv.DecodeOrc(r); err != nil {
-				return err
-			}
-			nv.Measured = &hv
-		}
 	}
 	return nil
 }

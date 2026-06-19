@@ -11,14 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 from synnax import cluster
 from synnax import status as status_
 from synnax.ontology.payload import ID
-from x import control, telem
+from x import control, lists, telem
 
 Key: TypeAlias = int
 
@@ -100,8 +100,10 @@ class Payload(BaseModel):
     virtual: bool = Field(default=False)
     internal: bool = Field(default=False)
     expression: str = Field(default="")
-    operations: list[Operation] = Field(default_factory=list)
-    concurrency: control.Concurrency | None = None
+    operations: Annotated[list[Operation], BeforeValidator(lists.none_to_empty)] = (
+        Field(default_factory=list)
+    )
+    concurrency: control.Concurrency = Field(default=control.Concurrency.exclusive)
     status: Status | None = None
 
     def __hash__(self) -> int:

@@ -39,7 +39,7 @@ from synnax.telem import (
     TimeRange,
 )
 from x import control
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class Channel(Payload):
@@ -66,7 +66,7 @@ class Channel(Payload):
         expression: str = "",
         operations: list[Operation] | None = None,
         alias: str | None = None,
-        concurrency: control.Concurrency | None = None,
+        concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,

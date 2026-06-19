@@ -20,7 +20,6 @@ import (
 const (
 	ActionTypeRename          = "rename"
 	ActionTypeSetNodePosition = "set_node_position"
-	ActionTypeSetNodeMeasured = "set_node_measured"
 	ActionTypeSetNode         = "set_node"
 	ActionTypeRemoveNode      = "remove_node"
 	ActionTypeAddEdge         = "add_edge"
@@ -37,14 +36,6 @@ type RenamePayload struct {
 type SetNodePositionPayload struct {
 	Key      string     `json:"key" msgpack:"key"`
 	Position spatial.XY `json:"position" msgpack:"position"`
-}
-
-// SetNodeMeasuredPayload updates the rendered pixel size of a node. Emitted by the
-// renderer after measuring the mounted node and stored on the node so diagram
-// measurements stay consistent across re-renders.
-type SetNodeMeasuredPayload struct {
-	Key      string             `json:"key" msgpack:"key"`
-	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
 }
 
 // SetNodePayload inserts the node if no node with the same key exists, otherwise
@@ -87,7 +78,6 @@ type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
 	Rename          *RenamePayload          `json:"rename,omitempty" msgpack:"rename,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
-	SetNodeMeasured *SetNodeMeasuredPayload `json:"set_node_measured,omitempty" msgpack:"set_node_measured,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
 	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
 	AddEdge         *AddEdgePayload         `json:"add_edge,omitempty" msgpack:"add_edge,omitempty"`
@@ -114,11 +104,6 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNodePosition.Handle(state)
-		case ActionTypeSetNodeMeasured:
-			if a.SetNodeMeasured == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetNodeMeasured.Handle(state)
 		case ActionTypeSetNode:
 			if a.SetNode == nil {
 				return state, union.MissingPayload(a.Type)
@@ -162,11 +147,6 @@ func NewRenameAction(p RenamePayload) Action {
 // NewSetNodePositionAction wraps a SetNodePositionPayload in an Action envelope.
 func NewSetNodePositionAction(p SetNodePositionPayload) Action {
 	return Action{Type: ActionTypeSetNodePosition, SetNodePosition: &p}
-}
-
-// NewSetNodeMeasuredAction wraps a SetNodeMeasuredPayload in an Action envelope.
-func NewSetNodeMeasuredAction(p SetNodeMeasuredPayload) Action {
-	return Action{Type: ActionTypeSetNodeMeasured, SetNodeMeasured: &p}
 }
 
 // NewSetNodeAction wraps a SetNodePayload in an Action envelope.

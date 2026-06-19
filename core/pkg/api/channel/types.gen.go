@@ -59,7 +59,7 @@ type Channel struct {
 	Operations []distributionchannel.Operation `json:"operations" msgpack:"operations"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
 	// channels can have a policy of shared concurrency.
-	Concurrency *control.Concurrency `json:"concurrency,omitempty" msgpack:"concurrency,omitempty"`
+	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }

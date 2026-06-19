@@ -2069,6 +2069,13 @@ describe("DataType", () => {
       expect(dt.toString()).toBe("int32");
     });
 
+    it("should parse a structurally-equivalent DataType from another realm", () => {
+      const foreign = { value: "timestamp" };
+      const dt = DataType.z.parse(foreign);
+      expect(dt).toBeInstanceOf(DataType);
+      expect(dt.toString()).toBe("timestamp");
+    });
+
     const testCases = [
       { input: "int8", expected: "int8", short: "i8" },
       { input: "int16", expected: "int16", short: "i16" },

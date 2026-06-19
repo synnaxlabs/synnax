@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.user.payload import New, User
-from x.normalize import normalize
+from x.lists import normalize
 from x.params import require_named_params
 
 

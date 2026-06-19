@@ -7,8 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-
 from typing import Any
+
+
+def none_to_empty(v: Any) -> Any:
+    """Coerce None to an empty list for required array fields.
+
+    The wire treats a null array the same as an absent one: no items. Used as a
+    pydantic BeforeValidator so an explicit null validates as [] instead of raising.
+    """
+    return [] if v is None else v
 
 
 def normalize[T](*args: T | tuple[T] | list[T] | None) -> list[T]:

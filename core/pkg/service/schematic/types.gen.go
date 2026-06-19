@@ -29,9 +29,6 @@ type Node struct {
 	// ZIndex is the stacking order of the node within the schematic. Higher values render
 	// above lower values. Set by the user via send-to-back / bring-to-front actions.
 	ZIndex int16 `json:"z_index" msgpack:"z_index"`
-	// Measured is the rendered pixel size of the node. Populated by the renderer after the
-	// node is mounted and used to keep diagram measurements consistent across re-renders.
-	Measured *spatial.Dimensions `json:"measured,omitempty" msgpack:"measured,omitempty"`
 }
 
 // Handle is a reference to a specific connection point on a specific node. For
