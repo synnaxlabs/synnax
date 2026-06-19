@@ -15,8 +15,21 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 )
+
+// stubTransport is a no-op channel.Transport used to satisfy the non-nil requirement on
+// ServiceConfig.Transport in tests that exercise configuration validation only. Its
+// endpoint accessors are never invoked, so they return nil.
+type stubTransport struct{}
+
+var _ channel.Transport = stubTransport{}
+
+func (stubTransport) CreateClient() channel.CreateTransportClient { return nil }
+func (stubTransport) CreateServer() channel.CreateTransportServer { return nil }
+func (stubTransport) DeleteClient() channel.DeleteTransportClient { return nil }
+func (stubTransport) DeleteServer() channel.DeleteTransportServer { return nil }
+func (stubTransport) RenameClient() channel.RenameTransportClient { return nil }
+func (stubTransport) RenameServer() channel.RenameTransportServer { return nil }
 
 var _ = Describe("Service", func() {
 	Describe("ServiceConfig", func() {
@@ -42,7 +55,7 @@ var _ = Describe("Service", func() {
 					HostResolver: n.Cluster,
 					KVReadWriter: n.DB,
 					TSDB:         n.Storage.TS,
-					Transport:    tmock.NewChannelNetwork().New("mock"),
+					Transport:    stubTransport{},
 				}
 			})
 

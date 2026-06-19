@@ -53,7 +53,7 @@ import (
 // LayerConfig is the configuration for opening the API layer.
 type LayerConfig = config.LayerConfig
 
-var DefaultLayerConfig = config.DefaultLayerConfig
+var DefaultLayerConfig = config.LayerConfig{}
 
 type Transport struct {
 	// AUTH
@@ -574,7 +574,7 @@ func (l *Layer) BindTo(t Transport) {
 // NewLayer instantiates the server API layer using the provided Configs. This should
 // only be called once.
 func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	cfg, err := xconfig.New(config.LayerConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

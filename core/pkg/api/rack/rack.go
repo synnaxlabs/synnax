@@ -42,7 +42,7 @@ type Service struct {
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	cfg, err := xconfig.New(config.LayerConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

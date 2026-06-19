@@ -47,7 +47,6 @@ const (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	channel  *channel.Service
 	internal *framer.Service
@@ -55,7 +54,7 @@ type Service struct {
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+	cfg, err := xconfig.New(config.LayerConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +63,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		internal:        cfg.Service.Framer,
 		channel:         cfg.Service.Channel,
 		access:          cfg.Service.RBAC,
-		db:              cfg.Distribution.DB,
 	}, nil
 }
 
@@ -158,12 +156,10 @@ func (s *Service) openIterator(ctx context.Context, srv IteratorStream) (framer.
 	if err != nil {
 		return nil, err
 	}
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: framer.OntologyIDs(req.Keys),
-		})
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
 	}
@@ -224,12 +220,10 @@ func (s *Service) openStreamer(
 	if err != nil {
 		return nil, err
 	}
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionRetrieve,
-			Objects: framer.OntologyIDs(req.Keys),
-		})
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionRetrieve,
+		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
 	}
@@ -401,12 +395,10 @@ func (s *Service) openWriter(
 		return nil, err
 	}
 
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionCreate,
-			Objects: framer.OntologyIDs(req.Config.Keys),
-		})
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionCreate,
+		Objects: framer.OntologyIDs(req.Config.Keys),
 	}); err != nil {
 		return nil, err
 	}
