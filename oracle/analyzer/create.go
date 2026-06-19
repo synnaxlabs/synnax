@@ -71,8 +71,10 @@ func synthesizeCreateTypes(c *analysisCtx) {
 
 // newTypeDomains builds the domains for a synthesized New. It inherits the base type's
 // TypeScript and Python output paths (so the New lands in the same files) and adds
-// `use_input` for TS. The New is omitted from Go, protobuf, and C++, where the base
-// struct is reused rather than a distinct input type.
+// `use_input` and `type_only` for TS, so the New emits only as an input-typed type
+// referencing the base schema, never as its own runtime zod const. The New is omitted
+// from Go, protobuf, and C++, where the base struct is reused rather than a distinct
+// input type.
 //
 // The base's `name` expression is deliberately dropped: the New is a distinct sibling
 // that emits under its own name (`New`), so it must not adopt the base's renamed
@@ -86,7 +88,7 @@ func newTypeDomains(base resolution.Type) map[string]resolution.Domain {
 		"cpp": {Name: "cpp", Expressions: resolution.Expressions{{Name: "omit"}}},
 	}
 	tsExprs := inheritedNewExpressions(base, "ts")
-	tsExprs = append(tsExprs, resolution.Expression{Name: "use_input"})
+	tsExprs = append(tsExprs, resolution.Expression{Name: "use_input"}, resolution.Expression{Name: "type_only"})
 	domains["ts"] = resolution.Domain{Name: "ts", Expressions: tsExprs}
 	if _, ok := base.Domains["py"]; ok {
 		domains["py"] = resolution.Domain{Name: "py", Expressions: inheritedNewExpressions(base, "py")}

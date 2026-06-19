@@ -38,10 +38,10 @@ var _ = Describe("Derived New from @create", func() {
 		`
 		resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").ToContain(
-			"export const newZ = thingZ",
-			".omit({ author: true })",
-			"export interface New extends z.input<typeof newZ> {}",
+			"export const thingZ",
+			`export interface New extends Omit<z.input<typeof thingZ>, "author"> {}`,
 		)
+		ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
 	})
 
 	It("Should derive a generic factory New that partials defaulted fields and keeps non-defaulted keys required", func(ctx SpecContext) {
@@ -59,12 +59,9 @@ var _ = Describe("Derived New from @create", func() {
 		`
 		resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").ToContain(
-			".partial({ configured: true })",
 			`optional.Optional<Thing<Properties>, "configured">`,
 		)
-		ExpectContent(resp, "types.gen.ts").ToNotContain(
-			".partial({ key: true",
-		)
+		ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
 	})
 
 	It("Should derive New under its own name when the base is renamed", func(ctx SpecContext) {
@@ -80,14 +77,13 @@ var _ = Describe("Derived New from @create", func() {
 			}
 		`
 		resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
-		// The derived New must emit as newZ/New, extending the base's payloadZ, not
-		// re-emit the base's renamed payloadZ/Payload (which would be a duplicate
-		// symbol with an empty body).
+		// The derived New must emit under its own name (New), referencing the base's
+		// renamed payloadZ schema, not re-emit a renamed payloadZ/Payload (which would
+		// be a duplicate symbol with an empty body).
 		ExpectContent(resp, "types.gen.ts").ToContain(
 			"export const payloadZ = z.object(",
-			"export const newZ = payloadZ",
-			".omit({ author: true })",
-			"export interface New extends z.input<typeof newZ> {}",
+			`export interface New extends Omit<z.input<typeof payloadZ>, "author"> {}`,
 		)
+		ExpectContent(resp, "types.gen.ts").ToNotContain("export const newZ")
 	})
 })

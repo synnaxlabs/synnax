@@ -587,6 +587,8 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				switch expr.Name {
 				case "use_input":
 					sd.UseInput = true
+				case "type_only":
+					sd.TypeOnly = true
 				case "omit":
 					sd.Handwritten = true
 				case "name":
@@ -656,6 +658,8 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			switch expr.Name {
 			case "use_input":
 				sd.UseInput = true
+			case "type_only":
+				sd.TypeOnly = true
 			case "omit":
 				sd.Handwritten = true
 			case "concrete_types":
@@ -2289,6 +2293,11 @@ type structData struct {
 	// for type-param-typed fields), but the TS interface keeps the generic shape
 	// with primitive constraints (e.g. T extends number | bigint = number).
 	IsPrimitiveConstrainedGeneric bool
+	// TypeOnly is set for @create-synthesized New types. The runtime zod schema
+	// const is suppressed (the base schema already accepts the same input via its
+	// own .default()s), and the New type references the base schema directly
+	// rather than the now-absent newZ.
+	TypeOnly bool
 }
 
 type extendsParentInfo struct {
@@ -2460,6 +2469,7 @@ export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ 
 }
 {{- end }}
 {{- else if .IsGeneric }}
+{{- if not .TypeOnly }}
 {{- if .IsSingleParam }}
 {{- if and .ConcreteTypes .ConditionalFields }}
 
@@ -2595,6 +2605,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
   });
 {{- end }}
 {{- end }}
+{{- end }}
 {{- if $.GenerateTypes }}
 {{- if .ConcreteTypes }}
 {{- if .HasExtends }}
@@ -2649,6 +2660,7 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }
 {{- end }}
 {{- end }}
 {{- else if .HasExtends }}
+{{- if not .TypeOnly }}
 
 export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ if $i }}.extend({{ end }}{{ $p.Name }}{{ if $i }}.shape){{ end }}{{ end }}
 {{- if .OmittedFields }}
@@ -2670,8 +2682,13 @@ export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ 
 {{- end }}
   })
 {{- end }};
+{{- end }}
 {{- if $.GenerateTypes }}
+{{- if .TypeOnly }}
+export interface {{ .TSName }} extends {{ if .OmittedFields }}Omit<{{ end }}z.input<typeof {{ .ExtendsName }}>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }} {}
+{{- else }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
+{{- end }}
 {{- end }}
 {{- else }}
 {{- if .Doc }}
