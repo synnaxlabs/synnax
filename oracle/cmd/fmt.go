@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
+	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -54,14 +55,21 @@ func runFmt(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	patterns := args
-	if len(patterns) == 0 {
-		patterns = []string{"schemas/*.oracle"}
-	}
-
-	files, err := expandGlobs(patterns, repoRoot)
-	if err != nil {
-		return err
+	var files []string
+	if len(args) == 0 {
+		rel, err := pipeline.DiscoverSchemas(repoRoot)
+		if err != nil {
+			return err
+		}
+		files = make([]string, len(rel))
+		for i, r := range rel {
+			files[i] = paths.Resolve(r, repoRoot)
+		}
+	} else {
+		files, err = expandGlobs(args, repoRoot)
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(files) == 0 {
