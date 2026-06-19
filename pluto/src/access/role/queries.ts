@@ -11,7 +11,7 @@ import { access, ontology, user } from "@synnaxlabs/client";
 import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type role } from "@/access/role/aether";
+import { role } from "@/access/role/aether";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
 import { Ontology } from "@/ontology";
@@ -204,9 +204,11 @@ export const useChangeRoleForm = Flux.createForm<
   },
 });
 
-export const formSchema = access.role.newZ.extend({
-  policies: access.policy.keyZ.array(),
-});
+export const formSchema = access.role.newZ
+  .extend({
+    policies: access.policy.keyZ.array(),
+  })
+  .partial({ key: true });
 
 export const useForm = Flux.createForm<
   Partial<RetrieveQuery>,
@@ -216,7 +218,6 @@ export const useForm = Flux.createForm<
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: {
-    key: "",
     name: "",
     description: "",
     internal: false,
@@ -229,7 +230,7 @@ export const useForm = Flux.createForm<
   },
   update: async ({ client, value, store, set, rollbacks }) => {
     const v = value();
-    let r: access.role.Role = { ...v, key: v.key || uuid.create() };
+    let r: access.role.Role = access.role.roleZ.parse(v);
     const otgID = access.role.ontologyID(r.key);
     const otgKey = ontology.idToString(otgID);
     rollbacks.push(

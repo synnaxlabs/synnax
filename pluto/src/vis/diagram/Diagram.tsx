@@ -67,7 +67,11 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
-import { calculateCursorPosition, internalNodeBox } from "@/vis/diagram/util";
+import {
+  calculateCursorPosition,
+  internalNodeBox,
+  partitionNodeChanges,
+} from "@/vis/diagram/util";
 
 export interface NodeProps {
   nodeKey: string;
@@ -395,20 +399,7 @@ export const create = ({
 
     const handleNodesChange = useCallback(
       (changes: RFNodeChange[]) => {
-        const passthrough: RFNodeChange[] = [];
-        const sizes: [string, dimensions.Dimensions][] = [];
-        const removed: string[] = [];
-        for (const change of changes) {
-          if (change.type === "dimensions") {
-            const d = change.dimensions;
-            if (d == null || d.width === 0 || d.height === 0 || change.resizing)
-              continue;
-            sizes.push([change.id, { width: d.width, height: d.height }]);
-            continue;
-          }
-          if (change.type === "remove") removed.push(change.id);
-          passthrough.push(change);
-        }
+        const { passthrough, sizes, removed } = partitionNodeChanges(changes);
         if (sizes.length > 0 || removed.length > 0)
           setMeasured((prev) => {
             const next = { ...prev };

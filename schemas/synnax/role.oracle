@@ -16,7 +16,7 @@ Key = uuid {
 }
 
 Role struct {
-    key         Key    {
+    key         Key = create {
         @doc value "is the unique identifier for this role."
         @key
     }
@@ -50,13 +50,5 @@ Role struct {
     @go marshal
     @go migrate
     @py name       "Base"
-}
-
-New struct extends Role {
-    key?
-
-    @doc value    "contains parameters for creating a new role."
-    @ts use_input
-    @go omit
-    @py name      "Role"
+    @create
 }
