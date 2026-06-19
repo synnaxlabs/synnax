@@ -2010,9 +2010,16 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		case resolution.ValueKindString:
 			zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(defaultVal.StringValue))
 		case resolution.ValueKindInt:
-			if tsTypeOverride == "string" {
-				// A uint64 key rendered as a string accepts string input, so an
-				// integer default must be emitted as a string literal.
+			stringTyped := tsTypeOverride == "string"
+			if !stringTyped {
+				if resolved, ok := typeRef.Resolve(table); ok && getTypeTypeOverride(resolved, "ts") == "string" {
+					stringTyped = true
+				}
+			}
+			if stringTyped {
+				// A uint64 surfaced as a string (e.g. Key uint64 { @ts type string })
+				// accepts string input, so an integer default must be emitted as a
+				// string literal.
 				zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(fmt.Sprintf("%d", defaultVal.IntValue)))
 				break
 			}
