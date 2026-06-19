@@ -145,12 +145,12 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				active bool? = true
+				active bool = false
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.default(true)`)
+			ToContain(`.default(false)`)
 	})
 
 	It("Should emit id.create() default for string keys with create ident", func(ctx SpecContext) {

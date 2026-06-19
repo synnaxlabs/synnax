@@ -15,6 +15,36 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
+// checkOptionalDefaultInvariant enforces that a field is never both nullable (`?`) and
+// carrying a static default. The two are mutually exclusive models for an absent value:
+// a nullable field derives its default from absence (null/None), while a defaulted field
+// is required and value-filled. Declaring both is contradictory, so the schema is
+// rejected at analysis time. The check is structural and applies to every field type,
+// not just the cases checkDefaultInvariant can settle.
+func checkOptionalDefaultInvariant(c *analysisCtx) {
+	for _, typ := range c.table.Types {
+		if typ.Namespace != c.namespace {
+			continue
+		}
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		for _, f := range form.Fields {
+			if f.Default == nil || !f.Optional {
+				continue
+			}
+			c.diag.Add(diagnostics.Errorf(
+				nil,
+				"field %q in %q is both nullable (`?`) and has a default; the two are "+
+					"mutually exclusive. Drop the `?` to make it a required defaulted "+
+					"field, or drop the default to make it a plain nullable field.",
+				f.Name, typ.Name,
+			))
+		}
+	}
+}
+
 // checkDefaultInvariant enforces the default invariant from RFC 0043: a required field
 // that carries a static default must either default to its type's zero value, or have a
 // type whose zero value is not a valid value. When neither holds, value-based

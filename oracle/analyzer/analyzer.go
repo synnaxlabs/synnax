@@ -203,6 +203,7 @@ func analyze(c *analysisCtx) {
 
 	desugarPartialOverrides(c)
 	finalizeActionExtends(c)
+	checkOptionalDefaultInvariant(c)
 	checkDefaultInvariant(c)
 	synthesizeCreateTypes(c)
 }

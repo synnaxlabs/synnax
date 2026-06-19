@@ -2113,23 +2113,18 @@ var _ = Describe("Analyzer", func() {
 				resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 1.5}),
 			Entry("string", "name string = \"untitled\"",
 				resolution.ExpressionValue{Kind: resolution.ValueKindString, StringValue: "untitled"}),
-			Entry("bool", "active bool? = true",
-				resolution.ExpressionValue{Kind: resolution.ValueKindBool, BoolValue: true}),
+			Entry("bool", "active bool = false",
+				resolution.ExpressionValue{Kind: resolution.ValueKindBool, BoolValue: false}),
 			Entry("ident", "key string = create",
 				resolution.ExpressionValue{Kind: resolution.ValueKindIdent, IdentValue: "create"}),
 			Entry("qualified ident", "mode string = control.Exclusive",
 				resolution.ExpressionValue{Kind: resolution.ValueKindIdent, IdentValue: "control.Exclusive"}),
-			Entry("optional type", "name string? = \"\"",
-				resolution.ExpressionValue{Kind: resolution.ValueKindString, StringValue: ""}),
 		)
 
-		It("Should mark a defaulted optional field as optional", func(ctx SpecContext) {
+		It("Should reject a field that is both optional and defaulted", func(ctx SpecContext) {
 			source := "Item struct {\n\tname string? = \"\"\n}\n"
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
-			form := table.MustGet("test.Item").Form.(resolution.StructForm)
-			Expect(form.Fields[0].Optional).To(BeTrue())
-			Expect(form.Fields[0].Default).NotTo(BeNil())
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Error()).To(ContainSubstring("both nullable"))
 		})
 
 		It("Should leave Default nil when no default is declared", func(ctx SpecContext) {
