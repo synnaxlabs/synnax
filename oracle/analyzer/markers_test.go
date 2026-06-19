@@ -70,6 +70,10 @@ var _ = Describe("Create and Output markers", func() {
 		Expect(form.OmittedFields).To(ContainElement("author"))
 		Expect(newType.Domains).To(HaveKey("ts"))
 		Expect(newType.Domains).To(HaveKey("go"))
+		py, ok := newType.Domains["py"]
+		Expect(ok).To(BeTrue())
+		Expect(py.Expressions).To(HaveLen(1))
+		Expect(py.Expressions[0].Name).To(Equal("omit"))
 	})
 
 	It("Should not synthesize a New when one is hand-written", func(ctx SpecContext) {
