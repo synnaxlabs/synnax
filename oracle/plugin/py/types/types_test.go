@@ -561,6 +561,32 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`default_factory=lambda: Point(x=1, y=2)`))
 		})
 
+		It("Should emit an empty record default as default_factory=dict", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Config struct {
+					args record = {}
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`args: Annotated[dict[str, Any], BeforeValidator(dicts.none_to_empty)] = Field(default_factory=dict)`))
+		})
+
+		It("Should emit a populated record default as a dict literal", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Config struct {
+					args record = { mode = "fast", retries = 3 }
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`default_factory=lambda: {"mode": "fast", "retries": 3}`))
+		})
+
 		It("Should wrap int defaults in distinct type constructor", func(ctx SpecContext) {
 			source := `
 				@py output "out"

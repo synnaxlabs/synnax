@@ -893,8 +893,18 @@ func collectValidation(
 				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
 			}
 		case resolution.ValueKindStruct:
-			// Models are mutable, so they must use default_factory, never default=.
-			constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+			// Records (dict[str, Any]) are mutable, so they use default_factory. An
+			// empty record defaults to dict; a populated one to a dict literal.
+			if typeRef.Name == "record" {
+				if len(defaultVal.Fields) == 0 {
+					constraints = append(constraints, "default_factory=dict")
+				} else {
+					constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+				}
+			} else {
+				// Models are mutable, so they must use default_factory, never default=.
+				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+			}
 		}
 	}
 	return constraints
@@ -929,9 +939,26 @@ func pyDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
 	case resolution.ValueKindStruct:
+		if typeRef.Name == "record" {
+			return pyRecordLiteral(val, table, data)
+		}
 		return pyStructLiteral(typeRef, val, table, data)
 	}
 	return ""
+}
+
+// pyRecordLiteral renders a record default as a Python dict literal. Record
+// values carry no declared field types, so each entry's value is rendered from
+// its own kind.
+func pyRecordLiteral(val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	if len(val.Fields) == 0 {
+		return "{}"
+	}
+	parts := make([]string, 0, len(val.Fields))
+	for _, fv := range val.Fields {
+		parts = append(parts, fmt.Sprintf("%q: %s", fv.Name, pyDefaultLiteral(resolution.TypeRef{}, fv.Value, table, data)))
+	}
+	return "{" + strings.Join(parts, ", ") + "}"
 }
 
 // pyStructLiteral renders a struct default as a Python model constructor call,
