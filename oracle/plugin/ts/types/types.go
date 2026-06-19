@@ -813,7 +813,24 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 					parentType, _ := extendsRef.Resolve(table)
 					for _, pf := range resolution.UnifiedFields(parentType, table) {
 						name := fieldCamel(pf.Name)
-						if pf.Default == nil || handled.Contains(name) {
+						if handled.Contains(name) {
+							continue
+						}
+						// A base field whose type is itself a `@create`-d struct must
+						// carry its input projection (its `New`), not its output type,
+						// so the consumer can omit that struct's defaulted nested
+						// fields. The output type would make them required.
+						if newRef, ok := createNewRefForField(pf, table); ok {
+							handled.Add(name)
+							sd.OmittedFields = append(sd.OmittedFields, name)
+							sd.ExtendFields = append(sd.ExtendFields, fieldData{
+								TSName:     name,
+								IsOptional: pf.Optional,
+								TSType:     p.typeRefToTS(&newRef, table, data, sd.ConcreteTypes),
+							})
+							continue
+						}
+						if pf.Default == nil {
 							continue
 						}
 						handled.Add(name)
@@ -1053,6 +1070,52 @@ func fieldCamel(s string) string {
 		return base
 	}
 	return base[:len(base)-runLen] + s[runStart:]
+}
+
+// createNewRefForField reports whether field's type resolves to a `@create`-d
+// struct and, if so, returns a TypeRef naming that struct's synthesized `New`
+// carrying the field's effective type arguments. It follows a single alias level
+// (e.g. a task-namespace `Status<Data>` alias to `status.Status<...>`),
+// substituting the alias's type params with the field's type args so the New
+// reference carries the concrete arguments rather than the alias's own params.
+// It reports false when the field type does not resolve to a create struct, when
+// no `New` was synthesized in that struct's namespace, or when the field is a
+// type param, primitive, array, or map.
+func createNewRefForField(field resolution.Field, table *resolution.Table) (resolution.TypeRef, bool) {
+	ref := field.Type
+	if ref.IsTypeParam() || ref.Name == "" || resolution.IsPrimitive(ref.Name) ||
+		ref.Name == "Array" || ref.Name == "Map" {
+		return resolution.TypeRef{}, false
+	}
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return resolution.TypeRef{}, false
+	}
+	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		argMap := make(map[string]resolution.TypeRef, len(aliasForm.TypeParams))
+		for i, tp := range aliasForm.TypeParams {
+			if i < len(ref.TypeArgs) {
+				argMap[tp.Name] = ref.TypeArgs[i]
+			}
+		}
+		target := resolution.SubstituteTypeRef(aliasForm.Target, argMap)
+		resolved, ok = aliasForm.Target.Resolve(table)
+		if !ok {
+			return resolution.TypeRef{}, false
+		}
+		ref = target
+	}
+	if _, isStruct := resolved.Form.(resolution.StructForm); !isStruct {
+		return resolution.TypeRef{}, false
+	}
+	if _, isCreate := resolved.Domains["create"]; !isCreate {
+		return resolution.TypeRef{}, false
+	}
+	newQN := resolved.Namespace + ".New"
+	if _, exists := table.Get(newQN); !exists {
+		return resolution.TypeRef{}, false
+	}
+	return resolution.TypeRef{Name: newQN, TypeArgs: ref.TypeArgs}, true
 }
 
 // parentSchemaName resolves a base or payload type reference to its TS schema
