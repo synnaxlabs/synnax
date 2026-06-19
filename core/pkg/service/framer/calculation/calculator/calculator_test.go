@@ -29,8 +29,7 @@ import (
 var _ = Describe("Calculator", Ordered, func() {
 	var dist mock.Node
 	BeforeAll(func(ctx SpecContext) {
-		distB := DeferClose(mock.NewCluster())
-		dist = DeferClose(distB.Provision(ctx))
+		dist = mock.NewNode(ctx)
 	})
 
 	open := func(

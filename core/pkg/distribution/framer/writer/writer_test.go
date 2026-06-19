@@ -97,7 +97,7 @@ var _ = Describe("Writer", func() {
 			strCh channel.Channel
 		)
 		BeforeAll(func(ctx SpecContext) {
-			builder := mock.ProvisionCluster(ctx, 1)
+			builder := mock.OpenCluster(ctx, 1)
 			dist := builder.Nodes[1]
 			idxCh = channel.Channel{
 				Name:     uniqueChannelName(),
@@ -261,7 +261,7 @@ var _ = Describe("Writer", func() {
 		Describe("Invalid JSON", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
-				builder := mock.ProvisionCluster(ctx, 1)
+				builder := mock.OpenCluster(ctx, 1)
 				dist := builder.Nodes[1]
 				idxCh := channel.Channel{
 					Name:     uniqueChannelName(),
@@ -302,7 +302,7 @@ var _ = Describe("Writer", func() {
 		Describe("Invalid UTF-8", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
-				builder := mock.ProvisionCluster(ctx, 1)
+				builder := mock.OpenCluster(ctx, 1)
 				dist := builder.Nodes[1]
 				idxCh := channel.Channel{
 					Name:     uniqueChannelName(),
@@ -343,7 +343,7 @@ var _ = Describe("Writer", func() {
 		Describe("Malformed Variable Prefix", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
-				builder := mock.ProvisionCluster(ctx, 1)
+				builder := mock.OpenCluster(ctx, 1)
 				dist := builder.Nodes[1]
 				idxCh := channel.Channel{
 					Name:     uniqueChannelName(),
@@ -493,7 +493,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Auto-Index", func() {
 		It("Should auto-stamp from the leaseholder when the data channel lives on a peer", func(ctx SpecContext) {
-			builder := DeferClose(mock.ProvisionCluster(ctx, 2))
+			builder := DeferClose(mock.OpenCluster(ctx, 2))
 			gw := builder.Nodes[1]
 			peer := node.Key(2)
 
@@ -654,7 +654,7 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 1)
+	builder := mock.OpenCluster(ctx, 1)
 	dist := builder.Nodes[1]
 	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
@@ -663,7 +663,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 4)
+	builder := mock.OpenCluster(ctx, 4)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
@@ -682,7 +682,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 3)
+	builder := mock.OpenCluster(ctx, 3)
 	svc := builder.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
@@ -701,7 +701,7 @@ func mixedScenario(ctx context.Context) scenario {
 
 func freeWriterScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 3)
+	builder := mock.OpenCluster(ctx, 3)
 	svc := builder.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree

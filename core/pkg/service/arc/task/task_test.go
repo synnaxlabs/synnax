@@ -54,8 +54,7 @@ var _ = Describe("Task", Ordered, func() {
 	)
 
 	BeforeAll(func(ctx SpecContext) {
-		distB := DeferClose(mock.NewCluster())
-		dist = DeferClose(distB.Provision(ctx))
+		dist = mock.NewNode(ctx)
 		channelmock.ChannelService(dist) // pre-wrap so observable goroutines predate the leak baseline
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,

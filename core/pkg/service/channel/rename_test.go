@@ -26,13 +26,10 @@ import (
 var _ = Describe("Rename", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.ProvisionCluster(context.Background(), 3)
+		mockCluster = mock.NewCluster(context.Background(), 3)
 		for _, n := range mockCluster.Nodes {
 			channelmock.ChannelService(n)
 		}
-	})
-	AfterAll(func() {
-		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Context("Single channel", func() {
 		var ch channel.Channel

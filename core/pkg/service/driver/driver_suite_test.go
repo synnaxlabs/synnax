@@ -49,7 +49,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	dist = DeferClose(mock.NewCluster()).Provision(ctx)
+	dist = mock.NewNode(ctx)
 	db = dist.DB
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{

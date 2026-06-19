@@ -10,8 +10,6 @@
 package channel_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -27,14 +25,11 @@ const internalChannelCount = 1
 var _ = Describe("Retrieve", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.ProvisionCluster(context.Background(), 2)
+		mockCluster = mock.NewCluster(ctx, 2)
 		for _, n := range mockCluster.Nodes {
 			channelmock.ChannelService(n)
 			Expect(n.Search.Initialize(ctx)).To(Succeed())
 		}
-	})
-	AfterAll(func() {
-		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func(ctx SpecContext) {
@@ -214,8 +209,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 
 		It("Should return empty when no calculated channels exist in a fresh cluster", func(ctx SpecContext) {
-			freshCluster := mock.ProvisionCluster(context.Background(), 1)
-			defer func() { Expect(freshCluster.Close()).To(Succeed()) }()
+			freshCluster := mock.NewCluster(ctx, 1)
 			base := channel.Channel{
 				Virtual:  true,
 				DataType: telem.Float32T,

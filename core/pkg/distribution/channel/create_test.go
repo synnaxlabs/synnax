@@ -27,11 +27,10 @@ var _ = Describe("Create", Ordered, func() {
 		host    node.Key
 	)
 	BeforeAll(func(ctx SpecContext) {
-		builder = mock.ProvisionCluster(ctx, 1)
+		builder = mock.NewCluster(ctx, 1)
 		n = builder.Nodes[node.KeyBootstrapper]
 		host = n.Cluster.HostKey()
 	})
-	AfterAll(func() { Expect(builder.Close()).To(Succeed()) })
 
 	It("Should assign a local key and create storage for a gateway channel", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
@@ -81,11 +80,10 @@ var _ = Describe("Create", Ordered, func() {
 			peer         mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
-			multiBuilder = mock.ProvisionCluster(ctx, 2)
+			multiBuilder = mock.NewCluster(ctx, 2)
 			gateway = multiBuilder.Nodes[node.KeyBootstrapper]
 			peer = multiBuilder.Nodes[node.Key(2)]
 		})
-		AfterAll(func() { Expect(multiBuilder.Close()).To(Succeed()) })
 
 		It("Should route allocation to the leaseholder and create storage there", func(ctx SpecContext) {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{

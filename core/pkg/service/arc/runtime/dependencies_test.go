@@ -30,7 +30,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 	var dist mock.Node
 
 	BeforeAll(func(ctx SpecContext) {
-		dist = DeferClose(mock.NewCluster()).Provision(ctx)
+		dist = mock.NewNode(ctx)
 		channelmock.ChannelService(dist) // pre-wrap so observable goroutines predate the leak baseline
 	})
 

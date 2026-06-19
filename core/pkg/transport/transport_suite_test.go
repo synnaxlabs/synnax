@@ -35,7 +35,7 @@ func TestTransport(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	cluster := DeferClose(distmock.ProvisionCluster(ctx, 1))
+	cluster := distmock.NewCluster(ctx, 1)
 	dist = DeferClose(cluster.Nodes[1].Layer)
 	insecure := true
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{

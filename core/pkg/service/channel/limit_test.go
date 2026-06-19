@@ -10,7 +10,6 @@
 package channel_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,19 +35,12 @@ func fixedOverflowChecker(limit int) channel.IntOverflowChecker {
 
 var _ = Describe("Limit", Ordered, func() {
 	var (
-		limit       = 5
-		mockCluster *mock.Cluster
-		dist        mock.Node
+		limit = 5
+		dist  mock.Node
 	)
-	// context.Background() is used because Provision creates resources stored in
-	// shared vars that are used by It blocks, so the context must outlive BeforeEach.
-	BeforeEach(func() {
-		mockCluster = mock.NewCluster()
-		dist = mockCluster.Provision(context.Background())
+	BeforeEach(func(ctx SpecContext) {
+		dist = mock.NewNode(ctx)
 		channelmock.ChannelService(dist, channel.WithIntOverflowCheck(fixedOverflowChecker(limit)))
-	})
-	AfterEach(func() {
-		Expect(mockCluster.Close()).To(Succeed())
 	})
 	It("Should not allow creating channels over the limit", func(ctx SpecContext) {
 		// Create channels up to the limit

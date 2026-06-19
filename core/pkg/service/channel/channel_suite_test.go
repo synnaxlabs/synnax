@@ -35,7 +35,7 @@ func TestChannel(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = DeferClose(mock.NewCluster().Provision(ctx))
+	dist = mock.NewNode(ctx)
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,

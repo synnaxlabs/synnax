@@ -10,7 +10,6 @@
 package channel_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,13 +28,10 @@ import (
 var _ = Describe("Create", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.ProvisionCluster(context.Background(), 2)
+		mockCluster = mock.NewCluster(ctx, 2)
 		for _, n := range mockCluster.Nodes {
 			channelmock.ChannelService(n)
 		}
-	})
-	AfterAll(func() {
-		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Context("Single channel", func() {
 		var ch channel.Channel
@@ -580,11 +576,8 @@ var _ = Context("Name Validation Disabled", func() {
 	Describe("Channel Creation", Ordered, func() {
 		var mockCluster *mock.Cluster
 		BeforeAll(func(ctx SpecContext) {
-			mockCluster = mock.ProvisionCluster(context.Background(), 1)
+			mockCluster = mock.NewCluster(ctx, 1)
 			channelmock.ChannelService(mockCluster.Nodes[1], channel.WithValidateNames(false))
-		})
-		AfterAll(func() {
-			Expect(mockCluster.Close()).To(Succeed())
 		})
 		It("Should create a channel with spaces in the name", func(ctx SpecContext) {
 			ch := channel.Channel{

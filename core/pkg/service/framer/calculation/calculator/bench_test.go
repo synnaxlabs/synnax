@@ -31,10 +31,8 @@ type benchEnv struct {
 
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
-	ctx := context.Background()
-	distB := mock.NewCluster()
-	dist := distB.Provision(ctx)
-	return &benchEnv{ctx: ctx, dist: dist}
+	dist := mock.OpenNode(b.Context())
+	return &benchEnv{ctx: b.Context(), dist: dist}
 }
 
 func (e *benchEnv) close(b *testing.B) {

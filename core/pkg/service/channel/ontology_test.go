@@ -63,13 +63,10 @@ var _ = Describe("Ontology Helpers", func() {
 var _ = Describe("Ontology", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.ProvisionCluster(context.Background(), 1)
+		mockCluster = mock.NewCluster(ctx, 1)
 		for _, n := range mockCluster.Nodes {
 			channelmock.ChannelService(n)
 		}
-	})
-	AfterAll(func() {
-		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Describe("OntologyID", func() {
 		It("Should correctly return the ontology.ID for the specified channel", func(ctx SpecContext) {

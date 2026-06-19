@@ -10,8 +10,6 @@
 package channel_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -25,13 +23,10 @@ import (
 var _ = Describe("Delete", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.ProvisionCluster(context.Background(), 2)
+		mockCluster = mock.NewCluster(ctx, 2)
 		for _, n := range mockCluster.Nodes {
 			channelmock.ChannelService(n)
 		}
-	})
-	AfterAll(func() {
-		Expect(mockCluster.Close()).To(Succeed())
 	})
 	Describe("Channel Deletion", func() {
 		Context("Single Channel", func() {

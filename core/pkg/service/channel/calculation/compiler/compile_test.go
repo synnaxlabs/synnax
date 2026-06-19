@@ -25,7 +25,7 @@ import (
 var dist mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = DeferClose(mock.NewCluster().Provision(ctx))
+	dist = mock.NewNode(ctx)
 })
 
 var _ = Describe("Compile", func() {

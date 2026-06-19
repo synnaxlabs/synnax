@@ -37,6 +37,21 @@ type Node struct {
 	// node's channel retriever. It lets distribution-layer tests create and resolve
 	// channels without depending on the service layer.
 	channels *ChannelStore
+	// owner is non-nil only for the Node returned by OpenNode, where the node owns its
+	// single-node cluster. When set, Close tears down the whole cluster (including
+	// storage) rather than just this node's layer.
+	owner *Cluster
+}
+
+// Close closes the node's distribution layer. For a Node returned by OpenNode it also
+// closes the underlying single-node cluster, including its storage. This intentionally
+// shadows the embedded Layer.Close so that OpenNode's caller can tear everything down
+// through the returned node.
+func (n Node) Close() error {
+	if n.owner != nil {
+		return n.owner.Close()
+	}
+	return n.Layer.Close()
 }
 
 type Cluster struct {
@@ -53,15 +68,48 @@ type Cluster struct {
 	cfg         distribution.LayerConfig
 }
 
-func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.LayerConfig) *Cluster {
-	b := NewCluster(cfgs...)
-	for range n {
-		b.Provision(ctx)
-	}
-	return b
+// NewCluster opens an n-node in-memory cluster and registers its teardown via
+// testutil.DeferClose, so callers running inside a Ginkgo spec do not need to close it
+// themselves. It must be called from within a Ginkgo node; use OpenCluster from plain
+// Go tests and benchmarks, where DeferCleanup is unavailable.
+//
+// The teardown runs at the scope where NewCluster is called. When called from a
+// BeforeAll or BeforeSuite, the close fires after ShouldNotLeakGoroutinesPerSpec's
+// per-spec check, so a spec that spawns a goroutine against this cluster (e.g. an
+// observer) must stop it itself rather than relying on cluster teardown.
+func NewCluster(ctx context.Context, n int, cfgs ...distribution.LayerConfig) *Cluster {
+	return testutil.DeferClose(OpenCluster(ctx, n, cfgs...))
 }
 
-func NewCluster(cfgs ...distribution.LayerConfig) *Cluster {
+// NewNode opens a single-node in-memory cluster and registers its teardown via
+// testutil.DeferClose, returning the node. Like NewCluster, it must be called from
+// within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
+func NewNode(ctx context.Context, cfgs ...distribution.LayerConfig) Node {
+	return testutil.DeferClose(OpenNode(ctx, cfgs...))
+}
+
+// OpenCluster opens an n-node in-memory cluster, provisioning every node with the
+// provided configs. The caller owns teardown: close the returned Cluster to tear down
+// all nodes and their storage.
+func OpenCluster(ctx context.Context, n int, cfgs ...distribution.LayerConfig) *Cluster {
+	c := newCluster(cfgs...)
+	for range n {
+		c.Provision(ctx)
+	}
+	return c
+}
+
+// OpenNode opens a single-node in-memory cluster and returns its node. The caller owns
+// teardown: closing the returned node tears down the whole cluster, including its
+// storage.
+func OpenNode(ctx context.Context, cfgs ...distribution.LayerConfig) Node {
+	c := OpenCluster(ctx, 1, cfgs...)
+	n := c.Nodes[node.KeyBootstrapper]
+	n.owner = c
+	return n
+}
+
+func newCluster(cfgs ...distribution.LayerConfig) *Cluster {
 	// NOTE: We don't use config.New here because it returns a zero-value when
 	// validation fails (which it will since we don't have required fields).
 	// Instead, we manually merge the configs to preserve caller-provided optional
@@ -143,25 +191,15 @@ type mockFramerTransport struct {
 
 var _ framer.Transport = (*mockFramerTransport)(nil)
 
-func (m mockFramerTransport) Iterator() iterator.Transport {
-	return m.iter
-}
+func (m mockFramerTransport) Iterator() iterator.Transport { return m.iter }
 
-func (m mockFramerTransport) Writer() writer.Transport {
-	return m.writer
-}
+func (m mockFramerTransport) Writer() writer.Transport { return m.writer }
 
-func (m mockFramerTransport) Relay() relay.Transport {
-	return m.relay
-}
+func (m mockFramerTransport) Relay() relay.Transport { return m.relay }
 
-func (m mockFramerTransport) Deleter() deleter.Transport {
-	return m.deleter
-}
+func (m mockFramerTransport) Deleter() deleter.Transport { return m.deleter }
 
-type StaticHostProvider struct {
-	Node node.Node
-}
+type StaticHostProvider struct{ Node node.Node }
 
 var _ node.HostProvider = StaticHostProvider{}
 

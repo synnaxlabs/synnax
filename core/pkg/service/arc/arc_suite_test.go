@@ -56,7 +56,7 @@ var (
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.Open())
-		dist = DeferClose(mock.NewCluster().Provision(ctx))
+		dist = mock.NewNode(ctx)
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,

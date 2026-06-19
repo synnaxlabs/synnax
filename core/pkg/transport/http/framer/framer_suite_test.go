@@ -32,12 +32,8 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	mockCluster = mock.ProvisionCluster(ctx, 1)
+	mockCluster = mock.NewCluster(ctx, 1)
 	node := mockCluster.Nodes[1]
 	dist = node.Layer
 	chSvc = channelmock.ChannelService(node)
-	DeferCleanup(func() {
-		Expect(dist.Close()).To(Succeed())
-		Expect(mockCluster.Close()).To(Succeed())
-	})
 })

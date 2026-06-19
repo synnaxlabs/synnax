@@ -36,7 +36,7 @@ var _ = Describe("Service", func() {
 				valid   channel.ServiceConfig
 			)
 			BeforeAll(func(ctx SpecContext) {
-				builder = mock.ProvisionCluster(ctx, 1)
+				builder = mock.NewCluster(ctx, 1)
 				n := builder.Nodes[node.KeyBootstrapper]
 				valid = channel.ServiceConfig{
 					HostResolver: n.Cluster,
@@ -45,7 +45,6 @@ var _ = Describe("Service", func() {
 					Transport:    tmock.NewChannelNetwork().New("mock"),
 				}
 			})
-			AfterAll(func() { Expect(builder.Close()).To(Succeed()) })
 
 			It("Should pass validation when all required fields are set", func() {
 				Expect(valid.Validate()).To(Succeed())

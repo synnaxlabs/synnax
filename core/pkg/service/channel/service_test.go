@@ -26,13 +26,10 @@ import (
 var _ = Describe("Service", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.ProvisionCluster(context.Background(), 1)
+		mockCluster = mock.NewCluster(ctx, 1)
 		for _, n := range mockCluster.Nodes {
 			channelmock.ChannelService(n)
 		}
-	})
-	AfterAll(func() {
-		Expect(mockCluster.Close()).To(Succeed())
 	})
 
 	Describe("CountExternalNonVirtual", func() {
@@ -113,9 +110,10 @@ var _ = Describe("Service", Ordered, func() {
 	Describe("Observe", func() {
 		It("Should notify when a channel is created", func(ctx SpecContext) {
 			var called atomic.Bool
-			channelmock.ChannelService(mockCluster.Nodes[1]).Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
+			disconnect := channelmock.ChannelService(mockCluster.Nodes[1]).Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
 				called.Store(true)
 			})
+			DeferCleanup(disconnect)
 			ch := channel.Channel{
 				Name:        channel.NewRandomName(),
 				DataType:    telem.TimeStampT,

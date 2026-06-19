@@ -30,8 +30,7 @@ func TestSignals(t *testing.T) {
 var dist mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder := DeferClose(mock.NewCluster())
-	dist = DeferClose(builder.Provision(ctx))
+	dist = mock.NewNode(ctx)
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		Channel: channelmock.ChannelService(dist),
 		Framer:  framer.Wrap(dist.Framer, channelmock.ChannelService(dist)),

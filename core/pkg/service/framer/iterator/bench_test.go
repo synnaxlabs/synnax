@@ -26,16 +26,13 @@ import (
 
 type benchIterEnv struct {
 	ctx         context.Context
-	builder     *mock.Cluster
 	dist        mock.Node
 	iteratorSvc *iterator.Service
 }
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
-	ctx := context.Background()
-	builder := mock.NewCluster()
-	dist := builder.Provision(ctx)
+	dist := mock.OpenNode(b.Context())
 
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: dist.Framer,
@@ -46,15 +43,14 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	}
 
 	return &benchIterEnv{
-		ctx:         ctx,
-		builder:     builder,
+		ctx:         b.Context(),
 		dist:        dist,
 		iteratorSvc: iteratorSvc,
 	}
 }
 
 func (e *benchIterEnv) close(b *testing.B) {
-	if err := e.builder.Close(); err != nil {
+	if err := e.dist.Close(); err != nil {
 		b.Errorf("failed to close cluster: %v", err)
 	}
 }

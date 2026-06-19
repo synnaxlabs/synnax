@@ -33,23 +33,20 @@ import (
 
 type benchStreamerEnv struct {
 	ctx         context.Context
-	builder     *mock.Cluster
 	dist        mock.Node
 	streamerSvc *streamer.Service
 }
 
 func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	RegisterTestingT(b)
-	ctx := context.Background()
-	builder := mock.NewCluster()
-	dist := builder.Provision(ctx)
+	dist := mock.OpenNode(b.Context())
 
 	searchIdx, err := search.Open()
 	if err != nil {
 		b.Fatalf("failed to create search index: %v", err)
 	}
 
-	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
+	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
@@ -59,7 +56,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 
-	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
+	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
 		Ontology: dist.Ontology,
@@ -71,7 +68,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	}
 
 	channelSvc := channelmock.ChannelService(dist)
-	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
+	calc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
 		DB:                dist.DB,
 		Framer:            dist.Framer,
 		Channel:           channelSvc,
@@ -92,15 +89,14 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	}
 
 	return &benchStreamerEnv{
-		ctx:         ctx,
-		builder:     builder,
+		ctx:         b.Context(),
 		dist:        dist,
 		streamerSvc: streamerSvc,
 	}
 }
 
 func (e *benchStreamerEnv) close(b *testing.B) {
-	if err := e.builder.Close(); err != nil {
+	if err := e.dist.Close(); err != nil {
 		b.Errorf("failed to close cluster: %v", err)
 	}
 }

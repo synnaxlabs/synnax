@@ -26,10 +26,9 @@ var _ = Describe("Delete", Ordered, func() {
 		n       mock.Node
 	)
 	BeforeAll(func(ctx SpecContext) {
-		builder = mock.ProvisionCluster(ctx, 1)
+		builder = mock.NewCluster(ctx, 1)
 		n = builder.Nodes[node.KeyBootstrapper]
 	})
-	AfterAll(func() { Expect(builder.Close()).To(Succeed()) })
 
 	It("Should delete the storage channel for a gateway key", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
@@ -55,11 +54,10 @@ var _ = Describe("Delete", Ordered, func() {
 			peer         mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
-			multiBuilder = mock.ProvisionCluster(ctx, 2)
+			multiBuilder = mock.NewCluster(ctx, 2)
 			gateway = multiBuilder.Nodes[node.KeyBootstrapper]
 			peer = multiBuilder.Nodes[node.Key(2)]
 		})
-		AfterAll(func() { Expect(multiBuilder.Close()).To(Succeed()) })
 
 		It("Should route deletion to the leaseholder", func(ctx SpecContext) {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{

@@ -112,7 +112,7 @@ var _ = Describe("Relay", func() {
 	Describe("ExcludeGroups", Ordered, func() {
 		It("Should filter out frames from a matching group on gateway writes", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.ProvisionCluster(ctx, 1)
+			builder := mock.OpenCluster(ctx, 1)
 			defer func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
@@ -151,7 +151,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.ProvisionCluster(ctx, 1)
+			builder := mock.OpenCluster(ctx, 1)
 			defer func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
@@ -193,7 +193,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames with no group even when ExcludeGroups is set", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.ProvisionCluster(ctx, 1)
+			builder := mock.OpenCluster(ctx, 1)
 			defer func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
@@ -233,7 +233,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should filter out free channel frames from a matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.ProvisionCluster(ctx, 1)
+			builder := mock.OpenCluster(ctx, 1)
 			defer func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
@@ -288,7 +288,7 @@ var _ = Describe("Relay", func() {
 			svc     mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
-			builder = mock.ProvisionCluster(ctx, 1)
+			builder = mock.OpenCluster(ctx, 1)
 			svc = builder.Nodes[1]
 		})
 		AfterAll(func() { Expect(builder.Close()).To(Succeed()) })
@@ -510,7 +510,7 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 1)
+	builder := mock.OpenCluster(ctx, 1)
 	svc := builder.Nodes[1]
 	Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
 	return scenario{
@@ -524,7 +524,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 4)
+	builder := mock.OpenCluster(ctx, 4)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
@@ -547,7 +547,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 }
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	clstr := mock.ProvisionCluster(ctx, 3)
+	clstr := mock.OpenCluster(ctx, 3)
 	gateway := clstr.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
@@ -571,7 +571,7 @@ func mixedScenario(ctx context.Context) scenario {
 
 func freeScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 1)
+	builder := mock.OpenCluster(ctx, 1)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree

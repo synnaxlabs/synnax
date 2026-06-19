@@ -10,8 +10,6 @@
 package pb_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -23,10 +21,9 @@ import (
 )
 
 var _ = Describe("Translator", func() {
-	ctx := context.Background()
 	Describe("CreateMessage", func() {
 		t := pb.CreateMessageTranslator
-		It("Should round-trip the minimal storage and routing fields", func() {
+		It("Should round-trip the minimal storage and routing fields", func(ctx SpecContext) {
 			msg := channel.CreateMessage{Channels: []channel.Channel{
 				{
 					Name:        "sensor",
@@ -55,11 +52,11 @@ var _ = Describe("Translator", func() {
 			Expect(fwd.Channels[0].LocalIndex).To(Equal(uint32(3)))
 			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
 		})
-		It("Should round-trip an empty channel list", func() {
+		It("Should round-trip an empty channel list", func(ctx SpecContext) {
 			msg := channel.CreateMessage{Channels: []channel.Channel{}}
 			Expect(MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg))))).To(Equal(msg))
 		})
-		It("Should return an error when forwarding an unrecognized concurrency value", func() {
+		It("Should return an error when forwarding an unrecognized concurrency value", func(ctx SpecContext) {
 			msg := channel.CreateMessage{Channels: []channel.Channel{
 				{Name: "bad", Concurrency: control.Concurrency(99)},
 			}}
@@ -67,7 +64,7 @@ var _ = Describe("Translator", func() {
 				MatchError(ContainSubstring("unrecognized control.Concurrency value")),
 			)
 		})
-		It("Should return an error when reversing an unrecognized concurrency value", func() {
+		It("Should return an error when reversing an unrecognized concurrency value", func(ctx SpecContext) {
 			msg := &pb.CreateMessage{Channels: []*pb.Channel{
 				{Name: "bad", Concurrency: controlpb.Concurrency(99)},
 			}}
@@ -78,7 +75,7 @@ var _ = Describe("Translator", func() {
 	})
 	Describe("DeleteRequest", func() {
 		t := pb.DeleteRequestTranslator
-		It("Should round-trip the channel keys", func() {
+		It("Should round-trip the channel keys", func(ctx SpecContext) {
 			msg := channel.DeleteRequest{Keys: channel.Keys{
 				channel.NewKey(1, 2),
 				channel.NewKey(3, 4),
@@ -90,7 +87,7 @@ var _ = Describe("Translator", func() {
 	})
 	Describe("RenameRequest", func() {
 		t := pb.RenameMessageTranslator
-		It("Should round-trip keys and names", func() {
+		It("Should round-trip keys and names", func(ctx SpecContext) {
 			msg := channel.RenameRequest{
 				Keys:  channel.Keys{channel.NewKey(1, 2), channel.NewKey(1, 3)},
 				Names: []string{"first", "second"},
