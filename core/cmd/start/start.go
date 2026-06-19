@@ -27,8 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
-	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	disttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
@@ -200,13 +199,11 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}
 	var (
 		aspenTransport         = aspentransport.New(grpcClientPool)
-		frameTransport         = framertransport.New(grpcClientPool)
-		channelTransport       = channeltransport.New(grpcClientPool)
-		distributionTransports = []grpc.BindableTransport{
-			aspenTransport,
-			frameTransport,
-			channelTransport,
-		}
+		distTransports         = disttransport.New(grpcClientPool)
+		distributionTransports = append(
+			[]grpc.BindableTransport{aspenTransport},
+			distTransports.BindableTransports()...,
+		)
 	)
 
 	if distributionLayer, err = distribution.OpenLayer(ctx, distribution.LayerConfig{
@@ -214,8 +211,8 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		AdvertiseAddress: cfg.listenAddress,
 		PeerAddresses:    cfg.peers,
 		AspenTransport:   aspenTransport,
-		FrameTransport:   frameTransport,
-		ChannelTransport: channelTransport,
+		FrameTransport:   distTransports.Framer,
+		ChannelTransport: distTransports.Channel,
 		Storage:          storageLayer,
 	}); !ok(err, distributionLayer) {
 		return err

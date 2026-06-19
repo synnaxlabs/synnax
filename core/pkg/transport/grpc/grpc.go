@@ -47,8 +47,8 @@ import (
 
 // Bind constructs the gRPC transport for every API service, binds the API
 // layer's handlers and middleware to it, and returns the bindable transports
-// for registration with the server's gRPC branch. channelSvc resolves channel
-// keys for the frame codec.
+// for registration with the server's gRPC branch. The frame codec resolves
+// channel keys through layer.Channel.
 func Bind(layer *api.Layer) []grpc.BindableTransport {
 	var t api.Transport
 	transports := grpc.CompoundBindableTransport{
