@@ -12,23 +12,19 @@ package framer
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -86,10 +82,8 @@ type Service struct {
 	closer   io.MultiCloser
 	Streamer *streamer.Service
 	Iterator *iterator.Service
+	Writer   *writer.Service
 	cfg      ServiceConfig
-	// channels resolves the distribution-layer metadata supplied to the distribution
-	// writer for each key in a writer's config.
-	channels *channel.Service
 }
 
 func (s *Service) OpenIterator(
@@ -107,45 +101,11 @@ func (s *Service) NewStreamIterator(
 func (s *Service) NewStreamWriter(
 	ctx context.Context, cfg WriterConfig,
 ) (StreamWriter, error) {
-	cfg, err := s.resolveWriterChannels(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	return s.cfg.Framer.NewStreamWriter(ctx, cfg)
+	return s.Writer.NewStream(ctx, cfg)
 }
 
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	cfg, err := s.resolveWriterChannels(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	return s.cfg.Framer.OpenWriter(ctx, cfg)
-}
-
-// resolveWriterChannels populates cfg.Channels with the distribution-layer metadata for
-// every key in cfg.Keys, so the distribution writer needs no channel retriever. It
-// returns query.ErrNotFound if any key does not reference an existing channel.
-func (s *Service) resolveWriterChannels(
-	ctx context.Context, cfg WriterConfig,
-) (WriterConfig, error) {
-	if len(cfg.Keys) == 0 {
-		return cfg, errors.Wrap(validate.ErrValidation, "keys must be non-empty")
-	}
-	var richChannels []channel.Channel
-	if err := s.channels.NewRetrieve().
-		Where(channel.MatchKeys(cfg.Keys...)).
-		Entries(&richChannels).
-		Exec(ctx, nil); err != nil {
-		return cfg, err
-	}
-	channels := lo.Map(richChannels, func(c channel.Channel, _ int) dischannel.Channel {
-		return c.Distribution()
-	})
-	if len(channels) != len(cfg.Keys) {
-		return cfg, errors.Wrapf(query.ErrNotFound, "some channel keys %v not found", cfg.Keys)
-	}
-	cfg.Channels = channels
-	return cfg, nil
+	return s.Writer.Open(ctx, cfg)
 }
 
 func (s *Service) DeleteTimeRange(
@@ -176,7 +136,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, channels: cfg.Channel}
+	s = &Service{cfg: cfg}
+	if s.Writer, err = writer.NewService(writer.ServiceConfig{
+		Instrumentation: cfg.Child("writer"),
+		Framer:          cfg.Framer,
+		Channel:         cfg.Channel,
+	}); err != nil {
+		return nil, err
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if cfg.DB == nil || cfg.Status == nil {

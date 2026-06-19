@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -97,6 +98,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type Service struct {
 	disconnectFromChannelChanges observe.Disconnect
 	cfg                          ServiceConfig
+	writer                       *writer.Service
 	mu                           struct {
 		graph       *graph.Graph
 		calculators map[channel.Key]*calculator.Calculator
@@ -121,8 +123,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 
+	writerSvc, err := writer.NewService(writer.ServiceConfig{
+		Instrumentation: cfg.Child("writer"),
+		Framer:          cfg.Framer,
+		Channel:         cfg.Channel,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Service{
 		cfg:          cfg,
+		writer:       writerSvc,
 		statusWriter: status.NewWriter[types.Nil](cfg.Status, nil),
 	}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
@@ -263,7 +275,7 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 			Calculators:     calculators,
 			OnStatusChange:  s.setStatus,
 			Framer:          s.cfg.Framer,
-			Channels:        s.cfg.Channel,
+			Writer:          s.writer,
 		},
 	)
 	if err != nil {

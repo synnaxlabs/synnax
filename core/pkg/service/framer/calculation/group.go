@@ -13,12 +13,10 @@ import (
 	"context"
 	"io"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -48,21 +46,18 @@ type groupConfig struct {
 	Framer         *framer.Service
 	OnStatusChange OnStatusChange
 	Calculators    calculator.Group
-	// Channels resolves the distribution-layer metadata for the channels the group
-	// writes calculated values to, which the distribution writer requires.
-	Channels *channel.Service
+	// Writer opens the writer the group uses to write calculated values, resolving the
+	// distribution-layer channel metadata from the write keys.
+	Writer *writer.Service
 }
 
-var (
-	_                  config.Config[groupConfig] = (*groupConfig)(nil)
-	defaultGroupConfig                            = groupConfig{}
-)
+var _ config.Config[groupConfig] = (*groupConfig)(nil)
 
 func (c groupConfig) Override(other groupConfig) groupConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Calculators = override.Slice(c.Calculators, other.Calculators)
 	c.OnStatusChange = override.Nil(c.OnStatusChange, other.OnStatusChange)
-	c.Channels = override.Nil(c.Channels, other.Channels)
+	c.Writer = override.Nil(c.Writer, other.Writer)
 	return c
 }
 
@@ -71,7 +66,7 @@ func (c groupConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotEmptySlice(v, "calculators", c.Calculators)
 	validate.NotNil(v, "on_status_change", c.OnStatusChange)
-	validate.NotNil(v, "channels", c.Channels)
+	validate.NotNil(v, "writer", c.Writer)
 	return v.Error()
 }
 
@@ -84,7 +79,7 @@ const (
 )
 
 func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
-	cfg, err := config.New(defaultGroupConfig, cfgs...)
+	cfg, err := config.New(groupConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -105,20 +100,9 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		return nil, err
 	}
 
-	var richChannels []channel.Channel
-	if err := cfg.Channels.NewRetrieve().
-		Where(channel.MatchKeys(writeKeys...)).
-		Entries(&richChannels).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	writeChannels := lo.Map(richChannels, func(c channel.Channel, _ int) dischannel.Channel {
-		return c.Distribution()
-	})
-	wrt, err := cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-		Keys:     writeKeys,
-		Channels: writeChannels,
-		Start:    telem.Now(),
+	wrt, err := cfg.Writer.NewStream(ctx, writer.Config{
+		Keys:  writeKeys,
+		Start: telem.Now(),
 	})
 	if err != nil {
 		return nil, err
