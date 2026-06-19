@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	gotypes "go/types"
+	"strconv"
 )
 
 // Status is channel-specific status information.
@@ -62,4 +64,12 @@ type Channel struct {
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+}
+
+func (c Channel) Validate() error {
+	v := validate.New("Channel")
+	for i := range c.Operations {
+		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

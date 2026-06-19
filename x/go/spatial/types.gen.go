@@ -296,6 +296,13 @@ type StickyXY struct {
 	Units StickyUnits `json:"units" msgpack:"units"`
 }
 
+func (s StickyXY) Validate() error {
+	v := validate.New("StickyXY")
+	v.Exec(func() error { return validate.PathedError(s.Root.Validate(), "root") })
+	v.Exec(func() error { return validate.PathedError(s.Units.Validate(), "units") })
+	return v.Error()
+}
+
 // Dimensions is a 2D size with width and height values.
 type Dimensions struct {
 	// Width is the width in pixels.

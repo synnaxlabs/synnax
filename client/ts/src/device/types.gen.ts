@@ -90,12 +90,12 @@ export const newZ = <
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >({ properties, make, model }: Partial<NewSchemas<Properties, Make, Model>> = {}) =>
-  deviceZ({ properties, make, model }).partial({ key: true, configured: true });
+  deviceZ({ properties, make, model }).partial({ configured: true });
 export type New<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
-> = optional.Optional<Device<Properties, Make, Model>, "key" | "configured">;
+> = optional.Optional<Device<Properties, Make, Model>, "configured">;
 
 export const ontologyID = ontology.createIDFactory<Key>("device");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

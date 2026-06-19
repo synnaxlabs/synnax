@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -149,6 +150,12 @@ type Legend struct {
 	Position spatial.StickyXY `json:"position" msgpack:"position"`
 }
 
+func (l Legend) Validate() error {
+	v := validate.New("Legend")
+	v.Exec(func() error { return validate.PathedError(l.Position.Validate(), "position") })
+	return v.Error()
+}
+
 // Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
 // carry zero or more channels each.
 type Channels struct {
@@ -248,6 +255,27 @@ type Axes struct {
 	Y4 Axis `json:"y4" msgpack:"y4"`
 }
 
+func (a Axes) ApplyDefaults() Axes {
+	a.X1 = a.X1.ApplyDefaults()
+	a.X2 = a.X2.ApplyDefaults()
+	a.Y1 = a.Y1.ApplyDefaults()
+	a.Y2 = a.Y2.ApplyDefaults()
+	a.Y3 = a.Y3.ApplyDefaults()
+	a.Y4 = a.Y4.ApplyDefaults()
+	return a
+}
+
+func (a Axes) Validate() error {
+	v := validate.New("Axes")
+	v.Exec(func() error { return validate.PathedError(a.X1.Validate(), "x1") })
+	v.Exec(func() error { return validate.PathedError(a.X2.Validate(), "x2") })
+	v.Exec(func() error { return validate.PathedError(a.Y1.Validate(), "y1") })
+	v.Exec(func() error { return validate.PathedError(a.Y2.Validate(), "y2") })
+	v.Exec(func() error { return validate.PathedError(a.Y3.Validate(), "y3") })
+	v.Exec(func() error { return validate.PathedError(a.Y4.Validate(), "y4") })
+	return v.Error()
+}
+
 // Line is the per-line styling and downsampling configuration.
 type Line struct {
 	// Key is the line identifier derived from its channel and range assignment. Format is
@@ -344,4 +372,30 @@ type LinePlot struct {
 	Lines []Line `json:"lines" msgpack:"lines"`
 	// Rules holds annotation rules drawn over the plot.
 	Rules []Rule `json:"rules" msgpack:"rules"`
+}
+
+func (l LinePlot) ApplyDefaults() LinePlot {
+	l.Title = l.Title.ApplyDefaults()
+	l.Axes = l.Axes.ApplyDefaults()
+	for i := range l.Lines {
+		l.Lines[i] = l.Lines[i].ApplyDefaults()
+	}
+	for i := range l.Rules {
+		l.Rules[i] = l.Rules[i].ApplyDefaults()
+	}
+	return l
+}
+
+func (l LinePlot) Validate() error {
+	v := validate.New("LinePlot")
+	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
+	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
+	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
+	for i := range l.Lines {
+		v.Exec(func() error { return validate.PathedError(l.Lines[i].Validate(), "lines", strconv.Itoa(i)) })
+	}
+	for i := range l.Rules {
+		v.Exec(func() error { return validate.PathedError(l.Rules[i].Validate(), "rules", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

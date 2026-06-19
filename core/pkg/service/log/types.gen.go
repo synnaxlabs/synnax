@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
@@ -68,6 +69,7 @@ func (c ChannelEntry) ApplyDefaults() ChannelEntry {
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
+	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
 	return v.Error()
 }
 
@@ -89,4 +91,19 @@ type Log struct {
 	// HideReceiptTimestamp controls whether the receipt timestamp column is hidden. When
 	// false (the default), it is displayed.
 	HideReceiptTimestamp bool `json:"hide_receipt_timestamp" msgpack:"hide_receipt_timestamp"`
+}
+
+func (l Log) ApplyDefaults() Log {
+	for i := range l.Channels {
+		l.Channels[i] = l.Channels[i].ApplyDefaults()
+	}
+	return l
+}
+
+func (l Log) Validate() error {
+	v := validate.New("Log")
+	for i := range l.Channels {
+		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

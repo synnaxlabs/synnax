@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a channel in the Synnax database. Composed of a
@@ -106,4 +107,12 @@ type Channel struct {
 	// Expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
 	Expression string `json:"expression" msgpack:"expression"`
+}
+
+func (c Channel) Validate() error {
+	v := validate.New("Channel")
+	for i := range c.Operations {
+		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

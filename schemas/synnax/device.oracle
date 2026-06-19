@@ -106,30 +106,10 @@ Device struct<
         Instruments, OPC UA servers, or Modbus devices.
     """
     @ontology type     "device"
+    @create
     @go marshal
     @go migrate
     @retrieve
     @search
     @ts concrete_types
-}
-
-New struct<
-    Properties extends record = record,
-    Make extends string = string,
-    Model extends string = string
-> extends Device<Properties, Make, Model> {
-    key?
-    configured bool? {
-        @doc value "is an optional configuration status."
-    }
-
-    @doc value "contains parameters for creating or updating a device."
-    @ts {
-        use_input
-        concrete_types
-    }
-    @go omit
-    @pb omit
-    @py omit
-    @cpp omit
 }
