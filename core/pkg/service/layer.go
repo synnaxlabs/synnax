@@ -248,7 +248,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Verification) {
 		return nil, err
 	}
-	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
+	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Instrumentation:  cfg.Child("channel"),
 		Channel:          cfg.Distribution.Channel,
 		DB:               cfg.Distribution.DB,
@@ -259,7 +259,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		IntOverflowCheck: l.Verification.IsOverflowed,
 		ValidateNames:    cfg.ValidateNames,
 		Status:           l.Status,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Channel) {
 		return nil, err
 	}
 	if err = configureControlUpdates(ctx, cfg.Distribution, l.Channel); !ok(err, nil) {

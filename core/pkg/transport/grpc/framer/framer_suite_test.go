@@ -23,7 +23,7 @@ import (
 var (
 	mockCluster *mock.Cluster
 	dist        *distribution.Layer
-	chSvc       *channel.Service
+	channelSvc  *channel.Service
 )
 
 func TestFramer(t *testing.T) {
@@ -35,5 +35,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	mockCluster = mock.NewCluster(ctx, 1)
 	node := mockCluster.Nodes[1]
 	dist = node.Layer
-	chSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{Channel: node.Channel, DB: node.DB, HostResolver: node.Cluster, Ontology: node.Ontology, Group: node.Group, Search: node.Search}))
+	channelSvc = MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{Channel: node.Channel, DB: node.DB, HostResolver: node.Cluster, Ontology: node.Ontology, Group: node.Group, Search: node.Search}))
 })

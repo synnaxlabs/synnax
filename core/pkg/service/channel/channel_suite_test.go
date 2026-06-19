@@ -50,7 +50,7 @@ func openService(ctx context.Context, n mock.Node, cfgs ...channel.ServiceConfig
 		Group:        n.Group,
 		Search:       n.Search,
 	}
-	s := MustSucceed(channel.NewService(ctx, append([]channel.ServiceConfig{base}, cfgs...)...))
+	s := MustSucceed(channel.OpenService(ctx, append([]channel.ServiceConfig{base}, cfgs...)...))
 	controlCh := channel.Channel{
 		Name:        fmt.Sprintf("sy_node_%v_control", n.Cluster.HostKey()),
 		Leaseholder: n.Cluster.HostKey(),

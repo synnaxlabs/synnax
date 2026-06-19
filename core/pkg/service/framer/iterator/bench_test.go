@@ -36,7 +36,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
 	dist := mock.OpenNode(b.Context())
 
-	channelSvc, err := channel.NewService(b.Context(), channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search})
+	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{Channel: dist.Channel, DB: dist.DB, HostResolver: dist.Cluster, Ontology: dist.Ontology, Group: dist.Group, Search: dist.Search})
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}

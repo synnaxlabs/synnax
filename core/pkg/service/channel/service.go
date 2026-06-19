@@ -117,8 +117,8 @@ type Service struct {
 	}
 }
 
-// NewService opens a channel service using the provided configuration(s).
-func NewService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
+// OpenService opens a channel service using the provided configuration(s).
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
