@@ -39,7 +39,7 @@ var _ = Describe("Service", func() {
 			},
 			Entry("host resolver", "host_resolver"),
 			Entry("kv read writer", "kv_read_writer"),
-			Entry("ts db", "ts_db"),
+			Entry("time-series database", "ts"),
 			Entry("transport", "transport"),
 		)
 
