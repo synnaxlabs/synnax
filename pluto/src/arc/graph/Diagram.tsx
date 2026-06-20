@@ -9,7 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Node } from "@/arc/graph/node";
 import { useDispatch, useSelectNodeConfig } from "@/arc/queries";
@@ -72,7 +72,7 @@ const NodeRenderer = ({
     [key, nodeKey, dispatch],
   );
   if (config == null) return null;
-  const Render = Node.resolveSpec(config.type).Symbol as FC<Node.SymbolProps>;
+  const Render = Node.resolveSpec(config.type).Symbol;
   return (
     <Render
       nodeKey={nodeKey}

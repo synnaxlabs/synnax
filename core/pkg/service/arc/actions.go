@@ -91,6 +91,7 @@ func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 	state.Graph.Edges = kept
 	return state, nil
 }
+
 // Handle is the materialization seam for a character insertion. Collaborative edits are
 // relayed between clients without the server materializing them into the module's text,
 // so it returns the state unchanged; durable materialization into Arc.Text is a
@@ -122,5 +123,6 @@ func (p RemoveEdgePayload) Handle(state Arc) (Arc, error) {
 	state.Graph.Edges = kept
 	return state, nil
 }
+
 // Handle is the materialization seam for a character deletion. See InsertCharPayload.Handle.
 func (p DeleteCharPayload) Handle(state Arc) (Arc, error) { return state, nil }

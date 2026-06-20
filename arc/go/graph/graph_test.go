@@ -10,6 +10,8 @@
 package graph_test
 
 import (
+	"maps"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -41,9 +43,7 @@ func buildNodes(specs ...nodeSpec) (graph.Nodes, map[string]msgpack.EncodedJSON)
 	for i, s := range specs {
 		nodes[i] = graph.Node{Key: s.key}
 		cfg := msgpack.EncodedJSON{"type": s.typ}
-		for k, v := range s.cfg {
-			cfg[k] = v
-		}
+		maps.Copy(cfg, s.cfg)
 		configs[s.key] = cfg
 	}
 	return nodes, configs

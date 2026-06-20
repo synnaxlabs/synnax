@@ -52,7 +52,6 @@ const Content = () => {
   const addStatus = Status.useAdder();
   const menuProps = Menu.useContextMenu();
   const placeLayout = Layout.usePlacer();
-  const handleError = Status.useErrorHandler();
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });

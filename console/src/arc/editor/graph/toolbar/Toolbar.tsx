@@ -6,7 +6,7 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-//
+
 import "@/arc/editor/graph/toolbar/Toolbar.css";
 
 import { arc } from "@synnaxlabs/client";
@@ -85,9 +85,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   });
   const selectedName =
     singleConfig != null
-      ? ((Arc.Graph.Node.REGISTRY as Record<string, Arc.Graph.Node.Spec>)[
-          singleConfig.type
-        ]?.name ?? null)
+      ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
       : null;
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
   const canEdit = hasUpdatePermission && editMode;

@@ -10,6 +10,8 @@
 package graph
 
 import (
+	"maps"
+
 	"github.com/synnaxlabs/arc/ir"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
@@ -82,9 +84,7 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 			g.Configs = make(map[string]xmsgpack.EncodedJSON, len(legacy.Nodes))
 			for _, ln := range legacy.Nodes {
 				cfg := xmsgpack.EncodedJSON{}
-				for k, v := range ln.Config {
-					cfg[k] = v
-				}
+				maps.Copy(cfg, ln.Config)
 				cfg["type"] = ln.Type
 				g.Configs[ln.Key] = cfg
 			}

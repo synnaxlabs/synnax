@@ -143,22 +143,16 @@ export interface SelectNodePropsArgs {
   nodeKey: string;
 }
 
-// NodeConfig is a graph node's config record: its function type under "type" plus
-// its parameter values. The type discriminator is always present (the reducers
-// enforce it), so it is typed as a string here.
-export type NodeConfig = record.Unknown & { type: string };
-
-// useSelectNodeConfig returns the config record for a single graph node from the
-// graph configs map. The stored record is returned by reference, so the selection
-// only re-runs when that node's config actually changes.
+// useSelectNodeConfig returns the typed config for a single graph node. Returned by
+// reference, so the selection only re-runs when that node's config changes.
 export const useSelectNodeConfig = Flux.createSelector<
   FluxSubStore,
   SelectNodePropsArgs,
-  NodeConfig | undefined
+  Node.Config | undefined
 >({
   subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
   select: (store, { key, nodeKey }) =>
-    store.arcs.get(key)?.graph.configs[nodeKey] as NodeConfig | undefined,
+    store.arcs.get(key)?.graph.configs[nodeKey] as Node.Config | undefined,
 });
 
 // useSelectMode returns the representation mode of the Arc with the given key,
