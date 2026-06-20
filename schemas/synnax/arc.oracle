@@ -46,7 +46,7 @@ Mode enum {
 }
 
 Arc struct {
-    key     Key              {
+    key     Key = create {
         @key
         @doc value "is the unique identifier for this module."
     }
@@ -87,34 +87,5 @@ Arc struct {
     @go migrate
     @retrieve
     @search
-}
-
-New struct {
-    key   Key?        {
-        @doc value """
-            is an optional key for the module. If not provided, one will be
-            automatically assigned.
-        """
-    }
-    name  string      {
-        @doc value "is a human-readable name for the module."
-    }
-    mode  Mode        {
-        @doc value """
-            specifies the representation mode for this module.
-            Either "text" for text-based Arc code or "graph" for visual dataflow.
-        """
-    }
-    graph graph.Graph {
-        @doc value "is the visual dataflow graph representation."
-    }
-    text  text.Text   {
-        @doc value "is the text-based Arc source code."
-    }
-
-    @doc value    "contains parameters for creating a new Arc module."
-    @ts use_input
-    @go omit
-    @pb omit
-    @cpp omit
+    @create
 }
