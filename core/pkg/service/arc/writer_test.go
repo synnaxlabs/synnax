@@ -237,20 +237,20 @@ var _ = Describe("Writer", func() {
 		})
 
 		insert := func(replica uint32, counter uint64, char rune) arc.Action {
-			return arc.NewInsertCharAction(arc.InsertCharPayload{Op: crdt.Insert{
+			return arc.NewInsertCharAction(arc.InsertCharPayload{
 				ID:   crdt.ID{Replica: replica, Counter: counter},
 				Side: spatial.XLocationRight,
 				Char: char,
-			}})
+			})
 		}
 
 		It("Should broadcast dispatched actions on the arc set channel", func(ctx SpecContext) {
 			key := uuid.New()
 			seq := []arc.Action{
 				insert(1, 1, 'h'),
-				arc.NewDeleteCharAction(arc.DeleteCharPayload{Op: crdt.Delete{
+				arc.NewDeleteCharAction(arc.DeleteCharPayload{
 					ID: crdt.ID{Replica: 1, Counter: 1},
-				}}),
+				}),
 			}
 			Expect(svc.NewWriter(nil).Dispatch(ctx, key, "dk-1", seq)).To(Succeed())
 			var res framer.StreamerResponse
