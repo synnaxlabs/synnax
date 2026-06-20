@@ -115,9 +115,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   },
 });
 
-export const formSchema = arc.newZ.extend({
-  name: z.string().min(1, "Name must not be empty"),
-});
+export const formSchema = arc.arcZ.partial({ key: true });
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",

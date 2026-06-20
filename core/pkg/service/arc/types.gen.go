@@ -73,5 +73,6 @@ type Arc struct {
 func (a Arc) Validate() error {
 	v := validate.New("Arc")
 	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
+	validate.NotEmptyString(v, "name", a.Name)
 	return v.Error()
 }

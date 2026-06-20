@@ -107,7 +107,7 @@ export type New<S extends PayloadSchemas = PayloadSchemas> = optional.Optional<
   Omit<Payload<S>, "status">,
   "key" | "internal" | "snapshot"
 > & {
-  status?: status.New<StatusDetails<S["statusData"]>>;
+  status?: status.New<ReturnType<typeof statusDetailsZ>>;
 };
 
 export const ontologyID = ontology.createIDFactory<Key>("task");

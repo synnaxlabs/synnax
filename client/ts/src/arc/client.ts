@@ -15,7 +15,7 @@ import {
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { type Arc, arcZ, type Key, keyZ, type New, newZ } from "@/arc/types.gen";
+import { type Arc, arcZ, type Key, keyZ, type New } from "@/arc/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
@@ -29,7 +29,7 @@ const retrieveReqZ = z.object({
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
-const createReqZ = z.object({ arcs: newZ.array() });
+const createReqZ = z.object({ arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveResZ = z.object({ arcs: array.nullishToEmpty(arcZ) });

@@ -51,8 +51,9 @@ Arc struct {
         @doc value "is the unique identifier for this module."
     }
     name    string           {
-        @doc value "is a human-readable name for the module."
+        @doc value         "is a human-readable name for the module."
         @filter
+        @validate required
     }
     mode    Mode             {
         @doc value """

@@ -79,7 +79,7 @@ export type New<
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > = optional.Optional<Omit<Device<Properties, Make, Model>, "status">, "configured"> & {
-  status?: status.New<StatusDetails>;
+  status?: status.New<typeof statusDetailsZ>;
 };
 
 export const ontologyID = ontology.createIDFactory<Key>("device");

@@ -98,4 +98,8 @@ export type Status<
 export type New<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
-> = optional.Optional<Status<Details, V>, "key" | "name" | "description" | "time">;
+> = Omit<
+  optional.Optional<Status<Details, V>, "key" | "name" | "description" | "time">,
+  "details"
+> &
+  ([Details] extends [z.ZodNever] ? {} : { details: z.input<Details> });
