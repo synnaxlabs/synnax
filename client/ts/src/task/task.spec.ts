@@ -47,14 +47,12 @@ describe("Task", async () => {
       expect(m.config).toStrictEqual(config);
     });
     it("should create a task with a custom status", async () => {
-      const customStatus = {
-        key: "",
+      const customStatus: task.New["status"] = {
         name: "Status",
-        variant: "success" as const,
+        variant: "success",
         message: "Custom task status",
         description: "Task is running",
-        time: TimeStamp.now(),
-        details: { task: "0", running: true, cmd: "", data: { customData: true } },
+        details: { running: true, data: { customData: true } },
       };
       const m = await testRack.createTask({
         name: "task-with-status",

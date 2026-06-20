@@ -163,7 +163,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           time: TimeStamp.now(),
           variant: "loading",
           message: "Configuring task",
-          details: { task: "0", running: true, cmd: "", data: null },
+          details: { running: true, cmd: "", data: null },
         };
         form.set("status", status);
         return true;

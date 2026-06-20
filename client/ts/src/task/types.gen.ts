@@ -104,9 +104,11 @@ export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   status?: Status<S["statusData"]>;
 }
 export type New<S extends PayloadSchemas = PayloadSchemas> = optional.Optional<
-  Payload<S>,
+  Omit<Payload<S>, "status">,
   "key" | "internal" | "snapshot"
->;
+> & {
+  status?: status.New<StatusDetails<S["statusData"]>>;
+};
 
 export const ontologyID = ontology.createIDFactory<Key>("task");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

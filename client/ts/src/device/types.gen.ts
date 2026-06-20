@@ -78,7 +78,9 @@ export type New<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
-> = optional.Optional<Device<Properties, Make, Model>, "configured">;
+> = optional.Optional<Omit<Device<Properties, Make, Model>, "status">, "configured"> & {
+  status?: status.New<StatusDetails>;
+};
 
 export const ontologyID = ontology.createIDFactory<Key>("device");
 export const TYPE_ONTOLOGY_ID = ontologyID("");
