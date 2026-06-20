@@ -47,20 +47,20 @@ Viewport struct {
 }
 
 Graph struct {
-    viewport  Viewport     {
+    viewport  Viewport            {
         @doc value "is the current camera state for the graph view."
     }
-    functions ir.Functions {
+    functions ir.Functions        {
         @doc value "contains function definitions available in this graph."
     }
-    edges     ir.Edges     {
+    edges     ir.Edges            {
         @doc value "contains dataflow connections between node parameters."
     }
-    nodes     Nodes        {
+    nodes     Nodes               {
         @doc value "contains visual nodes with canvas positions."
     }
     configs   map<string, record> {
-        @doc value          """
+        @doc value        """
             contains per-node configuration keyed by node key. Each value is a
             JSON object holding the node's function type under "type" plus its
             configuration parameter values. The wire format stores it as an

@@ -14,6 +14,7 @@ package arc
 import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
@@ -28,6 +29,8 @@ const (
 	ActionTypeRemoveNode      = "remove_node"
 	ActionTypeAddEdge         = "add_edge"
 	ActionTypeRemoveEdge      = "remove_edge"
+	ActionTypeInsertChar      = "insert_char"
+	ActionTypeDeleteChar      = "delete_char"
 )
 
 // RenamePayload renames the Arc module.
@@ -81,6 +84,20 @@ type RemoveEdgePayload struct {
 	Target ir.Handle `json:"target" msgpack:"target"`
 }
 
+// InsertCharPayload carries a single collaborative-edit character insertion against the
+// module's text. The payload is a sequence CRDT operation; the server relays it to the
+// other editors of the module without interpreting it.
+type InsertCharPayload struct {
+	Op crdt.Insert `json:"op" msgpack:"op"`
+}
+
+// DeleteCharPayload carries a single collaborative-edit character deletion against the
+// module's text. The payload is a sequence CRDT operation; the server relays it to the
+// other editors of the module without interpreting it.
+type DeleteCharPayload struct {
+	Op crdt.Delete `json:"op" msgpack:"op"`
+}
+
 // Action is a discriminated union for all Arc mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
@@ -93,6 +110,8 @@ type Action struct {
 	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
 	AddEdge         *AddEdgePayload         `json:"add_edge,omitempty" msgpack:"add_edge,omitempty"`
 	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
+	InsertChar      *InsertCharPayload      `json:"insert_char,omitempty" msgpack:"insert_char,omitempty"`
+	DeleteChar      *DeleteCharPayload      `json:"delete_char,omitempty" msgpack:"delete_char,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -144,6 +163,16 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveEdge.Handle(state)
+		case ActionTypeInsertChar:
+			if a.InsertChar == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.InsertChar.Handle(state)
+		case ActionTypeDeleteChar:
+			if a.DeleteChar == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.DeleteChar.Handle(state)
 		default:
 			continue
 		}
@@ -192,4 +221,14 @@ func NewAddEdgeAction(p AddEdgePayload) Action {
 // NewRemoveEdgeAction wraps a RemoveEdgePayload in an Action envelope.
 func NewRemoveEdgeAction(p RemoveEdgePayload) Action {
 	return Action{Type: ActionTypeRemoveEdge, RemoveEdge: &p}
+}
+
+// NewInsertCharAction wraps a InsertCharPayload in an Action envelope.
+func NewInsertCharAction(p InsertCharPayload) Action {
+	return Action{Type: ActionTypeInsertChar, InsertChar: &p}
+}
+
+// NewDeleteCharAction wraps a DeleteCharPayload in an Action envelope.
+func NewDeleteCharAction(p DeleteCharPayload) Action {
+	return Action{Type: ActionTypeDeleteChar, DeleteChar: &p}
 }

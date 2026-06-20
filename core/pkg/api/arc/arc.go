@@ -79,29 +79,6 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-// DispatchRequest carries an action sequence to apply to a single Arc.
-// DispatchKey is a client-generated identifier for the batch, echoed verbatim
-// on the broadcast frame so the originator can recognize its own echo.
-type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
-
-// Dispatch applies the action sequence to the target Arc atomically. Subscribers
-// to the Arc action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (types.Nil, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{arc.OntologyID(req.Key)},
-	}); err != nil {
-		return types.Nil{}, err
-	}
-	return types.Nil{}, s.internal.NewWriter(tx).
-		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-}
-
 type DeleteRequest struct {
 	Keys []arc.Key `json:"keys" msgpack:"keys"`
 }
