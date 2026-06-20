@@ -153,9 +153,7 @@ Arc struct {
         """
     }
 
-    action InsertChar {
-        op crdt.Insert
-
+    action InsertChar extends crdt.Insert {
         @doc value """
             carries a single collaborative-edit character insertion against the
             module's text. The payload is a sequence CRDT operation; the server relays
@@ -163,9 +161,7 @@ Arc struct {
         """
     }
 
-    action DeleteChar {
-        op crdt.Delete
-
+    action DeleteChar extends crdt.Delete {
         @doc value """
             carries a single collaborative-edit character deletion against the module's
             text. The payload is a sequence CRDT operation; the server relays it to the

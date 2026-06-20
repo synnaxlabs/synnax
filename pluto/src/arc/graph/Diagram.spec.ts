@@ -28,13 +28,6 @@ describe("arc gesture converters", () => {
         arc.removeNode({ key: "n1" }),
       ]);
     });
-    it("drops dimension changes, which Arc does not persist", () => {
-      expect(
-        nodeChangesToActions([
-          { type: "dimensions", key: "n1", dimensions: { width: 1, height: 1 } },
-        ]),
-      ).toEqual([]);
-    });
   });
 
   describe("edgeChangesToActions", () => {

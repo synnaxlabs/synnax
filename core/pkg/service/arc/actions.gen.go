@@ -88,14 +88,17 @@ type RemoveEdgePayload struct {
 // module's text. The payload is a sequence CRDT operation; the server relays it to the
 // other editors of the module without interpreting it.
 type InsertCharPayload struct {
-	Op crdt.Insert `json:"op" msgpack:"op"`
+	ID     crdt.ID           `json:"id" msgpack:"id"`
+	Origin crdt.ID           `json:"origin" msgpack:"origin"`
+	Side   spatial.XLocation `json:"side" msgpack:"side"`
+	Char   int32             `json:"char" msgpack:"char"`
 }
 
 // DeleteCharPayload carries a single collaborative-edit character deletion against the
 // module's text. The payload is a sequence CRDT operation; the server relays it to the
 // other editors of the module without interpreting it.
 type DeleteCharPayload struct {
-	Op crdt.Delete `json:"op" msgpack:"op"`
+	ID crdt.ID `json:"id" msgpack:"id"`
 }
 
 // Action is a discriminated union for all Arc mutations. Type names

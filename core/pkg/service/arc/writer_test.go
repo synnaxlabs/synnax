@@ -202,9 +202,13 @@ var _ = Describe("Writer", func() {
 
 	Describe("Dispatch", func() {
 		It("Should apply a single SetNodePosition action to the target Arc", func(ctx SpecContext) {
-			a := arc.Arc{Name: "dispatch-pos", Graph: graph.Graph{Nodes: graph.Nodes{
-				{Key: "n1", Position: spatial.XY{X: 0, Y: 0}},
-			}}}
+			a := arc.Arc{
+				Name: "dispatch-pos",
+				Mode: arc.ModeGraph,
+				Graph: graph.Graph{
+					Nodes: graph.Nodes{{Key: "n1", Position: spatial.XY{X: 0, Y: 0}}},
+				},
+			}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, a.Key, "session-1", []arc.Action{
 				arc.NewSetNodePositionAction(arc.SetNodePositionPayload{
@@ -218,7 +222,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should apply a sequence of mixed actions atomically", func(ctx SpecContext) {
-			a := arc.Arc{Name: "dispatch-seq"}
+			a := arc.Arc{Name: "dispatch-seq", Mode: arc.ModeGraph}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, a.Key, "session-1", []arc.Action{
 				arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n1"}}),
@@ -236,7 +240,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should notify subscribers with the dispatched scoped action on success", func(ctx SpecContext) {
-			a := arc.Arc{Name: "observed"}
+			a := arc.Arc{Name: "observed", Mode: arc.ModeGraph}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
@@ -256,7 +260,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should stamp strictly increasing Seq values onto successive broadcasts", func(ctx SpecContext) {
-			a := arc.Arc{Name: "seq-test"}
+			a := arc.Arc{Name: "seq-test", Mode: arc.ModeGraph}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			rec := &Recorder[arc.Key, arc.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))

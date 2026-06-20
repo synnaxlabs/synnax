@@ -13,6 +13,7 @@ package crdt
 
 import (
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // ID uniquely identifies a character within a replicated text document. It pairs the
@@ -39,6 +40,12 @@ type Insert struct {
 	Side spatial.XLocation `json:"side" msgpack:"side"`
 	// Char is the inserted Unicode code point.
 	Char int32 `json:"char" msgpack:"char"`
+}
+
+func (i Insert) Validate() error {
+	v := validate.New("Insert")
+	v.Ternaryf("side", !i.Side.IsValid(), "invalid side: %v", i.Side)
+	return v.Error()
 }
 
 // Delete tombstones the character with the given id. It carries only the id because

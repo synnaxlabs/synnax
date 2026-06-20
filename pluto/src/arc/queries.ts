@@ -333,7 +333,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { rack } = data;
-    const optimistic: arc.Arc = arc.newZ.parse(data);
+    const optimistic: arc.Arc = arc.arcZ.parse(data);
     let taskKey: task.Key | undefined;
     // If the caller selected a rack to deploy the arc on, we need to create a task
     // for it.
