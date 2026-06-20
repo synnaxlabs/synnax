@@ -15,8 +15,7 @@ import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
 import { useTask } from "@/arc/hooks";
-import { type State } from "@/arc/slice";
-import { ZERO_GRAPH } from "@/arc/types/translate";
+import { type State, ZERO_GRAPH } from "@/arc/slice";
 import { CSS } from "@/css";
 import { Controls as Base } from "@/hardware/common/task/controls";
 import { Layout } from "@/layout";

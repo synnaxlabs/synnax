@@ -74,15 +74,16 @@ const Content = () => {
     [getItem, addStatus, placeLayout],
   );
 
-  const createArc = Editor.useCreateModal();
+  const createArcModal = Editor.useCreateModal();
+  const createArc = Editor.useCreate();
 
   const handleCreate = useCallback(() => {
     handleError(async () => {
-      const result = await createArc({});
+      const result = await createArcModal({});
       if (result == null) return;
-      placeLayout(Editor.create({ name: result.name, mode: result.mode }));
+      createArc({ name: result.name, mode: result.mode });
     }, "Failed to create Arc program");
-  }, [createArc, handleError, placeLayout]);
+  }, [createArcModal, createArc, handleError]);
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} getItem={getItem} />,

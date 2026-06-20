@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Symbol } from "@/arc/graph/node/status/Change";
 import { type Config, defaultConfig } from "@/arc/graph/node/status/config";
 import { Form } from "@/arc/graph/node/status/Form";
-import { Symbol } from "@/arc/graph/node/status/Change";
 import { type Spec } from "@/arc/graph/node/types/spec";
 
 export { configZ } from "@/arc/graph/node/status/config";

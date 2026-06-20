@@ -7,35 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
-import { Access, Arc, Icon } from "@synnaxlabs/pluto";
-import { deep, uuid } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { Arc } from "@synnaxlabs/pluto";
 
-import { useCreateModal } from "@/arc/editor/CreateModal";
 import { Graph } from "@/arc/editor/graph";
 import { Text } from "@/arc/editor/text";
-import { useSelectMode, useSelectVersion } from "@/arc/selectors";
-import { internalCreate, type State, ZERO_STATE } from "@/arc/slice";
-import { TYPE } from "@/arc/types";
-import { createLoadRemote } from "@/hooks/useLoadRemote";
+import { useSelectExists, useSelectMode } from "@/arc/selectors";
+import { internalCreate } from "@/arc/slice";
+import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
-import { Selector } from "@/selector";
-
-export const useLoadRemote = createLoadRemote<arc.Arc>({
-  useRetrieve: Arc.useRetrieveObservable,
-  targetVersion: ZERO_STATE.version,
-  useSelectVersion,
-  actionCreator: (v) =>
-    internalCreate({
-      version: ZERO_STATE.version,
-      key: v.key,
-      remoteCreated: true,
-      graph: { ...ZERO_STATE.graph },
-      text: v.text,
-      mode: v.mode,
-    }),
-});
 
 const Loaded: Layout.Renderer = (props) => {
   const { layoutKey } = props;
@@ -44,60 +23,16 @@ const Loaded: Layout.Renderer = (props) => {
   return <Text.Editor {...props} />;
 };
 
+const useEnsureState = createEnsureState({
+  useExists: useSelectExists,
+  create: (key) => internalCreate({ key }),
+});
+
 export const Editor: Layout.Renderer = (props) => {
-  const arc = useLoadRemote(props.layoutKey);
-  if (arc == null) return null;
+  const { layoutKey } = props;
+  const exists = useEnsureState(layoutKey);
+  if (!exists) return null;
   return <Loaded {...props} />;
 };
 
 Editor.useName = Layout.createUseFluxName(Arc.useRename, Arc.useRetrieveObservableName);
-
-export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
-
-export const create =
-  (initial: CreateArg = {}): Layout.Creator =>
-  ({ dispatch }) => {
-    const {
-      name = "Arc Editor",
-      location = "mosaic",
-      tab,
-      mode = "graph",
-      ...rest
-    } = initial;
-    const key = arc.keyZ.safeParse(initial.key).data ?? uuid.create();
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key, mode }));
-    return {
-      key,
-      location,
-      name,
-      icon: "Arc",
-      type: TYPE,
-      window: { navTop: true, showTitle: true },
-      tab,
-    };
-  };
-
-export const Selectable: Selector.Selectable = ({
-  layoutKey,
-  onPlace,
-  handleError,
-}) => {
-  const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
-  const createArcModal = useCreateModal();
-
-  const handleClick = useCallback(() => {
-    handleError(async () => {
-      const result = await createArcModal({});
-      if (result != null)
-        onPlace(create({ key: layoutKey, name: result.name, mode: result.mode }));
-    }, "Failed to create Arc program");
-  }, [onPlace, layoutKey, createArcModal, handleError]);
-
-  if (!hasCreatePermission) return null;
-
-  return (
-    <Selector.Item title="Arc Automation" icon={<Icon.Arc />} onClick={handleClick} />
-  );
-};
-Selectable.type = TYPE;
-Selectable.useVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);

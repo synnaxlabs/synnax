@@ -28,15 +28,6 @@ export const nodeZ = z.object({
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
-/** Viewport is the camera state for viewing the Arc graph editor canvas. */
-export const viewportZ = z.object({
-  /** position is the camera pan offset (x, y). */
-  position: spatial.xyZ,
-  /** zoom is the zoom level where 1.0 equals 100%. */
-  zoom: z.number(),
-});
-export interface Viewport extends z.infer<typeof viewportZ> {}
-
 export const nodesZ = array.nullishToEmpty(nodeZ);
 export type Nodes = z.infer<typeof nodesZ>;
 
@@ -45,8 +36,6 @@ export type Nodes = z.infer<typeof nodesZ>;
  * canvas layout for the Arc graph editor.
  */
 export const graphZ = z.object({
-  /** viewport is the current camera state for the graph view. */
-  viewport: viewportZ,
   /** functions contains function definitions available in this graph. */
   functions: ir.functionsZ,
   /** edges contains dataflow connections between node parameters. */

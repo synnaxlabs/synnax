@@ -27,8 +27,16 @@ import {
 } from "@/arc/graph/node/operator/Operator";
 
 const add = createOperator({ key: "add", name: "Add", Symbol: Add });
-const subtract = createOperator({ key: "subtract", name: "Subtract", Symbol: Subtract });
-const multiply = createOperator({ key: "multiply", name: "Multiply", Symbol: Multiply });
+const subtract = createOperator({
+  key: "subtract",
+  name: "Subtract",
+  Symbol: Subtract,
+});
+const multiply = createOperator({
+  key: "multiply",
+  name: "Multiply",
+  Symbol: Multiply,
+});
 const divide = createOperator({ key: "divide", name: "Divide", Symbol: Divide });
 const greaterThan = createOperator({
   key: "gt",

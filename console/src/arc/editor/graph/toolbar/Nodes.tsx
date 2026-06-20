@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/arc/editor/graph/toolbar/Stages.css";
-
 import {
   Arc,
   Button,
@@ -22,9 +20,9 @@ import {
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
-import { useAddSymbol } from "@/arc/useAddSymbol";
 import { CSS } from "@/css";
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
@@ -140,13 +138,19 @@ const GroupList = ({ value, onChange }: GroupListProps) => {
 
 export const Stages = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const [selectedGroup, setSelectedGroup] = useState<string>("basic");
-  const addSymbol = useAddSymbol(layoutKey);
+  const addNode = Arc.useAddNode(layoutKey);
+  const handleAddNode = useCallback(
+    (type: string) => {
+      addNode({ key: id.create(), type });
+    },
+    [addNode],
+  );
   return (
     <Flex.Box y empty full className={CSS.BE("arc", "stages")}>
       <Flex.Box x sharp className={CSS.BE("arc", "stages", "group", "list")}>
         <GroupList value={selectedGroup} onChange={setSelectedGroup} />
       </Flex.Box>
-      <StaticStageList groupKey={selectedGroup} onSelect={addSymbol} />
+      <StaticStageList groupKey={selectedGroup} onSelect={handleAddNode} />
     </Flex.Box>
   );
 };

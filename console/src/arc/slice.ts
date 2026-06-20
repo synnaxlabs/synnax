@@ -14,7 +14,6 @@ import { type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import * as latest from "@/arc/types";
 
 export type SliceState = latest.SliceState;
-export type NodeProps = latest.NodeProps;
 export type State = latest.State;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
@@ -23,6 +22,8 @@ export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
 export const anyStateZ = latest.anyStateZ;
+export const TYPE = latest.TYPE;
+export const ZERO_GRAPH = latest.ZERO_GRAPH;
 
 export const SLICE_NAME = "arc";
 
@@ -37,8 +38,9 @@ export interface SetViewportPayload {
   viewport: Diagram.Viewport;
 }
 
-export type CreatePayload = latest.AnyState & {
+export type CreatePayload = {
   key: string;
+  mode?: arc.Mode;
 };
 
 export interface RemovePayload {
@@ -106,8 +108,9 @@ export const { actions, reducer } = createSlice({
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      const { key: layoutKey } = payload;
-      state.arcs[layoutKey] = latest.migrateState(payload);
+      const { key } = payload;
+      if (state.arcs[key] != null) return;
+      state.arcs[key] = { ...ZERO_STATE, ...payload };
       state.toolbar.activeTab = "stages";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {

@@ -18,20 +18,19 @@ const useCreateVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
 
 export const CreateCommand: Palette.Command = ({
-  placeLayout,
   rename,
   handleError,
   ...listProps
 }) => {
   const createArcModal = Arc.Editor.useCreateModal();
+  const createArc = Arc.Editor.useCreate();
   const handleSelect = useCallback(
     () =>
       handleError(async () => {
         const result = await createArcModal({});
-        if (result != null)
-          placeLayout(Arc.Editor.create({ name: result.name, mode: result.mode }));
+        if (result != null) createArc({ name: result.name, mode: result.mode });
       }, "Failed to create Arc"),
-    [placeLayout, handleError, createArcModal],
+    [handleError, createArcModal, createArc],
   );
   return (
     <Palette.CommandListItem

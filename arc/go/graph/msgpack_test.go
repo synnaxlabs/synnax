@@ -53,45 +53,15 @@ var _ = Describe("DecodeMsgpack", func() {
 		})
 	})
 
-	Describe("Viewport", func() {
-		It("Should decode new lowercase msgpack fields", func() {
-			original := graph.Viewport{
-				Position: spatial.XY{X: 10, Y: 20},
-				Zoom:     1.5,
-			}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded graph.Viewport
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Position).To(Equal(spatial.XY{X: 10, Y: 20}))
-			Expect(decoded.Zoom).To(Equal(1.5))
-		})
-		It("Should decode legacy uppercase Go field names", func() {
-			legacy := struct {
-				Position spatial.XY
-				Zoom     float64
-			}{
-				Position: spatial.XY{X: 5, Y: 10},
-				Zoom:     2.0,
-			}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded graph.Viewport
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Position).To(Equal(spatial.XY{X: 5, Y: 10}))
-			Expect(decoded.Zoom).To(Equal(2.0))
-		})
-	})
-
 	Describe("Graph", func() {
 		It("Should decode legacy uppercase Go field names", func() {
 			legacy := struct {
-				Viewport  graph.Viewport
 				Functions ir.Functions
 				Edges     ir.Edges
 				Nodes     graph.Nodes
 			}{
-				Viewport: graph.Viewport{Zoom: 1.0},
-				Nodes:    graph.Nodes{{Key: "n1"}},
-				Edges:    ir.Edges{{Source: ir.Handle{Node: "n1", Param: "out"}}},
+				Nodes: graph.Nodes{{Key: "n1"}},
+				Edges: ir.Edges{{Source: ir.Handle{Node: "n1", Param: "out"}}},
 			}
 			data := MustSucceed(msgpack.Marshal(legacy))
 			var decoded graph.Graph
@@ -99,7 +69,6 @@ var _ = Describe("DecodeMsgpack", func() {
 			Expect(decoded.Nodes).To(HaveLen(1))
 			Expect(decoded.Nodes[0].Key).To(Equal("n1"))
 			Expect(decoded.Edges).To(HaveLen(1))
-			Expect(decoded.Viewport.Zoom).To(Equal(1.0))
 		})
 
 		It("Should lift legacy inline node type and config into the configs map", func() {

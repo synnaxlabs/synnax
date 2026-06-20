@@ -31,6 +31,7 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 );
 
 export const Editor: Layout.Renderer = ({ layoutKey, visible }): ReactElement => {
+  Base.useEnsureRetrieved({ key: layoutKey });
   const state = useSelect(layoutKey);
   const dispatch = useDispatch();
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));

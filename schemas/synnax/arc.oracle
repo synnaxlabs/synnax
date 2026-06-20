@@ -185,7 +185,7 @@ Arc struct {
 }
 
 New struct {
-    key   Key?        {
+    key   Key = create {
         @doc value """
             is an optional key for the module. If not provided, one will be
             automatically assigned.

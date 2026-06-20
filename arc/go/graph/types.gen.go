@@ -30,19 +30,9 @@ type Node struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 
-// Viewport is the camera state for viewing the Arc graph editor canvas.
-type Viewport struct {
-	// Position is the camera pan offset (x, y).
-	Position spatial.XY `json:"position" msgpack:"position"`
-	// Zoom is the zoom level where 1.0 equals 100%.
-	Zoom float64 `json:"zoom" msgpack:"zoom"`
-}
-
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.
 type Graph struct {
-	// Viewport is the current camera state for the graph view.
-	Viewport Viewport `json:"viewport" msgpack:"viewport"`
 	// Functions contains function definitions available in this graph.
 	Functions ir.Functions `json:"functions" msgpack:"functions"`
 	// Edges contains dataflow connections between node parameters.

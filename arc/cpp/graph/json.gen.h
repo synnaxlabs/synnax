@@ -36,23 +36,8 @@ inline x::json::json Node::to_json() const {
     return j;
 }
 
-inline Viewport Viewport::parse(x::json::Parser parser) {
-    return Viewport{
-        .position = parser.field<::x::spatial::XY>("position"),
-        .zoom = parser.field<double>("zoom"),
-    };
-}
-
-inline x::json::json Viewport::to_json() const {
-    x::json::json j;
-    j["position"] = this->position.to_json();
-    j["zoom"] = this->zoom;
-    return j;
-}
-
 inline Graph Graph::parse(x::json::Parser parser) {
     return Graph{
-        .viewport = parser.field<Viewport>("viewport"),
         .functions = parser.field<::arc::ir::Functions>("functions"),
         .edges = parser.field<::arc::ir::Edges>("edges"),
         .nodes = parser.field<Nodes>("nodes"),
@@ -65,7 +50,6 @@ inline Graph Graph::parse(x::json::Parser parser) {
 
 inline x::json::json Graph::to_json() const {
     x::json::json j;
-    j["viewport"] = this->viewport.to_json();
     j["functions"] = this->functions.to_json();
     j["edges"] = this->edges.to_json();
     j["nodes"] = this->nodes.to_json();

@@ -20,9 +20,6 @@ import (
 )
 
 func (g Graph) EncodeOrc(w *orc.Writer) error {
-	if err := g.Viewport.EncodeOrc(w); err != nil {
-		return err
-	}
 	w.Bool(g.Functions != nil)
 	if g.Functions != nil {
 		w.Uint32(uint32(len(g.Functions)))
@@ -68,10 +65,6 @@ func (g Graph) EncodeOrc(w *orc.Writer) error {
 }
 
 func (g *Graph) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if err = g.Viewport.DecodeOrc(r); err != nil {
-		return err
-	}
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -173,25 +166,6 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if err = nv.Position.DecodeOrc(r); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (vv Viewport) EncodeOrc(w *orc.Writer) error {
-	if err := vv.Position.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Float64(float64(vv.Zoom))
-	return nil
-}
-
-func (vv *Viewport) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if err = vv.Position.DecodeOrc(r); err != nil {
-		return err
-	}
-	if vv.Zoom, err = r.Float64(); err != nil {
 		return err
 	}
 	return nil

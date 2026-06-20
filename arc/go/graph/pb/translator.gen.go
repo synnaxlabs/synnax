@@ -73,66 +73,8 @@ func NodesFromPB(pbs []*Node) ([]graph.Node, error) {
 	return result, nil
 }
 
-// ViewportToPB converts Viewport to Viewport.
-func ViewportToPB(r graph.Viewport) (*Viewport, error) {
-	positionVal, err := spatialpb.XYToPB(r.Position)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Viewport{
-		Zoom:     r.Zoom,
-		Position: positionVal,
-	}
-	return pb, nil
-}
-
-// ViewportFromPB converts Viewport to Viewport.
-func ViewportFromPB(pb *Viewport) (graph.Viewport, error) {
-	var r graph.Viewport
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Position, err = spatialpb.XYFromPB(pb.Position)
-	if err != nil {
-		return graph.Viewport{}, err
-	}
-	r.Zoom = pb.Zoom
-	return r, nil
-}
-
-// ViewportsToPB converts a slice of Viewport to Viewport.
-func ViewportsToPB(rs []graph.Viewport) ([]*Viewport, error) {
-	result := make([]*Viewport, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = ViewportToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// ViewportsFromPB converts a slice of Viewport to Viewport.
-func ViewportsFromPB(pbs []*Viewport) ([]graph.Viewport, error) {
-	result := make([]graph.Viewport, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = ViewportFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // GraphToPB converts Graph to Graph.
 func GraphToPB(r graph.Graph) (*Graph, error) {
-	viewportVal, err := ViewportToPB(r.Viewport)
-	if err != nil {
-		return nil, err
-	}
 	functionsVal, err := irpb.FunctionsToPB(r.Functions)
 	if err != nil {
 		return nil, err
@@ -146,7 +88,6 @@ func GraphToPB(r graph.Graph) (*Graph, error) {
 		return nil, err
 	}
 	pb := &Graph{
-		Viewport:  viewportVal,
 		Functions: functionsVal,
 		Edges:     edgesVal,
 		Nodes:     nodesVal,
@@ -171,10 +112,6 @@ func GraphFromPB(pb *Graph) (graph.Graph, error) {
 		return r, nil
 	}
 	var err error
-	r.Viewport, err = ViewportFromPB(pb.Viewport)
-	if err != nil {
-		return graph.Graph{}, err
-	}
 	r.Functions, err = irpb.FunctionsFromPB(pb.Functions)
 	if err != nil {
 		return graph.Graph{}, err

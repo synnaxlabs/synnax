@@ -40,7 +40,6 @@ const empty = (graph: Partial<arc.graph.Graph> = {}, name = ""): arc.Arc => ({
   mode: "graph",
   text: { raw: "" },
   graph: {
-    viewport: { position: { x: 0, y: 0 }, zoom: 1 },
     functions: [],
     edges: [],
     nodes: [],

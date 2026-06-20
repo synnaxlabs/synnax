@@ -21,10 +21,6 @@ import (
 )
 
 func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
-	viewport, err := AutoMigrateViewport(ctx, old.Viewport)
-	if err != nil {
-		return graph.Graph{}, err
-	}
 	functions := make(ir.Functions, len(old.Functions))
 	for i, v := range old.Functions {
 		var err error
@@ -56,18 +52,10 @@ func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
 		configs[v.Key] = cfg
 	}
 	return graph.Graph{
-		Viewport:  viewport,
 		Functions: functions,
 		Edges:     edges,
 		Nodes:     nodes,
 		Configs:   configs,
-	}, nil
-}
-
-func AutoMigrateViewport(_ context.Context, old Viewport) (graph.Viewport, error) {
-	return graph.Viewport{
-		Position: spatial.XY(old.Position),
-		Zoom:     old.Zoom,
 	}, nil
 }
 

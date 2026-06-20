@@ -26,7 +26,6 @@
 namespace arc::graph {
 
 struct Node;
-struct Viewport;
 struct Graph;
 
 /// @brief Node is a visual node in the Arc graph editor representing a function
@@ -45,23 +44,6 @@ struct Node {
     [[nodiscard]] std::pair<::arc::graph::pb::Node, x::errors::Error> to_proto() const;
     static std::pair<Node, x::errors::Error>
     from_proto(const ::arc::graph::pb::Node &pb);
-};
-
-/// @brief Viewport is the camera state for viewing the Arc graph editor canvas.
-struct Viewport {
-    /// @brief position is the camera pan offset (x, y).
-    ::x::spatial::XY position;
-    /// @brief zoom is the zoom level where 1.0 equals 100%.
-    double zoom = 0;
-
-    static Viewport parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::graph::pb::Viewport;
-    [[nodiscard]] std::pair<::arc::graph::pb::Viewport, x::errors::Error>
-    to_proto() const;
-    static std::pair<Viewport, x::errors::Error>
-    from_proto(const ::arc::graph::pb::Viewport &pb);
 };
 
 struct Nodes : private std::vector<Node> {
@@ -118,8 +100,6 @@ struct Nodes : private std::vector<Node> {
 /// @brief Graph is a visual dataflow graph representation combining IR elements with
 /// canvas layout for the Arc graph editor.
 struct Graph {
-    /// @brief viewport is the current camera state for the graph view.
-    Viewport viewport;
     /// @brief functions contains function definitions available in this graph.
     ::arc::ir::Functions functions;
     /// @brief edges contains dataflow connections between node parameters.

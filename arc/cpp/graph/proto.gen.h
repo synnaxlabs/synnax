@@ -49,37 +49,8 @@ Node::from_proto(const ::arc::graph::pb::Node &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::arc::graph::pb::Viewport, x::errors::Error>
-Viewport::to_proto() const {
-    ::arc::graph::pb::Viewport pb;
-    {
-        auto [v, err] = this->position.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_position() = v;
-    }
-    pb.set_zoom(this->zoom);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<Viewport, x::errors::Error>
-Viewport::from_proto(const ::arc::graph::pb::Viewport &pb) {
-    Viewport cpp;
-    {
-        auto [v, err] = ::x::spatial::XY::from_proto(pb.position());
-        if (err) return {{}, err};
-        cpp.position = v;
-    }
-    cpp.zoom = pb.zoom();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::arc::graph::pb::Graph, x::errors::Error> Graph::to_proto() const {
     ::arc::graph::pb::Graph pb;
-    {
-        auto [v, err] = this->viewport.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_viewport() = v;
-    }
     for (const auto &item: this->functions) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
@@ -103,11 +74,6 @@ inline std::pair<::arc::graph::pb::Graph, x::errors::Error> Graph::to_proto() co
 inline std::pair<Graph, x::errors::Error>
 Graph::from_proto(const ::arc::graph::pb::Graph &pb) {
     Graph cpp;
-    {
-        auto [v, err] = Viewport::from_proto(pb.viewport());
-        if (err) return {{}, err};
-        cpp.viewport = v;
-    }
     if (auto err = x::pb::from_proto_repeated<::arc::ir::Function>(
             cpp.functions,
             pb.functions()

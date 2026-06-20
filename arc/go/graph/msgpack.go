@@ -43,33 +43,6 @@ func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
 
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
 // Go field names and new lowercase msgpack tag names for backward compatibility.
-func (v *Viewport) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias Viewport
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	if err = msgpack.Unmarshal(raw, (*alias)(v)); err != nil {
-		return err
-	}
-	// Always try legacy since Zoom=0 could indicate failed decode or valid value,
-	// but in practice zoom is never 0 for new data (defaults to 1.0).
-	var legacy struct {
-		Position spatial.XY
-		Zoom     float64
-	}
-	if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-		return err
-	}
-	if legacy.Zoom != 0 && v.Zoom == 0 {
-		v.Position = legacy.Position
-		v.Zoom = legacy.Zoom
-	}
-	return nil
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
 func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Graph
 	raw, err := dec.DecodeRaw()
@@ -81,7 +54,6 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 	}
 	if g.Nodes == nil {
 		var legacy struct {
-			Viewport  Viewport
 			Functions ir.Functions
 			Edges     ir.Edges
 			Nodes     Nodes
@@ -89,7 +61,6 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
 			return err
 		}
-		g.Viewport = legacy.Viewport
 		g.Functions = legacy.Functions
 		g.Edges = legacy.Edges
 		g.Nodes = legacy.Nodes

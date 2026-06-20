@@ -268,7 +268,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   },
 });
 
-export const formSchema = arc.newZ.extend({
+export const formSchema = arc.newZ.partial({ key: true }).extend({
   name: z.string().min(1, "Name must not be empty"),
 });
 
@@ -279,7 +279,6 @@ export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
     nodes: [],
     edges: [],
     configs: {},
-    viewport: { position: { x: 0, y: 0 }, zoom: 1 },
     functions: [],
   },
   text: { raw: "" },
@@ -336,6 +335,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { rack } = data;
+    const optimistic: arc.Arc = arc.newZ.parse(data);
     let taskKey: task.Key | undefined;
     // If the caller selected a rack to deploy the arc on, we need to create a task
     // for it.
@@ -361,8 +361,8 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
           } else taskKey = tsk.key;
       }
     }
-    const prog = await client.arcs.create(data);
-    rollbacks.push(store.arcs.set(prog));
+    rollbacks.push(store.arcs.set(optimistic));
+    const prog = await client.arcs.create(optimistic);
     if (taskKey == null) return prog;
     const { key, name } = prog;
     const newTsk = await client.tasks.create(
@@ -380,18 +380,15 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   },
 });
 
-export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
-  RetrieveQuery,
-  arc.Arc,
-  FluxSubStore
->({
-  name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, query, onChange }) => {
-    if (!("key" in query) || primitive.isZero(query.key)) return [];
-    return [store.arcs.onSet(onChange, query.key)];
-  },
-});
+export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
+  Flux.createRetrieve<RetrieveQuery, arc.Arc, FluxSubStore>({
+    name: RESOURCE_NAME,
+    retrieve: retrieveSingle,
+    mountListeners: ({ store, query, onChange }) => {
+      if (!("key" in query) || primitive.isZero(query.key)) return [];
+      return [store.arcs.onSet(onChange, query.key)];
+    },
+  });
 
 export const useRetrieveObservableName = ({
   onChange,

@@ -46,49 +46,47 @@ var _ = Describe("Codec", func() {
 				Name: "test_2",
 				Mode: arc.Mode("text"),
 				Graph: graph.Graph{
-					Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
 					Functions: []ir.Function{
 						{
-							Key:  "test_11",
-							Body: ir.Body{Raw: "test_13"},
+							Key:  "test_6",
+							Body: ir.Body{Raw: "test_8"},
 							Inputs: []types.Param{
 								{
-									Name:  "test_15",
+									Name:  "test_10",
 									Type:  types.Type{},
-									Value: map[string]interface{}{"key_17": "value_17"},
+									Value: map[string]interface{}{"key_12": "value_12"},
 								},
 							},
 							Outputs: []types.Param{
 								{
-									Name:  "test_19",
+									Name:  "test_14",
 									Type:  types.Type{},
-									Value: map[string]interface{}{"key_21": "value_21"},
+									Value: map[string]interface{}{"key_16": "value_16"},
 								},
 							},
 							Channels: types.Channels{
-								Read:  map[uint32]string{24: "test_23"},
-								Write: map[uint32]string{25: "test_24"},
+								Read:  map[uint32]string{19: "test_18"},
+								Write: map[uint32]string{20: "test_19"},
 							},
 						},
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "test_27", Param: "test_28"},
-							Target: ir.Handle{Node: "test_30", Param: "test_31"},
+							Source: ir.Handle{Node: "test_22", Param: "test_23"},
+							Target: ir.Handle{Node: "test_25", Param: "test_26"},
 							Kind:   ir.EdgeKind(0),
 						},
 					},
-					Nodes:   []graph.Node{{Key: "test_34", Position: spatial.XY{X: 36.5, Y: 37.5}}},
-					Configs: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
+					Nodes:   []graph.Node{{Key: "test_29", Position: spatial.XY{X: 31.5, Y: 32.5}}},
+					Configs: map[string]msgpack.EncodedJSON{"test_33": {"key_33": "value_33"}},
 				},
-				Text: text.Text{Raw: "test_40"},
+				Text: text.Text{Raw: "test_35"},
 			}),
 			Entry("zero values", arc.Arc{
 				Key:  uuid.Nil,
 				Name: "",
 				Mode: arc.Mode(""),
 				Graph: graph.Graph{
-					Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
 					Functions: nil,
 					Edges:     nil,
 					Nodes:     nil,
@@ -121,42 +119,41 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 		Name: "test_2",
 		Mode: arc.Mode("text"),
 		Graph: graph.Graph{
-			Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
 			Functions: []ir.Function{
 				{
-					Key:  "test_11",
-					Body: ir.Body{Raw: "test_13"},
+					Key:  "test_6",
+					Body: ir.Body{Raw: "test_8"},
 					Inputs: []types.Param{
 						{
-							Name:  "test_15",
+							Name:  "test_10",
 							Type:  types.Type{},
-							Value: map[string]interface{}{"key_17": "value_17"},
+							Value: map[string]interface{}{"key_12": "value_12"},
 						},
 					},
 					Outputs: []types.Param{
 						{
-							Name:  "test_19",
+							Name:  "test_14",
 							Type:  types.Type{},
-							Value: map[string]interface{}{"key_21": "value_21"},
+							Value: map[string]interface{}{"key_16": "value_16"},
 						},
 					},
 					Channels: types.Channels{
-						Read:  map[uint32]string{24: "test_23"},
-						Write: map[uint32]string{25: "test_24"},
+						Read:  map[uint32]string{19: "test_18"},
+						Write: map[uint32]string{20: "test_19"},
 					},
 				},
 			},
 			Edges: []ir.Edge{
 				{
-					Source: ir.Handle{Node: "test_27", Param: "test_28"},
-					Target: ir.Handle{Node: "test_30", Param: "test_31"},
+					Source: ir.Handle{Node: "test_22", Param: "test_23"},
+					Target: ir.Handle{Node: "test_25", Param: "test_26"},
 					Kind:   ir.EdgeKind(0),
 				},
 			},
-			Nodes:   []graph.Node{{Key: "test_34", Position: spatial.XY{X: 36.5, Y: 37.5}}},
-			Configs: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
+			Nodes:   []graph.Node{{Key: "test_29", Position: spatial.XY{X: 31.5, Y: 32.5}}},
+			Configs: map[string]msgpack.EncodedJSON{"test_33": {"key_33": "value_33"}},
 		},
-		Text: text.Text{Raw: "test_40"},
+		Text: text.Text{Raw: "test_35"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -197,42 +194,41 @@ func FuzzDecodeArc(f *testing.F) {
 			Name: "test_2",
 			Mode: arc.Mode("text"),
 			Graph: graph.Graph{
-				Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
 				Functions: []ir.Function{
 					{
-						Key:  "test_11",
-						Body: ir.Body{Raw: "test_13"},
+						Key:  "test_6",
+						Body: ir.Body{Raw: "test_8"},
 						Inputs: []types.Param{
 							{
-								Name:  "test_15",
+								Name:  "test_10",
 								Type:  types.Type{},
-								Value: map[string]interface{}{"key_17": "value_17"},
+								Value: map[string]interface{}{"key_12": "value_12"},
 							},
 						},
 						Outputs: []types.Param{
 							{
-								Name:  "test_19",
+								Name:  "test_14",
 								Type:  types.Type{},
-								Value: map[string]interface{}{"key_21": "value_21"},
+								Value: map[string]interface{}{"key_16": "value_16"},
 							},
 						},
 						Channels: types.Channels{
-							Read:  map[uint32]string{24: "test_23"},
-							Write: map[uint32]string{25: "test_24"},
+							Read:  map[uint32]string{19: "test_18"},
+							Write: map[uint32]string{20: "test_19"},
 						},
 					},
 				},
 				Edges: []ir.Edge{
 					{
-						Source: ir.Handle{Node: "test_27", Param: "test_28"},
-						Target: ir.Handle{Node: "test_30", Param: "test_31"},
+						Source: ir.Handle{Node: "test_22", Param: "test_23"},
+						Target: ir.Handle{Node: "test_25", Param: "test_26"},
 						Kind:   ir.EdgeKind(0),
 					},
 				},
-				Nodes:   []graph.Node{{Key: "test_34", Position: spatial.XY{X: 36.5, Y: 37.5}}},
-				Configs: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
+				Nodes:   []graph.Node{{Key: "test_29", Position: spatial.XY{X: 31.5, Y: 32.5}}},
+				Configs: map[string]msgpack.EncodedJSON{"test_33": {"key_33": "value_33"}},
 			},
-			Text: text.Text{Raw: "test_40"},
+			Text: text.Text{Raw: "test_35"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -246,7 +242,6 @@ func FuzzDecodeArc(f *testing.F) {
 			Name: "",
 			Mode: arc.Mode(""),
 			Graph: graph.Graph{
-				Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
 				Functions: nil,
 				Edges:     nil,
 				Nodes:     nil,

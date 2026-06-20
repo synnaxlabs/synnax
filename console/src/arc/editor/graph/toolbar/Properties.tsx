@@ -86,7 +86,9 @@ const IndividualProperties = ({
       }),
   });
   if (config == null) return null;
-  const C = (Arc.Graph.Node.REGISTRY as Record<string, Arc.Graph.Node.Spec>)[config.type];
+  const C = (Arc.Graph.Node.REGISTRY as Record<string, Arc.Graph.Node.Spec>)[
+    config.type
+  ];
   if (C == null) return null;
   return (
     <Flex.Box style={{ height: "100%", padding: "2rem" }} y>
