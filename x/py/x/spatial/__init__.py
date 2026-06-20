@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from x.spatial.types_gen import (
+    XY,
     Alignment,
     AngularDirection,
     Bounds,
@@ -28,7 +29,6 @@ from x.spatial.types_gen import (
     StickyXY,
     Viewport,
     XLocation,
-    XY,
     YLocation,
 )
 
