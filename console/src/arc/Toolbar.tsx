@@ -74,16 +74,7 @@ const Content = () => {
     [getItem, addStatus, placeLayout],
   );
 
-  const createArcModal = Editor.useCreateModal();
-  const createArc = Editor.useCreate();
-
-  const handleCreate = useCallback(() => {
-    handleError(async () => {
-      const result = await createArcModal({});
-      if (result == null) return;
-      createArc({ name: result.name, mode: result.mode });
-    }, "Failed to create Arc program");
-  }, [createArcModal, createArc, handleError]);
+  const create = Editor.useCreate();
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} getItem={getItem} />,
@@ -95,7 +86,7 @@ const Content = () => {
       <Toolbar.Content className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
-          <Actions handleCreate={handleCreate} />
+          <Actions handleCreate={create} />
         </Toolbar.Header>
         <Select.Frame
           multiple
@@ -109,7 +100,7 @@ const Content = () => {
         >
           <List.Items<arc.Key, arc.Arc>
             full="y"
-            emptyContent={<EmptyContent onCreate={handleCreate} />}
+            emptyContent={<EmptyContent onCreate={create} />}
             onContextMenu={menuProps.open}
           >
             {({ key, ...p }) => (

@@ -9,7 +9,6 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Arc } from "@/arc";
 import { Palette } from "@/palette";
@@ -17,27 +16,14 @@ import { Palette } from "@/palette";
 const useCreateVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
 
-export const CreateCommand: Palette.Command = ({
-  rename,
-  handleError,
-  ...listProps
-}) => {
-  const createArcModal = Arc.Editor.useCreateModal();
-  const createArc = Arc.Editor.useCreate();
-  const handleSelect = useCallback(
-    () =>
-      handleError(async () => {
-        const result = await createArcModal({});
-        if (result != null) createArc({ name: result.name, mode: result.mode });
-      }, "Failed to create Arc"),
-    [handleError, createArcModal, createArc],
-  );
+export const CreateCommand: Palette.Command = ({ rename, ...listProps }) => {
+  const create = Arc.Editor.useCreate();
   return (
     <Palette.CommandListItem
       {...listProps}
       name="Create an Arc automation"
       icon={<Icon.Arc />}
-      onSelect={handleSelect}
+      onSelect={create}
     />
   );
 };

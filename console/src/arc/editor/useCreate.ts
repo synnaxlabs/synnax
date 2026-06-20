@@ -2,6 +2,7 @@ import { type arc } from "@synnaxlabs/client";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { useCreateModal } from "@/arc/editor/CreateModal";
 import { create } from "@/arc/editor/layout";
 import { ZERO_GRAPH } from "@/arc/slice";
 import { Layout } from "@/layout";
@@ -13,8 +14,17 @@ interface CreateArgs {
 }
 
 export const useCreate = (): ((args?: CreateArgs) => void) => {
+  const openModal = useCreateModal();
   const placeLayout = Layout.usePlacer();
   const { update } = Arc.useCreate({
+    beforeUpdate: useCallback(
+      async ({ data }: Flux.BeforeUpdateParams<arc.New>) => {
+        const result = await openModal({});
+        if (result == null) return false;
+        return { ...data, ...result };
+      },
+      [openModal],
+    ),
     afterSuccess: useCallback(
       ({ data }: Flux.AfterSuccessParams<arc.Arc>) => {
         placeLayout(
