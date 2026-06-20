@@ -341,9 +341,11 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
 	}
-	// Handle Array type
+	// Handle Array type. Collection elements are resolved via typeToPython, which
+	// handles every form (struct, enum, alias, union); typeDefBaseToPython only
+	// special-cases distinct bases and would yield Any for a struct element.
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := typeDefBaseToPython(typeRef.TypeArgs[0], currentNamespace, table, data)
+		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
 		// Fixed-size array -> tuple type
 		if typeRef.ArraySize != nil {
 			data.imports.addTyping("Tuple")
@@ -353,7 +355,13 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 			}
 			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
 		}
-		return elemType
+		return fmt.Sprintf("list[%s]", elemType)
+	}
+	// Handle Map type
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
+		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
+		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
 	// Try to resolve another typedef
 	resolved, ok := typeRef.Resolve(table)
@@ -723,6 +731,7 @@ func processField(
 	// instead coerces a null or absent value to its empty form, so it is always
 	// present and iterable.
 	isRecord := field.Type.Name == "record"
+	isMap := field.Type.Name == "Map"
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
 	if field.Optional || isOptionalTypeParam {
@@ -730,7 +739,7 @@ func processField(
 	} else if fd.IsArray {
 		fd.PyType = wrapNoneToEmpty(fd.PyType, "lists", data)
 		fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
-	} else if isRecord {
+	} else if isRecord || isMap {
 		fd.PyType = wrapNoneToEmpty(fd.PyType, "dicts", data)
 		fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
 	}
@@ -1140,7 +1149,10 @@ func typeToPython(
 		return primitiveToPython(typeRef.Name, data)
 	}
 
-	// Handle Array type
+	// Handle Array type. The bare element type is returned (not list[...]); field
+	// processing wraps array-typed fields in list[...] itself off the element type,
+	// so wrapping here would double-wrap. Alias contexts that need list[...] use
+	// typeDefBaseToPython / typeRefToPythonAlias instead.
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
 		// Fixed-size array -> tuple type
@@ -1153,6 +1165,13 @@ func typeToPython(
 			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
 		}
 		return elemType
+	}
+
+	// Handle Map type
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
+		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
+		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
 
 	// Try to resolve the type
@@ -1243,6 +1262,19 @@ func typeRefToPythonAlias(
 	table *resolution.Table,
 	data *templateData,
 ) string {
+	// Array and map alias targets (e.g. Nodes = Node[], Authorities = map<...>) are
+	// builtin generics that do not resolve to a struct, so handle them here rather
+	// than falling through to the scalar/struct path below.
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 && typeRef.ArraySize == nil {
+		return fmt.Sprintf("list[%s]", typeToPython(typeRef.TypeArgs[0], table, data))
+	}
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		return fmt.Sprintf(
+			"dict[%s, %s]",
+			typeToPython(typeRef.TypeArgs[0], table, data),
+			typeToPython(typeRef.TypeArgs[1], table, data),
+		)
+	}
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
 		return typeToPython(typeRef, table, data)
