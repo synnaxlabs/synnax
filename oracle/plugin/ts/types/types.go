@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -1240,7 +1241,11 @@ func coalesceTSType(tsType string, typeParams []typeParamData) string {
 	})
 	result := tsType
 	for _, tp := range sorted {
-		result = strings.ReplaceAll(result, tp.Name, `S["`+camelCase(tp.Name)+`"]`)
+		// Match the type-param name only as a whole identifier so a name that
+		// is a substring of a larger identifier (e.g. `Type` inside `ReturnType`)
+		// is left untouched.
+		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(tp.Name) + `\b`)
+		result = re.ReplaceAllString(result, `S["`+camelCase(tp.Name)+`"]`)
 	}
 	return result
 }
