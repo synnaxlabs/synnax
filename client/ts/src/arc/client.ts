@@ -16,7 +16,7 @@ import { array, crdt } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { type Action, dispatchReqZ } from "@/arc/actions.gen";
-import { type Arc, arcZ, type Key, keyZ, type New, newZ } from "@/arc/types.gen";
+import { type Arc, arcZ, type Key, keyZ, type New } from "@/arc/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
@@ -41,7 +41,7 @@ const retrieveReqZ = z.object({
   includeStatus: z.boolean().optional(),
   includeDoc: z.boolean().optional(),
 });
-const createReqZ = z.object({ arcs: newZ.array() });
+const createReqZ = z.object({ arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveResZ = z.object({
@@ -128,10 +128,7 @@ export class Client {
   }
 
   /** dispatch relays a sequence of collaborative-edit actions for the arc with the given
-   * key to the other clients editing it. dispatchKey is a client-generated identifier
-   * for the batch, echoed back on the broadcast so the sender can recognize its own
-   * edits. The other clients receive the actions by streaming the SET_CHANNEL_NAME
-   * channel and decoding each sample with the generated scopedActionZ schema. */
+   * key to the other clients editing it. */
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
     await this.client.send(
       "/arc/dispatch",

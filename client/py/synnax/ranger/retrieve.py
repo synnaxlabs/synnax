@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
 from synnax.ranger.types_gen import Key, Payload
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class _Request(BaseModel):

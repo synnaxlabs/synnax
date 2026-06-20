@@ -38,6 +38,12 @@ var _ = Describe("Writer", func() {
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
 		})
 
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			p := panel.Panel{Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+
 		It("Should default a freshly created panel to a single empty leaf", func(ctx SpecContext) {
 			p := panel.Panel{Name: "test", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())

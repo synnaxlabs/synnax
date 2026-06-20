@@ -57,10 +57,10 @@ AllTypes struct {
 }
 `
 
-// SoftOptionalTemplate contains fields with soft optional modifier (?).
-// Soft optional uses zero-value semantics (omitempty in Go).
+// OptionalFieldsTemplate contains fields with the optional modifier (?), which
+// uses pointer semantics (can distinguish null from the zero value).
 // Format: domain directive
-const SoftOptionalTemplate = `
+const OptionalFieldsTemplate = `
 %s
 
 OptionalFields struct {
@@ -68,20 +68,6 @@ OptionalFields struct {
 	name string?
 	age int32?
 	parent uuid?
-}
-`
-
-// HardOptionalTemplate contains fields with hard optional modifier (??).
-// Hard optional uses pointer semantics (can distinguish nil from zero).
-// Format: domain directive
-const HardOptionalTemplate = `
-%s
-
-NullableFields struct {
-	key uuid
-	name string??
-	age int32??
-	parent uuid??
 }
 `
 

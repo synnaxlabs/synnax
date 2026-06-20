@@ -808,7 +808,7 @@ var _ = Describe("Go Types Plugin", func() {
 				User struct {
 					key uuid
 					name string
-					address Address?
+					address Address
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -844,7 +844,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Task struct {
 					key uuid
 					name string
-					status status.Status?
+					status status.Status
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
@@ -1312,16 +1312,16 @@ var _ = Describe("Go Types Plugin", func() {
 			})
 		})
 
-		Context("hard optional fields", func() {
-			It("Should generate pointer type with omitempty for hard optional fields", func(ctx SpecContext) {
+		Context("optional fields", func() {
+			It("Should generate pointer type with omitempty for optional fields", func(ctx SpecContext) {
 				source := `
 				@go output "core/user"
 
 				User struct {
 					key uuid
 					name string
-					nickname string??
-					age int32??
+					nickname string?
+					age int32?
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -1337,18 +1337,18 @@ var _ = Describe("Go Types Plugin", func() {
 				// Required fields should not have omitempty
 				Expect(content).To(ContainSubstring("Key uuid.UUID `json:\"key\" msgpack:\"key\"`"))
 				Expect(content).To(ContainSubstring("Name string `json:\"name\" msgpack:\"name\"`"))
-				// Hard optional fields should have pointer type and omitempty
+				// Optional fields should have pointer type and omitempty
 				Expect(content).To(ContainSubstring("Nickname *string `json:\"nickname,omitempty\" msgpack:\"nickname,omitempty\"`"))
 				Expect(content).To(ContainSubstring("Age *int32 `json:\"age,omitempty\" msgpack:\"age,omitempty\"`"))
 			})
 
-			It("Should not use pointer for hard optional arrays", func(ctx SpecContext) {
+			It("Should keep optional arrays as plain nilable slices without omitempty", func(ctx SpecContext) {
 				source := `
 				@go output "core/config"
 
 				Config struct {
-					tags string[]??
-					counts int32[]??
+					tags string[]?
+					counts int32[]?
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
@@ -1361,17 +1361,18 @@ var _ = Describe("Go Types Plugin", func() {
 				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Arrays should not be pointers but should still have omitempty
-				Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitempty\" msgpack:\"tags,omitempty\"`"))
-				Expect(content).To(ContainSubstring("Counts []int32 `json:\"counts,omitempty\" msgpack:\"counts,omitempty\"`"))
+				// Optional slices stay plain (no pointer) and drop omitempty so a nil
+				// slice serializes as null distinctly from a present empty slice.
+				Expect(content).To(ContainSubstring("Tags []string `json:\"tags\" msgpack:\"tags\"`"))
+				Expect(content).To(ContainSubstring("Counts []int32 `json:\"counts\" msgpack:\"counts\"`"))
 			})
 
-			It("Should not use pointer for hard optional maps", func(ctx SpecContext) {
+			It("Should keep optional maps as plain nilable maps without omitempty", func(ctx SpecContext) {
 				source := `
 				@go output "core/config"
 
 				Config struct {
-					settings map<string, string>??
+					settings map<string, string>?
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
@@ -1384,8 +1385,7 @@ var _ = Describe("Go Types Plugin", func() {
 				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Maps should not be pointers but should still have omitempty
-				Expect(content).To(ContainSubstring("Settings map[string]string `json:\"settings,omitempty\" msgpack:\"settings,omitempty\"`"))
+				Expect(content).To(ContainSubstring("Settings map[string]string `json:\"settings\" msgpack:\"settings\"`"))
 			})
 
 		})

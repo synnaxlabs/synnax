@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 
 #include "x/cpp/json/json.h"
 #include "x/cpp/spatial/json.gen.h"
@@ -24,8 +25,6 @@ namespace arc::graph {
 inline Node Node::parse(x::json::Parser parser) {
     return Node{
         .key = parser.field<std::string>("key"),
-        .type = parser.field<std::string>("type"),
-        .config = parser.field<x::json::json::object_t>("config"),
         .position = parser.field<::x::spatial::XY>("position"),
     };
 }
@@ -33,41 +32,28 @@ inline Node Node::parse(x::json::Parser parser) {
 inline x::json::json Node::to_json() const {
     x::json::json j;
     j["key"] = this->key;
-    j["type"] = this->type;
-    j["config"] = this->config;
     j["position"] = this->position.to_json();
-    return j;
-}
-
-inline Viewport Viewport::parse(x::json::Parser parser) {
-    return Viewport{
-        .position = parser.field<::x::spatial::XY>("position"),
-        .zoom = parser.field<double>("zoom"),
-    };
-}
-
-inline x::json::json Viewport::to_json() const {
-    x::json::json j;
-    j["position"] = this->position.to_json();
-    j["zoom"] = this->zoom;
     return j;
 }
 
 inline Graph Graph::parse(x::json::Parser parser) {
     return Graph{
-        .viewport = parser.field<Viewport>("viewport"),
         .functions = parser.field<::arc::ir::Functions>("functions"),
         .edges = parser.field<::arc::ir::Edges>("edges"),
         .nodes = parser.field<Nodes>("nodes"),
+        .configs = parser
+                       .field<std::unordered_map<std::string, x::json::json::object_t>>(
+                           "configs"
+                       ),
     };
 }
 
 inline x::json::json Graph::to_json() const {
     x::json::json j;
-    j["viewport"] = this->viewport.to_json();
     j["functions"] = this->functions.to_json();
     j["edges"] = this->edges.to_json();
     j["nodes"] = this->nodes.to_json();
+    j["configs"] = this->configs;
     return j;
 }
 

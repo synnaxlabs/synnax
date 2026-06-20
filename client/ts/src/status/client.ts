@@ -14,7 +14,7 @@ import z from "zod";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { type Key, keyZ } from "@/status/payload";
-import { type New, newZ, type Status, statusZ } from "@/status/types.gen";
+import { type New, type Status, statusZ } from "@/status/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -22,7 +22,7 @@ const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
 ) =>
   z.object({
     parent: ontology.idZ.optional(),
-    statuses: newZ({ details: detailsSchema }).array(),
+    statuses: statusZ({ details: detailsSchema }).array(),
   });
 const setResZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,

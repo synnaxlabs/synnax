@@ -16,7 +16,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.access.policy.payload import Policy
 from synnax.ontology.payload import ID
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):

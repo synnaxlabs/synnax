@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.access.role.types_gen import Role
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):

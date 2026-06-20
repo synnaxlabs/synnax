@@ -25,13 +25,7 @@ export const nodeZ = z.object({
    * values render above lower values. Set by the user via
    * send-to-back / bring-to-front actions.
    */
-  zIndex: zod.int16.optional(),
-  /**
-   * measured is the rendered pixel size of the node. Populated by the
-   * renderer after the node is mounted and used to keep diagram
-   * measurements consistent across re-renders.
-   */
-  measured: spatial.dimensionsZ.optional(),
+  zIndex: zod.int16.default(0),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
@@ -68,9 +62,9 @@ export interface Edge extends z.infer<typeof edgeZ> {}
  */
 export const schematicZ = z.object({
   /** key is the unique identifier for this schematic. */
-  key: keyZ,
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the schematic. */
-  name: z.string(),
+  name: z.string().min(1, "name is required"),
   /** snapshot indicates whether this schematic represents a saved snapshot state. */
   snapshot: z.boolean().default(false),
   /** nodes contains all diagram nodes in the schematic. */
@@ -85,18 +79,7 @@ export const schematicZ = z.object({
   configs: caseconv.preserveCase(record.nullishToEmpty(z.string(), record.unknownZ())),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
-
-export const newZ = schematicZ
-  .omit({ key: true, nodes: true, edges: true, configs: true })
-  .extend({
-    key: keyZ.default(() => uuid.create()),
-    nodes: array.nullishToEmpty(nodeZ),
-    edges: array.nullishToEmpty(edgeZ),
-    configs: caseconv.preserveCase(
-      record.nullishToEmpty(z.string(), record.unknownZ()),
-    ),
-  });
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof schematicZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("schematic");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

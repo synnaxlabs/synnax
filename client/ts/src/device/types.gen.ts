@@ -48,11 +48,11 @@ export const deviceZ = <
 >({ properties, make, model }: Partial<DeviceSchemas<Properties, Make, Model>> = {}) =>
   z.object({
     key: keyZ,
-    rack: rack.keyZ,
-    location: z.string().min(1, "Location is required"),
-    make: make ?? z.string().min(1, "Make is required"),
-    model: model ?? z.string().min(1, "Model is required"),
-    name: z.string().min(1, "Name is required"),
+    rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+    location: z.string().min(1, "location is required"),
+    make: make ?? z.string().min(1, "make is required"),
+    model: model ?? z.string().min(1, "model is required"),
+    name: z.string().min(1, "name is required"),
     configured: z.boolean().default(false),
     properties: properties ?? record.nullishToEmpty(),
     status: statusZ.optional(),
@@ -74,28 +74,13 @@ export interface Device<
   status?: Status;
   parent?: ontology.ID;
 }
-
-export interface NewSchemas<
-  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string> = z.ZodType<string>,
-  Model extends z.ZodType<string> = z.ZodType<string>,
-> {
-  properties: Properties;
-  make: Make;
-  model: Model;
-}
-
-export const newZ = <
-  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string> = z.ZodString,
-  Model extends z.ZodType<string> = z.ZodString,
->({ properties, make, model }: Partial<NewSchemas<Properties, Make, Model>> = {}) =>
-  deviceZ({ properties, make, model }).partial({ key: true, configured: true });
 export type New<
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
-> = optional.Optional<Device<Properties, Make, Model>, "key" | "configured">;
+> = optional.Optional<Omit<Device<Properties, Make, Model>, "status">, "configured"> & {
+  status?: status.New<typeof statusDetailsZ>;
+};
 
 export const ontologyID = ontology.createIDFactory<Key>("device");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

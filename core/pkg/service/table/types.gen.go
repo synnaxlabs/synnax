@@ -14,6 +14,7 @@ package table
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -76,4 +77,10 @@ type Table struct {
 	// from rows[*].cells[*] references; cells not referenced by any row are orphaned and
 	// will be pruned on the next structural edit.
 	Cells map[string]Cell `json:"cells" msgpack:"cells"`
+}
+
+func (t Table) Validate() error {
+	v := validate.New("Table")
+	validate.NotEmptyString(v, "name", t.Name)
+	return v.Error()
 }

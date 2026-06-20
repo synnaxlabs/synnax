@@ -13,12 +13,15 @@
 // node in a tree, anchored to an existing character on its left or right, so that
 // concurrent runs of text inserted at the same position are never interleaved.
 //
-// The Insert, Delete, ID, and Side types are generated from schemas/crdt.oracle and
-// shared with the TypeScript implementation (@synnaxlabs/x crdt); the two runtimes
-// materialize identically, locked by the conformance vectors in testdata.
+// The Insert, Delete, and ID types are generated from schemas/crdt.oracle and shared
+// with the TypeScript implementation (@synnaxlabs/x crdt); the two runtimes materialize
+// identically, locked by the conformance vectors in testdata.
 package crdt
 
-import "github.com/synnaxlabs/x/set"
+import (
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/spatial"
+)
 
 // isRoot reports whether id is the document root sentinel. The zero replica is reserved
 // for the root and never assigned to a real replica.
@@ -38,7 +41,6 @@ func idLess(a, b ID) bool {
 // deleted nodes, yields the materialized document.
 type element struct {
 	id      ID
-	side    Side
 	char    int32
 	deleted bool
 	// left and right hold the children anchored on each side, each kept sorted by id.
@@ -198,11 +200,11 @@ func (t *Text) Insert(index int, text string) []Insert {
 	ops := make([]Insert, 0, len(runes))
 	for _, r := range runes {
 		var origin ID
-		var side Side
+		var side spatial.XLocation
 		if right != nil && len(left.right) > 0 {
-			origin, side = right.id, SideLeft
+			origin, side = right.id, spatial.XLocationLeft
 		} else {
-			origin, side = left.id, SideRight
+			origin, side = left.id, spatial.XLocationRight
 		}
 		t.counter++
 		op := Insert{
@@ -276,12 +278,12 @@ func (t *Text) place(op Insert) *element {
 			return nil
 		}
 	}
-	e := &element{id: op.ID, side: op.Side, char: op.Char}
+	e := &element{id: op.ID, char: op.Char}
 	if t.tombstones.Contains(op.ID) {
 		e.deleted = true
 		t.tombstones.Remove(op.ID)
 	}
-	if e.side == SideLeft {
+	if op.Side == spatial.XLocationLeft {
 		origin.left = sortedInsert(origin.left, e)
 	} else {
 		origin.right = sortedInsert(origin.right, e)

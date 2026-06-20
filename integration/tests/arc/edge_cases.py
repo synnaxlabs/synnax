@@ -357,7 +357,7 @@ TYPE_MISMATCH_CASES = [
     TypeMismatchCase(
         "UnitMismatchPsiBar",
         ARC_UNIT_MISMATCH_PSI_BAR,
-        "is not equal to argument type",
+        "does not match",
     ),
 ]
 

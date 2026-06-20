@@ -632,14 +632,14 @@ var _ = Describe("Go Migrate Plugin", func() {
 		})
 
 		Context("optional fields", func() {
-			It("Should generate nil-check preamble for hard optional", func() {
+			It("Should generate nil-check preamble for optional", func() {
 				oldSchema := `
 					@go output "out"
 					Key = uuid
 					Inner struct { value int32 }
 					Entry struct {
 						key Key {@key}
-						inner Inner??
+						inner Inner?
 						@go migrate
 					}
 				`
@@ -649,7 +649,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Inner struct { value int32  count int32 }
 					Entry struct {
 						key Key {@key}
-						inner Inner??
+						inner Inner?
 						@go migrate
 					}
 				`
@@ -907,7 +907,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Node struct {
 						key Key       {@key}
 						value int32
-						child Node??
+						child Node?
 						@go migrate
 					}
 				`
@@ -917,7 +917,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Node struct {
 						key Key       {@key}
 						value int32
-						child Node??
+						child Node?
 						label string
 						@go migrate
 					}
@@ -1867,9 +1867,9 @@ func MigrateEntry(_ context.Context, old v1.Entry) (Entry, error) { return AutoM
 
 		It("Should handle recursive types without infinite loop", func() {
 			oldTable := MustSucceed(analyze(ctx, `@go output "out"
-				Node struct { value int32  child Node?? }`, "test", loader))
+				Node struct { value int32  child Node? }`, "test", loader))
 			newTable := MustSucceed(analyze(ctx, `@go output "out"
-				Node struct { value int32  child Node??  label string }`, "test", loader))
+				Node struct { value int32  child Node?  label string }`, "test", loader))
 			oldEntry := MustBeOk(oldTable.Get("test.Node"))
 			newEntry := MustBeOk(newTable.Get("test.Node"))
 			Expect(migrate.SchemaDiff(oldEntry, newEntry, oldTable, newTable)["test.Node"].Kind).To(Equal(migrate.TypeChanged))

@@ -86,20 +86,20 @@ export type SetTimestampPrecisionPayload = z.infer<
   typeof setTimestampPrecisionPayloadZ
 >;
 
-/** SetShowChannelNames controls whether channel names are displayed. */
-export const setShowChannelNamesPayloadZ = z.object({
-  showChannelNames: z.boolean(),
+/** SetHideChannelNames controls whether channel names are hidden. */
+export const setHideChannelNamesPayloadZ = z.object({
+  hideChannelNames: z.boolean(),
 });
 
-export type SetShowChannelNamesPayload = z.infer<typeof setShowChannelNamesPayloadZ>;
+export type SetHideChannelNamesPayload = z.infer<typeof setHideChannelNamesPayloadZ>;
 
-/** SetShowReceiptTimestamp controls whether the receipt timestamp column is displayed. */
-export const setShowReceiptTimestampPayloadZ = z.object({
-  showReceiptTimestamp: z.boolean(),
+/** SetHideReceiptTimestamp controls whether the receipt timestamp column is hidden. */
+export const setHideReceiptTimestampPayloadZ = z.object({
+  hideReceiptTimestamp: z.boolean(),
 });
 
-export type SetShowReceiptTimestampPayload = z.infer<
-  typeof setShowReceiptTimestampPayloadZ
+export type SetHideReceiptTimestampPayload = z.infer<
+  typeof setHideReceiptTimestampPayloadZ
 >;
 
 export const actionZ = z.discriminatedUnion("type", [
@@ -117,64 +117,70 @@ export const actionZ = z.discriminatedUnion("type", [
     setTimestampPrecision: setTimestampPrecisionPayloadZ,
   }),
   z.object({
-    type: z.literal("set_show_channel_names"),
-    setShowChannelNames: setShowChannelNamesPayloadZ,
+    type: z.literal("set_hide_channel_names"),
+    setHideChannelNames: setHideChannelNamesPayloadZ,
   }),
   z.object({
-    type: z.literal("set_show_receipt_timestamp"),
-    setShowReceiptTimestamp: setShowReceiptTimestampPayloadZ,
+    type: z.literal("set_hide_receipt_timestamp"),
+    setHideReceiptTimestamp: setHideReceiptTimestampPayloadZ,
   }),
 ]);
 
 export type Action = z.infer<typeof actionZ>;
 
-export const rename = (payload: RenamePayload): Action => ({
+export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
-  rename: payload,
+  rename: renamePayloadZ.parse(payload),
 });
 
-export const addChannel = (payload: AddChannelPayload): Action => ({
+export const addChannel = (payload: z.input<typeof addChannelPayloadZ>): Action => ({
   type: "add_channel",
-  addChannel: payload,
+  addChannel: addChannelPayloadZ.parse(payload),
 });
 
-export const removeChannel = (payload: RemoveChannelPayload): Action => ({
+export const removeChannel = (
+  payload: z.input<typeof removeChannelPayloadZ>,
+): Action => ({
   type: "remove_channel",
-  removeChannel: payload,
+  removeChannel: removeChannelPayloadZ.parse(payload),
 });
 
-export const setChannelEntry = (payload: SetChannelEntryPayload): Action => ({
+export const setChannelEntry = (
+  payload: z.input<typeof setChannelEntryPayloadZ>,
+): Action => ({
   type: "set_channel_entry",
-  setChannelEntry: payload,
+  setChannelEntry: setChannelEntryPayloadZ.parse(payload),
 });
 
-export const setChannels = (payload: SetChannelsPayload): Action => ({
+export const setChannels = (payload: z.input<typeof setChannelsPayloadZ>): Action => ({
   type: "set_channels",
-  setChannels: payload,
+  setChannels: setChannelsPayloadZ.parse(payload),
 });
 
-export const swapChannel = (payload: SwapChannelPayload): Action => ({
+export const swapChannel = (payload: z.input<typeof swapChannelPayloadZ>): Action => ({
   type: "swap_channel",
-  swapChannel: payload,
+  swapChannel: swapChannelPayloadZ.parse(payload),
 });
 
 export const setTimestampPrecision = (
-  payload: SetTimestampPrecisionPayload,
+  payload: z.input<typeof setTimestampPrecisionPayloadZ>,
 ): Action => ({
   type: "set_timestamp_precision",
-  setTimestampPrecision: payload,
+  setTimestampPrecision: setTimestampPrecisionPayloadZ.parse(payload),
 });
 
-export const setShowChannelNames = (payload: SetShowChannelNamesPayload): Action => ({
-  type: "set_show_channel_names",
-  setShowChannelNames: payload,
-});
-
-export const setShowReceiptTimestamp = (
-  payload: SetShowReceiptTimestampPayload,
+export const setHideChannelNames = (
+  payload: z.input<typeof setHideChannelNamesPayloadZ>,
 ): Action => ({
-  type: "set_show_receipt_timestamp",
-  setShowReceiptTimestamp: payload,
+  type: "set_hide_channel_names",
+  setHideChannelNames: setHideChannelNamesPayloadZ.parse(payload),
+});
+
+export const setHideReceiptTimestamp = (
+  payload: z.input<typeof setHideReceiptTimestampPayloadZ>,
+): Action => ({
+  type: "set_hide_receipt_timestamp",
+  setHideReceiptTimestamp: setHideReceiptTimestampPayloadZ.parse(payload),
 });
 
 export type HandlerResult = actions.HandlerResult<Action>;
@@ -195,13 +201,13 @@ export interface Handlers {
     state: Draft<Log>,
     payload: SetTimestampPrecisionPayload,
   ) => HandlerResult;
-  setShowChannelNames: (
+  setHideChannelNames: (
     state: Draft<Log>,
-    payload: SetShowChannelNamesPayload,
+    payload: SetHideChannelNamesPayload,
   ) => HandlerResult;
-  setShowReceiptTimestamp: (
+  setHideReceiptTimestamp: (
     state: Draft<Log>,
-    payload: SetShowReceiptTimestampPayload,
+    payload: SetHideReceiptTimestampPayload,
   ) => HandlerResult;
 }
 
@@ -222,10 +228,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.swapChannel(state, action.swapChannel);
       case "set_timestamp_precision":
         return handlers.setTimestampPrecision(state, action.setTimestampPrecision);
-      case "set_show_channel_names":
-        return handlers.setShowChannelNames(state, action.setShowChannelNames);
-      case "set_show_receipt_timestamp":
-        return handlers.setShowReceiptTimestamp(state, action.setShowReceiptTimestamp);
+      case "set_hide_channel_names":
+        return handlers.setHideChannelNames(state, action.setHideChannelNames);
+      case "set_hide_receipt_timestamp":
+        return handlers.setHideReceiptTimestamp(state, action.setHideReceiptTimestamp);
     }
   });
 

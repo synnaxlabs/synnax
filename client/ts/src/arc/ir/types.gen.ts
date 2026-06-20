@@ -51,17 +51,12 @@ export const bodyZ = z.object({
 });
 export interface Body extends z.infer<typeof bodyZ> {}
 
-/**
- * Node is a concrete instantiation of a function with typed parameters and
- * configuration values.
- */
+/** Node is a concrete instantiation of a function with typed parameters and values. */
 export const nodeZ = z.object({
   /** key is the unique identifier for this node instance. */
   key: z.string(),
   /** type is the function type being instantiated. */
   type: z.string(),
-  /** config contains configuration parameter values. */
-  config: types.paramsZ,
   /** inputs contains input parameter type signatures. */
   inputs: types.paramsZ,
   /** outputs contains output parameter type signatures. */
@@ -111,9 +106,7 @@ export const functionZ = z.object({
   /** key is the function identifier (template name). */
   key: z.string(),
   /** body is raw source code for user-defined functions. */
-  body: bodyZ.optional(),
-  /** config contains configuration parameter definitions. */
-  config: types.paramsZ,
+  body: bodyZ,
   /** inputs contains input parameter definitions. */
   inputs: types.paramsZ,
   /** outputs contains output parameter definitions. */

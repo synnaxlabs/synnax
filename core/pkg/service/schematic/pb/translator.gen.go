@@ -25,15 +25,10 @@ func NodeToPB(r schematic.Node) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	measuredVal, err := spatialpb.DimensionsToPB(r.Measured)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Node{
 		Key:      r.Key,
 		ZIndex:   int32(r.ZIndex),
 		Position: positionVal,
-		Measured: measuredVal,
 	}
 	return pb, nil
 }
@@ -46,10 +41,6 @@ func NodeFromPB(pb *Node) (schematic.Node, error) {
 	}
 	var err error
 	r.Position, err = spatialpb.XYFromPB(pb.Position)
-	if err != nil {
-		return schematic.Node{}, err
-	}
-	r.Measured, err = spatialpb.DimensionsFromPB(pb.Measured)
 	if err != nil {
 		return schematic.Node{}, err
 	}

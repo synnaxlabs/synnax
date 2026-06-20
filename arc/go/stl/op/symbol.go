@@ -29,7 +29,8 @@ func binaryOp(name string, outputs types.Params, body doc.Doc) *symbol.Symbol {
 			},
 			Outputs: outputs,
 		}),
-		Doc: body,
+		Trigger: symbol.TriggerInput(ir.LHSInputParam),
+		Doc:     body,
 	}
 }
 
@@ -55,7 +56,8 @@ func not(name string, body doc.Doc) *symbol.Symbol {
 			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.U8()}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 		}),
-		Doc: body,
+		Trigger: symbol.TriggerInput(ir.DefaultInputParam),
+		Doc:     body,
 	}
 }
 

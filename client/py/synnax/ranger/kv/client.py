@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from freighter import UnaryClient
 from synnax.ranger.kv.payload import Pair
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class _GetRequest(BaseModel):

@@ -46,8 +46,8 @@ export interface Title extends z.infer<typeof titleZ> {}
 
 /** Legend is the plot legend configuration. */
 export const legendZ = z.object({
-  /** visible is whether the legend is shown. */
-  visible: z.boolean().default(true),
+  /** hidden is whether the legend is hidden. When false (the default), the legend is shown. */
+  hidden: z.boolean().default(false),
   /** position is the anchor position of the legend within the plot container. */
   position: spatial.stickyXYZ.prefault({
     x: 50,
@@ -94,18 +94,19 @@ export const rangesZ = z.object({
 export interface Ranges extends z.infer<typeof rangesZ> {}
 
 /**
- * AutoBounds controls whether an axis derives its bounds from the rendered data
- * window on each side independently. When a bound is auto, the
- * corresponding entry in Axis.bounds is recomputed locally and never
- * broadcast to the server.
+ * ManualBounds controls whether an axis uses a manually-set bound on each side
+ * independently. When a side is false (the default), the corresponding
+ * entry in Axis.bounds is recomputed locally from the rendered data
+ * window and never broadcast to the server; when true, Axis.bounds holds
+ * the user-set value.
  */
-export const autoBoundsZ = z.object({
-  /** lower is whether the lower bound is computed from data. */
-  lower: z.boolean().default(true),
-  /** upper is whether the upper bound is computed from data. */
-  upper: z.boolean().default(true),
+export const manualBoundsZ = z.object({
+  /** lower is whether the lower bound is set manually rather than computed from data. */
+  lower: z.boolean().default(false),
+  /** upper is whether the upper bound is set manually rather than computed from data. */
+  upper: z.boolean().default(false),
 });
-export interface AutoBounds extends z.infer<typeof autoBoundsZ> {}
+export interface ManualBounds extends z.infer<typeof manualBoundsZ> {}
 
 /** Line is the per-line styling and downsampling configuration. */
 export const lineZ = z.object({
@@ -173,12 +174,12 @@ export const axisZ = z.object({
   labelLevel: text.levelZ.default("small"),
   /**
    * bounds is the value-space window of the axis. When the matching entry in
-   * auto_bounds is true the field is overwritten locally on every
+   * manual_bounds is false the field is overwritten locally on every
    * render; otherwise it is the user-set fixed bound.
    */
   bounds: spatial.boundsZ().prefault({ lower: 0, upper: 0 }),
-  /** autoBounds controls per-edge automatic bound derivation. */
-  autoBounds: autoBoundsZ.prefault({}),
+  /** manualBounds controls per-edge manual bound override. */
+  manualBounds: manualBoundsZ.prefault({}),
   /** tickSpacing is the target pixel distance between adjacent tick marks. */
   tickSpacing: z.number().default(75),
   /**
@@ -213,19 +214,19 @@ export interface Axes extends z.infer<typeof axesZ> {}
  */
 export const linePlotZ = z.object({
   /** key is the unique identifier for this line plot. */
-  key: keyZ,
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the line plot. */
-  name: z.string(),
+  name: z.string().min(1, "name is required"),
   /** title is the plot title configuration. */
-  title: titleZ,
+  title: titleZ.prefault({}),
   /** legend is the plot legend configuration. */
-  legend: legendZ,
+  legend: legendZ.prefault({}),
   /** channels binds channel keys to each axis. */
-  channels: channelsZ,
+  channels: channelsZ.prefault({}),
   /** ranges binds range keys to each x-axis. */
-  ranges: rangesZ,
+  ranges: rangesZ.prefault({}),
   /** axes bundles per-axis configuration. */
-  axes: axesZ,
+  axes: axesZ.prefault({}),
   /**
    * lines holds per-line styling and downsampling configuration. Each entry
    * corresponds to one channel and range combination produced by the
@@ -236,25 +237,7 @@ export const linePlotZ = z.object({
   rules: array.nullishToEmpty(ruleZ),
 });
 export interface LinePlot extends z.infer<typeof linePlotZ> {}
-
-export const newZ = linePlotZ
-  .omit({
-    key: true,
-    title: true,
-    legend: true,
-    channels: true,
-    ranges: true,
-    axes: true,
-  })
-  .extend({
-    key: keyZ.default(() => uuid.create()),
-    title: titleZ.prefault({}),
-    legend: legendZ.prefault({}),
-    channels: channelsZ.prefault({}),
-    ranges: rangesZ.prefault({}),
-    axes: axesZ.prefault({}),
-  });
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof linePlotZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("lineplot");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

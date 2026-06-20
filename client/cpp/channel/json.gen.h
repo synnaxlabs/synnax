@@ -41,13 +41,13 @@ inline x::json::json Operation::to_json() const {
 
 inline Channel Channel::parse(x::json::Parser parser) {
     return Channel{
-        .key = parser.field<Key>("key"),
+        .key = parser.field<Key>("key", 0),
         .name = parser.field<Name>("name"),
-        .leaseholder = parser.field<::synnax::cluster::NodeKey>("leaseholder"),
+        .leaseholder = parser.field<::synnax::cluster::NodeKey>("leaseholder", 0),
         .data_type = parser.field<::x::telem::DataType>("data_type"),
-        .is_index = parser.field<bool>("is_index"),
-        .index = parser.field<Key>("index"),
-        .alias = parser.field<std::string>("alias", ""),
+        .is_index = parser.field<bool>("is_index", false),
+        .index = parser.field<Key>("index", 0),
+        .alias = parser.field<std::optional<std::string>>("alias"),
         .is_virtual = parser.field<bool>("virtual", false),
         .internal = parser.field<bool>("internal", false),
         .expression = parser.field<std::string>("expression", ""),

@@ -68,6 +68,14 @@ describe("crdt", () => {
       expect(t.indexToID(1)).toEqual(ops[1].id);
       expect(t.indexToID(2)).toBeNull();
     });
+
+    it("should materialize a document deeper than the recursion limit", () => {
+      const t = new crdt.Text(1);
+      const n = 50_000;
+      t.insert(0, "a".repeat(n));
+      expect(t.len()).toEqual(n);
+      expect(t.toString()).toEqual("a".repeat(n));
+    });
   });
 
   describe("replication", () => {

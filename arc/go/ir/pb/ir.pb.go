@@ -620,14 +620,12 @@ type Function struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// body is raw source code for user-defined functions.
 	Body *Body `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	// config contains configuration parameter definitions.
-	Config []*pb.Param `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
 	// inputs contains input parameter definitions.
-	Inputs []*pb.Param `protobuf:"bytes,4,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	Inputs []*pb.Param `protobuf:"bytes,3,rep,name=inputs,proto3" json:"inputs,omitempty"`
 	// outputs contains output parameter definitions.
-	Outputs []*pb.Param `protobuf:"bytes,5,rep,name=outputs,proto3" json:"outputs,omitempty"`
+	Outputs []*pb.Param `protobuf:"bytes,4,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	// channels contains channel read/write declarations.
-	Channels      *pb.Channels `protobuf:"bytes,6,opt,name=channels,proto3" json:"channels,omitempty"`
+	Channels      *pb.Channels `protobuf:"bytes,5,opt,name=channels,proto3" json:"channels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -676,13 +674,6 @@ func (x *Function) GetBody() *Body {
 	return nil
 }
 
-func (x *Function) GetConfig() []*pb.Param {
-	if x != nil {
-		return x.Config
-	}
-	return nil
-}
-
 func (x *Function) GetInputs() []*pb.Param {
 	if x != nil {
 		return x.Inputs
@@ -704,22 +695,19 @@ func (x *Function) GetChannels() *pb.Channels {
 	return nil
 }
 
-// Node is a concrete instantiation of a function with typed parameters and
-// configuration values.
+// Node is a concrete instantiation of a function with typed parameters and values.
 type Node struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this node instance.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// type is the function type being instantiated.
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	// config contains configuration parameter values.
-	Config []*pb.Param `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
 	// inputs contains input parameter type signatures.
-	Inputs []*pb.Param `protobuf:"bytes,4,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	Inputs []*pb.Param `protobuf:"bytes,3,rep,name=inputs,proto3" json:"inputs,omitempty"`
 	// outputs contains output parameter type signatures.
-	Outputs []*pb.Param `protobuf:"bytes,5,rep,name=outputs,proto3" json:"outputs,omitempty"`
+	Outputs []*pb.Param `protobuf:"bytes,4,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	// channels contains channel read/write mappings.
-	Channels      *pb.Channels `protobuf:"bytes,6,opt,name=channels,proto3" json:"channels,omitempty"`
+	Channels      *pb.Channels `protobuf:"bytes,5,opt,name=channels,proto3" json:"channels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -766,13 +754,6 @@ func (x *Node) GetType() string {
 		return x.Type
 	}
 	return ""
-}
-
-func (x *Node) GetConfig() []*pb.Param {
-	if x != nil {
-		return x.Config
-	}
-	return nil
 }
 
 func (x *Node) GetInputs() []*pb.Param {
@@ -972,21 +953,19 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\vtransitions\x18\a \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitionsB\r\n" +
 	"\v_activation\"\x18\n" +
 	"\x04Body\x12\x10\n" +
-	"\x03raw\x18\x01 \x01(\tR\x03raw\"\xfe\x01\n" +
+	"\x03raw\x18\x01 \x01(\tR\x03raw\"\xd1\x01\n" +
 	"\bFunction\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12#\n" +
 	"\x04body\x18\x02 \x01(\v2\x0f.arc.ir.pb.BodyR\x04body\x12+\n" +
-	"\x06config\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06config\x12+\n" +
-	"\x06inputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
-	"\aoutputs\x18\x05 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
-	"\bchannels\x18\x06 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xe9\x01\n" +
+	"\x06inputs\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
+	"\aoutputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
+	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xbc\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12+\n" +
-	"\x06config\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06config\x12+\n" +
-	"\x06inputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
-	"\aoutputs\x18\x05 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
-	"\bchannels\x18\x06 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xb7\x01\n" +
+	"\x06inputs\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
+	"\aoutputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
+	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xb7\x01\n" +
 	"\vAuthorities\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\rH\x00R\adefault\x88\x01\x01\x12@\n" +
 	"\bchannels\x18\x02 \x03(\v2$.arc.ir.pb.Authorities.ChannelsEntryR\bchannels\x1a;\n" +
@@ -1062,25 +1041,23 @@ var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	6,  // 10: arc.ir.pb.Scope.steps:type_name -> arc.ir.pb.Member
 	5,  // 11: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
 	9,  // 12: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
-	15, // 13: arc.ir.pb.Function.config:type_name -> arc.types.pb.Param
-	15, // 14: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
-	15, // 15: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
-	16, // 16: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
-	15, // 17: arc.ir.pb.Node.config:type_name -> arc.types.pb.Param
-	15, // 18: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
-	15, // 19: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
-	16, // 20: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
-	14, // 21: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
-	10, // 22: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
-	11, // 23: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
-	4,  // 24: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
-	12, // 25: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
-	8,  // 26: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	15, // 13: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
+	15, // 14: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
+	16, // 15: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
+	15, // 16: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
+	15, // 17: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
+	16, // 18: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
+	14, // 19: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
+	10, // 20: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
+	11, // 21: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
+	4,  // 22: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
+	12, // 23: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
+	8,  // 24: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_pb_ir_proto_init() }

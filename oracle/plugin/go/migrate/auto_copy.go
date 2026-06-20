@@ -334,7 +334,7 @@ func (c *collector) structFuncFromForms(
 			continue
 		}
 		name := naming.GetFieldName(oldField)
-		c.addField(&fn, oldField.Type, "old."+name, name, oldField.IsHardOptional)
+		c.addField(&fn, oldField.Type, "old."+name, name, oldField.Optional)
 	}
 	return fn
 }

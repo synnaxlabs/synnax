@@ -11,12 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
-from uuid import UUID
+from typing import Annotated, Any, TypeAlias
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator, Field
 
 from synnax.ontology.payload import ID
+from x import dicts
 
 Key: TypeAlias = UUID
 
@@ -34,30 +35,15 @@ class View(BaseModel):
             and query parameters.
     """
 
-    key: Key
+    key: Key = Field(default_factory=uuid4)
     name: str
     type: str
-    query: dict[str, Any]
+    query: Annotated[dict[str, Any], BeforeValidator(dicts.none_to_empty)] = Field(
+        default_factory=dict
+    )
 
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class New(BaseModel):
-    """Contains parameters for creating a new view.
-
-    Attributes:
-        key: Is the unique identifier for this view.
-        name: Is a human-readable name for the view.
-        type: Is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
-        query: Is a type-agnostic JSON object containing view-specific configuration
-            and query parameters.
-    """
-
-    key: Key | None = None
-    name: str
-    type: str
-    query: dict[str, Any]
 
 
 ONTOLOGY_TYPE = ID(type="view")

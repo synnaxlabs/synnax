@@ -14,24 +14,19 @@ package pb
 import (
 	"github.com/synnaxlabs/arc/graph"
 	irpb "github.com/synnaxlabs/arc/ir/pb"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // NodeToPB converts Node to Node.
 func NodeToPB(r graph.Node) (*Node, error) {
-	configVal, err := structpb.NewStruct(r.Config)
-	if err != nil {
-		return nil, err
-	}
 	positionVal, err := spatialpb.XYToPB(r.Position)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Node{
 		Key:      r.Key,
-		Type:     r.Type,
-		Config:   configVal,
 		Position: positionVal,
 	}
 	return pb, nil
@@ -44,13 +39,11 @@ func NodeFromPB(pb *Node) (graph.Node, error) {
 		return r, nil
 	}
 	var err error
-	r.Config = pb.Config.AsMap()
 	r.Position, err = spatialpb.XYFromPB(pb.Position)
 	if err != nil {
 		return graph.Node{}, err
 	}
 	r.Key = pb.Key
-	r.Type = pb.Type
 	return r, nil
 }
 
@@ -80,66 +73,8 @@ func NodesFromPB(pbs []*Node) ([]graph.Node, error) {
 	return result, nil
 }
 
-// ViewportToPB converts Viewport to Viewport.
-func ViewportToPB(r graph.Viewport) (*Viewport, error) {
-	positionVal, err := spatialpb.XYToPB(r.Position)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Viewport{
-		Zoom:     r.Zoom,
-		Position: positionVal,
-	}
-	return pb, nil
-}
-
-// ViewportFromPB converts Viewport to Viewport.
-func ViewportFromPB(pb *Viewport) (graph.Viewport, error) {
-	var r graph.Viewport
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Position, err = spatialpb.XYFromPB(pb.Position)
-	if err != nil {
-		return graph.Viewport{}, err
-	}
-	r.Zoom = pb.Zoom
-	return r, nil
-}
-
-// ViewportsToPB converts a slice of Viewport to Viewport.
-func ViewportsToPB(rs []graph.Viewport) ([]*Viewport, error) {
-	result := make([]*Viewport, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = ViewportToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// ViewportsFromPB converts a slice of Viewport to Viewport.
-func ViewportsFromPB(pbs []*Viewport) ([]graph.Viewport, error) {
-	result := make([]graph.Viewport, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = ViewportFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // GraphToPB converts Graph to Graph.
 func GraphToPB(r graph.Graph) (*Graph, error) {
-	viewportVal, err := ViewportToPB(r.Viewport)
-	if err != nil {
-		return nil, err
-	}
 	functionsVal, err := irpb.FunctionsToPB(r.Functions)
 	if err != nil {
 		return nil, err
@@ -153,10 +88,19 @@ func GraphToPB(r graph.Graph) (*Graph, error) {
 		return nil, err
 	}
 	pb := &Graph{
-		Viewport:  viewportVal,
 		Functions: functionsVal,
 		Edges:     edgesVal,
 		Nodes:     nodesVal,
+	}
+	if r.Configs != nil {
+		pb.Configs = make(map[string]*structpb.Struct, len(r.Configs))
+		for k, v := range r.Configs {
+			converted, err := structpb.NewStruct(v)
+			if err != nil {
+				return nil, err
+			}
+			pb.Configs[k] = converted
+		}
 	}
 	return pb, nil
 }
@@ -168,10 +112,6 @@ func GraphFromPB(pb *Graph) (graph.Graph, error) {
 		return r, nil
 	}
 	var err error
-	r.Viewport, err = ViewportFromPB(pb.Viewport)
-	if err != nil {
-		return graph.Graph{}, err
-	}
 	r.Functions, err = irpb.FunctionsFromPB(pb.Functions)
 	if err != nil {
 		return graph.Graph{}, err
@@ -183,6 +123,12 @@ func GraphFromPB(pb *Graph) (graph.Graph, error) {
 	r.Nodes, err = NodesFromPB(pb.Nodes)
 	if err != nil {
 		return graph.Graph{}, err
+	}
+	if pb.Configs != nil {
+		r.Configs = make(map[string]msgpack.EncodedJSON, len(pb.Configs))
+		for k, v := range pb.Configs {
+			r.Configs[k] = msgpack.EncodedJSON(v.AsMap())
+		}
 	}
 	return r, nil
 }

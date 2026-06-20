@@ -322,8 +322,35 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		return sd
 	}
 
+	genMethods := !sd.IsGeneric
 	for _, field := range resolution.UnifiedFields(entry, data.table) {
 		sd.Fields = append(sd.Fields, processField(field, data))
+		if !genMethods {
+			continue
+		}
+		sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
+		if step, ok := goRecurseStep(field, data, defaultsHasOwn, neverSkip); ok {
+			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
+		}
+		if validateSkip(field, data) {
+			continue
+		}
+		if chk, ok := goEnumCheck(field, data); ok {
+			sd.EnumChecks = append(sd.EnumChecks, chk)
+		}
+		sd.ConstraintChecks = append(sd.ConstraintChecks, goConstraintChecks(field, data)...)
+		if step, ok := goRecurseStep(field, data, validateHasOwn, validateSkip); ok {
+			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
+		}
+	}
+	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 || len(sd.ValidateRecurse) > 0 {
+		data.imports.AddExternal(validateImportPath)
+	}
+	if hasSliceRecurse(sd.ValidateRecurse) {
+		data.imports.AddExternal(strconvImportPath)
+	}
+	if len(sd.Name) > 0 {
+		sd.Receiver = strings.ToLower(sd.Name[:1])
 	}
 
 	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
@@ -371,16 +398,21 @@ func constraintToGo(constraint resolution.TypeRef, data *templateData) string {
 
 func processField(field resolution.Field, data *templateData) fieldData {
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
-	if field.IsHardOptional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "msgpack.EncodedJSON") {
+	if field.Optional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "msgpack.EncodedJSON") {
 		goType = "*" + goType
 	}
+	// An optional slice or map stays a plain nilable container (not a pointer), so a
+	// nil slice ("not loaded") must serialize as null, not be omitted; otherwise it is
+	// indistinguishable from a present-but-empty slice. So these fields drop omitempty.
+	isOptionalContainer := field.Optional &&
+		(strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map["))
 	return fieldData{
-		GoName:         naming.GetFieldName(field),
-		GoType:         goType,
-		JSONName:       casing.FieldSnake(field.Name),
-		IsOptional:     field.IsOptional || field.IsHardOptional,
-		IsHardOptional: field.IsHardOptional,
-		Doc:            doc.Get(field.Domains),
+		GoName:              naming.GetFieldName(field),
+		GoType:              goType,
+		JSONName:            casing.FieldSnake(field.Name),
+		IsOptional:          field.Optional,
+		IsOptionalContainer: isOptionalContainer,
+		Doc:                 doc.Get(field.Domains),
 	}
 }
 
@@ -459,16 +491,22 @@ func (d *templateData) InternalImports() []imports.InternalImportData {
 }
 
 type structData struct {
-	Name         string
-	Doc          string
-	AliasOf      string
-	Fields       []fieldData
-	TypeParams   []typeParamData
-	ExtendsTypes []string
-	ExtraFields  []string
-	IsGeneric    bool
-	IsAlias      bool
-	HasExtends   bool
+	Name             string
+	Doc              string
+	AliasOf          string
+	Receiver         string
+	Fields           []fieldData
+	TypeParams       []typeParamData
+	ExtendsTypes     []string
+	ExtraFields      []string
+	DefaultFills     []defaultFillData
+	DefaultRecurse   []recurseStepData
+	EnumChecks       []enumCheckData
+	ConstraintChecks []constraintCheckData
+	ValidateRecurse  []recurseStepData
+	IsGeneric        bool
+	IsAlias          bool
+	HasExtends       bool
 }
 
 type typeParamData struct {
@@ -477,17 +515,19 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	GoName         string
-	GoType         string
-	JSONName       string
-	Doc            string
-	IsOptional     bool
-	IsHardOptional bool
+	GoName              string
+	GoType              string
+	JSONName            string
+	Doc                 string
+	IsOptional          bool
+	IsOptionalContainer bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix for the field.
+// TagSuffix returns the JSON/msgpack tag suffix for the field. Optional containers
+// (nilable slices/maps) deliberately omit `,omitempty` so a nil container serializes
+// as null (not loaded) distinctly from a present empty container.
 func (f fieldData) TagSuffix() string {
-	if f.IsHardOptional {
+	if f.IsOptional && !f.IsOptionalContainer {
 		return ",omitempty"
 	}
 	return ""
@@ -632,6 +672,78 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- end}}
 }
 {{end -}}
+{{- $s := .}}
+{{- if or .DefaultFills .DefaultRecurse}}
+
+func ({{$s.Receiver}} {{$s.Name}}) ApplyDefaults() {{$s.Name}} {
+{{- range $s.DefaultFills}}
+	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
+		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
+	}
+{{- end}}
+{{- range $s.DefaultRecurse}}
+{{- if eq (printf "%s" .Kind) "value"}}
+	{{$s.Receiver}}.{{.GoName}} = {{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
+{{- else if eq (printf "%s" .Kind) "pointer"}}
+	if {{$s.Receiver}}.{{.GoName}} != nil {
+		applied := {{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
+		{{$s.Receiver}}.{{.GoName}} = &applied
+	}
+{{- else if eq (printf "%s" .Kind) "slice"}}
+	for i := range {{$s.Receiver}}.{{.GoName}} {
+		{{$s.Receiver}}.{{.GoName}}[i] = {{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
+	}
+{{- else if eq (printf "%s" .Kind) "map"}}
+	for key, value := range {{$s.Receiver}}.{{.GoName}} {
+		{{$s.Receiver}}.{{.GoName}}[key] = value.ApplyDefaults()
+	}
+{{- end}}
+{{- end}}
+	return {{$s.Receiver}}
+}
+{{- end}}
+{{- if or .EnumChecks .ConstraintChecks .ValidateRecurse}}
+
+func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
+	v := validate.New("{{$s.Name}}")
+{{- range $s.EnumChecks}}
+	v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$s.Receiver}}.{{.GoName}})
+{{- end}}
+{{- range $s.ConstraintChecks}}
+{{- if eq .Kind "non_empty_string"}}
+	validate.NotEmptyString(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
+{{- else if eq .Kind "non_zero"}}
+	validate.NonZero(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
+{{- else if eq .Kind "min_len"}}
+	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+{{- else if eq .Kind "max_len"}}
+	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+{{- else if eq .Kind "ge"}}
+	validate.GreaterThanEq(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
+{{- else if eq .Kind "le"}}
+	validate.LessThanEq(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
+{{- end}}
+{{- end}}
+{{- range $s.ValidateRecurse}}
+{{- if eq (printf "%s" .Kind) "value"}}
+	v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}.Validate(), "{{.JSONName}}") })
+{{- else if eq (printf "%s" .Kind) "pointer"}}
+	if {{$s.Receiver}}.{{.GoName}} != nil {
+		v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}.Validate(), "{{.JSONName}}") })
+	}
+{{- else if eq (printf "%s" .Kind) "slice"}}
+	for i := range {{$s.Receiver}}.{{.GoName}} {
+		v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}[i].Validate(), "{{.JSONName}}", strconv.Itoa(i)) })
+	}
+{{- else if eq (printf "%s" .Kind) "map"}}
+	for key, value := range {{$s.Receiver}}.{{.GoName}} {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "{{.JSONName}}", key) })
+	}
+{{- end}}
+{{- end}}
+	return v.Error()
+}
+{{- end}}
 {{end -}}
 {{- range .Unions}}
 {{- $u := .}}
@@ -664,6 +776,59 @@ type {{.TypeName}} struct {
 }
 
 func ({{.TypeName}}) {{$u.Marker}}() {}
+{{- $vt := .}}
+{{- if .NeedsApplyDefaults}}
+
+func ({{$vt.Receiver}} {{$vt.TypeName}}) ApplyDefaults() {{$vt.TypeName}} {
+{{- range $vt.DefaultRecurse}}
+{{- if eq (printf "%s" .Kind) "value"}}
+	{{$vt.Receiver}}.{{.GoName}} = {{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
+{{- else if eq (printf "%s" .Kind) "pointer"}}
+	if {{$vt.Receiver}}.{{.GoName}} != nil {
+		applied := {{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
+		{{$vt.Receiver}}.{{.GoName}} = &applied
+	}
+{{- else if eq (printf "%s" .Kind) "slice"}}
+	for i := range {{$vt.Receiver}}.{{.GoName}} {
+		{{$vt.Receiver}}.{{.GoName}}[i] = {{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
+	}
+{{- else if eq (printf "%s" .Kind) "map"}}
+	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
+		{{$vt.Receiver}}.{{.GoName}}[key] = value.ApplyDefaults()
+	}
+{{- end}}
+{{- end}}
+	return {{$vt.Receiver}}
+}
+{{- end}}
+{{- if .NeedsValidate}}
+
+func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
+	v := validate.New("{{$vt.TypeName}}")
+{{- range $vt.ValidateRecurse}}
+{{- if eq (printf "%s" .Kind) "value"}}
+{{- if .JSONName}}
+	v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}.Validate(), "{{.JSONName}}") })
+{{- else}}
+	v.Exec({{$vt.Receiver}}.{{.GoName}}.Validate)
+{{- end}}
+{{- else if eq (printf "%s" .Kind) "pointer"}}
+	if {{$vt.Receiver}}.{{.GoName}} != nil {
+		v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}.Validate(), "{{.JSONName}}") })
+	}
+{{- else if eq (printf "%s" .Kind) "slice"}}
+	for i := range {{$vt.Receiver}}.{{.GoName}} {
+		v.Exec(func() error { return validate.PathedError({{$vt.Receiver}}.{{.GoName}}[i].Validate(), "{{.JSONName}}", strconv.Itoa(i)) })
+	}
+{{- else if eq (printf "%s" .Kind) "map"}}
+	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "{{.JSONName}}", key) })
+	}
+{{- end}}
+{{- end}}
+	return v.Error()
+}
+{{- end}}
 {{end -}}
 {{if .Doc}}{{formatDoc .Name .Doc}}
 {{end -}}
@@ -725,5 +890,33 @@ func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+{{- if .NeedsApplyDefaults}}
+
+func (u {{.Name}}) ApplyDefaults() {{.Name}} {
+	switch variant := u.Variant.(type) {
+{{- range .Variants}}
+{{- if .NeedsApplyDefaults}}
+	case {{.TypeName}}:
+		u.Variant = variant.ApplyDefaults()
+{{- end}}
+{{- end}}
+	}
+	return u
+}
+{{- end}}
+{{- if .NeedsValidate}}
+
+func (u {{.Name}}) Validate() error {
+	switch variant := u.Variant.(type) {
+{{- range .Variants}}
+{{- if .NeedsValidate}}
+	case {{.TypeName}}:
+		return variant.Validate()
+{{- end}}
+{{- end}}
+	}
+	return nil
+}
+{{- end}}
 {{end -}}
 `))

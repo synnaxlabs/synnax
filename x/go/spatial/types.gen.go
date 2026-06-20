@@ -11,6 +11,10 @@
 
 package spatial
 
+import (
+	"github.com/synnaxlabs/x/validate"
+)
+
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.
 type Decimal = float64
@@ -257,12 +261,26 @@ type CornerLocation struct {
 	Y YLocation `json:"y" msgpack:"y"`
 }
 
+func (c CornerLocation) Validate() error {
+	v := validate.New("CornerLocation")
+	v.Ternaryf("x", !c.X.IsValid(), "invalid x: %v", c.X)
+	v.Ternaryf("y", !c.Y.IsValid(), "invalid y: %v", c.Y)
+	return v.Error()
+}
+
 // StickyUnits specifies the measurement units for sticky positioning.
 type StickyUnits struct {
 	// X is the horizontal unit.
 	X StickyUnit `json:"x" msgpack:"x"`
 	// Y is the vertical unit.
 	Y StickyUnit `json:"y" msgpack:"y"`
+}
+
+func (s StickyUnits) Validate() error {
+	v := validate.New("StickyUnits")
+	v.Ternaryf("x", !s.X.IsValid(), "invalid x: %v", s.X)
+	v.Ternaryf("y", !s.Y.IsValid(), "invalid y: %v", s.Y)
+	return v.Error()
 }
 
 // StickyXY is a position that can be anchored to different corners of a container with
@@ -272,10 +290,33 @@ type StickyXY struct {
 	X float64 `json:"x" msgpack:"x"`
 	// Y is the vertical coordinate.
 	Y float64 `json:"y" msgpack:"y"`
-	// Root is the optional anchor corner for the position.
-	Root *CornerLocation `json:"root,omitempty" msgpack:"root,omitempty"`
-	// Units is the optional unit specification for the coordinates.
-	Units *StickyUnits `json:"units,omitempty" msgpack:"units,omitempty"`
+	// Root is the anchor corner for the position.
+	Root CornerLocation `json:"root" msgpack:"root"`
+	// Units is the unit specification for the coordinates.
+	Units StickyUnits `json:"units" msgpack:"units"`
+}
+
+func (s StickyXY) ApplyDefaults() StickyXY {
+	if s.Root.X == "" {
+		s.Root.X = XLocationLeft
+	}
+	if s.Root.Y == "" {
+		s.Root.Y = YLocationTop
+	}
+	if s.Units.X == "" {
+		s.Units.X = StickyUnitPx
+	}
+	if s.Units.Y == "" {
+		s.Units.Y = StickyUnitPx
+	}
+	return s
+}
+
+func (s StickyXY) Validate() error {
+	v := validate.New("StickyXY")
+	v.Exec(func() error { return validate.PathedError(s.Root.Validate(), "root") })
+	v.Exec(func() error { return validate.PathedError(s.Units.Validate(), "units") })
+	return v.Error()
 }
 
 // Dimensions is a 2D size with width and height values.
@@ -292,6 +333,13 @@ type Viewport struct {
 	Zoom float64 `json:"zoom" msgpack:"zoom"`
 	// Position is the (x, y) pan offset of the viewport.
 	Position XY `json:"position" msgpack:"position"`
+}
+
+func (v Viewport) ApplyDefaults() Viewport {
+	if v.Zoom == 0 {
+		v.Zoom = 1
+	}
+	return v
 }
 
 // SignedDimensions is a 2D size whose width and height components carry sign, allowing

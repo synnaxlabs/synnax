@@ -44,7 +44,8 @@ func newUserLenSymbol() *symbol.Symbol {
 			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 		}),
-		Doc: lenDoc,
+		Trigger: symbol.TriggerOnly,
+		Doc:     lenDoc,
 	}
 }
 

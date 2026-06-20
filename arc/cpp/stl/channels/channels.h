@@ -108,15 +108,20 @@ public:
 class Write : public runtime::node::Node {
     runtime::state::Node state;
     types::ChannelKey channel_key;
+    size_t input_idx;
     ::x::telem::MonoClock clock;
 
 public:
-    Write(runtime::state::Node &&state, const types::ChannelKey channel_key):
-        state(std::move(state)), channel_key(channel_key) {}
+    Write(
+        runtime::state::Node &&state,
+        const types::ChannelKey channel_key,
+        size_t input_idx
+    ):
+        state(std::move(state)), channel_key(channel_key), input_idx(input_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &data = this->state.input(0);
+        const auto &data = this->state.input(this->input_idx);
         if (data->empty()) return x::errors::NIL;
         const auto start = this->clock.now();
         const auto time = x::mem::local_shared(
@@ -144,6 +149,8 @@ public:
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);
     }
+
+    void reset() override { this->state.reset(); }
 };
 
 class Module : public stl::Module {
@@ -162,7 +169,7 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        const auto &ch_param = cfg.node.config["channel"];
+        const auto &ch_param = cfg.node.inputs["channel"];
         auto ch_sv = types::to_sample_value(ch_param.value, ch_param.type);
         if (!ch_sv.has_value())
             return {
@@ -179,8 +186,10 @@ public:
                 std::make_unique<On>(std::move(cfg.state), channel_key),
                 x::errors::NIL
             };
+        auto [input_idx, in_err] = cfg.node.resolve_input(ir::default_input_param);
+        if (in_err) return {nullptr, in_err};
         return {
-            std::make_unique<Write>(std::move(cfg.state), channel_key),
+            std::make_unique<Write>(std::move(cfg.state), channel_key, input_idx),
             x::errors::NIL
         };
     }

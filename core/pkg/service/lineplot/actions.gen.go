@@ -22,7 +22,7 @@ import (
 const (
 	ActionTypeRename                = "rename"
 	ActionTypeSetTitle              = "set_title"
-	ActionTypeSetLegendVisible      = "set_legend_visible"
+	ActionTypeSetLegendHidden       = "set_legend_hidden"
 	ActionTypeSetLegendPosition     = "set_legend_position"
 	ActionTypeAddChannel            = "add_channel"
 	ActionTypeRemoveChannel         = "remove_channel"
@@ -64,9 +64,9 @@ type SetTitlePayload struct {
 	Title Title `json:"title" msgpack:"title"`
 }
 
-// SetLegendVisiblePayload sets whether the plot legend is shown.
-type SetLegendVisiblePayload struct {
-	Visible bool `json:"visible" msgpack:"visible"`
+// SetLegendHiddenPayload sets whether the plot legend is hidden.
+type SetLegendHiddenPayload struct {
+	Hidden bool `json:"hidden" msgpack:"hidden"`
 }
 
 // SetLegendPositionPayload sets the anchor position of the plot legend within the
@@ -146,13 +146,13 @@ type SetAxisLabelLevelPayload struct {
 	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
 }
 
-// SetAxisBoundsPayload sets the axis value-space window together with its per-edge auto
-// derivation flags. The two travel together: fixing a bound disables auto derivation
-// for that edge, so callers set both at once.
+// SetAxisBoundsPayload sets the axis value-space window together with its per-edge
+// manual override flags. The two travel together: fixing a bound enables the manual
+// override for that edge, so callers set both at once.
 type SetAxisBoundsPayload struct {
-	Key        AxisKey        `json:"key" msgpack:"key"`
-	Bounds     spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	AutoBounds AutoBounds     `json:"auto_bounds" msgpack:"auto_bounds"`
+	Key          AxisKey        `json:"key" msgpack:"key"`
+	Bounds       spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	ManualBounds ManualBounds   `json:"manual_bounds" msgpack:"manual_bounds"`
 }
 
 // SetAxisTickSpacingPayload sets the target pixel distance between adjacent tick marks.
@@ -274,7 +274,7 @@ type Action struct {
 	Type                  string                        `json:"type" msgpack:"type"`
 	Rename                *RenamePayload                `json:"rename,omitempty" msgpack:"rename,omitempty"`
 	SetTitle              *SetTitlePayload              `json:"set_title,omitempty" msgpack:"set_title,omitempty"`
-	SetLegendVisible      *SetLegendVisiblePayload      `json:"set_legend_visible,omitempty" msgpack:"set_legend_visible,omitempty"`
+	SetLegendHidden       *SetLegendHiddenPayload       `json:"set_legend_hidden,omitempty" msgpack:"set_legend_hidden,omitempty"`
 	SetLegendPosition     *SetLegendPositionPayload     `json:"set_legend_position,omitempty" msgpack:"set_legend_position,omitempty"`
 	AddChannel            *AddChannelPayload            `json:"add_channel,omitempty" msgpack:"add_channel,omitempty"`
 	RemoveChannel         *RemoveChannelPayload         `json:"remove_channel,omitempty" msgpack:"remove_channel,omitempty"`
@@ -325,11 +325,11 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTitle.Handle(state)
-		case ActionTypeSetLegendVisible:
-			if a.SetLegendVisible == nil {
+		case ActionTypeSetLegendHidden:
+			if a.SetLegendHidden == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetLegendVisible.Handle(state)
+			state, err = a.SetLegendHidden.Handle(state)
 		case ActionTypeSetLegendPosition:
 			if a.SetLegendPosition == nil {
 				return state, union.MissingPayload(a.Type)
@@ -495,9 +495,9 @@ func NewSetTitleAction(p SetTitlePayload) Action {
 	return Action{Type: ActionTypeSetTitle, SetTitle: &p}
 }
 
-// NewSetLegendVisibleAction wraps a SetLegendVisiblePayload in an Action envelope.
-func NewSetLegendVisibleAction(p SetLegendVisiblePayload) Action {
-	return Action{Type: ActionTypeSetLegendVisible, SetLegendVisible: &p}
+// NewSetLegendHiddenAction wraps a SetLegendHiddenPayload in an Action envelope.
+func NewSetLegendHiddenAction(p SetLegendHiddenPayload) Action {
+	return Action{Type: ActionTypeSetLegendHidden, SetLegendHidden: &p}
 }
 
 // NewSetLegendPositionAction wraps a SetLegendPositionPayload in an Action envelope.

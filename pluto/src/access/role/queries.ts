@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access, ontology, user } from "@synnaxlabs/client";
-import { array, uuid } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type role } from "@/access/role/aether";
@@ -153,6 +153,8 @@ const retrieveUserRole = async ({
   const r: access.role.Role = {
     key: parent.id.key,
     name: parent.name,
+    description: "",
+    internal: false,
     ...parent.data,
   };
   store.roles.set(r.key, r);
@@ -202,9 +204,11 @@ export const useChangeRoleForm = Flux.createForm<
   },
 });
 
-export const formSchema = access.role.newZ.extend({
-  policies: access.policy.keyZ.array(),
-});
+export const formSchema = access.role.roleZ
+  .extend({
+    policies: access.policy.keyZ.array(),
+  })
+  .partial({ key: true });
 
 export const useForm = Flux.createForm<
   Partial<RetrieveQuery>,
@@ -214,9 +218,9 @@ export const useForm = Flux.createForm<
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: {
-    key: undefined,
     name: "",
     description: "",
+    internal: false,
     policies: [],
   },
   retrieve: async ({ client, query, store }) => {
@@ -226,7 +230,7 @@ export const useForm = Flux.createForm<
   },
   update: async ({ client, value, store, set, rollbacks }) => {
     const v = value();
-    let r: access.role.Role = { key: uuid.create(), ...v };
+    let r: access.role.Role = access.role.roleZ.parse(v);
     const otgID = access.role.ontologyID(r.key);
     const otgKey = ontology.idToString(otgID);
     rollbacks.push(

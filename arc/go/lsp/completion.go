@@ -1085,7 +1085,7 @@ func (s *Server) getConfigParamCompletions(
 	}
 	existingSet := set.New(configInfo.existingParams...)
 	var items []protocol.CompletionItem
-	for _, param := range fnType.Config {
+	for _, param := range fnType.Inputs {
 		if existingSet.Contains(param.Name) || !strings.HasPrefix(param.Name, prefix) {
 			continue
 		}
@@ -1111,7 +1111,7 @@ func (s *Server) getConfigValueCompletions(
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
-	param, found := fnType.Config.Get(configInfo.currentParamName)
+	param, found := fnType.Inputs.Get(configInfo.currentParamName)
 	if !found {
 		return []protocol.CompletionItem{}
 	}

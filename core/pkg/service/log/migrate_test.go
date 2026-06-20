@@ -65,8 +65,8 @@ var _ = Describe("MigrateLog", func() {
 		Expect(out.Key).To(Equal(old.Key))
 		Expect(out.Name).To(Equal("my-log"))
 		Expect(out.TimestampPrecision).To(Equal(int32(2)))
-		Expect(out.ShowChannelNames).To(BeFalse())
-		Expect(out.ShowReceiptTimestamp).To(BeTrue())
+		Expect(out.HideChannelNames).To(BeTrue())
+		Expect(out.HideReceiptTimestamp).To(BeFalse())
 		Expect(out.Channels).To(HaveLen(1))
 		Expect(out.Channels[0].Channel).To(Equal(channel.Key(42)))
 		Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
@@ -216,8 +216,8 @@ var _ = Describe("MigrateLog", func() {
 			Expect(out.Channels[1].Channel).To(Equal(channel.Key(5)))
 			Expect(out.Channels[1].Color).To(Equal(color.Color{}))
 			Expect(out.TimestampPrecision).To(Equal(int32(1)))
-			Expect(out.ShowChannelNames).To(BeTrue())
-			Expect(out.ShowReceiptTimestamp).To(BeFalse())
+			Expect(out.HideChannelNames).To(BeFalse())
+			Expect(out.HideReceiptTimestamp).To(BeTrue())
 		})
 
 		It("Should default a malformed color hex to the zero color", func(ctx SpecContext) {

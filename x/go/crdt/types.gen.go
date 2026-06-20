@@ -11,24 +11,10 @@
 
 package crdt
 
-// Side is the side a character anchors to relative to its origin: left places it
-// immediately before the origin, right immediately after.
-type Side string
-
-const (
-	SideLeft  Side = "left"
-	SideRight Side = "right"
+import (
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
 )
-
-// IsValid reports whether s is one of the defined Side values.
-func (s Side) IsValid() bool {
-	switch s {
-	case SideLeft, SideRight:
-		return true
-	default:
-		return false
-	}
-}
 
 // ID uniquely identifies a character within a replicated text document. It pairs the
 // replica that created the character with that replica's per-character counter, making
@@ -49,10 +35,17 @@ type Insert struct {
 	// Origin is the existing character this one anchors to. The root sentinel anchors to
 	// the start of the document.
 	Origin ID `json:"origin" msgpack:"origin"`
-	// Side is the side of origin the character anchors to.
-	Side Side `json:"side" msgpack:"side"`
+	// Side is the side of origin the character anchors to: left places it immediately
+	// before the origin, right immediately after.
+	Side spatial.XLocation `json:"side" msgpack:"side"`
 	// Char is the inserted Unicode code point.
 	Char int32 `json:"char" msgpack:"char"`
+}
+
+func (i Insert) Validate() error {
+	v := validate.New("Insert")
+	v.Ternaryf("side", !i.Side.IsValid(), "invalid side: %v", i.Side)
+	return v.Error()
 }
 
 // Delete tombstones the character with the given id. It carries only the id because

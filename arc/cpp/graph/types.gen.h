@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -25,18 +26,14 @@
 namespace arc::graph {
 
 struct Node;
-struct Viewport;
 struct Graph;
 
 /// @brief Node is a visual node in the Arc graph editor representing a function
-/// instantiation with position data.
+/// instantiation with position data. The function type and configuration parameter
+/// values are stored in the graph's configs map, keyed by the node key.
 struct Node {
     /// @brief key is the unique identifier for this node instance.
     std::string key;
-    /// @brief type is the function type being instantiated.
-    std::string type;
-    /// @brief config contains configuration parameter values as a JSON object.
-    x::json::json::object_t config;
     /// @brief position is the canvas position (x, y) for visual layout.
     ::x::spatial::XY position;
 
@@ -49,29 +46,15 @@ struct Node {
     from_proto(const ::arc::graph::pb::Node &pb);
 };
 
-/// @brief Viewport is the camera state for viewing the Arc graph editor canvas.
-struct Viewport {
-    /// @brief position is the camera pan offset (x, y).
-    ::x::spatial::XY position;
-    /// @brief zoom is the zoom level where 1.0 equals 100%.
-    double zoom = 0;
-
-    static Viewport parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::graph::pb::Viewport;
-    [[nodiscard]] std::pair<::arc::graph::pb::Viewport, x::errors::Error>
-    to_proto() const;
-    static std::pair<Viewport, x::errors::Error>
-    from_proto(const ::arc::graph::pb::Viewport &pb);
-};
-
 struct Nodes : private std::vector<Node> {
     using Base = std::vector<Node>;
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Nodes() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Nodes();
 
     // Container interface
     using Base::begin;
@@ -120,14 +103,18 @@ struct Nodes : private std::vector<Node> {
 /// @brief Graph is a visual dataflow graph representation combining IR elements with
 /// canvas layout for the Arc graph editor.
 struct Graph {
-    /// @brief viewport is the current camera state for the graph view.
-    Viewport viewport;
     /// @brief functions contains function definitions available in this graph.
     ::arc::ir::Functions functions;
     /// @brief edges contains dataflow connections between node parameters.
     ::arc::ir::Edges edges;
     /// @brief nodes contains visual nodes with canvas positions.
     Nodes nodes;
+    /// @brief configs contains per-node configuration keyed by node key. Each value is
+    /// a
+    /// JSON object holding the node's function type under "type" plus its configuration
+    /// parameter values. The wire format stores it as an opaque record; the client
+    /// types it per function.
+    std::unordered_map<std::string, x::json::json::object_t> configs;
 
     static Graph parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -137,4 +124,6 @@ struct Graph {
     static std::pair<Graph, x::errors::Error>
     from_proto(const ::arc::graph::pb::Graph &pb);
 };
+
+inline Nodes::Nodes() = default;
 }

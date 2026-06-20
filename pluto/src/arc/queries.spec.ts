@@ -41,7 +41,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -52,7 +51,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -79,26 +77,28 @@ describe("Arc queries", () => {
     });
 
     it("should update when a new arc is added", async () => {
-      const { result } = renderHook(() => Arc.useList({}), { wrapper });
+      const { result } = renderHook(
+        () => ({ list: Arc.useList({}), create: Arc.useCreate() }),
+        { wrapper },
+      );
 
       act(() => {
-        result.current.retrieve({});
+        result.current.list.retrieve({});
       });
 
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
+        expect(result.current.list.variant).toEqual("success");
       });
 
-      const initialLength = result.current.data.length;
+      const initialLength = result.current.list.data.length;
 
       await act(async () => {
-        await client.arcs.create({
+        await result.current.create.updateAsync({
           name: "new-arc",
           mode: "text",
           graph: {
             nodes: [],
             edges: [],
-            viewport: { position: { x: 0, y: 0 }, zoom: 1 },
             functions: [],
           },
           text: { raw: "" },
@@ -106,51 +106,55 @@ describe("Arc queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.data.length).toBe(initialLength + 1);
+        expect(result.current.list.data.length).toBe(initialLength + 1);
       });
 
-      const newArc = result.current.data
-        .map((key) => result.current.getItem(key))
+      const newArc = result.current.list.data
+        .map((key) => result.current.list.getItem(key))
         .find((arc) => arc?.name === "new-arc");
       expect(newArc).toBeDefined();
       expect(newArc?.name).toBe("new-arc");
     });
 
     it("should update when an arc is modified", async () => {
-      const testArc = await client.arcs.create({
-        name: "original-name",
-        mode: "text",
-        graph: {
-          nodes: [],
-          edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
-          functions: [],
-        },
-        text: { raw: "" },
-      });
-
-      const { result } = renderHook(() => Arc.useList({}), { wrapper });
-
-      act(() => {
-        result.current.retrieve({});
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      expect(result.current.getItem(testArc.key)?.name).toEqual("original-name");
+      const key = uuid.create();
+      const { result } = renderHook(
+        () => ({ list: Arc.useList({}), create: Arc.useCreate() }),
+        { wrapper },
+      );
 
       await act(async () => {
-        await client.arcs.create({
-          ...testArc,
-          name: "updated-name",
+        await result.current.create.updateAsync({
+          key,
+          name: "original-name",
           mode: "text",
+          graph: {
+            nodes: [],
+            edges: [],
+            functions: [],
+          },
+          text: { raw: "" },
         });
       });
 
+      act(() => {
+        result.current.list.retrieve({});
+      });
+
       await waitFor(() => {
-        expect(result.current.getItem(testArc.key)?.name).toEqual("updated-name");
+        expect(result.current.list.variant).toEqual("success");
+      });
+
+      expect(result.current.list.getItem(key)?.name).toEqual("original-name");
+
+      await act(async () => {
+        await client.arcs.dispatch(key, id.create(), [
+          arc.rename({ name: "updated-name" }),
+        ]);
+      });
+
+      await waitFor(() => {
+        expect(result.current.list.getItem(key)?.name).toEqual("updated-name");
       });
     });
 
@@ -161,7 +165,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -195,7 +198,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -206,7 +208,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -217,7 +218,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -252,7 +252,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -278,7 +277,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -289,7 +287,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -323,7 +320,6 @@ describe("Arc queries", () => {
           graph: {
             nodes: [],
             edges: [],
-            viewport: { position: { x: 0, y: 0 }, zoom: 1 },
             functions: [],
           },
           text: { raw: "" },
@@ -346,13 +342,13 @@ describe("Arc queries", () => {
             graph: {
               nodes: [],
               edges: [],
-              viewport: { position: { x: 0, y: 0 }, zoom: 1 },
               functions: [],
             },
             text: { raw: "" },
           });
         });
         await waitFor(() => {
+          console.log(result.current.status);
           expect(result.current.variant).toEqual("success");
         });
         const createdArc = await client.arcs.retrieve({ name });
@@ -379,7 +375,6 @@ describe("Arc queries", () => {
             graph: {
               nodes: [],
               edges: [],
-              viewport: { position: { x: 0, y: 0 }, zoom: 1 },
               functions: [],
             },
             text: { raw: "" },
@@ -414,7 +409,6 @@ describe("Arc queries", () => {
             graph: {
               nodes: [],
               edges: [],
-              viewport: { position: { x: 0, y: 0 }, zoom: 1 },
               functions: [],
             },
             text: { raw: "" },
@@ -446,7 +440,6 @@ describe("Arc queries", () => {
             graph: {
               nodes: [],
               edges: [],
-              viewport: { position: { x: 0, y: 0 }, zoom: 1 },
               functions: [],
             },
             text: { raw: "" },
@@ -498,7 +491,6 @@ describe("Arc queries", () => {
               graph: {
                 nodes: [],
                 edges: [],
-                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
                 functions: [],
               },
               text: { raw: "" },
@@ -530,7 +522,6 @@ describe("Arc queries", () => {
               graph: {
                 nodes: [],
                 edges: [],
-                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
                 functions: [],
               },
               text: { raw: "" },
@@ -568,7 +559,6 @@ describe("Arc queries", () => {
               graph: {
                 nodes: [],
                 edges: [],
-                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
                 functions: [],
               },
               text: { raw: "" },
@@ -600,7 +590,6 @@ describe("Arc queries", () => {
               graph: {
                 nodes: [],
                 edges: [],
-                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
                 functions: [],
               },
               text: { raw: "" },
@@ -642,7 +631,6 @@ describe("Arc queries", () => {
               graph: {
                 nodes: [],
                 edges: [],
-                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
                 functions: [],
               },
               text: { raw: "" },
@@ -673,7 +661,6 @@ describe("Arc queries", () => {
               graph: {
                 nodes: [],
                 edges: [],
-                viewport: { position: { x: 0, y: 0 }, zoom: 1 },
                 functions: [],
               },
               text: { raw: "" },
@@ -704,7 +691,7 @@ describe("Arc queries", () => {
       expect(formData.graph).toEqual({
         nodes: [],
         edges: [],
-        viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+        configs: {},
         functions: [],
       });
       expect(formData.text).toEqual({ raw: "" });
@@ -739,7 +726,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -782,7 +768,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -809,7 +794,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -840,7 +824,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -865,7 +848,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -905,7 +887,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -948,7 +929,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },
@@ -985,6 +965,7 @@ describe("Arc queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          cmd: "",
           data: {},
         },
       });
@@ -1006,7 +987,6 @@ describe("Arc queries", () => {
         graph: {
           nodes: [],
           edges: [],
-          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
           functions: [],
         },
         text: { raw: "" },

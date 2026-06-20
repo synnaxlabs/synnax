@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Arc } from "@/arc";
-import { translateGraphToConsole } from "@/arc/types/translate";
 import { type Link } from "@/link";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
   const retrieved = await client.arcs.retrieve({ key });
   const { name, text, mode } = retrieved;
-  const graph = translateGraphToConsole(retrieved.graph);
   placeLayout(
     Arc.Editor.create({
       name,
@@ -22,7 +20,6 @@ export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => 
       key,
       type: "arc",
       remoteCreated: true,
-      graph,
       text,
       mode,
     }),

@@ -28,7 +28,6 @@ import {
   type Key,
   keyZ,
   type New,
-  newZ,
   ontologyID,
   type Payload,
   type PayloadSchemas as Schemas,
@@ -145,6 +144,7 @@ export class Task<S extends Schemas = Schemas> {
       config: this.config,
       status: this.status,
       internal: this.internal,
+      snapshot: this.snapshot,
     };
   }
 
@@ -239,7 +239,7 @@ const retrieveResZ = <S extends Schemas = Schemas>(schemas?: S) =>
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
-  z.object({ tasks: newZ(schemas).array() });
+  z.object({ tasks: payloadZ(schemas).array() });
 const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });

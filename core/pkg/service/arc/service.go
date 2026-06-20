@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
+	arcv56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -98,9 +99,7 @@ type Service struct {
 	table  *gorp.Table[Key, Arc]
 	closer xio.MultiCloser
 	cfg    ServiceConfig
-	// state owns the observer that collaborative-edit dispatches are broadcast through.
 	state *actions.State[Key, Action]
-	// collab holds the authoritative CRDT document for each arc under collaborative edit.
 	collab *collab
 }
 
@@ -207,12 +206,16 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		Migrations: []migrate.Migration{
 			gorp.CodecMigration[Key, arcv54.Arc]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_program_status", MigrateArc),
+				gorp.NewEntryMigration("v54_drop_program_status", arcv56.MigrateArc),
 				"msgpack_to_orc",
 			),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v55_rename_set_status", RenameSetStatus),
+				gorp.NewEntryMigration("v55_rename_set_status", arcv56.RenameSetStatus),
 				"v54_drop_program_status",
+			),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration("v56_to_live", MigrateArc),
+				"v55_rename_set_status",
 			),
 		},
 		Instrumentation: cfg.Instrumentation,
@@ -230,10 +233,24 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		}); !ok(err, sig) {
 			return nil, err
 		}
+		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
+		deleteCfg.DisableSet = true
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
+			return nil, err
+		}
 	}
 	s.collab = openCollab(s)
 	ok(nil, s.collab)
 	return s, nil
+}
+
+// OnAction subscribes the given handler to the action stream emitted by
+// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
+// underlying transaction commits. The returned Disconnect removes the handler.
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnAction(handler)
 }
 
 // Observe returns an observable that notifies callers of changes to Arc entries.

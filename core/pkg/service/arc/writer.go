@@ -33,22 +33,6 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// Dispatch broadcasts a sequence of collaborative-edit actions for the arc with the
-// given key to the other editors of that arc, via the cluster signals pipeline. The
-// actions are relayed verbatim and integrated into the server's authoritative document
-// by the collaborative session; Dispatch itself does not touch the arc's stored text.
-// dispatchKey is the originating client's batch identifier, echoed on the broadcast so
-// the sender can recognize its own edits.
-func (w Writer) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	actions []Action,
-) error {
-	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
-	return nil
-}
-
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
 func (w Writer) Create(ctx context.Context, a *Arc) error {
@@ -63,6 +47,9 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		if err != nil {
 			return err
 		}
+	}
+	if err = a.Validate(); err != nil {
+		return err
 	}
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
@@ -84,6 +71,28 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// Dispatch applies a sequence of actions atomically to the Arc with the given
+// key. After a successful update the actions are notified to the service-level
+// observer so subscribers (cluster signals) can broadcast them. dispatchKey is
+// a client-generated identifier carried verbatim onto the broadcast so the
+// originating client can match its own echo against the set of outstanding
+// local replays and skip a redundant reduce when no foreign action interleaved.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	actions []Action,
+) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
+		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
+			return Reduce(a, actions...)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
 	return nil
 }
 

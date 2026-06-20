@@ -24,8 +24,7 @@ const toColor = (hex: string): color.Color | undefined =>
 
 // pendingUploadZ stages a plot's body on the client until it has landed on
 // the server. Body fields are partial so flows that open a new plot from a
-// single channel or range only need to set what they have; the rest fills
-// from the newZ schema defaults at upload time.
+// single channel or range only need to set what they have.
 const pendingUploadZ = lineplot.linePlotZ.omit({ name: true }).partial();
 interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
@@ -84,10 +83,15 @@ export const ZERO_SLICE_STATE: SliceState = { version: VERSION, plots: {} };
 const buildPendingUpload = (state: v4.State): PendingUpload => ({
   key: state.key,
   title: state.title,
-  legend: state.legend,
+  legend: { position: state.legend.position, hidden: !state.legend.visible },
   channels: state.channels,
   ranges: state.ranges,
-  axes: state.axes.axes,
+  axes: Object.fromEntries(
+    Object.entries(state.axes.axes).map(([k, { autoBounds, ...axis }]) => [
+      k,
+      { ...axis, manualBounds: { lower: !autoBounds.lower, upper: !autoBounds.upper } },
+    ]),
+  ) as PendingUpload["axes"],
   lines: state.lines.map((l) => ({ ...l, color: toColor(l.color) })),
   rules: state.rules.map(({ selected: _selected, ...rest }) => ({
     ...rest,

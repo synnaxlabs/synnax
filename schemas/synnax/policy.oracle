@@ -1,0 +1,53 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/access"
+import "schemas/synnax/ontology"
+
+@ts output "client/ts/src/access/policy"
+@py output "client/py/synnax/access/policy"
+@go output "core/pkg/service/access/rbac/policy"
+
+Key = uuid {
+    @doc value "is a unique identifier for a policy, represented as a UUID."
+}
+
+Policy struct {
+    key      Key = create {
+        @doc value "is the unique identifier for this policy."
+        @key
+    }
+    name     string          {
+        @doc value "is a human-readable name for the policy."
+        @filter
+    }
+    objects  ontology.ID[]   {
+        @doc value "is the list of ontology resources this policy applies to."
+    }
+    actions  access.Action[] {
+        @doc value "is the list of actions this policy permits."
+    }
+    internal bool = false {
+        @doc value """
+            is true if this is a built-in system policy that cannot be deleted.
+        """
+        @filter
+    }
+
+    @doc value       """
+        is an access control policy that defines which actions are permitted on
+        which resources. Policies are attached to roles, and roles are assigned
+        to users via ontology relationships.
+    """
+    @create
+    @go marshal
+    @go migrate
+    @ontology type   "policy"
+    @retrieve custom
+}

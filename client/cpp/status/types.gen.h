@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -52,14 +53,14 @@ struct Status {
     std::string message;
     /// @brief description is an optional detailed description providing additional
     /// context.
-    std::string description;
+    std::string description = "";
     /// @brief time is the timestamp when the status was created.
     ::x::telem::TimeStamp time = x::telem::TimeStamp::now();
     /// @brief details contains optional component-specific custom details for the
     /// status.
     Details details;
     /// @brief labels contains optional labels for categorization and filtering.
-    std::vector<::synnax::label::Label> labels;
+    std::optional<std::vector<::synnax::label::Label>> labels;
 
     static Status parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

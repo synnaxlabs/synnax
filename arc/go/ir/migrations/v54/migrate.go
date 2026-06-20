@@ -14,50 +14,50 @@ package v54
 import (
 	"context"
 
-	ir "github.com/synnaxlabs/arc/ir"
+	irv56 "github.com/synnaxlabs/arc/ir/migrations/v56"
 )
 
-func MigrateFunction(ctx context.Context, old Function) (ir.Function, error) {
+func MigrateFunction(ctx context.Context, old Function) (irv56.Function, error) {
 	migrated, err := AutoMigrateFunction(ctx, old)
 	if err != nil {
-		return ir.Function{}, err
+		return irv56.Function{}, err
 	}
 	// New/changed fields - set non-zero defaults if needed:
 	return migrated, nil
 }
 
-func MigrateEdge(ctx context.Context, old Edge) (ir.Edge, error) {
+func MigrateEdge(ctx context.Context, old Edge) (irv56.Edge, error) {
 	migrated, err := AutoMigrateEdge(ctx, old)
 	if err != nil {
-		return ir.Edge{}, err
+		return irv56.Edge{}, err
 	}
 	// New/changed fields - set non-zero defaults if needed:
 	return migrated, nil
 }
 
-func MigrateIR(ctx context.Context, old IR) (ir.IR, error) {
+func MigrateIR(ctx context.Context, old IR) (irv56.IR, error) {
 	migrated, err := AutoMigrateIR(ctx, old)
 	if err != nil {
-		return ir.IR{}, err
+		return irv56.IR{}, err
 	}
 	// New/changed fields - set non-zero defaults if needed:
 	// migrated.Root is zero-valued
 	return migrated, nil
 }
 
-func MigrateNode(ctx context.Context, old Node) (ir.Node, error) {
+func MigrateNode(ctx context.Context, old Node) (irv56.Node, error) {
 	migrated, err := AutoMigrateNode(ctx, old)
 	if err != nil {
-		return ir.Node{}, err
+		return irv56.Node{}, err
 	}
 	// New/changed fields - set non-zero defaults if needed:
 	return migrated, nil
 }
 
-func MigrateAuthorities(ctx context.Context, old Authorities) (ir.Authorities, error) {
+func MigrateAuthorities(ctx context.Context, old Authorities) (irv56.Authorities, error) {
 	migrated, err := AutoMigrateAuthorities(ctx, old)
 	if err != nil {
-		return ir.Authorities{}, err
+		return irv56.Authorities{}, err
 	}
 	// New/changed fields - set non-zero defaults if needed:
 	return migrated, nil

@@ -11,25 +11,16 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  type Key,
-  keyZ,
-  type New,
-  newZ,
-  type Project,
-  projectZ,
-} from "@/project/types.gen";
-import { keyZ as userKeyZ } from "@/user/types.gen";
+import { type Key, keyZ, type New, type Project, projectZ } from "@/project/types.gen";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   searchTerm: z.string().optional(),
-  author: userKeyZ.optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-const createReqZ = z.object({ projects: newZ.array() });
+const createReqZ = z.object({ projects: projectZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const setLayoutReqZ = z.object({
   key: keyZ,

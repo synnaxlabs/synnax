@@ -15,7 +15,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Rack
-from x.normalize import check_for_none, override
+from x.lists import check_for_none, override
 
 
 class _CreateRequest(BaseModel):
