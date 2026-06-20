@@ -133,17 +133,24 @@ func generatePyFile(
 		}
 	}
 
-	// A TypeAlias assignment (Name: TypeAlias = ...) evaluates its right-hand side
-	// eagerly, so an alias whose target references a named type (e.g.
-	// Nodes = list[Node]) must be emitted after that type or list[Node] raises
-	// NameError at import. Such aliases are topologically sorted with structs and
-	// unions. Aliases whose target is primitive-only (e.g. Key = uuid) have no
-	// dependency and are emitted up-front, unchanged.
-	var sortedTypeDefs []resolution.Type
+	// A TypeAlias assignment evaluates its right-hand side eagerly, so an alias
+	// whose target names a type defined in the SAME file (e.g. Nodes = list[Node])
+	// must be emitted after that type or list[Node] raises NameError at import.
+	// Those are collected into trailingTypeDefs and emitted after every struct and
+	// union. Aliases that only reference primitives or imported (cross-namespace)
+	// types have no same-file forward-reference hazard and keep their existing
+	// position: distinct primitive aliases (e.g. Key = uuid) up-front, other
+	// aliases (e.g. Status = status.Status[...]) topologically sorted with structs.
+	var aliasTypeDefs []resolution.Type
+	var trailingTypeDefs []resolution.Type
 	for _, td := range typeDefs {
-		if _, isAlias := td.Form.(resolution.AliasForm); isAlias || typeDefRefsNamedType(td) {
-			sortedTypeDefs = append(sortedTypeDefs, td)
-		} else {
+		_, isAlias := td.Form.(resolution.AliasForm)
+		switch {
+		case typeDefRefsSameNamespaceType(td, table):
+			trailingTypeDefs = append(trailingTypeDefs, td)
+		case isAlias:
+			aliasTypeDefs = append(aliasTypeDefs, td)
+		default:
 			data.TypeDefs = append(data.TypeDefs, processTypeDef(td, table, data))
 		}
 	}
@@ -152,17 +159,28 @@ func generatePyFile(
 		data.Enums = append(data.Enums, processEnum(e, data))
 	}
 
-	// Combine sortable type aliases, structs, and unions for topological sorting
+	// Hazard-free aliases sort up-front with structs and unions, preserving their
+	// existing positions. Same-file-referencing aliases are appended last so that
+	// when a reference cycle forces the topological sort to fall back to input
+	// order, those eagerly-evaluated list[...] / dict[...] assignments land after
+	// the classes they name. For acyclic aliases the sort still positions them by
+	// dependency (e.g. Functions before IR), so the trailing input order only
+	// matters inside a cycle. Any forward reference that remains is resolved by the
+	// model_rebuild() calls emitted at the end of the file.
 	var combinedTypes []resolution.Type
-	combinedTypes = append(combinedTypes, sortedTypeDefs...)
+	combinedTypes = append(combinedTypes, aliasTypeDefs...)
 	combinedTypes = append(combinedTypes, structs...)
 	combinedTypes = append(combinedTypes, unions...)
+	combinedTypes = append(combinedTypes, trailingTypeDefs...)
 
-	// Sort topologically so dependencies come before dependents
 	sortedTypes := table.TopologicalSort(combinedTypes)
 
-	// Process in sorted order
-	for _, typ := range sortedTypes {
+	typePos := make(map[string]int, len(sortedTypes))
+	for i, typ := range sortedTypes {
+		typePos[typ.QualifiedName] = i
+	}
+
+	for i, typ := range sortedTypes {
 		switch typ.Form.(type) {
 		case resolution.AliasForm, resolution.DistinctForm:
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
@@ -182,10 +200,18 @@ func generatePyFile(
 				IsStruct: true,
 				Struct:   sd,
 			})
+			// A struct that names a same-file type defined at or after its own
+			// position (a self-reference or a cycle) leaves a forward reference
+			// pydantic cannot resolve until the file finishes loading, so emit a
+			// trailing model_rebuild() for it.
+			if structHasForwardRef(typ, i, typePos, table) {
+				data.RebuildModels = append(data.RebuildModels, sd.PyName)
+			}
 		case resolution.UnionForm:
+			u := processUnion(typ, table, data, keyFields)
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsUnion: true,
-				Union:   processUnion(typ, table, data, keyFields),
+				Union:   u,
 			})
 		}
 	}
@@ -251,12 +277,13 @@ func processEnum(typ resolution.Type, data *templateData) enumData {
 	}
 }
 
-// typeDefRefsNamedType reports whether a distinct type alias's base references a
-// named schema type (struct, union, enum, or another alias) rather than only
-// primitives. Array and map wrappers are followed to their element/value types.
-// Such aliases render as eagerly-evaluated list[...] / dict[...] assignments and
-// must be emitted after the types they name.
-func typeDefRefsNamedType(td resolution.Type) bool {
+// typeDefRefsSameNamespaceType reports whether a type alias's target references a
+// type declared in the same namespace (and therefore the same generated file).
+// Array and map wrappers are followed to their element/value types. Only these
+// aliases carry a same-file forward-reference hazard: an eagerly-evaluated
+// list[...] / dict[...] assignment names a class that may be defined later in the
+// file. References to primitives or to imported (cross-namespace) types are safe.
+func typeDefRefsSameNamespaceType(td resolution.Type, table *resolution.Table) bool {
 	var refs func(ref resolution.TypeRef) bool
 	refs = func(ref resolution.TypeRef) bool {
 		if ref.Name == "Array" || ref.Name == "Map" {
@@ -270,13 +297,69 @@ func typeDefRefsNamedType(td resolution.Type) bool {
 		if ref.Name == "" || ref.IsTypeParam() || resolution.IsPrimitive(ref.Name) {
 			return false
 		}
-		return true
+		resolved, ok := table.Get(ref.Name)
+		if !ok {
+			resolved, ok = table.Lookup(td.Namespace, ref.Name)
+		}
+		return ok && resolved.Namespace == td.Namespace
 	}
-	form, ok := td.Form.(resolution.DistinctForm)
-	if !ok {
+	switch form := td.Form.(type) {
+	case resolution.AliasForm:
+		return refs(form.Target)
+	case resolution.DistinctForm:
+		return refs(form.Base)
+	default:
 		return false
 	}
-	return refs(form.Base)
+}
+
+// structHasForwardRef reports whether a struct at position selfIdx references a
+// type in the same namespace that is emitted at or after selfIdx (a self-reference
+// or a member of a reference cycle). With deferred annotations such a reference is
+// unresolved at class-definition time; pydantic resolves it once the file finishes
+// loading, which requires a model_rebuild() call. References to types defined
+// earlier in the file or in imported (cross-namespace) modules are already
+// resolvable and need no rebuild.
+func structHasForwardRef(typ resolution.Type, selfIdx int, typePos map[string]int, table *resolution.Table) bool {
+	var refs func(ref resolution.TypeRef) bool
+	refs = func(ref resolution.TypeRef) bool {
+		if ref.Name == "Array" || ref.Name == "Map" {
+			for _, arg := range ref.TypeArgs {
+				if refs(arg) {
+					return true
+				}
+			}
+			return false
+		}
+		if ref.Name == "" || ref.IsTypeParam() || resolution.IsPrimitive(ref.Name) {
+			return false
+		}
+		resolved, ok := table.Get(ref.Name)
+		if !ok {
+			resolved, ok = table.Lookup(typ.Namespace, ref.Name)
+		}
+		if !ok || resolved.Namespace != typ.Namespace {
+			return false
+		}
+		if pos, ok := typePos[resolved.QualifiedName]; ok && pos >= selfIdx {
+			return true
+		}
+		// Follow a same-namespace alias target (e.g. inputs Params -> list[Param])
+		// to the type it ultimately names.
+		switch f := resolved.Form.(type) {
+		case resolution.AliasForm:
+			return refs(f.Target)
+		case resolution.DistinctForm:
+			return refs(f.Base)
+		}
+		return false
+	}
+	for _, field := range resolution.UnifiedFields(typ, table) {
+		if refs(field.Type) {
+			return true
+		}
+	}
+	return false
 }
 
 func processTypeDef(typ resolution.Type, table *resolution.Table, data *templateData) typeDefData {
@@ -1490,15 +1573,16 @@ func (m *importManager) AddImport(category, path, name string) {
 }
 
 type templateData struct {
-	imports     *importManager
-	Ontology    *ontologyData
-	Namespace   string
-	OutputPath  string
-	Structs     []structData
-	Enums       []enumData
-	TypeDefs    []typeDefData
-	SortedDecls []sortedDeclData
-	TypeVars    []typeVarData
+	imports       *importManager
+	Ontology      *ontologyData
+	Namespace     string
+	OutputPath    string
+	Structs       []structData
+	Enums         []enumData
+	TypeDefs      []typeDefData
+	SortedDecls   []sortedDeclData
+	TypeVars      []typeVarData
+	RebuildModels []string
 }
 
 type sortedDeclData struct {
@@ -1858,6 +1942,12 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
     Field(discriminator="{{ .DiscName }}"),
 ]
 {{- end }}
+{{- end }}
+{{- end }}
+{{- if .RebuildModels }}
+
+{{ range .RebuildModels }}
+{{ . }}.model_rebuild()
 {{- end }}
 {{- end }}
 {{- if .Ontology }}

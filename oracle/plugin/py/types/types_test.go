@@ -1955,4 +1955,39 @@ var _ = Describe("Collection type aliases and maps", func() {
 			"class Node must be emitted before the Nodes alias to avoid a NameError",
 		)
 	})
+
+	It("Should emit model_rebuild() for a self-recursive struct", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Tree struct {
+				key      string
+				children Tree[]
+			}
+		`
+		resp := MustGenerate(ctx, source, "tree", loader, typesPlugin)
+		content := MustContentOf(resp, "types_gen.py")
+		Expect(content).To(ContainSubstring("class Tree(BaseModel):"))
+		Expect(content).To(ContainSubstring("Tree.model_rebuild()"))
+		// the rebuild call must come after the class definition
+		Expect(strings.Index(content, "class Tree(BaseModel):")).To(
+			BeNumerically("<", strings.Index(content, "Tree.model_rebuild()")),
+		)
+	})
+
+	It("Should not emit model_rebuild() for a struct with no forward reference", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Leaf struct {
+				key string
+			}
+		`
+		resp := MustGenerate(ctx, source, "leaf", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToNotContain("model_rebuild()")
+	})
 })
