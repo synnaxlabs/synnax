@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -287,12 +288,7 @@ func typeDefRefsSameNamespaceType(td resolution.Type, table *resolution.Table) b
 	var refs func(ref resolution.TypeRef) bool
 	refs = func(ref resolution.TypeRef) bool {
 		if ref.Name == "Array" || ref.Name == "Map" {
-			for _, arg := range ref.TypeArgs {
-				if refs(arg) {
-					return true
-				}
-			}
-			return false
+			return slices.ContainsFunc(ref.TypeArgs, refs)
 		}
 		if ref.Name == "" || ref.IsTypeParam() || resolution.IsPrimitive(ref.Name) {
 			return false
@@ -324,12 +320,7 @@ func structHasForwardRef(typ resolution.Type, selfIdx int, typePos map[string]in
 	var refs func(ref resolution.TypeRef) bool
 	refs = func(ref resolution.TypeRef) bool {
 		if ref.Name == "Array" || ref.Name == "Map" {
-			for _, arg := range ref.TypeArgs {
-				if refs(arg) {
-					return true
-				}
-			}
-			return false
+			return slices.ContainsFunc(ref.TypeArgs, refs)
 		}
 		if ref.Name == "" || ref.IsTypeParam() || resolution.IsPrimitive(ref.Name) {
 			return false
