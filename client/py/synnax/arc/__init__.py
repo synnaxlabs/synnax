@@ -7,9 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.deprecation import deprecated_getattr
-from x.spatial import XY as Position
-
 from synnax.arc import compiler, graph, ir, program, text, types
 from synnax.arc.client import Arc, Client
 from synnax.arc.graph import Graph
@@ -26,6 +23,8 @@ from synnax.arc.types_gen import (
     StatusDetails,
     ontology_id,
 )
+from x.deprecation import deprecated_getattr
+from x.spatial import XY as Position
 
 _DEPRECATED = {
     "ArcTask": "Task",
