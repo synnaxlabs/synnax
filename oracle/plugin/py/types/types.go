@@ -731,6 +731,7 @@ func processField(
 	// instead coerces a null or absent value to its empty form, so it is always
 	// present and iterable.
 	isRecord := field.Type.Name == "record"
+	isMap := field.Type.Name == "Map"
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
 	if field.Optional || isOptionalTypeParam {
@@ -738,7 +739,7 @@ func processField(
 	} else if fd.IsArray {
 		fd.PyType = wrapNoneToEmpty(fd.PyType, "lists", data)
 		fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
-	} else if isRecord {
+	} else if isRecord || isMap {
 		fd.PyType = wrapNoneToEmpty(fd.PyType, "dicts", data)
 		fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
 	}
