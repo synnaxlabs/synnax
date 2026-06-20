@@ -79,7 +79,7 @@ export const statusZ: StatusZFunction = <
     variant: v ?? variantZ,
     message: z.string(),
     description: z.string().default(""),
-    time: telem.timeStampZ.default(TimeStamp.now),
+    time: telem.timeStampZ.default(() => TimeStamp.now()),
     details: details ?? z.unknown().optional(),
     labels: zod.nullToUndefined(label.labelZ.array()),
   });
