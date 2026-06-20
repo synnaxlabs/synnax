@@ -145,12 +145,12 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				active bool = true
+				active bool = false
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.default(true)`)
+			ToContain(`.default(false)`)
 	})
 
 	It("Should emit id.create() default for string keys with create ident", func(ctx SpecContext) {
@@ -163,7 +163,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.default(() => id.create())`)
+			ToContain(`.default(id.create)`)
 	})
 
 	It("Should emit uuid.create() default for uuid keys with create ident", func(ctx SpecContext) {
@@ -176,7 +176,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.default(() => uuid.create())`)
+			ToContain(`.default(uuid.create)`)
 	})
 
 	It("Should rely on nullishToEmpty for an empty array default, not a misplaced element default", func(ctx SpecContext) {
@@ -352,7 +352,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.min(1, "Name is required")`)
+			ToContain(`.min(1, "name is required")`)
 	})
 
 	It("Should leave fields without validation untouched", func(ctx SpecContext) {

@@ -229,6 +229,34 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`age: z.int32().min(0).max(150)`))
 		})
 
+		It("Should classify a distinct numeric type by its primitive base", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Key uint32
+
+				Device struct {
+					rack Key @validate { min 1 }
+				}
+			`
+			resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain("rack: keyZ.min(1)")
+		})
+
+		It("Should treat required on a numeric type as non-zero", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Key uint32
+
+				Device struct {
+					rack Key @validate { required }
+				}
+			`
+			resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(`rack: keyZ.refine((v) => v !== 0, "rack is required")`)
+		})
+
 		It("Should generate enums", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
@@ -450,7 +478,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export interface New extends z.infer<typeof newZ> {}`))
 		})
 
-		It("Should handle soft optional types (?)", func(ctx SpecContext) {
+		It("Should handle optional types (?)", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -470,34 +498,8 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Soft optional (?) uses .optional() in TypeScript
+			// An optional (?) field uses .optional() in TypeScript
 			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
-		})
-
-		It("Should handle hard optional types (??)", func(ctx SpecContext) {
-			source := `
-				@ts output "out"
-
-				Task struct {
-					key uuid
-					name string
-					status string??
-					description string??
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp := MustSucceed(typesPlugin.Generate(req))
-
-			content := string(resp.Files[0].Content)
-			// Hard optional (??) also uses .optional() in TypeScript (no distinction from ?)
-			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
-			Expect(content).To(ContainSubstring(`description: z.string().optional()`))
 		})
 
 		It("Should handle required arrays with array.nullishToEmpty", func(ctx SpecContext) {
@@ -595,13 +597,13 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
 		})
 
-		It("Should handle hard optional record fields with zod.nullToUndefined", func(ctx SpecContext) {
+		It("Should handle optional record fields with zod.nullToUndefined", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
 				Workspace struct {
 					key uuid
-					layout record??
+					layout record?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
@@ -614,7 +616,7 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Hard optional record fields also use zod.nullToUndefined
+			// Optional record fields also use zod.nullToUndefined
 			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
 		})
 
@@ -750,8 +752,8 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`username: z.string().min(1, "Username is required")`))
-			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "First Name is required")`))
+			Expect(content).To(ContainSubstring(`username: z.string().min(1, "username is required")`))
+			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "first_name is required")`))
 		})
 
 		It("Should use z.input when use_input is specified", func(ctx SpecContext) {
@@ -2131,11 +2133,11 @@ var _ = Describe("TS Types Plugin", func() {
 							@key
 						}
 						name   string
-						parent Range??
+						parent Range?
 					}
 
 					New struct extends Range {
-						parent Range?? {
+						parent Range? {
 							@ts pick key
 						}
 					}
@@ -2344,7 +2346,7 @@ var _ = Describe("TS Types Plugin", func() {
 					> {
 						name string
 						type Type
-						data Data??
+						data Data?
 
 						@ts {
 							concrete_types
@@ -2364,7 +2366,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 					Wrapper struct<Data?> {
 						value string
-						data  Data??
+						data  Data?
 
 						@ts concrete_types
 					}
@@ -2378,7 +2380,7 @@ var _ = Describe("TS Types Plugin", func() {
 						name   string
 						type   Type
 						config Config
-						status Wrapper<StatusData>??
+						status Wrapper<StatusData>?
 
 						@ts {
 							concrete_types

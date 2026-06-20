@@ -86,9 +86,9 @@ var _ = Describe("Format", func() {
 
 	Describe("Partial Field Overrides", func() {
 		It("should preserve a standalone optionality marker on a typeless override", func() {
-			result := format("Child struct extends Parent {\n  key?\n  note??\n}\n")
+			result := format("Child struct extends Parent {\n  key?\n  note?\n}\n")
 			Expect(result).To(ContainSubstring("key?"))
-			Expect(result).To(ContainSubstring("note??"))
+			Expect(result).To(ContainSubstring("note?"))
 			Expect(result).NotTo(ContainSubstring("key ?"))
 		})
 

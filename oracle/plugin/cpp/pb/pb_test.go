@@ -214,7 +214,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Type struct {
 						name string
-						unit Unit??
+						unit Unit?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -241,8 +241,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Node struct {
 						name string
-						left Node??
-						right Node??
+						left Node?
+						right Node?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -281,8 +281,8 @@ var _ = Describe("C++ PB Plugin", func() {
 					Type struct extends FunctionProperties {
 						kind string
 						name string
-						elem Type??
-						constraint Type??
+						elem Type?
+						constraint Type?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -446,14 +446,14 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should handle hard optional any type fields", func(ctx SpecContext) {
+			It("Should handle optional any type fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
 
 					Param struct {
 						name string
-						value any??
+						value any?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -809,7 +809,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					@pb output "core/pkg/service/types/pb"
 
 					Config struct {
-						data record??
+						data record?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -853,7 +853,7 @@ var _ = Describe("C++ PB Plugin", func() {
 			})
 		})
 
-		Context("hard optional uuid field", func() {
+		Context("optional uuid field", func() {
 			It("Should generate has_value check for optional uuid", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
@@ -861,7 +861,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Task struct {
 						key uuid
-						parent uuid??
+						parent uuid?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -1128,14 +1128,14 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should emit optional-guarded JSON-bridge conversion for hard-optional type-param field", func(ctx SpecContext) {
+			It("Should emit optional-guarded JSON-bridge conversion for optional type-param field", func(ctx SpecContext) {
 				source := `
 					@cpp output "x/cpp/status"
 					@pb output "x/go/status/pb"
 
 					Status struct<Details> {
 						key     string
-						details Details??
+						details Details?
 					}
 				`
 				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)

@@ -83,15 +83,9 @@ var _ = Describe("MustGenerateRequest", func() {
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve soft optional fields", func(ctx SpecContext) {
-		source := fmt.Sprintf(SoftOptionalTemplate, DomainDirectives["go"])
+	It("should resolve optional fields", func(ctx SpecContext) {
+		source := fmt.Sprintf(OptionalFieldsTemplate, DomainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "opt", loader)
-		Expect(req.Resolutions).NotTo(BeNil())
-	})
-
-	It("should resolve hard optional fields", func(ctx SpecContext) {
-		source := fmt.Sprintf(HardOptionalTemplate, DomainDirectives["go"])
-		req := MustGenerateRequest(ctx, source, "nullable", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
