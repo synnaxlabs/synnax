@@ -501,6 +501,17 @@ func (f *formatter) formatActionDef(ctx parser.IActionDefContext) {
 	f.write("action ")
 	f.write(ctx.IDENT().GetText())
 
+	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
+		f.write(" extends ")
+		typeRefs := ctx.TypeRefList().AllTypeRef()
+		for i, tr := range typeRefs {
+			if i > 0 {
+				f.write(", ")
+			}
+			f.formatTypeRef(tr)
+		}
+	}
+
 	body := ctx.ActionBody()
 	if body == nil || isEmptyActionBody(body) {
 		f.writeLine(" {}")
