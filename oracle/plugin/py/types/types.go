@@ -794,6 +794,12 @@ func buildDefault(
 	}
 
 	if hasConstraints {
+		// A lone immutable scalar default needs no Field() wrapper: emit a bare
+		// default so `name: str = ""` reads more directly than Field(default="").
+		// Mutable defaults use default_factory (never default=), so this is safe.
+		if len(constraints) == 1 && strings.HasPrefix(constraints[0], "default=") {
+			return " = " + strings.TrimPrefix(constraints[0], "default=")
+		}
 		data.imports.addPydantic("Field")
 		return fmt.Sprintf(" = Field(%s)", strings.Join(constraints, ", "))
 	}

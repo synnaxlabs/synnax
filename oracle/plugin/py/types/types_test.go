@@ -303,7 +303,7 @@ var _ = Describe("Python Types Plugin", func() {
 			`
 			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring(`units: Units = Field(default="Volts")`))
+			Expect(content).To(ContainSubstring(`units: Units = "Volts"`))
 			Expect(content).ToNot(ContainSubstring(`default=Units.volts`))
 		})
 
@@ -322,7 +322,7 @@ var _ = Describe("Python Types Plugin", func() {
 			`
 			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring(`default=Mode.on`))
+			Expect(content).To(ContainSubstring(`mode: Mode = Mode.on`))
 		})
 
 		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
@@ -509,7 +509,7 @@ var _ = Describe("Python Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`enabled: bool = Field(default=False)`))
+			Expect(content).To(ContainSubstring(`enabled: bool = False`))
 			Expect(content).To(ContainSubstring(`retries: int = Field(default=3, ge=-2147483648, le=2147483647)`))
 		})
 
@@ -1518,7 +1518,7 @@ ChannelStatus = status.Status<nil>
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
-					ToContain(`mode: str = Field(default="normal")`)
+					ToContain(`mode: str = "normal"`)
 			})
 		})
 
@@ -1605,7 +1605,7 @@ ChannelStatus = status.Status<nil>
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
-					ToContain(`mode: Mode = Field(default=Mode.automatic)`)
+					ToContain(`mode: Mode = Mode.automatic`)
 			})
 
 			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
@@ -1628,7 +1628,7 @@ ChannelStatus = status.Status<nil>
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
-					ToContain(`concurrency: control.Concurrency = Field(default=control.Concurrency.exclusive)`)
+					ToContain(`concurrency: control.Concurrency = control.Concurrency.exclusive`)
 			})
 		})
 	})
