@@ -11,7 +11,6 @@ import { arc } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { edgeChangesToActions, nodeChangesToActions } from "@/arc/Diagram";
-import { edgeKey } from "@/arc/translate";
 
 const handle = (node: string, param: string): arc.ir.Handle => ({ node, param });
 
@@ -42,7 +41,7 @@ describe("arc gesture converters", () => {
     it("maps an add change to add_edge with a continuous kind", () => {
       const source = handle("a", "out");
       const target = handle("b", "in");
-      const edge = { key: edgeKey(source, target), source, target };
+      const edge = { key: arc.ir.edgeKey(source, target), source, target };
       expect(edgeChangesToActions([{ type: "add", edge }])).toEqual([
         arc.addEdge({ edge: { source, target, kind: arc.ir.EdgeKind.continuous } }),
       ]);
@@ -51,7 +50,7 @@ describe("arc gesture converters", () => {
       const source = handle("a", "out");
       const target = handle("b", "in");
       expect(
-        edgeChangesToActions([{ type: "remove", key: edgeKey(source, target) }]),
+        edgeChangesToActions([{ type: "remove", key: arc.ir.edgeKey(source, target) }]),
       ).toEqual([arc.removeEdge({ source, target })]);
     });
   });

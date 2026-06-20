@@ -12,7 +12,6 @@ import { type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type FluxSubStore, useDispatch } from "@/arc/queries";
-import { edgeKey } from "@/arc/translate";
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks";
 import { type DiagramClipboardHandler } from "@/vis/diagram/Diagram";
@@ -74,7 +73,7 @@ export const useClipboard = ({
       if (sel.size === 0) return;
       const nodes = a.graph.nodes.filter((n) => sel.has(n.key));
       const edges = a.graph.edges.filter((edge) =>
-        sel.has(edgeKey(edge.source, edge.target)),
+        sel.has(arc.ir.edgeKey(edge.source, edge.target)),
       );
       if (nodes.length === 0 && edges.length === 0) return;
       const configs: Record<string, record.Unknown> = {};

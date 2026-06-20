@@ -21,13 +21,7 @@ import {
   setNodeConfig,
   setNodePosition,
 } from "@/arc/actions.gen";
-import { type ir } from "@/arc/ir";
-
-// edgeID derives a stable identifier for an edge from its endpoints. Arc edges
-// carry no key of their own, so the source and target handles serve as identity
-// for undo invalidation.
-const edgeID = (source: ir.Handle, target: ir.Handle): string =>
-  `${source.node}:${source.param}->${target.node}:${target.param}`;
+import { ir } from "@/arc/ir";
 
 const sameEndpoints = (a: ir.Edge, source: ir.Handle, target: ir.Handle): boolean =>
   a.source.node === source.node &&
@@ -104,7 +98,7 @@ const handlers: Handlers = {
     state.graph.edges.push(payload.edge);
     return {
       inverse: [removeEdge({ source, target })],
-      targets: [edgeID(source, target)],
+      targets: [ir.edgeKey(source, target)],
     };
   },
   removeEdge: (state, payload) => {
@@ -115,7 +109,7 @@ const handlers: Handlers = {
     state.graph.edges.splice(idx, 1);
     return {
       inverse: [addEdge({ edge: oldEdge })],
-      targets: [edgeID(source, target)],
+      targets: [ir.edgeKey(source, target)],
     };
   },
 };

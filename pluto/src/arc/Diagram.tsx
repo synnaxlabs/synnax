@@ -14,7 +14,6 @@ import { type ReactElement, useCallback } from "react";
 import { create } from "@/arc/Arc";
 import { Stage } from "@/arc/functions";
 import { useDispatch, useSelectNodeConfig } from "@/arc/queries";
-import { parseEdgeKey } from "@/arc/translate";
 import { Component } from "@/component";
 import { Key } from "@/key";
 import { type Diagram as BaseDiagram } from "@/vis/diagram";
@@ -55,7 +54,7 @@ export const edgeChangesToActions = (changes: BaseDiagram.EdgeChange[]): arc.Act
           }),
         ];
       case "remove":
-        return [arc.removeEdge(parseEdgeKey(ch.key))];
+        return [arc.removeEdge(arc.ir.parseEdgeKey(ch.key))];
       default:
         return [];
     }

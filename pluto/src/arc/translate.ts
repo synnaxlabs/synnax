@@ -7,31 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 
 import { type Diagram } from "@/vis/diagram";
 
-// EDGE_KEY_SEP joins the four handle fields of an edge into a single diagram edge
-// key. Arc edges carry no key on the wire, so the diagram key is derived from the
-// endpoints and parsed back into handles when a gesture targets the edge. Node
-// keys (generated ids) and parameter names (identifiers) never contain a colon.
-const EDGE_KEY_SEP = "::";
-
-// edgeKey derives the diagram edge key for the given handles.
-export const edgeKey = (source: arc.ir.Handle, target: arc.ir.Handle): string =>
-  [source.node, source.param, target.node, target.param].join(EDGE_KEY_SEP);
-
-// parseEdgeKey recovers the source and target handles from a diagram edge key.
-export const parseEdgeKey = (
-  key: string,
-): { source: arc.ir.Handle; target: arc.ir.Handle } => {
-  const [sn, sp, tn, tp] = key.split(EDGE_KEY_SEP);
-  return { source: { node: sn, param: sp }, target: { node: tn, param: tp } };
-};
-
 // edgeToDiagram converts a server graph edge to a keyed diagram edge.
 export const edgeToDiagram = (e: arc.ir.Edge): Diagram.Edge => ({
-  key: edgeKey(e.source, e.target),
+  key: arc.ir.edgeKey(e.source, e.target),
   source: { node: e.source.node, param: e.source.param },
   target: { node: e.target.node, param: e.target.param },
 });
