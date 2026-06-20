@@ -10,6 +10,7 @@
 import "schemas/x/spatial"
 
 @ts output  "x/ts/src/crdt"
+@py output  "x/py/x/crdt"
 @cpp output "x/cpp/crdt"
 @go output  "x/go/crdt"
 @pb

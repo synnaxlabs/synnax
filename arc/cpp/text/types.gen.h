@@ -51,10 +51,9 @@ struct Text {
     /// on
     /// create, in which case the server seeds it from raw.
     Document doc = {};
-    /// @brief raw is the materialized Arc source code, derived from doc. It is sent to
-    /// clients and used for compilation, but is not persisted: doc is the stored source
-    /// of truth.
-    std::string raw;
+    /// @brief raw is the materialized Arc source code, derived from doc and not
+    /// persisted.
+    std::string raw = "";
 
     static Text parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

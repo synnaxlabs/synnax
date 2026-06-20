@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @ts output  "x/ts/src/spatial"
+@py output  "x/py/x/spatial"
 @cpp output "x/cpp/spatial"
 @go output  "x/go/spatial"
 @pb

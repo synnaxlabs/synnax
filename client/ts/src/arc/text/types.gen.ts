@@ -32,11 +32,7 @@ export const textZ = z.object({
    * in which case the server seeds it from raw.
    */
   doc: documentZ.prefault({}),
-  /**
-   * raw is the materialized Arc source code, derived from doc. It is sent to clients
-   * and used for compilation, but is not persisted: doc is the stored source of
-   * truth.
-   */
-  raw: z.string(),
+  /** raw is the materialized Arc source code, derived from doc and not persisted. */
+  raw: z.string().default(""),
 });
 export interface Text extends z.infer<typeof textZ> {}

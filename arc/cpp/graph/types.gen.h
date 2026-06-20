@@ -104,11 +104,11 @@ struct Nodes : private std::vector<Node> {
 /// canvas layout for the Arc graph editor.
 struct Graph {
     /// @brief functions contains function definitions available in this graph.
-    ::arc::ir::Functions functions;
+    ::arc::ir::Functions functions = {};
     /// @brief edges contains dataflow connections between node parameters.
-    ::arc::ir::Edges edges;
+    ::arc::ir::Edges edges = {};
     /// @brief nodes contains visual nodes with canvas positions.
-    Nodes nodes;
+    Nodes nodes = {};
     /// @brief configs contains per-node configuration keyed by node key. Each value is
     /// a
     /// JSON object holding the node's function type under "type" plus its configuration

@@ -96,8 +96,7 @@ type Text struct {
 	// doc is the replicated source of truth for the text. It defaults to empty on create,
 	// in which case the server seeds it from raw.
 	Doc *Document `protobuf:"bytes,1,opt,name=doc,proto3" json:"doc,omitempty"`
-	// raw is the materialized Arc source code, derived from doc. It is sent to clients and
-	// used for compilation, but is not persisted: doc is the stored source of truth.
+	// raw is the materialized Arc source code, derived from doc and not persisted.
 	Raw           string `protobuf:"bytes,2,opt,name=raw,proto3" json:"raw,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

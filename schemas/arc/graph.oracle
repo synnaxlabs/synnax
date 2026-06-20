@@ -11,6 +11,7 @@ import "schemas/x/spatial"
 import "schemas/arc/ir"
 
 @ts output  "client/ts/src/arc/graph"
+@py output  "client/py/synnax/arc/graph"
 @go output  "arc/go/graph"
 @cpp output "arc/cpp/graph"
 @pb
@@ -36,13 +37,13 @@ Nodes Node[] {
 }
 
 Graph struct {
-    functions ir.Functions        {
+    functions ir.Functions = [] {
         @doc value "contains function definitions available in this graph."
     }
-    edges     ir.Edges            {
+    edges     ir.Edges = [] {
         @doc value "contains dataflow connections between node parameters."
     }
-    nodes     Nodes               {
+    nodes     Nodes = [] {
         @doc value "contains visual nodes with canvas positions."
     }
     configs   map<string, record> {

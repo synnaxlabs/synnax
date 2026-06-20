@@ -140,25 +140,20 @@ class TestArcGraph:
         name = f"test-arc-graph-{uuid4()}"
         graph = sy.Graph(
             nodes=[
-                sy.GraphNode(
-                    key="node1",
-                    type="constant",
-                    config={"value": 1},
-                    position=sy.Position(x=0, y=0),
-                ),
-                sy.GraphNode(
-                    key="node2",
-                    type="add",
-                    config={},
-                    position=sy.Position(x=100, y=0),
-                ),
+                sy.GraphNode(key="node1", position=sy.Position(x=0, y=0)),
+                sy.GraphNode(key="node2", position=sy.Position(x=100, y=0)),
             ],
             edges=[
                 sy.Edge(
                     source=sy.Handle(param="output", node="node1"),
                     target=sy.Handle(param="input1", node="node2"),
+                    kind=sy.arc.ir.EdgeKind.continuous,
                 ),
             ],
+            configs={
+                "node1": {"type": "constant", "value": 1},
+                "node2": {"type": "add"},
+            },
         )
         arc = client.arcs.create(name=name, mode="graph", graph=graph)
         assert arc.mode == "graph"

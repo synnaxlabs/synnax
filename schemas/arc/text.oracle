@@ -10,6 +10,7 @@
 import "schemas/x/crdt"
 
 @ts output  "client/ts/src/arc/text"
+@py output  "client/py/synnax/arc/text"
 @go output  "arc/go/text"
 @cpp output "arc/cpp/text"
 @pb
@@ -36,13 +37,9 @@ Text struct {
             in which case the server seeds it from raw.
         """
     }
-    raw string   {
+    raw string = "" {
         @go marshal omit
-        @doc value  """
-            is the materialized Arc source code, derived from doc. It is sent to clients
-            and used for compilation, but is not persisted: doc is the stored source of
-            truth.
-        """
+        @doc value  "is the materialized Arc source code, derived from doc and not persisted."
     }
 
     @doc value  "is text-based Arc source code with optional parsed AST for compilation."

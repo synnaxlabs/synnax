@@ -37,11 +37,11 @@ export type Nodes = z.infer<typeof nodesZ>;
  */
 export const graphZ = z.object({
   /** functions contains function definitions available in this graph. */
-  functions: ir.functionsZ,
+  functions: ir.functionsZ.default([]),
   /** edges contains dataflow connections between node parameters. */
-  edges: ir.edgesZ,
+  edges: ir.edgesZ.default([]),
   /** nodes contains visual nodes with canvas positions. */
-  nodes: nodesZ,
+  nodes: nodesZ.default([]),
   /**
    * configs contains per-node configuration keyed by node key. Each value is a
    * JSON object holding the node's function type under "type" plus its

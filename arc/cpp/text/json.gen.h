@@ -38,7 +38,7 @@ inline x::json::json Document::to_json() const {
 inline Text Text::parse(x::json::Parser parser) {
     return Text{
         .doc = parser.field<Document>("doc"),
-        .raw = parser.field<std::string>("raw"),
+        .raw = parser.field<std::string>("raw", ""),
     };
 }
 

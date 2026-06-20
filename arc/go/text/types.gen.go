@@ -41,8 +41,7 @@ type Text struct {
 	// Doc is the replicated source of truth for the text. It defaults to empty on create,
 	// in which case the server seeds it from raw.
 	Doc Document `json:"doc" msgpack:"doc"`
-	// Raw is the materialized Arc source code, derived from doc. It is sent to clients and
-	// used for compilation, but is not persisted: doc is the stored source of truth.
+	// Raw is the materialized Arc source code, derived from doc and not persisted.
 	Raw string                 `json:"raw" msgpack:"raw"`
 	AST parser.IProgramContext `json:"-"`
 }
