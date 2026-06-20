@@ -56,6 +56,12 @@ var _ = Describe("Writer", func() {
 			Expect(t.Key).ToNot(Equal(uuid.Nil))
 		})
 
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			t := table.Table{}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+
 		It("Should create a Table without a project", func(ctx SpecContext) {
 			t := table.Table{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &t)).To(Succeed())

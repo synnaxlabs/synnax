@@ -24,7 +24,7 @@ export type Key = z.infer<typeof keyZ>;
  */
 export const projectZ = z.object({
   /** key is the unique identifier for this project. */
-  key: keyZ.default(() => uuid.create()),
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the project. */
   name: z.string().min(1, "name is required"),
   /**

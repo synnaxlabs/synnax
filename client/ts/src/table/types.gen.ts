@@ -66,7 +66,7 @@ export interface CellTemplate extends z.infer<typeof cellTemplateZ> {}
  */
 export const tableZ = z.object({
   /** key is the unique identifier for this table. */
-  key: keyZ.default(() => uuid.create()),
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the table. */
   name: z.string().min(1, "name is required"),
   /** rows are the table rows in display order, top to bottom. */

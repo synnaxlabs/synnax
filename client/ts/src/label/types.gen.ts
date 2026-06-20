@@ -22,7 +22,7 @@ export type Key = z.infer<typeof keyZ>;
  */
 export const labelZ = z.object({
   /** key is the unique identifier for this label. */
-  key: keyZ.default(() => uuid.create()),
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the label. */
   name: z.string().min(1),
   /** color is the display color for visual identification of the label. */

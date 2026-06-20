@@ -37,8 +37,8 @@ class Role(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     name: str
-    description: str = Field(default="")
-    internal: bool = Field(default=False)
+    description: str = ""
+    internal: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)

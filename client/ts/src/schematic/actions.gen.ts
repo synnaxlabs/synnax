@@ -96,39 +96,41 @@ export const actionZ = z.discriminatedUnion("type", [
 
 export type Action = z.infer<typeof actionZ>;
 
-export const rename = (payload: RenamePayload): Action => ({
+export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
-  rename: payload,
+  rename: renamePayloadZ.parse(payload),
 });
 
-export const setNodePosition = (payload: SetNodePositionPayload): Action => ({
+export const setNodePosition = (
+  payload: z.input<typeof setNodePositionPayloadZ>,
+): Action => ({
   type: "set_node_position",
-  setNodePosition: payload,
+  setNodePosition: setNodePositionPayloadZ.parse(payload),
 });
 
-export const setNode = (payload: SetNodePayload): Action => ({
+export const setNode = (payload: z.input<typeof setNodePayloadZ>): Action => ({
   type: "set_node",
-  setNode: payload,
+  setNode: setNodePayloadZ.parse(payload),
 });
 
-export const removeNode = (payload: RemoveNodePayload): Action => ({
+export const removeNode = (payload: z.input<typeof removeNodePayloadZ>): Action => ({
   type: "remove_node",
-  removeNode: payload,
+  removeNode: removeNodePayloadZ.parse(payload),
 });
 
-export const addEdge = (payload: AddEdgePayload): Action => ({
+export const addEdge = (payload: z.input<typeof addEdgePayloadZ>): Action => ({
   type: "add_edge",
-  addEdge: payload,
+  addEdge: addEdgePayloadZ.parse(payload),
 });
 
-export const removeEdge = (payload: RemoveEdgePayload): Action => ({
+export const removeEdge = (payload: z.input<typeof removeEdgePayloadZ>): Action => ({
   type: "remove_edge",
-  removeEdge: payload,
+  removeEdge: removeEdgePayloadZ.parse(payload),
 });
 
-export const setConfig = (payload: SetConfigPayload): Action => ({
+export const setConfig = (payload: z.input<typeof setConfigPayloadZ>): Action => ({
   type: "set_config",
-  setConfig: payload,
+  setConfig: setConfigPayloadZ.parse(payload),
 });
 
 export type HandlerResult = actions.HandlerResult<Action>;

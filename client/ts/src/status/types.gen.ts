@@ -74,12 +74,12 @@ export const statusZ: StatusZFunction = <
   V extends z.ZodType<Variant>,
 >({ details, v }: Partial<StatusSchemas<Details, V>> = {}) =>
   z.object({
-    key: z.string().default(() => id.create()),
+    key: z.string().default(id.create),
     name: z.string().default(""),
     variant: v ?? variantZ,
     message: z.string(),
     description: z.string().default(""),
-    time: telem.timeStampZ.default(() => TimeStamp.now()),
+    time: telem.timeStampZ.default(TimeStamp.now),
     details: details ?? z.unknown().optional(),
     labels: zod.nullToUndefined(label.labelZ.array()),
   });

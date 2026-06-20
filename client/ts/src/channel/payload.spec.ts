@@ -46,8 +46,8 @@ describe("nameZ", () => {
   });
 });
 
-describe("newZ", () => {
-  const validNewChannel = {
+describe("schema validation", () => {
+  const validNewChannel: channel.New = {
     name: "temperature_sensor",
     dataType: DataType.FLOAT32,
     virtual: true,
@@ -81,6 +81,7 @@ describe("newZ", () => {
     });
   });
 });
+
 describe("escapeInvalidName", () => {
   it("should escape invalid name", () => {
     const result = channel.escapeInvalidName("sensor-temp");

@@ -25,7 +25,7 @@ export type Key = z.infer<typeof keyZ>;
  */
 export const policyZ = z.object({
   /** key is the unique identifier for this policy. */
-  key: keyZ.default(() => uuid.create()),
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the policy. */
   name: z.string(),
   /** objects is the list of ontology resources this policy applies to. */

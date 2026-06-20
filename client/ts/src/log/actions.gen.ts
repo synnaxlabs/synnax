@@ -128,53 +128,59 @@ export const actionZ = z.discriminatedUnion("type", [
 
 export type Action = z.infer<typeof actionZ>;
 
-export const rename = (payload: RenamePayload): Action => ({
+export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
-  rename: payload,
+  rename: renamePayloadZ.parse(payload),
 });
 
-export const addChannel = (payload: AddChannelPayload): Action => ({
+export const addChannel = (payload: z.input<typeof addChannelPayloadZ>): Action => ({
   type: "add_channel",
-  addChannel: payload,
+  addChannel: addChannelPayloadZ.parse(payload),
 });
 
-export const removeChannel = (payload: RemoveChannelPayload): Action => ({
+export const removeChannel = (
+  payload: z.input<typeof removeChannelPayloadZ>,
+): Action => ({
   type: "remove_channel",
-  removeChannel: payload,
+  removeChannel: removeChannelPayloadZ.parse(payload),
 });
 
-export const setChannelEntry = (payload: SetChannelEntryPayload): Action => ({
+export const setChannelEntry = (
+  payload: z.input<typeof setChannelEntryPayloadZ>,
+): Action => ({
   type: "set_channel_entry",
-  setChannelEntry: payload,
+  setChannelEntry: setChannelEntryPayloadZ.parse(payload),
 });
 
-export const setChannels = (payload: SetChannelsPayload): Action => ({
+export const setChannels = (payload: z.input<typeof setChannelsPayloadZ>): Action => ({
   type: "set_channels",
-  setChannels: payload,
+  setChannels: setChannelsPayloadZ.parse(payload),
 });
 
-export const swapChannel = (payload: SwapChannelPayload): Action => ({
+export const swapChannel = (payload: z.input<typeof swapChannelPayloadZ>): Action => ({
   type: "swap_channel",
-  swapChannel: payload,
+  swapChannel: swapChannelPayloadZ.parse(payload),
 });
 
 export const setTimestampPrecision = (
-  payload: SetTimestampPrecisionPayload,
+  payload: z.input<typeof setTimestampPrecisionPayloadZ>,
 ): Action => ({
   type: "set_timestamp_precision",
-  setTimestampPrecision: payload,
+  setTimestampPrecision: setTimestampPrecisionPayloadZ.parse(payload),
 });
 
-export const setHideChannelNames = (payload: SetHideChannelNamesPayload): Action => ({
+export const setHideChannelNames = (
+  payload: z.input<typeof setHideChannelNamesPayloadZ>,
+): Action => ({
   type: "set_hide_channel_names",
-  setHideChannelNames: payload,
+  setHideChannelNames: setHideChannelNamesPayloadZ.parse(payload),
 });
 
 export const setHideReceiptTimestamp = (
-  payload: SetHideReceiptTimestampPayload,
+  payload: z.input<typeof setHideReceiptTimestampPayloadZ>,
 ): Action => ({
   type: "set_hide_receipt_timestamp",
-  setHideReceiptTimestamp: payload,
+  setHideReceiptTimestamp: setHideReceiptTimestampPayloadZ.parse(payload),
 });
 
 export type HandlerResult = actions.HandlerResult<Action>;

@@ -40,6 +40,12 @@ var _ = Describe("Writer", func() {
 			Expect(l.Key).ToNot(Equal(uuid.Nil))
 		})
 
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			l := log.Log{}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+
 		It("Should establish a ParentOf relationship to the project", func(ctx SpecContext) {
 			l := log.Log{Name: "with-proj"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())

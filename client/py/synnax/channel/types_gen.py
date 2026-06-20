@@ -94,16 +94,16 @@ class Payload(BaseModel):
     name: Name
     leaseholder: cluster.NodeKey = Field(default=cluster.NodeKey(0), ge=0, le=4095)
     data_type: telem.DataType
-    is_index: bool = Field(default=False)
+    is_index: bool = False
     index: Key = Field(default=Key(0), ge=0, le=4294967295)
     alias: str | None = None
-    virtual: bool = Field(default=False)
-    internal: bool = Field(default=False)
-    expression: str = Field(default="")
+    virtual: bool = False
+    internal: bool = False
+    expression: str = ""
     operations: Annotated[list[Operation], BeforeValidator(lists.none_to_empty)] = (
         Field(default_factory=list)
     )
-    concurrency: control.Concurrency = Field(default=control.Concurrency.exclusive)
+    concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
 
     def __hash__(self) -> int:

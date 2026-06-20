@@ -34,7 +34,7 @@ class StatusDetails(BaseModel):
 
     task: Key = Field(default=Key(0), ge=0, le=18446744073709551615)
     running: bool
-    cmd: str = Field(default="")
+    cmd: str = ""
     data: dict[str, Any] | None = None
 
 
@@ -80,8 +80,8 @@ class Payload(BaseModel):
     name: str
     type: str
     config: dict[str, Any]
-    internal: bool = Field(default=False)
-    snapshot: bool = Field(default=False)
+    internal: bool = False
+    snapshot: bool = False
     status: Status | None = None
 
     def __hash__(self) -> int:

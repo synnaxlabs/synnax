@@ -85,7 +85,7 @@ export interface Spec extends z.infer<typeof specZ> {}
  */
 export const symbolZ = z.object({
   /** key is the unique identifier for this symbol. */
-  key: keyZ.default(() => uuid.create()),
+  key: keyZ.default(uuid.create),
   /** version is the symbol schema version for migration support. */
   version: z.uint32().default(1),
   /** name is a human-readable name for the symbol. */

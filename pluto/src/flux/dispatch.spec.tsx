@@ -526,7 +526,7 @@ describe("Flux.createDispatch", () => {
         await result.current.dispatch.dispatchAsync({
           key,
           actions: schematic.setNode({
-            node: { key: "n1", position: { x: 0, y: 0 }, zIndex: 0 },
+            node: { key: "n1", position: { x: 0, y: 0 } },
             config: { label: "original" },
           }),
         });

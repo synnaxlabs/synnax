@@ -141,7 +141,7 @@ describe("Schematic", () => {
         await expect(
           client.schematics.dispatch(schem2.key, "sess-1", [
             schematic.setNode({
-              node: { key: "n1", position: { x: 0, y: 0 }, zIndex: 0 },
+              node: { key: "n1", position: { x: 0, y: 0 } },
             }),
           ]),
         ).rejects.toThrow(ValidationError);
@@ -153,7 +153,7 @@ describe("Schematic", () => {
     test("setNodePosition moves the matching node", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 }, zIndex: 0 } }),
+        schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
       ]);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNodePosition({ key: "n1", position: { x: 100, y: 200 } }),
@@ -167,7 +167,7 @@ describe("Schematic", () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({
-          node: { key: "n1", position: { x: 1, y: 2 }, zIndex: 0 },
+          node: { key: "n1", position: { x: 1, y: 2 } },
           config: { label: "Pump" },
         }),
       ]);
@@ -181,11 +181,11 @@ describe("Schematic", () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({
-          node: { key: "n1", position: { x: 0, y: 0 }, zIndex: 0 },
+          node: { key: "n1", position: { x: 0, y: 0 } },
           config: { label: "Pump" },
         }),
         schematic.setNode({
-          node: { key: "n2", position: { x: 1, y: 1 }, zIndex: 0 },
+          node: { key: "n2", position: { x: 1, y: 1 } },
           config: { label: "Tank" },
         }),
       ]);
@@ -259,10 +259,10 @@ describe("Schematic", () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({
-          node: { key: "pump", position: { x: 0, y: 0 }, zIndex: 0 },
+          node: { key: "pump", position: { x: 0, y: 0 } },
         }),
         schematic.setNode({
-          node: { key: "valve", position: { x: 100, y: 0 }, zIndex: 0 },
+          node: { key: "valve", position: { x: 100, y: 0 } },
         }),
         schematic.addEdge({
           edge: {
@@ -283,7 +283,7 @@ describe("Schematic", () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({
-          node: { key: "pump", position: { x: 0, y: 0 }, zIndex: 0 },
+          node: { key: "pump", position: { x: 0, y: 0 } },
         }),
       ]);
       const actions = Array.from({ length: 30 }, (_, i) =>

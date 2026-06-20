@@ -399,7 +399,7 @@ export const useAddNode = (resourceKey: string) => {
         key: resourceKey,
         actions: [
           schematic.setNode({
-            node: { key, position: position ?? xy.ZERO, zIndex: 0 },
+            node: { key, position: position ?? xy.ZERO },
             config: { ...config, ...override, variant },
           }),
         ],

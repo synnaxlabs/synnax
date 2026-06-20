@@ -56,10 +56,10 @@ class Status(BaseModel, Generic[Details]):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = Field(default="")
+    name: str = ""
     variant: Variant
     message: str
-    description: str = Field(default="")
+    description: str = ""
     time: telem.TimeStamp = Field(
         default_factory=telem.TimeStamp.now,
         ge=-9223372036854775808,

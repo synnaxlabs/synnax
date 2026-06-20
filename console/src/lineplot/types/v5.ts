@@ -24,8 +24,7 @@ const toColor = (hex: string): color.Color | undefined =>
 
 // pendingUploadZ stages a plot's body on the client until it has landed on
 // the server. Body fields are partial so flows that open a new plot from a
-// single channel or range only need to set what they have; the rest fills
-// from the newZ schema defaults at upload time.
+// single channel or range only need to set what they have.
 const pendingUploadZ = lineplot.linePlotZ.omit({ name: true }).partial();
 interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 

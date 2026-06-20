@@ -37,10 +37,8 @@ type changeService struct {
 	observe.Observer[iter.Seq[ontology.Change]]
 }
 
-const changeOntologyType ontology.ResourceType = "channel"
-
 func newChangeID(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: changeOntologyType}
+	return ontology.ID{Key: key, Type: ontology.ResourceTypeChannel}
 }
 
 func encodeID(id ontology.ID) []byte {
@@ -87,7 +85,7 @@ func decodeIDs(ser []byte) ([]ontology.ID, error) {
 
 var _ ontology.Service = (*changeService)(nil)
 
-func (s *changeService) Type() ontology.ResourceType { return changeOntologyType }
+func (s *changeService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
 func (s *changeService) Schema() zyn.Schema {
 	return zyn.Object(map[string]zyn.Schema{"key": zyn.String()})

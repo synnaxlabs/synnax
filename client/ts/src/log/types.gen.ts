@@ -55,7 +55,7 @@ export interface ChannelEntry extends z.infer<typeof channelEntryZ> {}
  */
 export const logZ = z.object({
   /** key is the unique identifier for this log. */
-  key: keyZ.default(() => uuid.create()),
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the log. */
   name: z.string().min(1, "name is required"),
   /** channels are the channels displayed in this log, in order. */

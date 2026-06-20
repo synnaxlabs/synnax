@@ -102,7 +102,7 @@ describe("deviceZ", () => {
   });
 });
 
-describe("newZ", () => {
+describe("validation", () => {
   it("should encode properties to a JSON string", () => {
     const result = deviceZ().parse(VALID_DEVICE);
     expect(result.properties).toEqual(VALID_DEVICE.properties);

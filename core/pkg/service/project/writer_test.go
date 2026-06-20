@@ -26,6 +26,11 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
 			Expect(proj.Key).ToNot(Equal(uuid.Nil))
 		})
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			proj := project.Project{}
+			Expect(svc.NewWriter(tx).Create(ctx, &proj)).
+				To(MatchError(ContainSubstring("name: required")))
+		})
 	})
 	Describe("CreateMany", func() {
 		It("Should create multiple projects", func(ctx SpecContext) {

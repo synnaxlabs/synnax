@@ -9,7 +9,20 @@
 
 from typing import Any
 
-from x.lists import check_for_none, normalize, override
+from x.lists import check_for_none, none_to_empty, normalize, override
+
+
+class TestNoneToEmpty:
+    def test_none_returns_empty(self) -> None:
+        assert none_to_empty(None) == []
+
+    def test_populated_returned_unchanged(self) -> None:
+        v = [1, 2, 3]
+        assert none_to_empty(v) is v
+
+    def test_empty_returned_unchanged(self) -> None:
+        v: list[int] = []
+        assert none_to_empty(v) is v
 
 
 class TestNormalize:

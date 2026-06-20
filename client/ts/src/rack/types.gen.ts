@@ -55,7 +55,7 @@ export interface Payload extends z.infer<typeof payloadZ> {}
 export const newZ = payloadZ
   .omit({ taskCounter: true, embedded: true, key: true })
   .extend({
-    key: z.uint32().default(0),
+    key: keyZ.refine((v) => v !== 0, "key is required").default(0),
   });
 export interface New extends z.input<typeof newZ> {}
 

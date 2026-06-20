@@ -24,7 +24,7 @@ export type Key = z.infer<typeof keyZ>;
  */
 export const roleZ = z.object({
   /** key is the unique identifier for this role. */
-  key: keyZ.default(() => uuid.create()),
+  key: keyZ.default(uuid.create),
   /**
    * name is a human-readable name for the role (e.g., 'Administrator',
    * 'Engineer').

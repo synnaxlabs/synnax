@@ -24,7 +24,7 @@ export type Key = z.infer<typeof keyZ>;
  */
 export const viewZ = z.object({
   /** key is the unique identifier for this view. */
-  key: keyZ.default(() => uuid.create()),
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the view. */
   name: z.string(),
   /** type is the view type identifier (e.g., 'lineplot', 'table', 'schematic'). */

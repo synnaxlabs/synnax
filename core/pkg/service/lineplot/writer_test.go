@@ -37,6 +37,11 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
 			Expect(plot.Key).ToNot(Equal(uuid.Nil))
 		})
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			plot := lineplot.LinePlot{}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).
+				To(MatchError(ContainSubstring("name: required")))
+		})
 		It("Should populate lines from channel and range bindings supplied at creation", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{
 				Name:     "test",

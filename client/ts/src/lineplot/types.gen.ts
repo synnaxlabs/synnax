@@ -214,7 +214,7 @@ export interface Axes extends z.infer<typeof axesZ> {}
  */
 export const linePlotZ = z.object({
   /** key is the unique identifier for this line plot. */
-  key: keyZ.default(() => uuid.create()),
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the line plot. */
   name: z.string().min(1, "name is required"),
   /** title is the plot title configuration. */

@@ -42,7 +42,7 @@ export type Status = z.infer<typeof statusZ>;
  */
 export const arcZ = z.object({
   /** key is the unique identifier for this module. */
-  key: keyZ.default(() => uuid.create()),
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the module. */
   name: z.string().min(1, "name is required"),
   /**

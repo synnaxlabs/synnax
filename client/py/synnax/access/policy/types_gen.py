@@ -45,7 +45,7 @@ class Policy(BaseModel):
     actions: Annotated[list[action.Action], BeforeValidator(lists.none_to_empty)] = (
         Field(default_factory=list)
     )
-    internal: bool = Field(default=False)
+    internal: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)

@@ -29,6 +29,12 @@ var _ = Describe("Writer", func() {
 			Expect(a.Key).ToNot(Equal(uuid.Nil))
 		})
 
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			a := arc.Arc{Mode: arc.ModeText}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+
 		It("Should create an Arc with explicit key", func(ctx SpecContext) {
 			key := uuid.New()
 			a := arc.Arc{Key: key, Name: "test-arc-with-key", Mode: arc.ModeText}

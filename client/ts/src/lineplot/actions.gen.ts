@@ -406,168 +406,202 @@ export const actionZ = z.discriminatedUnion("type", [
 
 export type Action = z.infer<typeof actionZ>;
 
-export const rename = (payload: RenamePayload): Action => ({
+export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
-  rename: payload,
+  rename: renamePayloadZ.parse(payload),
 });
 
-export const setTitle = (payload: SetTitlePayload): Action => ({
+export const setTitle = (payload: z.input<typeof setTitlePayloadZ>): Action => ({
   type: "set_title",
-  setTitle: payload,
+  setTitle: setTitlePayloadZ.parse(payload),
 });
 
-export const setLegendHidden = (payload: SetLegendHiddenPayload): Action => ({
+export const setLegendHidden = (
+  payload: z.input<typeof setLegendHiddenPayloadZ>,
+): Action => ({
   type: "set_legend_hidden",
-  setLegendHidden: payload,
+  setLegendHidden: setLegendHiddenPayloadZ.parse(payload),
 });
 
-export const setLegendPosition = (payload: SetLegendPositionPayload): Action => ({
+export const setLegendPosition = (
+  payload: z.input<typeof setLegendPositionPayloadZ>,
+): Action => ({
   type: "set_legend_position",
-  setLegendPosition: payload,
+  setLegendPosition: setLegendPositionPayloadZ.parse(payload),
 });
 
-export const addChannel = (payload: AddChannelPayload): Action => ({
+export const addChannel = (payload: z.input<typeof addChannelPayloadZ>): Action => ({
   type: "add_channel",
-  addChannel: payload,
+  addChannel: addChannelPayloadZ.parse(payload),
 });
 
-export const removeChannel = (payload: RemoveChannelPayload): Action => ({
+export const removeChannel = (
+  payload: z.input<typeof removeChannelPayloadZ>,
+): Action => ({
   type: "remove_channel",
-  removeChannel: payload,
+  removeChannel: removeChannelPayloadZ.parse(payload),
 });
 
-export const setChannels = (payload: SetChannelsPayload): Action => ({
+export const setChannels = (payload: z.input<typeof setChannelsPayloadZ>): Action => ({
   type: "set_channels",
-  setChannels: payload,
+  setChannels: setChannelsPayloadZ.parse(payload),
 });
 
-export const setXChannel = (payload: SetXChannelPayload): Action => ({
+export const setXChannel = (payload: z.input<typeof setXChannelPayloadZ>): Action => ({
   type: "set_x_channel",
-  setXChannel: payload,
+  setXChannel: setXChannelPayloadZ.parse(payload),
 });
 
-export const addRange = (payload: AddRangePayload): Action => ({
+export const addRange = (payload: z.input<typeof addRangePayloadZ>): Action => ({
   type: "add_range",
-  addRange: payload,
+  addRange: addRangePayloadZ.parse(payload),
 });
 
-export const removeRange = (payload: RemoveRangePayload): Action => ({
+export const removeRange = (payload: z.input<typeof removeRangePayloadZ>): Action => ({
   type: "remove_range",
-  removeRange: payload,
+  removeRange: removeRangePayloadZ.parse(payload),
 });
 
-export const setRanges = (payload: SetRangesPayload): Action => ({
+export const setRanges = (payload: z.input<typeof setRangesPayloadZ>): Action => ({
   type: "set_ranges",
-  setRanges: payload,
+  setRanges: setRangesPayloadZ.parse(payload),
 });
 
-export const setAxisLabel = (payload: SetAxisLabelPayload): Action => ({
+export const setAxisLabel = (
+  payload: z.input<typeof setAxisLabelPayloadZ>,
+): Action => ({
   type: "set_axis_label",
-  setAxisLabel: payload,
+  setAxisLabel: setAxisLabelPayloadZ.parse(payload),
 });
 
 export const setAxisLabelDirection = (
-  payload: SetAxisLabelDirectionPayload,
+  payload: z.input<typeof setAxisLabelDirectionPayloadZ>,
 ): Action => ({
   type: "set_axis_label_direction",
-  setAxisLabelDirection: payload,
+  setAxisLabelDirection: setAxisLabelDirectionPayloadZ.parse(payload),
 });
 
-export const setAxisLabelLevel = (payload: SetAxisLabelLevelPayload): Action => ({
+export const setAxisLabelLevel = (
+  payload: z.input<typeof setAxisLabelLevelPayloadZ>,
+): Action => ({
   type: "set_axis_label_level",
-  setAxisLabelLevel: payload,
+  setAxisLabelLevel: setAxisLabelLevelPayloadZ.parse(payload),
 });
 
-export const setAxisBounds = (payload: SetAxisBoundsPayload): Action => ({
+export const setAxisBounds = (
+  payload: z.input<typeof setAxisBoundsPayloadZ>,
+): Action => ({
   type: "set_axis_bounds",
-  setAxisBounds: payload,
+  setAxisBounds: setAxisBoundsPayloadZ.parse(payload),
 });
 
-export const setAxisTickSpacing = (payload: SetAxisTickSpacingPayload): Action => ({
+export const setAxisTickSpacing = (
+  payload: z.input<typeof setAxisTickSpacingPayloadZ>,
+): Action => ({
   type: "set_axis_tick_spacing",
-  setAxisTickSpacing: payload,
+  setAxisTickSpacing: setAxisTickSpacingPayloadZ.parse(payload),
 });
 
-export const setAxisType = (payload: SetAxisTypePayload): Action => ({
+export const setAxisType = (payload: z.input<typeof setAxisTypePayloadZ>): Action => ({
   type: "set_axis_type",
-  setAxisType: payload,
+  setAxisType: setAxisTypePayloadZ.parse(payload),
 });
 
-export const setLineLabel = (payload: SetLineLabelPayload): Action => ({
+export const setLineLabel = (
+  payload: z.input<typeof setLineLabelPayloadZ>,
+): Action => ({
   type: "set_line_label",
-  setLineLabel: payload,
+  setLineLabel: setLineLabelPayloadZ.parse(payload),
 });
 
-export const setLineColor = (payload: SetLineColorPayload): Action => ({
+export const setLineColor = (
+  payload: z.input<typeof setLineColorPayloadZ>,
+): Action => ({
   type: "set_line_color",
-  setLineColor: payload,
+  setLineColor: setLineColorPayloadZ.parse(payload),
 });
 
-export const setLineStrokeWidth = (payload: SetLineStrokeWidthPayload): Action => ({
+export const setLineStrokeWidth = (
+  payload: z.input<typeof setLineStrokeWidthPayloadZ>,
+): Action => ({
   type: "set_line_stroke_width",
-  setLineStrokeWidth: payload,
+  setLineStrokeWidth: setLineStrokeWidthPayloadZ.parse(payload),
 });
 
-export const setLineDownsample = (payload: SetLineDownsamplePayload): Action => ({
+export const setLineDownsample = (
+  payload: z.input<typeof setLineDownsamplePayloadZ>,
+): Action => ({
   type: "set_line_downsample",
-  setLineDownsample: payload,
+  setLineDownsample: setLineDownsamplePayloadZ.parse(payload),
 });
 
 export const setLineDownsampleMode = (
-  payload: SetLineDownsampleModePayload,
+  payload: z.input<typeof setLineDownsampleModePayloadZ>,
 ): Action => ({
   type: "set_line_downsample_mode",
-  setLineDownsampleMode: payload,
+  setLineDownsampleMode: setLineDownsampleModePayloadZ.parse(payload),
 });
 
-export const setLine = (payload: SetLinePayload): Action => ({
+export const setLine = (payload: z.input<typeof setLinePayloadZ>): Action => ({
   type: "set_line",
-  setLine: payload,
+  setLine: setLinePayloadZ.parse(payload),
 });
 
-export const setRule = (payload: SetRulePayload): Action => ({
+export const setRule = (payload: z.input<typeof setRulePayloadZ>): Action => ({
   type: "set_rule",
-  setRule: payload,
+  setRule: setRulePayloadZ.parse(payload),
 });
 
-export const setRuleLabel = (payload: SetRuleLabelPayload): Action => ({
+export const setRuleLabel = (
+  payload: z.input<typeof setRuleLabelPayloadZ>,
+): Action => ({
   type: "set_rule_label",
-  setRuleLabel: payload,
+  setRuleLabel: setRuleLabelPayloadZ.parse(payload),
 });
 
-export const setRuleColor = (payload: SetRuleColorPayload): Action => ({
+export const setRuleColor = (
+  payload: z.input<typeof setRuleColorPayloadZ>,
+): Action => ({
   type: "set_rule_color",
-  setRuleColor: payload,
+  setRuleColor: setRuleColorPayloadZ.parse(payload),
 });
 
-export const setRuleAxis = (payload: SetRuleAxisPayload): Action => ({
+export const setRuleAxis = (payload: z.input<typeof setRuleAxisPayloadZ>): Action => ({
   type: "set_rule_axis",
-  setRuleAxis: payload,
+  setRuleAxis: setRuleAxisPayloadZ.parse(payload),
 });
 
-export const setRuleLineWidth = (payload: SetRuleLineWidthPayload): Action => ({
+export const setRuleLineWidth = (
+  payload: z.input<typeof setRuleLineWidthPayloadZ>,
+): Action => ({
   type: "set_rule_line_width",
-  setRuleLineWidth: payload,
+  setRuleLineWidth: setRuleLineWidthPayloadZ.parse(payload),
 });
 
-export const setRuleLineDash = (payload: SetRuleLineDashPayload): Action => ({
+export const setRuleLineDash = (
+  payload: z.input<typeof setRuleLineDashPayloadZ>,
+): Action => ({
   type: "set_rule_line_dash",
-  setRuleLineDash: payload,
+  setRuleLineDash: setRuleLineDashPayloadZ.parse(payload),
 });
 
-export const setRuleUnits = (payload: SetRuleUnitsPayload): Action => ({
+export const setRuleUnits = (
+  payload: z.input<typeof setRuleUnitsPayloadZ>,
+): Action => ({
   type: "set_rule_units",
-  setRuleUnits: payload,
+  setRuleUnits: setRuleUnitsPayloadZ.parse(payload),
 });
 
-export const setRulePosition = (payload: SetRulePositionPayload): Action => ({
+export const setRulePosition = (
+  payload: z.input<typeof setRulePositionPayloadZ>,
+): Action => ({
   type: "set_rule_position",
-  setRulePosition: payload,
+  setRulePosition: setRulePositionPayloadZ.parse(payload),
 });
 
-export const removeRule = (payload: RemoveRulePayload): Action => ({
+export const removeRule = (payload: z.input<typeof removeRulePayloadZ>): Action => ({
   type: "remove_rule",
-  removeRule: payload,
+  removeRule: removeRulePayloadZ.parse(payload),
 });
 
 export type HandlerResult = actions.HandlerResult<Action>;
