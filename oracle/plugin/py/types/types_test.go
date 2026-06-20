@@ -1818,3 +1818,117 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 		ExpectContent(resp, "types_gen.py").ToContain("scales: Annotated[list[Scale], BeforeValidator(lists.none_to_empty)] = Field(default_factory=list)")
 	})
 })
+
+var _ = Describe("Collection type aliases and maps", func() {
+	It("Should render a top-level array alias as list[Elem]", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Node struct {
+				key string
+			}
+
+			Nodes Node[]
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain("Nodes: TypeAlias = list[Node]")
+	})
+
+	It("Should render a required map field as a null-coercing dict with a default", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Authorities struct {
+				channels map<uint32, uint8>
+			}
+		`
+		resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"channels: Annotated[dict[int, int], BeforeValidator(dicts.none_to_empty)] = Field(default_factory=dict)",
+		)
+	})
+
+	It("Should render a map<string, record> field as a null-coercing dict[str, dict[str, Any]]", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Graph struct {
+				configs map<string, record>
+			}
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"configs: Annotated[dict[str, dict[str, Any]], BeforeValidator(dicts.none_to_empty)] = Field(default_factory=dict)",
+		)
+	})
+
+	It("Should render a struct-valued map field as a null-coercing dict[str, Struct]", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Node struct {
+				key string
+			}
+
+			Graph struct {
+				nodes map<string, Node>
+			}
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"nodes: Annotated[dict[str, Node], BeforeValidator(dicts.none_to_empty)] = Field(default_factory=dict)",
+		)
+	})
+
+	It("Should make an optional map field nullable with a None default", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Authorities struct {
+				channels map<uint32, uint8>?
+			}
+		`
+		resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain("channels: dict[int, int] | None = None")
+	})
+
+	It("Should render an explicit array alias (= Elem[]) as list[Elem]", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Node struct {
+				key string
+			}
+
+			Nodes = Node[]
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		content := MustContentOf(resp, "types_gen.py")
+		Expect(content).To(ContainSubstring("Nodes: TypeAlias = list[Node]"))
+		Expect(content).NotTo(ContainSubstring("Nodes: TypeAlias = Any"))
+	})
+
+	It("Should render an explicit map alias (= map<K,V>) as dict[K, V]", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Authorities = map<uint32, uint8>
+		`
+		resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain("Authorities: TypeAlias = dict[int, int]")
+	})
+})
