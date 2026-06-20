@@ -129,8 +129,13 @@ domainOmit
 //       props record?
 //       @doc value "adds a node to the schematic"
 //   }
+// An action may extend one or more structs to pull their fields into its
+// payload, exactly as struct inheritance flattens parent fields:
+//   action Rename extends Named {
+//       @doc value "renames the resource"
+//   }
 actionDef
-    : ACTION IDENT nl* LBRACE nl* actionBody RBRACE
+    : ACTION IDENT (EXTENDS typeRefList)? nl* LBRACE nl* actionBody RBRACE
     ;
 
 // Action body contains payload fields and/or action-level domains
@@ -160,8 +165,7 @@ actionBody
 //   name -@validate          (remove an inherited domain)
 // A standalone optionality marker overrides only the optionality, inheriting
 // the type from the parent:
-//   key?                     (inherit the type, make it soft-optional)
-//   key??                    (inherit the type, make it hard-optional)
+//   key?                     (inherit the type, make it optional)
 fieldDef
     : IDENT (typeRef | typeModifiers)? (EQUALS fieldDefault)? (inlineDomain | domainOmit)* fieldBody?
     ;
@@ -258,10 +262,9 @@ typeArgs
     : LT typeRef (COMMA typeRef)* GT
     ;
 
-// Type modifiers: soft optional (?) or hard optional (??)
+// Type modifier: optional (?), nullable and round-tripping faithfully.
 typeModifiers
-    : QUESTION QUESTION   // ?? (hard optional - pointer in Go)
-    | QUESTION            // ? (soft optional - zero value in Go)
+    : QUESTION
     ;
 
 // Qualified identifier for type names

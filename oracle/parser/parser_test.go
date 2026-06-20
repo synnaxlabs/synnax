@@ -118,7 +118,7 @@ var _ = Describe("Parser", func() {
 			Expect(fields[2].IDENT().GetText()).To(Equal("description"))
 			tr2 := asTypeRefNormal(fields[2].TypeRef())
 			Expect(tr2.TypeModifiers()).NotTo(BeNil())
-			Expect(tr2.TypeModifiers().AllQUESTION()).To(HaveLen(1))
+			Expect(tr2.TypeModifiers().QUESTION()).NotTo(BeNil())
 		})
 
 		It("Should parse array type fields", func() {
@@ -139,7 +139,7 @@ var _ = Describe("Parser", func() {
 			tr1 := asTypeRefNormal(fields[1].TypeRef())
 			Expect(tr1.ArrayModifier()).NotTo(BeNil())
 			Expect(tr1.TypeModifiers()).NotTo(BeNil())
-			Expect(tr1.TypeModifiers().AllQUESTION()).To(HaveLen(1))
+			Expect(tr1.TypeModifiers().QUESTION()).NotTo(BeNil())
 		})
 
 		It("Should parse qualified type references", func() {
@@ -189,7 +189,60 @@ var _ = Describe("Parser", func() {
 			tr1, ok := fields[1].TypeRef().(*parser.TypeRefMapContext)
 			Expect(ok).To(BeTrue())
 			Expect(tr1.TypeModifiers()).NotTo(BeNil())
-			Expect(tr1.TypeModifiers().AllQUESTION()).To(HaveLen(1))
+			Expect(tr1.TypeModifiers().QUESTION()).NotTo(BeNil())
+		})
+	})
+
+	Describe("Action Definitions", func() {
+		It("Should parse an action with no extends clause", func() {
+			schema := MustSucceed(parser.Parse(`
+				Schematic struct {
+					key uuid
+
+					action Rename {
+						name string
+					}
+				}
+			`))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			actions := structDef.StructBody().AllActionDef()
+			Expect(actions).To(HaveLen(1))
+			Expect(actions[0].IDENT().GetText()).To(Equal("Rename"))
+			Expect(actions[0].EXTENDS()).To(BeNil())
+		})
+
+		It("Should parse an action that extends a single struct", func() {
+			schema := MustSucceed(parser.Parse(`
+				Schematic struct {
+					key uuid
+
+					action Rename extends Named {
+						extra string
+					}
+				}
+			`))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			action := structDef.StructBody().AllActionDef()[0]
+			Expect(action.EXTENDS()).NotTo(BeNil())
+			refs := action.TypeRefList().AllTypeRef()
+			Expect(refs).To(HaveLen(1))
+			Expect(asTypeRefNormal(refs[0]).QualifiedIdent().IDENT(0).GetText()).To(Equal("Named"))
+		})
+
+		It("Should parse an action that extends multiple structs", func() {
+			schema := MustSucceed(parser.Parse(`
+				Schematic struct {
+					key uuid
+
+					action Combine extends A, B {}
+				}
+			`))
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			action := structDef.StructBody().AllActionDef()[0]
+			refs := action.TypeRefList().AllTypeRef()
+			Expect(refs).To(HaveLen(2))
+			Expect(asTypeRefNormal(refs[0]).QualifiedIdent().IDENT(0).GetText()).To(Equal("A"))
+			Expect(asTypeRefNormal(refs[1]).QualifiedIdent().IDENT(0).GetText()).To(Equal("B"))
 		})
 	})
 

@@ -383,7 +383,7 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 // assigned by the server) is normally absent, so hashing by it is meaningless;
 // only a required key yields a __hash__.
 func hashableKey(field resolution.Field) bool {
-	return key.HasKey(field) && !field.IsOptional && !field.IsHardOptional
+	return key.HasKey(field) && !field.Optional
 }
 
 func processStruct(
@@ -491,9 +491,9 @@ func processStruct(
 			// type: ignore comments.
 			hasTypeConflict := false
 			for _, field := range form.Fields {
-				if field.IsOptional || field.IsHardOptional {
+				if field.Optional {
 					for _, pf := range parentFields {
-						if pf.Name == field.Name && !pf.IsOptional && !pf.IsHardOptional {
+						if pf.Name == field.Name && !pf.Optional {
 							hasTypeConflict = true
 							break
 						}
@@ -585,16 +585,13 @@ func processStruct(
 				for _, pf := range parentFields {
 					if pf.Name == omittedName {
 						data.imports.addPydantic("Field")
-						fd := fieldData{
-							Name:   pf.Name,
-							PyType: typeToPython(pf.Type, table, data),
-						}
-						if pf.IsOptional || pf.IsHardOptional {
-							fd.PyType = fd.PyType + " | None"
-							fd.Default = " = Field(default=None, exclude=True)"
-						} else {
-							fd.Default = " = Field(exclude=True)"
-						}
+						// Run the inherited field through the normal field
+						// pipeline so it keeps its real type, default, and
+						// validation; processField adds exclude=True because the
+						// name is in OmittedFields. A hand-built default here
+						// would drop the parent's default and make an excluded
+						// defaulted field wrongly required.
+						fd := processField(pf, table, data, keyFields, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
 						break
 					}
@@ -680,11 +677,10 @@ func processField(
 ) fieldData {
 	escapedName := keywords.Escape(field.Name)
 	fd := fieldData{
-		Name:           escapedName,
-		Doc:            doc.Get(field.Domains),
-		IsOptional:     field.IsOptional,
-		IsHardOptional: field.IsHardOptional,
-		IsArray:        field.Type.Name == "Array",
+		Name:       escapedName,
+		Doc:        doc.Get(field.Domains),
+		IsOptional: field.Optional,
+		IsArray:    field.Type.Name == "Array",
 	}
 	if escapedName != field.Name {
 		fd.Alias = field.Name
@@ -721,14 +717,49 @@ func processField(
 		fd.PyType = baseType
 	}
 
-	// Both soft optional (?) and hard optional (??) become T | None in Python
-	if field.IsOptional || field.IsHardOptional {
+	// Optional (?) fields become T | None in Python (no pointer distinction). A field
+	// typed as an optional type parameter (e.g. details Details, where Details?) is
+	// likewise optional: an unspecialized struct may omit it. A required collection
+	// instead coerces a null or absent value to its empty form, so it is always
+	// present and iterable.
+	isRecord := field.Type.Name == "record"
+	isOptionalTypeParam := field.Type.IsTypeParam() &&
+		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
+	if field.Optional || isOptionalTypeParam {
 		fd.PyType = fd.PyType + " | None"
+	} else if fd.IsArray {
+		fd.PyType = wrapNoneToEmpty(fd.PyType, "lists", data)
+		fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
+	} else if isRecord {
+		fd.PyType = wrapNoneToEmpty(fd.PyType, "dicts", data)
+		fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
 	}
 
-	fd.Default = buildDefault(field, fieldConstraints, fd.Alias, data)
+	fd.Default = buildDefault(field, fieldConstraints, fd.Alias, data, isOptionalTypeParam)
 
 	return fd
+}
+
+// wrapNoneToEmpty wraps pyType in an Annotated carrying a BeforeValidator that maps a
+// null value to the empty form of the given x submodule ("lists" -> [], "dicts" ->
+// {}). It registers the typing, pydantic, and x imports the annotation needs.
+func wrapNoneToEmpty(pyType, module string, data *templateData) string {
+	data.imports.addTyping("Annotated")
+	data.imports.addPydantic("BeforeValidator")
+	alias := data.imports.addModuleImport("x", module)
+	return fmt.Sprintf("Annotated[%s, BeforeValidator(%s.none_to_empty)]", pyType, alias)
+}
+
+// ensureDefaultFactory appends a default_factory constraint unless one is already
+// present, so a required collection with no declared default still defaults to empty
+// when the field is absent.
+func ensureDefaultFactory(constraints []string, factory string) []string {
+	for _, c := range constraints {
+		if strings.HasPrefix(c, "default_factory=") {
+			return constraints
+		}
+	}
+	return append(constraints, "default_factory="+factory)
 }
 
 func buildDefault(
@@ -736,8 +767,9 @@ func buildDefault(
 	constraints []string,
 	alias string,
 	data *templateData,
+	optionalTypeParam bool,
 ) string {
-	isAnyOptional := field.IsOptional || field.IsHardOptional
+	isAnyOptional := field.Optional || optionalTypeParam
 
 	// When field is optional, filter out any default= constraints from validation
 	// since we'll be using default=None for the optional field
@@ -762,6 +794,12 @@ func buildDefault(
 	}
 
 	if hasConstraints {
+		// A lone immutable scalar default needs no Field() wrapper: emit a bare
+		// default so `name: str = ""` reads more directly than Field(default="").
+		// Mutable defaults use default_factory (never default=), so this is safe.
+		if len(constraints) == 1 && strings.HasPrefix(constraints[0], "default=") {
+			return " = " + strings.TrimPrefix(constraints[0], "default=")
+		}
 		data.imports.addPydantic("Field")
 		return fmt.Sprintf(" = Field(%s)", strings.Join(constraints, ", "))
 	}
@@ -861,8 +899,18 @@ func collectValidation(
 				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
 			}
 		case resolution.ValueKindStruct:
-			// Models are mutable, so they must use default_factory, never default=.
-			constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+			// Records (dict[str, Any]) are mutable, so they use default_factory. An
+			// empty record defaults to dict; a populated one to a dict literal.
+			if typeRef.Name == "record" {
+				if len(defaultVal.Fields) == 0 {
+					constraints = append(constraints, "default_factory=dict")
+				} else {
+					constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+				}
+			} else {
+				// Models are mutable, so they must use default_factory, never default=.
+				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+			}
 		}
 	}
 	return constraints
@@ -897,9 +945,26 @@ func pyDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
 	case resolution.ValueKindStruct:
+		if typeRef.Name == "record" {
+			return pyRecordLiteral(val, table, data)
+		}
 		return pyStructLiteral(typeRef, val, table, data)
 	}
 	return ""
+}
+
+// pyRecordLiteral renders a record default as a Python dict literal. Record
+// values carry no declared field types, so each entry's value is rendered from
+// its own kind.
+func pyRecordLiteral(val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	if len(val.Fields) == 0 {
+		return "{}"
+	}
+	parts := make([]string, 0, len(val.Fields))
+	for _, fv := range val.Fields {
+		parts = append(parts, fmt.Sprintf("%q: %s", fv.Name, pyDefaultLiteral(resolution.TypeRef{}, fv.Value, table, data)))
+	}
+	return "{" + strings.Join(parts, ", ") + "}"
 }
 
 // pyStructLiteral renders a struct default as a Python model constructor call,
@@ -1449,14 +1514,13 @@ type structData struct {
 }
 
 type fieldData struct {
-	Name           string
-	Alias          string
-	Doc            string
-	PyType         string
-	Default        string
-	IsOptional     bool
-	IsHardOptional bool
-	IsArray        bool
+	Name       string
+	Alias      string
+	Doc        string
+	PyType     string
+	Default    string
+	IsOptional bool
+	IsArray    bool
 }
 
 type enumData struct {
