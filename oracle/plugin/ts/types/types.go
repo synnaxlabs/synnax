@@ -2208,7 +2208,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 			// Handle identifier-based defaults like "now" for timestamps
 			if defaultVal.IdentValue == "now" && (typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp")) {
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
+				zodType = fmt.Sprintf("%s.default(TimeStamp.now)", zodType)
 			}
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID
 			// via uuid.create(); string keys generate a short id via id.create().
@@ -2218,10 +2218,10 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 			if defaultVal.IdentValue == "create" {
 				if primitive == "uuid" {
 					addXImport(data, xImport{name: "uuid", submodule: "uuid"})
-					zodType = fmt.Sprintf("%s.default(() => uuid.create())", zodType)
+					zodType = fmt.Sprintf("%s.default(uuid.create)", zodType)
 				} else if isString || primitive == "string" {
 					addXImport(data, xImport{name: "id", submodule: "id"})
-					zodType = fmt.Sprintf("%s.default(() => id.create())", zodType)
+					zodType = fmt.Sprintf("%s.default(id.create)", zodType)
 				}
 			}
 			if ev, ok := validation.ResolveEnumVariant(defaultVal.IdentValue, typeRef, table); ok {
