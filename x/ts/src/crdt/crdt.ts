@@ -80,15 +80,22 @@ export class Text {
   snapshot(): { inserts: Insert[]; deletes: Delete[] } {
     const inserts: Insert[] = [];
     const deletes: Delete[] = [];
-    const walk = (e: Element, origin: ID): void => {
-      if (e !== this.root) {
-        inserts.push({ id: e.id, origin, side: e.side, char: e.char });
-        if (e.deleted) deletes.push({ id: e.id });
+    const stack: Array<{ node: Element; origin: ID; side: spatial.XLocation }> = [
+      { node: this.root, origin: ROOT_ID, side: "right" },
+    ];
+    while (stack.length > 0) {
+      const frame = stack.pop();
+      if (frame == null) break;
+      const { node, origin, side } = frame;
+      if (node !== this.root) {
+        inserts.push({ id: node.id, origin, side, char: node.char });
+        if (node.deleted) deletes.push({ id: node.id });
       }
-      for (const c of e.left) walk(c, e.id);
-      for (const c of e.right) walk(c, e.id);
-    };
-    walk(this.root, ROOT_ID);
+      for (let i = node.right.length - 1; i >= 0; i--)
+        stack.push({ node: node.right[i], origin: node.id, side: "right" });
+      for (let i = node.left.length - 1; i >= 0; i--)
+        stack.push({ node: node.left[i], origin: node.id, side: "left" });
+    }
     return { inserts, deletes };
   }
 

@@ -14,21 +14,32 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/crdt"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Collab", func() {
-	// dispatch generates the local edits as collaborative actions and dispatches them
-	// through the service, the way a client does.
+	// toActions turns a client's local insert operations into the collaborative-edit
+	// actions a client dispatches through the service.
 	toActions := func(inserts []crdt.Insert) []arc.Action {
 		out := make([]arc.Action, len(inserts))
 		for i, op := range inserts {
-			out[i] = arc.NewInsertCharAction(arc.InsertCharPayload{Op: op})
+			out[i] = arc.NewInsertCharAction(arc.InsertCharPayload{
+				ID:     op.ID,
+				Origin: op.Origin,
+				Side:   op.Side,
+				Char:   op.Char,
+			})
 		}
 		return out
 	}
 
-	It("Should integrate dispatched operations into the authoritative document", func(ctx SpecContext) {
+	materialized := func(ctx SpecContext, key arc.Key) string {
+		var got arc.Arc
+		Expect(svc.NewRetrieve().Where(arc.MatchKeys(key)).Entry(&got).Exec(ctx, nil)).
+			To(Succeed())
+		return got.Text.Materialize().Raw
+	}
+
+	It("Should materialize dispatched insertions into the arc's text", func(ctx SpecContext) {
 		a := &arc.Arc{Name: "collab-empty", Mode: arc.ModeText}
 		Expect(svc.NewWriter(nil).Create(ctx, a)).To(Succeed())
 
@@ -36,26 +47,24 @@ var _ = Describe("Collab", func() {
 		Expect(svc.NewWriter(nil).Dispatch(ctx, a.Key, "dk", toActions(client.Insert(0, "hello")))).
 			To(Succeed())
 
-		inserts, deletes := MustSucceed2(svc.Snapshot(ctx, a.Key))
-		fresh := crdt.New(3)
-		fresh.Load(inserts, deletes)
-		Expect(fresh.String()).To(Equal("hello"))
+		Expect(materialized(ctx, a.Key)).To(Equal("hello"))
 	})
 
-	It("Should bootstrap a joiner into the document and integrate its edits", func(ctx SpecContext) {
+	It("Should seed the document from raw on create and materialize a bootstrapped edit", func(ctx SpecContext) {
 		a := &arc.Arc{Name: "collab-seeded", Mode: arc.ModeText}
 		a.Text.Raw = "base"
 		Expect(svc.NewWriter(nil).Create(ctx, a)).To(Succeed())
 
-		clientA := crdt.New(2)
-		clientA.Load(MustSucceed2(svc.Snapshot(ctx, a.Key)))
-		Expect(clientA.String()).To(Equal("base"))
+		var seeded arc.Arc
+		Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&seeded).Exec(ctx, nil)).
+			To(Succeed())
+		client := crdt.New(2)
+		client.Load(seeded.Text.Doc.Inserts, seeded.Text.Doc.Deletes)
+		Expect(client.String()).To(Equal("base"))
 
-		Expect(svc.NewWriter(nil).Dispatch(ctx, a.Key, "dk", toActions(clientA.Insert(0, "X")))).
+		Expect(svc.NewWriter(nil).Dispatch(ctx, a.Key, "dk", toActions(client.Insert(0, "X")))).
 			To(Succeed())
 
-		clientB := crdt.New(3)
-		clientB.Load(MustSucceed2(svc.Snapshot(ctx, a.Key)))
-		Expect(clientB.String()).To(Equal("Xbase"))
+		Expect(materialized(ctx, a.Key)).To(Equal("Xbase"))
 	})
 })

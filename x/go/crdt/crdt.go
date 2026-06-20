@@ -87,22 +87,22 @@ func (t *Text) Replica() uint32 { return t.replica }
 // Deleted characters are included as both an insert and a delete so anchoring is
 // preserved.
 func (t *Text) Snapshot() (inserts []Insert, deletes []Delete) {
-	var walk func(e *element, origin ID)
-	walk = func(e *element, origin ID) {
+	var walk func(e *element, origin ID, side spatial.XLocation)
+	walk = func(e *element, origin ID, side spatial.XLocation) {
 		if e != t.root {
-			inserts = append(inserts, Insert{ID: e.id, Origin: origin, Side: e.side, Char: e.char})
+			inserts = append(inserts, Insert{ID: e.id, Origin: origin, Side: side, Char: e.char})
 			if e.deleted {
 				deletes = append(deletes, Delete{ID: e.id})
 			}
 		}
 		for _, c := range e.left {
-			walk(c, e.id)
+			walk(c, e.id, spatial.XLocationLeft)
 		}
 		for _, c := range e.right {
-			walk(c, e.id)
+			walk(c, e.id, spatial.XLocationRight)
 		}
 	}
-	walk(t.root, ID{})
+	walk(t.root, ID{}, spatial.XLocationRight)
 	return inserts, deletes
 }
 

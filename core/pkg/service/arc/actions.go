@@ -13,8 +13,21 @@ import (
 	"maps"
 
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
+
+// applyTextDoc integrates a CRDT operation into the arc's replicated text document and
+// returns the updated state. The document is the durable source of truth; Raw is derived
+// from it on read (see text.Text.Materialize), so it is not recomputed here.
+func applyTextDoc(state Arc, apply func(*crdt.Text)) Arc {
+	doc := crdt.New(text.SeedReplica)
+	doc.Load(state.Text.Doc.Inserts, state.Text.Doc.Deletes)
+	apply(doc)
+	state.Text.Doc.Inserts, state.Text.Doc.Deletes = doc.Snapshot()
+	return state
+}
 
 // Handle replaces the Arc module's name.
 func (p RenamePayload) Handle(state Arc) (Arc, error) {
@@ -92,11 +105,12 @@ func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle is the materialization seam for a character insertion. Collaborative edits are
-// relayed between clients without the server materializing them into the module's text,
-// so it returns the state unchanged; durable materialization into Arc.Text is a
-// follow-on concern (see SY-4393).
-func (p InsertCharPayload) Handle(state Arc) (Arc, error) { return state, nil }
+// Handle integrates the character insertion into the arc's replicated text document.
+func (p InsertCharPayload) Handle(state Arc) (Arc, error) {
+	return applyTextDoc(state, func(doc *crdt.Text) {
+		doc.ApplyInsert(crdt.Insert{ID: p.ID, Origin: p.Origin, Side: p.Side, Char: p.Char})
+	}), nil
+}
 
 // Handle appends the edge to the graph. No-op when an edge with the same source
 // and target handles already exists.
@@ -124,5 +138,9 @@ func (p RemoveEdgePayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle is the materialization seam for a character deletion. See InsertCharPayload.Handle.
-func (p DeleteCharPayload) Handle(state Arc) (Arc, error) { return state, nil }
+// Handle integrates the character deletion into the arc's replicated text document.
+func (p DeleteCharPayload) Handle(state Arc) (Arc, error) {
+	return applyTextDoc(state, func(doc *crdt.Text) {
+		doc.ApplyDelete(crdt.Delete{ID: p.ID})
+	}), nil
+}

@@ -273,7 +273,7 @@ export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
     configs: {},
     functions: [],
   },
-  text: { raw: "" },
+  text: { raw: "", doc: { inserts: [], deletes: [] } },
 };
 
 export const useForm = Flux.createForm<

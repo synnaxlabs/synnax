@@ -38,7 +38,7 @@ const empty = (graph: Partial<arc.graph.Graph> = {}, name = ""): arc.Arc => ({
   key: "arc-key",
   name,
   mode: "graph",
-  text: { raw: "" },
+  text: { raw: "", doc: { inserts: [], deletes: [] } },
   graph: {
     functions: [],
     edges: [],

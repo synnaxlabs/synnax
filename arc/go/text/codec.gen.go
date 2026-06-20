@@ -12,17 +12,82 @@
 package text
 
 import (
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+func (d Document) EncodeOrc(w *orc.Writer) error {
+	w.Bool(d.Inserts != nil)
+	if d.Inserts != nil {
+		w.Uint32(uint32(len(d.Inserts)))
+		for i := range d.Inserts {
+			if err := d.Inserts[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(d.Deletes != nil)
+	if d.Deletes != nil {
+		w.Uint32(uint32(len(d.Deletes)))
+		for i := range d.Deletes {
+			if err := d.Deletes[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (d *Document) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			d.Inserts = make([]crdt.Insert, n)
+			for i := range d.Inserts {
+				if err = d.Inserts[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			d.Deletes = make([]crdt.Delete, n)
+			for i := range d.Deletes {
+				if err = d.Deletes[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (t Text) EncodeOrc(w *orc.Writer) error {
-	w.String(t.Raw)
+	if err := t.Doc.EncodeOrc(w); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (t *Text) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if t.Raw, err = r.String(); err != nil {
+	if err = t.Doc.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil

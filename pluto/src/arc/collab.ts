@@ -28,6 +28,29 @@ export interface Diff {
   insert: string;
 }
 
+/** TextChange is the subset of an editor content change the binding consumes: a UTF-16
+ * offset and length into the previous value, plus the inserted text. It matches Monaco's
+ * IModelContentChange. */
+export interface TextChange {
+  rangeOffset: number;
+  rangeLength: number;
+  text: string;
+}
+
+/** changesToDiffs converts editor content changes (UTF-16 offsets into prev) into
+ * code-point Diffs, ordered highest-offset-first so that applying each change in turn
+ * does not shift the offsets of the changes not yet applied. prev must be the document
+ * value the offsets are relative to (the value before the change batch). */
+export const changesToDiffs = (prev: string, changes: TextChange[]): Diff[] =>
+  [...changes]
+    .sort((a, b) => b.rangeOffset - a.rangeOffset)
+    .map((c) => ({
+      index: codePoints(prev.slice(0, c.rangeOffset)).length,
+      deleteCount: codePoints(prev.slice(c.rangeOffset, c.rangeOffset + c.rangeLength))
+        .length,
+      insert: c.text,
+    }));
+
 /** diff computes the single contiguous change that turns oldStr into newStr, measured in
  * code points: the longest common prefix and suffix are stripped and what remains in the
  * middle is the deletion (from oldStr) and insertion (from newStr). */
@@ -52,8 +75,8 @@ export const diff = (oldStr: string, newStr: string): Diff => {
 };
 
 const toActions = (inserts: crdt.Insert[], deletes: crdt.Delete[]): arc.Action[] => [
-  ...deletes.map((op) => arc.deleteChar({ op })),
-  ...inserts.map((op) => arc.insertChar({ op })),
+  ...deletes.map((op) => arc.deleteChar(op)),
+  ...inserts.map((op) => arc.insertChar(op)),
 ];
 
 /** CollabText binds a replicated text document to a plain-string editing surface. It
@@ -84,21 +107,33 @@ export class CollabText {
     return this.doc.toString();
   }
 
-  /** edit reconciles the document to next and returns the operations that describe the
-   * change, to be broadcast to the other editors. It returns an empty array when next is
-   * already the current value. */
-  edit(next: string): arc.Action[] {
-    const { index, deleteCount, insert } = diff(this.value(), next);
-    if (deleteCount === 0 && insert.length === 0) return [];
-    const deletes = deleteCount > 0 ? this.doc.delete(index, deleteCount) : [];
-    const inserts = insert.length > 0 ? this.doc.insert(index, insert) : [];
+  /** applyChanges applies a batch of code-point changes to the document and returns the
+   * operations to broadcast. The changes must be ordered highest-index-first (as
+   * changesToDiffs produces) so each applies against indices the others have not shifted.
+   * Returns an empty array when the batch is a no-op. */
+  applyChanges(changes: Diff[]): arc.Action[] {
+    const inserts: crdt.Insert[] = [];
+    const deletes: crdt.Delete[] = [];
+    for (const { index, deleteCount, insert } of changes) {
+      if (deleteCount > 0) deletes.push(...this.doc.delete(index, deleteCount));
+      if (insert.length > 0) inserts.push(...this.doc.insert(index, insert));
+    }
     return toActions(inserts, deletes);
+  }
+
+  /** edit reconciles the document to next via a single whole-value diff and returns the
+   * operations that describe the change. Prefer applyChanges with precise editor changes;
+   * this is a convenience for callers that only have the new value. */
+  edit(next: string): arc.Action[] {
+    const d = diff(this.value(), next);
+    if (d.deleteCount === 0 && d.insert.length === 0) return [];
+    return this.applyChanges([d]);
   }
 
   /** applyRemote integrates operations produced by other editors. */
   applyRemote(actions: arc.Action[]): void {
     for (const a of actions)
-      if (a.type === "insert_char") this.doc.applyInsert(a.insertChar.op);
-      else if (a.type === "delete_char") this.doc.applyDelete(a.deleteChar.op);
+      if (a.type === "insert_char") this.doc.applyInsert(a.insertChar);
+      else if (a.type === "delete_char") this.doc.applyDelete(a.deleteChar);
   }
 }

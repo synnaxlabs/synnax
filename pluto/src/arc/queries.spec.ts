@@ -694,7 +694,7 @@ describe("Arc queries", () => {
         configs: {},
         functions: [],
       });
-      expect(formData.text).toEqual({ raw: "" });
+      expect(formData.text).toEqual({ raw: "", doc: { inserts: [], deletes: [] } });
     });
 
     it("should create a new arc on save", async () => {

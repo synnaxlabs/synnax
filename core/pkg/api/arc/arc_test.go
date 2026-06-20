@@ -31,7 +31,7 @@ type scopedAction = actions.Scoped[arc.Key, arc.Action]
 // commit immediately (nil tx) so access-control reads can observe the new
 // ontology resource.
 func createArc(ctx context.Context, name string) arc.Arc {
-	a := arc.Arc{Name: name}
+	a := arc.Arc{Name: name, Mode: arc.ModeGraph}
 	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 	return a
 }

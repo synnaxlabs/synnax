@@ -13,11 +13,42 @@ package text
 
 import (
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
+
+// Document is the conflict-free replicated representation of the text: the operations
+// that reconstruct it when applied to an empty replica. It is the durable source of
+// truth from which raw is materialized.
+type Document struct {
+	// Inserts are the operations that reconstruct the document's characters.
+	Inserts []crdt.Insert `json:"inserts" msgpack:"inserts"`
+	// Deletes are the operations that tombstone deleted characters.
+	Deletes []crdt.Delete `json:"deletes" msgpack:"deletes"`
+}
+
+func (d Document) Validate() error {
+	v := validate.New("Document")
+	for i := range d.Inserts {
+		v.Exec(func() error { return validate.PathedError(d.Inserts[i].Validate(), "inserts", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // Text is text-based Arc source code with optional parsed AST for compilation.
 type Text struct {
-	// Raw is the raw Arc source code in text form.
+	// Doc is the replicated source of truth for the text. It defaults to empty on create,
+	// in which case the server seeds it from raw.
+	Doc Document `json:"doc" msgpack:"doc"`
+	// Raw is the materialized Arc source code, derived from doc. It is sent to clients and
+	// used for compilation, but is not persisted: doc is the stored source of truth.
 	Raw string                 `json:"raw" msgpack:"raw"`
 	AST parser.IProgramContext `json:"-"`
+}
+
+func (t Text) Validate() error {
+	v := validate.New("Text")
+	v.Exec(func() error { return validate.PathedError(t.Doc.Validate(), "doc") })
+	return v.Error()
 }

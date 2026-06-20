@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -47,6 +48,9 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		if err != nil {
 			return err
 		}
+	}
+	if len(a.Text.Doc.Inserts) == 0 && a.Text.Raw != "" {
+		a.Text.Doc = text.Seed(a.Text.Raw)
 	}
 	if err = a.Validate(); err != nil {
 		return err

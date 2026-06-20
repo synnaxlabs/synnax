@@ -10,7 +10,7 @@
 import { crdt } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { CollabText, diff } from "@/arc/collab";
+import { changesToDiffs, CollabText, diff } from "@/arc/collab";
 
 const snapshotOf = (
   text: string,
@@ -87,6 +87,66 @@ describe("collab", () => {
       const b = CollabText.bootstrap(snap);
       b.applyRemote(a.edit("hello there"));
       expect(b.value()).toEqual("hello there");
+    });
+
+    it("should apply a precise replacement change", () => {
+      const a = CollabText.bootstrap(snapshotOf("abc"));
+      a.applyChanges([{ index: 1, deleteCount: 1, insert: "x" }]);
+      expect(a.value()).toEqual("axc");
+    });
+
+    it("should converge a multi-region change without interleaving the regions", () => {
+      const snap = snapshotOf("a_a");
+      const a = CollabText.bootstrap(snap);
+      const b = CollabText.bootstrap(snap);
+      // Two regions edited at once (e.g. find-replace-all): a@0 -> b, a@2 -> b.
+      const diffs = changesToDiffs("a_a", [
+        { rangeOffset: 0, rangeLength: 1, text: "b" },
+        { rangeOffset: 2, rangeLength: 1, text: "b" },
+      ]);
+      b.applyRemote(a.applyChanges(diffs));
+      expect(a.value()).toEqual("b_b");
+      expect(b.value()).toEqual(a.value());
+    });
+  });
+
+  describe("changesToDiffs", () => {
+    it("should convert a single insertion", () => {
+      expect(
+        changesToDiffs("ac", [{ rangeOffset: 1, rangeLength: 0, text: "b" }]),
+      ).toEqual([{ index: 1, deleteCount: 0, insert: "b" }]);
+    });
+
+    it("should convert a deletion", () => {
+      expect(
+        changesToDiffs("abc", [{ rangeOffset: 1, rangeLength: 1, text: "" }]),
+      ).toEqual([{ index: 1, deleteCount: 1, insert: "" }]);
+    });
+
+    it("should order multiple changes highest-offset-first", () => {
+      expect(
+        changesToDiffs("a_a", [
+          { rangeOffset: 0, rangeLength: 1, text: "b" },
+          { rangeOffset: 2, rangeLength: 1, text: "b" },
+        ]),
+      ).toEqual([
+        { index: 2, deleteCount: 1, insert: "b" },
+        { index: 0, deleteCount: 1, insert: "b" },
+      ]);
+    });
+
+    it("should convert UTF-16 offsets after a surrogate pair to code points", () => {
+      // "😀" is two UTF-16 code units but one code point: an insert at UTF-16 offset 2
+      // lands at code-point index 1.
+      expect(
+        changesToDiffs("😀ab", [{ rangeOffset: 2, rangeLength: 0, text: "x" }]),
+      ).toEqual([{ index: 1, deleteCount: 0, insert: "x" }]);
+    });
+
+    it("should count a deleted surrogate pair as one code point", () => {
+      expect(
+        changesToDiffs("a😀b", [{ rangeOffset: 1, rangeLength: 2, text: "" }]),
+      ).toEqual([{ index: 1, deleteCount: 1, insert: "" }]);
     });
   });
 });

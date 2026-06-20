@@ -42,17 +42,38 @@ const applyRemote = (model: Monaco.editor.ITextModel, next: string): void => {
   ]);
 };
 
-// remoteExtension wires remote document edits into the Monaco model. Local edits flow
-// out through the editor's onChange; applying a remote edit re-fires onChange but the
-// session recognizes it as a no-op (its value already matches), so there is no echo.
-const remoteExtension =
+// noOp satisfies the base editor's required onChange. The collaborative binding drives
+// the model through collabExtension instead of the whole-value onChange path.
+const noOp = (): void => {};
+
+// collabExtension binds the Monaco model to the collaborative session in both directions:
+// local content changes are translated to precise CRDT operations and dispatched, and
+// remote edits are applied to the model. applyingRemote guards the local handler so the
+// edits applyRemote makes are not re-dispatched as local changes.
+const collabExtension =
   (session: PlutoArc.CollabSession): EditorExtension =>
   (editor) => {
+    let applyingRemote = false;
+    const content = editor.onDidChangeModelContent((e) => {
+      if (applyingRemote) return;
+      session.applyChanges(PlutoArc.changesToDiffs(session.value(), e.changes));
+    });
     const unsubscribe = session.subscribe((value) => {
       const model = editor.getModel();
-      if (model != null) applyRemote(model, value);
+      if (model == null) return;
+      applyingRemote = true;
+      try {
+        applyRemote(model, value);
+      } finally {
+        applyingRemote = false;
+      }
     });
-    return { dispose: unsubscribe };
+    return {
+      dispose: () => {
+        content.dispose();
+        unsubscribe();
+      },
+    };
   };
 
 export const Editor: Layout.Renderer = ({ layoutKey }) => {
@@ -82,7 +103,7 @@ export const Editor: Layout.Renderer = ({ layoutKey }) => {
     };
   }, [client, layoutKey]);
   const extensions = useMemo(
-    () => (session == null ? EXTENSIONS : [...EXTENSIONS, remoteExtension(session)]),
+    () => (session == null ? EXTENSIONS : [...EXTENSIONS, collabExtension(session)]),
     [session],
   );
   if (session == null) return null;
@@ -90,7 +111,7 @@ export const Editor: Layout.Renderer = ({ layoutKey }) => {
     <>
       <BaseEditor
         value={session.value()}
-        onChange={(value) => session.edit(value)}
+        onChange={noOp}
         language="arc"
         scrollBeyondLastLine
         extensions={extensions}

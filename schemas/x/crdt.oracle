@@ -9,8 +9,10 @@
 
 import "schemas/x/spatial"
 
-@ts output "x/ts/src/crdt"
-@go output "x/go/crdt"
+@ts output  "x/ts/src/crdt"
+@cpp output "x/cpp/crdt"
+@go output  "x/go/crdt"
+@pb
 
 ID struct {
     replica uint32 {

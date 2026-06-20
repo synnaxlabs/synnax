@@ -10,7 +10,7 @@
 import { arc, type framer, type Synnax } from "@synnaxlabs/client";
 import { type destructor, id } from "@synnaxlabs/x";
 
-import { CollabText } from "@/arc/collab";
+import { CollabText, type Diff } from "@/arc/collab";
 
 /** CollabSession ties the CRDT document for an arc to the cluster transport. It
  * bootstraps the document from the server snapshot, streams remote operations off the
@@ -23,6 +23,9 @@ export class CollabSession {
   private readonly text: CollabText;
   private readonly streamer: framer.Streamer;
   private readonly listeners = new Set<(value: string) => void>();
+  // outstanding holds the dispatch keys of local edits awaiting their broadcast echo, so
+  // the echo is recognized as already-applied and skipped rather than re-integrated.
+  private readonly outstanding = new Set<string>();
   private closed = false;
 
   private constructor(
@@ -39,8 +42,8 @@ export class CollabSession {
 
   /** open bootstraps the document from the server and begins streaming remote edits. */
   static async open(client: Synnax, key: arc.Key): Promise<CollabSession> {
-    const snapshot = await client.arcs.retrieveDoc(key);
-    const text = CollabText.bootstrap(snapshot);
+    const retrieved = await client.arcs.retrieve({ key });
+    const text = CollabText.bootstrap(retrieved.text.doc);
     const streamer = await client.openStreamer({ channels: [arc.SET_CHANNEL_NAME] });
     const session = new CollabSession(client, key, text, streamer);
     void session.listen();
@@ -59,13 +62,16 @@ export class CollabSession {
     return () => this.listeners.delete(cb);
   }
 
-  /** edit reconciles the document to next and broadcasts the resulting operations. Local
-   * edits are applied immediately and optimistically; the server echo is an idempotent
-   * no-op. */
-  edit(next: string): void {
-    const actions = this.text.edit(next);
+  /** applyChanges applies a batch of local editor changes to the document and broadcasts
+   * the resulting operations. The edits are applied immediately and optimistically; the
+   * server echo is recognized by its dispatch key and skipped. */
+  applyChanges(changes: Diff[]): void {
+    const actions = this.text.applyChanges(changes);
     if (actions.length === 0) return;
-    this.client.arcs.dispatch(this.key, id.create(), actions).catch((err: unknown) => {
+    const dispatchKey = id.create();
+    this.outstanding.add(dispatchKey);
+    this.client.arcs.dispatch(this.key, dispatchKey, actions).catch((err: unknown) => {
+      this.outstanding.delete(dispatchKey);
       console.error("failed to dispatch arc edit", err);
     });
   }
@@ -79,6 +85,8 @@ export class CollabSession {
         let changed = false;
         for (const scoped of series.parseJSON(arc.scopedActionZ)) {
           if (scoped.key !== this.key) continue;
+          // Skip the echo of a local edit: it is already applied to the document.
+          if (this.outstanding.delete(scoped.dispatchKey)) continue;
           this.text.applyRemote(scoped.actions);
           changed = true;
         }

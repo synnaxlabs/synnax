@@ -13,10 +13,26 @@ syntax = "proto3";
 
 package arc.text.pb;
 
+import "x/go/crdt/pb/crdt.proto";
+
 option go_package = "github.com/synnaxlabs/arc/text/pb";
+
+// Document is the conflict-free replicated representation of the text: the operations
+// that reconstruct it when applied to an empty replica. It is the durable source of
+// truth from which raw is materialized.
+message Document {
+  // inserts are the operations that reconstruct the document's characters.
+  repeated .x.crdt.pb.Insert inserts = 1;
+  // deletes are the operations that tombstone deleted characters.
+  repeated .x.crdt.pb.Delete deletes = 2;
+}
 
 // Text is text-based Arc source code with optional parsed AST for compilation.
 message Text {
-  // raw is the raw Arc source code in text form.
-  string raw = 1;
+  // doc is the replicated source of truth for the text. It defaults to empty on create,
+  // in which case the server seeds it from raw.
+  Document doc = 1;
+  // raw is the materialized Arc source code, derived from doc. It is sent to clients and
+  // used for compilation, but is not persisted: doc is the stored source of truth.
+  string raw = 2;
 }

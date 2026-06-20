@@ -14,7 +14,6 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/json/struct.h"
 #include "x/cpp/pb/pb.h"
 #include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/spatial/proto.gen.h"
@@ -67,11 +66,8 @@ inline std::pair<::arc::graph::pb::Graph, x::errors::Error> Graph::to_proto() co
         if (err) return {{}, err};
         *pb.add_nodes() = v;
     }
-    for (const auto &[k, v]: this->configs) {
-        auto [pb_v, err] = x::json::to_struct(v);
-        if (err) return {{}, err};
-        (*pb.mutable_configs())[k] = pb_v;
-    }
+    for (const auto &[k, v]: this->configs)
+        (*pb.mutable_configs())[k] = v;
     return {pb, x::errors::NIL};
 }
 
@@ -87,11 +83,8 @@ Graph::from_proto(const ::arc::graph::pb::Graph &pb) {
         return {{}, err};
     if (auto err = x::pb::from_proto_repeated<Node>(cpp.nodes, pb.nodes()))
         return {{}, err};
-    for (const auto &[k, v]: pb.configs()) {
-        auto [cpp_v, err] = x::json::from_struct(v);
-        if (err) return {{}, err};
-        cpp.configs[k] = cpp_v;
-    }
+    for (const auto &[k, v]: pb.configs())
+        cpp.configs[k] = v;
     return {cpp, x::errors::NIL};
 }
 

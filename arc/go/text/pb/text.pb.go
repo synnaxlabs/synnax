@@ -18,6 +18,7 @@
 package pb
 
 import (
+	pb "github.com/synnaxlabs/x/crdt/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -32,18 +33,79 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Document is the conflict-free replicated representation of the text: the operations
+// that reconstruct it when applied to an empty replica. It is the durable source of
+// truth from which raw is materialized.
+type Document struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// inserts are the operations that reconstruct the document's characters.
+	Inserts []*pb.Insert `protobuf:"bytes,1,rep,name=inserts,proto3" json:"inserts,omitempty"`
+	// deletes are the operations that tombstone deleted characters.
+	Deletes       []*pb.Delete `protobuf:"bytes,2,rep,name=deletes,proto3" json:"deletes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Document) Reset() {
+	*x = Document{}
+	mi := &file_arc_go_text_pb_text_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Document) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Document) ProtoMessage() {}
+
+func (x *Document) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_text_pb_text_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Document.ProtoReflect.Descriptor instead.
+func (*Document) Descriptor() ([]byte, []int) {
+	return file_arc_go_text_pb_text_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Document) GetInserts() []*pb.Insert {
+	if x != nil {
+		return x.Inserts
+	}
+	return nil
+}
+
+func (x *Document) GetDeletes() []*pb.Delete {
+	if x != nil {
+		return x.Deletes
+	}
+	return nil
+}
+
 // Text is text-based Arc source code with optional parsed AST for compilation.
 type Text struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// raw is the raw Arc source code in text form.
-	Raw           string `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
+	// doc is the replicated source of truth for the text. It defaults to empty on create,
+	// in which case the server seeds it from raw.
+	Doc *Document `protobuf:"bytes,1,opt,name=doc,proto3" json:"doc,omitempty"`
+	// raw is the materialized Arc source code, derived from doc. It is sent to clients and
+	// used for compilation, but is not persisted: doc is the stored source of truth.
+	Raw           string `protobuf:"bytes,2,opt,name=raw,proto3" json:"raw,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Text) Reset() {
 	*x = Text{}
-	mi := &file_arc_go_text_pb_text_proto_msgTypes[0]
+	mi := &file_arc_go_text_pb_text_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -55,7 +117,7 @@ func (x *Text) String() string {
 func (*Text) ProtoMessage() {}
 
 func (x *Text) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_text_pb_text_proto_msgTypes[0]
+	mi := &file_arc_go_text_pb_text_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -68,7 +130,14 @@ func (x *Text) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Text.ProtoReflect.Descriptor instead.
 func (*Text) Descriptor() ([]byte, []int) {
-	return file_arc_go_text_pb_text_proto_rawDescGZIP(), []int{0}
+	return file_arc_go_text_pb_text_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Text) GetDoc() *Document {
+	if x != nil {
+		return x.Doc
+	}
+	return nil
 }
 
 func (x *Text) GetRaw() string {
@@ -82,9 +151,13 @@ var File_arc_go_text_pb_text_proto protoreflect.FileDescriptor
 
 const file_arc_go_text_pb_text_proto_rawDesc = "" +
 	"\n" +
-	"\x19arc/go/text/pb/text.proto\x12\varc.text.pb\"\x18\n" +
-	"\x04Text\x12\x10\n" +
-	"\x03raw\x18\x01 \x01(\tR\x03rawB\x8d\x01\n" +
+	"\x19arc/go/text/pb/text.proto\x12\varc.text.pb\x1a\x17x/go/crdt/pb/crdt.proto\"d\n" +
+	"\bDocument\x12+\n" +
+	"\ainserts\x18\x01 \x03(\v2\x11.x.crdt.pb.InsertR\ainserts\x12+\n" +
+	"\adeletes\x18\x02 \x03(\v2\x11.x.crdt.pb.DeleteR\adeletes\"A\n" +
+	"\x04Text\x12'\n" +
+	"\x03doc\x18\x01 \x01(\v2\x15.arc.text.pb.DocumentR\x03doc\x12\x10\n" +
+	"\x03raw\x18\x02 \x01(\tR\x03rawB\x8d\x01\n" +
 	"\x0fcom.arc.text.pbB\tTextProtoP\x01Z!github.com/synnaxlabs/arc/text/pb\xa2\x02\x03ATP\xaa\x02\vArc.Text.Pb\xca\x02\vArc\\Text\\Pb\xe2\x02\x17Arc\\Text\\Pb\\GPBMetadata\xea\x02\rArc::Text::Pbb\x06proto3"
 
 var (
@@ -99,16 +172,22 @@ func file_arc_go_text_pb_text_proto_rawDescGZIP() []byte {
 	return file_arc_go_text_pb_text_proto_rawDescData
 }
 
-var file_arc_go_text_pb_text_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_arc_go_text_pb_text_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_arc_go_text_pb_text_proto_goTypes = []any{
-	(*Text)(nil), // 0: arc.text.pb.Text
+	(*Document)(nil),  // 0: arc.text.pb.Document
+	(*Text)(nil),      // 1: arc.text.pb.Text
+	(*pb.Insert)(nil), // 2: x.crdt.pb.Insert
+	(*pb.Delete)(nil), // 3: x.crdt.pb.Delete
 }
 var file_arc_go_text_pb_text_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	2, // 0: arc.text.pb.Document.inserts:type_name -> x.crdt.pb.Insert
+	3, // 1: arc.text.pb.Document.deletes:type_name -> x.crdt.pb.Delete
+	0, // 2: arc.text.pb.Text.doc:type_name -> arc.text.pb.Document
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_text_pb_text_proto_init() }
@@ -122,7 +201,7 @@ func file_arc_go_text_pb_text_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_text_pb_text_proto_rawDesc), len(file_arc_go_text_pb_text_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
