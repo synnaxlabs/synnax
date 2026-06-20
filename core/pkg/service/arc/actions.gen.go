@@ -12,7 +12,6 @@
 package arc
 
 import (
-	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/union"
 )
 
@@ -25,14 +24,12 @@ const (
 // module's text. The payload is a sequence CRDT operation; the server relays it to the
 // other editors of the module without interpreting it.
 type InsertCharPayload struct {
-	Op crdt.Insert `json:"op" msgpack:"op"`
 }
 
 // DeleteCharPayload carries a single collaborative-edit character deletion against the
 // module's text. The payload is a sequence CRDT operation; the server relays it to the
 // other editors of the module without interpreting it.
 type DeleteCharPayload struct {
-	Op crdt.Delete `json:"op" msgpack:"op"`
 }
 
 // Action is a discriminated union for all Arc mutations. Type names
