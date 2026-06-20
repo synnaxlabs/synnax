@@ -67,8 +67,8 @@ const Content = () => {
           message: "Failed to open Arc editor",
           description: `Arc with key ${key} not found`,
         });
-      const { name, text, mode } = retrieved;
-      placeLayout(Editor.create({ key, name, text, mode }));
+      const { name, mode } = retrieved;
+      placeLayout(Editor.create({ key, name, mode }));
     },
     [getItem, addStatus, placeLayout],
   );

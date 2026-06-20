@@ -9,7 +9,7 @@
 
 import "@/arc/editor/Controls.css";
 
-import { type rack, task } from "@synnaxlabs/client";
+import { type arc, type rack, task } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
@@ -44,12 +44,14 @@ export const Controls = ({ state }: ControlsProps) => {
     update({
       name,
       key: state.key,
-      text: state.text,
+      // Text and graph documents are server-synced via the flux store; deploy the
+      // remote copy rather than any console-local state.
+      text: remote?.text ?? ZERO_TEXT,
       graph: remote?.graph ?? ZERO_GRAPH,
-      mode: state.mode,
+      mode: remote?.mode ?? "graph",
       rack: selectedRack,
     });
-  }, [state, update, name, selectedRack, remote]);
+  }, [state.key, update, name, selectedRack, remote]);
 
   const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
   const handleContract = useCallback(() => setExpanded(false), []);
@@ -90,3 +92,5 @@ export const Controls = ({ state }: ControlsProps) => {
 };
 
 const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "arc" };
+
+const ZERO_TEXT: arc.text.Text = { raw: "", doc: { inserts: [], deletes: [] } };

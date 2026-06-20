@@ -12,7 +12,7 @@ import { type Link } from "@/link";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
   const retrieved = await client.arcs.retrieve({ key });
-  const { name, text, mode } = retrieved;
+  const { name, mode } = retrieved;
   placeLayout(
     Arc.Editor.create({
       name,
@@ -20,7 +20,6 @@ export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => 
       key,
       type: "arc",
       remoteCreated: true,
-      text,
       mode,
     }),
   );

@@ -38,18 +38,17 @@ export const graphStateZ = z.object({
 });
 export interface GraphState extends z.infer<typeof graphStateZ> {}
 
-// pendingUploadZ is a graph document parked by the migration from v2, awaiting upload to
-// the server. It carries the legacy redux-only graph so an import can recreate it; it is
-// never read for rendering.
-export const pendingUploadZ = arc.graph.graphZ;
-export type PendingUpload = arc.graph.Graph;
+export const pendingUploadZ = z.object({
+  graph: arc.graph.graphZ,
+  text: arc.text.textZ,
+});
+export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
 export const stateZ = z.object({
   key: z.string(),
   version: z.literal(VERSION),
   remoteCreated: z.boolean(),
   graph: graphStateZ,
-  text: arc.text.textZ.default({ raw: "", doc: { inserts: [], deletes: [] } }),
   mode: arc.modeZ.default("graph"),
   pendingUpload: pendingUploadZ.optional(),
 });
@@ -80,7 +79,6 @@ export const ZERO_STATE: State = {
   version: VERSION,
   graph: ZERO_GRAPH_STATE,
   remoteCreated: false,
-  text: { raw: "", doc: { inserts: [], deletes: [] } },
   mode: "graph",
   pendingUpload: undefined,
 };
@@ -92,10 +90,10 @@ export const ZERO_SLICE_STATE: SliceState = {
   arcs: {},
 };
 
-// buildPendingUpload converts a legacy v2 redux graph into a flux graph document,
+// buildPendingGraph converts a legacy v2 redux graph into a flux graph document,
 // lifting each node's inline props (with the function type under "key") into the configs
 // map (under "type"), keyed by node key.
-const buildPendingUpload = (state: v2.State): PendingUpload => ({
+const buildPendingGraph = (state: v2.State): arc.graph.Graph => ({
   nodes: state.graph.nodes.map((n) => ({ key: n.key, position: n.position })),
   edges: state.graph.edges.map((e) => ({
     source: e.source,
@@ -123,9 +121,10 @@ export const stateMigration = migrate.createMigration<v2.State, State>({
       viewport: state.graph.viewport,
       selected: state.graph.selected,
     },
-    text: state.text,
     mode: state.mode,
-    pendingUpload: state.remoteCreated ? undefined : buildPendingUpload(state),
+    pendingUpload: state.remoteCreated
+      ? undefined
+      : { graph: buildPendingGraph(state), text: state.text },
   }),
 });
 

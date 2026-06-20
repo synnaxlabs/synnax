@@ -13,21 +13,9 @@ import (
 	"maps"
 
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
-
-// applyTextDoc integrates a CRDT operation into the arc's replicated text document and
-// returns the updated state. The document is the durable source of truth; Raw is derived
-// from it on read (see text.Text.Materialize), so it is not recomputed here.
-func applyTextDoc(state Arc, apply func(*crdt.Text)) Arc {
-	doc := crdt.New(text.SeedReplica)
-	doc.Load(state.Text.Doc.Inserts, state.Text.Doc.Deletes)
-	apply(doc)
-	state.Text.Doc.Inserts, state.Text.Doc.Deletes = doc.Snapshot()
-	return state
-}
 
 // Handle replaces the Arc module's name.
 func (p RenamePayload) Handle(state Arc) (Arc, error) {
@@ -105,11 +93,15 @@ func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle integrates the character insertion into the arc's replicated text document.
+// Handle appends the character insertion to the arc's replicated text document. The
+// document is an op-log; materialization (see text.Text.Materialize) deduplicates and
+// orders, so applying an operation is appending it.
 func (p InsertCharPayload) Handle(state Arc) (Arc, error) {
-	return applyTextDoc(state, func(doc *crdt.Text) {
-		doc.ApplyInsert(crdt.Insert{ID: p.ID, Origin: p.Origin, Side: p.Side, Char: p.Char})
-	}), nil
+	state.Text.Doc.Inserts = append(
+		state.Text.Doc.Inserts,
+		crdt.Insert{ID: p.ID, Origin: p.Origin, Side: p.Side, Char: p.Char},
+	)
+	return state, nil
 }
 
 // Handle appends the edge to the graph. No-op when an edge with the same source
@@ -138,9 +130,9 @@ func (p RemoveEdgePayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle integrates the character deletion into the arc's replicated text document.
+// Handle appends the character deletion to the arc's replicated text document. See
+// InsertCharPayload.Handle.
 func (p DeleteCharPayload) Handle(state Arc) (Arc, error) {
-	return applyTextDoc(state, func(doc *crdt.Text) {
-		doc.ApplyDelete(crdt.Delete{ID: p.ID})
-	}), nil
+	state.Text.Doc.Deletes = append(state.Text.Doc.Deletes, crdt.Delete{ID: p.ID})
+	return state, nil
 }

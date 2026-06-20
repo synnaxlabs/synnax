@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Arc as PlutoArc, Synnax } from "@synnaxlabs/pluto";
-import { useEffect, useMemo, useState } from "react";
+import { Arc as PlutoArc } from "@synnaxlabs/pluto";
+import { useEffect, useMemo, useRef } from "react";
 
 import { Controls } from "@/arc/editor/Controls";
 import { EXTENSIONS } from "@/arc/editor/text/placeholderSuggest";
@@ -22,7 +22,9 @@ const utf16Offset = (s: string, codePointIndex: number): number =>
   Array.from(s).slice(0, codePointIndex).join("").length;
 
 // applyRemote reflects a new document value into the Monaco model as a minimal edit so
-// the local cursor and selection are preserved across remote edits.
+// the local cursor and selection are preserved across remote edits. It is a no-op when
+// the model already holds the value, so reflecting the store's own optimistic update does
+// not disturb the editor.
 const applyRemote = (model: Monaco.editor.ITextModel, next: string): void => {
   const old = model.getValue();
   if (old === next) return;
@@ -42,75 +44,67 @@ const applyRemote = (model: Monaco.editor.ITextModel, next: string): void => {
   ]);
 };
 
-// noOp satisfies the base editor's required onChange. The collaborative binding drives
-// the model through collabExtension instead of the whole-value onChange path.
+// noOp satisfies the base editor's required onChange. The collaborative binding drives the
+// model through the extension and the Flux store instead of the whole-value onChange path.
 const noOp = (): void => {};
 
-// collabExtension binds the Monaco model to the collaborative session in both directions:
-// local content changes are translated to precise CRDT operations and dispatched, and
-// remote edits are applied to the model. applyingRemote guards the local handler so the
-// edits applyRemote makes are not re-dispatched as local changes.
-const collabExtension =
-  (session: PlutoArc.CollabSession): EditorExtension =>
-  (editor) => {
-    let applyingRemote = false;
-    const content = editor.onDidChangeModelContent((e) => {
-      if (applyingRemote) return;
-      session.applyChanges(PlutoArc.changesToDiffs(session.value(), e.changes));
-    });
-    const unsubscribe = session.subscribe((value) => {
-      const model = editor.getModel();
-      if (model == null) return;
-      applyingRemote = true;
-      try {
-        applyRemote(model, value);
-      } finally {
-        applyingRemote = false;
-      }
-    });
-    return {
-      dispose: () => {
-        content.dispose();
-        unsubscribe();
-      },
-    };
-  };
-
 export const Editor: Layout.Renderer = ({ layoutKey }) => {
-  const client = Synnax.use();
   const state = useSelect(layoutKey);
-  const [session, setSession] = useState<PlutoArc.CollabSession | null>(null);
+  // Ensure the arc is loaded into the Flux store, then track its replicated document.
+  PlutoArc.useRetrieve({ key: layoutKey }, { addStatusOnFailure: false });
+  const doc = PlutoArc.useSelectTextDoc({ key: layoutKey });
+  const { dispatch } = PlutoArc.useDispatch();
+
+  // text is the working CRDT replica: it generates operations for local edits and
+  // materializes the document for the editor. editorRef exposes the model to the
+  // store-sync effect, and applyingRemote guards the local handler against re-dispatching
+  // the edits that store-sync makes.
+  const textRef = useRef<PlutoArc.CollabText | null>(null);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const applyingRemote = useRef(false);
+  if (textRef.current == null && doc != null)
+    textRef.current = PlutoArc.CollabText.bootstrap(doc);
+
   useEffect(() => {
-    if (client == null) return;
-    let opened: PlutoArc.CollabSession | null = null;
-    let cancelled = false;
-    PlutoArc.CollabSession.open(client, layoutKey)
-      .then((s) => {
-        if (cancelled) {
-          void s.close();
-          return;
-        }
-        opened = s;
-        setSession(s);
-      })
-      .catch((err: unknown) => {
-        console.error("failed to open arc collaborative session", err);
+    const text = textRef.current;
+    if (text == null || doc == null) return;
+    text.sync(doc);
+    const model = editorRef.current?.getModel();
+    if (model == null) return;
+    applyingRemote.current = true;
+    try {
+      applyRemote(model, text.value());
+    } finally {
+      applyingRemote.current = false;
+    }
+  }, [doc]);
+
+  const extensions = useMemo(() => {
+    const collab: EditorExtension = (editor) => {
+      editorRef.current = editor;
+      const content = editor.onDidChangeModelContent((e) => {
+        const text = textRef.current;
+        if (text == null || applyingRemote.current) return;
+        const actions = text.applyChanges(
+          PlutoArc.changesToDiffs(text.value(), e.changes),
+        );
+        if (actions.length > 0) void dispatch({ key: layoutKey, actions });
       });
-    return () => {
-      cancelled = true;
-      setSession(null);
-      if (opened != null) void opened.close();
+      return {
+        dispose: () => {
+          content.dispose();
+          editorRef.current = null;
+        },
+      };
     };
-  }, [client, layoutKey]);
-  const extensions = useMemo(
-    () => (session == null ? EXTENSIONS : [...EXTENSIONS, collabExtension(session)]),
-    [session],
-  );
-  if (session == null) return null;
+    return [...EXTENSIONS, collab];
+  }, [dispatch, layoutKey]);
+
+  if (textRef.current == null) return null;
   return (
     <>
       <BaseEditor
-        value={session.value()}
+        value={textRef.current.value()}
         onChange={noOp}
         language="arc"
         scrollBeyondLastLine

@@ -166,6 +166,18 @@ export const useSelectMode = Flux.createSelector<
   select: (store, { key }) => store.arcs.get(key)?.mode,
 });
 
+// useSelectTextDoc returns the replicated text document of the Arc with the given key,
+// or undefined when it has not yet loaded. Returned by reference so an editor binding can
+// re-sync its working CRDT copy only when the document actually changes.
+export const useSelectTextDoc = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  arc.text.Document | undefined
+>({
+  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+  select: (store, { key }) => store.arcs.get(key)?.text.doc,
+});
+
 export interface AddNodeProps {
   key: string;
   type: string;

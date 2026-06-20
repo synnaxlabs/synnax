@@ -26,8 +26,8 @@ export const parseImport = (data: unknown, fallbackName?: string): arc.New => {
       return {
         name: fallbackName ?? "Arc",
         mode: legacy.data.mode ?? "graph",
-        graph: legacy.data.pendingUpload,
-        text: legacy.data.text,
+        graph: legacy.data.pendingUpload.graph,
+        text: legacy.data.pendingUpload.text,
       };
     }
   }

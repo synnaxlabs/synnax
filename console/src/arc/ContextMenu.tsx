@@ -75,8 +75,8 @@ export const ContextMenu = ({
         message: "Failed to open Arc editor",
         description: `Arc with key ${keys[0]} not found`,
       });
-    const { name, key, text, mode } = retrieved;
-    placeLayout(Editor.create({ key, name, text, mode }));
+    const { name, key, mode } = retrieved;
+    placeLayout(Editor.create({ key, name, mode }));
   };
 
   const handleCopyLink = () => {

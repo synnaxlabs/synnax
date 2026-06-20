@@ -130,12 +130,23 @@ const handlers: Handlers = {
       targets: [ir.edgeKey(source, target)],
     };
   },
-  insertChar: () => ({ inverse: [], targets: [] }),
-  deleteChar: () => ({ inverse: [], targets: [] }),
+  // The text document is a replicated op-log: applying an op is appending it, and
+  // materialization (crdt.Text) deduplicates and orders. Text edits are not pushed onto
+  // the undo stack (collaborative text undo is a separate concern), so inverse is empty.
+  insertChar: (state, payload) => {
+    state.text.doc.inserts.push(payload);
+    return { inverse: [], targets: [] };
+  },
+  deleteChar: (state, payload) => {
+    state.text.doc.deletes.push(payload);
+    return { inverse: [], targets: [] };
+  },
 };
 
 export const reduceAll = createReduceAll(handlers);
 
-// isUndoable reports whether an action should push onto the undo stack. Every
-// Arc graph mutation is user-driven and therefore undoable.
-export const isUndoable = (_action: Action): boolean => true;
+// isUndoable reports whether an action should push onto the undo stack. Graph mutations
+// are user-driven and undoable; collaborative text edits are not (they carry no inverse
+// and belong to the CRDT, not the graph undo stack).
+export const isUndoable = (action: Action): boolean =>
+  action.type !== "insert_char" && action.type !== "delete_char";

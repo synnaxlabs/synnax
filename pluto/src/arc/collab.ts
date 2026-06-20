@@ -136,4 +136,12 @@ export class CollabText {
       if (a.type === "insert_char") this.doc.applyInsert(a.insertChar);
       else if (a.type === "delete_char") this.doc.applyDelete(a.deleteChar);
   }
+
+  /** sync integrates every operation in snapshot that the document has not already seen,
+   * pulling in remote edits while preserving this replica's authoring state. Integration
+   * is idempotent, so re-syncing the full snapshot after every change is safe. */
+  sync(snapshot: { inserts: crdt.Insert[]; deletes: crdt.Delete[] }): void {
+    this.doc.applyInsert(...snapshot.inserts);
+    this.doc.applyDelete(...snapshot.deletes);
+  }
 }
