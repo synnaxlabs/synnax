@@ -11,8 +11,10 @@ import "@/channel/Calculated.css";
 
 import { channel, status, TimeSpan } from "@synnaxlabs/client";
 import {
+  Arc,
   Button,
   Channel,
+  Code,
   Flex,
   Form,
   Input,
@@ -23,9 +25,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useRef, useState } from "react";
 
-import { Arc } from "@/arc";
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
-import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -79,7 +79,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
                   isBlock
                   bordered
                   rounded
-                  extensions={Arc.Editor.Text.EXTENSIONS}
+                  extensions={Arc.Text.EXTENSIONS}
                 />
               )}
             </Form.Field>

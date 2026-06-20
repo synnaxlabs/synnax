@@ -32,15 +32,13 @@ const handleSelect: Ontology.HandleSelect = ({
 
 const load = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer) => {
   const retrieved = await client.arcs.retrieve({ key: id.key });
-  const { name, key, mode } = retrieved;
+  const { name, key } = retrieved;
   placeLayout(
     Arc.Editor.create({
       name,
       version: Arc.ZERO_STATE.version,
       key,
       type: "arc",
-      remoteCreated: true,
-      mode,
     }),
   );
 };

@@ -154,16 +154,6 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.mode = mode;
     },
-    setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
-      const { key: layoutKey } = payload;
-      const arc = state.arcs[layoutKey];
-      arc.remoteCreated = true;
-    },
-    setMode: (state, { payload }: PayloadAction<SetModePayload>) => {
-      const { key, mode } = payload;
-      const arc = state.arcs[key];
-      if (arc != null) arc.mode = mode;
-    },
   },
 });
 
@@ -176,8 +166,6 @@ export const {
   setViewport,
   setEditable,
   setViewportMode,
-  setRemoteCreated,
-  setMode,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

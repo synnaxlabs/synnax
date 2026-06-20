@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/arc/graph/Graph.css";
+import "@/arc/graph/Editor.css";
 
 import { type arc } from "@synnaxlabs/client";
 import { box, id, xy } from "@synnaxlabs/x";
@@ -49,7 +49,7 @@ const SNAP_GRID: xy.Couple = [2, 2];
 const UNDO_TRIGGER: Triggers.Trigger = ["Control", "Z"];
 const REDO_TRIGGER: Triggers.Trigger = ["Control", "Shift", "Z"];
 
-export interface GraphProps extends Omit<
+export interface EditorProps extends Omit<
   BaseDiagram.DiagramProps,
   "nodes" | "edges" | "onNodesChange" | "onEdgesChange" | "onChange"
 > {
@@ -58,11 +58,7 @@ export interface GraphProps extends Omit<
   extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
 }
 
-// Graph is the Arc graph editor. It owns the graph document state via the flux
-// store: nodes, edges, and node configs are read from the store and every
-// gesture is dispatched as an Arc action. UI state (viewport, selection,
-// editability) is owned by the caller and threaded through props.
-export const Graph = ({
+export const Editor = ({
   resourceKey: key,
   viewport,
   className,
@@ -73,7 +69,7 @@ export const Graph = ({
   extraMenuItems,
   children,
   ...props
-}: GraphProps): ReactElement => {
+}: EditorProps): ReactElement => {
   const nodes = useSelectNodes({ key });
   const nodesRef = useSyncedRef(nodes);
   const edges = useSelectEdges({ key });

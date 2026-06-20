@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { shouldTriggerSuggestion } from "@/arc/editor/text/placeholderSuggest";
+import { shouldTriggerSuggestion } from "@/arc/text/placeholderSuggest";
 
 interface TestCase {
   name: string;

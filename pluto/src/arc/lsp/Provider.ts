@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax } from "@synnaxlabs/pluto";
 import { type PropsWithChildren } from "react";
 
 import { use } from "@/arc/lsp/lsp";
 import { Code } from "@/code";
+import { Synnax } from "@/synnax";
 
 export const Provider = ({ children }: PropsWithChildren) => {
   use(Synnax.use(), Code.useMonaco());

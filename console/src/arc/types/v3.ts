@@ -39,6 +39,7 @@ export const graphStateZ = z.object({
 export interface GraphState extends z.infer<typeof graphStateZ> {}
 
 export const pendingUploadZ = z.object({
+  mode: arc.modeZ,
   graph: arc.graph.graphZ,
   text: arc.text.textZ,
 });
@@ -47,9 +48,7 @@ export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 export const stateZ = z.object({
   key: z.string(),
   version: z.literal(VERSION),
-  remoteCreated: z.boolean(),
   graph: graphStateZ,
-  mode: arc.modeZ.default("graph"),
   pendingUpload: pendingUploadZ.optional(),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -78,8 +77,6 @@ export const ZERO_STATE: State = {
   key: "",
   version: VERSION,
   graph: ZERO_GRAPH_STATE,
-  remoteCreated: false,
-  mode: "graph",
   pendingUpload: undefined,
 };
 
@@ -124,7 +121,7 @@ export const stateMigration = migrate.createMigration<v2.State, State>({
     mode: state.mode,
     pendingUpload: state.remoteCreated
       ? undefined
-      : { graph: buildPendingGraph(state), text: state.text },
+      : { graph: buildPendingGraph(state), text: state.text, mode: state.mode },
   }),
 });
 

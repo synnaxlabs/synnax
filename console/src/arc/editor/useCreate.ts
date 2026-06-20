@@ -36,14 +36,7 @@ export const useCreate = (): ((args?: CreateArgs) => void) => {
     ),
     afterSuccess: useCallback(
       ({ data }: Flux.AfterSuccessParams<arc.Arc>) => {
-        placeLayout(
-          create({
-            key: data.key,
-            name: data.name,
-            mode: data.mode,
-            remoteCreated: true,
-          }),
-        );
+        placeLayout(create({ key: data.key, name: data.name }));
       },
       [placeLayout],
     ),

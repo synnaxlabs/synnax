@@ -14,6 +14,7 @@ import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
 import { Channel } from "@/channel";
+import { Code } from "@/code";
 import { Color } from "@/color";
 import { Device } from "@/device";
 import { Flux } from "@/flux";
@@ -139,9 +140,13 @@ export const Provider = ({
                 <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
                   <Color.Provider {...color}>
                     <Theming.Provider {...theming}>
-                      <CanDisableTelem {...telem}>
-                        <Control.StateProvider>{children}</Control.StateProvider>
-                      </CanDisableTelem>
+                      <Code.Provider initServices={Arc.LSP.SERVICES}>
+                        <Arc.LSP.Provider>
+                          <CanDisableTelem {...telem}>
+                            <Control.StateProvider>{children}</Control.StateProvider>
+                          </CanDisableTelem>
+                        </Arc.LSP.Provider>
+                      </Code.Provider>
                     </Theming.Provider>
                   </Color.Provider>
                 </Flux.Provider>

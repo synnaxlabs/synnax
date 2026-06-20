@@ -13,20 +13,17 @@ import {
   getService,
   ILanguageFeaturesService,
 } from "@codingame/monaco-vscode-api/services";
-import {
-  Flex,
-  Icon,
-  type Input,
-  Menu,
-  Theming,
-  type Triggers,
-} from "@synnaxlabs/pluto";
 import { debounce, TimeSpan } from "@synnaxlabs/x";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 
 import { type Monaco, useMonaco } from "@/code/Provider";
-import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
+import { Flex } from "@/flex";
+import { Icon } from "@/icon";
+import { type Input } from "@/input";
+import { Menu } from "@/menu";
+import { Theming } from "@/theming";
+import { type Triggers } from "@/triggers";
 
 const CUT_TRIGGER: Triggers.Trigger = ["Control", "X"];
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
@@ -346,7 +343,7 @@ export const Editor = ({
         selection.startColumn !== selection.endColumn);
 
     return (
-      <ContextMenu.Menu>
+      <Menu.Menu level="small" gap="small">
         <Menu.Item
           itemKey="cut"
           trigger={CUT_TRIGGER}
@@ -379,11 +376,15 @@ export const Editor = ({
         {cursorRenameable && (
           <>
             <Menu.Divider />
-            <ContextMenu.RenameItem
+            <Menu.Item
+              itemKey="rename"
               trigger={RENAME_TRIGGER}
               triggerIndicator
               onClick={createMenuAction("rename")}
-            />
+            >
+              <Icon.Rename />
+              Rename
+            </Menu.Item>
           </>
         )}
         <Menu.Divider />
@@ -397,8 +398,7 @@ export const Editor = ({
           Format
         </Menu.Item>
         <Menu.Divider />
-        <ContextMenu.ReloadConsoleItem />
-      </ContextMenu.Menu>
+      </Menu.Menu>
     );
   }, [createMenuAction, cursorRenameable]);
 

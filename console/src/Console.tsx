@@ -28,7 +28,6 @@ import { Access } from "@/access";
 import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
-import { Code } from "@/code";
 import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
@@ -132,8 +131,6 @@ const useBlockDefaultDropBehavior = (): void =>
     };
   }, []);
 
-const MONACO_SERVICES = Arc.LSP.SERVICES;
-
 const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
 
 const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
@@ -156,13 +153,9 @@ const MainUnderContext = (): ReactElement => {
       color={COLOR_PROPS}
       alamos={ALAMOS_PROPS}
     >
-      <Code.Provider initServices={MONACO_SERVICES}>
-        <Arc.LSP.Provider>
-          <Vis.Canvas>
-            <Layout.Window />
-          </Vis.Canvas>
-        </Arc.LSP.Provider>
-      </Code.Provider>
+      <Vis.Canvas>
+        <Layout.Window />
+      </Vis.Canvas>
     </Pluto.Provider>
   );
 };

@@ -27,7 +27,6 @@ export type AnySliceState =
   | v1.SliceState
   | v2.SliceState
   | v3.SliceState;
-export type Mode = v3.Mode;
 
 export const TYPE = v3.TYPE;
 export const ZERO_STATE = v3.ZERO_STATE;

@@ -10,7 +10,7 @@
 import { crdt } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { changesToDiffs, CollabText, diff } from "@/arc/collab";
+import { changesToDiffs, CollabText, diff } from "@/arc/text/collab";
 
 const snapshotOf = (
   text: string,
