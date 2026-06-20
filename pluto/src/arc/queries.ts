@@ -19,8 +19,7 @@ import { errors, id, primitive, type record, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
-import { Stage } from "@/arc/functions";
-import { edgesToDiagram } from "@/arc/translate";
+import { Node } from "@/arc/graph/node";
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { type List } from "@/list";
@@ -29,6 +28,13 @@ import { type Status } from "@/status";
 import { Task } from "@/task";
 import { Theming } from "@/theming";
 import { type Diagram } from "@/vis/diagram";
+
+const edgesToDiagram = (edges: arc.ir.Edge[]): Diagram.Edge[] =>
+  edges.map((e) => ({
+    key: arc.ir.edgeKey(e.source, e.target),
+    source: e.source,
+    target: e.target,
+  }));
 
 export interface FluxStore extends Flux.UndoableUnaryStore<
   arc.Key,
@@ -179,7 +185,7 @@ export const useAddNode = (key: arc.Key) => {
   const { dispatch } = useDispatch();
   return useCallback(
     ({ key: nodeKey, type, position }: AddNodeProps) => {
-      const spec = Stage.REGISTRY[type];
+      const spec = (Node.REGISTRY as Record<string, Node.Spec>)[type];
       if (spec == null) return;
       dispatch({
         key,
@@ -189,7 +195,7 @@ export const useAddNode = (key: arc.Key) => {
           }),
           arc.setNodeConfig({
             key: nodeKey,
-            config: { type, ...spec.defaultProps(theme) },
+            config: spec.defaultConfig(theme) as record.Unknown,
           }),
         ],
       });

@@ -70,9 +70,9 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }): ReactElement =>
 
   return (
     <>
-      <Base.Graph
+      <Base.Graph.Graph
         resourceKey={layoutKey}
-        viewport={{ ...state.graph.viewport, zoom: 1 }}
+        viewport={state.graph.viewport}
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}
@@ -91,7 +91,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }): ReactElement =>
           <Diagram.Controls.FitView />
           {hasUpdatePermission && <Diagram.Controls.ToggleEdit />}
         </BaseControls>
-      </Base.Graph>
+      </Base.Graph.Graph>
       <Controls state={state} />
     </>
   );

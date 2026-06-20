@@ -53,9 +53,10 @@ type SetNodePositionPayload struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 
-// SetNodeConfigPayload stores the given config, holding the node's function type under
-// "type" plus its parameter values, under the given key in the graph configs map,
-// replacing any existing entry.
+// SetNodeConfigPayload merges the given config into the entry for the given key in the
+// graph configs map. Top-level fields present in the payload overwrite existing fields;
+// fields absent from the payload are preserved. The node's function type is held under
+// "type".
 type SetNodeConfigPayload struct {
 	Key    string              `json:"key" msgpack:"key"`
 	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`

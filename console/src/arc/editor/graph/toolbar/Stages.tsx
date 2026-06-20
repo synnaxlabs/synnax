@@ -38,9 +38,9 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     startDrag([Arc.createHaulItem(itemKey)]);
   }, [startDrag, itemKey]);
 
-  const spec = List.useItem<string, Arc.Stage.Spec>(itemKey);
-  const defaultProps_ = useMemo(() => spec?.defaultProps(theme), [spec, theme]);
-  if (spec == null || defaultProps_ == null) return null;
+  const spec = List.useItem<string, Arc.Graph.Node.Spec>(itemKey);
+  const config = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
+  if (spec == null || config == null) return null;
   const { name, Preview } = spec;
 
   return (
@@ -56,7 +56,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     >
       <Text.Text level="small">{name}</Text.Text>
       <Flex.Box align="center" justify="center" grow>
-        <Preview {...defaultProps_} scale={0.75} />
+        <Preview config={config} scale={0.75} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -73,15 +73,17 @@ export const StaticStageList = ({
   groupKey,
   onSelect,
 }: StateListProps): ReactElement => {
-  const stages = useMemo(() => {
-    const g = Arc.Stage.GROUPS.find((g) => g.key === groupKey);
-    return Object.values(Arc.Stage.REGISTRY).filter((s) => g?.symbols.includes(s.key));
+  const stages = useMemo<Arc.Graph.Node.Spec[]>(() => {
+    const g = Arc.Graph.Node.GROUPS.find((g) => g.key === groupKey);
+    return Object.values(Arc.Graph.Node.REGISTRY).filter((s) =>
+      g?.symbols.includes(s.key),
+    ) as unknown as Arc.Graph.Node.Spec[];
   }, [groupKey]);
-  const { data, getItem } = List.useStaticData<string, Arc.Stage.Spec>({
+  const { data, getItem } = List.useStaticData<string, Arc.Graph.Node.Spec>({
     data: stages,
   });
   return (
-    <Select.Frame<string, Arc.Stage.Spec>
+    <Select.Frame<string, Arc.Graph.Node.Spec>
       data={data}
       getItem={getItem}
       value={undefined}
@@ -97,7 +99,7 @@ export const StaticStageList = ({
 
 const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { itemKey } = props;
-  const group = List.useItem<string, Arc.Stage.Group>(itemKey);
+  const group = List.useItem<string, Arc.Graph.Node.Group>(itemKey);
   const { selected, onSelect } = Select.useItemState(itemKey);
   if (group == null) return null;
   const { Icon, name } = group;
@@ -119,17 +121,17 @@ const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
 export interface GroupListProps extends Input.Control<string> {}
 
 const GroupList = ({ value, onChange }: GroupListProps) => {
-  const { data, getItem } = List.useStaticData<string, Arc.Stage.Group>({
-    data: Arc.Stage.GROUPS,
+  const { data, getItem } = List.useStaticData<string, Arc.Graph.Node.Group>({
+    data: Arc.Graph.Node.GROUPS,
   });
   return (
-    <Select.Frame<string, Arc.Stage.Group>
+    <Select.Frame<string, Arc.Graph.Node.Group>
       data={data}
       getItem={getItem}
       value={value}
       onChange={onChange}
     >
-      <List.Items<string, Arc.Stage.Group> x gap="small">
+      <List.Items<string, Arc.Graph.Node.Group> x gap="small">
         {groupListItem}
       </List.Items>
     </Select.Frame>

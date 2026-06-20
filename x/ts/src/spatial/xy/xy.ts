@@ -24,7 +24,7 @@ import {
 import { direction as dir, type direction } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
 
-export { type ClientXY as Client, clientXYZ, type XY, xyZ };
+export { type ClientXY as Client, clientXYZ, NumberCouple as Couple, type XY, xyZ };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([

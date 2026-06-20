@@ -114,7 +114,7 @@ const PRO_OPTIONS: ProOptions = {
   hideAttribution: true,
 };
 
-export type DiagramClipboardHandler = (
+export type ClipboardHandler = (
   this: void,
   e: ReactClipboardEvent<HTMLDivElement>,
   cursor: xy.XY,
@@ -156,13 +156,13 @@ export interface DiagramProps
    * cursor position in diagram space at the moment of the copy, derived from
    * the most recent mousemove over the diagram.
    */
-  onCopy?: DiagramClipboardHandler;
+  onCopy?: ClipboardHandler;
   /**
    * Called when a paste event fires on the diagram. The second argument is the
    * cursor position in diagram space at the moment of the paste, derived from
    * the most recent mousemove over the diagram.
    */
-  onPaste?: DiagramClipboardHandler;
+  onPaste?: ClipboardHandler;
 }
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];

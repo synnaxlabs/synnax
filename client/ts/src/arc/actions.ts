@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type record } from "@synnaxlabs/x";
+
 import { actions } from "@/actions";
 import {
   type Action,
@@ -64,11 +66,27 @@ const handlers: Handlers = {
       targets: [payload.key],
     };
   },
+  // The inverse of SetNodeConfig is imperfect for keys the action newly
+  // introduces: SetNodeConfig only merges, so it cannot remove keys that did
+  // not previously exist. The inverse here restores values for keys that DID
+  // exist before the merge; keys added by the action remain on undo as phantom
+  // fields. A future ReplaceNodeConfig action can close the gap by enabling
+  // wholesale replacement.
   setNodeConfig: (state, payload) => {
-    const oldConfig = actions.snapshotDraft(state.graph.configs[payload.key]);
-    state.graph.configs[payload.key] = payload.config;
+    const existingRaw = state.graph.configs[payload.key];
+    if (existingRaw == null) {
+      state.graph.configs[payload.key] = payload.config;
+      return { inverse: [], targets: [payload.key] };
+    }
+    const existing = actions.snapshotDraft(existingRaw);
+    const restoreFields: record.Unknown = {};
+    for (const k of Object.keys(payload.config))
+      if (existing[k] !== undefined) restoreFields[k] = existing[k];
+    state.graph.configs[payload.key] = { ...existing, ...payload.config };
+    if (Object.keys(restoreFields).length === 0)
+      return { inverse: [], targets: [payload.key] };
     return {
-      inverse: [setNodeConfig({ key: payload.key, config: oldConfig ?? {} })],
+      inverse: [setNodeConfig({ key: payload.key, config: restoreFields })],
       targets: [payload.key],
     };
   },

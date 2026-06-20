@@ -9,12 +9,12 @@
 
 import { type ReactElement } from "react";
 
-import { Graph, type GraphProps } from "@/arc/Graph";
+import { Graph } from "@/arc/graph";
 import { useSelectMode } from "@/arc/queries";
 import { Flex } from "@/flex";
 import { Text } from "@/text";
 
-export interface EditorProps extends GraphProps {}
+export interface EditorProps extends Graph.GraphProps {}
 
 // TextEditor is a placeholder for text-mode editing, which is migrated to its
 // own collaborative track in a later change.
@@ -32,5 +32,5 @@ export const Editor = (props: EditorProps): ReactElement | null => {
   const mode = useSelectMode({ key: props.resourceKey });
   if (mode == null) return null;
   if (mode === "text") return <TextEditor />;
-  return <Graph {...props} />;
+  return <Graph.Graph {...props} />;
 };

@@ -10,6 +10,8 @@
 package arc
 
 import (
+	"maps"
+
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
@@ -51,11 +53,19 @@ func (p SetNodePositionPayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle stores the config, holding the node's function type and parameter
-// values, under the given key in the graph configs map.
+// Handle merges the payload config into the configs entry for the given key in
+// the graph configs map. Top-level fields present in the payload overwrite
+// existing fields; fields absent from the payload are preserved.
 func (p SetNodeConfigPayload) Handle(state Arc) (Arc, error) {
 	if state.Graph.Configs == nil {
 		state.Graph.Configs = make(map[string]msgpack.EncodedJSON)
+	}
+	if existing := state.Graph.Configs[p.Key]; existing != nil {
+		merged := make(msgpack.EncodedJSON, len(existing)+len(p.Config))
+		maps.Copy(merged, existing)
+		maps.Copy(merged, p.Config)
+		state.Graph.Configs[p.Key] = merged
+		return state, nil
 	}
 	state.Graph.Configs[p.Key] = p.Config
 	return state, nil

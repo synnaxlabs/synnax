@@ -100,14 +100,23 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("SetNodeConfig", func() {
-		It("Should replace the configuration keyed by node key", func() {
+		It("Should merge the configuration into the existing entry", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
 			state.Graph.Configs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
 			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeConfigAction(arc.SetNodeConfigPayload{
 				Key:    "n1",
 				Config: msgpack.EncodedJSON{"offset": 2},
 			})))
-			Expect(out.Graph.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"offset": 2}))
+			Expect(out.Graph.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"gain": 1, "offset": 2}))
+		})
+		It("Should overwrite fields present in both the existing and payload configs", func() {
+			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
+			state.Graph.Configs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
+			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeConfigAction(arc.SetNodeConfigPayload{
+				Key:    "n1",
+				Config: msgpack.EncodedJSON{"gain": 5},
+			})))
+			Expect(out.Graph.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"gain": 5}))
 		})
 		It("Should write the configuration even when no node has the key", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)

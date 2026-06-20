@@ -113,7 +113,7 @@ describe("arc reducer", () => {
   });
 
   describe("setNodeConfig", () => {
-    it("should store the config under the node key in the configs map", () => {
+    it("should overwrite fields present in both the existing and payload configs", () => {
       const state = empty({
         nodes: [node("n1", 0, 0)],
         configs: { n1: cfg("constant", { value: 1 }) },
@@ -124,7 +124,15 @@ describe("arc reducer", () => {
       );
       expect(out.graph.configs.n1).toEqual(cfg("constant", { value: 2 }));
     });
-    it("should write the config even when no node exists yet", () => {
+    it("should merge the config into the existing entry, preserving absent fields", () => {
+      const state = empty({
+        nodes: [node("n1", 0, 0)],
+        configs: { n1: cfg("constant", { value: 1 }) },
+      });
+      const out = apply(state, arc.setNodeConfig({ key: "n1", config: { value: 2 } }));
+      expect(out.graph.configs.n1).toEqual(cfg("constant", { value: 2 }));
+    });
+    it("should write the config even when no entry exists yet", () => {
       const out = apply(empty(), arc.setNodeConfig({ key: "n1", config: cfg("add") }));
       expect(out.graph.configs.n1).toEqual(cfg("add"));
     });

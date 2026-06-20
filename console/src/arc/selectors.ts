@@ -152,7 +152,11 @@ export const selectSelectedElementNames = (
   const elements = selectSelectedElementsProps(state, layoutKey);
   return elements.map((element) => {
     if (element.type === "node")
-      return Arc.Stage.REGISTRY[element.props.key]?.name ?? null;
+      return (
+        (Arc.Graph.Node.REGISTRY as Record<string, Arc.Graph.Node.Spec>)[
+          element.props.key
+        ]?.name ?? null
+      );
     return null;
   });
 };
