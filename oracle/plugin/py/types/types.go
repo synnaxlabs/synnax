@@ -133,30 +133,28 @@ func generatePyFile(
 		}
 	}
 
-	// Separate distinct types from alias types
-	var distinctTypeDefs []resolution.Type
-	var aliasTypeDefs []resolution.Type
+	// A TypeAlias assignment (Name: TypeAlias = ...) evaluates its right-hand side
+	// eagerly, so an alias whose target references a named type (e.g.
+	// Nodes = list[Node]) must be emitted after that type or list[Node] raises
+	// NameError at import. Such aliases are topologically sorted with structs and
+	// unions. Aliases whose target is primitive-only (e.g. Key = uuid) have no
+	// dependency and are emitted up-front, unchanged.
+	var sortedTypeDefs []resolution.Type
 	for _, td := range typeDefs {
-		switch td.Form.(type) {
-		case resolution.AliasForm:
-			aliasTypeDefs = append(aliasTypeDefs, td)
-		default:
-			distinctTypeDefs = append(distinctTypeDefs, td)
+		if _, isAlias := td.Form.(resolution.AliasForm); isAlias || typeDefRefsNamedType(td) {
+			sortedTypeDefs = append(sortedTypeDefs, td)
+		} else {
+			data.TypeDefs = append(data.TypeDefs, processTypeDef(td, table, data))
 		}
-	}
-
-	// Process distinct types first (they don't depend on other schema types)
-	for _, td := range distinctTypeDefs {
-		data.TypeDefs = append(data.TypeDefs, processTypeDef(td, table, data))
 	}
 
 	for _, e := range enums {
 		data.Enums = append(data.Enums, processEnum(e, data))
 	}
 
-	// Combine aliases, structs, and unions for topological sorting
+	// Combine sortable type aliases, structs, and unions for topological sorting
 	var combinedTypes []resolution.Type
-	combinedTypes = append(combinedTypes, aliasTypeDefs...)
+	combinedTypes = append(combinedTypes, sortedTypeDefs...)
 	combinedTypes = append(combinedTypes, structs...)
 	combinedTypes = append(combinedTypes, unions...)
 
@@ -166,7 +164,7 @@ func generatePyFile(
 	// Process in sorted order
 	for _, typ := range sortedTypes {
 		switch typ.Form.(type) {
-		case resolution.AliasForm:
+		case resolution.AliasForm, resolution.DistinctForm:
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsTypeDef: true,
 				TypeDef:   processTypeDef(typ, table, data),
@@ -251,6 +249,34 @@ func processEnum(typ resolution.Type, data *templateData) enumData {
 		IsIntEnum:     form.IsIntEnum,
 		LiteralValues: strings.Join(literalValues, ", "),
 	}
+}
+
+// typeDefRefsNamedType reports whether a distinct type alias's base references a
+// named schema type (struct, union, enum, or another alias) rather than only
+// primitives. Array and map wrappers are followed to their element/value types.
+// Such aliases render as eagerly-evaluated list[...] / dict[...] assignments and
+// must be emitted after the types they name.
+func typeDefRefsNamedType(td resolution.Type) bool {
+	var refs func(ref resolution.TypeRef) bool
+	refs = func(ref resolution.TypeRef) bool {
+		if ref.Name == "Array" || ref.Name == "Map" {
+			for _, arg := range ref.TypeArgs {
+				if refs(arg) {
+					return true
+				}
+			}
+			return false
+		}
+		if ref.Name == "" || ref.IsTypeParam() || resolution.IsPrimitive(ref.Name) {
+			return false
+		}
+		return true
+	}
+	form, ok := td.Form.(resolution.DistinctForm)
+	if !ok {
+		return false
+	}
+	return refs(form.Base)
 }
 
 func processTypeDef(typ resolution.Type, table *resolution.Table, data *templateData) typeDefData {
