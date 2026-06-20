@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/user"
+import "schemas/synnax/user"
 
 @ts output "client/ts/src/project"
 @py output "client/py/synnax/project"

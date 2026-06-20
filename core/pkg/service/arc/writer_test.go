@@ -10,17 +10,28 @@
 package arc_test
 
 import (
+	"encoding/json"
+	"io"
+	"time"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/spatial"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/spatial"
 )
 

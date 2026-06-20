@@ -60,8 +60,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// Signals is used to broadcast Arc action dispatches and entry deletes
-	// throughout the cluster.
+	// Signals is used to broadcast collaborative-edit actions to the cluster.
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider

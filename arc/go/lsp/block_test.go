@@ -29,13 +29,10 @@ func generateBlockURI(id string) protocol.DocumentURI {
 }
 
 var _ = Describe("Block Expressions with GlobalResolver", func() {
-	var (
-		server   *lsp.Server
-		channels []symbol.Symbol
-	)
+	var server *lsp.Server
 
 	BeforeEach(func() {
-		channels = []symbol.Symbol{
+		channels := []symbol.Symbol{
 			{Name: "sensor", Type: types.Chan(types.F32()), Kind: symbol.KindChannel, ID: 1},
 			{Name: "temp_c", Type: types.Chan(types.F32()), Kind: symbol.KindChannel, ID: 2},
 			{Name: "pressure", Type: types.Chan(types.F64()), Kind: symbol.KindChannel, ID: 3},
