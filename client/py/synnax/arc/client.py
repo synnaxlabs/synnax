@@ -15,14 +15,9 @@ from uuid import UUID
 from pydantic import BaseModel, PrivateAttr
 
 from freighter import Empty, UnaryClient
-from synnax.arc.payload import (
-    Graph,
-    Key,
-    Mode,
-    Payload,
-    Text,
-    ontology_id,
-)
+from synnax.arc.graph import Graph
+from synnax.arc.text import Text
+from synnax.arc.types_gen import Key, Mode, Payload, ontology_id
 from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.ontology.payload import ID
 from x.lists import normalize
@@ -69,7 +64,6 @@ class Arc(Payload):
         name: str = "",
         graph: Graph | None = None,
         text: Text | None = None,
-        version: str = "",
         mode: Mode = "text",
         _client: Client | None = None,
     ):
@@ -78,7 +72,6 @@ class Arc(Payload):
             name=name,
             graph=graph if graph is not None else Graph(),
             text=text if text is not None else Text(),
-            version=version,
             mode=mode,
         )
         self._client = _client
@@ -93,7 +86,6 @@ class Arc(Payload):
             name=self.name,
             graph=self.graph,
             text=self.text,
-            version=self.version,
             mode=self.mode,
         )
 
@@ -113,7 +105,6 @@ class Client:
         name: str,
         graph: Graph | None = None,
         text: Text | None = None,
-        version: str = "",
         mode: Mode = "text",
     ) -> Arc: ...
 
@@ -130,7 +121,6 @@ class Client:
         name: str = "",
         graph: Graph | None = None,
         text: Text | None = None,
-        version: str = "",
         mode: Mode = "text",
     ) -> Arc | list[Arc]:
         is_single = True
@@ -146,7 +136,6 @@ class Client:
                     name=name,
                     graph=graph if graph is not None else Graph(),
                     text=text if text is not None else Text(),
-                    version=version,
                     mode=mode,
                 )
             ]
@@ -224,7 +213,6 @@ class Client:
                 name=p.name,
                 graph=p.graph,
                 text=p.text,
-                version=p.version,
                 mode=p.mode,
                 _client=self,
             )
