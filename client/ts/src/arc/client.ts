@@ -109,15 +109,6 @@ export class Client {
     );
   }
 
-  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
-    await this.client.send(
-      "/arc/dispatch",
-      { key, dispatchKey, actions },
-      dispatchReqZ,
-      emptyResZ,
-    );
-  }
-
   async openLSP(): Promise<Stream<typeof lspMessageZ, typeof lspMessageZ>> {
     return await this.streamClient.stream("/arc/lsp", lspMessageZ, lspMessageZ);
   }

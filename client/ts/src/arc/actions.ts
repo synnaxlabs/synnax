@@ -130,6 +130,8 @@ const handlers: Handlers = {
       targets: [ir.edgeKey(source, target)],
     };
   },
+  insertChar: () => ({ inverse: [], targets: [] }),
+  deleteChar: () => ({ inverse: [], targets: [] }),
 };
 
 export const reduceAll = createReduceAll(handlers);
