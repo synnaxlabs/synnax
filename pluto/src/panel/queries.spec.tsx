@@ -384,12 +384,13 @@ describe("Panel queries", () => {
           ],
         });
       });
-      const root = result.current.retrieve.data?.root;
-      expect(root?.variant).toEqual("leaf");
-      expect(leafTabKeys(root)).toEqual([tab.key]);
-
-      const fresh = await client.panels.retrieve(created.key);
-      expect(fresh.root).toEqual(root);
+      await waitFor(async () => {
+        const root = result.current.retrieve.data?.root;
+        expect(root?.variant).toEqual("leaf");
+        expect(leafTabKeys(root)).toEqual([tab.key]);
+        const fresh = await client.panels.retrieve(created.key);
+        expect(fresh.root).toEqual(root);
+      });
     });
 
     it("collapses the emptied leaf after remove_tab", async () => {
@@ -749,7 +750,9 @@ describe("Panel queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.name).toEqual("reactive-before");
 
-      await client.panels.rename(target.key, "reactive-after");
+      await act(async () => {
+        await client.panels.rename(target.key, "reactive-after");
+      });
 
       await waitFor(() => expect(result.current.data?.name).toEqual("reactive-after"));
     });
@@ -769,13 +772,15 @@ describe("Panel queries", () => {
       expect(leafTabKeys(result.current)).toEqual([seed.key]);
 
       const tab = newTab();
-      await client.panels.dispatch(created.key, "", [
-        panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" }),
-        panel.insertTab({
-          tab,
-          targetLeaf: panel.childPath(panel.ROOT_PATH, "last"),
-        }),
-      ]);
+      await act(async () => {
+        await client.panels.dispatch(created.key, "", [
+          panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" }),
+          panel.insertTab({
+            tab,
+            targetLeaf: panel.childPath(panel.ROOT_PATH, "last"),
+          }),
+        ]);
+      });
 
       await waitFor(() => {
         const root = asSplit(result.current);

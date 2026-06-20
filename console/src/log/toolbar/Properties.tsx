@@ -22,8 +22,8 @@ export interface PropertiesProps {
 
 export const Properties = ({ layoutKey: key }: PropertiesProps): ReactElement => {
   const { dispatch } = Log.useDispatch();
-  const showChannelNames = Log.useSelectShowChannelNames({ key });
-  const showReceiptTimestamp = Log.useSelectShowReceiptTimestamp({ key });
+  const hideChannelNames = Log.useSelectHideChannelNames({ key });
+  const hideReceiptTimestamp = Log.useSelectHideReceiptTimestamp({ key });
   const timestampPrecision = Log.useSelectTimestampPrecision({ key });
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
 
@@ -39,13 +39,16 @@ export const Properties = ({ layoutKey: key }: PropertiesProps): ReactElement =>
   );
 
   const handleShowChannelNamesChange = useCallback(
-    (showChannelNames: boolean) => apply(log.setShowChannelNames({ showChannelNames })),
+    (showChannelNames: boolean) =>
+      apply(log.setHideChannelNames({ hideChannelNames: !showChannelNames })),
     [apply],
   );
 
   const handleShowReceiptTimestampChange = useCallback(
     (showReceiptTimestamp: boolean) =>
-      apply(log.setShowReceiptTimestamp({ showReceiptTimestamp })),
+      apply(
+        log.setHideReceiptTimestamp({ hideReceiptTimestamp: !showReceiptTimestamp }),
+      ),
     [apply],
   );
 
@@ -53,7 +56,7 @@ export const Properties = ({ layoutKey: key }: PropertiesProps): ReactElement =>
     <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
       <Input.Item label="Show Receipt Timestamp">
         <Input.Switch
-          value={showReceiptTimestamp}
+          value={!hideReceiptTimestamp}
           onChange={handleShowReceiptTimestampChange}
           disabled={!hasEditPermission}
         />
@@ -69,7 +72,7 @@ export const Properties = ({ layoutKey: key }: PropertiesProps): ReactElement =>
       </Input.Item>
       <Input.Item label="Show Channel Names">
         <Input.Switch
-          value={showChannelNames}
+          value={!hideChannelNames}
           onChange={handleShowChannelNamesChange}
           disabled={!hasEditPermission}
         />

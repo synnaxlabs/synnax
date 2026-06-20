@@ -106,7 +106,7 @@ export const functionZ = z.object({
   /** key is the function identifier (template name). */
   key: z.string(),
   /** body is raw source code for user-defined functions. */
-  body: bodyZ.optional(),
+  body: bodyZ,
   /** inputs contains input parameter definitions. */
   inputs: types.paramsZ,
   /** outputs contains output parameter definitions. */

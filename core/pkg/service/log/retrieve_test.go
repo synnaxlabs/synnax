@@ -25,7 +25,7 @@ var _ = Describe("Retrieve", func() {
 			Channels: []log.ChannelEntry{
 				{Channel: channel.Key(1), Color: color.MustFromHex("#ff0000"), Notation: notation.NotationStandard},
 			},
-			ShowChannelNames: true,
+			HideChannelNames: true,
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 		var res log.Log

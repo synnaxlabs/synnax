@@ -12,12 +12,12 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key, keyZ, type New, newZ, type View, viewZ } from "@/view/types.gen";
+import { type Key, keyZ, type New, type View, viewZ } from "@/view/types.gen";
 
 export const SET_CHANNEL_NAME = "sy_view_set";
 export const DELETE_CHANNEL_NAME = "sy_view_delete";
 
-const createReqZ = z.object({ views: newZ.array() });
+const createReqZ = z.object({ views: viewZ.array() });
 const createResZ = z.object({ views: viewZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});

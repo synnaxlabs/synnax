@@ -518,11 +518,9 @@ describe("caseconv", () => {
 
       it("should handle odd schema types with arrays", () => {
         const dataZ = caseconv.preserveCase(z.record(z.string(), z.unknown()));
-        const newZ = z.object({
-          data: dataZ,
-        });
+        const payloadZ = z.object({ data: dataZ });
         const schema = z.object({
-          values: newZ.array(),
+          values: payloadZ.array(),
         });
         type Schema = z.infer<typeof schema>;
         const v: Schema = { values: [{ data: { One: 1 } }] };

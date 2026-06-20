@@ -234,7 +234,7 @@ func (s *Service) Retrieve(
 		for i, ch := range resChannels {
 			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
 			if err == nil {
-				oChannels[i].Alias = al
+				oChannels[i].Alias = &al
 			}
 		}
 	}

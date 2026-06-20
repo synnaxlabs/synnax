@@ -66,9 +66,9 @@ export interface CellTemplate extends z.infer<typeof cellTemplateZ> {}
  */
 export const tableZ = z.object({
   /** key is the unique identifier for this table. */
-  key: keyZ,
+  key: keyZ.default(uuid.create),
   /** name is a human-readable name for the table. */
-  name: z.string(),
+  name: z.string().min(1, "name is required"),
   /** rows are the table rows in display order, top to bottom. */
   rows: array.nullishToEmpty(rowZ),
   /** columns are the table columns in display order, left to right. */
@@ -82,16 +82,7 @@ export const tableZ = z.object({
   cells: caseconv.preserveCase(record.nullishToEmpty(z.string(), cellZ)),
 });
 export interface Table extends z.infer<typeof tableZ> {}
-
-export const newZ = tableZ
-  .omit({ key: true, rows: true, columns: true, cells: true })
-  .extend({
-    key: keyZ.default(() => uuid.create()),
-    rows: array.nullishToEmpty(rowZ),
-    columns: array.nullishToEmpty(columnZ),
-    cells: caseconv.preserveCase(record.nullishToEmpty(z.string(), cellZ)),
-  });
-export interface New extends z.input<typeof newZ> {}
+export interface New extends z.input<typeof tableZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("table");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

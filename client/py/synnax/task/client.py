@@ -30,7 +30,7 @@ from synnax.rack import Rack
 from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
 from synnax.task.types_gen import Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
-from x.normalize import check_for_none, normalize, override
+from x.lists import check_for_none, normalize, override
 
 
 class _CreateRequest(BaseModel):

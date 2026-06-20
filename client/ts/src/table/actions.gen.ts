@@ -153,49 +153,49 @@ export const actionZ = z.discriminatedUnion("type", [
 
 export type Action = z.infer<typeof actionZ>;
 
-export const rename = (payload: RenamePayload): Action => ({
+export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
-  rename: payload,
+  rename: renamePayloadZ.parse(payload),
 });
 
-export const addRow = (payload: AddRowPayload): Action => ({
+export const addRow = (payload: z.input<typeof addRowPayloadZ>): Action => ({
   type: "add_row",
-  addRow: payload,
+  addRow: addRowPayloadZ.parse(payload),
 });
 
-export const removeRow = (payload: RemoveRowPayload): Action => ({
+export const removeRow = (payload: z.input<typeof removeRowPayloadZ>): Action => ({
   type: "remove_row",
-  removeRow: payload,
+  removeRow: removeRowPayloadZ.parse(payload),
 });
 
-export const addCol = (payload: AddColPayload): Action => ({
+export const addCol = (payload: z.input<typeof addColPayloadZ>): Action => ({
   type: "add_col",
-  addCol: payload,
+  addCol: addColPayloadZ.parse(payload),
 });
 
-export const removeCol = (payload: RemoveColPayload): Action => ({
+export const removeCol = (payload: z.input<typeof removeColPayloadZ>): Action => ({
   type: "remove_col",
-  removeCol: payload,
+  removeCol: removeColPayloadZ.parse(payload),
 });
 
-export const resizeRow = (payload: ResizeRowPayload): Action => ({
+export const resizeRow = (payload: z.input<typeof resizeRowPayloadZ>): Action => ({
   type: "resize_row",
-  resizeRow: payload,
+  resizeRow: resizeRowPayloadZ.parse(payload),
 });
 
-export const resizeCol = (payload: ResizeColPayload): Action => ({
+export const resizeCol = (payload: z.input<typeof resizeColPayloadZ>): Action => ({
   type: "resize_col",
-  resizeCol: payload,
+  resizeCol: resizeColPayloadZ.parse(payload),
 });
 
-export const setCell = (payload: SetCellPayload): Action => ({
+export const setCell = (payload: z.input<typeof setCellPayloadZ>): Action => ({
   type: "set_cell",
-  setCell: payload,
+  setCell: setCellPayloadZ.parse(payload),
 });
 
-export const eraseCells = (payload: EraseCellsPayload): Action => ({
+export const eraseCells = (payload: z.input<typeof eraseCellsPayloadZ>): Action => ({
   type: "erase_cells",
-  eraseCells: payload,
+  eraseCells: eraseCellsPayloadZ.parse(payload),
 });
 
 export type HandlerResult = actions.HandlerResult<Action>;

@@ -190,7 +190,12 @@ describe("migrations", () => {
         ...v5.ZERO_STATE,
         legend: {
           visible: true,
-          position: { x: 123, y: 456, units: { x: "px", y: "px" } },
+          position: {
+            x: 123,
+            y: 456,
+            root: { x: "left", y: "top" },
+            units: { x: "px", y: "px" },
+          },
           colors: { a: "#ff0000", b: "#00ff00" },
         },
       };
@@ -200,6 +205,7 @@ describe("migrations", () => {
         x: 123,
         y: 456,
         units: { x: "px", y: "px" },
+        root: { x: "left", y: "top" },
       });
       expect(migrated.legend.colors.a).toEqual(color.construct("#ff0000"));
       expect(migrated.legend.colors.b).toEqual(color.construct("#00ff00"));
@@ -289,6 +295,7 @@ describe("migrations", () => {
       expect(migrated.pendingUpload?.nodes[0]).toEqual({
         key: "n1",
         position: { x: 10, y: 20 },
+        zIndex: 0,
       });
       expect(migrated.pendingUpload?.nodes[0]).not.toHaveProperty("selected");
       expect(migrated.pendingUpload?.nodes[0]).not.toHaveProperty("staleField");
@@ -312,7 +319,7 @@ describe("migrations", () => {
       const migrated = migrateState(populated);
       expect(migrated.version).toBe(v6.VERSION);
       expect(migrated.pendingUpload?.nodes).toEqual([
-        { key: "n1", position: { x: 10, y: 20 } },
+        { key: "n1", position: { x: 10, y: 20 }, zIndex: 0 },
       ]);
       expect(migrated.pendingUpload?.edges[0]).toEqual({
         key: "e1",

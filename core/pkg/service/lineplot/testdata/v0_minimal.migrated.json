@@ -6,7 +6,7 @@
     "visible": false
   },
   "legend": {
-    "visible": true,
+    "hidden": false,
     "position": {
       "x": 50,
       "y": 50,
@@ -42,9 +42,9 @@
         "lower": 0,
         "upper": 0
       },
-      "auto_bounds": {
-        "lower": true,
-        "upper": true
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
       },
       "tick_spacing": 75,
       "type": "time"
@@ -58,9 +58,9 @@
         "lower": 0,
         "upper": 0
       },
-      "auto_bounds": {
-        "lower": true,
-        "upper": true
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
       },
       "tick_spacing": 75,
       "type": "time"
@@ -74,9 +74,9 @@
         "lower": 0,
         "upper": 0
       },
-      "auto_bounds": {
-        "lower": true,
-        "upper": true
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
       },
       "tick_spacing": 75
     },
@@ -89,9 +89,9 @@
         "lower": 0,
         "upper": 0
       },
-      "auto_bounds": {
-        "lower": true,
-        "upper": true
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
       },
       "tick_spacing": 75
     },
@@ -104,9 +104,9 @@
         "lower": 0,
         "upper": 0
       },
-      "auto_bounds": {
-        "lower": true,
-        "upper": true
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
       },
       "tick_spacing": 75
     },
@@ -119,9 +119,9 @@
         "lower": 0,
         "upper": 0
       },
-      "auto_bounds": {
-        "lower": true,
-        "upper": true
+      "manual_bounds": {
+        "lower": false,
+        "upper": false
       },
       "tick_spacing": 75
     }

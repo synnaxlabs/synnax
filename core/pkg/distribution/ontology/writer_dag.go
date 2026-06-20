@@ -15,8 +15,10 @@ import (
 	"maps"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/graph"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // dagWriter is a key-value backed directed acyclic graph that implements the Writer
@@ -37,6 +39,9 @@ func (d dagWriter) DefineResource(ctx context.Context, ids ...ID) error {
 		return nil
 	}
 	for _, id := range ids {
+		if id.Key == "" {
+			return errors.Wrapf(validate.ErrValidation, "key is required")
+		}
 		if err := id.Validate(); err != nil {
 			return err
 		}

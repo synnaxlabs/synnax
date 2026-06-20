@@ -90,11 +90,15 @@ export const Container = memo(
         // element based on the new dimensions of the parent. This removes strange
         // 'jumping' behavior when starting to drag.
         if (ref.current == null || ref.current.parentElement == null) return;
-        positionRef.current = sticky.toDecimal({
-          position: positionRef.current,
-          element: box.construct(ref.current),
-          container: box.construct(ref.current.parentElement),
-        });
+        positionRef.current = {
+          ...sticky.toDecimal({
+            position: positionRef.current,
+            element: box.construct(ref.current),
+            container: box.construct(ref.current.parentElement),
+          }),
+          root: location.TOP_LEFT,
+          units: { x: "decimal", y: "decimal" },
+        };
       }, []),
       onMove: useCallback(
         (box: box.Box) => {

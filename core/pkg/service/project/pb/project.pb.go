@@ -42,11 +42,9 @@ type Project struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the project.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// author is the UUID of the user who created this project.
-	Author string `protobuf:"bytes,3,opt,name=author,proto3" json:"author,omitempty"`
 	// layout is the mosaic tree structure that defines how visualizations are arranged.
 	// Contains tab layout, split configurations, and window positions.
-	Layout        *structpb.Struct `protobuf:"bytes,4,opt,name=layout,proto3" json:"layout,omitempty"`
+	Layout        *structpb.Struct `protobuf:"bytes,3,opt,name=layout,proto3" json:"layout,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -95,13 +93,6 @@ func (x *Project) GetName() string {
 	return ""
 }
 
-func (x *Project) GetAuthor() string {
-	if x != nil {
-		return x.Author
-	}
-	return ""
-}
-
 func (x *Project) GetLayout() *structpb.Struct {
 	if x != nil {
 		return x.Layout
@@ -113,12 +104,11 @@ var File_core_pkg_service_project_pb_project_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_project_pb_project_proto_rawDesc = "" +
 	"\n" +
-	")core/pkg/service/project/pb/project.proto\x12\x12service.project.pb\x1a\x1cgoogle/protobuf/struct.proto\"x\n" +
+	")core/pkg/service/project/pb/project.proto\x12\x12service.project.pb\x1a\x1cgoogle/protobuf/struct.proto\"`\n" +
 	"\aProject\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
-	"\x06author\x18\x03 \x01(\tR\x06author\x12/\n" +
-	"\x06layout\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06layoutB\xc5\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12/\n" +
+	"\x06layout\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x06layoutB\xc5\x01\n" +
 	"\x16com.service.project.pbB\fProjectProtoP\x01Z3github.com/synnaxlabs/synnax/pkg/service/project/pb\xa2\x02\x03SPP\xaa\x02\x12Service.Project.Pb\xca\x02\x12Service\\Project\\Pb\xe2\x02\x1eService\\Project\\Pb\\GPBMetadata\xea\x02\x14Service::Project::Pbb\x06proto3"
 
 var (

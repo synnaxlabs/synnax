@@ -78,7 +78,8 @@ func migrateNode(n v0.Node) Node {
 		Position: spatial.XY{X: n.Position.X, Y: n.Position.Y},
 	}
 	if n.ZIndex != nil {
-		out.ZIndex = int16(*n.ZIndex)
+		z := int16(*n.ZIndex)
+		out.ZIndex = z
 	}
 	return out
 }

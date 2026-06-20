@@ -56,7 +56,7 @@ func migrateTitle(t v0.Title) Title {
 }
 
 func migrateLegend(l v1.Legend) Legend {
-	return Legend{Visible: l.Visible, Position: migrateStickyXY(l.Position)}
+	return Legend{Hidden: !l.Visible, Position: migrateStickyXY(l.Position)}
 }
 
 func migrateStickyXY(p v1.LegendPosition) spatial.StickyXY {
@@ -68,18 +68,18 @@ func migrateStickyXY(p v1.LegendPosition) spatial.StickyXY {
 	}
 }
 
-func migrateStickyRoot(r *v1.StickyRoot) *spatial.CornerLocation {
+func migrateStickyRoot(r *v1.StickyRoot) spatial.CornerLocation {
 	if r == nil {
-		return nil
+		return spatial.CornerLocation{X: spatial.XLocationLeft, Y: spatial.YLocationTop}
 	}
-	return &spatial.CornerLocation{X: spatial.XLocation(r.X), Y: spatial.YLocation(r.Y)}
+	return spatial.CornerLocation{X: spatial.XLocation(r.X), Y: spatial.YLocation(r.Y)}
 }
 
-func migrateStickyUnits(u *v1.StickyUnits) *spatial.StickyUnits {
+func migrateStickyUnits(u *v1.StickyUnits) spatial.StickyUnits {
 	if u == nil {
-		return nil
+		return spatial.StickyUnits{X: spatial.StickyUnitPx, Y: spatial.StickyUnitPx}
 	}
-	return &spatial.StickyUnits{X: spatial.StickyUnit(u.X), Y: spatial.StickyUnit(u.Y)}
+	return spatial.StickyUnits{X: spatial.StickyUnit(u.X), Y: spatial.StickyUnit(u.Y)}
 }
 
 func migrateChannels(c v0.Channels) Channels {
@@ -108,7 +108,7 @@ func migrateAxis(a v2.Axis) Axis {
 		LabelDirection: spatial.Direction(a.LabelDirection),
 		LabelLevel:     text.Level(a.LabelLevel),
 		Bounds:         spatial.Bounds{Lower: a.Bounds.Lower, Upper: a.Bounds.Upper},
-		AutoBounds:     AutoBounds{Lower: a.AutoBounds.Lower, Upper: a.AutoBounds.Upper},
+		ManualBounds:   ManualBounds{Lower: !a.AutoBounds.Lower, Upper: !a.AutoBounds.Upper},
 		TickSpacing:    a.TickSpacing,
 		Type:           migrateTickType(a.Type),
 	}

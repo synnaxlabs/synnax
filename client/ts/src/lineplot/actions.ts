@@ -24,8 +24,8 @@ import {
   setAxisTickSpacing,
   setAxisType,
   setChannels,
+  setLegendHidden,
   setLegendPosition,
-  setLegendVisible,
   setLine,
   setLineColor,
   setLineDownsample,
@@ -65,11 +65,11 @@ const handlers: Handlers = {
     return { inverse: [setTitle({ title: oldTitle })], targets: [state.key] };
   },
 
-  setLegendVisible: (state, payload) => {
-    const oldVisible = state.legend.visible;
-    state.legend.visible = payload.visible;
+  setLegendHidden: (state, payload) => {
+    const oldHidden = state.legend.hidden;
+    state.legend.hidden = payload.hidden;
     return {
-      inverse: [setLegendVisible({ visible: oldVisible })],
+      inverse: [setLegendHidden({ hidden: oldHidden })],
       targets: [state.key],
     };
   },
@@ -276,11 +276,11 @@ const handlers: Handlers = {
       setAxisBounds({
         key: payload.key,
         bounds: actions.snapshotDraft(axis.bounds),
-        autoBounds: actions.snapshotDraft(axis.autoBounds),
+        manualBounds: actions.snapshotDraft(axis.manualBounds),
       }),
     ];
     axis.bounds = payload.bounds;
-    axis.autoBounds = payload.autoBounds;
+    axis.manualBounds = payload.manualBounds;
     return { inverse, targets: [`axis:${payload.key}`] };
   },
 

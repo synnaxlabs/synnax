@@ -108,17 +108,17 @@ describe("log queries", () => {
     it("reads the display-config scalars", async () => {
       const created = await createLog({
         timestampPrecision: 3,
-        showChannelNames: false,
-        showReceiptTimestamp: false,
+        hideChannelNames: true,
+        hideReceiptTimestamp: true,
       });
       const { result } = await loadAndSelect(created.key, () => ({
         precision: Log.useSelectTimestampPrecision({ key: created.key }),
-        names: Log.useSelectShowChannelNames({ key: created.key }),
-        receipt: Log.useSelectShowReceiptTimestamp({ key: created.key }),
+        names: Log.useSelectHideChannelNames({ key: created.key }),
+        receipt: Log.useSelectHideReceiptTimestamp({ key: created.key }),
       }));
       expect(result.current.precision).toBe(3);
-      expect(result.current.names).toBe(false);
-      expect(result.current.receipt).toBe(false);
+      expect(result.current.names).toBe(true);
+      expect(result.current.receipt).toBe(true);
     });
   });
 
@@ -191,7 +191,7 @@ describe("log queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [log.setShowChannelNames({ showChannelNames: false })],
+          actions: [log.setHideChannelNames({ hideChannelNames: true })],
         });
       });
       expect(result.current.precision).toBe(first);

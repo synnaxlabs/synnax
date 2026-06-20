@@ -14,7 +14,6 @@ package pb
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -27,7 +26,6 @@ func ProjectToPB(r project.Project) (*Project, error) {
 	pb := &Project{
 		Name:   r.Name,
 		Key:    r.Key.String(),
-		Author: r.Author.String(),
 		Layout: layoutVal,
 	}
 	return pb, nil
@@ -45,11 +43,6 @@ func ProjectFromPB(pb *Project) (project.Project, error) {
 		return project.Project{}, err
 	}
 	r.Key = project.Key(parsedKey)
-	parsedAuthor, err := uuid.Parse(pb.Author)
-	if err != nil {
-		return project.Project{}, err
-	}
-	r.Author = user.Key(parsedAuthor)
 	r.Layout = pb.Layout.AsMap()
 	r.Name = pb.Name
 	return r, nil

@@ -11,20 +11,23 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-from uuid import UUID
+from typing import Annotated, TypeAlias
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator, Field
 
 from synnax import ontology
 from synnax.access import action
 from synnax.ontology.payload import ID
+from x import lists
 
 Key: TypeAlias = UUID
 
 
 class Policy(BaseModel):
-    """Contains parameters for creating a new policy.
+    """Is an access control policy that defines which actions are permitted on
+    which resources. Policies are attached to roles, and roles are assigned
+    to users via ontology relationships.
 
     Attributes:
         key: Is the unique identifier for this policy.
@@ -34,11 +37,18 @@ class Policy(BaseModel):
         internal: Is true if this is a built-in system policy that cannot be deleted.
     """
 
-    key: Key | None = None
+    key: Key = Field(default_factory=uuid4)
     name: str
-    objects: list[ontology.ID]
-    actions: list[action.Action]
-    internal: bool | None = None
+    objects: Annotated[list[ontology.ID], BeforeValidator(lists.none_to_empty)] = Field(
+        default_factory=list
+    )
+    actions: Annotated[list[action.Action], BeforeValidator(lists.none_to_empty)] = (
+        Field(default_factory=list)
+    )
+    internal: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 ONTOLOGY_TYPE = ID(type="policy")

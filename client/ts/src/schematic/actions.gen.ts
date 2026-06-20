@@ -31,18 +31,6 @@ export const setNodePositionPayloadZ = z.object({
 export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
- * SetNodeMeasured updates the rendered pixel size of a node. Emitted by the
- * renderer after measuring the mounted node and stored on the
- * node so diagram measurements stay consistent across re-renders.
- */
-export const setNodeMeasuredPayloadZ = z.object({
-  key: z.string(),
-  measured: spatial.dimensionsZ,
-});
-
-export type SetNodeMeasuredPayload = z.infer<typeof setNodeMeasuredPayloadZ>;
-
-/**
  * SetNode inserts the node if no node with the same key exists, otherwise
  * replaces the existing node in place. If config is non-empty it is
  * stored under the node's key in the schematic configs map.
@@ -99,10 +87,6 @@ export const actionZ = z.discriminatedUnion("type", [
     type: z.literal("set_node_position"),
     setNodePosition: setNodePositionPayloadZ,
   }),
-  z.object({
-    type: z.literal("set_node_measured"),
-    setNodeMeasured: setNodeMeasuredPayloadZ,
-  }),
   z.object({ type: z.literal("set_node"), setNode: setNodePayloadZ }),
   z.object({ type: z.literal("remove_node"), removeNode: removeNodePayloadZ }),
   z.object({ type: z.literal("add_edge"), addEdge: addEdgePayloadZ }),
@@ -112,44 +96,41 @@ export const actionZ = z.discriminatedUnion("type", [
 
 export type Action = z.infer<typeof actionZ>;
 
-export const rename = (payload: RenamePayload): Action => ({
+export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
-  rename: payload,
+  rename: renamePayloadZ.parse(payload),
 });
 
-export const setNodePosition = (payload: SetNodePositionPayload): Action => ({
+export const setNodePosition = (
+  payload: z.input<typeof setNodePositionPayloadZ>,
+): Action => ({
   type: "set_node_position",
-  setNodePosition: payload,
+  setNodePosition: setNodePositionPayloadZ.parse(payload),
 });
 
-export const setNodeMeasured = (payload: SetNodeMeasuredPayload): Action => ({
-  type: "set_node_measured",
-  setNodeMeasured: payload,
-});
-
-export const setNode = (payload: SetNodePayload): Action => ({
+export const setNode = (payload: z.input<typeof setNodePayloadZ>): Action => ({
   type: "set_node",
-  setNode: payload,
+  setNode: setNodePayloadZ.parse(payload),
 });
 
-export const removeNode = (payload: RemoveNodePayload): Action => ({
+export const removeNode = (payload: z.input<typeof removeNodePayloadZ>): Action => ({
   type: "remove_node",
-  removeNode: payload,
+  removeNode: removeNodePayloadZ.parse(payload),
 });
 
-export const addEdge = (payload: AddEdgePayload): Action => ({
+export const addEdge = (payload: z.input<typeof addEdgePayloadZ>): Action => ({
   type: "add_edge",
-  addEdge: payload,
+  addEdge: addEdgePayloadZ.parse(payload),
 });
 
-export const removeEdge = (payload: RemoveEdgePayload): Action => ({
+export const removeEdge = (payload: z.input<typeof removeEdgePayloadZ>): Action => ({
   type: "remove_edge",
-  removeEdge: payload,
+  removeEdge: removeEdgePayloadZ.parse(payload),
 });
 
-export const setConfig = (payload: SetConfigPayload): Action => ({
+export const setConfig = (payload: z.input<typeof setConfigPayloadZ>): Action => ({
   type: "set_config",
-  setConfig: payload,
+  setConfig: setConfigPayloadZ.parse(payload),
 });
 
 export type HandlerResult = actions.HandlerResult<Action>;
@@ -161,10 +142,6 @@ export interface Handlers {
   setNodePosition: (
     state: Draft<Schematic>,
     payload: SetNodePositionPayload,
-  ) => HandlerResult;
-  setNodeMeasured: (
-    state: Draft<Schematic>,
-    payload: SetNodeMeasuredPayload,
   ) => HandlerResult;
   setNode: (state: Draft<Schematic>, payload: SetNodePayload) => HandlerResult;
   removeNode: (state: Draft<Schematic>, payload: RemoveNodePayload) => HandlerResult;
@@ -180,8 +157,6 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.rename(state, action.rename);
       case "set_node_position":
         return handlers.setNodePosition(state, action.setNodePosition);
-      case "set_node_measured":
-        return handlers.setNodeMeasured(state, action.setNodeMeasured);
       case "set_node":
         return handlers.setNode(state, action.setNode);
       case "remove_node":

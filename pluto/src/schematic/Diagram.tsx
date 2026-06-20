@@ -76,13 +76,6 @@ export const nodeChangesToActions = (
       case "position":
         actions.push(schematic.setNodePosition({ key: ch.key, position: ch.position }));
         return;
-      case "dimensions":
-        // onResize drives the symbol's size during a drag; skip the competing write.
-        if (ch.resizing) return;
-        actions.push(
-          schematic.setNodeMeasured({ key: ch.key, measured: ch.dimensions }),
-        );
-        return;
       case "remove":
         actions.push(schematic.removeNode({ key: ch.key }));
     }

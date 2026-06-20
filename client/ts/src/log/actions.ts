@@ -18,8 +18,8 @@ import {
   rename,
   setChannelEntry,
   setChannels,
-  setShowChannelNames,
-  setShowReceiptTimestamp,
+  setHideChannelNames,
+  setHideReceiptTimestamp,
   setTimestampPrecision,
   swapChannel,
 } from "@/log/actions.gen";
@@ -107,20 +107,20 @@ const handlers: Handlers = {
     };
   },
 
-  setShowChannelNames: (state, payload) => {
-    const oldValue = state.showChannelNames;
-    state.showChannelNames = payload.showChannelNames;
+  setHideChannelNames: (state, payload) => {
+    const oldValue = state.hideChannelNames;
+    state.hideChannelNames = payload.hideChannelNames;
     return {
-      inverse: [setShowChannelNames({ showChannelNames: oldValue })],
+      inverse: [setHideChannelNames({ hideChannelNames: oldValue })],
       targets: [state.key],
     };
   },
 
-  setShowReceiptTimestamp: (state, payload) => {
-    const oldValue = state.showReceiptTimestamp;
-    state.showReceiptTimestamp = payload.showReceiptTimestamp;
+  setHideReceiptTimestamp: (state, payload) => {
+    const oldValue = state.hideReceiptTimestamp;
+    state.hideReceiptTimestamp = payload.hideReceiptTimestamp;
     return {
-      inverse: [setShowReceiptTimestamp({ showReceiptTimestamp: oldValue })],
+      inverse: [setHideReceiptTimestamp({ hideReceiptTimestamp: oldValue })],
       targets: [state.key],
     };
   },

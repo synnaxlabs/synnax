@@ -346,8 +346,9 @@ func (x *Title) GetVisible() bool {
 // Legend is the plot legend configuration.
 type Legend struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// visible is whether the legend is shown.
-	Visible bool `protobuf:"varint,1,opt,name=visible,proto3" json:"visible,omitempty"`
+	// hidden is whether the legend is hidden. When false (the default), the legend is
+	// shown.
+	Hidden bool `protobuf:"varint,1,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	// position is the anchor position of the legend within the plot container.
 	Position      *pb1.StickyXY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -384,9 +385,9 @@ func (*Legend) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Legend) GetVisible() bool {
+func (x *Legend) GetHidden() bool {
 	if x != nil {
-		return x.Visible
+		return x.Hidden
 	}
 	return false
 }
@@ -548,33 +549,34 @@ func (x *Ranges) GetX2() []string {
 	return nil
 }
 
-// AutoBounds controls whether an axis derives its bounds from the rendered data window
-// on each side independently. When a bound is auto, the corresponding entry in
-// Axis.bounds is recomputed locally and never broadcast to the server.
-type AutoBounds struct {
+// ManualBounds controls whether an axis uses a manually-set bound on each side
+// independently. When a side is false (the default), the corresponding entry in
+// Axis.bounds is recomputed locally from the rendered data window and never broadcast
+// to the server; when true, Axis.bounds holds the user-set value.
+type ManualBounds struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// lower is whether the lower bound is computed from data.
+	// lower is whether the lower bound is set manually rather than computed from data.
 	Lower bool `protobuf:"varint,1,opt,name=lower,proto3" json:"lower,omitempty"`
-	// upper is whether the upper bound is computed from data.
+	// upper is whether the upper bound is set manually rather than computed from data.
 	Upper         bool `protobuf:"varint,2,opt,name=upper,proto3" json:"upper,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AutoBounds) Reset() {
-	*x = AutoBounds{}
+func (x *ManualBounds) Reset() {
+	*x = ManualBounds{}
 	mi := &file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AutoBounds) String() string {
+func (x *ManualBounds) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AutoBounds) ProtoMessage() {}
+func (*ManualBounds) ProtoMessage() {}
 
-func (x *AutoBounds) ProtoReflect() protoreflect.Message {
+func (x *ManualBounds) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -586,19 +588,19 @@ func (x *AutoBounds) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AutoBounds.ProtoReflect.Descriptor instead.
-func (*AutoBounds) Descriptor() ([]byte, []int) {
+// Deprecated: Use ManualBounds.ProtoReflect.Descriptor instead.
+func (*ManualBounds) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *AutoBounds) GetLower() bool {
+func (x *ManualBounds) GetLower() bool {
 	if x != nil {
 		return x.Lower
 	}
 	return false
 }
 
-func (x *AutoBounds) GetUpper() bool {
+func (x *ManualBounds) GetUpper() bool {
 	if x != nil {
 		return x.Upper
 	}
@@ -616,12 +618,12 @@ type Axis struct {
 	LabelDirection pb1.Direction `protobuf:"varint,3,opt,name=label_direction,json=labelDirection,proto3,enum=x.spatial.pb.Direction" json:"label_direction,omitempty"`
 	// label_level is the typography level of the label.
 	LabelLevel pb.Level `protobuf:"varint,4,opt,name=label_level,json=labelLevel,proto3,enum=x.text.pb.Level" json:"label_level,omitempty"`
-	// bounds is the value-space window of the axis. When the matching entry in auto_bounds
-	// is true the field is overwritten locally on every render; otherwise it is the
-	// user-set fixed bound.
+	// bounds is the value-space window of the axis. When the matching entry in
+	// manual_bounds is false the field is overwritten locally on every render; otherwise it
+	// is the user-set fixed bound.
 	Bounds *pb1.Bounds `protobuf:"bytes,5,opt,name=bounds,proto3" json:"bounds,omitempty"`
-	// auto_bounds controls per-edge automatic bound derivation.
-	AutoBounds *AutoBounds `protobuf:"bytes,6,opt,name=auto_bounds,json=autoBounds,proto3" json:"auto_bounds,omitempty"`
+	// manual_bounds controls per-edge manual bound override.
+	ManualBounds *ManualBounds `protobuf:"bytes,6,opt,name=manual_bounds,json=manualBounds,proto3" json:"manual_bounds,omitempty"`
 	// tick_spacing is the target pixel distance between adjacent tick marks.
 	TickSpacing float64 `protobuf:"fixed64,7,opt,name=tick_spacing,json=tickSpacing,proto3" json:"tick_spacing,omitempty"`
 	// type selects the tick label style. Null means default (linear). X-axes typically
@@ -696,9 +698,9 @@ func (x *Axis) GetBounds() *pb1.Bounds {
 	return nil
 }
 
-func (x *Axis) GetAutoBounds() *AutoBounds {
+func (x *Axis) GetManualBounds() *ManualBounds {
 	if x != nil {
-		return x.AutoBounds
+		return x.ManualBounds
 	}
 	return nil
 }
@@ -1141,9 +1143,9 @@ const file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"+core/pkg/service/lineplot/pb/lineplot.proto\x12\x13service.lineplot.pb\x1a\x19x/go/color/pb/color.proto\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x17x/go/text/pb/text.proto\"I\n" +
 	"\x05Title\x12&\n" +
 	"\x05level\x18\x01 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12\x18\n" +
-	"\avisible\x18\x02 \x01(\bR\avisible\"V\n" +
-	"\x06Legend\x12\x18\n" +
-	"\avisible\x18\x01 \x01(\bR\avisible\x122\n" +
+	"\avisible\x18\x02 \x01(\bR\avisible\"T\n" +
+	"\x06Legend\x12\x16\n" +
+	"\x06hidden\x18\x01 \x01(\bR\x06hidden\x122\n" +
 	"\bposition\x18\x02 \x01(\v2\x16.x.spatial.pb.StickyXYR\bposition\"j\n" +
 	"\bChannels\x12\x0e\n" +
 	"\x02x1\x18\x01 \x01(\rR\x02x1\x12\x0e\n" +
@@ -1154,20 +1156,18 @@ const file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"\x02y4\x18\x06 \x03(\rR\x02y4\"(\n" +
 	"\x06Ranges\x12\x0e\n" +
 	"\x02x1\x18\x01 \x03(\tR\x02x1\x12\x0e\n" +
-	"\x02x2\x18\x02 \x03(\tR\x02x2\"8\n" +
-	"\n" +
-	"AutoBounds\x12\x14\n" +
+	"\x02x2\x18\x02 \x03(\tR\x02x2\":\n" +
+	"\fManualBounds\x12\x14\n" +
 	"\x05lower\x18\x01 \x01(\bR\x05lower\x12\x14\n" +
-	"\x05upper\x18\x02 \x01(\bR\x05upper\"\x95\x03\n" +
+	"\x05upper\x18\x02 \x01(\bR\x05upper\"\x9b\x03\n" +
 	"\x04Axis\x12.\n" +
 	"\x03key\x18\x01 \x01(\x0e2\x1c.service.lineplot.pb.AxisKeyR\x03key\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12@\n" +
 	"\x0flabel_direction\x18\x03 \x01(\x0e2\x17.x.spatial.pb.DirectionR\x0elabelDirection\x121\n" +
 	"\vlabel_level\x18\x04 \x01(\x0e2\x10.x.text.pb.LevelR\n" +
 	"labelLevel\x12,\n" +
-	"\x06bounds\x18\x05 \x01(\v2\x14.x.spatial.pb.BoundsR\x06bounds\x12@\n" +
-	"\vauto_bounds\x18\x06 \x01(\v2\x1f.service.lineplot.pb.AutoBoundsR\n" +
-	"autoBounds\x12!\n" +
+	"\x06bounds\x18\x05 \x01(\v2\x14.x.spatial.pb.BoundsR\x06bounds\x12F\n" +
+	"\rmanual_bounds\x18\x06 \x01(\v2!.service.lineplot.pb.ManualBoundsR\fmanualBounds\x12!\n" +
 	"\ftick_spacing\x18\a \x01(\x01R\vtickSpacing\x126\n" +
 	"\x04type\x18\b \x01(\x0e2\x1d.service.lineplot.pb.TickTypeH\x00R\x04type\x88\x01\x01B\a\n" +
 	"\x05_type\"\x88\x02\n" +
@@ -1257,7 +1257,7 @@ var file_core_pkg_service_lineplot_pb_lineplot_proto_goTypes = []any{
 	(*Legend)(nil),       // 6: service.lineplot.pb.Legend
 	(*Channels)(nil),     // 7: service.lineplot.pb.Channels
 	(*Ranges)(nil),       // 8: service.lineplot.pb.Ranges
-	(*AutoBounds)(nil),   // 9: service.lineplot.pb.AutoBounds
+	(*ManualBounds)(nil), // 9: service.lineplot.pb.ManualBounds
 	(*Axis)(nil),         // 10: service.lineplot.pb.Axis
 	(*Axes)(nil),         // 11: service.lineplot.pb.Axes
 	(*Line)(nil),         // 12: service.lineplot.pb.Line
@@ -1276,7 +1276,7 @@ var file_core_pkg_service_lineplot_pb_lineplot_proto_depIdxs = []int32{
 	17, // 3: service.lineplot.pb.Axis.label_direction:type_name -> x.spatial.pb.Direction
 	15, // 4: service.lineplot.pb.Axis.label_level:type_name -> x.text.pb.Level
 	18, // 5: service.lineplot.pb.Axis.bounds:type_name -> x.spatial.pb.Bounds
-	9,  // 6: service.lineplot.pb.Axis.auto_bounds:type_name -> service.lineplot.pb.AutoBounds
+	9,  // 6: service.lineplot.pb.Axis.manual_bounds:type_name -> service.lineplot.pb.ManualBounds
 	1,  // 7: service.lineplot.pb.Axis.type:type_name -> service.lineplot.pb.TickType
 	10, // 8: service.lineplot.pb.Axes.x1:type_name -> service.lineplot.pb.Axis
 	10, // 9: service.lineplot.pb.Axes.x2:type_name -> service.lineplot.pb.Axis

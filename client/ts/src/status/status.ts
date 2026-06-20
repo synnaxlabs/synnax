@@ -136,6 +136,7 @@ export const create = <
     time: TimeStamp.now(),
     name: "",
     ...spec,
+    description: spec.description ?? "",
   }) as Status<DetailsSchema, z.ZodType<V>>;
 
 export const keepVariants = (

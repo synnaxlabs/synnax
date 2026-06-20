@@ -20,7 +20,7 @@ Key = uuid {
 }
 
 Label struct {
-    key   Key         {
+    key   Key = create {
         @doc value "is the unique identifier for this label."
         @key
     }
@@ -37,16 +37,7 @@ Label struct {
         Labels can be attached to resources like ranges for organization and
         filtering.
     """
+    @create
     @go marshal
     @go migrate
-}
-
-New struct extends Label {
-    key?
-
-    @doc value    "contains parameters for creating a new label."
-    @py omit
-    @ts use_input
-    @go omit
-    @pb omit
 }

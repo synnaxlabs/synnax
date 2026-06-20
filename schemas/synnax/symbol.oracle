@@ -102,7 +102,7 @@ Spec struct {
 }
 
 Symbol struct {
-    key     Key    {
+    key     Key = create {
         @key
         @doc value "is the unique identifier for this symbol."
     }
@@ -122,27 +122,5 @@ Symbol struct {
         components for diagrams.
     """
     @ontology type "schematic_symbol"
-}
-
-New struct {
-    key     Key?   {
-        @key
-        @doc value """
-            is an optional key for the symbol. If not provided, one will be
-            automatically assigned.
-        """
-    }
-    version uint32 = 1 {
-        @doc value "is the symbol schema version."
-    }
-    name    string {
-        @validate min_length 1
-        @doc value           "is a human-readable name for the symbol."
-    }
-    data    Spec   {
-        @doc value "is the complete symbol specification."
-    }
-
-    @doc value    "contains parameters for creating a new schematic symbol."
-    @ts use_input
+    @create
 }

@@ -17,7 +17,7 @@ from synnax import rack as rack_
 from synnax.device.types_gen import Device
 from synnax.exceptions import NotFoundError
 from synnax.ontology.payload import ID as OntologyID
-from x.normalize import check_for_none, normalize, override
+from x.lists import check_for_none, normalize, override
 
 
 class _CreateRequest(BaseModel):
