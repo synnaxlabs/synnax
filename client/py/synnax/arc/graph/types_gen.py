@@ -18,8 +18,6 @@ from pydantic import BaseModel, BeforeValidator, Field
 from synnax.arc import ir
 from x import dicts, spatial
 
-Nodes: TypeAlias = list[Node]
-
 
 class Node(BaseModel):
     """Is a visual node in the Arc graph editor representing a function
@@ -34,6 +32,9 @@ class Node(BaseModel):
 
     key: str
     position: spatial.XY
+
+
+Nodes: TypeAlias = list[Node]
 
 
 class Graph(BaseModel):

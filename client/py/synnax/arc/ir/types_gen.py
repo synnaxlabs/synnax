@@ -19,12 +19,6 @@ from pydantic import BaseModel, BeforeValidator, Field
 from synnax.arc import types
 from x import dicts, lists
 
-Edges: TypeAlias = list[Edge]
-
-Functions: TypeAlias = list[Function]
-
-Nodes: TypeAlias = list[Node]
-
 
 class EdgeKind(IntEnum):
     unspecified = 0
@@ -144,7 +138,11 @@ class Function(BaseModel):
     channels: types.Channels
 
 
-Members: TypeAlias = list[Member]
+Nodes: TypeAlias = list[Node]
+
+Edges: TypeAlias = list[Edge]
+
+Functions: TypeAlias = list[Function]
 
 
 class Member(BaseModel):
@@ -213,3 +211,10 @@ class IR(BaseModel):
     edges: Edges
     authorities: Authorities
     root: Scope
+
+
+Members: TypeAlias = list[Member]
+
+
+Member.model_rebuild()
+Scope.model_rebuild()

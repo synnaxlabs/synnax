@@ -18,8 +18,6 @@ from pydantic import BaseModel, BeforeValidator, Field
 
 from x import dicts
 
-Params: TypeAlias = list[Param]
-
 
 class Kind(IntEnum):
     invalid = 0
@@ -50,18 +48,6 @@ class ChanDirection(IntEnum):
     none = 0
     read = 1
     write = 2
-
-
-class FunctionProperties(BaseModel):
-    """Contains common parameter definitions for function-like types.
-
-    Attributes:
-        inputs: Contains input parameter definitions.
-        outputs: Contains output parameter definitions.
-    """
-
-    inputs: Params = Field(default_factory=list)
-    outputs: Params = Field(default_factory=list)
 
 
 class Channels(BaseModel):
@@ -118,6 +104,18 @@ class Unit(BaseModel):
     name: str
 
 
+class FunctionProperties(BaseModel):
+    """Contains common parameter definitions for function-like types.
+
+    Attributes:
+        inputs: Contains input parameter definitions.
+        outputs: Contains output parameter definitions.
+    """
+
+    inputs: Params = Field(default_factory=list)
+    outputs: Params = Field(default_factory=list)
+
+
 class Type(FunctionProperties):
     """Is a type in Arc's type system with optional element type for compounds,
     physical units, and constraints.
@@ -151,3 +149,10 @@ class Param(BaseModel):
     name: str
     type: Type
     value: Any
+
+
+Params: TypeAlias = list[Param]
+
+
+FunctionProperties.model_rebuild()
+Type.model_rebuild()
