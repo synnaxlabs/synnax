@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a panel, represented as a UUID.
@@ -53,6 +55,14 @@ type Leaf struct {
 	Tabs []Tab `json:"tabs" msgpack:"tabs"`
 }
 
+func (l Leaf) Validate() error {
+	v := validate.New("Leaf")
+	for i := range l.Tabs {
+		v.Exec(func() error { return validate.PathedError(l.Tabs[i].Validate(), "tabs", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
 // Split is an interior split node dividing its area between two children.
 type Split struct {
 	// Direction is the axis along which this node is split.
@@ -64,6 +74,14 @@ type Split struct {
 	First Node `json:"first" msgpack:"first"`
 	// Last is the second child (right for x, bottom for y).
 	Last Node `json:"last" msgpack:"last"`
+}
+
+func (s Split) Validate() error {
+	v := validate.New("Split")
+	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
+	v.Exec(func() error { return validate.PathedError(s.First.Validate(), "first") })
+	v.Exec(func() error { return validate.PathedError(s.Last.Validate(), "last") })
+	return v.Error()
 }
 
 // Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
@@ -81,6 +99,16 @@ type Panel struct {
 	// the ontology graph, so the field is not persisted on the panel record and is absent
 	// on retrieve.
 	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
+}
+
+func (p Panel) Validate() error {
+	v := validate.New("Panel")
+	validate.NotEmptyString(v, "name", p.Name)
+	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
+	if p.Parent != nil {
+		v.Exec(func() error { return validate.PathedError(p.Parent.Validate(), "parent") })
+	}
+	return v.Error()
 }
 
 type TabType string
@@ -103,6 +131,12 @@ type TabResource struct {
 }
 
 func (TabResource) isTabVariant() {}
+
+func (t TabResource) Validate() error {
+	v := validate.New("TabResource")
+	v.Exec(func() error { return validate.PathedError(t.Resource.Validate(), "resource") })
+	return v.Error()
+}
 
 // TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
 // view has no backing core document: it carries its own type and opaque args. Used for
@@ -198,6 +232,14 @@ func (u *Tab) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (u Tab) Validate() error {
+	switch variant := u.Variant.(type) {
+	case TabResource:
+		return variant.Validate()
+	}
+	return nil
+}
+
 type NodeType string
 
 const (
@@ -215,11 +257,23 @@ type NodeLeaf struct {
 
 func (NodeLeaf) isNodeVariant() {}
 
+func (n NodeLeaf) Validate() error {
+	v := validate.New("NodeLeaf")
+	v.Exec(n.Leaf.Validate)
+	return v.Error()
+}
+
 type NodeSplit struct {
 	Split
 }
 
 func (NodeSplit) isNodeVariant() {}
+
+func (n NodeSplit) Validate() error {
+	v := validate.New("NodeSplit")
+	v.Exec(n.Split.Validate)
+	return v.Error()
+}
 
 // Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
@@ -283,6 +337,16 @@ func (u *Node) UnmarshalJSON(data []byte) error {
 		u.Variant = v
 	default:
 		return errors.Newf("Node: unknown variant %q", disc.Type)
+	}
+	return nil
+}
+
+func (u Node) Validate() error {
+	switch variant := u.Variant.(type) {
+	case NodeLeaf:
+		return variant.Validate()
+	case NodeSplit:
+		return variant.Validate()
 	}
 	return nil
 }

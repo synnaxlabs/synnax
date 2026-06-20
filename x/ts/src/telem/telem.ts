@@ -2135,8 +2135,9 @@ export class DataType
 
   /** A zod schema for a DataType. */
   static readonly z = z.union([
-    z.string().transform((v) => new DataType(v)),
     z.instanceof(DataType),
+    z.string().transform((v) => new DataType(v)),
+    z.object({ value: z.string() }).transform((v) => new DataType(v)),
   ]);
 }
 

@@ -11,14 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
-import { type Key, keyZ, type Label, labelZ, type New, newZ } from "@/label/types.gen";
+import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
-const createReqZ = z.object({ labels: newZ.array() });
+const createReqZ = z.object({ labels: labelZ.array() });
 const createResZ = z.object({ labels: labelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const setReqZ = z.object({

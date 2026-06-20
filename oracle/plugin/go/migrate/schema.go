@@ -49,7 +49,7 @@ func typesEqual(
 		}
 		for i := range oldForm.Fields {
 			of, nf := oldForm.Fields[i], newForm.Fields[i]
-			if of.Name != nf.Name || of.IsOptional != nf.IsOptional || of.IsHardOptional != nf.IsHardOptional {
+			if of.Name != nf.Name || of.Optional != nf.Optional {
 				return false
 			}
 			if !refsEqual(of.Type, nf.Type, oldTable, newTable, visiting) {
@@ -280,7 +280,7 @@ func diffStructFields(
 			selfChanged = true
 			continue
 		}
-		if of.IsOptional != nf.IsOptional || of.IsHardOptional != nf.IsHardOptional {
+		if of.Optional != nf.Optional {
 			diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindOptionalityChanged, OldField: &of, NewField: &nf})
 			selfChanged = true
 			continue

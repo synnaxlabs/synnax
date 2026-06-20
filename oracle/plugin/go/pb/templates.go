@@ -116,6 +116,18 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 		}
 		pb.{{.PBName}} = &val
 	}
+{{- else if .IsOptionalArrayWrapper}}
+	if r.{{.GoName}} != nil {
+{{- if .HasError}}
+		vals, err := {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+		pb.{{.PBName}} = &{{.WrapperName}}{Values: vals}
+{{- else}}
+		pb.{{.PBName}} = &{{.WrapperName}}{Values: {{.ForwardExpr}}}
+{{- end}}
+	}
 {{- else}}
 	if r.{{.GoName}} != nil {
 {{- if .HasError}}
@@ -186,6 +198,18 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	if pb.{{.PBName}} != nil {
 		v := {{.BackwardExpr}}
 		r.{{.GoName}} = &v
+	}
+{{- else if .IsOptionalArrayWrapper}}
+	if pb.{{.PBName}} != nil {
+{{- if .HasBackwardError}}
+		vals, err := {{.BackwardExpr}}
+		if err != nil {
+			return {{$goType}}{}, err
+		}
+		r.{{.GoName}} = vals
+{{- else}}
+		r.{{.GoName}} = {{.BackwardExpr}}
+{{- end}}
 	}
 {{- else}}
 	if pb.{{.PBName}} != nil {
@@ -437,6 +461,18 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 		}
 		pb.{{.PBName}} = &val
 	}
+{{- else if .IsOptionalArrayWrapper}}
+	if r.{{.GoName}} != nil {
+{{- if .HasError}}
+		vals, err := {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+		pb.{{.PBName}} = &{{.WrapperName}}{Values: vals}
+{{- else}}
+		pb.{{.PBName}} = &{{.WrapperName}}{Values: {{.ForwardExpr}}}
+{{- end}}
+	}
 {{- else}}
 	if r.{{.GoName}} != nil {
 {{- if .HasError}}
@@ -519,6 +555,18 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	if pb.{{.PBName}} != nil {
 		v := {{.BackwardExpr}}
 		r.{{.GoName}} = &v
+	}
+{{- else if .IsOptionalArrayWrapper}}
+	if pb.{{.PBName}} != nil {
+{{- if .HasBackwardError}}
+		vals, err := {{.BackwardExpr}}
+		if err != nil {
+			return {{$goType}}{}, err
+		}
+		r.{{.GoName}} = vals
+{{- else}}
+		r.{{.GoName}} = {{.BackwardExpr}}
+{{- end}}
 	}
 {{- else}}
 	if pb.{{.PBName}} != nil {

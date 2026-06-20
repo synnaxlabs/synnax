@@ -965,6 +965,7 @@ describe("Arc queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          cmd: "",
           data: {},
         },
       });

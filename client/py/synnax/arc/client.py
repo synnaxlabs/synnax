@@ -25,7 +25,7 @@ from synnax.arc.payload import (
 )
 from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.ontology.payload import ID
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):

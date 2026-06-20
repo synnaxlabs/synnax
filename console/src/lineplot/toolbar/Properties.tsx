@@ -42,7 +42,7 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   const handleLegendVisibilityChange = (visible: boolean): void => {
     dispatch({
       key: layoutKey,
-      actions: [lineplot.setLegendVisible({ visible })],
+      actions: [lineplot.setLegendHidden({ hidden: !visible })],
     });
   };
 
@@ -60,7 +60,7 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
         <Input.Switch value={title.visible} onChange={handleTitleVisibilityChange} />
       </Input.Item>
       <Input.Item label="Show Legend">
-        <Input.Switch value={legend.visible} onChange={handleLegendVisibilityChange} />
+        <Input.Switch value={!legend.hidden} onChange={handleLegendVisibilityChange} />
       </Input.Item>
     </Flex.Box>
   );

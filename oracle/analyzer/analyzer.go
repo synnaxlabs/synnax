@@ -195,12 +195,17 @@ func analyze(c *analysisCtx) {
 
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
+		validateActionExtends(c, typ)
 		validateTypeParams(c, typ)
 		validateUnion(c, typ)
 		validateFieldOverrides(c, typ)
 	}
 
 	desugarPartialOverrides(c)
+	finalizeActionExtends(c)
+	checkOptionalDefaultInvariant(c)
+	checkDefaultInvariant(c)
+	synthesizeCreateTypes(c)
 }
 
 // desugarPartialOverrides rewrites each struct's typeless override fields into
@@ -239,9 +244,8 @@ func desugarPartialOverrides(c *analysisCtx) {
 				continue
 			}
 			f.Type = pf.Type
-			if !f.IsOptional && !f.IsHardOptional {
-				f.IsOptional = pf.IsOptional
-				f.IsHardOptional = pf.IsHardOptional
+			if !f.Optional {
+				f.Optional = pf.Optional
 			}
 			if f.Default == nil {
 				f.Default = pf.Default
@@ -666,6 +670,13 @@ func collectAction(
 		Domains: make(map[string]resolution.Domain),
 		AST:     def,
 	}
+	if def.EXTENDS() != nil {
+		if typeRefList := def.TypeRefList(); typeRefList != nil {
+			for _, tr := range typeRefList.AllTypeRef() {
+				action.Extends = append(action.Extends, collectTypeRef(tr, typeParams))
+			}
+		}
+	}
 	body := def.ActionBody()
 	if body == nil {
 		return action
@@ -834,7 +845,7 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		var arraySize *int64
 
 		if isNormal {
-			field.IsOptional, field.IsHardOptional = extractTypeModifiersNormal(normalCtx)
+			field.Optional = extractTypeModifiersNormal(normalCtx)
 			if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
 				isArray = true
 				if intLit := arrMod.INT_LIT(); intLit != nil {
@@ -843,7 +854,7 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 				}
 			}
 		} else if isMap {
-			field.IsOptional, field.IsHardOptional = extractTypeModifiersMap(mapCtx)
+			field.Optional = extractTypeModifiersMap(mapCtx)
 		}
 
 		typeRef := collectTypeRef(tr, typeParams)
@@ -856,9 +867,9 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		}
 		field.Type = typeRef
 	} else if mods := def.TypeModifiers(); mods != nil {
-		// Typeless override that overrides only optionality (key? / key??); the
-		// type is inherited from the parent during override resolution.
-		field.IsOptional, field.IsHardOptional = modifiersFrom(mods)
+		// Typeless override that overrides only nullability (key?); the type is
+		// inherited from the parent during override resolution.
+		field.Optional = modifiersFrom(mods)
 	}
 
 	if fd := def.FieldDefault(); fd != nil {
@@ -1342,6 +1353,9 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 			for j := range form.Actions[i].Fields {
 				resolveTypeRef(c, typ, &form.Actions[i].Fields[j].Type)
 			}
+			for j := range form.Actions[i].Extends {
+				resolveTypeRef(c, typ, &form.Actions[i].Extends[j])
+			}
 		}
 		for i := range form.TypeParams {
 			if form.TypeParams[i].Constraint != nil {
@@ -1450,24 +1464,21 @@ func extractTypeNormal(tr *parser.TypeRefNormalContext) string {
 	return ids[0].GetText()
 }
 
-// modifiersFrom translates an optionality modifier context into the soft/hard
-// optional flags: one `?` is soft-optional, `??` is hard-optional.
-func modifiersFrom(mods parser.ITypeModifiersContext) (isOptional, isHardOptional bool) {
+// modifiersFrom reports whether an optionality modifier context marks the field
+// optional. A trailing `?` makes the field optional; `??` is a grammar error
+// and is rejected by the parser before this function is reached.
+func modifiersFrom(mods parser.ITypeModifiersContext) (optional bool) {
 	if mods == nil {
-		return false, false
+		return false
 	}
-	questionCount := len(mods.AllQUESTION())
-	if questionCount >= 2 {
-		return false, true
-	}
-	return questionCount >= 1, false
+	return mods.QUESTION() != nil
 }
 
-func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (isOptional, isHardOptional bool) {
+func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (optional bool) {
 	return modifiersFrom(tr.TypeModifiers())
 }
 
-func extractTypeModifiersMap(tr *parser.TypeRefMapContext) (isOptional, isHardOptional bool) {
+func extractTypeModifiersMap(tr *parser.TypeRefMapContext) (optional bool) {
 	return modifiersFrom(tr.TypeModifiers())
 }
 
@@ -1569,6 +1580,121 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 			c.diag.Add(d)
 		}
 	}
+}
+
+// validateActionExtends checks that every action's extends clause names a
+// struct type, mirroring validateExtends. A generic parent must be supplied
+// with enough type arguments to bind its required parameters.
+func validateActionExtends(c *analysisCtx, typ resolution.Type) {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok {
+		return
+	}
+	for _, action := range form.Actions {
+		for i, ext := range action.Extends {
+			parent, ok := ext.Resolve(c.table)
+			if !ok {
+				d := diagnostics.Errorf(nil,
+					"action %s extends unresolved type at position %d: %s",
+					action.Name, i+1, ext.Name)
+				d.File = c.filePath
+				c.diag.Add(d)
+				continue
+			}
+			parentForm, ok := parent.Form.(resolution.StructForm)
+			if !ok {
+				d := diagnostics.Errorf(nil,
+					"action %s extends non-struct type at position %d: %s",
+					action.Name, i+1, parent.Name)
+				d.File = c.filePath
+				c.diag.Add(d)
+				continue
+			}
+			requiredParams := 0
+			for _, tp := range parentForm.TypeParams {
+				if tp.Default == nil && !tp.Optional {
+					requiredParams++
+				}
+			}
+			if len(ext.TypeArgs) < requiredParams {
+				d := diagnostics.Errorf(nil,
+					"action %s extends %s but provides %d type arguments (need at least %d)",
+					action.Name, parent.Name, len(ext.TypeArgs), requiredParams)
+				d.File = c.filePath
+				c.diag.Add(d)
+			}
+		}
+	}
+}
+
+// finalizeActionExtends flattens each action's extends clause, prepending the
+// inherited struct fields to the action's own fields. After this pass
+// Action.Fields holds the unified list, so code generators consume it unchanged.
+func finalizeActionExtends(c *analysisCtx) {
+	for i := range c.table.Types {
+		typ := c.table.Types[i]
+		if typ.Namespace != c.namespace {
+			continue
+		}
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		changed := false
+		for ai := range form.Actions {
+			if len(form.Actions[ai].Extends) == 0 {
+				continue
+			}
+			form.Actions[ai].Fields = unifyActionFields(c, form.Actions[ai])
+			changed = true
+		}
+		if changed {
+			typ.Form = form
+			c.table.Types[i] = typ
+		}
+	}
+}
+
+// unifyActionFields returns the action's payload fields with inherited struct
+// fields prepended. Parents are walked left-to-right (first wins on a name
+// conflict between parents) and an action's own field overrides any inherited
+// field of the same name, keeping its declared position.
+func unifyActionFields(c *analysisCtx, action resolution.Action) []resolution.Field {
+	own := make(set.Set[string])
+	for _, f := range action.Fields {
+		own.Add(f.Name)
+	}
+	seen := make(set.Set[string])
+	var inherited []resolution.Field
+	for _, ext := range action.Extends {
+		parent, ok := ext.Resolve(c.table)
+		if !ok {
+			continue
+		}
+		parentForm, ok := parent.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		typeArgMap := make(map[string]resolution.TypeRef)
+		for j, tp := range parentForm.TypeParams {
+			if j < len(ext.TypeArgs) {
+				typeArgMap[tp.Name] = ext.TypeArgs[j]
+			}
+		}
+		for _, pf := range resolution.UnifiedFields(parent, c.table) {
+			if own.Contains(pf.Name) || seen.Contains(pf.Name) {
+				continue
+			}
+			seen.Add(pf.Name)
+			sub := pf
+			sub.Type = resolution.SubstituteTypeRef(pf.Type, typeArgMap)
+			inherited = append(inherited, sub)
+		}
+	}
+	if len(inherited) == 0 {
+		return action.Fields
+	}
+	return append(inherited, action.Fields...)
 }
 
 func typeParamsOf(form resolution.TypeForm) []resolution.TypeParam {

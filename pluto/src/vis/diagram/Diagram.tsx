@@ -10,7 +10,7 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { box, TimeSpan, xy } from "@synnaxlabs/x";
+import { box, type dimensions, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   type Connection as RFConnection,
   type ConnectionLineComponentProps as RFConnectionLineProps,
@@ -22,7 +22,6 @@ import {
   type NodeProps as RFNodeProps,
   type ProOptions,
   ReactFlow,
-  type ReactFlowInstance,
   type ReactFlowProps,
   ReactFlowProvider,
   SelectionMode,
@@ -41,6 +40,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { type z } from "zod";
 
@@ -67,7 +67,11 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
-import { calculateCursorPosition, internalNodeBox } from "@/vis/diagram/util";
+import {
+  calculateCursorPosition,
+  internalNodeBox,
+  partitionNodeChanges,
+} from "@/vis/diagram/util";
 
 export interface NodeProps {
   nodeKey: string;
@@ -348,9 +352,14 @@ export const create = ({
       () => translateEdgesForward(edges, selectedSet),
       [edges, selectedSet],
     );
+    const [measured, setMeasured] = useState<Record<string, dimensions.Dimensions>>({});
     const rfNodes = useMemo(
-      () => translateNodesForward(nodes, selectedSet, dragHandleSelector),
-      [nodes, selectedSet, dragHandleSelector],
+      () =>
+        translateNodesForward(nodes, selectedSet, dragHandleSelector).map((node) => ({
+          ...node,
+          measured: measured[node.id],
+        })),
+      [nodes, selectedSet, dragHandleSelector, measured],
     );
 
     const processChanges = useCallback(
@@ -389,8 +398,18 @@ export const create = ({
     );
 
     const handleNodesChange = useCallback(
-      (changes: RFNodeChange[]) =>
-        processChanges(changes, translateNodeChangeForward, onNodesChange),
+      (changes: RFNodeChange[]) => {
+        const { passthrough, sizes, removed } = partitionNodeChanges(changes);
+        if (sizes.length > 0 || removed.length > 0)
+          setMeasured((prev) => {
+            const next = { ...prev };
+            for (const [key, d] of sizes) next[key] = d;
+            for (const key of removed) delete next[key];
+            return next;
+          });
+        if (passthrough.length > 0)
+          processChanges(passthrough, translateNodeChangeForward, onNodesChange);
+      },
       [processChanges, onNodesChange],
     );
 
@@ -435,13 +454,6 @@ export const create = ({
     }, [triggers]);
 
     const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
-
-    const handleInit = useCallback(
-      (i: ReactFlowInstance) => {
-        void i.fitView(fitViewOptions);
-      },
-      [fitViewOptions],
-    );
 
     const ctxValue = useMemo(
       () => ({
@@ -552,7 +564,6 @@ export const create = ({
                 {...rest}
                 {...editableProps}
                 nodesDraggable={editable}
-                onInit={handleInit}
               />
             )}
           </Aether.Composite>

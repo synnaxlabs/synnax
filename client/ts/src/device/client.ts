@@ -18,7 +18,6 @@ import {
   type Key,
   keyZ,
   type New,
-  newZ,
   ontologyID,
 } from "@/device/types.gen";
 import { ontology } from "@/ontology";
@@ -34,7 +33,7 @@ const createReqZ = <
   Model extends z.ZodType<string> = z.ZodString,
 >(
   schemas?: DeviceSchemas<Properties, Make, Model>,
-) => z.object({ devices: zod.toArray(newZ(schemas)) });
+) => z.object({ devices: zod.toArray(deviceZ(schemas)) });
 
 const createResZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,

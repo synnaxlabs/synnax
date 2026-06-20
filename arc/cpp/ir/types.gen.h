@@ -185,7 +185,10 @@ struct Nodes : private std::vector<Node> {
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Nodes() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Nodes();
 
     // Container interface
     using Base::begin;
@@ -255,7 +258,10 @@ struct Functions : private std::vector<Function> {
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Functions() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Functions();
 
     // Container interface
     using Base::begin;
@@ -306,7 +312,10 @@ struct Edges : private std::vector<Edge> {
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Edges() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Edges();
 
     // Container interface
     using Base::begin;
@@ -450,4 +459,10 @@ struct IR {
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
     friend std::ostream &operator<<(std::ostream &os, const IR &ir);
 };
+
+inline Nodes::Nodes() = default;
+
+inline Functions::Functions() = default;
+
+inline Edges::Edges() = default;
 }

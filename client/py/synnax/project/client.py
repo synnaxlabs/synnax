@@ -15,12 +15,12 @@ from pydantic import BaseModel
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
-from synnax.project.types_gen import Key, New, Project
-from x.normalize import normalize
+from synnax.project.types_gen import Key, Project
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    projects: list[New]
+    projects: list[Project]
 
 
 class _CreateResponse(BaseModel):
@@ -75,21 +75,21 @@ class Client:
     ) -> Project: ...
 
     @overload
-    def create(self, projects: New) -> Project: ...
+    def create(self, projects: Project) -> Project: ...
 
     @overload
-    def create(self, projects: list[New]) -> list[Project]: ...
+    def create(self, projects: list[Project]) -> list[Project]: ...
 
     def create(
         self,
-        projects: New | list[New] | None = None,
+        projects: Project | list[Project] | None = None,
         *,
         name: str = "",
         layout: dict[str, Any] | None = None,
     ) -> Project | list[Project]:
         """Create one or more projects.
 
-        :param projects: A single New project or a list of them. When omitted, a
+        :param projects: A single project or a list of them. When omitted, a
             project is created from the ``name`` and ``layout`` keyword arguments.
         :param name: The name of the project to create when ``projects`` is omitted.
         :param layout: The initial layout of the project when ``projects`` is omitted.
@@ -99,7 +99,7 @@ class Client:
         """
         is_single = not isinstance(projects, list)
         if projects is None:
-            projects = [New(name=name, layout=layout if layout is not None else {})]
+            projects = [Project(name=name, layout=layout if layout is not None else {})]
         req = _CreateRequest(projects=normalize(projects))
         res = self._client.send("/project/create", req, _CreateResponse)
         return res.projects[0] if is_single else res.projects

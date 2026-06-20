@@ -140,7 +140,9 @@ describe("Schematic", () => {
         });
         await expect(
           client.schematics.dispatch(schem2.key, "sess-1", [
-            schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
+            schematic.setNode({
+              node: { key: "n1", position: { x: 0, y: 0 } },
+            }),
           ]),
         ).rejects.toThrow(ValidationError);
       });
@@ -256,8 +258,12 @@ describe("Schematic", () => {
     test("applies a multi-action sequence atomically", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.setNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
-        schematic.setNode({ node: { key: "valve", position: { x: 100, y: 0 } } }),
+        schematic.setNode({
+          node: { key: "pump", position: { x: 0, y: 0 } },
+        }),
+        schematic.setNode({
+          node: { key: "valve", position: { x: 100, y: 0 } },
+        }),
         schematic.addEdge({
           edge: {
             key: "e1",
@@ -276,7 +282,9 @@ describe("Schematic", () => {
     test("converges to the final position after a 30-action drag storm", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.setNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
+        schematic.setNode({
+          node: { key: "pump", position: { x: 0, y: 0 } },
+        }),
       ]);
       const actions = Array.from({ length: 30 }, (_, i) =>
         schematic.setNodePosition({ key: "pump", position: { x: i, y: i * 2 } }),

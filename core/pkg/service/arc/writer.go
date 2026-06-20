@@ -48,6 +48,9 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 			return err
 		}
 	}
+	if err = a.Validate(); err != nil {
+		return err
+	}
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}

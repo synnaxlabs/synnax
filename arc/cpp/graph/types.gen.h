@@ -51,7 +51,10 @@ struct Nodes : private std::vector<Node> {
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Nodes() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Nodes();
 
     // Container interface
     using Base::begin;
@@ -121,4 +124,6 @@ struct Graph {
     static std::pair<Graph, x::errors::Error>
     from_proto(const ::arc::graph::pb::Graph &pb);
 };
+
+inline Nodes::Nodes() = default;
 }

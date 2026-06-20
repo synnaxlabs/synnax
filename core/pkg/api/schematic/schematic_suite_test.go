@@ -89,7 +89,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Username: "test",
 	}))
-	proj.Author = author.Key
+	proj.Name = "test-project"
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 

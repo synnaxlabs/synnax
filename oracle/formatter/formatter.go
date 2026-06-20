@@ -561,7 +561,7 @@ func (f *formatter) formatFieldOmit(ctx parser.IFieldOmitContext) {
 func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth, typeWidth int) {
 	f.writeIndent()
 
-	// The name column carries a standalone optionality marker (key? / key??) when
+	// The name column carries a standalone optionality marker (key?) when
 	// the field omits its type to inherit it from the parent.
 	nameCol := fieldNameColumn(ctx)
 	typeStr := f.formatTypeRefToString(ctx.TypeRef())
@@ -630,9 +630,7 @@ func (f *formatter) formatTypeRefToString(ctx parser.ITypeRefContext) string {
 		sb.WriteString(f.formatTypeRefToString(typeRefs[1]))
 		sb.WriteString(">")
 		if v.TypeModifiers() != nil {
-			for range v.TypeModifiers().AllQUESTION() {
-				sb.WriteString("?")
-			}
+			sb.WriteString("?")
 		}
 	case *parser.TypeRefNormalContext:
 		sb.WriteString(f.formatQualifiedIdentToString(v.QualifiedIdent()))
@@ -655,21 +653,19 @@ func (f *formatter) formatTypeRefToString(ctx parser.ITypeRefContext) string {
 			sb.WriteString("]")
 		}
 		if v.TypeModifiers() != nil {
-			for range v.TypeModifiers().AllQUESTION() {
-				sb.WriteString("?")
-			}
+			sb.WriteString("?")
 		}
 	}
 	return sb.String()
 }
 
 // standaloneFieldModifier returns the optionality marker of a typeless override
-// (key? / key??), or "" when the field declares a type or no marker.
+// (key?), or "" when the field declares a type or no marker.
 func standaloneFieldModifier(ctx parser.IFieldDefContext) string {
 	if ctx.TypeRef() != nil || ctx.TypeModifiers() == nil {
 		return ""
 	}
-	return strings.Repeat("?", len(ctx.TypeModifiers().AllQUESTION()))
+	return "?"
 }
 
 // fieldNameColumn is the text occupying a field's name column: its name plus any
@@ -1089,10 +1085,7 @@ func (f *formatter) formatTypeArgs(ctx parser.ITypeArgsContext) {
 }
 
 func (f *formatter) formatTypeModifiers(ctx parser.ITypeModifiersContext) {
-	questions := ctx.AllQUESTION()
-	for range questions {
-		f.write("?")
-	}
+	f.write("?")
 }
 
 func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {

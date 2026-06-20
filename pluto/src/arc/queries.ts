@@ -268,9 +268,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   },
 });
 
-export const formSchema = arc.newZ.partial({ key: true }).extend({
-  name: z.string().min(1, "Name must not be empty"),
-});
+export const formSchema = arc.arcZ.partial({ key: true });
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
@@ -317,7 +315,7 @@ const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusData
     name: "Configuring task",
     variant: "loading",
     message: "Configuring task...",
-    details: { task: taskKey, running: false, data: undefined },
+    details: { task: taskKey, running: false, cmd: "", data: undefined },
   });
 
 const TASK_SCHEMAS = {

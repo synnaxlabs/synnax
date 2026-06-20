@@ -26,16 +26,16 @@ Key uint64 {
 }
 
 StatusDetails struct<Data? = record> {
-    task    Key     {
+    task    Key = 0 {
         @doc value "is the key of the task this status pertains to."
     }
-    running bool    {
+    running bool   {
         @doc value "is true if the task is currently executing."
     }
-    cmd     string? {
+    cmd     string = "" {
         @doc value "is the last command executed on this task."
     }
-    data    Data??  {
+    data    Data?  {
         @doc value "contains task-specific status data."
     }
 
@@ -49,71 +49,41 @@ Status<Data? = record> = status.Status<StatusDetails<Data>> {
     """
 }
 
-NewStatusDetails struct<Data? = record> {
-    task    Key?    {
-        @doc value "is an optional task key."
-    }
-    running bool    {
-        @doc value "indicates whether the task is running."
-    }
-    cmd     string? {
-        @doc value "is the command being executed."
-    }
-    data    Data??  {
-        @doc value "contains task-specific status data."
-    }
-
-    @doc value         "contains details for creating a new task status."
-    @ts concrete_types
-    @go omit
-    @pb omit
-    @py omit
-    @cpp omit
-}
-
-NewStatus<Data? = record> = status.New<NewStatusDetails<Data>> {
-    @doc value "contains parameters for creating a new task status."
-    @go omit
-    @pb omit
-    @py omit
-    @cpp omit
-}
-
 Task struct<
     Type extends string = string,
     Config extends record = record,
     StatusData? = record
 > {
-    key      Key                  {
+    key      Key = 0 {
         @doc value "is the composite identifier for this task."
         @key
     }
-    name     string               {
+    name     string              {
         @doc value "is a human-readable name for the task."
         @filter
     }
-    type     Type                 {
+    type     Type                {
         @doc value """
             is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
         """
         @filter
     }
-    config   Config               {
+    config   Config              {
         @doc value """
             is task-specific configuration stored as JSON. Structure varies by
             task type.
         """
     }
-    internal bool?                {
+    internal bool = false {
         @doc value "is true if this is an internal system task."
         @filter
     }
-    snapshot bool?                {
+    snapshot bool = false {
         @doc value "indicates whether to persist this task's configuration."
         @filter
     }
-    status   Status<StatusData>?? {
+    status   Status<StatusData>? {
         @doc value  "is the current execution status of the task."
         @go marshal omit
     }
@@ -134,43 +104,20 @@ Task struct<
     @go marshal
     @go migrate
     @py name       "Payload"
-}
-
-New struct<
-    Type extends string = string,
-    Config extends record = record,
-    StatusData? = record
-> extends Task<Type, Config, StatusData> {
-    -internal
-    -snapshot
-    key?
-    status NewStatus<StatusData>? {
-        @doc value "is an optional initial status for the task."
-    }
-
-    @doc value "contains parameters for creating a new task."
-    @ts {
-        use_input
-        concrete_types
-        coalesce_type_params
-    }
-    @go omit
-    @pb omit
-    @py omit
-    @cpp omit
+    @create
 }
 
 Command struct {
-    task Key     {
+    task Key    {
         @doc value "is the key of the target task."
     }
-    type string  {
+    type string {
         @doc value "is the command type (e.g., 'start', 'stop', 'configure')."
     }
-    key  string  {
+    key  string {
         @doc value "is a unique identifier for this command instance."
     }
-    args record? {
+    args record = {} {
         @doc value        "contains optional arguments for the command."
         @ts preserve_case
     }

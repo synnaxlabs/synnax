@@ -12,7 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Action, dispatchReqZ, rename as renameAction } from "@/panel/actions.gen";
-import { type Key, keyZ, type New, newZ, type Panel, panelZ } from "@/panel/types.gen";
+import { type Key, keyZ, type New, type Panel, panelZ } from "@/panel/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const retrieveReqZ = z.object({
@@ -22,7 +22,7 @@ const retrieveReqZ = z.object({
   limit: z.int().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-const createReqZ = z.object({ panels: newZ.array() });
+const createReqZ = z.object({ panels: panelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveResZ = z.object({ panels: array.nullishToEmpty(panelZ) });

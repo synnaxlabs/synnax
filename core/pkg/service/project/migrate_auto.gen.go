@@ -21,7 +21,6 @@ func AutoMigrateProject(_ context.Context, old projectv56.Workspace) (Project, e
 	return Project{
 		Key:    Key(old.Key),
 		Name:   old.Name,
-		Author: old.Author,
 		Layout: old.Layout,
 	}, nil
 }

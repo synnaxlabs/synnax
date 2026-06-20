@@ -194,7 +194,7 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const optimistic = table.newZ.parse(data);
+    const optimistic = table.tableZ.parse(data);
     rollbacks.push(store.tables.set(optimistic));
     const project = data.project ?? uuid.ZERO;
     const created = await client.tables.create(project, optimistic);

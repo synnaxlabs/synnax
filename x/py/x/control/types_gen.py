@@ -12,9 +12,11 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Generic, TypeAlias, TypeVar
+from typing import Annotated, Generic, TypeAlias, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+
+from x import lists
 
 Authority: TypeAlias = int
 
@@ -40,7 +42,7 @@ class Subject(BaseModel):
 
     key: str
     name: str
-    group: int | None = Field(default=None, ge=0, le=4294967295)
+    group: int = Field(default=0, ge=0, le=4294967295)
 
 
 class State(BaseModel, Generic[R]):
@@ -88,4 +90,6 @@ class Update(BaseModel, Generic[R]):
         transfers: Is the list of control transfers that occurred in this update.
     """
 
-    transfers: list[Transfer[R]]
+    transfers: Annotated[list[Transfer[R]], BeforeValidator(lists.none_to_empty)] = (
+        Field(default_factory=list)
+    )

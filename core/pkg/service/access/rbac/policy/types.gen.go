@@ -15,6 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a policy, represented as a UUID.
@@ -34,4 +36,12 @@ type Policy struct {
 	Actions []access.Action `json:"actions" msgpack:"actions"`
 	// Internal is true if this is a built-in system policy that cannot be deleted.
 	Internal bool `json:"internal" msgpack:"internal"`
+}
+
+func (p Policy) Validate() error {
+	v := validate.New("Policy")
+	for i := range p.Objects {
+		v.Exec(func() error { return validate.PathedError(p.Objects[i].Validate(), "objects", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

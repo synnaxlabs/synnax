@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax.ontology.payload import ID, CrudeID, Resource
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class RetrieveReq(BaseModel):

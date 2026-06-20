@@ -21,7 +21,6 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import (
-    New,
     Operation,
     Payload,
     Status,
@@ -39,7 +38,7 @@ from synnax.telem import (
     TimeRange,
 )
 from x import control
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class Channel(Payload):
@@ -66,7 +65,7 @@ class Channel(Payload):
         expression: str = "",
         operations: list[Operation] | None = None,
         alias: str | None = None,
-        concurrency: control.Concurrency | None = None,
+        concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
@@ -297,12 +296,12 @@ class Client:
         :returns: The created channels.
         """
 
-        _channels: list[Payload | New]
+        _channels: list[Payload]
         if channels is None:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
             _channels = [
-                New(
+                Payload(
                     name=name,
                     leaseholder=leaseholder,
                     data_type=DataType(data_type),
