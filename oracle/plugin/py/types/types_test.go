@@ -1931,4 +1931,28 @@ var _ = Describe("Collection type aliases and maps", func() {
 		resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").ToContain("Authorities: TypeAlias = dict[int, int]")
 	})
+
+	It("Should emit a struct before an array alias that references it", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Nodes Node[]
+
+			Node struct {
+				key string
+			}
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		content := MustContentOf(resp, "types_gen.py")
+		classIdx := strings.Index(content, "class Node(BaseModel):")
+		aliasIdx := strings.Index(content, "Nodes: TypeAlias = list[Node]")
+		Expect(classIdx).To(BeNumerically(">", 0))
+		Expect(aliasIdx).To(BeNumerically(">", 0))
+		Expect(classIdx).To(
+			BeNumerically("<", aliasIdx),
+			"class Node must be emitted before the Nodes alias to avoid a NameError",
+		)
+	})
 })
