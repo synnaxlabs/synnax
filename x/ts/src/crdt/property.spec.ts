@@ -63,6 +63,10 @@ describe("convergence property", () => {
       const want = docs[0].toString();
       for (const d of docs.slice(1)) expect(d.toString()).toEqual(want);
 
+      const boot = new crdt.Text(1234);
+      boot.load(docs[0].snapshot());
+      expect(boot.toString()).toEqual(want);
+
       const shuffled = [...allEdits];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(rng() * (i + 1));
@@ -71,6 +75,47 @@ describe("convergence property", () => {
       const fresh = new crdt.Text(999);
       for (const e of shuffled) e(fresh);
       expect(fresh.toString()).toEqual(want);
+    },
+  );
+});
+
+// keepAB strips s to the run markers A and B so the two concurrent runs can be checked
+// for interleaving independent of the surrounding seed text.
+const keepAB = (s: string): string =>
+  [...s].filter((c) => c === "A" || c === "B").join("");
+
+// contiguousAB matches a string of As and Bs in which all As precede all Bs or all Bs
+// precede all As, i.e. the two runs did not interleave.
+const contiguousAB = /^A*B*$|^B*A*$/;
+
+describe("non-interleaving property", () => {
+  it.each([1, 2, 7, 42, 99, 1000, 31337, 808080])(
+    "concurrent same-position runs never interleave (seed %i)",
+    (seed) => {
+      const rng = mulberry32(seed);
+      const intn = (n: number): number => Math.floor(rng() * n);
+      const base = new crdt.Text(1);
+      let seedText = "";
+      for (let i = 0, n = 1 + intn(8); i < n; i++)
+        seedText += ALPHABET[intn(ALPHABET.length)];
+      base.insert(0, seedText);
+      const snap = base.snapshot();
+      const a = new crdt.Text(2);
+      a.load(snap);
+      const b = new crdt.Text(3);
+      b.load(snap);
+
+      const pos = intn(base.len() + 1);
+      const runLen = 2 + intn(4);
+      const opsA = a.insert(pos, "A".repeat(runLen));
+      const opsB = b.insert(pos, "B".repeat(runLen));
+      b.applyInsert(...opsA);
+      a.applyInsert(...opsB);
+
+      expect(a.toString()).toEqual(b.toString());
+      const runs = keepAB(a.toString());
+      expect(runs).toHaveLength(2 * runLen);
+      expect(contiguousAB.test(runs)).toBe(true);
     },
   );
 });

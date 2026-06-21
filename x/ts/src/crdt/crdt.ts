@@ -10,9 +10,9 @@
 import { type Delete, type ID, type Insert } from "@/crdt/types.gen";
 import { type spatial } from "@/spatial";
 
-const ROOT_ID: ID = { replica: 0, counter: 0n };
+const ROOT_ID: ID = { replica: 0, counter: 0 };
 
-const isRoot = (id: ID): boolean => id.replica === 0 && id.counter === 0n;
+const isRoot = (id: ID): boolean => id.replica === 0 && id.counter === 0;
 
 const idLess = (a: ID, b: ID): boolean =>
   a.replica !== b.replica ? a.replica < b.replica : a.counter < b.counter;
@@ -48,7 +48,7 @@ const sortedInsert = (children: Element[], e: Element): void => {
  * concurrent use. */
 export class Text {
   private readonly replica: number;
-  private counter = 0n;
+  private counter = 0;
   private readonly root: Element;
   private readonly elements = new Map<string, Element>();
   private readonly tombstones = new Set<string>();
@@ -70,6 +70,41 @@ export class Text {
   /** replicaID returns the id of the replica that owns this document. */
   replicaID(): number {
     return this.replica;
+  }
+
+  /** snapshot captures the full current state of the document as the operations that
+   * reconstruct it when applied to an empty document, in an order where every
+   * operation's origin precedes it. It is used to bootstrap a replica joining an
+   * in-progress session. Deleted characters are included as both an insert and a delete
+   * so anchoring is preserved. */
+  snapshot(): { inserts: Insert[]; deletes: Delete[] } {
+    const inserts: Insert[] = [];
+    const deletes: Delete[] = [];
+    const stack: Array<{ node: Element; origin: ID; side: spatial.XLocation }> = [
+      { node: this.root, origin: ROOT_ID, side: "right" },
+    ];
+    while (stack.length > 0) {
+      const frame = stack.pop();
+      if (frame == null) break;
+      const { node, origin, side } = frame;
+      if (node !== this.root) {
+        inserts.push({ id: node.id, origin, side, char: node.char });
+        if (node.deleted) deletes.push({ id: node.id });
+      }
+      for (let i = node.right.length - 1; i >= 0; i--)
+        stack.push({ node: node.right[i], origin: node.id, side: "right" });
+      for (let i = node.left.length - 1; i >= 0; i--)
+        stack.push({ node: node.left[i], origin: node.id, side: "left" });
+    }
+    return { inserts, deletes };
+  }
+
+  /** load applies a snapshot to the document. It is intended for a freshly created
+   * document; the local replica's edits remain attributed to its own replica id and do
+   * not collide with the snapshot's operations. */
+  load(snapshot: { inserts: Insert[]; deletes: Delete[] }): void {
+    this.applyInsert(...snapshot.inserts);
+    this.applyDelete(...snapshot.deletes);
   }
 
   private rebuild(): void {
@@ -157,7 +192,7 @@ export class Text {
         origin = left.id;
         side = "right";
       }
-      this.counter += 1n;
+      this.counter += 1;
       const op: Insert = {
         id: { replica: this.replica, counter: this.counter },
         origin,

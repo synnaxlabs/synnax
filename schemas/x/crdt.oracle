@@ -9,8 +9,11 @@
 
 import "schemas/x/spatial"
 
-@ts output "x/ts/src/crdt"
-@go output "x/go/crdt"
+@ts output  "x/ts/src/crdt"
+@py output  "x/py/x/crdt"
+@cpp output "x/cpp/crdt"
+@go output  "x/go/crdt"
+@pb
 
 ID struct {
     replica uint32 {
@@ -19,7 +22,7 @@ ID struct {
             document root sentinel.
         """
     }
-    counter uint64 {
+    counter uint32 {
         @doc value """
             is the per-replica counter, incremented for every character the replica
             inserts.

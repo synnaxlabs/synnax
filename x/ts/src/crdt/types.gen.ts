@@ -28,7 +28,7 @@ export const idZ = z.object({
    * counter is the per-replica counter, incremented for every character the replica
    * inserts.
    */
-  counter: z.uint64(),
+  counter: z.uint32(),
 });
 export interface ID extends z.infer<typeof idZ> {}
 
