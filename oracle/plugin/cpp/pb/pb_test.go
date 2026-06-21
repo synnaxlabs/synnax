@@ -528,6 +528,33 @@ var _ = Describe("C++ PB Plugin", func() {
 						"pb.set_write(",
 					)
 			})
+
+			It("Should use to_struct/from_struct for record map values", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Graph struct {
+						configs map<string, record>
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						`#include "x/cpp/json/struct.h"`,
+						"for (const auto& [k, v] : this->configs)",
+						"auto [pb_v, err] = x::json::to_struct(v)",
+						"(*pb.mutable_configs())[k] = pb_v",
+						"for (const auto& [k, v] : pb.configs())",
+						"auto [cpp_v, err] = x::json::from_struct(v)",
+						"cpp.configs[k] = cpp_v",
+					).
+					ToNotContain(
+						"(*pb.mutable_configs())[k] = v;",
+						"cpp.configs[k] = v;",
+					)
+			})
 		})
 
 		Context("nested array handling (array of arrays)", func() {
