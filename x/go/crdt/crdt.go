@@ -53,7 +53,7 @@ type element struct {
 // concurrent use.
 type Text struct {
 	replica  uint32
-	counter  uint64
+	counter  uint32
 	root     *element
 	elements map[ID]*element
 	// tombstones holds ids deleted before their insert was seen, so the delete can be
@@ -80,6 +80,39 @@ func New(replica uint32) *Text {
 
 // Replica returns the id of the replica that owns this document.
 func (t *Text) Replica() uint32 { return t.replica }
+
+// Snapshot captures the full current state of the document as the operations that
+// reconstruct it when applied to an empty document, in an order where every operation's
+// origin precedes it. It is used to bootstrap a replica joining an in-progress session.
+// Deleted characters are included as both an insert and a delete so anchoring is
+// preserved.
+func (t *Text) Snapshot() (inserts []Insert, deletes []Delete) {
+	var walk func(e *element, origin ID, side spatial.XLocation)
+	walk = func(e *element, origin ID, side spatial.XLocation) {
+		if e != t.root {
+			inserts = append(inserts, Insert{ID: e.id, Origin: origin, Side: side, Char: e.char})
+			if e.deleted {
+				deletes = append(deletes, Delete{ID: e.id})
+			}
+		}
+		for _, c := range e.left {
+			walk(c, e.id, spatial.XLocationLeft)
+		}
+		for _, c := range e.right {
+			walk(c, e.id, spatial.XLocationRight)
+		}
+	}
+	walk(t.root, ID{}, spatial.XLocationRight)
+	return inserts, deletes
+}
+
+// Load applies a snapshot to the document. It is intended for a freshly created
+// document; the local replica's edits remain attributed to its own replica id and do not
+// collide with the snapshot's operations.
+func (t *Text) Load(inserts []Insert, deletes []Delete) {
+	t.ApplyInsert(inserts...)
+	t.ApplyDelete(deletes...)
+}
 
 // rebuild regenerates the cached in-order traversal if it is stale.
 func (t *Text) rebuild() {

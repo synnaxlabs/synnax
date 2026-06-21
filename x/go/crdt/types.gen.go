@@ -25,7 +25,7 @@ type ID struct {
 	Replica uint32 `json:"replica" msgpack:"replica"`
 	// Counter is the per-replica counter, incremented for every character the replica
 	// inserts.
-	Counter uint64 `json:"counter" msgpack:"counter"`
+	Counter uint32 `json:"counter" msgpack:"counter"`
 }
 
 // Insert introduces a single character into a replicated text document.
