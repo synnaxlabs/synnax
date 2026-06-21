@@ -14,13 +14,22 @@ import {
   ILanguageFeaturesService,
 } from "@codingame/monaco-vscode-api/services";
 import { debounce, TimeSpan } from "@synnaxlabs/x";
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type Ref,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { type Monaco, useMonaco } from "@/code/Provider";
+import { diff, utf16Offset } from "@/code/text";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type Input } from "@/input";
 import { Menu } from "@/menu";
 import { Theming } from "@/theming";
 import { type Triggers } from "@/triggers";
@@ -103,7 +112,47 @@ export type EditorExtension = (
   editor: Monaco.editor.IStandaloneCodeEditor,
 ) => Monaco.IDisposable;
 
-interface UseProps extends Input.Control<string> {
+// applyMinimalEdit reflects next into the model as the single contiguous edit that turns
+// its current value into it, so the local cursor and selection survive a programmatic set.
+const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void => {
+  const old = model.getValue();
+  if (old === next) return;
+  const d = diff(old, next);
+  const start = model.getPositionAt(utf16Offset(old, d.index));
+  const end = model.getPositionAt(utf16Offset(old, d.index + d.deleteCount));
+  model.applyEdits([
+    {
+      range: {
+        startLineNumber: start.lineNumber,
+        startColumn: start.column,
+        endLineNumber: end.lineNumber,
+        endColumn: end.column,
+      },
+      text: d.insert,
+    },
+  ]);
+};
+
+// EditorChange reports a content change: the editor's full value plus the set of edits
+// that produced it, in Monaco's model-change form.
+export interface EditorChange {
+  value: string;
+  edits: readonly Monaco.editor.IModelContentChange[];
+}
+
+/** EditorHandle is the imperative surface an Editor exposes through its ref, for consumers
+ * that own the editor's text and update it programmatically rather than through React
+ * state. */
+export interface EditorHandle {
+  /** setValue reconciles the editor's model to next as a minimal edit, preserving the
+   * local cursor and selection. It is a no-op when the model already holds next, and does
+   * not fire onChange, since the edit did not originate from the user. */
+  setValue: (next: string) => void;
+}
+
+interface UseProps {
+  initialValue?: string;
+  onChange?: (change: EditorChange) => void;
   language: string;
   isBlock?: boolean;
   scrollBeyondLastLine?: boolean;
@@ -122,6 +171,7 @@ interface UseReturn {
   containerRef: RefObject<HTMLDivElement | null>;
   editorRef: RefObject<Monaco.editor.IStandaloneCodeEditor | null>;
   cursorRenameable: boolean;
+  handle: EditorHandle;
 }
 
 // Query the registered rename providers for the model and ask each one
@@ -158,8 +208,68 @@ const checkRenameAvailable = async (
 
 const RENAME_CHECK_DEBOUNCE = TimeSpan.milliseconds(80);
 
+// useRenameAvailable reports whether the editor's rename action would succeed at the
+// current cursor position, re-probing the LSP rename providers (debounced) on each cursor
+// move. It returns false while no editor or monaco instance is available.
+const useRenameAvailable = (
+  editor: Monaco.editor.IStandaloneCodeEditor | null,
+  monaco: typeof Monaco | null,
+): boolean => {
+  const [renameable, setRenameable] = useState(false);
+  useEffect(() => {
+    if (editor == null || monaco == null) {
+      setRenameable(false);
+      return;
+    }
+    // Resolve the language features service once — it is stable across the editor's
+    // lifetime. Checks scheduled before it resolves run once it lands.
+    let features: ILanguageFeaturesService | null = null;
+    const featuresPromise = getService(ILanguageFeaturesService);
+    featuresPromise
+      .then((s) => (features = s))
+      .catch((err: unknown) => {
+        console.error("failed to resolve language features service", err);
+      });
+
+    let abort: AbortController | null = null;
+    const run = () => {
+      abort?.abort();
+      const ctrl = new AbortController();
+      abort = ctrl;
+      const model = editor.getModel();
+      const position = editor.getPosition();
+      if (model == null || position == null) {
+        setRenameable(false);
+        return;
+      }
+      const exec = (svc: ILanguageFeaturesService) =>
+        checkRenameAvailable(monaco, svc, model, position, ctrl.signal)
+          .then((r) => {
+            if (!ctrl.signal.aborted) setRenameable(r);
+          })
+          .catch(() => {
+            if (!ctrl.signal.aborted) setRenameable(false);
+          });
+      if (features != null) void exec(features);
+      else
+        void featuresPromise.then((svc) => {
+          if (!ctrl.signal.aborted) void exec(svc);
+        });
+    };
+    const debounced = debounce(run, RENAME_CHECK_DEBOUNCE);
+    const cursorDispose = editor.onDidChangeCursorPosition(debounced);
+    run();
+    return () => {
+      debounced.cancel();
+      abort?.abort();
+      cursorDispose.dispose();
+    };
+  }, [editor, monaco]);
+  return renameable;
+};
+
 const use = ({
-  value,
+  initialValue = "",
   onChange,
   language,
   isBlock = false,
@@ -171,9 +281,17 @@ const use = ({
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const openContextMenuRef = useRef(openContextMenu);
   openContextMenuRef.current = openContextMenu;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  // suppressChange silences the content listener while setValue applies a programmatic
+  // edit, so writing into the editor does not echo back as a user-originated change.
+  const suppressChange = useRef(false);
   const theme = useTheme(language);
   const monaco = useMonaco();
-  const [cursorRenameable, setCursorRenameable] = useState(false);
+  const [editor, setEditor] = useState<Monaco.editor.IStandaloneCodeEditor | null>(
+    null,
+  );
+  const cursorRenameable = useRenameAvailable(editor, monaco);
 
   const customURIRef = useRef<string | undefined>(undefined);
   if (customURIRef.current === undefined && isBlock) {
@@ -194,11 +312,11 @@ const use = ({
     let model: Monaco.editor.ITextModel | null = null;
     if (customURI != null) {
       const uri = monaco.Uri.parse(customURI);
-      model = monaco.editor.createModel(value, language, uri);
+      model = monaco.editor.createModel(initialValue, language, uri);
     }
 
     const editor = monaco.editor.create(container, {
-      value: customURI != null ? undefined : value,
+      value: customURI != null ? undefined : initialValue,
       model: model ?? undefined,
       language: customURI != null ? undefined : language,
       theme,
@@ -206,11 +324,13 @@ const use = ({
       scrollBeyondLastLine,
     });
     editorRef.current = editor;
+    setEditor(editor);
 
     disableMonacoCommandPalette(monaco);
 
-    const contentDispose = editor.onDidChangeModelContent(() => {
-      onChange(editor.getValue());
+    const contentDispose = editor.onDidChangeModelContent((e) => {
+      if (suppressChange.current) return;
+      onChangeRef.current?.({ value: editor.getValue(), edits: e.changes });
     });
     const triggerDispose = forwardGlobalTriggers(editor);
     const contextMenuDispose = editor.onContextMenu((e) =>
@@ -223,59 +343,16 @@ const use = ({
       }),
     );
 
-    // Resolve the language features service once per effect — it is stable
-    // across the editor's lifetime, so re-resolving on each cursor move is
-    // wasted work. checks scheduled before resolution buffer their request
-    // via the latest-args debounce and run once the service lands.
-    let features: ILanguageFeaturesService | null = null;
-    const featuresPromise = getService(ILanguageFeaturesService);
-    featuresPromise
-      .then((s) => (features = s))
-      .catch((err: unknown) => {
-        console.error("failed to resolve language features service", err);
-      });
-
-    let renameCheckAbort: AbortController | null = null;
-    const runRenameCheck = () => {
-      renameCheckAbort?.abort();
-      const ctrl = new AbortController();
-      renameCheckAbort = ctrl;
-      const m = editor.getModel();
-      const position = editor.getPosition();
-      if (m == null || position == null) {
-        setCursorRenameable(false);
-        return;
-      }
-      const exec = (svc: ILanguageFeaturesService) =>
-        checkRenameAvailable(monaco, svc, m, position, ctrl.signal)
-          .then((renameable) => {
-            if (!ctrl.signal.aborted) setCursorRenameable(renameable);
-          })
-          .catch(() => {
-            if (!ctrl.signal.aborted) setCursorRenameable(false);
-          });
-      if (features != null) void exec(features);
-      else
-        void featuresPromise.then((svc) => {
-          if (!ctrl.signal.aborted) void exec(svc);
-        });
-    };
-    const debouncedRenameCheck = debounce(runRenameCheck, RENAME_CHECK_DEBOUNCE);
-    const cursorDispose = editor.onDidChangeCursorPosition(debouncedRenameCheck);
-    runRenameCheck();
-
     const extensionDisposables = extensions?.map((ext) => ext(editor)) ?? [];
 
     return () => {
       contentDispose.dispose();
       triggerDispose.dispose();
       contextMenuDispose.dispose();
-      cursorDispose.dispose();
-      debouncedRenameCheck.cancel();
-      renameCheckAbort?.abort();
       extensionDisposables.forEach((d) => d.dispose());
       editor.dispose();
       model?.dispose();
+      setEditor(null);
     };
   }, [monaco, customURI, extensions]);
 
@@ -284,10 +361,28 @@ const use = ({
     monaco.editor.setTheme(theme);
   }, [monaco, theme]);
 
-  return { containerRef, editorRef, cursorRenameable };
+  const handle = useMemo<EditorHandle>(
+    () => ({
+      setValue: (next) => {
+        const model = editorRef.current?.getModel();
+        if (model == null) return;
+        suppressChange.current = true;
+        try {
+          applyMinimalEdit(model, next);
+        } finally {
+          suppressChange.current = false;
+        }
+      },
+    }),
+    [],
+  );
+
+  return { containerRef, editorRef, cursorRenameable, handle };
 };
-export interface EditorProps
-  extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
+export interface EditorProps extends Omit<Flex.BoxProps, "value" | "onChange" | "ref"> {
+  ref?: Ref<EditorHandle>;
+  initialValue?: string;
+  onChange?: (change: EditorChange) => void;
   language: string;
   isBlock?: boolean;
   scrollBeyondLastLine?: boolean;
@@ -303,7 +398,8 @@ const MENU_EDITOR_ACTIONS: Record<string, string> = {
 };
 
 export const Editor = ({
-  value,
+  ref,
+  initialValue,
   onChange,
   className,
   language,
@@ -313,8 +409,8 @@ export const Editor = ({
   ...rest
 }: EditorProps) => {
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
-  const { containerRef, editorRef, cursorRenameable } = use({
-    value,
+  const { containerRef, editorRef, cursorRenameable, handle } = use({
+    initialValue,
     onChange,
     language,
     isBlock,
@@ -322,6 +418,7 @@ export const Editor = ({
     openContextMenu: menuProps.open,
     extensions,
   });
+  useImperativeHandle(ref, () => handle, [handle]);
 
   const createMenuAction = useCallback(
     (key: string) => () => {

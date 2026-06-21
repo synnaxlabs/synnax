@@ -73,9 +73,9 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
             <Form.Field<string> path="expression" grow>
               {({ value, onChange }) => (
                 <Code.Editor
-                  value={value}
+                  initialValue={value}
                   language={Arc.LSP.LANGUAGE}
-                  onChange={onChange}
+                  onChange={(change) => onChange(change.value)}
                   isBlock
                   bordered
                   rounded

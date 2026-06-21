@@ -31,6 +31,7 @@ const (
 	ActionTypeRemoveEdge      = "remove_edge"
 	ActionTypeInsertChar      = "insert_char"
 	ActionTypeDeleteChar      = "delete_char"
+	ActionTypeForgetChars     = "forget_chars"
 )
 
 // RenamePayload renames the Arc module.
@@ -101,6 +102,15 @@ type DeleteCharPayload struct {
 	ID crdt.ID `json:"id" msgpack:"id"`
 }
 
+// ForgetCharsPayload removes the given already-deleted characters from the module's
+// text document, dropping both their insert and delete operations from the replicated
+// op-log. The server emits it after a quiet editing period to reclaim the space held by
+// tombstoned characters. Because the characters are already deleted, and thus
+// invisible, applying it never changes the materialized text.
+type ForgetCharsPayload struct {
+	IDs []crdt.ID `json:"ids" msgpack:"ids"`
+}
+
 // Action is a discriminated union for all Arc mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
@@ -115,6 +125,7 @@ type Action struct {
 	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
 	InsertChar      *InsertCharPayload      `json:"insert_char,omitempty" msgpack:"insert_char,omitempty"`
 	DeleteChar      *DeleteCharPayload      `json:"delete_char,omitempty" msgpack:"delete_char,omitempty"`
+	ForgetChars     *ForgetCharsPayload     `json:"forget_chars,omitempty" msgpack:"forget_chars,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -176,6 +187,11 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.DeleteChar.Handle(state)
+		case ActionTypeForgetChars:
+			if a.ForgetChars == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.ForgetChars.Handle(state)
 		default:
 			continue
 		}
@@ -234,4 +250,9 @@ func NewInsertCharAction(p InsertCharPayload) Action {
 // NewDeleteCharAction wraps a DeleteCharPayload in an Action envelope.
 func NewDeleteCharAction(p DeleteCharPayload) Action {
 	return Action{Type: ActionTypeDeleteChar, DeleteChar: &p}
+}
+
+// NewForgetCharsAction wraps a ForgetCharsPayload in an Action envelope.
+func NewForgetCharsAction(p ForgetCharsPayload) Action {
+	return Action{Type: ActionTypeForgetChars, ForgetChars: &p}
 }

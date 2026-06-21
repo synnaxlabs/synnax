@@ -130,9 +130,8 @@ const handlers: Handlers = {
       targets: [ir.edgeKey(source, target)],
     };
   },
-  // The text document is a replicated op-log: applying an op is appending it, and
-  // materialization (crdt.Text) deduplicates and orders. Text edits are not pushed onto
-  // the undo stack (collaborative text undo is a separate concern), so inverse is empty.
+  // Undo/redo is handled the editor, which emits the corresponding
+  // insertChar, deleteChar actions.
   insertChar: (state, payload) => {
     state.text.doc.inserts.push(payload);
     return { inverse: [], targets: [] };

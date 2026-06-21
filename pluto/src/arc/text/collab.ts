@@ -10,6 +10,10 @@
 import { arc } from "@synnaxlabs/client";
 import { crdt } from "@synnaxlabs/x";
 
+import { type Diff, diff } from "@/code/text";
+
+export { type Diff, diff };
+
 // SEED_REPLICA is the replica the server uses to seed a document from persisted text.
 // Clients bootstrap from the server snapshot and must never author with this id, so a
 // client's edits never collide with the seed.
@@ -21,12 +25,6 @@ const randomReplica = (): number =>
   SEED_REPLICA + 1 + Math.floor(Math.random() * (0xffffffff - SEED_REPLICA - 1));
 
 const codePoints = (s: string): string[] => Array.from(s);
-
-export interface Diff {
-  index: number;
-  deleteCount: number;
-  insert: string;
-}
 
 /** TextChange is the subset of an editor content change the binding consumes: a UTF-16
  * offset and length into the previous value, plus the inserted text. It matches Monaco's
@@ -41,7 +39,7 @@ export interface TextChange {
  * code-point Diffs, ordered highest-offset-first so that applying each change in turn
  * does not shift the offsets of the changes not yet applied. prev must be the document
  * value the offsets are relative to (the value before the change batch). */
-export const changesToDiffs = (prev: string, changes: TextChange[]): Diff[] =>
+export const changesToDiffs = (prev: string, changes: readonly TextChange[]): Diff[] =>
   [...changes]
     .sort((a, b) => b.rangeOffset - a.rangeOffset)
     .map((c) => ({
@@ -50,29 +48,6 @@ export const changesToDiffs = (prev: string, changes: TextChange[]): Diff[] =>
         .length,
       insert: c.text,
     }));
-
-/** diff computes the single contiguous change that turns oldStr into newStr, measured in
- * code points: the longest common prefix and suffix are stripped and what remains in the
- * middle is the deletion (from oldStr) and insertion (from newStr). */
-export const diff = (oldStr: string, newStr: string): Diff => {
-  const o = codePoints(oldStr);
-  const n = codePoints(newStr);
-  const max = Math.min(o.length, n.length);
-  let prefix = 0;
-  while (prefix < max && o[prefix] === n[prefix]) prefix++;
-  let suffix = 0;
-  while (
-    suffix < o.length - prefix &&
-    suffix < n.length - prefix &&
-    o[o.length - 1 - suffix] === n[n.length - 1 - suffix]
-  )
-    suffix++;
-  return {
-    index: prefix,
-    deleteCount: o.length - prefix - suffix,
-    insert: n.slice(prefix, n.length - suffix).join(""),
-  };
-};
 
 const toActions = (inserts: crdt.Insert[], deletes: crdt.Delete[]): arc.Action[] => [
   ...deletes.map((op) => arc.deleteChar(op)),

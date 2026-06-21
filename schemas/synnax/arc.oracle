@@ -170,6 +170,18 @@ Arc struct {
         """
     }
 
+    action ForgetChars {
+        ids crdt.ID[]
+
+        @doc value """
+            removes the given already-deleted characters from the module's text document,
+            dropping both their insert and delete operations from the replicated op-log.
+            The server emits it after a quiet editing period to reclaim the space held by
+            tombstoned characters. Because the characters are already deleted, and thus
+            invisible, applying it never changes the materialized text.
+        """
+    }
+
     @doc value     """
         is an Arc module combining visual graph representation and text-based
         source code for reactive control systems. Compiles to WebAssembly for

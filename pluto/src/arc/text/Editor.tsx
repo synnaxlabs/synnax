@@ -8,100 +8,62 @@
 // included in the file licenses/APL.txt.
 
 import { type arc } from "@synnaxlabs/client";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 
-import { useDispatch, useSelectTextDoc } from "@/arc/queries";
-import { changesToDiffs, CollabText, diff } from "@/arc/text/collab";
+import { type FluxSubStore, useDispatch, useSelectHasText } from "@/arc/queries";
+import { changesToDiffs, CollabText } from "@/arc/text/collab";
 import { EXTENSIONS } from "@/arc/text/placeholderSuggest";
-import { Editor as BaseEditor, type EditorExtension } from "@/code/Editor";
-import { type Monaco } from "@/code/Provider";
-
-// utf16Offset converts a code-point index into the UTF-16 offset Monaco addresses with.
-const utf16Offset = (s: string, codePointIndex: number): number =>
-  Array.from(s).slice(0, codePointIndex).join("").length;
-
-// applyRemote reflects a new document value into the Monaco model as a minimal edit so
-// the local cursor and selection are preserved across remote edits. It is a no-op when
-// the model already holds the value, so reflecting the store's own optimistic update does
-// not disturb the editor.
-const applyRemote = (model: Monaco.editor.ITextModel, next: string): void => {
-  const old = model.getValue();
-  if (old === next) return;
-  const d = diff(old, next);
-  const start = model.getPositionAt(utf16Offset(old, d.index));
-  const end = model.getPositionAt(utf16Offset(old, d.index + d.deleteCount));
-  model.applyEdits([
-    {
-      range: {
-        startLineNumber: start.lineNumber,
-        startColumn: start.column,
-        endLineNumber: end.lineNumber,
-        endColumn: end.column,
-      },
-      text: d.insert,
-    },
-  ]);
-};
+import { Code } from "@/code";
+import { Flux } from "@/flux";
 
 export interface EditorProps {
   resourceKey: arc.Key;
 }
 
 export const Editor = ({ resourceKey }: EditorProps) => {
-  const doc = useSelectTextDoc({ key: resourceKey });
+  const store = Flux.useStore<FluxSubStore>();
   const { dispatch } = useDispatch();
+  const hasText = useSelectHasText({ key: resourceKey });
 
-  // text is the working CRDT replica: it generates operations for local edits and
-  // materializes the document for the editor. editorRef exposes the model to the
-  // store-sync effect, and applyingRemote guards the local handler against re-dispatching
-  // the edits that store-sync makes.
-  const textRef = useRef<CollabText | null>(null);
-  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
-  const applyingRemote = useRef(false);
-  if (textRef.current == null && doc != null)
-    textRef.current = CollabText.bootstrap(doc);
+  // text is the working CRDT replica. It is bootstrapped once the document loads and lives
+  // for the editor's lifetime, materializing the value and translating edits to operations.
+  const text = useMemo<CollabText | null>(() => {
+    const doc = store.arcs.get(resourceKey)?.text.doc;
+    return doc != null ? CollabText.bootstrap(doc) : null;
+  }, [store, resourceKey, hasText]);
 
-  useEffect(() => {
-    const text = textRef.current;
-    if (text == null || doc == null) return;
-    text.sync(doc);
-    const model = editorRef.current?.getModel();
-    if (model == null) return;
-    applyingRemote.current = true;
-    try {
-      applyRemote(model, text.value());
-    } finally {
-      applyingRemote.current = false;
-    }
-  }, [doc]);
+  const handleChange = useCallback(
+    ({ edits }: Code.EditorChange) => {
+      if (text == null) return;
+      const actions = text.applyChanges(changesToDiffs(text.value(), edits));
+      if (actions.length > 0) void dispatch({ key: resourceKey, actions });
+    },
+    [text, dispatch, resourceKey],
+  );
 
-  const extensions = useMemo(() => {
-    const collab: EditorExtension = (editor) => {
-      editorRef.current = editor;
-      const content = editor.onDidChangeModelContent((e) => {
-        const text = textRef.current;
-        if (text == null || applyingRemote.current) return;
-        const actions = text.applyChanges(changesToDiffs(text.value(), e.changes));
-        if (actions.length > 0) void dispatch({ key: resourceKey, actions });
-      });
-      return {
-        dispose: () => {
-          content.dispose();
-          editorRef.current = null;
-        },
-      };
-    };
-    return [...EXTENSIONS, collab];
-  }, [dispatch, resourceKey]);
+  // connect subscribes the editor to operations from other editors: each store update for
+  // this arc is merged into the replica and reflected into the editor as a minimal edit.
+  // Returning the unsubscribe lets React tear the subscription down on unmount.
+  const connect = useCallback(
+    (handle: Code.EditorHandle | null) => {
+      if (handle == null || text == null) return;
+      return store.arcs.onSet((a) => {
+        text.sync(a.text.doc);
+        handle.setValue(text.value());
+      }, resourceKey);
+    },
+    [store, text, resourceKey],
+  );
 
-  if (textRef.current == null) return null;
+  if (text == null) return null;
   return (
-    <BaseEditor
-      value={textRef.current.value()}
-      onChange={() => {}}
+    <Code.Editor
+      ref={connect}
+      initialValue={text.value()}
+      onChange={handleChange}
       language="arc"
       scrollBeyondLastLine
-      extensions={extensions}
+      extensions={EXTENSIONS}
     />
   );
 };
