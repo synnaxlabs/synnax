@@ -236,7 +236,7 @@ var _ = Describe("Writer", func() {
 			time.Sleep(10 * time.Millisecond)
 		})
 
-		insert := func(replica uint32, counter uint64, char rune) arc.Action {
+		insert := func(replica uint32, counter uint32, char rune) arc.Action {
 			return arc.NewInsertCharAction(arc.InsertCharPayload{
 				ID:   crdt.ID{Replica: replica, Counter: counter},
 				Side: spatial.XLocationRight,
