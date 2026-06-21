@@ -7,33 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Input } from "@synnaxlabs/pluto";
+import { Flex, Input, Schematic } from "@synnaxlabs/pluto";
 import { control } from "@synnaxlabs/x";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { useSelectAuthority, useSelectLegendVisible } from "@/schematic/selectors";
-import { setAuthority, setLegendVisible } from "@/schematic/slice";
+import { setControlAuthority, setLegendVisible } from "@/schematic/slice";
 
-export const Control = ({ layoutKey }: { layoutKey: string }) => {
+export const Control = () => {
   const dispatch = useDispatch();
-  const authority = useSelectAuthority(layoutKey);
-  const legendVisible = useSelectLegendVisible(layoutKey);
-
+  const authority = useSelectAuthority();
+  const legendVisible = useSelectLegendVisible();
+  const key = Schematic.useKey();
+  const handleAuthorityChange = useCallback(
+    (authority: control.Authority) => {
+      dispatch(setControlAuthority({ key, authority }));
+    },
+    [key],
+  );
+  const handleLegendVisibleChange = useCallback(
+    (visible: boolean) => {
+      dispatch(setLegendVisible({ key, visible }));
+    },
+    [key],
+  );
   return (
     <Flex.Box x gap="small" className={CSS.BE("schematic", "control")}>
       <Input.Item label="Control authority">
         <Input.Numeric
           value={authority}
-          onChange={(v) => dispatch(setAuthority({ key: layoutKey, authority: v }))}
+          onChange={handleAuthorityChange}
           bounds={control.AUTHORITY_BOUNDS}
         />
       </Input.Item>
       <Input.Item label="Show control state legend">
-        <Input.Switch
-          value={legendVisible ?? true}
-          onChange={(v) => dispatch(setLegendVisible({ key: layoutKey, visible: v }))}
-        />
+        <Input.Switch value={legendVisible} onChange={handleLegendVisibleChange} />
       </Input.Item>
     </Flex.Box>
   );

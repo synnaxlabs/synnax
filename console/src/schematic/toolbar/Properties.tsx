@@ -34,7 +34,7 @@ import {
   type text,
   xy,
 } from "@synnaxlabs/x";
-import { type FC, memo, type ReactElement, type ReactNode, useMemo } from "react";
+import { type FC, memo, type ReactElement, type ReactNode, useCallback,useMemo } from "react";
 import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
@@ -44,51 +44,38 @@ import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { MissingSymbolForm } from "@/schematic/toolbar/MissingSymbolForm";
 import { type RootState } from "@/store";
 
-export interface PropertiesProps {
-  layoutKey: string;
-}
-
-export const Properties = memo(({ layoutKey }: PropertiesProps): ReactElement => {
-  const selected = useSelectSelected(layoutKey);
-  const configByKey = Schematic.useSelectConfigs({ key: layoutKey, keys: selected });
+export const Properties = memo((): ReactElement => {
+  const selected = useSelectSelected();
+  const configByKey = Schematic.useSelectConfigs({ keys: selected });
   if (selected.length === 0 || configByKey.size === 0)
     return (
       <Text.Text status="disabled" center>
         Select a schematic element to configure its properties.
       </Text.Text>
     );
-  if (selected.length > 1)
-    return <MultiConfig layoutKey={layoutKey} configByKey={configByKey} />;
+  if (selected.length > 1) return <MultiConfig configByKey={configByKey} />;
   const elKey = selected[0];
-  return <IndividualConfig key={elKey} layoutKey={layoutKey} elKey={elKey} />;
+  return <IndividualConfig key={elKey} elKey={elKey} />;
 });
 Properties.displayName = "PropertiesControls";
 
 interface IndividualConfigProps {
-  layoutKey: string;
   elKey: string;
 }
 
-const IndividualConfig = ({
-  layoutKey,
-  elKey,
-}: IndividualConfigProps): ReactElement | null => {
-  const config = Schematic.useSelectElementConfig({ key: layoutKey, elKey });
-  const { dispatch } = Schematic.useDispatch();
-
-  const onChange = (key: string, next: Schematic.ElementConfig): void => {
-    dispatch({
-      key: layoutKey,
-      actions: schematic.setConfig({ key, config: next }),
-    });
-  };
-
+const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null => {
+  const config = Schematic.useSelectElementConfig({ elKey });
+  // A true invariant that should never occur.
+  if (config == null) throw new Error(`Element with key ${elKey} not found`);
+  const dispatch = Schematic.useSingleDispatch();
   const initialValues = useMemo(() => deep.copy(config), [config]);
   const formMethods = Form.use<typeof Schematic.elementConfigZ>({
     schema: Schematic.elementConfigZ,
     values: initialValues,
     sync: true,
-    onChange: ({ values }) => onChange(elKey, deep.copy(values)),
+    onChange: useCallback(({ values }: Form.OnChangeArgs<typeof Schematic.elementConfigZ>) =>
+      dispatch(schematic.setConfig({ key: elKey, config: values }))
+      , []),
   });
   const specKey = Form.useFieldValue<string, string, typeof Schematic.elementConfigZ>(
     "specKey",
@@ -119,11 +106,10 @@ const IndividualConfig = ({
             specKey={specKey}
             elKey={elKey}
             actions={actions}
-            schematicKey={layoutKey}
             VariantForm={C.Form}
           />
         ) : (
-          <C.Form key={elKey} actions={actions} schematicKey={layoutKey} />
+          <C.Form key={elKey} actions={actions} />
         )}
       </Form.Form>
     </Flex.Box>
@@ -134,7 +120,6 @@ interface CustomVariantFormProps {
   specKey: string;
   elKey: string;
   actions: ReactNode;
-  schematicKey: string;
   VariantForm: FC<Schematic.Node.FormProps>;
 }
 
@@ -142,9 +127,9 @@ const CustomVariantForm = ({
   specKey,
   elKey,
   actions,
-  schematicKey,
   VariantForm,
 }: CustomVariantFormProps): ReactElement => {
+  const schematicKey = Schematic.useKey();
   const result = Schematic.Symbol.useRetrieve(
     { key: specKey },
     { addStatusOnFailure: false },
@@ -154,18 +139,15 @@ const CustomVariantForm = ({
 };
 
 interface MultiElementPropertiesProps {
-  layoutKey: string;
   configByKey: Map<string, Schematic.ElementConfig>;
 }
 
-const MultiConfig = ({
-  layoutKey,
-  configByKey,
-}: MultiElementPropertiesProps): ReactElement => {
+const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement => {
+  const schematicKey = Schematic.useKey();
   const handleError = Status.useErrorHandler();
-  const selected = useSelectSelected(layoutKey);
-  const selectedNodes = Schematic.useSelectNodes({ key: layoutKey, keys: selected });
-  const { dispatch } = Schematic.useDispatch();
+  const selected = useSelectSelected();
+  const selectedNodes = Schematic.useSelectNodes({ keys: selected });
+  const dispatch = Schematic.useSingleDispatch();
   const store = useStore<RootState>();
 
   const nodesByKey = useMemo(() => {
@@ -176,10 +158,7 @@ const MultiConfig = ({
 
   const onChange = (elKey: string, next: Partial<Schematic.ElementConfig>): void => {
     const existing = (configByKey.get(elKey) ?? {}) as record.Unknown;
-    dispatch({
-      key: layoutKey,
-      actions: schematic.setConfig({ key: elKey, config: { ...existing, ...next } }),
-    });
+    dispatch(schematic.setConfig({ key: elKey, config: { ...existing, ...next } }));
   };
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
@@ -218,13 +197,13 @@ const MultiConfig = ({
   };
 
   const getLayoutsForAlignment = () => {
-    const zoom = selectViewport(store.getState(), layoutKey).zoom;
+    const zoom = selectViewport(store.getState(), schematicKey).zoom;
     return selected
-      .map((key) => {
-        const node = nodesByKey.get(key);
+      .map((nodeKey) => {
+        const node = nodesByKey.get(nodeKey);
         if (node == null) return null;
         try {
-          const nodeEl = Diagram.selectNode(key);
+          const nodeEl = Diagram.selectNode(nodeKey);
           const nodeElBox = box.construct(nodeEl);
           const rect = nodeEl.getBoundingClientRect();
           const actualDims: dimensions.Dimensions = {
@@ -233,7 +212,7 @@ const MultiConfig = ({
           };
           const nodeBox = box.construct(node.position, actualDims);
           return new Diagram.NodeLayout(
-            key,
+            nodeKey,
             nodeBox,
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
@@ -249,14 +228,14 @@ const MultiConfig = ({
     layouts: Diagram.NodeLayout[];
     adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
-    const zoom = selectViewport(store.getState(), layoutKey).zoom;
+    const zoom = selectViewport(store.getState(), schematicKey).zoom;
     const topOffsets = new Map<string, number>();
     const layouts = selected
-      .map((key) => {
-        const node = nodesByKey.get(key);
+      .map((nodeKey) => {
+        const node = nodesByKey.get(nodeKey);
         if (node == null) return null;
         try {
-          const nodeEl = Diagram.selectNode(key);
+          const nodeEl = Diagram.selectNode(nodeKey);
           const nodeElBox = box.construct(nodeEl);
           const rect = nodeEl.getBoundingClientRect();
 
@@ -275,7 +254,7 @@ const MultiConfig = ({
           };
 
           const topExtension = (rect.top - minTop) / zoom;
-          topOffsets.set(key, topExtension);
+          topOffsets.set(nodeKey, topExtension);
           const adjustedPosition = xy.translate(node.position, {
             x: 0,
             y: -topExtension,
@@ -283,7 +262,7 @@ const MultiConfig = ({
 
           const nodeBox = box.construct(adjustedPosition, actualDims);
           return new Diagram.NodeLayout(
-            key,
+            nodeKey,
             nodeBox,
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
@@ -303,12 +282,11 @@ const MultiConfig = ({
 
   const applyNodePositions = (layouts: Diagram.NodeLayout[]): void => {
     if (layouts.length === 0) return;
-    dispatch({
-      key: layoutKey,
-      actions: layouts.map((n) =>
+    dispatch(
+      layouts.map((n) =>
         schematic.setNodePosition({ key: n.key, position: box.topLeft(n.box) }),
       ),
-    });
+    );
   };
 
   const handleAlignToLocation = (loc: location.Outer): void => {

@@ -7,15 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
-import {
-  Access,
-  Control,
-  Diagram,
-  Menu,
-  Schematic as Base,
-  Viewport,
-} from "@synnaxlabs/pluto";
+import { Control, Diagram, Menu, Schematic as Base, Viewport } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -25,7 +17,6 @@ import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
 import { useHandleNodeClickAction } from "@/schematic/navigate";
 import {
-  selectEditable,
   useSelectEditable,
   useSelectFitViewOnResize,
   useSelectSelected,
@@ -45,13 +36,10 @@ import { Legend } from "./Legend";
 const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   const isSnapshot = Base.useSelectSnapshot({});
   const dispatch = useDispatch();
-  const editable = useSelectEditable(key);
-  const viewport = useSelectViewport(key);
-  const selected = useSelectSelected(key);
-  const fitViewOnResize = useSelectFitViewOnResize(key);
-  const hasUpdatePermission =
-    Access.useUpdateGranted(schematic.ontologyID(key)) && !isSnapshot;
-  const canEdit = hasUpdatePermission && editable;
+  const viewport = useSelectViewport();
+  const selected = useSelectSelected();
+  const fitViewOnResize = useSelectFitViewOnResize();
+  const { isCurrentlyEditable, canEdit } = useSelectEditable();
 
   const handleSelectionChange = useCallback(
     (selected: string[]) => dispatch(setSelected({ key, selected })),
@@ -85,9 +73,9 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    if (editable)
+    if (isCurrentlyEditable)
       dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
-  }, [editable, dispatch]);
+  }, [isCurrentlyEditable, dispatch]);
 
   const handleNodeClickAction = useHandleNodeClickAction(key);
 
@@ -107,21 +95,20 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   const enableTriggers = useCallback(
     () =>
       Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key &&
-      hasUpdatePermission &&
-      selectEditable(store.getState(), key),
-    [store, key, hasUpdatePermission],
+      isCurrentlyEditable,
+    [store, key, isCurrentlyEditable],
   );
 
   const renderExtraMenuItems = useCallback(
     (): ReactElement => (
       <>
-        {hasUpdatePermission && <Diagram.Menu.ToggleEditItem />}
+        {canEdit && <Diagram.Menu.ToggleEditItem />}
         {!isSnapshot && <Control.Menu.ToggleItem />}
         <Menu.Divider />
         <ContextMenu.ReloadConsoleItem />
       </>
     ),
-    [hasUpdatePermission, isSnapshot],
+    [canEdit, isSnapshot],
   );
 
   return (
@@ -146,7 +133,7 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
         visible={visible}
       >
         <Diagram.Background />
-        <Controls snapshot={isSnapshot} hasUpdatePermission={hasUpdatePermission} />
+        <Controls />
       </Base.Schematic>
       <Legend />
     </Controller>

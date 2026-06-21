@@ -8,23 +8,57 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
-import { type color, type control, type xy } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
+import { type Control, control, type Diagram, Viewport } from "@synnaxlabs/pluto";
+import { color, control as xcontrol, sticky, xy } from "@synnaxlabs/x";
+import z from "zod";
 
-import * as latest from "@/schematic/types";
 import { type RootState } from "@/store";
 
-export type SliceState = latest.SliceState;
-export type State = latest.State;
-export interface Viewport extends latest.Viewport {}
-export type LegendState = latest.LegendState;
-export type ToolbarTab = latest.ToolbarTab;
-export type ToolbarState = latest.ToolbarState;
-export const ZERO_STATE = latest.ZERO_STATE;
-export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
-export const migrateSlice = latest.migrateSlice;
-export const migrateState = latest.migrateState;
-export const anyStateZ = latest.anyStateZ;
+export const viewportZ = z.object({
+  position: xy.xyZ.default({ x: 0, y: 0 }),
+  zoom: z.number().default(1),
+  mode: Viewport.modeZ.default("select"),
+});
+export interface Viewport extends z.infer<typeof viewportZ> {}
+
+export const legendStateZ = z.object({
+  visible: z.boolean().default(true),
+  position: sticky.xyZ.default({ x: 100, y: 100 }),
+  colors: z.record(z.string(), color.colorZ).default({}),
+});
+export interface LegendState extends z.infer<typeof legendStateZ> {}
+
+export const toolbarTabZ = z.enum(["symbols", "properties"]);
+export type ToolbarTab = z.infer<typeof toolbarTabZ>;
+export const toolbarStateZ = z.object({
+  selectedTab: toolbarTabZ.default("symbols"),
+  selectedSymbolGroup: z.string().default("general"),
+});
+export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
+
+export const stateZ = z.object({
+  selected: z.array(z.string()).default([]),
+  controlStatus: control.statusZ.default("released"),
+  authority: xcontrol.authorityZ.default(100),
+  legend: legendStateZ.prefault({}),
+  toolbar: toolbarStateZ.prefault({}),
+  editable: z.boolean().default(false),
+  fitViewOnResize: z.boolean().default(false),
+  viewport: viewportZ.prefault({}),
+});
+export interface State extends z.infer<typeof stateZ> {}
+export interface NewState extends z.input<typeof stateZ> {}
+
+export const ZERO_STATE = stateZ.parse({});
+
+export const sliceStateZ = z.object({
+  schematics: z.record(z.string(), stateZ),
+});
+
+export interface SliceState extends z.infer<typeof sliceStateZ> {}
+
+export const ZERO_SLICE_STATE = sliceStateZ.parse({});
 
 export const SLICE_NAME = "schematic";
 
@@ -32,68 +66,61 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export interface CreatePayload {
-  key: string;
-  editable?: boolean;
+export interface StoreState {
+  [SLICE_NAME]: SliceState;
 }
 
-export interface SetSelectedPayload {
-  key: string;
+export interface KeyedPayload {
+  key: schematic.Key;
+}
+
+export interface CreatePayload extends KeyedPayload, NewState {}
+
+export interface SetSelectedPayload extends KeyedPayload {
   selected: string[];
 }
 
-export interface SetControlStatusPayload {
-  key: string;
+export interface SetControlStatusPayload extends KeyedPayload {
   control: Control.Status;
 }
 
-export interface SetAuthorityPayload {
-  key: string;
-  authority: control.Authority;
+export interface SetAuthorityPayload extends KeyedPayload {
+  authority: xcontrol.Authority;
 }
 
-export interface MoveLegendPayload {
-  key: string;
+export interface MoveLegendPayload extends KeyedPayload {
   position: xy.XY;
 }
 
-export interface SetLegendColorsPayload {
-  key: string;
+export interface SetLegendColorsPayload extends KeyedPayload {
   colors: Record<string, color.Color>;
 }
 
-export interface SetLegendVisiblePayload {
-  key: string;
+export interface SetLegendVisiblePayload extends KeyedPayload {
   visible: boolean;
 }
 
-export interface SetActiveToolbarTabPayload {
-  key: string;
+export interface SetActiveToolbarTabPayload extends KeyedPayload {
   tab: ToolbarTab;
 }
 
-export interface SetSelectedSymbolGroupPayload {
-  key: string;
+export interface SetSelectedSymbolGroupPayload extends KeyedPayload {
   group: string;
 }
 
-export interface SetEditablePayload {
-  key: string;
+export interface SetEditablePayload extends KeyedPayload {
   editable: boolean;
 }
 
-export interface SetFitViewOnResizePayload {
-  key: string;
+export interface SetFitViewOnResizePayload extends KeyedPayload {
   fitViewOnResize: boolean;
 }
 
-export interface SetViewportPayload {
-  key: string;
+export interface SetViewportPayload extends KeyedPayload {
   viewport: Diagram.Viewport;
 }
 
-export interface SetViewportModePayload {
-  key: string;
+export interface SetViewportModePayload extends KeyedPayload {
   mode: Viewport.Mode;
 }
 
@@ -101,95 +128,98 @@ export interface RemovePayload {
   keys: string[];
 }
 
+const withSelectedState =
+  <Payload extends KeyedPayload, Type extends string = string>(
+    handler: (state: State, action: PayloadAction<Payload, Type>) => void,
+  ) =>
+  (state: SliceState, action: PayloadAction<Payload, Type>) => {
+    const {
+      payload: { key },
+    } = action;
+    let s = state.schematics[key];
+    if (s == null) {
+      s = stateZ.parse({});
+      state.schematics[key] = s;
+    }
+    handler(s, action);
+  };
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      if (state.schematics[payload.key] != null) return;
-      state.schematics[payload.key] = {
-        ...ZERO_STATE,
-        legend: { ...ZERO_STATE.legend },
-        selected: [],
-        editable: payload.editable ?? ZERO_STATE.editable,
-      };
+    create: (state, { payload: { key, ...rest } }: PayloadAction<CreatePayload>) => {
+      if (!(key in state.schematics)) state.schematics[key] = stateZ.parse(rest);
     },
-    setSelected: (state, { payload }: PayloadAction<SetSelectedPayload>) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.selected = payload.selected;
-      s.toolbar.activeTab = payload.selected.length > 0 ? "properties" : "symbols";
-    },
-    setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
-      const { key: layoutKey, control } = payload;
-      const schematic = state.schematics[layoutKey];
-      if (schematic == null) return;
-      schematic.controlStatus = control;
-      if (control === "acquired") {
-        schematic.selected = [];
-        schematic.editable = false;
-      }
-    },
-    setAuthority: (state, { payload }: PayloadAction<SetAuthorityPayload>) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.authority = payload.authority;
-    },
-    moveLegend: (state, { payload }: PayloadAction<MoveLegendPayload>) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.legend.position = payload.position;
-    },
-    setLegendColors: (state, { payload }: PayloadAction<SetLegendColorsPayload>) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.legend.colors = payload.colors;
-    },
-    setLegendVisible: (state, { payload }: PayloadAction<SetLegendVisiblePayload>) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.legend.visible = payload.visible;
-    },
-    setActiveToolbarTab: (
-      state,
-      { payload }: PayloadAction<SetActiveToolbarTabPayload>,
-    ) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.toolbar.activeTab = payload.tab;
-    },
-    setSelectedSymbolGroup: (
-      state,
-      { payload }: PayloadAction<SetSelectedSymbolGroupPayload>,
-    ) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.toolbar.selectedSymbolGroup = payload.group;
-    },
-    setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.editable = payload.editable;
-      if (!payload.editable) s.selected = [];
-    },
-    setFitViewOnResize: (
-      state,
-      { payload }: PayloadAction<SetFitViewOnResizePayload>,
-    ) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.fitViewOnResize = payload.fitViewOnResize;
-    },
-    setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.viewport = { ...s.viewport, ...payload.viewport };
-    },
-    setViewportMode: (state, { payload }: PayloadAction<SetViewportModePayload>) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.viewport.mode = payload.mode;
-    },
+    setSelected: withSelectedState(
+      (state, { payload }: PayloadAction<SetSelectedPayload>) => {
+        state.selected = payload.selected;
+        state.toolbar.selectedTab =
+          payload.selected.length > 0 ? "properties" : "symbols";
+      },
+    ),
+    setControlStatus: withSelectedState(
+      (state, { payload: { control } }: PayloadAction<SetControlStatusPayload>) => {
+        state.controlStatus = control;
+        if (control !== "acquired") return;
+        state.selected = [];
+        state.editable = false;
+      },
+    ),
+    setControlAuthority: withSelectedState(
+      (state, { payload: { authority } }: PayloadAction<SetAuthorityPayload>) => {
+        state.authority = authority;
+      },
+    ),
+    moveLegend: withSelectedState(
+      (state, { payload: { position } }: PayloadAction<MoveLegendPayload>) => {
+        state.legend.position = position;
+      },
+    ),
+    setLegendColors: withSelectedState(
+      (state, { payload: { colors } }: PayloadAction<SetLegendColorsPayload>) => {
+        state.legend.colors = colors;
+      },
+    ),
+    setLegendVisible: withSelectedState(
+      (state, { payload: { visible } }: PayloadAction<SetLegendVisiblePayload>) => {
+        state.legend.visible = visible;
+      },
+    ),
+    setActiveToolbarTab: withSelectedState(
+      (state, { payload: { tab } }: PayloadAction<SetActiveToolbarTabPayload>) => {
+        state.toolbar.selectedTab = tab;
+      },
+    ),
+    setSelectedSymbolGroup: withSelectedState(
+      (state, { payload: { group } }: PayloadAction<SetSelectedSymbolGroupPayload>) => {
+        state.toolbar.selectedSymbolGroup = group;
+      },
+    ),
+    setEditable: withSelectedState(
+      (state, { payload: { editable } }: PayloadAction<SetEditablePayload>) => {
+        state.editable = editable;
+        if (!editable) state.selected = [];
+      },
+    ),
+    setFitViewOnResize: withSelectedState(
+      (
+        state,
+        { payload: { fitViewOnResize } }: PayloadAction<SetFitViewOnResizePayload>,
+      ) => {
+        state.fitViewOnResize = fitViewOnResize;
+      },
+    ),
+    setViewport: withSelectedState(
+      (state, { payload: { viewport } }: PayloadAction<SetViewportPayload>) => {
+        state.viewport = { ...state.viewport, ...viewport };
+      },
+    ),
+    setViewportMode: withSelectedState(
+      (state, { payload: { mode } }: PayloadAction<SetViewportModePayload>) => {
+        state.viewport.mode = mode;
+      },
+    ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.schematics[key]);
     },
@@ -200,7 +230,7 @@ export const {
   create: internalCreate,
   setSelected,
   setControlStatus,
-  setAuthority,
+  setControlAuthority,
   setLegendColors,
   moveLegend,
   setLegendVisible,
@@ -217,7 +247,7 @@ export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
 export const purgeState = (state: State): State => {
   state.controlStatus = "released";
-  state.toolbar = { ...state.toolbar, activeTab: "symbols" };
+  state.toolbar = { ...state.toolbar, selectedTab: "symbols" };
   state.selected = [];
   return state;
 };

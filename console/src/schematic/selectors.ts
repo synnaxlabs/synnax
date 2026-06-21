@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Control } from "@synnaxlabs/pluto";
+import { schematic } from "@synnaxlabs/client";
+import { Access, type Control, Schematic } from "@synnaxlabs/pluto";
 import { type control } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
@@ -17,95 +18,101 @@ import {
   type SliceState,
   type State,
   type StoreState,
+  type ToolbarState,
   type ToolbarTab,
   type Viewport,
+  ZERO_STATE,
 } from "@/schematic/slice";
-import { type ToolbarState, ZERO_STATE } from "@/schematic/types";
+
+export const createSelector =
+  <S extends object, R>(
+    selector: (state: S, key: schematic.Key) => R,
+  ): ((override?: schematic.Key) => R) =>
+  (override) => {
+    const key = Schematic.useKey(override);
+    return useMemoSelect((state: S) => selector(state, key), [key]);
+  };
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-export const selectSelected = (state: StoreState, key: string): string[] =>
-  select(state, key)?.selected ?? [];
-
 export const select = (state: StoreState, key: string): State =>
-  selectSliceState(state).schematics[key];
+  selectSliceState(state).schematics[key] ?? ZERO_STATE;
 
-export const selectOptional = select as (
-  state: StoreState,
-  key: string,
-) => State | undefined;
+export const useSelect = createSelector(select);
 
-export const useSelect = (key: string): State =>
-  useMemoSelect((state: StoreState) => select(state, key), [key]);
+export const selectSelected = (state: StoreState, key: string): string[] =>
+  select(state, key)?.selected;
 
-export const useSelectOptional = (key: string): State | undefined =>
-  useMemoSelect((state: StoreState) => selectOptional(state, key), [key]);
-
-export const selectExists = (state: StoreState, key: string): boolean =>
-  selectOptional(state, key) != null;
-
-export const useSelectExists = (key: string): boolean =>
-  useMemoSelect((state: StoreState) => selectExists(state, key), [key]);
-
-export const useSelectSelected = (key: string): string[] =>
-  useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);
+export const useSelectSelected = createSelector(selectSelected);
 
 export const selectControlStatus = (state: StoreState, key: string): Control.Status =>
-  select(state, key)?.controlStatus ?? "released";
+  select(state, key).controlStatus;
 
-export const useSelectControlStatus = (key: string): Control.Status =>
-  useMemoSelect((state: StoreState) => selectControlStatus(state, key), [key]);
+export const useSelectControlStatus = createSelector(selectControlStatus);
+
+export const selectControlIsAcquired = (state: StoreState, key: string): boolean =>
+  selectControlStatus(state, key) === "acquired";
+
+export const useSelectControlIsAcquired = createSelector(selectControlIsAcquired);
 
 export const selectAuthority = (state: StoreState, key: string): control.Authority =>
-  select(state, key)?.authority ?? 1;
+  select(state, key).authority;
 
-export const useSelectAuthority = (key: string): control.Authority =>
-  useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
+export const useSelectAuthority = createSelector(selectAuthority);
 
 export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
-  selectToolbar(state, key).activeTab;
+  selectToolbar(state, key).selectedTab;
 
-export const useSelectActiveToolbarTab = (key: string): ToolbarTab =>
-  useMemoSelect((state: StoreState) => selectActiveToolbarTab(state, key), [key]);
+export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
 
 export const selectToolbar = (state: StoreState, key: string): ToolbarState =>
   select(state, key).toolbar;
 
-export const useSelectToolbar = (key: string): ToolbarState =>
-  useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
+export const useSelectToolbar = createSelector(selectToolbar);
 
 export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
   selectToolbar(state, key).selectedSymbolGroup;
 
-export const useSelectSelectedSymbolGroup = (key: string): string =>
-  useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
+export const useSelectSelectedSymbolGroup = createSelector(selectSelectedSymbolGroup);
 
 export const selectLegend = (state: StoreState, key: string): LegendState =>
-  select(state, key)?.legend ?? ZERO_STATE.legend;
+  select(state, key).legend;
 
-export const useSelectLegend = (key: string): LegendState =>
-  useMemoSelect((state: StoreState) => selectLegend(state, key), [key]);
+export const useSelectLegend = createSelector(selectLegend);
 
 export const selectLegendVisible = (state: StoreState, key: string): boolean =>
   select(state, key).legend.visible;
 
-export const useSelectLegendVisible = (key: string): boolean =>
-  useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);
+export const useSelectLegendVisible = createSelector(selectLegendVisible);
 
 export const selectEditable = (state: StoreState, key: string): boolean =>
   select(state, key).editable;
 
-export const useSelectEditable = (key: string): boolean =>
-  useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
+const useSelectEditableBase = createSelector(selectEditable);
 
 export const selectFitViewOnResize = (state: StoreState, key: string): boolean =>
   select(state, key).fitViewOnResize;
 
-export const useSelectFitViewOnResize = (key: string): boolean =>
-  useMemoSelect((state: StoreState) => selectFitViewOnResize(state, key), [key]);
+export const useSelectFitViewOnResize = createSelector(selectFitViewOnResize);
 
 export const selectViewport = (state: StoreState, key: string): Viewport =>
   select(state, key).viewport;
 
-export const useSelectViewport = (key: string): Viewport =>
-  useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
+export const useSelectViewport = createSelector(selectViewport);
+
+export interface UseSelectEditableReturn {
+  isCurrentlyEditable: boolean;
+  canEdit: boolean;
+}
+
+export const useSelectEditable = (
+  overrideKey?: schematic.Key,
+): UseSelectEditableReturn => {
+  const key = Schematic.useKey(overrideKey);
+  const isSnapshot = Schematic.useSelectSnapshot({});
+  const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(key));
+  const editable = useSelectEditableBase();
+  const canEdit = hasUpdatePermission && !isSnapshot;
+  const isCurrentlyEditable = canEdit && editable;
+  return { canEdit, isCurrentlyEditable };
+};

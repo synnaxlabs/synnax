@@ -57,8 +57,7 @@ const HAUL_DRAG_PROPS: Haul.UseDragProps = {
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
   const theme = Theming.use();
-  const layoutKey = Key.use<string>("Schematic.Toolbar.StaticListItem");
-  const addNode = Schematic.useAddNode(layoutKey);
+  const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
   const createParams = useCallback(
@@ -134,8 +133,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     specKey: string;
     scale?: number;
   }>;
-  const layoutKey = Key.use<string>("Schematic.Toolbar.RemoteListItem");
-  const addNode = Schematic.useAddNode(layoutKey);
+  const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
   const createParams = useCallback(

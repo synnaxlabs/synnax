@@ -19,11 +19,9 @@ import {
   selectAuthority,
   selectControlStatus,
   selectEditable,
-  selectExists,
   selectFitViewOnResize,
   selectLegend,
   selectLegendVisible,
-  selectOptional,
   selectSelected,
   selectSelectedSymbolGroup,
   selectSliceState,
@@ -50,7 +48,7 @@ const entry: State = {
   controlStatus: "acquired",
   authority: 5,
   legend: { ...ZERO_STATE.legend, visible: false },
-  toolbar: { activeTab: "properties", selectedSymbolGroup: "valves" },
+  toolbar: { selectedTab: "properties", selectedSymbolGroup: "valves" },
 };
 
 const state: StoreState = {
@@ -77,21 +75,9 @@ describe("schematic selectors", () => {
     });
   });
 
-  describe("select / selectOptional", () => {
+  describe("select ", () => {
     it("returns the entry when present", () => {
       expect(select(state, KEY)).toBe(entry);
-      expect(selectOptional(state, KEY)).toBe(entry);
-    });
-
-    it("returns undefined from selectOptional when absent", () => {
-      expect(selectOptional(empty, "absent")).toBeUndefined();
-    });
-  });
-
-  describe("selectExists", () => {
-    it("should report whether the slice entry is present", () => {
-      expect(selectExists(state, KEY)).toBe(true);
-      expect(selectExists(state, "absent")).toBe(false);
     });
   });
 

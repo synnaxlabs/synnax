@@ -113,7 +113,6 @@ export const migrateState = (prev: RootState): RootState => {
   console.group("Migrating State");
   console.log(`Previous Console Version: ${prev[Version.SLICE_NAME].version}`);
   const layout = Layout.migrateSlice(prev.layout);
-  const schematic = Schematic.migrateSlice(prev.schematic);
   const line = LinePlot.migrateSlice(prev.line);
   const log = Log.migrateSlice(prev.log);
   const version = Version.migrateSlice(prev.version);
@@ -132,7 +131,6 @@ export const migrateState = (prev: RootState): RootState => {
   return {
     ...prev,
     layout,
-    schematic,
     line,
     log,
     version,

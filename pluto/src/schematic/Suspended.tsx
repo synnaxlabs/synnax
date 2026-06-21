@@ -10,13 +10,11 @@ const [KeyContext, useOptionalKey] = context.create<schematic.Key | undefined>({
   defaultValue: undefined,
 });
 
-export { useOptionalKey };
-
-export const useKey = (): schematic.Key => {
-  const value = useOptionalKey();
+export const useKey = (override?: schematic.Key): schematic.Key => {
+  const value = useOptionalKey() ?? override;
   if (value == null)
     throw new NotFoundError(
-      `Schematic.useKey must be called inside of Schematic.KeyContext`,
+      `Schematic.useKey must be passed an override or called inside of Schematic.KeyContext`,
     );
   return value;
 };

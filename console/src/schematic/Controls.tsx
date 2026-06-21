@@ -12,19 +12,10 @@ import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback } from "react";
 
 import { Controls as Base } from "@/components";
+import { useSelectControlIsAcquired, useSelectEditable } from "@/schematic/selectors";
 
-import { useSelectControlStatus } from "./selectors";
-
-export interface ControlsProps {
-  hasUpdatePermission: boolean;
-  snapshot: boolean;
-}
-
-interface ControlToggleButtonProps {
-  control: Control.Status;
-}
-
-const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElement => {
+const ControlToggleButton = (): ReactElement => {
+  const isAcquired = useSelectControlIsAcquired();
   const { acquire, release } = Control.useContext();
   const handleChange = useCallback(
     (v: boolean) => (v ? acquire() : release()),
@@ -32,33 +23,30 @@ const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElemen
   );
   return (
     <Button.Toggle
-      value={control === "acquired"}
+      value={isAcquired}
       onChange={handleChange}
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
-      tooltip={`${control === "acquired" ? "Release" : "Acquire"} control`}
+      tooltip={`${isAcquired ? "Release" : "Acquire"} control`}
     >
       <Icon.Circle />
     </Button.Toggle>
   );
 };
 
-export const Controls = memo(
-  ({ hasUpdatePermission, snapshot }: ControlsProps): ReactElement => {
-    const key = Schematic.useKey();
-    const controlStatus = useSelectControlStatus(key);
-    return (
-      <Base x>
-        <Diagram.Controls.SelectViewportMode />
-        <Diagram.Controls.FitView />
-        <Flex.Box x pack>
-          {hasUpdatePermission && (
-            <Diagram.Controls.ToggleEdit disabled={controlStatus === "acquired"} />
-          )}
-          {!snapshot && <ControlToggleButton control={controlStatus} />}
-        </Flex.Box>
-      </Base>
-    );
-  },
-);
+export const Controls = memo((): ReactElement => {
+  const isSnapshot = Schematic.useSelectSnapshot({});
+  const isAcquired = useSelectControlIsAcquired();
+  const { canEdit } = useSelectEditable();
+  return (
+    <Base x>
+      <Diagram.Controls.SelectViewportMode />
+      <Diagram.Controls.FitView />
+      <Flex.Box x pack>
+        {canEdit && <Diagram.Controls.ToggleEdit disabled={isAcquired} />}
+        {!isSnapshot && <ControlToggleButton />}
+      </Flex.Box>
+    </Base>
+  );
+});
 Controls.displayName = "Controls";

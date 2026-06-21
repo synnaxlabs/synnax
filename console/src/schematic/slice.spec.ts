@@ -39,7 +39,7 @@ describe("Schematic Slice", () => {
     const s = store.getState()[SLICE_NAME].schematics[layoutKey];
     expect(s).toBeDefined();
     expect(s.selected).toEqual([]);
-    expect(s.toolbar.activeTab).toBe("symbols");
+    expect(s.toolbar.selectedTab).toBe("symbols");
     expect(s.editable).toBe(false);
   });
 
@@ -54,10 +54,10 @@ describe("Schematic Slice", () => {
     store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
     let s = store.getState()[SLICE_NAME].schematics[layoutKey];
     expect(s.selected).toEqual(["n1"]);
-    expect(s.toolbar.activeTab).toBe("properties");
+    expect(s.toolbar.selectedTab).toBe("properties");
     store.dispatch(actions.setSelected({ key: layoutKey, selected: [] }));
     s = store.getState()[SLICE_NAME].schematics[layoutKey];
-    expect(s.toolbar.activeTab).toBe("symbols");
+    expect(s.toolbar.selectedTab).toBe("symbols");
   });
 
   it("should toggle editable and clear selection on disable", () => {
@@ -85,11 +85,11 @@ describe("Schematic Slice", () => {
     const state = structuredClone(ZERO_STATE);
     state.controlStatus = "acquired";
     state.selected = ["n1"];
-    state.toolbar = { ...state.toolbar, activeTab: "properties" };
+    state.toolbar = { ...state.toolbar, selectedTab: "properties" };
     purgeState(state);
     expect(state.controlStatus).toBe("released");
     expect(state.selected).toEqual([]);
-    expect(state.toolbar.activeTab).toBe("symbols");
+    expect(state.toolbar.selectedTab).toBe("symbols");
   });
 });
 

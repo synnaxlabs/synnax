@@ -23,7 +23,7 @@ import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
-import { useKey, useOptionalKey } from "@/schematic/Suspended";
+import { useKey } from "@/schematic/Suspended";
 import { type Symbol } from "@/schematic/symbol";
 import { Theming } from "@/theming";
 
@@ -98,26 +98,20 @@ const requireSchematic = (
   return schem;
 };
 
-const withKey = <Args extends { key: string }, Selected>(
-  useSelect: Flux.UseSelect<Args, Selected>,
-  name: string,
-): Flux.UseSelect<optional.Optional<Args, "key">, Selected> => {
-  const key = useOptionalKey();
-  return (args) => {
-    if (key == null && !("key" in args))
-      throw new ValidationError(
-        `${name} must be provided a key as an argument or be called within Schematic.Suspended`,
-      );
+const withKey =
+  <Args extends { key: string }, Selected>(
+    useSelect: Flux.UseSelect<Args, Selected>,
+  ): Flux.UseSelect<optional.Optional<Args, "key">, Selected> =>
+  (args) => {
+    const key = useKey(args.key);
     return useSelect({ key, ...args } as Args);
   };
-};
 
 export const useSelectAllNodes = withKey(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Node[]>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).nodes,
   }),
-  "useSelectAllNodes",
 );
 
 export const useSelectAllEdges = withKey(
@@ -125,7 +119,6 @@ export const useSelectAllEdges = withKey(
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).edges,
   }),
-  "useSelectAllNodes",
 );
 
 export interface SelectConfigArgs {
@@ -139,7 +132,6 @@ export const useSelectElementConfig = withKey(
     select: (store, { key, elKey }) =>
       requireSchematic(store, key).configs[elKey] as ElementConfig | undefined,
   }),
-  "useSelectElementConfig",
 );
 
 export interface SelectConfigsArgs {
@@ -162,7 +154,6 @@ export const useSelectConfigs = withKey(
     },
     equal: compare.mapsEqual,
   }),
-  "useSelectConfigs",
 );
 
 export interface SelectNodesArgs {
@@ -181,7 +172,6 @@ export const useSelectNodes = withKey(
     },
     equal: compare.arraysEqual,
   }),
-  "useSelectNodes",
 );
 
 export interface SelectFieldArgs {
@@ -193,7 +183,13 @@ export const useSelectSnapshot = withKey(
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).snapshot,
   }),
-  "useSelectSnapshot",
+);
+
+export const useSelectName = withKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key }) => requireSchematic(store, key).name,
+  }),
 );
 
 export type DeleteParams = schematic.Key | schematic.Key[];
