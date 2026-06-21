@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { type crdt, type record } from "@synnaxlabs/x";
 
 import { actions } from "@/actions";
 import {
@@ -24,6 +24,8 @@ import {
   setNodePosition,
 } from "@/arc/actions.gen";
 import { ir } from "@/arc/ir";
+
+const idToString = (id: crdt.ID): string => `${id.replica}:${id.counter}`;
 
 const sameEndpoints = (a: ir.Edge, source: ir.Handle, target: ir.Handle): boolean =>
   a.source.node === source.node &&
@@ -140,12 +142,29 @@ const handlers: Handlers = {
     state.text.doc.deletes.push(payload);
     return { inverse: [], targets: [] };
   },
+  // Server-emitted maintenance: drop the insert and delete ops of already-deleted
+  // characters. The characters are tombstoned and invisible, so removing their ops does
+  // not change the materialized text.
+  forgetChars: (state, payload) => {
+    if (payload.ids.length === 0) return { inverse: [], targets: [] };
+    const forget = new Set(payload.ids.map(idToString));
+    state.text.doc.inserts = state.text.doc.inserts.filter(
+      (i) => !forget.has(idToString(i.id)),
+    );
+    state.text.doc.deletes = state.text.doc.deletes.filter(
+      (d) => !forget.has(idToString(d.id)),
+    );
+    return { inverse: [], targets: [] };
+  },
 };
 
 export const reduceAll = createReduceAll(handlers);
 
 // isUndoable reports whether an action should push onto the undo stack. Graph mutations
 // are user-driven and undoable; collaborative text edits are not (they carry no inverse
-// and belong to the CRDT, not the graph undo stack).
+// and belong to the CRDT, not the graph undo stack), nor is the server's tombstone
+// reclamation.
 export const isUndoable = (action: Action): boolean =>
-  action.type !== "insert_char" && action.type !== "delete_char";
+  action.type !== "insert_char" &&
+  action.type !== "delete_char" &&
+  action.type !== "forget_chars";

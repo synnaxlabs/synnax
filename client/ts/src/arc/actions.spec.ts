@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { crdt, type record } from "@synnaxlabs/x";
+import { crdt, type record, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -38,7 +38,7 @@ const empty = (graph: Partial<arc.graph.Graph> = {}, name = ""): arc.Arc => ({
   key: "arc-key",
   name,
   mode: "graph",
-  text: { raw: "", doc: { inserts: [], deletes: [] } },
+  text: { raw: "", doc: { inserts: [], deletes: [] }, lastEdit: TimeStamp.ZERO },
   graph: {
     functions: [],
     edges: [],
@@ -441,6 +441,31 @@ describe("arc reducer inverses", () => {
       expect(arc.isUndoable(arc.insertChar(new crdt.Text(2).insert(0, "x")[0]))).toBe(
         false,
       );
+    });
+
+    it("forgets tombstoned characters without changing the materialized text", () => {
+      const gen = new crdt.Text(2);
+      const insertOps = gen.insert(0, "hi");
+      const deleteOps = gen.delete(1, 1);
+      let state = arc.reduceAll(empty(), [
+        ...insertOps.map((op) => arc.insertChar(op)),
+        ...deleteOps.map((op) => arc.deleteChar(op)),
+      ]).next;
+      expect(state.text.doc.inserts).toHaveLength(2);
+      expect(state.text.doc.deletes).toHaveLength(1);
+
+      state = arc.reduceAll(state, [
+        arc.forgetChars({ ids: deleteOps.map((op) => op.id) }),
+      ]).next;
+      expect(state.text.doc.inserts).toHaveLength(1);
+      expect(state.text.doc.deletes).toHaveLength(0);
+      const doc = new crdt.Text(3);
+      doc.load(state.text.doc);
+      expect(doc.toString()).toEqual("h");
+    });
+
+    it("forget_chars is not undoable", () => {
+      expect(arc.isUndoable(arc.forgetChars({ ids: [] }))).toBe(false);
     });
   });
 });

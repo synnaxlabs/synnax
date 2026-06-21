@@ -9,10 +9,7 @@
 
 import "@/code/Editor.css";
 
-import {
-  getService,
-  ILanguageFeaturesService,
-} from "@codingame/monaco-vscode-api/services";
+import { type ILanguageFeaturesService } from "@codingame/monaco-vscode-api/services";
 import { debounce, TimeSpan } from "@synnaxlabs/x";
 import {
   type Ref,
@@ -224,7 +221,10 @@ const useRenameAvailable = (
     // Resolve the language features service once — it is stable across the editor's
     // lifetime. Checks scheduled before it resolves run once it lands.
     let features: ILanguageFeaturesService | null = null;
-    const featuresPromise = getService(ILanguageFeaturesService);
+    const featuresPromise = import("@codingame/monaco-vscode-api/services").then(
+      ({ getService, ILanguageFeaturesService }) =>
+        getService(ILanguageFeaturesService),
+    );
     featuresPromise
       .then((s) => (features = s))
       .catch((err: unknown) => {

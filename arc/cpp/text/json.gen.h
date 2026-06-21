@@ -16,6 +16,7 @@
 
 #include "x/cpp/crdt/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/json.gen.h"
 
 #include "arc/cpp/text/types.gen.h"
 
@@ -39,6 +40,10 @@ inline Text Text::parse(x::json::Parser parser) {
     return Text{
         .doc = parser.field<Document>("doc"),
         .raw = parser.field<std::string>("raw", ""),
+        .last_edit = parser.field<::x::telem::TimeStamp>(
+            "last_edit",
+            x::telem::TimeStamp(0)
+        ),
     };
 }
 
@@ -46,6 +51,7 @@ inline x::json::json Text::to_json() const {
     x::json::json j;
     j["doc"] = this->doc.to_json();
     j["raw"] = this->raw;
+    j["last_edit"] = this->last_edit.nanoseconds();
     return j;
 }
 

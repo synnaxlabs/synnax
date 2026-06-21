@@ -10,14 +10,6 @@
 import type * as monacoT from "@codingame/monaco-vscode-editor-api";
 import { type destructor, errors } from "@synnaxlabs/x";
 
-const codingameImports = Promise.all([
-  import("@codingame/monaco-vscode-theme-defaults-default-extension"),
-  import("@codingame/monaco-vscode-api"),
-  import("@codingame/monaco-vscode-textmate-service-override"),
-  import("@codingame/monaco-vscode-theme-service-override"),
-  import("@codingame/monaco-vscode-languages-service-override"),
-]);
-
 const WORKER_LOADERS: Partial<Record<string, () => Worker>> = {
   TextEditorWorker: () =>
     new Worker(
@@ -75,7 +67,13 @@ const doInitialize = async ({
     { default: getTextMateServiceOverride },
     { default: getThemeServiceOverride },
     { default: getLanguagesServiceOverride },
-  ] = await codingameImports;
+  ] = await Promise.all([
+    import("@codingame/monaco-vscode-theme-defaults-default-extension"),
+    import("@codingame/monaco-vscode-api"),
+    import("@codingame/monaco-vscode-textmate-service-override"),
+    import("@codingame/monaco-vscode-theme-service-override"),
+    import("@codingame/monaco-vscode-languages-service-override"),
+  ]);
   await initialize({
     ...getTextMateServiceOverride(),
     ...getThemeServiceOverride(),

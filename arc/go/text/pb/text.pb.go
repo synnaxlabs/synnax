@@ -97,7 +97,11 @@ type Text struct {
 	// in which case the server seeds it from raw.
 	Doc *Document `protobuf:"bytes,1,opt,name=doc,proto3" json:"doc,omitempty"`
 	// raw is the materialized Arc source code, derived from doc and not persisted.
-	Raw           string `protobuf:"bytes,2,opt,name=raw,proto3" json:"raw,omitempty"`
+	Raw string `protobuf:"bytes,2,opt,name=raw,proto3" json:"raw,omitempty"`
+	// last_edit is the cluster time of the most recent character edit. The server uses it
+	// to detect a quiet editing period before reclaiming tombstoned characters from doc. It
+	// is not part of the replicated text.
+	LastEdit      int64 `protobuf:"varint,3,opt,name=last_edit,json=lastEdit,proto3" json:"last_edit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -146,6 +150,13 @@ func (x *Text) GetRaw() string {
 	return ""
 }
 
+func (x *Text) GetLastEdit() int64 {
+	if x != nil {
+		return x.LastEdit
+	}
+	return 0
+}
+
 var File_arc_go_text_pb_text_proto protoreflect.FileDescriptor
 
 const file_arc_go_text_pb_text_proto_rawDesc = "" +
@@ -153,10 +164,11 @@ const file_arc_go_text_pb_text_proto_rawDesc = "" +
 	"\x19arc/go/text/pb/text.proto\x12\varc.text.pb\x1a\x17x/go/crdt/pb/crdt.proto\"d\n" +
 	"\bDocument\x12+\n" +
 	"\ainserts\x18\x01 \x03(\v2\x11.x.crdt.pb.InsertR\ainserts\x12+\n" +
-	"\adeletes\x18\x02 \x03(\v2\x11.x.crdt.pb.DeleteR\adeletes\"A\n" +
+	"\adeletes\x18\x02 \x03(\v2\x11.x.crdt.pb.DeleteR\adeletes\"^\n" +
 	"\x04Text\x12'\n" +
 	"\x03doc\x18\x01 \x01(\v2\x15.arc.text.pb.DocumentR\x03doc\x12\x10\n" +
-	"\x03raw\x18\x02 \x01(\tR\x03rawB\x8d\x01\n" +
+	"\x03raw\x18\x02 \x01(\tR\x03raw\x12\x1b\n" +
+	"\tlast_edit\x18\x03 \x01(\x03R\blastEditB\x8d\x01\n" +
 	"\x0fcom.arc.text.pbB\tTextProtoP\x01Z!github.com/synnaxlabs/arc/text/pb\xa2\x02\x03ATP\xaa\x02\vArc.Text.Pb\xca\x02\vArc\\Text\\Pb\xe2\x02\x17Arc\\Text\\Pb\\GPBMetadata\xea\x02\rArc::Text::Pbb\x06proto3"
 
 var (

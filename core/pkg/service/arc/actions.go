@@ -13,8 +13,11 @@ import (
 	"maps"
 
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Handle replaces the Arc module's name.
@@ -135,4 +138,100 @@ func (p RemoveEdgePayload) Handle(state Arc) (Arc, error) {
 func (p DeleteCharPayload) Handle(state Arc) (Arc, error) {
 	state.Text.Doc.Deletes = append(state.Text.Doc.Deletes, crdt.Delete{ID: p.ID})
 	return state, nil
+}
+
+// Handle drops the insert and delete operations of the given already-deleted characters
+// from the arc's replicated text document. Because the characters are tombstoned, and so
+// invisible, removing their operations does not change the materialized text. It is
+// emitted by the server's text sweeper to reclaim the space held by tombstones.
+func (p ForgetCharsPayload) Handle(state Arc) (Arc, error) {
+	if len(p.IDs) == 0 {
+		return state, nil
+	}
+	forget := set.New(p.IDs...)
+	doc := state.Text.Doc
+	keptInserts := make([]crdt.Insert, 0, len(doc.Inserts))
+	for _, in := range doc.Inserts {
+		if !forget.Contains(in.ID) {
+			keptInserts = append(keptInserts, in)
+		}
+	}
+	keptDeletes := make([]crdt.Delete, 0, len(doc.Deletes))
+	for _, del := range doc.Deletes {
+		if !forget.Contains(del.ID) {
+			keptDeletes = append(keptDeletes, del)
+		}
+	}
+	state.Text.Doc.Inserts = keptInserts
+	state.Text.Doc.Deletes = keptDeletes
+	return state, nil
+}
+
+const (
+	// defaultTextSweepQuiescence is how long an arc's text must go unedited before its
+	// tombstoned characters become eligible to be forgotten.
+	defaultTextSweepQuiescence = 5 * telem.Second
+	// defaultTextSweepThreshold is the number of tombstoned characters that must
+	// accumulate before a sweep is worth broadcasting.
+	defaultTextSweepThreshold = 128
+)
+
+// textSweeper reclaims the space held by tombstoned characters in an arc's replicated
+// text document. Deleting a character leaves both its insert and delete operation in the
+// op-log forever, so a heavily edited document grows without bound; the sweeper drops
+// those operations once it is safe to do so.
+//
+// Safety hinges on quiescence. A tombstoned character can only be forgotten once every
+// editor has observed its deletion: an editor that still sees the character could anchor
+// a new insertion to it, and that insertion would be orphaned if the character were
+// already gone. The sweeper treats an arc as safe to sweep when no edit has reached it
+// for the quiescence window, by which point every outstanding delete has propagated to
+// every editor.
+type textSweeper struct {
+	now        func() telem.TimeStamp
+	quiescence telem.TimeSpan
+	threshold  int
+}
+
+func newTextSweeper(
+	now func() telem.TimeStamp,
+	quiescence telem.TimeSpan,
+	threshold int,
+) textSweeper {
+	return textSweeper{now: now, quiescence: quiescence, threshold: threshold}
+}
+
+// quiet reports whether enough time has elapsed since lastEdit, the time of the arc's
+// most recent character edit, that its tombstoned characters are safe to forget.
+func (s textSweeper) quiet(lastEdit telem.TimeStamp) bool {
+	return lastEdit.Span(s.now()) > s.quiescence
+}
+
+// forgettable returns the ids of the tombstoned characters in doc that are safe to drop:
+// those whose entire subtree is also tombstoned, so removing them orphans no surviving
+// character (see crdt.Text.Collectable). It returns nil when fewer than the configured
+// threshold are present, so a sweep is only triggered once enough space is reclaimable to
+// justify the broadcast.
+func (s textSweeper) forgettable(doc text.Document) []crdt.ID {
+	if len(doc.Deletes) == 0 {
+		return nil
+	}
+	t := crdt.New(text.SeedReplica)
+	t.Load(doc.Inserts, doc.Deletes)
+	dead := t.Collectable()
+	if len(dead) < s.threshold {
+		return nil
+	}
+	return dead
+}
+
+// containsTextEdit reports whether actions includes a character insertion or deletion,
+// the edits that restart an arc's quiescence window.
+func containsTextEdit(actions []Action) bool {
+	for _, a := range actions {
+		if a.Type == ActionTypeInsertChar || a.Type == ActionTypeDeleteChar {
+			return true
+		}
+	}
+	return false
 }

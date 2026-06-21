@@ -15,7 +15,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, Field
 
-from x import crdt, lists
+from x import crdt, lists, telem
 
 
 class Document(BaseModel):
@@ -43,7 +43,13 @@ class Text(BaseModel):
         doc: Is the replicated source of truth for the text. It defaults to empty on create,
             in which case the server seeds it from raw.
         raw: Is the materialized Arc source code, derived from doc and not persisted.
+        last_edit: Is the cluster time of the most recent character edit. The server uses it to
+            detect a quiet editing period before reclaiming tombstoned characters from
+            doc. It is not part of the replicated text.
     """
 
     doc: Document = Field(default_factory=lambda: Document())
     raw: str = ""
+    last_edit: telem.TimeStamp = Field(
+        default=telem.TimeStamp(0), ge=-9223372036854775808, le=9223372036854775807
+    )

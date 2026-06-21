@@ -153,6 +153,37 @@ func (t *Text) visible() []*element {
 // Len returns the number of live characters in the document.
 func (t *Text) Len() int { return len(t.visible()) }
 
+// Collectable returns the ids of the tombstoned characters that may be dropped from the
+// document without changing its value or orphaning a surviving character: those whose
+// entire subtree is also tombstoned, so no live character anchors to them, directly or
+// transitively. A deleted character that still anchors a live character is load-bearing
+// and is not returned. The result is only safe to remove once the document is also
+// causally stable, since a concurrent edit may still anchor to a tombstone.
+func (t *Text) Collectable() []ID {
+	var out []ID
+	var visit func(e *element) bool
+	visit = func(e *element) bool {
+		subtreeDead := true
+		for _, c := range e.left {
+			if !visit(c) {
+				subtreeDead = false
+			}
+		}
+		for _, c := range e.right {
+			if !visit(c) {
+				subtreeDead = false
+			}
+		}
+		if e == t.root || !e.deleted || !subtreeDead {
+			return false
+		}
+		out = append(out, e.id)
+		return true
+	}
+	visit(t.root)
+	return out
+}
+
 // String materializes the document into its current string value.
 func (t *Text) String() string {
 	vis := t.visible()

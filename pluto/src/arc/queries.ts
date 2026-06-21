@@ -15,7 +15,7 @@ import {
   status,
   task,
 } from "@synnaxlabs/client";
-import { errors, id, primitive, type record, xy } from "@synnaxlabs/x";
+import { errors, id, primitive, type record, TimeStamp, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -283,7 +283,11 @@ export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
     configs: {},
     functions: [],
   },
-  text: { raw: "", doc: { inserts: [], deletes: [] } },
+  text: {
+    raw: "",
+    doc: { inserts: [], deletes: [] },
+    lastEdit: new TimeStamp(0),
+  },
 };
 
 export const useForm = Flux.createForm<

@@ -34,4 +34,8 @@ message Text {
   Document doc = 1;
   // raw is the materialized Arc source code, derived from doc and not persisted.
   string raw = 2;
+  // last_edit is the cluster time of the most recent character edit. The server uses it
+  // to detect a quiet editing period before reclaiming tombstoned characters from doc. It
+  // is not part of the replicated text.
+  int64 last_edit = 3;
 }

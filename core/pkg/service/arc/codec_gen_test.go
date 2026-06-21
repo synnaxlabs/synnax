@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Codec", func() {
@@ -93,6 +94,7 @@ var _ = Describe("Codec", func() {
 						},
 						Deletes: []crdt.Delete{{ID: crdt.ID{}}},
 					},
+					LastEdit: telem.TimeStamp(44),
 				},
 			}),
 			Entry("zero values", arc.Arc{
@@ -105,7 +107,10 @@ var _ = Describe("Codec", func() {
 					Nodes:     nil,
 					Configs:   nil,
 				},
-				Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
+				Text: text.Text{
+					Doc:      text.Document{Inserts: nil, Deletes: nil},
+					LastEdit: telem.TimeStamp(0),
+				},
 			}),
 		)
 	})
@@ -178,6 +183,7 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 				},
 				Deletes: []crdt.Delete{{ID: crdt.ID{}}},
 			},
+			LastEdit: telem.TimeStamp(44),
 		},
 	}
 	w := orc.NewWriter(0)
@@ -265,6 +271,7 @@ func FuzzDecodeArc(f *testing.F) {
 					},
 					Deletes: []crdt.Delete{{ID: crdt.ID{}}},
 				},
+				LastEdit: telem.TimeStamp(44),
 			},
 		}
 		w := orc.NewWriter(0)
@@ -284,7 +291,10 @@ func FuzzDecodeArc(f *testing.F) {
 				Nodes:     nil,
 				Configs:   nil,
 			},
-			Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
+			Text: text.Text{
+				Doc:      text.Document{Inserts: nil, Deletes: nil},
+				LastEdit: telem.TimeStamp(0),
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

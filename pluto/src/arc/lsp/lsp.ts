@@ -7,11 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  ExtensionHostKind,
-  registerExtension,
-} from "@codingame/monaco-vscode-api/extensions";
-import * as vscodeExtensionApi from "@codingame/monaco-vscode-extension-api";
 import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
 import { type arc, type Synnax } from "@synnaxlabs/client";
 import { EOF, type Stream } from "@synnaxlabs/freighter";
@@ -19,9 +14,7 @@ import { breaker, type destructor, errors, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import {
-  BaseLanguageClient,
-  CloseAction,
-  ErrorAction,
+  type BaseLanguageClient,
   type LanguageClientOptions,
   type MessageTransports,
 } from "vscode-languageclient/browser";
@@ -289,25 +282,43 @@ const createFreighterTransport = ({
   return { reader, writer, closed };
 };
 
-class ArcLanguageClient extends BaseLanguageClient {
-  private readonly transports: MessageTransports;
+type ArcLanguageClientConstructor = new (
+  name: string,
+  clientOptions: LanguageClientOptions,
+  transports: MessageTransports,
+) => BaseLanguageClient;
 
-  constructor(
-    name: string,
-    clientOptions: LanguageClientOptions,
-    transports: MessageTransports,
-  ) {
-    super(name.toLowerCase(), name, clientOptions);
-    this.transports = transports;
-  }
+let arcLanguageClientConstructor: ArcLanguageClientConstructor | null = null;
 
-  protected createMessageTransports(): Promise<MessageTransports> {
-    return Promise.resolve(this.transports);
-  }
-}
+// loadArcLanguageClientConstructor lazily imports vscode-languageclient and builds the
+// Arc subclass on first use. The import is deferred so that merely importing this module
+// (e.g. when mounting the Pluto provider) does not pull in the browser-only language
+// client and its monaco dependencies.
+const loadArcLanguageClientConstructor =
+  async (): Promise<ArcLanguageClientConstructor> => {
+    if (arcLanguageClientConstructor != null) return arcLanguageClientConstructor;
+    const { BaseLanguageClient } = await import("vscode-languageclient/browser");
+    class ArcLanguageClient extends BaseLanguageClient {
+      private readonly transports: MessageTransports;
+
+      constructor(
+        name: string,
+        clientOptions: LanguageClientOptions,
+        transports: MessageTransports,
+      ) {
+        super(name.toLowerCase(), name, clientOptions);
+        this.transports = transports;
+      }
+
+      protected createMessageTransports(): Promise<MessageTransports> {
+        return Promise.resolve(this.transports);
+      }
+    }
+    return (arcLanguageClientConstructor = ArcLanguageClient);
+  };
 
 export interface LSPClientHandle {
-  client: ArcLanguageClient;
+  client: BaseLanguageClient;
   closed: Promise<void>;
 }
 
@@ -320,6 +331,10 @@ export const closeLSPStream = (stream: LSPStream): void => {
 
 export const startLSPClient = async (stream: LSPStream): Promise<LSPClientHandle> => {
   const { reader, writer, closed } = createFreighterTransport({ stream });
+  const [ArcLanguageClient, { CloseAction, ErrorAction }] = await Promise.all([
+    loadArcLanguageClientConstructor(),
+    import("vscode-languageclient/browser"),
+  ]);
   const client = new ArcLanguageClient(
     "Arc Language Server",
     {
@@ -335,7 +350,7 @@ export const startLSPClient = async (stream: LSPStream): Promise<LSPClientHandle
   return { client, closed };
 };
 
-export const stopLSPClient = async (client: ArcLanguageClient): Promise<void> => {
+export const stopLSPClient = async (client: BaseLanguageClient): Promise<void> => {
   try {
     await client.stop();
   } catch {
@@ -349,6 +364,8 @@ const GRAMMAR_DATA_URL = `data:application/json;base64,${btoa(arcGrammarRaw)}`;
 const LANGUAGE_CONFIG_DATA_URL = `data:application/json;base64,${btoa(arcLanguageConfigurationRaw)}`;
 
 const registerArcLanguage = async (): Promise<destructor.Async> => {
+  const { registerExtension, ExtensionHostKind } =
+    await import("@codingame/monaco-vscode-api/extensions");
   const { registerFileUrl } = registerExtension(
     {
       name: "arc-language",
@@ -384,6 +401,7 @@ const registerArcLanguage = async (): Promise<destructor.Async> => {
 
 const applySemanticTokenColors = async (): Promise<destructor.Async> => {
   try {
+    const vscodeExtensionApi = await import("@codingame/monaco-vscode-extension-api");
     const config = vscodeExtensionApi.workspace.getConfiguration("editor");
 
     await config.update(

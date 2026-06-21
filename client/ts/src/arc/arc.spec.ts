@@ -60,5 +60,23 @@ describe("arc", () => {
       const res = await client.arcs.retrieve({ key: created.key });
       expect(res.text.raw).toEqual("ello");
     });
+
+    it("reclaims tombstoned characters via a forget_chars dispatch", async () => {
+      const created = await client.arcs.create(newTextArc(`dispatch-${id.create()}`));
+      const gen = new crdt.Text(2);
+      const insertOps = gen.insert(0, "hello").map((op) => arc.insertChar(op));
+      const deletes = gen.delete(4, 1); // delete the trailing "o" (a leaf tombstone)
+      await client.arcs.dispatch(created.key, "sess-1", [
+        ...insertOps,
+        ...deletes.map((op) => arc.deleteChar(op)),
+      ]);
+      await client.arcs.dispatch(created.key, "sess-1", [
+        arc.forgetChars({ ids: deletes.map((op) => op.id) }),
+      ]);
+      const res = await client.arcs.retrieve({ key: created.key });
+      expect(res.text.raw).toEqual("hell");
+      expect(res.text.doc.deletes).toHaveLength(0);
+      expect(res.text.doc.inserts).toHaveLength(4);
+    });
   });
 });

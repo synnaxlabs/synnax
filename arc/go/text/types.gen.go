@@ -14,6 +14,7 @@ package text
 import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -42,8 +43,12 @@ type Text struct {
 	// in which case the server seeds it from raw.
 	Doc Document `json:"doc" msgpack:"doc"`
 	// Raw is the materialized Arc source code, derived from doc and not persisted.
-	Raw string                 `json:"raw" msgpack:"raw"`
-	AST parser.IProgramContext `json:"-"`
+	Raw string `json:"raw" msgpack:"raw"`
+	// LastEdit is the cluster time of the most recent character edit. The server uses it to
+	// detect a quiet editing period before reclaiming tombstoned characters from doc. It is
+	// not part of the replicated text.
+	LastEdit telem.TimeStamp        `json:"last_edit" msgpack:"last_edit"`
+	AST      parser.IProgramContext `json:"-"`
 }
 
 func (t Text) Validate() error {
