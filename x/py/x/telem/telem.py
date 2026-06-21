@@ -1280,7 +1280,7 @@ class Alignment(int):
         return f"Alignment({self.domain_index}, {self.sample_index})"
 
 
-CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment
+CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment | str
 
 
 def seconds_linspace(start: int, count: int) -> list[TimeSpan]:

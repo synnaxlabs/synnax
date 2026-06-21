@@ -62,13 +62,13 @@ type Schematic struct {
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Nodes contains all diagram nodes in the schematic.
-	Nodes []Node `json:"nodes" msgpack:"nodes"`
+	Nodes []Node `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Edges contains all connections between nodes.
-	Edges []Edge `json:"edges" msgpack:"edges"`
+	Edges []Edge `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Configs contains per-element configuration keyed by node or edge key. The shape of
 	// each value is determined by the element's variant; the wire format intentionally
 	// stores it as an opaque record.
-	Configs map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
+	Configs map[string]msgpack.EncodedJSON `json:"configs,omitzero" msgpack:"configs,omitzero"`
 }
 
 func (s Schematic) Validate() error {

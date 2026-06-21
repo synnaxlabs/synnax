@@ -401,18 +401,21 @@ func processField(field resolution.Field, data *templateData) fieldData {
 	if field.Optional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "msgpack.EncodedJSON") {
 		goType = "*" + goType
 	}
-	// An optional slice or map stays a plain nilable container (not a pointer), so a
-	// nil slice ("not loaded") must serialize as null, not be omitted; otherwise it is
-	// indistinguishable from a present-but-empty slice. So these fields drop omitempty.
-	isOptionalContainer := field.Optional &&
-		(strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map["))
+	// Collection fields (arrays, maps, records) carry `,omitzero` so a nil ("not
+	// loaded") collection is omitted from the wire while an allocated empty
+	// collection still serializes as [] / {}. Receivers default an absent
+	// collection to its empty form, preserving the distinction between "not
+	// loaded" and "present but empty". CollectionKind sees through aliases and
+	// type-parameter constraints so a field typed as an array/map alias or a
+	// collection-constrained type parameter is tagged too.
+	_, isContainer := resolution.CollectionKind(field.Type, data.table)
 	return fieldData{
-		GoName:              naming.GetFieldName(field),
-		GoType:              goType,
-		JSONName:            casing.FieldSnake(field.Name),
-		IsOptional:          field.Optional,
-		IsOptionalContainer: isOptionalContainer,
-		Doc:                 doc.Get(field.Domains),
+		GoName:      naming.GetFieldName(field),
+		GoType:      goType,
+		JSONName:    casing.FieldSnake(field.Name),
+		IsOptional:  field.Optional,
+		IsContainer: isContainer,
+		Doc:         doc.Get(field.Domains),
 	}
 }
 
@@ -515,19 +518,22 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	GoName              string
-	GoType              string
-	JSONName            string
-	Doc                 string
-	IsOptional          bool
-	IsOptionalContainer bool
+	GoName      string
+	GoType      string
+	JSONName    string
+	Doc         string
+	IsOptional  bool
+	IsContainer bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix for the field. Optional containers
-// (nilable slices/maps) deliberately omit `,omitempty` so a nil container serializes
-// as null (not loaded) distinctly from a present empty container.
+// TagSuffix returns the JSON/msgpack tag suffix for the field. Collection fields
+// use `,omitzero` so a nil collection is omitted while an allocated empty one
+// serializes as [] / {}. Other optional fields use `,omitempty`.
 func (f fieldData) TagSuffix() string {
-	if f.IsOptional && !f.IsOptionalContainer {
+	if f.IsContainer {
+		return ",omitzero"
+	}
+	if f.IsOptional {
 		return ",omitempty"
 	}
 	return ""

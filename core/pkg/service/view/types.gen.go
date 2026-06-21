@@ -30,5 +30,5 @@ type View struct {
 	Type string `json:"type" msgpack:"type"`
 	// Query is a type-agnostic JSON object containing view-specific configuration and query
 	// parameters.
-	Query msgpack.EncodedJSON `json:"query" msgpack:"query"`
+	Query msgpack.EncodedJSON `json:"query,omitzero" msgpack:"query,omitzero"`
 }

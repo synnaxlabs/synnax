@@ -96,6 +96,8 @@ class Channel(Payload):
         from the channel. This is provided by the Synnax py during calls to
         .channels.create() and .channels.retrieve() and should not be set by the caller.
         """
+        if operations is None:
+            operations = list()
         if virtual is None:
             virtual = len(expression) > 0
         super().__init__(
@@ -300,6 +302,8 @@ class Client:
         if channels is None:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
+            if operations is None:
+                operations = list()
             _channels = [
                 Payload(
                     name=name,

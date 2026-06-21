@@ -97,6 +97,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 				),
 				"v56_migrate_workspace_to_project",
 			),
+			migrate.WithAddedDeps(
+				gorp.NewMigration(
+					"v56_remove_project_author_relationships",
+					RemoveAuthorRelationships,
+				),
+				"v56_migrate_workspace_to_project",
+			),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
