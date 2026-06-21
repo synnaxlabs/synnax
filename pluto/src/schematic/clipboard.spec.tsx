@@ -108,11 +108,7 @@ describe("schematic clipboard", () => {
       await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
-        () =>
-          Schematic.useClipboard({
-            key: schem.key,
-            selected: ["n1", "n2", "e1"],
-          }),
+        () => Schematic.useClipboard({ selected: ["n1", "n2", "e1"] }),
         { wrapper: Wrapper },
       );
 
@@ -140,10 +136,9 @@ describe("schematic clipboard", () => {
       const schem = await createSchematicWithGraph();
       await loadSchematic(Wrapper, schem.key);
 
-      const { result } = renderHook(
-        () => Schematic.useClipboard({ key: schem.key, selected: [] }),
-        { wrapper: Wrapper },
-      );
+      const { result } = renderHook(() => Schematic.useClipboard({ selected: [] }), {
+        wrapper: Wrapper,
+      });
 
       const data = createDataTransfer();
       const event = createClipboardEvent(data);
@@ -162,7 +157,6 @@ describe("schematic clipboard", () => {
       const { result } = renderHook(
         () => ({
           clipboard: Schematic.useClipboard({
-            key: schem.key,
             selected: ["n1", "n2", "e1"],
             onPaste,
           }),
@@ -212,7 +206,7 @@ describe("schematic clipboard", () => {
 
       const { result } = renderHook(
         () => ({
-          clipboard: Schematic.useClipboard({ key: schem.key, selected: [] }),
+          clipboard: Schematic.useClipboard({ selected: [] }),
           nodes: Schematic.useSelectAllNodes({ key: schem.key }),
         }),
         { wrapper: Wrapper },
@@ -233,7 +227,7 @@ describe("schematic clipboard", () => {
 
       const { result } = renderHook(
         () => ({
-          clipboard: Schematic.useClipboard({ key: schem.key, selected: [] }),
+          clipboard: Schematic.useClipboard({ selected: [] }),
           nodes: Schematic.useSelectAllNodes({ key: schem.key }),
         }),
         { wrapper: Wrapper },

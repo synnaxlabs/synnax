@@ -16,42 +16,39 @@ import {
   Schematic as Base,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { type color, type sticky } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu } from "@/components/context-menu";
-import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
 import { useHandleNodeClickAction } from "@/schematic/navigate";
-import { selectEditable, useSelect, useSelectExists } from "@/schematic/selectors";
 import {
-  internalCreate,
+  selectEditable,
+  useSelectEditable,
+  useSelectFitViewOnResize,
+  useSelectSelected,
+  useSelectViewport,
+} from "@/schematic/selectors";
+import {
   setEditable,
   setFitViewOnResize,
-  setLegend,
   setSelected,
   setViewport,
   setViewportMode,
 } from "@/schematic/slice";
 import { type RootState } from "@/store";
 
-const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
-  Base.useEnsureRetrieved({ key });
-  const isSnapshot = Base.useSelectSnapshot({ key });
-  const dispatch = useDispatch();
-  const {
-    editable,
-    viewport,
-    controlStatus,
-    selected,
-    legend,
-    authority,
-    fitViewOnResize,
-  } = useSelect(key);
+import { Legend } from "./Legend";
 
+const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
+  const isSnapshot = Base.useSelectSnapshot({});
+  const dispatch = useDispatch();
+  const editable = useSelectEditable(key);
+  const viewport = useSelectViewport(key);
+  const selected = useSelectSelected(key);
+  const fitViewOnResize = useSelectFitViewOnResize(key);
   const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(key)) && !isSnapshot;
   const canEdit = hasUpdatePermission && editable;
@@ -81,20 +78,10 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
     (mode: Viewport.Mode) => dispatch(setViewportMode({ key, mode })),
     [dispatch, key],
   );
+
   const triggers = useMemo(
     () => Viewport.DEFAULT_TRIGGERS[viewport.mode],
     [viewport.mode],
-  );
-
-  const handleLegendPositionChange = useCallback(
-    (position: sticky.XY) => dispatch(setLegend({ key, legend: { position } })),
-    [dispatch, key],
-  );
-
-  const handleLegendColorsChange = useCallback(
-    (colors: Record<string, color.Color>) =>
-      dispatch(setLegend({ key, legend: { colors } })),
-    [key, dispatch],
   );
 
   const handleDoubleClick = useCallback(() => {
@@ -109,6 +96,7 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
       handleNodeClickAction(node.id, false),
     [handleNodeClickAction],
   );
+
   const handleNodeDoubleClick = useCallback(
     (_: React.MouseEvent, node: { id: string }) => handleNodeClickAction(node.id, true),
     [handleNodeClickAction],
@@ -137,11 +125,10 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   );
 
   return (
-    <Controller resourceKey={key} authority={authority}>
+    <Controller>
       <Base.Schematic
         enableTriggers={enableTriggers}
         extraMenuItems={renderExtraMenuItems}
-        resourceKey={key}
         selected={selected}
         onSelectionChange={handleSelectionChange}
         viewportMode={viewport.mode}
@@ -159,36 +146,18 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
         visible={visible}
       >
         <Diagram.Background />
-        <Controls
-          controlStatus={controlStatus}
-          snapshot={isSnapshot}
-          hasUpdatePermission={hasUpdatePermission}
-        />
+        <Controls snapshot={isSnapshot} hasUpdatePermission={hasUpdatePermission} />
       </Base.Schematic>
-      {legend.visible && (
-        <Control.Legend
-          position={legend.position}
-          onPositionChange={handleLegendPositionChange}
-          colors={legend.colors}
-          onColorsChange={handleLegendColorsChange}
-          allowEntryVisibleChange={false}
-        />
-      )}
+      <Legend />
     </Controller>
   );
 };
 
-const useEnsureState = createEnsureState({
-  useExists: useSelectExists,
-  create: (key) => internalCreate({ key }),
-});
-
-export const Schematic: Layout.Renderer = (props) => {
-  const { layoutKey } = props;
-  const exists = useEnsureState(layoutKey);
-  if (!exists) return null;
-  return <Internal {...props} />;
-};
+export const Schematic: Layout.Renderer = (props) => (
+  <Base.Suspended schematicKey={props.layoutKey}>
+    <Internal {...props} />
+  </Base.Suspended>
+);
 Schematic.useName = Layout.createUseFluxName(
   Base.useRename,
   Base.useRetrieveObservableName,

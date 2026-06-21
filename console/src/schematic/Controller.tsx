@@ -7,36 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Control, User } from "@synnaxlabs/pluto";
+import { Control, Schematic, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
+import { useSelectAuthority } from "@/schematic/selectors";
 import { setControlStatus } from "@/schematic/slice";
 
 export interface ControllerProps extends Omit<
   Control.ControllerProps,
   "name" | "onStatusChange"
-> {
-  resourceKey: string;
-}
+> {}
 
-export const Controller = ({ resourceKey, ...rest }: ControllerProps): ReactElement => {
-  const name = Layout.useSelectRequiredName(resourceKey);
+export const Controller = (props: ControllerProps): ReactElement => {
+  const key = Schematic.useKey();
+  const authority = useSelectAuthority(key);
+  const name = Layout.useSelectRequiredName(key);
   const dispatch = useDispatch();
   const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
   const username = user?.username ?? "";
   const controlName = username.length > 0 ? `${name} (${username})` : name;
   const handleStatusChange = useCallback(
-    (next: Control.Status) =>
-      dispatch(setControlStatus({ key: resourceKey, control: next })),
-    [dispatch, resourceKey],
+    (next: Control.Status) => dispatch(setControlStatus({ key, control: next })),
+    [dispatch, key],
   );
   return (
     <Control.Controller
       onStatusChange={handleStatusChange}
       name={controlName}
-      {...rest}
+      authority={authority}
+      {...props}
     />
   );
 };

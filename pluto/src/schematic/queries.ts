@@ -12,8 +12,9 @@ import {
   type ontology,
   type project,
   schematic,
+  ValidationError,
 } from "@synnaxlabs/client";
-import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
+import { array, compare, type optional, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
@@ -22,6 +23,7 @@ import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
+import { useKey, useOptionalKey } from "@/schematic/Suspended";
 import { type Symbol } from "@/schematic/symbol";
 import { Theming } from "@/theming";
 
@@ -96,112 +98,103 @@ const requireSchematic = (
   return schem;
 };
 
-export const useSelectAllNodes = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  schematic.Node[]
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) => requireSchematic(store, key).nodes,
-});
+const withKey = <Args extends { key: string }, Selected>(
+  useSelect: Flux.UseSelect<Args, Selected>,
+  name: string,
+): Flux.UseSelect<optional.Optional<Args, "key">, Selected> => {
+  const key = useOptionalKey();
+  return (args) => {
+    if (key == null && !("key" in args))
+      throw new ValidationError(
+        `${name} must be provided a key as an argument or be called within Schematic.Suspended`,
+      );
+    return useSelect({ key, ...args } as Args);
+  };
+};
 
-export const useSelectAllEdges = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  schematic.Edge[]
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) => requireSchematic(store, key).edges,
-});
+export const useSelectAllNodes = withKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Node[]>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key }) => requireSchematic(store, key).nodes,
+  }),
+  "useSelectAllNodes",
+);
+
+export const useSelectAllEdges = withKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Edge[]>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key }) => requireSchematic(store, key).edges,
+  }),
+  "useSelectAllNodes",
+);
 
 export interface SelectConfigArgs {
   key: schematic.Key;
   elKey: string;
 }
 
-export const useSelectElementConfig = Flux.createSelector<
-  FluxSubStore,
-  SelectConfigArgs,
-  ElementConfig
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, elKey }) =>
-    requireSchematic(store, key).configs[elKey] as ElementConfig,
-});
-
-export interface SelectEdgeArgs {
-  key: schematic.Key;
-  edgeKey: string;
-}
-
-export const useSelectEdge = Flux.createSelector<
-  FluxSubStore,
-  SelectEdgeArgs,
-  schematic.Edge | undefined
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, edgeKey }) => {
-    const s = store.schematics.get(key);
-    return s?.edges?.find((e) => e.key === edgeKey);
-  },
-});
+export const useSelectElementConfig = withKey(
+  Flux.createSelector<FluxSubStore, SelectConfigArgs, ElementConfig | undefined>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key, elKey }) =>
+      requireSchematic(store, key).configs[elKey] as ElementConfig | undefined,
+  }),
+  "useSelectElementConfig",
+);
 
 export interface SelectConfigsArgs {
   key: schematic.Key;
   keys: string[];
 }
 
-export const useSelectConfigs = Flux.createSelector<
-  FluxSubStore,
-  SelectConfigsArgs,
-  Map<string, ElementConfig>
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, keys }) => {
-    const result = new Map<string, ElementConfig>();
-    const s = store.schematics.get(key);
-    if (s == null || keys.length === 0) return result;
-    for (const elKey of keys) {
-      const cfg = s.configs?.[elKey];
-      if (cfg != null) result.set(elKey, cfg as ElementConfig);
-    }
-    return result;
-  },
-  equal: compare.mapsEqual,
-});
+export const useSelectConfigs = withKey(
+  Flux.createSelector<FluxSubStore, SelectConfigsArgs, Map<string, ElementConfig>>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key, keys }) => {
+      const result = new Map<string, ElementConfig>();
+      const s = store.schematics.get(key);
+      if (s == null || keys.length === 0) return result;
+      for (const elKey of keys) {
+        const cfg = s.configs?.[elKey];
+        if (cfg != null) result.set(elKey, cfg as ElementConfig);
+      }
+      return result;
+    },
+    equal: compare.mapsEqual,
+  }),
+  "useSelectConfigs",
+);
 
 export interface SelectNodesArgs {
   key: schematic.Key;
   keys: string[];
 }
 
-export const useSelectNodes = Flux.createSelector<
-  FluxSubStore,
-  SelectNodesArgs,
-  schematic.Node[]
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, keys }) => {
-    const s = store.schematics.get(key);
-    if (s == null || keys.length === 0) return [];
-    const keySet = new Set(keys);
-    return s.nodes.filter((n) => keySet.has(n.key));
-  },
-  equal: compare.arraysEqual,
-});
+export const useSelectNodes = withKey(
+  Flux.createSelector<FluxSubStore, SelectNodesArgs, schematic.Node[]>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key, keys }) => {
+      const s = store.schematics.get(key);
+      if (s == null || keys.length === 0) return [];
+      const keySet = new Set(keys);
+      return s.nodes.filter((n) => keySet.has(n.key));
+    },
+    equal: compare.arraysEqual,
+  }),
+  "useSelectNodes",
+);
 
 export interface SelectFieldArgs {
   key: schematic.Key;
 }
 
-export const useSelectSnapshot = Flux.createSelector<
-  FluxSubStore,
-  SelectFieldArgs,
-  boolean
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) => requireSchematic(store, key).snapshot,
-});
+export const useSelectSnapshot = withKey(
+  Flux.createSelector<FluxSubStore, SelectFieldArgs, boolean>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key }) => requireSchematic(store, key).snapshot,
+  }),
+  "useSelectSnapshot",
+);
 
 export type DeleteParams = schematic.Key | schematic.Key[];
 
@@ -347,7 +340,12 @@ export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
   kindOf: kindOfTransaction,
 });
 
-export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+export const {
+  useDispatch,
+  useUndo,
+  useRedo,
+  useSingleDispatch: useSingleDispatchBase,
+} = Flux.createDispatch<
   schematic.Key,
   schematic.Schematic,
   schematic.Action,
@@ -358,6 +356,11 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   send: ({ client, key, actions, dispatchKey }) =>
     client.schematics.dispatch(key, dispatchKey, actions),
 });
+
+export const useSingleDispatch = () => {
+  const key = useKey();
+  return useSingleDispatchBase(key);
+};
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}
 
@@ -383,10 +386,10 @@ export interface AddNodeProps {
   config?: Node.Config;
 }
 
-export const useAddNode = (resourceKey: string) => {
+export const useAddNode = () => {
   const store = Flux.useStore<Symbol.FluxSubStore>();
   const theme = Theming.use();
-  const { dispatch } = useDispatch();
+  const dispatch = useSingleDispatch();
 
   return useCallback(
     ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
@@ -396,16 +399,13 @@ export const useAddNode = (resourceKey: string) => {
         const sym = store.schematicSymbols.get(specKey);
         if (config.label != null && sym != null) config.label.label = sym.name;
       }
-      dispatch({
-        key: resourceKey,
-        actions: [
-          schematic.setNode({
-            node: { key, position: position ?? xy.ZERO },
-            config: { ...config, ...override, variant },
-          }),
-        ],
-      });
+      dispatch(
+        schematic.setNode({
+          node: { key, position: position ?? xy.ZERO },
+          config: { ...config, ...override, variant },
+        }),
+      );
     },
-    [dispatch, resourceKey, theme, store],
+    [dispatch, theme, store],
   );
 };

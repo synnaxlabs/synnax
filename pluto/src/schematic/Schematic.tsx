@@ -18,7 +18,6 @@ import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
-import { Key } from "@/key";
 import { Menu } from "@/menu";
 import { useClipboard } from "@/schematic/clipboard";
 import {
@@ -30,12 +29,13 @@ import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
 import {
   useAddNode,
-  useDispatch,
   useRedo,
   useSelectAllEdges,
   useSelectAllNodes,
+  useSingleDispatch,
   useUndo,
 } from "@/schematic/queries";
+import { useKey } from "@/schematic/Suspended";
 import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
@@ -49,7 +49,6 @@ export interface SchematicProps extends Omit<
   | "onChange"
 > {
   enableTriggers?: boolean | (() => boolean);
-  resourceKey: schematic.Key;
   /**
    * Extra items appended to the canvas right-click context menu, below Pluto's
    * built-in actions (Undo, Redo). The render-prop signature mirrors
@@ -66,7 +65,6 @@ const REDO_TRIGGER: Triggers.Trigger = ["Control", "Shift", "Z"];
 
 export const Schematic = ({
   className,
-  resourceKey: key,
   viewport,
   onDoubleClick,
   onSelectionChange,
@@ -77,24 +75,23 @@ export const Schematic = ({
   children,
   ...props
 }: SchematicProps): ReactElement => {
-  const nodes = useSelectAllNodes({ key });
+  const key = useKey();
+  const nodes = useSelectAllNodes({});
   const nodesRef = useSyncedRef(nodes);
-  const edges = useSelectAllEdges({ key });
+  const edges = useSelectAllEdges({});
   const edgesRef = useSyncedRef(edges);
-  const { dispatch } = useDispatch();
+  const dispatch = useSingleDispatch();
   const handleNodesChange = useCallback(
-    (changes: BaseDiagram.NodeChange[]) =>
-      dispatch({ key, actions: nodeChangesToActions(changes) }),
-    [key, dispatch],
+    (changes: BaseDiagram.NodeChange[]) => dispatch(nodeChangesToActions(changes)),
+    [dispatch],
   );
 
   const handleEdgesChange = useCallback(
-    (changes: BaseDiagram.EdgeChange[]) =>
-      dispatch({ key, actions: edgeChangesToActions(changes) }),
-    [key, dispatch],
+    (changes: BaseDiagram.EdgeChange[]) => dispatch(edgeChangesToActions(changes)),
+    [dispatch],
   );
 
-  const handleAddNode = useAddNode(key);
+  const handleAddNode = useAddNode();
   const ref = useRef<HTMLDivElement>(null);
   const viewportRef = useSyncedRef(viewport);
   const calculateCursorPosition = useCallback((cursor: xy.Crude) => {
@@ -138,7 +135,6 @@ export const Schematic = ({
   const { redo, canRedo } = useRedo({ key });
 
   const { onCopy, onPaste } = useClipboard({
-    key,
     selected,
     onPaste: onSelectionChange,
   });
@@ -185,30 +181,28 @@ export const Schematic = ({
   );
 
   return (
-    <Key.Provider value={key}>
-      <Diagram
-        ref={ref}
-        className={CSS(CSS.B("schematic"), className)}
-        dragHandleSelector={DRAG_HANDLE_SELECTOR}
-        autoRenderInterval={AUTO_RENDER_INTERVAL}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        viewport={viewport}
-        onSelectionChange={onSelectionChange}
-        editable={editable}
-        onDoubleClick={onDoubleClick}
-        onContextMenu={contextMenu.open}
-        onCopy={onCopy}
-        onPaste={onPaste}
-        nodes={nodes}
-        edges={edges}
-        selected={selected}
-        {...dropProps}
-        {...props}
-      >
-        {children}
-        <Menu.ContextMenu {...contextMenu} menu={renderMenu} />
-      </Diagram>
-    </Key.Provider>
+    <Diagram
+      ref={ref}
+      className={CSS(CSS.B("schematic"), className)}
+      dragHandleSelector={DRAG_HANDLE_SELECTOR}
+      autoRenderInterval={AUTO_RENDER_INTERVAL}
+      onNodesChange={handleNodesChange}
+      onEdgesChange={handleEdgesChange}
+      viewport={viewport}
+      onSelectionChange={onSelectionChange}
+      editable={editable}
+      onDoubleClick={onDoubleClick}
+      onContextMenu={contextMenu.open}
+      onCopy={onCopy}
+      onPaste={onPaste}
+      nodes={nodes}
+      edges={edges}
+      selected={selected}
+      {...dropProps}
+      {...props}
+    >
+      {children}
+      <Menu.ContextMenu {...contextMenu} menu={renderMenu} />
+    </Diagram>
   );
 };

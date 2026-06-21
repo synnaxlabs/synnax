@@ -206,5 +206,13 @@ export const createDispatch = <
     return { redo, canRedo };
   };
 
-  return { useDispatch, useUndo, useRedo };
+  const useSingleDispatch = (key: Key): ((action: Action | Action[]) => void) => {
+    const { dispatch } = useDispatch();
+    return useCallback(
+      (actions: Action | Action[]) => dispatch({ key, actions }),
+      [key],
+    );
+  };
+
+  return { useDispatch, useUndo, useRedo, useSingleDispatch };
 };

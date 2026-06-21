@@ -12,29 +12,32 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Component } from "@/component";
-import { Key } from "@/key";
 import { Edge } from "@/schematic/edge";
+import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
-import { useDispatch, useSelectElementConfig } from "@/schematic/queries";
+import { useSelectElementConfig, useSingleDispatch } from "@/schematic/queries";
 import { Diagram as Base } from "@/vis/diagram";
 
-const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
-  const { nodeKey } = rest;
-  const key = Key.use<string>("Schematic.Node.Renderer");
-  const config = useSelectElementConfig({ key, elKey: nodeKey });
-  const { dispatch } = useDispatch();
+const useConfig = <T extends ElementConfig>(
+  key: string,
+): [T | undefined, (config: Partial<T>) => void] => {
+  const config = useSelectElementConfig({ elKey: key });
+  const dispatch = useSingleDispatch();
   const handleChange = useCallback(
-    (config: Partial<Node.Config>) =>
-      dispatch({ key, actions: schematic.setConfig({ key: nodeKey, config }) }),
-    [nodeKey, key, dispatch],
+    (config: Partial<T>) => dispatch(schematic.setConfig({ key, config })),
+    [key, dispatch],
   );
-  // React flow can take time to unmount the node, meaning that we need to tolerate
-  // temporarily undefined configs.
+  return [config as T | undefined, handleChange];
+};
+
+const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
+  const [config, handleChange] = useConfig<Node.Config>(rest.nodeKey);
+  // React flow takes time to unmount, so the config can be temporarily undefined.
   if (config == null) return null;
   const Spec = Node.resolveSpec(config.variant);
   return (
     <Spec.Node
-      config={config as Node.Config}
+      config={config}
       onConfigChange={handleChange}
       position={Spec.needsPosition === true ? position : undefined}
       {...rest}
@@ -43,17 +46,8 @@ const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | nul
 };
 
 const EdgeRenderer = (props: Base.EdgeProps): ReactElement | null => {
-  const { edgeKey } = props;
-  const key = Key.use<string>("Schematic.Edge.Renderer");
-  const config = useSelectElementConfig({ key, elKey: edgeKey });
-  const { dispatch } = useDispatch();
-  const handleChange = useCallback(
-    (config: Partial<Edge.Config>) =>
-      dispatch({ key, actions: schematic.setConfig({ key: edgeKey, config }) }),
-    [edgeKey, key, dispatch],
-  );
-  // React flow can take time to unmount the edge, meaning that we need to tolerate
-  // temporarily undefined configs.
+  const [config, handleChange] = useConfig(props.edgeKey);
+  // React flow takes time to unmount, so the config can be temporarily undefined.
   if (config == null) return null;
   const Spec = Edge.resolveSpec(config.variant);
   return (

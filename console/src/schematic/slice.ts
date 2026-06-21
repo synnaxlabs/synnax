@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
-import { type control } from "@synnaxlabs/x";
+import { type color, type control, type xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
 import { type RootState } from "@/store";
@@ -52,9 +52,14 @@ export interface SetAuthorityPayload {
   authority: control.Authority;
 }
 
-export interface SetLegendPayload {
+export interface MoveLegendPayload {
   key: string;
-  legend: Partial<LegendState>;
+  position: xy.XY;
+}
+
+export interface SetLegendColorsPayload {
+  key: string;
+  colors: Record<string, color.Color>;
 }
 
 export interface SetLegendVisiblePayload {
@@ -130,10 +135,15 @@ export const { actions, reducer } = createSlice({
       if (s == null) return;
       s.authority = payload.authority;
     },
-    setLegend: (state, { payload }: PayloadAction<SetLegendPayload>) => {
+    moveLegend: (state, { payload }: PayloadAction<MoveLegendPayload>) => {
       const s = state.schematics[payload.key];
       if (s == null) return;
-      s.legend = { ...s.legend, ...payload.legend };
+      s.legend.position = payload.position;
+    },
+    setLegendColors: (state, { payload }: PayloadAction<SetLegendColorsPayload>) => {
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.legend.colors = payload.colors;
     },
     setLegendVisible: (state, { payload }: PayloadAction<SetLegendVisiblePayload>) => {
       const s = state.schematics[payload.key];
@@ -191,7 +201,8 @@ export const {
   setSelected,
   setControlStatus,
   setAuthority,
-  setLegend,
+  setLegendColors,
+  moveLegend,
   setLegendVisible,
   setActiveToolbarTab,
   setSelectedSymbolGroup,

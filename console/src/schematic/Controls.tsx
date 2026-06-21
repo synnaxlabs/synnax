@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Control, Diagram, Flex, Icon } from "@synnaxlabs/pluto";
+import { Button, Control, Diagram, Flex, Icon, Schematic } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback } from "react";
 
 import { Controls as Base } from "@/components";
 
+import { useSelectControlStatus } from "./selectors";
+
 export interface ControlsProps {
   hasUpdatePermission: boolean;
-  controlStatus: Control.Status;
   snapshot: boolean;
 }
 
@@ -43,17 +44,21 @@ const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElemen
 };
 
 export const Controls = memo(
-  ({ hasUpdatePermission, controlStatus, snapshot }: ControlsProps): ReactElement => (
-    <Base x>
-      <Diagram.Controls.SelectViewportMode />
-      <Diagram.Controls.FitView />
-      <Flex.Box x pack>
-        {hasUpdatePermission && (
-          <Diagram.Controls.ToggleEdit disabled={controlStatus === "acquired"} />
-        )}
-        {!snapshot && <ControlToggleButton control={controlStatus} />}
-      </Flex.Box>
-    </Base>
-  ),
+  ({ hasUpdatePermission, snapshot }: ControlsProps): ReactElement => {
+    const key = Schematic.useKey();
+    const controlStatus = useSelectControlStatus(key);
+    return (
+      <Base x>
+        <Diagram.Controls.SelectViewportMode />
+        <Diagram.Controls.FitView />
+        <Flex.Box x pack>
+          {hasUpdatePermission && (
+            <Diagram.Controls.ToggleEdit disabled={controlStatus === "acquired"} />
+          )}
+          {!snapshot && <ControlToggleButton control={controlStatus} />}
+        </Flex.Box>
+      </Base>
+    );
+  },
 );
 Controls.displayName = "Controls";
