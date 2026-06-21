@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,9 +60,7 @@ func buildGraphNodes(specs ...graphNodeSpec) (graph.Nodes, map[string]msgpack.En
 	for i, s := range specs {
 		nodes[i] = graph.Node{Key: s.key}
 		cfg := msgpack.EncodedJSON{"type": s.typ}
-		for k, v := range s.cfg {
-			cfg[k] = v
-		}
+		maps.Copy(cfg, s.cfg)
 		configs[s.key] = cfg
 	}
 	return nodes, configs
