@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Status, useAsyncEffect } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Status,
+  useAsyncEffect,
+  useCombinedStateAndRef,
+} from "@synnaxlabs/pluto";
 import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
-import { useState } from "react";
 
 import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
@@ -21,10 +25,11 @@ const STATUS_KEY_PREFIX = "versionUpdate";
 
 export const useCheckForUpdates = (): boolean => {
   const addStatus = Status.useAdder();
-  const [available, setAvailable] = useState(false);
+  const [available, setAvailable, availableRef] =
+    useCombinedStateAndRef<boolean>(false);
 
   const checkForUpdates = async () => {
-    if (Runtime.ENGINE !== "tauri" || available) return;
+    if (Runtime.ENGINE !== "tauri" || availableRef.current) return;
     const update = await check();
     if (update == null) return;
     setAvailable(true);
