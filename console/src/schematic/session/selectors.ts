@@ -11,7 +11,6 @@ import { schematic } from "@synnaxlabs/client";
 import { Access, type Control, Schematic } from "@synnaxlabs/pluto";
 import { type control } from "@synnaxlabs/x";
 
-import { useMemoSelect } from "@/hooks";
 import {
   type LegendState,
   SLICE_NAME,
@@ -23,82 +22,78 @@ import {
   type Viewport,
   ZERO_STATE,
 } from "@/schematic/session/slice";
-
-export const createSelector =
-  <S extends object, R>(
-    selector: (state: S, key: schematic.Key) => R,
-  ): ((override?: schematic.Key) => R) =>
-  (override) => {
-    const key = Schematic.useKey(override);
-    return useMemoSelect((state: S) => selector(state, key), [key]);
-  };
+import { Session } from "@/session";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
+
+const createKeyedSelector = Session.createKeyedSelectorFactory(Schematic.useKey);
 
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key] ?? ZERO_STATE;
 
-export const useSelect = createSelector(select);
+export const useSelect = createKeyedSelector(select);
 
 export const selectSelected = (state: StoreState, key: string): string[] =>
   select(state, key)?.selected;
 
-export const useSelectSelected = createSelector(selectSelected);
+export const useSelectSelected = createKeyedSelector(selectSelected);
 
 export const selectControlStatus = (state: StoreState, key: string): Control.Status =>
   select(state, key).control.status;
 
-export const useSelectControlStatus = createSelector(selectControlStatus);
+export const useSelectControlStatus = createKeyedSelector(selectControlStatus);
 
 export const selectControlIsAcquired = (state: StoreState, key: string): boolean =>
   selectControlStatus(state, key) === "acquired";
 
-export const useSelectControlIsAcquired = createSelector(selectControlIsAcquired);
+export const useSelectControlIsAcquired = createKeyedSelector(selectControlIsAcquired);
 
 export const selectAuthority = (state: StoreState, key: string): control.Authority =>
   select(state, key).control.authority;
 
-export const useSelectAuthority = createSelector(selectAuthority);
+export const useSelectAuthority = createKeyedSelector(selectAuthority);
 
 export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
   selectToolbar(state, key).selectedTab;
 
-export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
+export const useSelectActiveToolbarTab = createKeyedSelector(selectActiveToolbarTab);
 
 export const selectToolbar = (state: StoreState, key: string): ToolbarState =>
   select(state, key).toolbar;
 
-export const useSelectToolbar = createSelector(selectToolbar);
+export const useSelectToolbar = createKeyedSelector(selectToolbar);
 
 export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
   selectToolbar(state, key).selectedSymbolGroup;
 
-export const useSelectSelectedSymbolGroup = createSelector(selectSelectedSymbolGroup);
+export const useSelectSelectedSymbolGroup = createKeyedSelector(
+  selectSelectedSymbolGroup,
+);
 
 export const selectLegend = (state: StoreState, key: string): LegendState =>
   select(state, key).legend;
 
-export const useSelectLegend = createSelector(selectLegend);
+export const useSelectLegend = createKeyedSelector(selectLegend);
 
 export const selectLegendVisible = (state: StoreState, key: string): boolean =>
   select(state, key).legend.visible;
 
-export const useSelectLegendVisible = createSelector(selectLegendVisible);
+export const useSelectLegendVisible = createKeyedSelector(selectLegendVisible);
 
 export const selectEditable = (state: StoreState, key: string): boolean =>
   select(state, key).editable;
 
-const useSelectEditableBase = createSelector(selectEditable);
+const useSelectEditableBase = createKeyedSelector(selectEditable);
 
 export const selectFitViewOnResize = (state: StoreState, key: string): boolean =>
   select(state, key).fitViewOnResize;
 
-export const useSelectFitViewOnResize = createSelector(selectFitViewOnResize);
+export const useSelectFitViewOnResize = createKeyedSelector(selectFitViewOnResize);
 
 export const selectViewport = (state: StoreState, key: string): Viewport =>
   select(state, key).viewport;
 
-export const useSelectViewport = createSelector(selectViewport);
+export const useSelectViewport = createKeyedSelector(selectViewport);
 
 export interface UseSelectEditableReturn {
   isCurrentlyEditable: boolean;
