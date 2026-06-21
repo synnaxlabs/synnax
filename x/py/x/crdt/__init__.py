@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.crdt.types_gen import Delete, ID, Insert
+from x.crdt.types_gen import ID, Delete, Insert
 
 __all__ = [
     "ID",

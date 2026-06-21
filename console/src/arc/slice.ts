@@ -70,15 +70,6 @@ export interface SetViewportModePayload {
   mode: Viewport.Mode;
 }
 
-export interface SetRemoteCreatedPayload {
-  key: string;
-}
-
-export interface SetModePayload {
-  key: string;
-  mode: arc.Mode;
-}
-
 const clearOtherSelections = (state: SliceState, layoutKey: string): void => {
   Object.keys(state.arcs).forEach((key) => {
     if (key === layoutKey) return;

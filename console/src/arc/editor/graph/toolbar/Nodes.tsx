@@ -140,9 +140,7 @@ export const Stages = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const [selectedGroup, setSelectedGroup] = useState<string>("basic");
   const addNode = Arc.useAddNode(layoutKey);
   const handleAddNode = useCallback(
-    (type: string) => {
-      addNode({ key: id.create(), type });
-    },
+    (type: string) => addNode({ key: id.create(), type }),
     [addNode],
   );
   return (
