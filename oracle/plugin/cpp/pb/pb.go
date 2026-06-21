@@ -1012,6 +1012,47 @@ func (p *Plugin) generateMapConversion(
 		return "// TODO: map without enough type args", "// TODO: map without enough type args"
 	}
 
+	valueType := typeRef.TypeArgs[1]
+
+	if valueType.Name == "record" {
+		data.includes.addInternal("x/cpp/json/struct.h")
+		forward = fmt.Sprintf(`for (const auto& [k, v] : this->%s) {
+        auto [pb_v, err] = x::json::to_struct(v);
+        if (err) return {{}, err};
+        (*pb.mutable_%s())[k] = pb_v;
+    }`, fieldName, accessorName)
+		backward = fmt.Sprintf(`for (const auto& [k, v] : pb.%s()) {
+        auto [cpp_v, err] = x::json::from_struct(v);
+        if (err) return {{}, err};
+        cpp.%s[k] = cpp_v;
+    }`, accessorName, fieldName)
+		return forward, backward
+	}
+
+	if resolved, ok := valueType.Resolve(data.table); ok {
+		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+			if resolved.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(resolved, "cpp")
+				if targetOutputPath != "" {
+					data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
+					data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+				}
+			}
+			valueCppType := p.typeRefToCppForTranslator(valueType, data)
+			forward = fmt.Sprintf(`for (const auto& [k, v] : this->%s) {
+        auto [pb_v, err] = v.to_proto();
+        if (err) return {{}, err};
+        (*pb.mutable_%s())[k] = pb_v;
+    }`, fieldName, accessorName)
+			backward = fmt.Sprintf(`for (const auto& [k, v] : pb.%s()) {
+        auto [cpp_v, err] = %s::from_proto(v);
+        if (err) return {{}, err};
+        cpp.%s[k] = cpp_v;
+    }`, accessorName, valueCppType, fieldName)
+			return forward, backward
+		}
+	}
+
 	forward = fmt.Sprintf("for (const auto& [k, v] : this->%s) (*pb.mutable_%s())[k] = v", fieldName, accessorName)
 	backward = fmt.Sprintf("for (const auto& [k, v] : pb.%s()) cpp.%s[k] = v;", accessorName, fieldName)
 
