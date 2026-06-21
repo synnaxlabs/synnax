@@ -19,7 +19,6 @@ export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => 
       version: Arc.ZERO_STATE.version,
       key,
       type: "arc",
-      remoteCreated: true,
       text,
       mode,
     }),

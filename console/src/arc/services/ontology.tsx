@@ -39,7 +39,6 @@ const load = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer)
       version: Arc.ZERO_STATE.version,
       key,
       type: "arc",
-      remoteCreated: true,
       text,
       mode,
     }),

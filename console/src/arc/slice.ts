@@ -70,10 +70,6 @@ export interface SetViewportModePayload {
   mode: Viewport.Mode;
 }
 
-export interface SetRemoteCreatedPayload {
-  key: string;
-}
-
 export interface SetRawTextPayload {
   key: string;
   raw: string;
@@ -159,11 +155,6 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.mode = mode;
     },
-    setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
-      const { key: layoutKey } = payload;
-      const arc = state.arcs[layoutKey];
-      arc.remoteCreated = true;
-    },
     setRawText: (state, { payload }: PayloadAction<SetRawTextPayload>) => {
       const { key: layoutKey, raw } = payload;
       const arc = state.arcs[layoutKey];
@@ -186,7 +177,6 @@ export const {
   setViewport,
   setEditable,
   setViewportMode,
-  setRemoteCreated,
   setRawText,
   setMode,
 } = actions;
