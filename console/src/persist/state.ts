@@ -63,10 +63,16 @@ const openAndMigrateKV = async (
   return v2Store;
 };
 
+type ExcludeFn<S extends RequiredState> = (state: S) => S;
+
+const isExcludeFn = <S extends RequiredState>(
+  exclude: deep.Key<S> | ExcludeFn<S>,
+): exclude is ExcludeFn<S> => typeof exclude === "function";
+
 export interface Config<S extends RequiredState> {
   migrator?: (state: S) => S;
   initial: S;
-  exclude?: Array<deep.Key<S> | ((func: S) => S)>;
+  exclude?: Array<deep.Key<S> | ExcludeFn<S>>;
   openKV?: KVOpener;
   historyLength?: number;
 }
@@ -142,7 +148,7 @@ export const open = async <S extends RequiredState>(
     version = nextVersion(version);
     let deepCopy = deep.copy(state);
     exclude.forEach((key) => {
-      if (typeof key === "function") deepCopy = (key as (state: S) => S)(deepCopy);
+      if (isExcludeFn(key)) deepCopy = key(deepCopy);
       else deep.remove<S>(deepCopy, key);
     });
     await db.set(persistedStateKey(version), deepCopy).catch((err: unknown) => {
@@ -169,7 +175,7 @@ export const open = async <S extends RequiredState>(
   // Override defaults for key-value pairs that should be excluded from state.
   if (state != null)
     exclude.forEach((key) => {
-      if (typeof key === "function") return;
+      if (isExcludeFn(key)) return;
       const v = deep.get(copiedInitial, key, { optional: true });
       if (v == null) return;
       deep.set(state, key, v);
