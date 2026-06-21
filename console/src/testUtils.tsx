@@ -20,7 +20,6 @@ import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
 import { Log } from "@/log";
 import { Project } from "@/project";
-import { Version } from "@/version";
 
 const consoleReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
@@ -28,7 +27,6 @@ const consoleReducer = combineReducers({
   [Log.SLICE_NAME]: Log.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
-  [Version.SLICE_NAME]: Version.reducer,
 });
 
 export type ConsolePreloadedState = {
@@ -36,7 +34,6 @@ export type ConsolePreloadedState = {
   [Log.SLICE_NAME]?: Log.SliceState;
   [Project.SLICE_NAME]?: Project.SliceState;
   [Cluster.SLICE_NAME]?: Cluster.SliceState;
-  [Version.SLICE_NAME]?: Version.SliceState;
 };
 
 export interface ConsoleTestProviderOptions {

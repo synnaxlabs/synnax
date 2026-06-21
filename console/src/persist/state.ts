@@ -18,7 +18,6 @@ import {
 
 import { openSugaredKV, type SugaredKV } from "@/persist/kv";
 import { Runtime } from "@/runtime";
-import { type Version } from "@/version";
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
 export const DB_VERSION_KEY = "console-version";
@@ -33,7 +32,7 @@ interface StateVersionValue {
   version: number;
 }
 
-export interface RequiredState extends Version.StoreState {}
+export type RequiredState = object;
 
 export interface KVOpener {
   (base: string): SugaredKV;
@@ -143,7 +142,7 @@ export const open = async <S extends RequiredState>(
     version = nextVersion(version);
     let deepCopy = deep.copy(state);
     exclude.forEach((key) => {
-      if (typeof key === "function") deepCopy = key(deepCopy);
+      if (typeof key === "function") deepCopy = (key as (state: S) => S)(deepCopy);
       else deep.remove<S>(deepCopy, key);
     });
     await db.set(persistedStateKey(version), deepCopy).catch((err: unknown) => {
