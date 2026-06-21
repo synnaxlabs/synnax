@@ -18,7 +18,7 @@ import {
   Input,
   Status,
 } from "@synnaxlabs/pluto";
-import { box, location, xy } from "@synnaxlabs/x";
+import { box, type direction, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 import { useStore } from "react-redux";
 
@@ -138,7 +138,7 @@ const MultiConfig = ({
       .filter((el) => el !== null);
   };
 
-  const align = (direction: "x" | "y"): void => {
+  const align = (direction: direction.Direction): void => {
     const newPositions = Diagram.alignNodesAlongDirection(getLayouts(), direction);
     dispatch({
       key: layoutKey,

@@ -41,7 +41,6 @@ export const useCreate = (): ((args?: CreateArgs) => void) => {
             key: data.key,
             name: data.name,
             mode: data.mode,
-            remoteCreated: true,
           }),
         );
       },

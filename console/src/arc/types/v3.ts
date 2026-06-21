@@ -47,7 +47,6 @@ export type PendingUpload = arc.graph.Graph;
 export const stateZ = z.object({
   key: z.string(),
   version: z.literal(VERSION),
-  remoteCreated: z.boolean(),
   graph: graphStateZ,
   text: arc.text.textZ.default({ raw: "" }),
   mode: arc.modeZ.default("graph"),
@@ -79,7 +78,6 @@ export const ZERO_STATE: State = {
   key: "",
   version: VERSION,
   graph: ZERO_GRAPH_STATE,
-  remoteCreated: false,
   text: { raw: "" },
   mode: "graph",
   pendingUpload: undefined,
