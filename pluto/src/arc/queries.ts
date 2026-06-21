@@ -148,23 +148,21 @@ export interface SelectNodePropsArgs {
 export const useSelectNodeConfig = Flux.createSelector<
   FluxSubStore,
   SelectNodePropsArgs,
-  Node.Config | undefined
+  Node.Config
 >({
   subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
   select: (store, { key, nodeKey }) =>
-    store.arcs.get(key)?.graph.configs[nodeKey] as Node.Config | undefined,
+    requireArc(store, key).graph.configs[nodeKey] as Node.Config,
 });
 
 // useSelectMode returns the representation mode of the Arc with the given key,
 // or undefined when it has not yet loaded into the store.
-export const useSelectMode = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  arc.Mode | undefined
->({
-  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-  select: (store, { key }) => store.arcs.get(key)?.mode,
-});
+export const useSelectMode = Flux.createSelector<FluxSubStore, SelectKeyArgs, arc.Mode>(
+  {
+    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+    select: (store, { key }) => requireArc(store, key).mode,
+  },
+);
 
 export interface AddNodeProps {
   key: string;

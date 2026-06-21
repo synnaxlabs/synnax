@@ -18,8 +18,8 @@ import {
   Input,
   Status,
 } from "@synnaxlabs/pluto";
-import { box, location, type record, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useMemo } from "react";
+import { box, location, xy } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useMemo } from "react";
 import { useStore } from "react-redux";
 
 import { selectViewport, useSelectSelected } from "@/arc/selectors";
@@ -29,7 +29,7 @@ export interface PropertiesProps {
   layoutKey: string;
 }
 
-export const PropertiesControls = memo(
+export const Properties = memo(
   ({ layoutKey }: PropertiesProps): ReactElement | null => {
     const selected = useSelectSelected(layoutKey);
     const nodes = Arc.useSelectNodes({ key: layoutKey });
@@ -45,15 +45,10 @@ export const PropertiesControls = memo(
         </Status.Summary>
       );
     if (selected.length > 1)
-      return (
-        <MultiElementProperties
-          layoutKey={layoutKey}
-          selectedNodeKeys={selectedNodeKeys}
-        />
-      );
+      return <MultiConfig layoutKey={layoutKey} selectedNodeKeys={selectedNodeKeys} />;
     if (selectedNodeKeys.length === 0) return null;
     return (
-      <IndividualProperties
+      <IndividualConfig
         key={selectedNodeKeys[0]}
         layoutKey={layoutKey}
         nodeKey={selectedNodeKeys[0]}
@@ -61,36 +56,37 @@ export const PropertiesControls = memo(
     );
   },
 );
-PropertiesControls.displayName = "PropertiesControls";
+Properties.displayName = "PropertiesControls";
 
-interface IndividualPropertiesProps {
+interface IndividualConfigProps {
   layoutKey: string;
   nodeKey: string;
 }
 
-const IndividualProperties = ({
+const IndividualConfig = ({
   layoutKey,
   nodeKey,
-}: IndividualPropertiesProps): ReactElement | null => {
+}: IndividualConfigProps): ReactElement | null => {
   const config = Arc.useSelectNodeConfig({ key: layoutKey, nodeKey });
   const { dispatch } = Arc.useDispatch();
-  const formMethods = Form.use({
-    values: structuredClone(config ?? {}),
+  const formMethods = Form.use<typeof Arc.Graph.Node.configZ>({
+    values: structuredClone(config),
     sync: true,
-    onChange: ({ values }) =>
-      dispatch({
-        key: layoutKey,
-        actions: [
-          arc.setNodeConfig({ key: nodeKey, config: values as record.Unknown }),
-        ],
-      }),
+    onChange: useCallback(
+      ({ values: config }: Form.OnChangeArgs<typeof Arc.Graph.Node.configZ>) =>
+        dispatch({
+          key: layoutKey,
+          actions: [arc.setNodeConfig({ key: nodeKey, config })],
+        }),
+      [dispatch],
+    ),
   });
   if (config == null) return null;
   const C = Arc.Graph.Node.REGISTRY[config.type];
   if (C == null) return null;
   return (
     <Flex.Box style={{ height: "100%", padding: "2rem" }} y>
-      <Form.Form {...formMethods}>
+      <Form.Form<typeof Arc.Graph.Node.configZ> {...formMethods}>
         <C.Form {...formMethods} key={nodeKey} />
       </Form.Form>
     </Flex.Box>
@@ -102,7 +98,7 @@ interface MultiElementPropertiesProps {
   selectedNodeKeys: string[];
 }
 
-const MultiElementProperties = ({
+const MultiConfig = ({
   layoutKey,
   selectedNodeKeys,
 }: MultiElementPropertiesProps): ReactElement => {

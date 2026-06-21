@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Handle } from "@/arc/ir/types.gen";
+import { type Edge, type Handle } from "@/arc/ir/types.gen";
 
 // EDGE_KEY_SEP separates the four handle components of an edge key. Node keys
 // (generated ids) and parameter names (identifiers) never contain a colon, so
@@ -21,7 +21,7 @@ export const edgeKey = (source: Handle, target: Handle): string =>
 
 // parseEdgeKey recovers the source and target handles from an edge key produced
 // by edgeKey.
-export const parseEdgeKey = (key: string): { source: Handle; target: Handle } => {
+export const parseEdgeKey = (key: string): Omit<Edge, "kind"> => {
   const [sn, sp, tn, tp] = key.split(EDGE_KEY_SEP);
   return { source: { node: sn, param: sp }, target: { node: tn, param: tp } };
 };

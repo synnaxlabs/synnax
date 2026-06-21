@@ -15,7 +15,7 @@ import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Stages } from "@/arc/editor/graph/toolbar/Nodes";
-import { PropertiesControls } from "@/arc/editor/graph/toolbar/Properties";
+import { Properties } from "@/arc/editor/graph/toolbar/Properties";
 import { useExport } from "@/arc/export";
 import {
   useSelectEditable,
@@ -96,7 +96,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         case "stages":
           return <Stages layoutKey={layoutKey} />;
         default:
-          return <PropertiesControls layoutKey={layoutKey} />;
+          return <Properties layoutKey={layoutKey} />;
       }
     },
     [layoutKey, canEdit, name],
