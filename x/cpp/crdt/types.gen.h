@@ -36,7 +36,7 @@ struct ID {
     std::uint32_t replica = 0;
     /// @brief counter is the per-replica counter, incremented for every character the
     /// replica inserts.
-    std::uint64_t counter = 0;
+    std::uint32_t counter = 0;
 
     static ID parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

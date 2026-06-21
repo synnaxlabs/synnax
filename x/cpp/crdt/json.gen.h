@@ -22,7 +22,7 @@ namespace x::crdt {
 inline ID ID::parse(x::json::Parser parser) {
     return ID{
         .replica = parser.field<std::uint32_t>("replica"),
-        .counter = parser.field<std::uint64_t>("counter"),
+        .counter = parser.field<std::uint32_t>("counter"),
     };
 }
 

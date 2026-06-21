@@ -43,7 +43,7 @@ type ID struct {
 	Replica uint32 `protobuf:"varint,1,opt,name=replica,proto3" json:"replica,omitempty"`
 	// counter is the per-replica counter, incremented for every character the replica
 	// inserts.
-	Counter       uint64 `protobuf:"varint,2,opt,name=counter,proto3" json:"counter,omitempty"`
+	Counter       uint32 `protobuf:"varint,2,opt,name=counter,proto3" json:"counter,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -85,7 +85,7 @@ func (x *ID) GetReplica() uint32 {
 	return 0
 }
 
-func (x *ID) GetCounter() uint64 {
+func (x *ID) GetCounter() uint32 {
 	if x != nil {
 		return x.Counter
 	}
@@ -222,7 +222,7 @@ const file_x_go_crdt_pb_crdt_proto_rawDesc = "" +
 	"\x17x/go/crdt/pb/crdt.proto\x12\tx.crdt.pb\x1a\x1dx/go/spatial/pb/spatial.proto\"8\n" +
 	"\x02ID\x12\x18\n" +
 	"\areplica\x18\x01 \x01(\rR\areplica\x12\x18\n" +
-	"\acounter\x18\x02 \x01(\x04R\acounter\"\x8f\x01\n" +
+	"\acounter\x18\x02 \x01(\rR\acounter\"\x8f\x01\n" +
 	"\x06Insert\x12\x1d\n" +
 	"\x02id\x18\x01 \x01(\v2\r.x.crdt.pb.IDR\x02id\x12%\n" +
 	"\x06origin\x18\x02 \x01(\v2\r.x.crdt.pb.IDR\x06origin\x12+\n" +

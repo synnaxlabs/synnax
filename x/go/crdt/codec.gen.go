@@ -33,7 +33,7 @@ func (d *Delete) DecodeOrc(r *orc.Reader) error {
 
 func (id ID) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(id.Replica))
-	w.Uint64(uint64(id.Counter))
+	w.Uint32(uint32(id.Counter))
 	return nil
 }
 
@@ -42,7 +42,7 @@ func (id *ID) DecodeOrc(r *orc.Reader) error {
 	if id.Replica, err = r.Uint32(); err != nil {
 		return err
 	}
-	if id.Counter, err = r.Uint64(); err != nil {
+	if id.Counter, err = r.Uint32(); err != nil {
 		return err
 	}
 	return nil

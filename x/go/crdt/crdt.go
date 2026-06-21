@@ -53,7 +53,7 @@ type element struct {
 // concurrent use.
 type Text struct {
 	replica  uint32
-	counter  uint64
+	counter  uint32
 	root     *element
 	elements map[ID]*element
 	// tombstones holds ids deleted before their insert was seen, so the delete can be

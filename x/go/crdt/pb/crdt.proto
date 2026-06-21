@@ -26,7 +26,7 @@ message ID {
   uint32 replica = 1;
   // counter is the per-replica counter, incremented for every character the replica
   // inserts.
-  uint64 counter = 2;
+  uint32 counter = 2;
 }
 
 // Insert introduces a single character into a replicated text document.

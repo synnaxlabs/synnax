@@ -22,7 +22,7 @@ ID struct {
             document root sentinel.
         """
     }
-    counter uint64 {
+    counter uint32 {
         @doc value """
             is the per-replica counter, incremented for every character the replica
             inserts.

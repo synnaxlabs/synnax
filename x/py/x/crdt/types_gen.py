@@ -29,7 +29,7 @@ class ID(BaseModel):
     """
 
     replica: int = Field(ge=0, le=4294967295)
-    counter: int = Field(ge=0, le=18446744073709551615)
+    counter: int = Field(ge=0, le=4294967295)
 
 
 class Insert(BaseModel):

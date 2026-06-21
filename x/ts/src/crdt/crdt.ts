@@ -10,9 +10,9 @@
 import { type Delete, type ID, type Insert } from "@/crdt/types.gen";
 import { type spatial } from "@/spatial";
 
-const ROOT_ID: ID = { replica: 0, counter: 0n };
+const ROOT_ID: ID = { replica: 0, counter: 0 };
 
-const isRoot = (id: ID): boolean => id.replica === 0 && id.counter === 0n;
+const isRoot = (id: ID): boolean => id.replica === 0 && id.counter === 0;
 
 const idLess = (a: ID, b: ID): boolean =>
   a.replica !== b.replica ? a.replica < b.replica : a.counter < b.counter;
@@ -48,7 +48,7 @@ const sortedInsert = (children: Element[], e: Element): void => {
  * concurrent use. */
 export class Text {
   private readonly replica: number;
-  private counter = 0n;
+  private counter = 0;
   private readonly root: Element;
   private readonly elements = new Map<string, Element>();
   private readonly tombstones = new Set<string>();
@@ -192,7 +192,7 @@ export class Text {
         origin = left.id;
         side = "right";
       }
-      this.counter += 1n;
+      this.counter += 1;
       const op: Insert = {
         id: { replica: this.replica, counter: this.counter },
         origin,
