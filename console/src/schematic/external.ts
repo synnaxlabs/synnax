@@ -9,20 +9,20 @@
 
 import { type Export } from "@/export";
 import { type Layout } from "@/layout";
+import { Schematic } from "@/schematic/body/Schematic";
 import { ContextMenu } from "@/schematic/ContextMenu";
-import { extract } from "@/schematic/export";
+import { extract } from "@/schematic/imex/export";
 import { LAYOUT_TYPE } from "@/schematic/layout";
-import { Schematic } from "@/schematic/Schematic";
 import { Selectable } from "@/schematic/Selectable";
 import { Edit, EDIT_LAYOUT_TYPE } from "@/schematic/symbols/edit/Edit";
 import { type Selector } from "@/selector";
 
-export * from "@/schematic/export";
+export * from "@/schematic/imex";
 export * from "@/schematic/layout";
-export * from "@/schematic/middleware";
-export * from "@/schematic/Schematic";
-export * from "@/schematic/selectors";
-export * from "@/schematic/slice";
+export * from "@/schematic/link";
+export * from "@/schematic/ontology";
+export * from "@/schematic/palette";
+export * from "@/schematic/session";
 export * from "@/schematic/toolbar";
 export * from "@/schematic/useCreate";
 

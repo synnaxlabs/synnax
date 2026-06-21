@@ -36,8 +36,8 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
-import { setSelectedSymbolGroup } from "@/schematic/slice";
+import { useSelectSelectedSymbolGroup } from "@/schematic/session/selectors";
+import { setSelectedSymbolGroup } from "@/schematic/session/slice";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import {
   useExport as useExportSymbol,

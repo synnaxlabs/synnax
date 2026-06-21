@@ -37,10 +37,14 @@ export const toolbarStateZ = z.object({
 });
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
-export const stateZ = z.object({
-  selected: z.array(z.string()).default([]),
-  controlStatus: control.statusZ.default("released"),
+export const controlStateZ = z.object({
   authority: xcontrol.authorityZ.default(100),
+  status: control.statusZ.default("released"),
+});
+
+export const stateZ = z.object({
+  control: controlStateZ.prefault({}),
+  selected: z.array(z.string()).default([]),
   legend: legendStateZ.prefault({}),
   toolbar: toolbarStateZ.prefault({}),
   editable: z.boolean().default(false),
@@ -53,7 +57,7 @@ export interface NewState extends z.input<typeof stateZ> {}
 export const ZERO_STATE = stateZ.parse({});
 
 export const sliceStateZ = z.object({
-  schematics: z.record(z.string(), stateZ),
+  schematics: z.record(z.string(), stateZ).default({}),
 });
 
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
@@ -81,7 +85,7 @@ export interface SetSelectedPayload extends KeyedPayload {
 }
 
 export interface SetControlStatusPayload extends KeyedPayload {
-  control: Control.Status;
+  status: Control.Status;
 }
 
 export interface SetAuthorityPayload extends KeyedPayload {
@@ -130,7 +134,7 @@ export interface RemovePayload {
 
 const withSelectedState =
   <Payload extends KeyedPayload, Type extends string = string>(
-    handler: (state: State, action: PayloadAction<Payload, Type>) => void,
+    handler?: (state: State, action: PayloadAction<Payload, Type>) => void,
   ) =>
   (state: SliceState, action: PayloadAction<Payload, Type>) => {
     const {
@@ -141,16 +145,14 @@ const withSelectedState =
       s = stateZ.parse({});
       state.schematics[key] = s;
     }
-    handler(s, action);
+    handler?.(s, action);
   };
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    create: (state, { payload: { key, ...rest } }: PayloadAction<CreatePayload>) => {
-      if (!(key in state.schematics)) state.schematics[key] = stateZ.parse(rest);
-    },
+    create: withSelectedState(),
     setSelected: withSelectedState(
       (state, { payload }: PayloadAction<SetSelectedPayload>) => {
         state.selected = payload.selected;
@@ -159,8 +161,11 @@ export const { actions, reducer } = createSlice({
       },
     ),
     setControlStatus: withSelectedState(
-      (state, { payload: { control } }: PayloadAction<SetControlStatusPayload>) => {
-        state.controlStatus = control;
+      (
+        state,
+        { payload: { status: control } }: PayloadAction<SetControlStatusPayload>,
+      ) => {
+        state.control.status = control;
         if (control !== "acquired") return;
         state.selected = [];
         state.editable = false;
@@ -168,7 +173,7 @@ export const { actions, reducer } = createSlice({
     ),
     setControlAuthority: withSelectedState(
       (state, { payload: { authority } }: PayloadAction<SetAuthorityPayload>) => {
-        state.authority = authority;
+        state.control.authority = authority;
       },
     ),
     moveLegend: withSelectedState(
@@ -246,9 +251,7 @@ export const {
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
 export const purgeState = (state: State): State => {
-  state.controlStatus = "released";
-  state.toolbar = { ...state.toolbar, selectedTab: "symbols" };
-  state.selected = [];
+  state.control.status = "released";
   return state;
 };
 

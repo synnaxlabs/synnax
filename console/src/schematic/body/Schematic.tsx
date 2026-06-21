@@ -13,57 +13,45 @@ import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu } from "@/components/context-menu";
 import { Layout } from "@/layout";
-import { Controller } from "@/schematic/Controller";
-import { Controls } from "@/schematic/Controls";
-import { useHandleNodeClickAction } from "@/schematic/navigate";
-import {
-  useSelectEditable,
-  useSelectFitViewOnResize,
-  useSelectSelected,
-  useSelectViewport,
-} from "@/schematic/selectors";
-import {
-  setEditable,
-  setFitViewOnResize,
-  setSelected,
-  setViewport,
-  setViewportMode,
-} from "@/schematic/slice";
+import { Controller } from "@/schematic/body/Controller";
+import { Controls } from "@/schematic/body/Controls";
+import { Legend } from "@/schematic/body/Legend";
+import { useHandleNodeClickAction } from "@/schematic/body/navigate";
+import { Session } from "@/schematic/session";
 import { type RootState } from "@/store";
 
-import { Legend } from "./Legend";
-
-const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
+const Internal: Layout.Renderer = ({ visible }) => {
+  const key = Base.useKey();
   const isSnapshot = Base.useSelectSnapshot({});
   const dispatch = useDispatch();
-  const viewport = useSelectViewport();
-  const selected = useSelectSelected();
-  const fitViewOnResize = useSelectFitViewOnResize();
-  const { isCurrentlyEditable, canEdit } = useSelectEditable();
+  const viewport = Session.useSelectViewport();
+  const selected = Session.useSelectSelected();
+  const fitViewOnResize = Session.useSelectFitViewOnResize();
+  const { isCurrentlyEditable, canEdit } = Session.useSelectEditable();
 
   const handleSelectionChange = useCallback(
-    (selected: string[]) => dispatch(setSelected({ key, selected })),
+    (selected: string[]) => dispatch(Session.setSelected({ key, selected })),
     [dispatch, key],
   );
 
   const handleViewportChange = useCallback(
-    (viewport: Diagram.Viewport) => dispatch(setViewport({ key, viewport })),
+    (viewport: Diagram.Viewport) => dispatch(Session.setViewport({ key, viewport })),
     [dispatch, key],
   );
 
   const handleEditableChange = useCallback(
-    (editable: boolean) => dispatch(setEditable({ key, editable })),
+    (editable: boolean) => dispatch(Session.setEditable({ key, editable })),
     [dispatch, key],
   );
 
   const handleFitViewOnResizeChange = useCallback(
     (fitViewOnResize: boolean) =>
-      dispatch(setFitViewOnResize({ key, fitViewOnResize })),
+      dispatch(Session.setFitViewOnResize({ key, fitViewOnResize })),
     [dispatch, key],
   );
 
   const handleViewportModeChange = useCallback(
-    (mode: Viewport.Mode) => dispatch(setViewportMode({ key, mode })),
+    (mode: Viewport.Mode) => dispatch(Session.setViewportMode({ key, mode })),
     [dispatch, key],
   );
 

@@ -10,18 +10,15 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/export";
-import { Layout } from "@/layout";
-import { LAYOUT_TYPE } from "@/schematic/layout";
-import { VERSION } from "@/schematic/types";
 
-export const extract: Export.Extractor = async (key, { store, client }) => {
-  const storeState = store.getState();
-  const name = Layout.select(storeState, key)?.name;
+export const VERSION = "6.0.0";
+
+export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
   const schematic = await client.schematics.retrieve({ key });
   return {
-    data: JSON.stringify({ ...schematic, type: LAYOUT_TYPE, version: VERSION }),
-    name: name ?? schematic.name,
+    data: JSON.stringify({ ...schematic, type: "schematic", version: VERSION }),
+    name: schematic.name,
   };
 };
 

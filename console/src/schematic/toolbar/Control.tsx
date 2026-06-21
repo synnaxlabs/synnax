@@ -13,8 +13,11 @@ import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { useSelectAuthority, useSelectLegendVisible } from "@/schematic/selectors";
-import { setControlAuthority, setLegendVisible } from "@/schematic/slice";
+import {
+  useSelectAuthority,
+  useSelectLegendVisible,
+} from "@/schematic/session/selectors";
+import { setControlAuthority, setLegendVisible } from "@/schematic/session/slice";
 
 export const Control = () => {
   const dispatch = useDispatch();

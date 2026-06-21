@@ -29,7 +29,7 @@ import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
 import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
-import { SchematicServices } from "@/schematic/services";
+import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
 import { Version } from "@/version";
@@ -41,7 +41,7 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
   lineplot: LinePlotServices.handleLink,
   log: LogServices.handleLink,
   range: RangeServices.handleLink,
-  schematic: SchematicServices.handleLink,
+  schematic: Schematic.handleLink,
   table: TableServices.handleLink,
   project: ProjectServices.handleLink,
 };

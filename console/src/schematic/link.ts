@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Link } from "@/link";
-import { Schematic } from "@/schematic";
+import { create } from "@/schematic/layout";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
   const { name } = await client.schematics.retrieve({ key });
-  placeLayout(Schematic.create({ key, name }));
+  placeLayout(create({ key, name }));
 };

@@ -11,7 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
 import { type Layout } from "@/layout";
-import { internalCreate, type State } from "@/schematic/slice";
+import { internalCreate, type State } from "@/schematic/session/slice";
 
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;

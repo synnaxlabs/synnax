@@ -8,28 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { Control, Schematic, User } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { memo, type PropsWithChildren, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { Layout } from "@/layout";
-import { useSelectAuthority } from "@/schematic/selectors";
-import { setControlStatus } from "@/schematic/slice";
+import { Session } from "@/schematic/session";
 
-export interface ControllerProps extends Omit<
-  Control.ControllerProps,
-  "name" | "onStatusChange"
-> {}
+export interface ControllerProps extends PropsWithChildren {}
 
-export const Controller = (props: ControllerProps): ReactElement => {
+export const Controller = memo(({ children }: ControllerProps): ReactElement => {
   const key = Schematic.useKey();
-  const authority = useSelectAuthority(key);
-  const name = Layout.useSelectRequiredName(key);
+  const authority = Session.useSelectAuthority();
+  const name = Schematic.useSelectName({});
   const dispatch = useDispatch();
   const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
   const username = user?.username ?? "";
   const controlName = username.length > 0 ? `${name} (${username})` : name;
   const handleStatusChange = useCallback(
-    (next: Control.Status) => dispatch(setControlStatus({ key, control: next })),
+    (status: Control.Status) => dispatch(Session.setControlStatus({ key, status })),
     [dispatch, key],
   );
   return (
@@ -37,7 +32,9 @@ export const Controller = (props: ControllerProps): ReactElement => {
       onStatusChange={handleStatusChange}
       name={controlName}
       authority={authority}
-      {...props}
-    />
+    >
+      {children}
+    </Control.Controller>
   );
-};
+});
+Controller.displayName = "Schematic.Controller";

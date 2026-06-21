@@ -25,14 +25,18 @@ import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
-import { useExport } from "@/schematic/export";
+import { useExport } from "@/schematic/imex/export";
 import {
   useSelectActiveToolbarTab,
   useSelectControlStatus,
   useSelectEditable,
   useSelectSelected,
-} from "@/schematic/selectors";
-import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
+} from "@/schematic/session/selectors";
+import {
+  setActiveToolbarTab,
+  setEditable,
+  type ToolbarTab,
+} from "@/schematic/session/slice";
 import { Control } from "@/schematic/toolbar/Control";
 import { Properties } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";

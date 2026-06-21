@@ -1,12 +1,12 @@
 import { Control, Schematic } from "@synnaxlabs/pluto";
 import { type color, type sticky } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { memo, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { useSelectLegend } from "@/schematic/selectors";
-import { moveLegend, setLegendColors } from "@/schematic/slice";
+import { useSelectLegend } from "@/schematic/session/selectors";
+import { moveLegend, setLegendColors } from "@/schematic/session/slice";
 
-export const Legend = (): ReactElement | null => {
+export const Legend = memo((): ReactElement | null => {
   const key = Schematic.useKey();
   const { visible, position, colors } = useSelectLegend(key);
   const dispatch = useDispatch();
@@ -28,4 +28,5 @@ export const Legend = (): ReactElement | null => {
       allowEntryVisibleChange={false}
     />
   );
-};
+});
+Legend.displayName = "Schematic.Legend";

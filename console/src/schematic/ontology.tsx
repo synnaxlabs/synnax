@@ -31,7 +31,9 @@ import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { Range } from "@/range";
-import { Schematic } from "@/schematic";
+import { ImEx } from "@/schematic/imex";
+import { create } from "@/schematic/layout";
+import { Session } from "@/schematic/session";
 
 const useDelete = createUseDelete({
   type: "Schematic",
@@ -39,7 +41,7 @@ const useDelete = createUseDelete({
   convertKey: String,
   beforeUpdate: async ({ data, removeLayout, store }) => {
     removeLayout(...data);
-    store.dispatch(Schematic.remove({ keys: array.toArray(data) }));
+    store.dispatch(Session.remove({ keys: array.toArray(data) }));
     return data;
   },
 });
@@ -133,7 +135,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
-  const handleExport = Schematic.useExport();
+  const handleExport = ImEx.useExport();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
@@ -181,7 +183,7 @@ const loadSchematic = async (
   placeLayout: Layout.Placer,
 ) => {
   const schematic = await client.schematics.retrieve({ key });
-  placeLayout(Schematic.create({ key: schematic.key, name: schematic.name }));
+  placeLayout(create({ key: schematic.key, name: schematic.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -210,10 +212,9 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError(async () => {
     const schematic = await client.schematics.retrieve({ key });
     placeLayout(
-      Schematic.create({
+      create({
         key: schematic.key,
         name: schematic.name,
-        location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),
     );

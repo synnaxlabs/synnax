@@ -35,7 +35,7 @@ import { Version } from "@/version";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
-  ...Schematic.PERSIST_EXCLUDE,
+  ...Schematic.Session.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
 ];
 
@@ -47,7 +47,7 @@ const ZERO_STATE: RootState = {
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
-  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
+  [Schematic.Session.SLICE_NAME]: Schematic.Session.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
@@ -63,7 +63,7 @@ const reducer = combineReducers({
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [Range.SLICE_NAME]: Range.reducer,
-  [Schematic.SLICE_NAME]: Schematic.reducer,
+  [Schematic.Session.SLICE_NAME]: Schematic.Session.reducer,
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Version.SLICE_NAME]: Version.reducer,
@@ -79,7 +79,7 @@ export interface RootState {
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
-  [Schematic.SLICE_NAME]: Schematic.SliceState;
+  [Schematic.Session.SLICE_NAME]: Schematic.Session.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
@@ -95,7 +95,7 @@ export type RootAction =
   | LinePlot.Action
   | Log.Action
   | Range.Action
-  | Schematic.Action
+  | Schematic.Session.Action
   | Status.Action
   | Table.Action
   | Version.Action
@@ -169,7 +169,6 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
   ...LinePlot.MIDDLEWARE,
-  ...Schematic.MIDDLEWARE,
   ...Arc.MIDDLEWARE,
 ];
 

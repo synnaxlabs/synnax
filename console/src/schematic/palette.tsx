@@ -12,10 +12,10 @@ import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Palette } from "@/palette";
-import { Schematic } from "@/schematic";
+import { useCreate } from "@/schematic/useCreate";
 
 const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
-  const create = Schematic.useCreate({});
+  const create = useCreate({});
   const handleSelect = useCallback(() => create(), [create]);
   return (
     <Palette.CommandListItem

@@ -34,18 +34,25 @@ import {
   type text,
   xy,
 } from "@synnaxlabs/x";
-import { type FC, memo, type ReactElement, type ReactNode, useCallback,useMemo } from "react";
+import {
+  type FC,
+  memo,
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useMemo,
+} from "react";
 import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { selectViewport, useSelectSelected } from "@/schematic/selectors";
+import { Session } from "@/schematic/session";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { MissingSymbolForm } from "@/schematic/toolbar/MissingSymbolForm";
 import { type RootState } from "@/store";
 
 export const Properties = memo((): ReactElement => {
-  const selected = useSelectSelected();
+  const selected = Session.useSelectSelected();
   const configByKey = Schematic.useSelectConfigs({ keys: selected });
   if (selected.length === 0 || configByKey.size === 0)
     return (
@@ -73,9 +80,11 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     schema: Schematic.elementConfigZ,
     values: initialValues,
     sync: true,
-    onChange: useCallback(({ values }: Form.OnChangeArgs<typeof Schematic.elementConfigZ>) =>
-      dispatch(schematic.setConfig({ key: elKey, config: values }))
-      , []),
+    onChange: useCallback(
+      ({ values }: Form.OnChangeArgs<typeof Schematic.elementConfigZ>) =>
+        dispatch(schematic.setConfig({ key: elKey, config: values })),
+      [],
+    ),
   });
   const specKey = Form.useFieldValue<string, string, typeof Schematic.elementConfigZ>(
     "specKey",
@@ -145,7 +154,7 @@ interface MultiElementPropertiesProps {
 const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement => {
   const schematicKey = Schematic.useKey();
   const handleError = Status.useErrorHandler();
-  const selected = useSelectSelected();
+  const selected = Session.useSelectSelected();
   const selectedNodes = Schematic.useSelectNodes({ keys: selected });
   const dispatch = Schematic.useSingleDispatch();
   const store = useStore<RootState>();
@@ -197,7 +206,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   };
 
   const getLayoutsForAlignment = () => {
-    const zoom = selectViewport(store.getState(), schematicKey).zoom;
+    const zoom = Session.selectViewport(store.getState(), schematicKey).zoom;
     return selected
       .map((nodeKey) => {
         const node = nodesByKey.get(nodeKey);
@@ -228,7 +237,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     layouts: Diagram.NodeLayout[];
     adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
-    const zoom = selectViewport(store.getState(), schematicKey).zoom;
+    const zoom = Session.selectViewport(store.getState(), schematicKey).zoom;
     const topOffsets = new Map<string, number>();
     const layouts = selected
       .map((nodeKey) => {

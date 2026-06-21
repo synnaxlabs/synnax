@@ -12,10 +12,10 @@ import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback } from "react";
 
 import { Controls as Base } from "@/components";
-import { useSelectControlIsAcquired, useSelectEditable } from "@/schematic/selectors";
+import { Session } from "@/schematic/session";
 
 const ControlToggleButton = (): ReactElement => {
-  const isAcquired = useSelectControlIsAcquired();
+  const isAcquired = Session.useSelectControlIsAcquired();
   const { acquire, release } = Control.useContext();
   const handleChange = useCallback(
     (v: boolean) => (v ? acquire() : release()),
@@ -36,8 +36,8 @@ const ControlToggleButton = (): ReactElement => {
 
 export const Controls = memo((): ReactElement => {
   const isSnapshot = Schematic.useSelectSnapshot({});
-  const isAcquired = useSelectControlIsAcquired();
-  const { canEdit } = useSelectEditable();
+  const isAcquired = Session.useSelectControlIsAcquired();
+  const { canEdit } = Session.useSelectEditable();
   return (
     <Base x>
       <Diagram.Controls.SelectViewportMode />
@@ -49,4 +49,4 @@ export const Controls = memo((): ReactElement => {
     </Base>
   );
 });
-Controls.displayName = "Controls";
+Controls.displayName = "Schematic.Controls";

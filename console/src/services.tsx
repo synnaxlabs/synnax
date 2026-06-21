@@ -20,7 +20,7 @@ import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
 import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
-import { SchematicServices } from "@/schematic/services";
+import { Schematic } from "@/schematic";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
 
@@ -34,7 +34,7 @@ const createEmptyService = (
 };
 
 export const SERVICES: Ontology.Services = {
-  schematic: SchematicServices.ONTOLOGY_SERVICE,
+  schematic: Schematic.ONTOLOGY_SERVICE,
   schematic_symbol: createEmptyService("schematic_symbol", <Icon.Schematic />),
   user: UserServices.ONTOLOGY_SERVICE,
   builtin: createEmptyService("builtin"),

@@ -22,7 +22,7 @@ import {
   type ToolbarTab,
   type Viewport,
   ZERO_STATE,
-} from "@/schematic/slice";
+} from "@/schematic/session/slice";
 
 export const createSelector =
   <S extends object, R>(
@@ -46,7 +46,7 @@ export const selectSelected = (state: StoreState, key: string): string[] =>
 export const useSelectSelected = createSelector(selectSelected);
 
 export const selectControlStatus = (state: StoreState, key: string): Control.Status =>
-  select(state, key).controlStatus;
+  select(state, key).control.status;
 
 export const useSelectControlStatus = createSelector(selectControlStatus);
 
@@ -56,7 +56,7 @@ export const selectControlIsAcquired = (state: StoreState, key: string): boolean
 export const useSelectControlIsAcquired = createSelector(selectControlIsAcquired);
 
 export const selectAuthority = (state: StoreState, key: string): control.Authority =>
-  select(state, key).authority;
+  select(state, key).control.authority;
 
 export const useSelectAuthority = createSelector(selectAuthority);
 
