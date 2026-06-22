@@ -12,6 +12,8 @@ package color
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -71,6 +73,62 @@ func MustFromHex(s string) Color {
 		panic(err)
 	}
 	return c
+}
+
+// rgbPattern matches an rgb()/rgba() string with three 0-255 channels and an
+// optional alpha.
+var rgbPattern = regexp.MustCompile(
+	`^(rgba?)\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([0-9.]+)\s*)?\)$`,
+)
+
+// FromCSS parses a CSS-style color string: a hex value with a leading '#' or an
+// rgb()/rgba() function. Unlike FromHex, the leading '#' is required.
+func FromCSS(s string) (Color, error) {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "#") {
+		return FromHex(s)
+	}
+	if m := rgbPattern.FindStringSubmatch(s); m != nil {
+		return fromRGBMatch(m, s)
+	}
+	return Color{}, errors.Newf(
+		"color must be a hex value (e.g. \"#3bc454\") or rgb(r,g,b): %q", s,
+	)
+}
+
+func fromRGBMatch(m []string, s string) (Color, error) {
+	hasAlpha := m[5] != ""
+	if m[1] == "rgb" && hasAlpha {
+		return Color{}, errors.Newf("rgb() takes 3 channels; use rgba() for alpha: %q", s)
+	}
+	if m[1] == "rgba" && !hasAlpha {
+		return Color{}, errors.Newf("rgba() requires a 4th alpha channel: %q", s)
+	}
+	r, err := strconv.Atoi(m[2])
+	if err != nil {
+		return Color{}, errors.Wrapf(err, "invalid rgb color: %q", s)
+	}
+	g, err := strconv.Atoi(m[3])
+	if err != nil {
+		return Color{}, errors.Wrapf(err, "invalid rgb color: %q", s)
+	}
+	b, err := strconv.Atoi(m[4])
+	if err != nil {
+		return Color{}, errors.Wrapf(err, "invalid rgb color: %q", s)
+	}
+	if r > 255 || g > 255 || b > 255 {
+		return Color{}, errors.Newf("rgb channels must be 0-255: %q", s)
+	}
+	a := 1.0
+	if hasAlpha {
+		if a, err = strconv.ParseFloat(m[5], 64); err != nil {
+			return Color{}, errors.Wrapf(err, "invalid rgb alpha: %q", s)
+		}
+		if a < 0 || a > 1 {
+			return Color{}, errors.Newf("rgba alpha must be 0-1: %q", s)
+		}
+	}
+	return Color{R: uint8(r), G: uint8(g), B: uint8(b), A: a}, nil
 }
 
 // UnmarshalJSON supports three formats:

@@ -12,7 +12,6 @@ package ranges
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/ir"
@@ -232,15 +231,6 @@ func (n *createNode) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
-// parseColor parses a hex color, requiring a leading '#'. The '#' is mandatory so
-// there is one canonical form and editors render their native color swatch.
-func parseColor(s string) (color.Color, error) {
-	if !strings.HasPrefix(s, "#") {
-		return color.Color{}, errors.Newf("color must start with '#' (e.g. \"#3bc454\"): %q", s)
-	}
-	return color.FromHex(s)
-}
-
 // dispatchCreate creates an open range that starts now, parsing the color and
 // parent key, reporting failures as warnings so the task keeps running.
 func dispatchCreate(
@@ -251,7 +241,7 @@ func dispatchCreate(
 ) string {
 	var c color.Color
 	if colorHex != "" {
-		if parsed, err := parseColor(colorHex); err != nil {
+		if parsed, err := color.FromCSS(colorHex); err != nil {
 			report(ctx, status.VariantWarning,
 				fmt.Sprintf("ranges.create: invalid color %q: %v", colorHex, err))
 		} else {
@@ -360,7 +350,7 @@ func checkColorLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionCo
 	if !ok {
 		return
 	}
-	if _, err := parseColor(value); err != nil {
+	if _, err := color.FromCSS(value); err != nil {
 		diags.Add(diagnostics.Errorf(expr, "%v", err))
 	}
 }
