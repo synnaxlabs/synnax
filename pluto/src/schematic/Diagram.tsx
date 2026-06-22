@@ -20,10 +20,17 @@ import {
 } from "react";
 
 import { Component } from "@/component";
+import { useInitializerRef } from "@/hooks";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
-import { useSelectElementConfig, useSingleDispatch } from "@/schematic/queries";
+import {
+  useSelectAllEdges,
+  useSelectConfigs,
+  useSelectElementConfig,
+  useSingleDispatch,
+} from "@/schematic/queries";
+import { useKey } from "@/schematic/Suspended";
 import { Diagram as Base } from "@/vis/diagram";
 import { internalNodeBox, resolveEndpoint } from "@/vis/diagram/util";
 
@@ -65,7 +72,7 @@ const EdgeRenderer = (props: Base.EdgeProps): ReactElement | null => {
 };
 
 const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const key = Key.use<string>("Schematic.EdgeJumps");
+  const key = useKey();
   const edges = useSelectAllEdges({ key });
   const edgeKeys = useMemo(() => edges.map((e) => e.key), [edges]);
   const configs = useSelectConfigs({ key, keys: edgeKeys });

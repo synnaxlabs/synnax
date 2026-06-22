@@ -42,15 +42,11 @@ export type UseSelect<Args extends {}, Selected> = {} extends Args
   ? (args?: Args) => Selected
   : (args: Args) => Selected;
 
-export const createSelector = <
-  ScopedStore extends base.Store,
-  Args extends {},
-  Selected,
-  Raw = Selected,
->(
-  params: CreateSelectorParams<ScopedStore, Args, Selected, Raw>,
-): UseSelect<Args, Selected> =>
-  ((args: Args = {} as Args): Selected => {
+export const createSelector =
+  <ScopedStore extends base.Store, Args extends {}, Selected, Raw = Selected>(
+    params: CreateSelectorParams<ScopedStore, Args, Selected, Raw>,
+  ): UseSelect<Args, Selected> =>
+  (args: Args = {} as Args): Selected => {
     const store = useStore<ScopedStore>();
     const memoArgs = useMemoDeepEqual(args);
     const versionRef = useRef(0);
@@ -83,4 +79,4 @@ export const createSelector = <
       selector,
       params.equal,
     );
-  }) as UseSelect<Args, Selected>;
+  };

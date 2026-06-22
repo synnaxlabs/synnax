@@ -123,7 +123,12 @@ const v1LegendStateZ = z.object({
 interface V1LegendState extends z.infer<typeof v1LegendStateZ> {}
 const v1ZeroLegendState: V1LegendState = {
   visible: true,
-  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
+  position: {
+    x: 50,
+    y: 50,
+    units: { x: "px", y: "px" },
+    root: { x: "left", y: "top" },
+  },
   colors: {},
 };
 
@@ -252,7 +257,12 @@ const v6ZeroState: V6State = {
   authority: 1,
   legend: {
     visible: true,
-    position: { x: 50, y: 50, units: { x: "px", y: "px" } },
+    position: {
+      x: 50,
+      y: 50,
+      units: { x: "px", y: "px" },
+      root: { x: "left", y: "top" },
+    },
     colors: {},
   },
   toolbar: { activeTab: "symbols", selectedSymbolGroup: "general" },
@@ -262,11 +272,11 @@ const v6ZeroState: V6State = {
   pendingUpload: undefined,
 };
 
-const migrateNode = (node: V0Node): V6Node => {
-  const next: V6Node = { key: node.key, position: node.position };
-  if (node.zIndex != null) next.zIndex = node.zIndex;
-  return next;
-};
+const migrateNode = (node: V0Node): V6Node => ({
+  key: node.key,
+  position: node.position,
+  zIndex: node.zIndex ?? 0,
+});
 
 type Segment = Schematic.Edge.Segmented.Segment;
 

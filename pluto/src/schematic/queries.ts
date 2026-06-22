@@ -12,7 +12,6 @@ import {
   type ontology,
   type project,
   schematic,
-  ValidationError,
 } from "@synnaxlabs/client";
 import { array, compare, type optional, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";

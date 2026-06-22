@@ -24,7 +24,12 @@ export interface Viewport extends z.infer<typeof viewportZ> {}
 
 export const legendStateZ = z.object({
   visible: z.boolean().default(true),
-  position: sticky.xyZ.default({ x: 100, y: 100 }),
+  position: sticky.xyZ.default({
+    x: 100,
+    y: 100,
+    root: { x: "left", y: "top" },
+    units: { x: "px", y: "px" },
+  }),
   colors: z.record(z.string(), color.colorZ).default({}),
 });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
@@ -93,7 +98,7 @@ export interface SetAuthorityPayload extends KeyedPayload {
 }
 
 export interface MoveLegendPayload extends KeyedPayload {
-  position: xy.XY;
+  position: sticky.XY;
 }
 
 export interface SetLegendColorsPayload extends KeyedPayload {
