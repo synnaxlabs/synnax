@@ -48,8 +48,7 @@ func (n Node) Close() error {
 type Cluster struct {
 	storage     *mock.Cluster
 	Nodes       map[node.Key]Node
-	framerNet   *tmock.FramerNetwork
-	channelNet  *tmock.ChannelNetwork
+	net         *tmock.Network
 	aspenNet    *aspentransmock.Network
 	addrFactory *address.Factory
 	cfg         distribution.LayerConfig
@@ -108,8 +107,7 @@ func newCluster(cfgs ...distribution.LayerConfig) *Cluster {
 	return &Cluster{
 		cfg:         cfg,
 		storage:     mock.NewCluster(),
-		framerNet:   tmock.NewFramerNetwork(),
-		channelNet:  tmock.NewChannelNetwork(),
+		net:         tmock.NewNetwork(),
 		aspenNet:    aspentransmock.NewNetwork(),
 		addrFactory: address.NewLocalFactory(0),
 		Nodes:       make(map[node.Key]Node),
@@ -125,11 +123,8 @@ func (c *Cluster) Provision(
 		addr              = c.addrFactory.Next()
 		storageLayer      = c.storage.Provision(ctx)
 		distributionLayer = testutil.MustSucceed(distribution.OpenLayer(ctx, append([]distribution.LayerConfig{{
-			Storage: storageLayer,
-			Transport: tmock.Transport{
-				ChannelTransport: c.channelNet.New(addr),
-				FramerTransport:  c.framerNet.New(addr, 1),
-			},
+			Storage:          storageLayer,
+			Transport:        c.net.New(addr, 1),
 			AspenTransport:   c.aspenNet.NewTransport(),
 			AdvertiseAddress: addr,
 			PeerAddresses:    peers,
