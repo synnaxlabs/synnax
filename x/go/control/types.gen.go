@@ -70,5 +70,5 @@ type Transfer[R comparable] struct {
 // Update represents a batch of control transfers that occurred atomically.
 type Update[R comparable] struct {
 	// Transfers is the list of control transfers that occurred in this update.
-	Transfers []Transfer[R] `json:"transfers" msgpack:"transfers"`
+	Transfers []Transfer[R] `json:"transfers,omitzero" msgpack:"transfers,omitzero"`
 }

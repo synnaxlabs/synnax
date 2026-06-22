@@ -93,7 +93,7 @@ type (
 		Offset     int         `json:"offset" msgpack:"offset"`
 	}
 	RetrieveResponse struct {
-		Panels []panel.Panel `json:"panels" msgpack:"panels"`
+		Panels []panel.Panel `json:"panels,omitzero" msgpack:"panels,omitzero"`
 	}
 )
 

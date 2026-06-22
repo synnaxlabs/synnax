@@ -11,12 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, TypeAlias
+from typing import Any, TypeAlias
 
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, Field
 
 from synnax.arc import ir
-from x import dicts, spatial
+from x import spatial
 
 
 class Node(BaseModel):
@@ -54,6 +54,4 @@ class Graph(BaseModel):
     functions: ir.Functions = Field(default_factory=list)
     edges: ir.Edges = Field(default_factory=list)
     nodes: Nodes = Field(default_factory=list)
-    configs: Annotated[
-        dict[str, dict[str, Any]], BeforeValidator(dicts.none_to_empty)
-    ] = Field(default_factory=lambda: Map())
+    configs: dict[str, dict[str, Any]] = Field(default_factory=lambda: Map())

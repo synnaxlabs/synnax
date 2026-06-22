@@ -76,7 +76,7 @@ export type RemoveEdgePayload = z.infer<typeof removeEdgePayloadZ>;
  */
 export const setConfigPayloadZ = z.object({
   key: z.string(),
-  config: caseconv.preserveCase(record.nullishToEmpty()),
+  config: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });
 
 export type SetConfigPayload = z.infer<typeof setConfigPayloadZ>;

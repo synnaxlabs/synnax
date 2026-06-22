@@ -187,13 +187,13 @@ type Channels struct {
 	// X2 is the channel rendered on the x2 axis.
 	X2 channel.Key `json:"x2" msgpack:"x2"`
 	// Y1 are the channels rendered on the y1 axis.
-	Y1 []channel.Key `json:"y1" msgpack:"y1"`
+	Y1 []channel.Key `json:"y1,omitzero" msgpack:"y1,omitzero"`
 	// Y2 are the channels rendered on the y2 axis.
-	Y2 []channel.Key `json:"y2" msgpack:"y2"`
+	Y2 []channel.Key `json:"y2,omitzero" msgpack:"y2,omitzero"`
 	// Y3 are the channels rendered on the y3 axis.
-	Y3 []channel.Key `json:"y3" msgpack:"y3"`
+	Y3 []channel.Key `json:"y3,omitzero" msgpack:"y3,omitzero"`
 	// Y4 are the channels rendered on the y4 axis.
-	Y4 []channel.Key `json:"y4" msgpack:"y4"`
+	Y4 []channel.Key `json:"y4,omitzero" msgpack:"y4,omitzero"`
 }
 
 // Ranges binds range keys to each x-axis.
@@ -202,9 +202,9 @@ type Ranges struct {
 	// rather than UUIDs because the console layers synthetic rolling-window ranges (e.g.
 	// "recent", "rolling1m") alongside persisted ranges; the server stores whatever the
 	// client sends.
-	X1 []string `json:"x1" msgpack:"x1"`
+	X1 []string `json:"x1,omitzero" msgpack:"x1,omitzero"`
 	// X2 are the range keys plotted against the x2 axis.
-	X2 []string `json:"x2" msgpack:"x2"`
+	X2 []string `json:"x2,omitzero" msgpack:"x2,omitzero"`
 }
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
@@ -422,9 +422,9 @@ type LinePlot struct {
 	Axes Axes `json:"axes" msgpack:"axes"`
 	// Lines holds per-line styling and downsampling configuration. Each entry corresponds
 	// to one channel and range combination produced by the channels and ranges bindings.
-	Lines []Line `json:"lines" msgpack:"lines"`
+	Lines []Line `json:"lines,omitzero" msgpack:"lines,omitzero"`
 	// Rules holds annotation rules drawn over the plot.
-	Rules []Rule `json:"rules" msgpack:"rules"`
+	Rules []Rule `json:"rules,omitzero" msgpack:"rules,omitzero"`
 }
 
 func (l LinePlot) ApplyDefaults() LinePlot {

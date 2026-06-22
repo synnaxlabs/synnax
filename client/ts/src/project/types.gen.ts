@@ -32,7 +32,7 @@ export const projectZ = z.object({
    * arranged. Contains tab layout, split configurations, and window
    * positions.
    */
-  layout: caseconv.preserveCase(record.nullishToEmpty()),
+  layout: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });
 export interface Project extends z.infer<typeof projectZ> {}
 export interface New extends z.input<typeof projectZ> {}

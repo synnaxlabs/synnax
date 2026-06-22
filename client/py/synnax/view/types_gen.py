@@ -11,13 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, TypeAlias
+from typing import Any, TypeAlias
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID
-from x import dicts
 
 Key: TypeAlias = UUID
 
@@ -38,9 +37,7 @@ class View(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
     type: str
-    query: Annotated[dict[str, Any], BeforeValidator(dicts.none_to_empty)] = Field(
-        default_factory=dict
-    )
+    query: dict[str, Any] = Field(default_factory=dict)
 
     def __hash__(self) -> int:
         return hash(self.key)

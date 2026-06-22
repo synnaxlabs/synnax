@@ -30,7 +30,7 @@ type Project struct {
 	Name string `json:"name" msgpack:"name"`
 	// Layout is the mosaic tree structure that defines how visualizations are arranged.
 	// Contains tab layout, split configurations, and window positions.
-	Layout msgpack.EncodedJSON `json:"layout" msgpack:"layout"`
+	Layout msgpack.EncodedJSON `json:"layout,omitzero" msgpack:"layout,omitzero"`
 }
 
 func (p Project) Validate() error {

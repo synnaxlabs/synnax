@@ -103,7 +103,7 @@ type Channel struct {
 	// Internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `json:"internal" msgpack:"internal"`
 	// Operations contains aggregation operations applied to this channel's data.
-	Operations []Operation `json:"operations" msgpack:"operations"`
+	Operations []Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
 	// Expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
 	Expression string `json:"expression" msgpack:"expression"`

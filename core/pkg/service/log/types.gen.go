@@ -90,7 +90,7 @@ type Log struct {
 	// Name is a human-readable name for the log.
 	Name string `json:"name" msgpack:"name"`
 	// Channels are the channels displayed in this log, in order.
-	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
+	Channels []ChannelEntry `json:"channels,omitzero" msgpack:"channels,omitzero"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 	// HideChannelNames controls whether channel names are hidden. When false (the default),

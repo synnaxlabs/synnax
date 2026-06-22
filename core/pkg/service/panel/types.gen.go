@@ -46,13 +46,13 @@ type View struct {
 	Name string `json:"name" msgpack:"name"`
 	// Args is an opaque, Console-owned configuration payload for the view. Core never
 	// interprets it; it round-trips as-is.
-	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
+	Args msgpack.EncodedJSON `json:"args,omitzero" msgpack:"args,omitzero"`
 }
 
 // Leaf is a leaf node in the panel tree displaying a tab strip.
 type Leaf struct {
 	// Tabs is the ordered list of tabs in this leaf.
-	Tabs []Tab `json:"tabs" msgpack:"tabs"`
+	Tabs []Tab `json:"tabs,omitzero" msgpack:"tabs,omitzero"`
 }
 
 func (l Leaf) Validate() error {

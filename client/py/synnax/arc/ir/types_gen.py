@@ -12,12 +12,11 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Annotated, TypeAlias
+from typing import TypeAlias
 
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, Field
 
 from synnax.arc import types
-from x import dicts, lists
 
 
 class EdgeKind(IntEnum):
@@ -73,8 +72,8 @@ class Node(BaseModel):
 
     key: str
     type: str
-    inputs: types.Params
-    outputs: types.Params
+    inputs: types.Params = Field(default_factory=list)
+    outputs: types.Params = Field(default_factory=list)
     channels: types.Channels
 
 
@@ -87,9 +86,7 @@ class Authorities(BaseModel):
     """
 
     default: int | None = Field(default=None, ge=0, le=255)
-    channels: Annotated[dict[int, int], BeforeValidator(dicts.none_to_empty)] = Field(
-        default_factory=dict
-    )
+    channels: dict[int, int] = Field(default_factory=dict)
 
 
 class Edge(BaseModel):
@@ -133,8 +130,8 @@ class Function(BaseModel):
 
     key: str
     body: Body
-    inputs: types.Params
-    outputs: types.Params
+    inputs: types.Params = Field(default_factory=list)
+    outputs: types.Params = Field(default_factory=list)
     channels: types.Channels
 
 
@@ -182,13 +179,9 @@ class Scope(BaseModel):
     mode: ScopeMode
     liveness: Liveness
     activation: Handle | None = None
-    strata: Annotated[list[Members], BeforeValidator(lists.none_to_empty)] = Field(
-        default_factory=list
-    )
-    steps: Members
-    transitions: Annotated[list[Transition], BeforeValidator(lists.none_to_empty)] = (
-        Field(default_factory=list)
-    )
+    strata: list[Members] = Field(default_factory=list)
+    steps: Members = Field(default_factory=list)
+    transitions: list[Transition] = Field(default_factory=list)
 
 
 class IR(BaseModel):
@@ -206,9 +199,9 @@ class IR(BaseModel):
             reactive flow with top-level gated scopes.
     """
 
-    functions: Functions
-    nodes: Nodes
-    edges: Edges
+    functions: Functions = Field(default_factory=list)
+    nodes: Nodes = Field(default_factory=list)
+    edges: Edges = Field(default_factory=list)
     authorities: Authorities
     root: Scope
 

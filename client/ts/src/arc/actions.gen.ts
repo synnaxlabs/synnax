@@ -59,7 +59,7 @@ export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
  */
 export const setNodeConfigPayloadZ = z.object({
   key: z.string(),
-  config: caseconv.preserveCase(record.nullishToEmpty()),
+  config: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });
 
 export type SetNodeConfigPayload = z.infer<typeof setNodeConfigPayloadZ>;

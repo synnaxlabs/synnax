@@ -190,7 +190,7 @@ var _ = Describe("Python Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`labels: Annotated[list[UUID], BeforeValidator(lists.none_to_empty)] = Field(default_factory=list)`))
+			Expect(content).To(ContainSubstring(`labels: list[UUID] = Field(default_factory=list)`))
 			Expect(content).To(ContainSubstring(`parent: UUID | None = None`))
 			Expect(content).To(ContainSubstring(`tags: list[str] | None = None`))
 		})
@@ -404,7 +404,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("uint64", "uint64", "int = Field(ge=0, le=18446744073709551615)"),
 				Entry("float32", "float32", "float"),
 				Entry("float64", "float64", "float"),
-				Entry("record", "record", "Annotated[dict[str, Any], BeforeValidator(dicts.none_to_empty)] = Field(default_factory=dict)"),
+				Entry("record", "record", "dict[str, Any] = Field(default_factory=dict)"),
 				Entry("bytes", "bytes", "bytes"),
 			)
 
@@ -524,8 +524,8 @@ var _ = Describe("Python Types Plugin", func() {
 			`
 			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`empty: Annotated[list[float], BeforeValidator(lists.none_to_empty)] = Field(default_factory=list)`))
-			Expect(content).To(ContainSubstring(`vals: Annotated[list[float], BeforeValidator(lists.none_to_empty)] = Field(default_factory=lambda: [1.500000, 2.500000])`))
+			Expect(content).To(ContainSubstring(`empty: list[float] = Field(default_factory=list)`))
+			Expect(content).To(ContainSubstring(`vals: list[float] = Field(default_factory=lambda: [1.500000, 2.500000])`))
 		})
 
 		It("Should emit create defaults for string and uuid keys", func(ctx SpecContext) {
@@ -571,7 +571,7 @@ var _ = Describe("Python Types Plugin", func() {
 			`
 			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring(`args: Annotated[dict[str, Any], BeforeValidator(dicts.none_to_empty)] = Field(default_factory=dict)`))
+			Expect(content).To(ContainSubstring(`args: dict[str, Any] = Field(default_factory=dict)`))
 		})
 
 		It("Should emit a populated record default as a dict literal", func(ctx SpecContext) {
@@ -1255,7 +1255,7 @@ var _ = Describe("Python Types Plugin", func() {
 					ToContain(
 						`from_: State[R] | None`,
 						`to: State[R] | None`,
-						`transfers: Annotated[list[Transfer[R]], BeforeValidator(lists.none_to_empty)] = Field(default_factory=list)`,
+						`transfers: list[Transfer[R]] = Field(default_factory=list)`,
 					)
 			})
 
@@ -1815,7 +1815,7 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 
 	It("Should resolve an array-of-union field to a list of the alias", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
-		ExpectContent(resp, "types_gen.py").ToContain("scales: Annotated[list[Scale], BeforeValidator(lists.none_to_empty)] = Field(default_factory=list)")
+		ExpectContent(resp, "types_gen.py").ToContain("scales: list[Scale] = Field(default_factory=list)")
 	})
 })
 
@@ -1836,7 +1836,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 		ExpectContent(resp, "types_gen.py").ToContain("Nodes: TypeAlias = list[Node]")
 	})
 
-	It("Should render a required map field as a null-coercing dict with a default", func(ctx SpecContext) {
+	It("Should render a required map field as a dict with a default", func(ctx SpecContext) {
 		loader := NewMockFileLoader()
 		typesPlugin := types.New(types.DefaultOptions())
 		source := `
@@ -1848,11 +1848,11 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 		resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").ToContain(
-			"channels: Annotated[dict[int, int], BeforeValidator(dicts.none_to_empty)] = Field(default_factory=dict)",
+			"channels: dict[int, int] = Field(default_factory=dict)",
 		)
 	})
 
-	It("Should render a map<string, record> field as a null-coercing dict[str, dict[str, Any]]", func(ctx SpecContext) {
+	It("Should render a map<string, record> field as a dict[str, dict[str, Any]]", func(ctx SpecContext) {
 		loader := NewMockFileLoader()
 		typesPlugin := types.New(types.DefaultOptions())
 		source := `
@@ -1864,11 +1864,11 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").ToContain(
-			"configs: Annotated[dict[str, dict[str, Any]], BeforeValidator(dicts.none_to_empty)] = Field(default_factory=dict)",
+			"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
 		)
 	})
 
-	It("Should render a struct-valued map field as a null-coercing dict[str, Struct]", func(ctx SpecContext) {
+	It("Should render a struct-valued map field as a dict[str, Struct]", func(ctx SpecContext) {
 		loader := NewMockFileLoader()
 		typesPlugin := types.New(types.DefaultOptions())
 		source := `
@@ -1884,7 +1884,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 		`
 		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").ToContain(
-			"nodes: Annotated[dict[str, Node], BeforeValidator(dicts.none_to_empty)] = Field(default_factory=dict)",
+			"nodes: dict[str, Node] = Field(default_factory=dict)",
 		)
 	})
 

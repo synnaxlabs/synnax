@@ -224,7 +224,7 @@ type (
 		Keys       []symbol.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveSymbolResponse struct {
-		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
+		Symbols []symbol.Symbol `json:"symbols,omitzero" msgpack:"symbols,omitzero"`
 	}
 )
 

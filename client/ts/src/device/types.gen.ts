@@ -54,7 +54,7 @@ export const deviceZ = <
     model: model ?? z.string().min(1, "model is required"),
     name: z.string().min(1, "name is required"),
     configured: z.boolean().default(false),
-    properties: properties ?? record.nullishToEmpty(),
+    properties: properties ?? record.unknownZ().default(() => ({})),
     status: statusZ.optional(),
     parent: ontology.idZ.optional(),
   });

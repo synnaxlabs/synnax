@@ -168,7 +168,15 @@ var _ = Describe("TimeSpan", func() {
 
 		It("Should unmarshal a time span from a string", func() {
 			var ts telem.TimeSpan
-			Expect(json.Unmarshal([]byte("1000000000"), &ts)).To(Succeed())
+			Expect(json.Unmarshal([]byte(`"1000000000"`), &ts)).To(Succeed())
+			Expect(ts).To(Equal(telem.Second))
+		})
+
+		It("Should return an error and leave the time span untouched on invalid input", func() {
+			ts := telem.Second
+			Expect(json.Unmarshal([]byte(`"not-a-number"`), &ts)).To(
+				MatchError(ContainSubstring("invalid syntax")),
+			)
 			Expect(ts).To(Equal(telem.Second))
 		})
 	})
