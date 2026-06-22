@@ -103,7 +103,7 @@ type (
 		IncludeParent bool            `json:"include_parent" msgpack:"include_parent"`
 	}
 	RetrieveResponse struct {
-		Ranges []Range `json:"ranges" msgpack:"ranges"`
+		Ranges []Range `json:"ranges,omitzero" msgpack:"ranges,omitzero"`
 	}
 )
 

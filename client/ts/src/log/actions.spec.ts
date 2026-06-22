@@ -19,7 +19,7 @@ const createChannelEntry = (
   log.channelEntryZ.parse({ channel, color: color.ZERO, ...overrides });
 
 const createEmpty = (overrides: Partial<log.Log> = {}): log.Log =>
-  log.newZ.parse({ name: "", ...overrides });
+  log.logZ.parse({ name: "Test Log", ...overrides });
 
 const apply = (state: log.Log, ...actions: log.Action[]): log.Log =>
   log.reduceAll(state, actions).next;
@@ -224,30 +224,30 @@ describe("log reducer", () => {
     });
   });
 
-  describe("setShowChannelNames", () => {
+  describe("setHideChannelNames", () => {
     it("should set the flag and round-trip it", () => {
-      const state = createEmpty({ showChannelNames: true });
+      const state = createEmpty({ hideChannelNames: true });
       expect(
-        apply(state, log.setShowChannelNames({ showChannelNames: false }))
-          .showChannelNames,
+        apply(state, log.setHideChannelNames({ hideChannelNames: false }))
+          .hideChannelNames,
       ).toEqual(false);
       expect(
-        roundTrip(state, log.setShowChannelNames({ showChannelNames: false }))
-          .showChannelNames,
+        roundTrip(state, log.setHideChannelNames({ hideChannelNames: false }))
+          .hideChannelNames,
       ).toEqual(true);
     });
   });
 
-  describe("setShowReceiptTimestamp", () => {
+  describe("setHideReceiptTimestamp", () => {
     it("should set the flag and round-trip it", () => {
-      const state = createEmpty({ showReceiptTimestamp: true });
+      const state = createEmpty({ hideReceiptTimestamp: true });
       expect(
-        apply(state, log.setShowReceiptTimestamp({ showReceiptTimestamp: false }))
-          .showReceiptTimestamp,
+        apply(state, log.setHideReceiptTimestamp({ hideReceiptTimestamp: false }))
+          .hideReceiptTimestamp,
       ).toEqual(false);
       expect(
-        roundTrip(state, log.setShowReceiptTimestamp({ showReceiptTimestamp: false }))
-          .showReceiptTimestamp,
+        roundTrip(state, log.setHideReceiptTimestamp({ hideReceiptTimestamp: false }))
+          .hideReceiptTimestamp,
       ).toEqual(true);
     });
   });
@@ -278,7 +278,7 @@ describe("log reducer", () => {
           state,
           log.rename({ name: "next" }),
           log.addChannel({ channel: 1 }),
-          log.setShowChannelNames({ showChannelNames: false }),
+          log.setHideChannelNames({ hideChannelNames: false }),
         ),
       ).toEqual(state);
     });

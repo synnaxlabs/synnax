@@ -13,7 +13,7 @@ import pandas as pd
 
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
-from freighter import AsyncStreamClient, UnaryClient, WebsocketClient
+from freighter import AsyncWebsocketClient, UnaryClient, WebsocketClient
 from synnax import ontology
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
@@ -42,7 +42,7 @@ class Client:
     """
 
     _stream_client: WebsocketClient
-    _async_client: AsyncStreamClient
+    _async_client: AsyncWebsocketClient
     _unary_client: UnaryClient
     _channels: Retriever
     _deleter: Deleter
@@ -51,7 +51,7 @@ class Client:
     def __init__(
         self,
         stream_client: WebsocketClient,
-        async_client: AsyncStreamClient,
+        async_client: AsyncWebsocketClient,
         unary_client: UnaryClient,
         retriever: Retriever,
         deleter: Deleter,

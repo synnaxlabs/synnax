@@ -25,9 +25,7 @@ message Project {
   string key = 1;
   // name is a human-readable name for the project.
   string name = 2;
-  // author is the UUID of the user who created this project.
-  string author = 3;
   // layout is the mosaic tree structure that defines how visualizations are arranged.
   // Contains tab layout, split configurations, and window positions.
-  google.protobuf.Struct layout = 4;
+  google.protobuf.Struct layout = 3;
 }

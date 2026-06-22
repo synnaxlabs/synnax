@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/spatial"
+import "schemas/x/spatial"
 import "schemas/arc/ir"
 
 @ts output  "client/ts/src/arc/graph"
@@ -22,7 +22,7 @@ Node struct {
     type     string     {
         @doc value "is the function type being instantiated."
     }
-    config   record       {
+    config   record     {
         @doc value "contains configuration parameter values as a JSON object."
     }
     position spatial.XY {

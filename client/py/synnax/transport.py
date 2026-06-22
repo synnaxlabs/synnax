@@ -13,7 +13,6 @@ from alamos import Instrumentation
 from freighter import (
     URL,
     AsyncMiddleware,
-    AsyncStreamClient,
     AsyncWebsocketClient,
     FileClient,
     HTTPClient,
@@ -31,7 +30,7 @@ from synnax.telem import Size, TimeSpan
 class Transport:
     url: URL
     stream: WebsocketClient
-    stream_async: AsyncStreamClient
+    stream_async: AsyncWebsocketClient
     unary: UnaryClient
     files: FileClient
     secure: bool

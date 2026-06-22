@@ -39,13 +39,11 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", project.Project{
 				Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:   "test_2",
-				Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-				Layout: msgpack.EncodedJSON{"key_4": "value_4"},
+				Layout: msgpack.EncodedJSON{"key_3": "value_3"},
 			}),
 			Entry("zero values", project.Project{
 				Key:    uuid.Nil,
 				Name:   "",
-				Author: uuid.Nil,
 				Layout: nil,
 			}),
 		)
@@ -56,8 +54,7 @@ func BenchmarkEncodeDecodeProject(b *testing.B) {
 	p := project.Project{
 		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:   "test_2",
-		Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-		Layout: msgpack.EncodedJSON{"key_4": "value_4"},
+		Layout: msgpack.EncodedJSON{"key_3": "value_3"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -79,8 +76,7 @@ func FuzzDecodeProject(f *testing.F) {
 		seed := project.Project{
 			Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:   "test_2",
-			Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-			Layout: msgpack.EncodedJSON{"key_4": "value_4"},
+			Layout: msgpack.EncodedJSON{"key_3": "value_3"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -92,7 +88,6 @@ func FuzzDecodeProject(f *testing.F) {
 		seed := project.Project{
 			Key:    uuid.Nil,
 			Name:   "",
-			Author: uuid.Nil,
 			Layout: nil,
 		}
 		w := orc.NewWriter(0)

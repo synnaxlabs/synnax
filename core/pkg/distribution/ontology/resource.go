@@ -23,17 +23,6 @@ import (
 // String implements fmt.Stringer.
 func (t ResourceType) String() string { return string(t) }
 
-// Validate ensures that the given ID has both a Key and Type.
-func (id ID) Validate() error {
-	if id.Key == "" {
-		return errors.Wrapf(validate.ErrValidation, "[ontology.resource] - key is required")
-	}
-	if id.Type == "" {
-		return errors.Wrapf(validate.ErrValidation, "[ontology.resource] - type is required")
-	}
-	return nil
-}
-
 // String returns a string representation of the ID in the format "Type:Key".
 func (id ID) String() string { return string(id.Type) + ":" + id.Key }
 

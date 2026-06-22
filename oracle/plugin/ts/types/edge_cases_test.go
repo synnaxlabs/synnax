@@ -106,7 +106,7 @@ var _ = Describe("Edge Cases", func() {
 			`
 			resp := MustGenerate(ctx, source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring("id.create()"))
+			Expect(content).To(ContainSubstring(".default(id.create)"))
 		})
 
 		It("Should emit uuid.create() default for uuid key fields with create", func(ctx SpecContext) {
@@ -122,7 +122,7 @@ var _ = Describe("Edge Cases", func() {
 			`
 			resp := MustGenerate(ctx, source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring("uuid.create()"))
+			Expect(content).To(ContainSubstring(".default(uuid.create)"))
 		})
 	})
 })

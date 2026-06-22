@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a channel in the Synnax database. Composed of a
@@ -67,6 +69,12 @@ type Operation struct {
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 }
 
+func (o Operation) Validate() error {
+	v := validate.New("Operation")
+	v.Ternaryf("type", !o.Type.IsValid(), "invalid type: %v", o.Type)
+	return v.Error()
+}
+
 // Channel is an internal representation of a channel containing all storage and
 // distribution metadata. This type is used internally by the server; clients should use
 // APIChannel instead.
@@ -95,8 +103,16 @@ type Channel struct {
 	// Internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `json:"internal" msgpack:"internal"`
 	// Operations contains aggregation operations applied to this channel's data.
-	Operations []Operation `json:"operations" msgpack:"operations"`
+	Operations []Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
 	// Expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
 	Expression string `json:"expression" msgpack:"expression"`
+}
+
+func (c Channel) Validate() error {
+	v := validate.New("Channel")
+	for i := range c.Operations {
+		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

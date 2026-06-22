@@ -15,37 +15,13 @@ import { translateNodeChangeForward } from "@/vis/diagram/aether/types";
 
 describe("translateNodeChangeForward", () => {
   describe("dimensions", () => {
-    it("forwards resizing when React Flow flags an active drag", () => {
+    it("drops dimensions changes, which are tracked as diagram-local measured state", () => {
       const change: RFNodeChange = {
         id: "n1",
         type: "dimensions",
         dimensions: { width: 40, height: 30 },
         resizing: true,
       };
-      expect(translateNodeChangeForward(change)).toEqual({
-        type: "dimensions",
-        key: "n1",
-        dimensions: { width: 40, height: 30 },
-        resizing: true,
-      });
-    });
-
-    it("defaults resizing to false when React Flow omits it", () => {
-      const change: RFNodeChange = {
-        id: "n1",
-        type: "dimensions",
-        dimensions: { width: 40, height: 30 },
-      };
-      expect(translateNodeChangeForward(change)).toEqual({
-        type: "dimensions",
-        key: "n1",
-        dimensions: { width: 40, height: 30 },
-        resizing: false,
-      });
-    });
-
-    it("returns null when no dimensions are present", () => {
-      const change: RFNodeChange = { id: "n1", type: "dimensions" };
       expect(translateNodeChangeForward(change)).toBeNull();
     });
   });

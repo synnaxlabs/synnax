@@ -46,6 +46,9 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
 	}
+	if err := r.Validate(); err != nil {
+		return err
+	}
 	if err := w.validate(*r); err != nil {
 		return err
 	}
@@ -188,7 +191,6 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 func (w Writer) validate(r Range) error {
 	v := validate.New("ranger.range")
 	validate.NotNil(v, "key", r.Key)
-	validate.NotEmptyString(v, "name", r.Name)
 	validate.NonZero(v, "time_range.start", r.TimeRange.Start)
 	validate.NonZero(v, "time_range.end", r.TimeRange.End)
 	v.Ternary(

@@ -143,7 +143,7 @@ type RetrieveRequest struct {
 // RetrieveResponse is the response for a RetrieveRequest.
 type RetrieveResponse struct {
 	// Channels is a slice of Channels matching the request.
-	Channels []Channel `json:"channels" msgpack:"channels"`
+	Channels []Channel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // Retrieve retrieves a Channel based on the parameters given in the request. If no
@@ -234,7 +234,7 @@ func (s *Service) Retrieve(
 		for i, ch := range resChannels {
 			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
 			if err == nil {
-				oChannels[i].Alias = al
+				oChannels[i].Alias = &al
 			}
 		}
 	}

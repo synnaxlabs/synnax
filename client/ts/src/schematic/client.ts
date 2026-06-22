@@ -22,7 +22,6 @@ import {
   type Key,
   keyZ,
   type New,
-  newZ,
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
@@ -53,7 +52,7 @@ const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
   project: project.keyZ,
-  schematics: newZ.array(),
+  schematics: schematicZ.array(),
 });
 const createResZ = z.object({ schematics: schematicZ.array() });
 

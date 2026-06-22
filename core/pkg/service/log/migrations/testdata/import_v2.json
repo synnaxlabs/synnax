@@ -22,6 +22,6 @@
     }
   ],
   "timestamp_precision": 1,
-  "show_channel_names": true,
-  "show_receipt_timestamp": false
+  "hide_channel_names": false,
+  "hide_receipt_timestamp": true
 }

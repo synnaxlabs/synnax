@@ -11,7 +11,6 @@ from synnax.view.client import Client
 from synnax.view.types_gen import (
     ONTOLOGY_TYPE,
     Key,
-    New,
     View,
     ontology_id,
 )
@@ -19,7 +18,6 @@ from synnax.view.types_gen import (
 __all__ = [
     "Client",
     "Key",
-    "New",
     "ONTOLOGY_TYPE",
     "View",
     "ontology_id",

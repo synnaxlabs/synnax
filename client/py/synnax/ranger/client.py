@@ -47,7 +47,7 @@ from synnax.telem import (
     TimeRange,
 )
 from x.interop import overload_comparison_operators
-from x.normalize import check_for_none, normalize
+from x.lists import check_for_none, normalize
 from x.params import require_named_params
 
 RANGE_SET_CHANNEL = "sy_range_set"

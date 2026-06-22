@@ -31,12 +31,12 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-export const logStateZ = log.newZ
+export const logStateZ = log.logZ
   .pick({
     channels: true,
     timestampPrecision: true,
-    showChannelNames: true,
-    showReceiptTimestamp: true,
+    hideChannelNames: true,
+    hideReceiptTimestamp: true,
   })
   .extend({
     region: box.box,
@@ -393,7 +393,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     });
   }
 
-  // showChannelNames is read from state (O(1)) rather than derived by scanning all
+  // hideChannelNames is read from state (O(1)) rather than derived by scanning all
   // entries (O(n)). The render loop below is already O(n) over visible entries — adding
   // a second O(n) scan here just to answer a yes/no question would double the per-frame
   // work at up to 60fps.
@@ -403,11 +403,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { showChannelNames, showReceiptTimestamp, channelDataTypes } = this.state;
+    const { hideChannelNames, hideReceiptTimestamp, channelDataTypes } = this.state;
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
-    const ts = showReceiptTimestamp
+    const ts = !hideReceiptTimestamp
       ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
@@ -430,9 +430,9 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
-    if (showReceiptTimestamp && showChannelNames) prefix = `${ts} [${name}]${pad}  `;
-    else if (showReceiptTimestamp) prefix = `${ts}  `;
-    else if (showChannelNames) prefix = `[${name}]${pad}  `;
+    if (!hideReceiptTimestamp && !hideChannelNames) prefix = `${ts} [${name}]${pad}  `;
+    else if (!hideReceiptTimestamp) prefix = `${ts}  `;
+    else if (!hideChannelNames) prefix = `[${name}]${pad}  `;
     else prefix = "";
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.
     if (entry.continuation) prefix = " ".repeat(prefix.length);

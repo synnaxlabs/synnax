@@ -35,6 +35,9 @@ func (w Writer) Create(ctx context.Context, p *Policy) error {
 	if p.Internal && !w.allowInternal {
 		return errors.Wrap(validate.ErrValidation, "cannot create internal policy")
 	}
+	if err := p.Validate(); err != nil {
+		return err
+	}
 	if err := w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}

@@ -81,7 +81,12 @@ export const ZERO_STATE: State = {
   authority: 1,
   legend: {
     visible: true,
-    position: { x: 50, y: 50, units: { x: "px", y: "px" } },
+    position: {
+      x: 50,
+      y: 50,
+      root: { x: "left", y: "top" },
+      units: { x: "px", y: "px" },
+    },
     colors: {},
   },
   toolbar: { activeTab: "symbols", selectedSymbolGroup: "general" },
@@ -99,11 +104,11 @@ export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
 export const ZERO_SLICE_STATE: SliceState = { version: VERSION, schematics: {} };
 
-const migrateNode = (node: v0.Node): Node => {
-  const next: Node = { key: node.key, position: node.position };
-  if (node.zIndex != null) next.zIndex = node.zIndex;
-  return next;
-};
+const migrateNode = (node: v0.Node): Node => ({
+  key: node.key,
+  position: node.position,
+  zIndex: node.zIndex ?? 0,
+});
 
 type Segment = Schematic.Edge.Segmented.Segment;
 
@@ -218,6 +223,7 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
       position: state.legend?.position ?? {
         x: 50,
         y: 50,
+        root: { x: "left", y: "top" },
         units: { x: "px", y: "px" },
       },
       colors: migrateLegendColors(state.legend?.colors),
