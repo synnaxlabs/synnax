@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelgrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
@@ -55,14 +55,14 @@ var _ = Describe("Transport", Ordered, Serial, func() {
 	Describe("Create", func() {
 		It("Should round-trip a create request over the wire", func(ctx SpecContext) {
 			transport.CreateServer().BindHandler(
-				func(_ context.Context, req channel.CreateMessage) (channel.CreateMessage, error) {
+				func(_ context.Context, req distchannel.CreateMessage) (distchannel.CreateMessage, error) {
 					return req, nil
 				},
 			)
 			res := MustSucceed(transport.CreateClient().Send(
 				ctx,
 				addr,
-				channel.CreateMessage{Channels: []channel.Channel{{Name: "alpha"}}},
+				distchannel.CreateMessage{Channels: []distchannel.Channel{{Name: "alpha"}}},
 			))
 			Expect(res.Channels).To(HaveLen(1))
 			Expect(res.Channels[0].Name).To(Equal("alpha"))
@@ -71,9 +71,9 @@ var _ = Describe("Transport", Ordered, Serial, func() {
 
 	Describe("Delete", func() {
 		It("Should round-trip a delete request over the wire", func(ctx SpecContext) {
-			var received channel.DeleteRequest
+			var received distchannel.DeleteRequest
 			transport.DeleteServer().BindHandler(
-				func(_ context.Context, req channel.DeleteRequest) (types.Nil, error) {
+				func(_ context.Context, req distchannel.DeleteRequest) (types.Nil, error) {
 					received = req
 					return types.Nil{}, nil
 				},
@@ -81,17 +81,17 @@ var _ = Describe("Transport", Ordered, Serial, func() {
 			MustSucceed(transport.DeleteClient().Send(
 				ctx,
 				addr,
-				channel.DeleteRequest{Keys: channel.Keys{1, 2, 3}},
+				distchannel.DeleteRequest{Keys: distchannel.Keys{1, 2, 3}},
 			))
-			Expect(received.Keys).To(Equal(channel.Keys{1, 2, 3}))
+			Expect(received.Keys).To(Equal(distchannel.Keys{1, 2, 3}))
 		})
 	})
 
 	Describe("Rename", func() {
 		It("Should round-trip a rename request over the wire", func(ctx SpecContext) {
-			var received channel.RenameRequest
+			var received distchannel.RenameRequest
 			transport.RenameServer().BindHandler(
-				func(_ context.Context, req channel.RenameRequest) (types.Nil, error) {
+				func(_ context.Context, req distchannel.RenameRequest) (types.Nil, error) {
 					received = req
 					return types.Nil{}, nil
 				},
@@ -99,12 +99,12 @@ var _ = Describe("Transport", Ordered, Serial, func() {
 			MustSucceed(transport.RenameClient().Send(
 				ctx,
 				addr,
-				channel.RenameRequest{
-					Keys:  channel.Keys{1, 2},
+				distchannel.RenameRequest{
+					Keys:  distchannel.Keys{1, 2},
 					Names: []string{"beta", "gamma"},
 				},
 			))
-			Expect(received.Keys).To(Equal(channel.Keys{1, 2}))
+			Expect(received.Keys).To(Equal(distchannel.Keys{1, 2}))
 			Expect(received.Names).To(Equal([]string{"beta", "gamma"}))
 		})
 	})

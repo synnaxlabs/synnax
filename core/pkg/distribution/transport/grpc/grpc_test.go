@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	transportgrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
 	"github.com/synnaxlabs/x/address"
@@ -25,9 +24,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var _ distribution.Transport = transportgrpc.Transport{}
-
-var _ = Describe("GRPC", func() {
+var _ = Describe("Transport", func() {
 	Describe("Construction", func() {
 		It("Should bundle the channel and framer transports", func() {
 			pool := fgrpc.NewPool(
@@ -38,15 +35,6 @@ var _ = Describe("GRPC", func() {
 			Expect(t.Channel()).ToNot(BeNil())
 			Expect(t.Framer()).ToNot(BeNil())
 			Expect(t.BindableTransports()).To(HaveLen(2))
-		})
-
-		It("Should satisfy the distribution.Transport interface", func() {
-			pool := fgrpc.NewPool(
-				"",
-				grpc.WithTransportCredentials(insecure.NewCredentials()),
-			)
-			var dt distribution.Transport = transportgrpc.New(pool)
-			Expect(dt).ToNot(BeNil())
 		})
 	})
 
@@ -81,7 +69,9 @@ var _ = Describe("GRPC", func() {
 
 		It("Should round-trip a channel create through the bundled transport", func(ctx SpecContext) {
 			t.Channel().CreateServer().BindHandler(
-				func(ctx context.Context, req channel.CreateMessage) (channel.CreateMessage, error) {
+				func(
+					_ context.Context, req channel.CreateMessage,
+				) (channel.CreateMessage, error) {
 					return req, nil
 				},
 			)

@@ -18,5 +18,5 @@ import (
 
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GRPC Channel Transport Suite")
+	RunSpecs(t, "Distribution Transport gRPC Channel Suite")
 }

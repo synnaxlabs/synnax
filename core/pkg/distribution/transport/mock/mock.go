@@ -22,39 +22,31 @@ import (
 // nodes, so that a distribution.Transport can be provisioned per node. It mirrors the
 // gRPC Transport bundle but retains shared in-memory network state across nodes.
 type Network struct {
-	// Channel is the in-memory channel transport network.
-	Channel *channel.Network
-	// Framer is the in-memory framer transport network.
-	Framer *framer.Network
+	channel *channel.Network
+	framer  *framer.Network
 }
 
 // NewNetwork constructs a Network with freshly initialized channel and framer networks.
 func NewNetwork() *Network {
-	return &Network{Channel: channel.NewNetwork(), Framer: framer.NewNetwork()}
+	return &Network{channel: channel.NewNetwork(), framer: framer.NewNetwork()}
 }
 
-// New provisions an in-memory distribution Transport for the node at addr. buffers sets
+// New provisions an in-memory distribution.Transport for the node at addr. buffers sets
 // the channel buffer sizes for the streaming framer transports.
-func (n *Network) New(addr address.Address, buffers ...int) Transport {
-	return Transport{
-		ChannelTransport: n.Channel.New(addr),
-		FramerTransport:  n.Framer.New(addr, buffers...),
+func (n *Network) New(addr address.Address, buffers ...int) distribution.Transport {
+	return transport{
+		channel: n.channel.New(addr),
+		framer:  n.framer.New(addr, buffers...),
 	}
 }
 
-// Transport bundles the in-memory channel and framer transports for a single node. It
-// implements the distribution.Transport interface.
-type Transport struct {
-	// ChannelTransport is the in-memory channel transport for the node.
-	ChannelTransport distchannel.Transport
-	// FramerTransport is the in-memory framer transport for the node.
-	FramerTransport distframer.Transport
+type transport struct {
+	channel distchannel.Transport
+	framer  distframer.Transport
 }
 
-var _ distribution.Transport = Transport{}
+var _ distribution.Transport = transport{}
 
-// Channel implements distribution.Transport.
-func (t Transport) Channel() distchannel.Transport { return t.ChannelTransport }
+func (t transport) Channel() distchannel.Transport { return t.channel }
 
-// Framer implements distribution.Transport.
-func (t Transport) Framer() distframer.Transport { return t.FramerTransport }
+func (t transport) Framer() distframer.Transport { return t.framer }

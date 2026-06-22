@@ -87,18 +87,22 @@ func (t Transport) CreateServer() channel.CreateTransportServer {
 	return t.createServer
 }
 
+// DeleteClient implements the channel.Transport interface.
 func (t Transport) DeleteClient() channel.DeleteTransportClient {
 	return t.deleteClient
 }
 
+// DeleteServer implements the channel.Transport interface.
 func (t Transport) DeleteServer() channel.DeleteTransportServer {
 	return t.deleteServer
 }
 
+// RenameClient implements the channel.Transport interface.
 func (t Transport) RenameClient() channel.RenameTransportClient {
 	return t.renameClient
 }
 
+// RenameServer implements the channel.Transport interface.
 func (t Transport) RenameServer() channel.RenameTransportServer {
 	return t.renameServer
 }

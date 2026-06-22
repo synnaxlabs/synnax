@@ -47,13 +47,17 @@ var _ = Describe("Transport", func() {
 
 	It("Should route a channel create request through the bundled transport", func(ctx SpecContext) {
 		server.Channel().CreateServer().BindHandler(
-			func(_ context.Context, req channel.CreateMessage) (channel.CreateMessage, error) {
+			func(
+				_ context.Context, req channel.CreateMessage,
+			) (channel.CreateMessage, error) {
 				return req, nil
 			},
 		)
-		res := MustSucceed(client.Channel().CreateClient().Send(ctx, leaseholder, channel.CreateMessage{
-			Channels: []channel.Channel{{Name: "alpha"}},
-		}))
+		res := MustSucceed(client.Channel().CreateClient().Send(
+			ctx,
+			leaseholder,
+			channel.CreateMessage{Channels: []channel.Channel{{Name: "alpha"}}},
+		))
 		Expect(res.Channels).To(HaveLen(1))
 		Expect(res.Channels[0].Name).To(Equal("alpha"))
 	})
@@ -66,9 +70,11 @@ var _ = Describe("Transport", func() {
 				return types.Nil{}, nil
 			},
 		)
-		MustSucceed(client.Framer().Deleter().Client().Send(ctx, leaseholder, deleter.Request{
-			Keys: channel.Keys{9},
-		}))
+		MustSucceed(client.Framer().Deleter().Client().Send(
+			ctx,
+			leaseholder,
+			deleter.Request{Keys: channel.Keys{9}},
+		))
 		Expect(received).To(Equal(channel.Keys{9}))
 	})
 

@@ -18,5 +18,5 @@ import (
 
 func TestMock(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Mock Transport Suite")
+	RunSpecs(t, "Distribution Transport Mock Suite")
 }

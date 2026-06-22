@@ -17,12 +17,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	mockframer "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -34,19 +34,22 @@ const (
 
 var _ = Describe("Transport", func() {
 	var (
-		net    *mockframer.Network
-		server framer.Transport
-		client framer.Transport
+		net    *framer.Network
+		server distframer.Transport
+		client distframer.Transport
 	)
 	BeforeEach(func() {
-		net = mockframer.NewNetwork()
+		net = framer.NewNetwork()
 		server = net.New(leaseholder, 1)
 		client = net.New(gateway, 1)
 	})
 
 	It("Should round-trip a request through the streaming writer transport", func(ctx SpecContext) {
 		server.Writer().Server().BindHandler(
-			func(_ context.Context, srv freighter.ServerStream[writer.Request, writer.Response]) error {
+			func(
+				_ context.Context,
+				srv freighter.ServerStream[writer.Request, writer.Response],
+			) error {
 				req, err := srv.Receive()
 				if err != nil {
 					return err
@@ -55,14 +58,20 @@ var _ = Describe("Transport", func() {
 			},
 		)
 		stream := MustSucceed(client.Writer().Client().Stream(ctx, leaseholder))
-		Expect(stream.Send(writer.Request{SeqNum: 42, Command: writer.CommandWrite})).To(Succeed())
+		Expect(stream.Send(writer.Request{
+			SeqNum:  42,
+			Command: writer.CommandWrite,
+		})).To(Succeed())
 		Expect(MustSucceed(stream.Receive()).SeqNum).To(Equal(42))
 		Expect(stream.CloseSend()).To(Succeed())
 	})
 
 	It("Should round-trip a request through the streaming iterator transport", func(ctx SpecContext) {
 		server.Iterator().Server().BindHandler(
-			func(_ context.Context, srv freighter.ServerStream[iterator.Request, iterator.Response]) error {
+			func(
+				_ context.Context,
+				srv freighter.ServerStream[iterator.Request, iterator.Response],
+			) error {
 				req, err := srv.Receive()
 				if err != nil {
 					return err
@@ -78,23 +87,32 @@ var _ = Describe("Transport", func() {
 
 	It("Should round-trip a request through the streaming relay transport", func(ctx SpecContext) {
 		server.Relay().Server().BindHandler(
-			func(_ context.Context, srv freighter.ServerStream[relay.Request, relay.Response]) error {
+			func(
+				_ context.Context,
+				srv freighter.ServerStream[relay.Request, relay.Response],
+			) error {
 				if _, err := srv.Receive(); err != nil {
 					return err
 				}
-				return srv.Send(relay.Response{})
+				return srv.Send(relay.Response{Group: 43})
 			},
 		)
 		stream := MustSucceed(client.Relay().Client().Stream(ctx, leaseholder))
-		Expect(stream.Send(relay.Request{})).To(Succeed())
-		MustSucceed(stream.Receive())
+		Expect(stream.Send(relay.Request{
+			Keys: channel.Keys{4, 5},
+		})).To(Succeed())
+		relayRes := MustSucceed(stream.Receive())
+		Expect(relayRes.Group).To(Equal(uint32(43)))
 		Expect(stream.CloseSend()).To(Succeed())
 	})
 
 	It("Should round-trip a request through the unary deleter transport", func(ctx SpecContext) {
 		var received channel.Keys
 		server.Deleter().Server().BindHandler(
-			func(_ context.Context, req deleter.Request) (types.Nil, error) {
+			func(
+				_ context.Context,
+				req deleter.Request,
+			) (types.Nil, error) {
 				received = req.Keys
 				return types.Nil{}, nil
 			},
@@ -103,16 +121,5 @@ var _ = Describe("Transport", func() {
 			Keys: channel.Keys{4, 5},
 		}))
 		Expect(received).To(Equal(channel.Keys{4, 5}))
-	})
-
-	It("Should expose non-nil clients and servers for every operation", func() {
-		Expect(server.Writer().Client()).ToNot(BeNil())
-		Expect(server.Writer().Server()).ToNot(BeNil())
-		Expect(server.Iterator().Client()).ToNot(BeNil())
-		Expect(server.Iterator().Server()).ToNot(BeNil())
-		Expect(server.Relay().Client()).ToNot(BeNil())
-		Expect(server.Relay().Server()).ToNot(BeNil())
-		Expect(server.Deleter().Client()).ToNot(BeNil())
-		Expect(server.Deleter().Server()).ToNot(BeNil())
 	})
 })
