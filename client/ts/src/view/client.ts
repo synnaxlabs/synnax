@@ -39,7 +39,7 @@ const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 export interface RetrieveSingleParams extends z.input<typeof singleRetrieveArgsZ> {}
 export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
 
-const retrieveResponseZ = z.object({ views: array.nullishToEmpty(viewZ) });
+const retrieveResponseZ = z.object({ views: viewZ.array().default(() => []) });
 
 export class Client {
   private readonly client: UnaryClient;

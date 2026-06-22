@@ -83,7 +83,7 @@ type RetrieveRequest struct {
 
 type RetrieveResponse struct {
 	// Labels are the labels that were retrieved.
-	Labels []Label `json:"labels" msgpack:"labels"`
+	Labels []Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
 }
 
 func (s *Service) Retrieve(

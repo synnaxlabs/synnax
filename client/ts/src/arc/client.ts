@@ -32,7 +32,7 @@ const retrieveReqZ = z.object({
 const createReqZ = z.object({ arcs: arcZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ arcs: array.nullishToEmpty(arcZ) });
+const retrieveResZ = z.object({ arcs: arcZ.array().default(() => []) });
 const createResZ = z.object({ arcs: arcZ.array() });
 const emptyResZ = z.object({});
 
