@@ -30,7 +30,7 @@ var _ = Describe("Writer", Ordered, func() {
 		writerSvc  *writer.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		dist = mock.NewNode(ctx)
+		dist = mock.MustOpenNode(ctx)
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      dist.Channel,
 			DB:           dist.DB,

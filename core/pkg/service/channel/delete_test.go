@@ -26,7 +26,7 @@ var _ = Describe("Delete", Ordered, func() {
 		services    map[node.Key]*channel.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.NewCluster(ctx, 2)
+		mockCluster = mock.MustOpenCluster(ctx, 2)
 		services = make(map[node.Key]*channel.Service)
 		for k, n := range mockCluster.Nodes {
 			services[k] = openService(ctx, n)

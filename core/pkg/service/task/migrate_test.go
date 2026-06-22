@@ -54,7 +54,7 @@ var _ = Describe("Migration v0", func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
-			HostProvider: mock.StaticHostProvider(1),
+			HostProvider: mock.NewStaticHostProvider(1),
 			Status:       stat,
 			Search:       searchIdx,
 		}))

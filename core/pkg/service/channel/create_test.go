@@ -29,7 +29,7 @@ var _ = Describe("Create", Ordered, func() {
 		services    map[node.Key]*channel.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.NewCluster(ctx, 2)
+		mockCluster = mock.MustOpenCluster(ctx, 2)
 		services = make(map[node.Key]*channel.Service)
 		for k, n := range mockCluster.Nodes {
 			services[k] = openService(ctx, n)
@@ -581,7 +581,7 @@ var _ = Context("Name Validation Disabled", func() {
 			services    map[node.Key]*channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
-			mockCluster = mock.NewCluster(ctx, 1)
+			mockCluster = mock.MustOpenCluster(ctx, 1)
 			services = make(map[node.Key]*channel.Service)
 			services[1] = openService(ctx, mockCluster.Nodes[1], channel.ServiceConfig{ValidateNames: new(false)})
 		})

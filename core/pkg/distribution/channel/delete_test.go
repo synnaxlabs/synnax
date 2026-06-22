@@ -26,7 +26,7 @@ var _ = Describe("Delete", Ordered, func() {
 		n       mock.Node
 	)
 	BeforeAll(func(ctx SpecContext) {
-		builder = mock.NewCluster(ctx, 1)
+		builder = mock.MustOpenCluster(ctx, 1)
 		n = builder.Nodes[node.KeyBootstrapper]
 	})
 
@@ -54,7 +54,7 @@ var _ = Describe("Delete", Ordered, func() {
 			peer         mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
-			multiBuilder = mock.NewCluster(ctx, 2)
+			multiBuilder = mock.MustOpenCluster(ctx, 2)
 			gateway = multiBuilder.Nodes[node.KeyBootstrapper]
 			peer = multiBuilder.Nodes[node.Key(2)]
 		})

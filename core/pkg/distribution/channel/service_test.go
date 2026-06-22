@@ -49,7 +49,7 @@ var _ = Describe("Service", func() {
 				valid   channel.ServiceConfig
 			)
 			BeforeAll(func(ctx SpecContext) {
-				builder = mock.NewCluster(ctx, 1)
+				builder = mock.MustOpenCluster(ctx, 1)
 				n := builder.Nodes[node.KeyBootstrapper]
 				valid = channel.ServiceConfig{
 					HostResolver: n.Cluster,

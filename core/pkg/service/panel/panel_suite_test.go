@@ -43,7 +43,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = mock.NewNode(ctx)
+	dist = mock.MustOpenNode(ctx)
 	db = dist.DB
 	otg = dist.Ontology
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{

@@ -40,7 +40,7 @@ var _ = Describe("Limit", Ordered, func() {
 		limitSvc *channel.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
-		dist = mock.NewNode(ctx)
+		dist = mock.MustOpenNode(ctx)
 		limitSvc = openService(ctx, dist, channel.ServiceConfig{IntOverflowCheck: fixedOverflowChecker(limit)})
 	})
 	It("Should not allow creating channels over the limit", func(ctx SpecContext) {

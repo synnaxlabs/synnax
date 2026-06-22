@@ -99,7 +99,7 @@ var _ = Describe("Calculation", Ordered, func() {
 	}
 
 	BeforeAll(func(ctx SpecContext) {
-		dist = mock.NewNode(ctx)
+		dist = mock.MustOpenNode(ctx)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,

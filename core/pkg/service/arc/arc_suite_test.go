@@ -48,7 +48,7 @@ var (
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		searchIdx := MustOpen(search.Open())
-		dist := mock.NewNode(ctx)
+		dist := mock.MustOpenNode(ctx)
 		db = dist.DB
 		otg = dist.Ontology
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
@@ -76,7 +76,7 @@ var (
 			DB:                  db,
 			Ontology:            otg,
 			Group:               dist.Group,
-			HostProvider:        mock.StaticHostProvider(1),
+			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              statSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,

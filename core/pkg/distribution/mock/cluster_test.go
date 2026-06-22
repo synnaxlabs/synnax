@@ -21,7 +21,7 @@ import (
 
 var _ = Describe("Cluster", func() {
 	ShouldNotLeakGoroutinesPerSpec()
-	Describe("Name", func() {
+	Describe("Provision", func() {
 		It("Should open a three node memory backed distribution layer", func(ctx SpecContext) {
 			mockCluster := mock.OpenCluster(ctx, 0)
 			coreOne := mockCluster.Provision(ctx)
@@ -49,5 +49,4 @@ var _ = Describe("Cluster", func() {
 			Expect(mockCluster.Close()).To(Succeed())
 		})
 	})
-
 })

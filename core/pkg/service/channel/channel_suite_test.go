@@ -64,7 +64,7 @@ func openService(ctx context.Context, n mock.Node, cfgs ...channel.ServiceConfig
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = mock.NewNode(ctx)
+	dist = mock.MustOpenNode(ctx)
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
