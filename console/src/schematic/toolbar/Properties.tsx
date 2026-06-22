@@ -83,7 +83,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     onChange: useCallback(
       ({ values }: Form.OnChangeArgs<typeof Schematic.elementConfigZ>) =>
         dispatch(schematic.setConfig({ key: elKey, config: values })),
-      [],
+      [dispatch, elKey],
     ),
   });
   const specKey = Form.useFieldValue<string, string, typeof Schematic.elementConfigZ>(

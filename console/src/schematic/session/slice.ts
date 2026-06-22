@@ -75,10 +75,6 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export interface StoreState {
-  [SLICE_NAME]: SliceState;
-}
-
 export interface KeyedPayload {
   key: schematic.Key;
 }

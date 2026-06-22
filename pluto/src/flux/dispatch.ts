@@ -210,7 +210,7 @@ export const createDispatch = <
     const { dispatch } = useDispatch();
     return useCallback(
       (actions: Action | Action[]) => dispatch({ key, actions }),
-      [key],
+      [key, dispatch],
     );
   };
 

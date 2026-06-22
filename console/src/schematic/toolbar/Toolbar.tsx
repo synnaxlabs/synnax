@@ -51,12 +51,12 @@ const NotEditableContent = (): ReactElement => {
   const key = Schematic.useKey();
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus();
-  const { isCurrentlyEditable, canEdit } = useSelectEditable();
+  const { canEdit } = useSelectEditable();
   const name = Schematic.useSelectName();
   return (
     <EmptyAction
       x
-      message={`${name} is not editable.${isCurrentlyEditable ? " To make changes," : ""}`}
+      message={`${name} is not editable.${canEdit ? " To make changes," : ""}`}
       action={
         canEdit
           ? controlState === "acquired"
