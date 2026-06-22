@@ -13,7 +13,7 @@ import { errors } from "@synnaxlabs/x";
 import { type Language, registerLanguage } from "@/code/language";
 
 const WORKER_LOADERS: Partial<Record<string, () => Worker>> = {
-  TextEditorWorker: () =>
+  editorWorkerService: () =>
     new Worker(
       new URL(
         "@codingame/monaco-vscode-editor-api/esm/vs/editor/editor.worker.js",
