@@ -13,7 +13,7 @@ import {
   type project,
   schematic,
 } from "@synnaxlabs/client";
-import { array, compare, type optional, type record, uuid, xy } from "@synnaxlabs/x";
+import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
@@ -22,7 +22,7 @@ import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
-import { useKey } from "@/schematic/Suspended";
+import { Scope } from "@/schematic/scope";
 import { type Symbol } from "@/schematic/symbol";
 import { Theming } from "@/theming";
 
@@ -97,23 +97,14 @@ const requireSchematic = (
   return schem;
 };
 
-const withKey =
-  <Args extends { key: string }, Selected>(
-    useSelect: Flux.UseSelect<Args, Selected>,
-  ): Flux.UseSelect<optional.Optional<Args, "key">, Selected> =>
-  (args?: optional.Optional<Args, "key">) => {
-    const key = useKey(args?.key);
-    return useSelect({ ...args, key } as Args);
-  };
-
-export const useSelectAllNodes = withKey(
+export const useSelectAllNodes = Scope.scoped(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Node[]>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).nodes,
   }),
 );
 
-export const useSelectAllEdges = withKey(
+export const useSelectAllEdges = Scope.scoped(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Edge[]>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).edges,
@@ -125,7 +116,7 @@ export interface SelectConfigArgs {
   elKey: string;
 }
 
-export const useSelectElementConfig = withKey(
+export const useSelectElementConfig = Scope.scoped(
   Flux.createSelector<FluxSubStore, SelectConfigArgs, ElementConfig | undefined>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key, elKey }) =>
@@ -138,7 +129,7 @@ export interface SelectConfigsArgs {
   keys: string[];
 }
 
-export const useSelectConfigs = withKey(
+export const useSelectConfigs = Scope.scoped(
   Flux.createSelector<FluxSubStore, SelectConfigsArgs, Map<string, ElementConfig>>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key, keys }) => {
@@ -160,7 +151,7 @@ export interface SelectNodesArgs {
   keys: string[];
 }
 
-export const useSelectNodes = withKey(
+export const useSelectNodes = Scope.scoped(
   Flux.createSelector<FluxSubStore, SelectNodesArgs, schematic.Node[]>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key, keys }) => {
@@ -177,14 +168,14 @@ export interface SelectFieldArgs {
   key: schematic.Key;
 }
 
-export const useSelectSnapshot = withKey(
+export const useSelectSnapshot = Scope.scoped(
   Flux.createSelector<FluxSubStore, SelectFieldArgs, boolean>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).snapshot,
   }),
 );
 
-export const useSelectName = withKey(
+export const useSelectName = Scope.scoped(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).name,
@@ -351,10 +342,7 @@ export const {
     client.schematics.dispatch(key, dispatchKey, actions),
 });
 
-export const useSingleDispatch = () => {
-  const key = useKey();
-  return useSingleDispatchBase(key);
-};
+export const useSingleDispatch = () => useSingleDispatchBase(Scope.use());
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}
 
