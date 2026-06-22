@@ -33,8 +33,10 @@ import {
   type ClipboardEvent as ReactClipboardEvent,
   type ComponentPropsWithRef,
   type FC,
+  Fragment,
   memo,
   type MouseEvent as ReactMouseEvent,
+  type PropsWithChildren,
   type ReactElement,
   useCallback,
   useEffect,
@@ -81,9 +83,14 @@ export interface NodeProps {
 }
 
 export interface RendererConfig {
+  /** Renders each node by key. */
   node: RenderProp<NodeProps, ReactElement>;
+  /** Renders each edge; falls back to React Flow's default edge when omitted. */
   edge?: RenderProp<diagram.EdgeProps, ReactElement>;
+  /** Renders the line shown while dragging a new connection. */
   connectionLine?: RenderProp<diagram.ConnectionLineProps, ReactElement>;
+  /** Wraps the diagram inside the React Flow store context, above all renderers. */
+  Provider?: FC<PropsWithChildren>;
 }
 
 const isValidConnection: IsValidConnection = (): boolean => true;
@@ -176,6 +183,7 @@ export const create = ({
   node: nodeRenderer,
   edge: edgeRenderer,
   connectionLine: connectionLineRenderer,
+  Provider = Fragment,
 }: RendererConfig): FC<DiagramProps> => {
   const NodeWrapper = memo(
     ({
@@ -574,7 +582,9 @@ export const create = ({
 
   const Diagram: FC<DiagramProps> = (props) => (
     <ReactFlowProvider>
-      <Base {...props} />
+      <Provider>
+        <Base {...props} />
+      </Provider>
     </ReactFlowProvider>
   );
 
