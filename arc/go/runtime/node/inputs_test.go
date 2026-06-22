@@ -77,4 +77,80 @@ var _ = Describe("ResolvedInputs", func() {
 		Expect(ri.HasEdges()).To(BeFalse())
 		Expect(ri.ValueMap(s.Node("tgt"))["p"]).To(Equal(int64(1)))
 	})
+
+	It("does not treat a channel-typed input as edge-fed", func() {
+		prog := ir.IR{Nodes: ir.Nodes{
+			{Key: "tgt", Inputs: types.Params{
+				{Name: "ch", Type: types.Chan(types.I64())},
+				{Name: "static_p", Type: types.I64(), Value: int64(5)},
+			}},
+		}}
+		s := node.New(prog)
+		ri := MustSucceed(node.ResolveInputs(s.Node("tgt"), prog.Nodes.Get("tgt")))
+		Expect(ri.HasEdges()).To(BeFalse())
+	})
+
+	It("returns ErrInputNotFound when an edge-fed param is absent from state", func() {
+		prog := ir.IR{Nodes: ir.Nodes{
+			{Key: "tgt", Inputs: types.Params{{Name: "x", Type: types.I64(), Value: int64(1)}}},
+		}}
+		s := node.New(prog)
+		// A node carrying an edge-fed input the state was not built with.
+		mismatched := ir.Node{Key: "tgt", Inputs: types.Params{{Name: "phantom", Type: types.I64()}}}
+		Expect(node.ResolveInputs(s.Node("tgt"), mismatched)).
+			Error().To(MatchError(node.ErrInputNotFound))
+	})
+
+	Describe("ValidationMap", func() {
+		It("substitutes a typed zero for an edge-fed input and keeps static values", func() {
+			prog := ir.IR{
+				Nodes: ir.Nodes{
+					{Key: "src", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}},
+					{Key: "tgt", Inputs: types.Params{
+						{Name: "static_p", Type: types.String(), Value: "kept"},
+						{Name: "edge_p", Type: types.I64()},
+					}},
+				},
+				Edges: ir.Edges{{
+					Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "tgt", Param: "edge_p"},
+				}},
+			}
+			s := node.New(prog)
+			ri := MustSucceed(node.ResolveInputs(s.Node("tgt"), prog.Nodes.Get("tgt")))
+			m := ri.ValidationMap()
+			Expect(m["static_p"]).To(Equal("kept"))
+			Expect(m["edge_p"]).To(Equal(int64(0)))
+		})
+
+		DescribeTable("yields the Go-typed zero matching the edge-fed param type",
+			func(t types.Type, want any) {
+				prog := ir.IR{
+					Nodes: ir.Nodes{
+						{Key: "src", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: t}}},
+						{Key: "tgt", Inputs: types.Params{{Name: "p", Type: t}}},
+					},
+					Edges: ir.Edges{{
+						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "tgt", Param: "p"},
+					}},
+				}
+				s := node.New(prog)
+				ri := MustSucceed(node.ResolveInputs(s.Node("tgt"), prog.Nodes.Get("tgt")))
+				Expect(ri.ValidationMap()["p"]).To(Equal(want))
+			},
+			Entry("string", types.String(), ""),
+			Entry("f32", types.F32(), float32(0)),
+			Entry("f64", types.F64(), float64(0)),
+			Entry("u8", types.U8(), uint8(0)),
+			Entry("u16", types.U16(), uint16(0)),
+			Entry("u32", types.U32(), uint32(0)),
+			Entry("u64", types.U64(), uint64(0)),
+			Entry("i8", types.I8(), int8(0)),
+			Entry("i16", types.I16(), int16(0)),
+			Entry("i32", types.I32(), int32(0)),
+			Entry("i64", types.I64(), int64(0)),
+			Entry("timestamp falls through to i64", types.TimeStamp(), int64(0)),
+		)
+	})
 })

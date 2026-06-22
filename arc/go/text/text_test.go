@@ -444,6 +444,52 @@ var _ = Describe("Text", func() {
 				Expect(synth.Channels.Read).To(HaveKeyWithValue(uint32(10042), "sensor"))
 			})
 
+			It("Should compile a positional non-literal brace input into a synthetic node and edge", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
+				}
+				source := `
+				func processor{threshold i64} () i64 {
+				    return threshold
+				}
+
+				func print{} () {}
+
+				sensor -> processor{(1 + 2)} -> print{}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				proc := findNodeByKey(inter.Nodes, "processor_0")
+				Expect(proc.Inputs[0].Name).To(Equal("threshold"))
+				Expect(proc.Inputs[0].Value).To(BeNil())
+
+				synth := findNodeByType(inter.Nodes, "expr$expr_0")
+				Expect(synth.Key).ToNot(BeEmpty())
+				dataEdges := lo.Filter(inter.Edges, func(e ir.Edge, _ int) bool {
+					return e.Target == ir.Handle{Node: "processor_0", Param: "threshold"}
+				})
+				Expect(dataEdges).To(HaveLen(1))
+				Expect(dataEdges[0].Source).To(Equal(ir.Handle{Node: synth.Key, Param: ir.DefaultOutputParam}))
+			})
+
+			It("Should reject an expression brace input in a non-flow single invocation", func(ctx SpecContext) {
+				source := `
+				func processor{threshold i64} () i64 {
+				    return threshold
+				}
+
+				sequence main {
+				    stage init {
+				        processor{threshold = (1 + 2)}
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring("expression inputs are not supported in this context"))
+			})
+
 			It("Should handle negated integer config value", func(ctx SpecContext) {
 				source := `
 				func processor{
