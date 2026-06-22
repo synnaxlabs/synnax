@@ -28,7 +28,7 @@ const setLayoutReqZ = z.object({
 });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ projects: array.nullishToEmpty(projectZ) });
+const retrieveResZ = z.object({ projects: projectZ.array().default(() => []) });
 const createResZ = z.object({ projects: projectZ.array() });
 const emptyResZ = z.object({});
 

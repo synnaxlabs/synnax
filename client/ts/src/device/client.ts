@@ -66,7 +66,12 @@ const retrieveResZ = <
   Model extends z.ZodType<string> = z.ZodString,
 >(
   schemas?: DeviceSchemas<Properties, Make, Model>,
-) => z.object({ devices: array.nullishToEmpty(deviceZ(schemas)) });
+) =>
+  z.object({
+    devices: deviceZ(schemas)
+      .array()
+      .default(() => []),
+  });
 
 const singleRetrieveArgsZ = z
   .object({

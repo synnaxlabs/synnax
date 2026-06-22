@@ -52,7 +52,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveResponseZ = z.object({ labels: array.nullishToEmpty(labelZ) });
+const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) });
 
 export class Client {
   readonly type: string = "label";

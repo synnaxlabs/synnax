@@ -116,12 +116,12 @@ type Scope struct {
 	Activation *Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
 	// Strata contains stratified execution layers for parallel scopes. Empty for sequential
 	// scopes. Stratum N depends only on strata 0 to N-1.
-	Strata []Members `json:"strata" msgpack:"strata"`
+	Strata []Members `json:"strata,omitzero" msgpack:"strata,omitzero"`
 	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
-	Steps Members `json:"steps" msgpack:"steps"`
+	Steps Members `json:"steps,omitzero" msgpack:"steps,omitzero"`
 	// Transitions contains state-transition rules for sequential scopes. Empty for parallel
 	// scopes.
-	Transitions []Transition `json:"transitions" msgpack:"transitions"`
+	Transitions []Transition `json:"transitions,omitzero" msgpack:"transitions,omitzero"`
 }
 
 // Body is raw function body source code with optional parsed AST.
@@ -139,9 +139,9 @@ type Function struct {
 	// Body is raw source code for user-defined functions.
 	Body Body `json:"body" msgpack:"body"`
 	// Inputs contains input parameter definitions.
-	Inputs types.Params `json:"inputs" msgpack:"inputs"`
+	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 	// Outputs contains output parameter definitions.
-	Outputs types.Params `json:"outputs" msgpack:"outputs"`
+	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write declarations.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
@@ -153,9 +153,9 @@ type Node struct {
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
 	// Inputs contains input parameter type signatures.
-	Inputs types.Params `json:"inputs" msgpack:"inputs"`
+	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 	// Outputs contains output parameter type signatures.
-	Outputs types.Params `json:"outputs" msgpack:"outputs"`
+	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write mappings.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
@@ -165,18 +165,18 @@ type Authorities struct {
 	// Default is the default authority for all write channels not explicitly listed.
 	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
 	// Channels maps channel keys to their specific authority values.
-	Channels map[uint32]uint8 `json:"channels" msgpack:"channels"`
+	Channels map[uint32]uint8 `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
 	// Functions contains function template definitions.
-	Functions Functions `json:"functions" msgpack:"functions"`
+	Functions Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
 	// Nodes contains node instantiations.
-	Nodes Nodes `json:"nodes" msgpack:"nodes"`
+	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Edges contains dataflow connections.
-	Edges Edges `json:"edges" msgpack:"edges"`
+	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Authorities contains the static authority declarations for this program.
 	Authorities Authorities `json:"authorities" msgpack:"authorities"`
 	// Root is the top-level execution context. The root is always a parallel, always-live

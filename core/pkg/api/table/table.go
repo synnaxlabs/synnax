@@ -97,7 +97,7 @@ type (
 		Keys []table.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveResponse struct {
-		Tables []table.Table `json:"tables" msgpack:"tables"`
+		Tables []table.Table `json:"tables,omitzero" msgpack:"tables,omitzero"`
 	}
 )
 

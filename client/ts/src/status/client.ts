@@ -52,7 +52,12 @@ export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
-) => z.object({ statuses: array.nullishToEmpty(statusZ({ details: detailsSchema })) });
+) =>
+  z.object({
+    statuses: statusZ({ details: detailsSchema })
+      .array()
+      .default(() => []),
+  });
 
 export interface SetOptions {
   parent?: ontology.ID;

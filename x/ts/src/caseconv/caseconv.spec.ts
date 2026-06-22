@@ -557,14 +557,13 @@ describe("caseconv", () => {
         );
       });
 
-      it("should handle array.nullishToEmpty with preserveCase on element field", async () => {
-        const { nullishToEmpty } = await import("@/array/nullable");
+      it("should handle a defaulted array with preserveCase on element field", () => {
         const elementZ = z.object({
           name: z.string(),
           data: caseconv.preserveCase(z.record(z.string(), z.unknown())),
         });
         const schema = z.object({
-          items: nullishToEmpty(elementZ),
+          items: elementZ.array().default(() => []),
         });
         const input = {
           items: [
@@ -760,14 +759,13 @@ describe("caseconv", () => {
     });
 
     describe("schema lookup with camelToSnake (regression)", () => {
-      it("should find schema for preserveCase field when input has camelCase keys", async () => {
-        const { nullishToEmpty } = await import("@/array/nullable");
+      it("should find schema for preserveCase field when input has camelCase keys", () => {
         const elementZ = z.object({
           name: z.string(),
           data: caseconv.preserveCase(z.record(z.string(), z.unknown())),
         });
         const schema = z.object({
-          items: nullishToEmpty(elementZ),
+          items: elementZ.array().default(() => []),
         });
         const input = {
           items: [
@@ -788,7 +786,7 @@ describe("caseconv", () => {
         expect(result.items[0].data.camel_case_key).toBeUndefined();
       });
 
-      it("should preserve case through create/encode cycle with nullishToEmpty array", async () => {
+      it("should preserve case through create/encode cycle with a defaulted array", () => {
         const linePlotZ = z.object({
           key: z.string().optional(),
           name: z.string(),
@@ -816,15 +814,14 @@ describe("caseconv", () => {
         expect(encoded.line_plots[0].data.my_custom_key).toBeUndefined();
       });
 
-      it("should preserve case through retrieve/decode cycle with nullishToEmpty array", async () => {
-        const { nullishToEmpty } = await import("@/array/nullable");
+      it("should preserve case through retrieve/decode cycle with a defaulted array", () => {
         const linePlotZ = z.object({
           key: z.string(),
           name: z.string(),
           data: caseconv.preserveCase(z.record(z.string(), z.unknown())),
         });
         const retrieveResZ = z.object({
-          line_plots: nullishToEmpty(linePlotZ),
+          line_plots: linePlotZ.array().default(() => []),
         });
         const response = {
           line_plots: [

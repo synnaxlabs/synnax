@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { keyZ, type New, type Role, roleZ } from "@/access/role/types.gen";
@@ -34,7 +33,7 @@ export const createArgsZ = z.union([singleCreateArgsZ, multipleCreateArgsZ]);
 export type CreateArgs = z.input<typeof createArgsZ>;
 
 const createResZ = z.object({ roles: roleZ.array() });
-const retrieveResZ = z.object({ roles: array.nullishToEmpty(roleZ) });
+const retrieveResZ = z.object({ roles: roleZ.array().default(() => []) });
 
 export type RetrieveSingleParams = z.input<typeof keyRetrieveRequestZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;

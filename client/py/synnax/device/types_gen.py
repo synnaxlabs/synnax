@@ -67,7 +67,7 @@ class Device(BaseModel):
     model: str
     name: str
     configured: bool = False
-    properties: dict[str, Any]
+    properties: dict[str, Any] = Field(default_factory=dict)
     status: Status | None = None
     parent: ontology.ID | None = None
 

@@ -11,15 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated, TypeAlias
+from typing import TypeAlias
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, Field
 
 from synnax import ontology
 from synnax.access import action
 from synnax.ontology.payload import ID
-from x import lists
 
 Key: TypeAlias = UUID
 
@@ -39,12 +38,8 @@ class Policy(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     name: str
-    objects: Annotated[list[ontology.ID], BeforeValidator(lists.none_to_empty)] = Field(
-        default_factory=list
-    )
-    actions: Annotated[list[action.Action], BeforeValidator(lists.none_to_empty)] = (
-        Field(default_factory=list)
-    )
+    objects: list[ontology.ID] = Field(default_factory=list)
+    actions: list[action.Action] = Field(default_factory=list)
     internal: bool = False
 
     def __hash__(self) -> int:

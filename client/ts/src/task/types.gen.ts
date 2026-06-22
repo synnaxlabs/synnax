@@ -56,7 +56,7 @@ export const commandZ = z.object({
   /** key is a unique identifier for this command instance. */
   key: z.string(),
   /** args contains optional arguments for the command. */
-  args: caseconv.preserveCase(record.nullishToEmpty()),
+  args: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
@@ -89,7 +89,7 @@ export const payloadZ = <
     key: keyZ.default("0"),
     name: z.string(),
     type: type ?? z.string(),
-    config: config ?? record.nullishToEmpty(),
+    config: config ?? record.unknownZ().default(() => ({})),
     internal: z.boolean().default(false),
     snapshot: z.boolean().default(false),
     status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),

@@ -39,7 +39,7 @@ const retrieveReqZ = z.object({
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
-const retrieveResZ = z.object({ racks: array.nullishToEmpty(payloadZ) });
+const retrieveResZ = z.object({ racks: payloadZ.array().default(() => []) });
 export const rackZ = payloadZ;
 
 const singleRetrieveArgsZ = z.union([

@@ -30,7 +30,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ tables: array.nullishToEmpty(tableZ) });
+const retrieveResZ = z.object({ tables: tableZ.array().default(() => []) });
 
 const createReqZ = z.object({ project: project.keyZ, tables: tableZ.array() });
 const createResZ = z.object({ tables: tableZ.array() });

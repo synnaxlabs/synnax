@@ -234,7 +234,11 @@ interface RetrieveSchemas<S extends Schemas = Schemas> {
 }
 
 const retrieveResZ = <S extends Schemas = Schemas>(schemas?: S) =>
-  z.object({ tasks: array.nullishToEmpty(payloadZ(schemas)) });
+  z.object({
+    tasks: payloadZ(schemas)
+      .array()
+      .default(() => []),
+  });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 

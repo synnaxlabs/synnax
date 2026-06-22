@@ -2186,6 +2186,12 @@ describe("Size", () => {
       expect(size.valueOf()).toBe(2048);
     });
 
+    it("should parse a string", () => {
+      const size = Size.z.parse("1024");
+      expect(size).toBeInstanceOf(Size);
+      expect(size.valueOf()).toBe(1024);
+    });
+
     const testCases = [
       { input: 0, expected: 0 },
       { input: 1, expected: 1 },

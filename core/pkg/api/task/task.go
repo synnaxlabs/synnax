@@ -89,7 +89,7 @@ type (
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	RetrieveResponse struct {
-		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+		Tasks []task.Task `json:"tasks,omitzero" msgpack:"tasks,omitzero"`
 	}
 )
 
