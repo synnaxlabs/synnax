@@ -161,7 +161,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
 			createdChannels[i] = ch
 		}
-		writer := MustSucceed(MustSucceed(writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: limitSvc})).Open(ctx, framer.WriterConfig{
+		MustOpen(MustSucceed(writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: limitSvc})).Open(ctx, framer.WriterConfig{
 			Keys: []channel.Key{createdChannels[0].Key()},
 		}))
 		Expect(limitSvc.Delete(ctx, createdChannels[0].Key(), false)).
@@ -174,6 +174,5 @@ var _ = Describe("Limit", Ordered, func() {
 		}
 		Expect(limitSvc.Create(ctx, &newCh)).
 			To(MatchError(ContainSubstring("channel limit exceeded")))
-		Expect(writer.Close()).To(Succeed())
 	})
 })

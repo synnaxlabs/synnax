@@ -89,7 +89,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -106,7 +106,6 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(res.Frame.Frame).To(telem.MatchWrittenFrame(writtenFr.Frame))
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 		})
 	})
 
@@ -146,7 +145,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			}))
@@ -173,7 +172,6 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
 		})
 
@@ -185,7 +183,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			}))
@@ -214,7 +212,6 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 			Expect(res.Frame.Get(calculation.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](0, 0, 0, 0, 0))
 		})
 
@@ -252,12 +249,12 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(channelSvc.Create(ctx, calculation)).To(Succeed())
 
 			keysA := []channel.Key{idxA.Key(), dataA.Key()}
-			wA := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			wA := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keysA,
 			}))
 			keysB := []channel.Key{idxB.Key(), dataB.Key()}
-			wB := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			wB := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keysB,
 			}))
@@ -298,8 +295,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(wA.Close()).To(Succeed())
-			Expect(wB.Close()).To(Succeed())
 		})
 	})
 
@@ -312,7 +307,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -333,7 +328,6 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(res.Frame.Get(ch.Key()).Series[0]).To(telem.MatchSeriesData(writtenFr.Get(ch.Key()).Series[0].Downsample(2)))
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 		})
 
 		It("Should handle invalid downsampling factors", func(ctx SpecContext) {
@@ -383,7 +377,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(channelSvc.Create(ctx, calculation)).To(Succeed())
 
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			}))
@@ -418,7 +412,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 		})
 	})
 	Describe("Throttling", func() {
@@ -430,7 +423,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -458,7 +451,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 		})
 
 		It("Should not throttle when rate is 0", func(ctx SpecContext) {
@@ -469,7 +461,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -496,7 +488,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 		})
 
 		It("Should combine throttling and downsampling", func(ctx SpecContext) {
@@ -507,7 +498,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -535,7 +526,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 		})
 	})
 
@@ -548,7 +538,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -576,7 +566,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 		})
 
 		It("Should not throttle when rate is 0", func(ctx SpecContext) {
@@ -587,7 +576,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -614,7 +603,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 		})
 
 		It("Should combine throttling and downsampling", func(ctx SpecContext) {
@@ -625,7 +613,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
+			w := MustOpen(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -653,7 +641,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
-			Expect(w.Close()).To(Succeed())
 		})
 	})
 })

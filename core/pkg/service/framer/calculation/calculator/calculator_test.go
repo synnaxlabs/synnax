@@ -67,7 +67,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			ChannelService: channelSvc,
 			Channel:        *calc,
 		}))
-		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
+		return MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
 	}
 
 	Describe("Alignment", func() {
@@ -92,7 +92,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](20, 40, 60))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(100, 50)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Multiple alignments accumulation", func(ctx SpecContext) {
@@ -128,7 +127,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](4, 6))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(30, 8)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Alignment persistence across calls", func(ctx SpecContext) {
@@ -160,7 +158,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			od = of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](7))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(25, 7)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Mixed alignment sources", func(ctx SpecContext) {
@@ -202,7 +199,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](6))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(15, 4)))
-			Expect(c.Close()).To(Succeed())
 		})
 	})
 
@@ -237,7 +233,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](10.0, 19.0, 28.0))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Three virtual channels", func(ctx SpecContext) {
@@ -276,7 +271,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int32](9, 17))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Single persisted channel", func(ctx SpecContext) {
@@ -311,7 +305,6 @@ var _ = Describe("Calculator", Ordered, func() {
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 5)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Two persisted channels shared index", func(ctx SpecContext) {
@@ -355,7 +348,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			))
 			// Alignment is summed: (5,2) + (5,2) = (10,4)
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 4)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Two persisted channels unique indexes", func(ctx SpecContext) {
@@ -404,7 +396,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](6.0, 20.0))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 4)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Mixed virtual and persisted", func(ctx SpecContext) {
@@ -445,7 +436,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](70, 150))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(20, 6)))
-			Expect(c.Close()).To(Succeed())
 		})
 	})
 
@@ -480,7 +470,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](5.0, 5.0, 6.0))
-			Expect(c.Close()).To(Succeed())
 		})
 	})
 
@@ -517,7 +506,6 @@ var _ = Describe("Calculator", Ordered, func() {
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 2)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Data after index", func(ctx SpecContext) {
@@ -552,7 +540,6 @@ var _ = Describe("Calculator", Ordered, func() {
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(3, 1)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Sequential channel arrivals", func(ctx SpecContext) {
@@ -601,7 +588,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			))
 			// Alignment is summed: (5,1) + (5,1) = (10,2)
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 2)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Different indexes from different writers", func(ctx SpecContext) {
@@ -659,8 +645,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr2, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV(11.0, 22.0, 33.0))
-
-			Expect(c.Close()).To(Succeed())
 		})
 	})
 
@@ -766,8 +750,6 @@ var _ = Describe("Calculator", Ordered, func() {
 		result = telem.UnmarshalSeries[float64](o.Get(calc.Key()).Series[0])
 		Expect(result).To(HaveLen(1))
 		Expect(result[0]).To(BeNumerically("~", 10.0, 0.01))
-
-		Expect(c.Close()).To(Succeed())
 	})
 
 	It("Should correctly chain multiple operations", func(ctx SpecContext) {
@@ -813,8 +795,6 @@ var _ = Describe("Calculator", Ordered, func() {
 		// are not correctly chained, the second avg never receives data
 		// and the calculator produces no output.
 		Expect(o.Get(calc.Key()).Series).ToNot(BeEmpty())
-
-		Expect(c.Close()).To(Succeed())
 	})
 
 	Describe("Group", func() {
@@ -950,7 +930,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				ChannelService: channelSvc,
 				Channel:        *calc,
 			}))
-			return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
+			return MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
 		}
 
 		Specify("Float literal * f32 channel should infer f32 and produce correct results", func(ctx SpecContext) {
@@ -975,7 +955,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(of.Get(calc.Key()).Series[0]).To(
 				telem.MatchSeriesDataV[float32](20.0, 40.0, 60.0),
 			)
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Integer literal - f32 channel should infer f32 and produce correct results", func(ctx SpecContext) {
@@ -1000,7 +979,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(of.Get(calc.Key()).Series[0]).To(
 				telem.MatchSeriesDataV[float32](990.0, 980.0),
 			)
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Float literal / f32 channel should infer f32 and produce correct results", func(ctx SpecContext) {
@@ -1025,7 +1003,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(of.Get(calc.Key()).Series[0]).To(
 				telem.MatchSeriesDataV[float32](100.0, 50.0),
 			)
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Stale f64 output type from old inference with f32 channel and leading literal", func(ctx SpecContext) {
@@ -1046,7 +1023,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				ChannelService: channelSvc,
 				Channel:        calc,
 			}))
-			c := MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
+			c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
 			fr := frame.NewUnary(
 				base[0].Key(),
 				telem.NewSeriesV[float32](10.0, 20.0, 30.0),
@@ -1056,7 +1033,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(of.Get(calc.Key()).Series[0]).To(
 				telem.MatchSeriesDataV[float32](20.0, 40.0, 60.0),
 			)
-			Expect(c.Close()).To(Succeed())
 		})
 	})
 })

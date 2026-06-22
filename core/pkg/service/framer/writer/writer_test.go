@@ -57,7 +57,7 @@ var _ = Describe("Writer", Ordered, func() {
 	Describe("Open", func() {
 		It("Should resolve channels by key and write a frame", func(ctx SpecContext) {
 			idxCh, dataCh := createIndexed(ctx)
-			w := MustSucceed(wr.Open(ctx, writer.Config{
+			w := MustOpen(wr.Open(ctx, writer.Config{
 				Start: telem.SecondTS,
 				Keys:  []channel.Key{idxCh.Key(), dataCh.Key()},
 			}))
@@ -70,7 +70,6 @@ var _ = Describe("Writer", Ordered, func() {
 			)
 			MustSucceed(w.Write(fr))
 			MustSucceed(w.Commit())
-			Expect(w.Close()).To(Succeed())
 		})
 
 		It("Should reject a write whose series data type does not match the resolved channel", func(ctx SpecContext) {

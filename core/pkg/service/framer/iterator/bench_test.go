@@ -28,7 +28,7 @@ type benchIterEnv struct {
 	ctx         context.Context
 	dist        mock.Node
 	channelSvc  *channel.Service
-	wr          *writer.Service
+	writerSvc   *writer.Service
 	iteratorSvc *iterator.Service
 }
 
@@ -56,7 +56,9 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		b.Fatalf("failed to open iterator service: %v", err)
 	}
 
-	wr, err := writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})
+	writerSvc, err := writer.NewService(writer.ServiceConfig{
+		Framer: dist.Framer, Channel: channelSvc,
+	})
 	if err != nil {
 		b.Fatalf("failed to open writer service: %v", err)
 	}
@@ -65,7 +67,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		ctx:         b.Context(),
 		dist:        dist,
 		channelSvc:  channelSvc,
-		wr:          wr,
+		writerSvc:   writerSvc,
 		iteratorSvc: iteratorSvc,
 	}
 }
@@ -114,7 +116,7 @@ func (e *benchIterEnv) writeData(
 	for i, ch := range dataChannels {
 		keys[i+1] = ch.Key()
 	}
-	w, err := e.wr.Open(e.ctx, framer.WriterConfig{
+	w, err := e.writerSvc.Open(e.ctx, framer.WriterConfig{
 		Start:            telem.SecondTS,
 		Keys:             keys,
 		EnableAutoCommit: new(true),
@@ -353,7 +355,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
 			for d := range numDomains {
 				startTS := telem.TimeStamp(d*1000+1) * telem.SecondTS
-				w, err := env.wr.Open(env.ctx, framer.WriterConfig{
+				w, err := env.writerSvc.Open(env.ctx, framer.WriterConfig{
 					Start:            startTS,
 					Keys:             keys,
 					EnableAutoCommit: new(true),
