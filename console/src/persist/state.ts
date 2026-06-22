@@ -32,8 +32,6 @@ interface StateVersionValue {
   version: number;
 }
 
-export type RequiredState = object;
-
 export interface KVOpener {
   (base: string): SugaredKV;
 }
@@ -63,13 +61,13 @@ const openAndMigrateKV = async (
   return v2Store;
 };
 
-type ExcludeFn<S extends RequiredState> = (state: S) => S;
+type ExcludeFn<S extends object> = (state: S) => S;
 
-const isExcludeFn = <S extends RequiredState>(
+const isExcludeFn = <S extends object>(
   exclude: deep.Key<S> | ExcludeFn<S>,
 ): exclude is ExcludeFn<S> => typeof exclude === "function";
 
-export interface Config<S extends RequiredState> {
+export interface Config<S extends object> {
   migrator?: (state: S) => S;
   initial: S;
   exclude?: Array<deep.Key<S> | ExcludeFn<S>>;
@@ -101,7 +99,7 @@ export const hardClearAndReload = () => {
     });
 };
 
-interface Engine<S extends RequiredState> {
+interface Engine<S extends object> {
   /** Revert reverts to the previous state. */
   revert(): Promise<void>;
   /** Clear clears the entire store. */
@@ -120,9 +118,7 @@ interface Engine<S extends RequiredState> {
  * @param config - The configuration for the engine.
  * @returns A new engine instance.
  */
-export const open = async <S extends RequiredState>(
-  config: Config<S>,
-): Promise<Engine<S>> => {
+export const open = async <S extends object>(config: Config<S>): Promise<Engine<S>> => {
   const { exclude = [], initial, migrator, openKV } = config;
   // We need to make sure we copy the initial state because we're going to mutate it,
   // and we don't want to accidentally mutate the initial state, or run into errors
@@ -195,7 +191,7 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
  * @param debounceInterval - The interval to debounce persistence operations by. Defaults
  * to 250ms.
  */
-export const middleware = <S extends RequiredState>(
+export const middleware = <S extends object>(
   engine: Engine<S>,
   debounceInterval: CrudeTimeSpan = PERSIST_DEBOUNCE,
 ): Middleware<record.Unknown> => {
