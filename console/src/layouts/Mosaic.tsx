@@ -400,7 +400,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
 const NavTop = (): ReactElement | null => {
   const os = OS.use();
   const isWindowsOS = os === "Windows";
-  const { onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
+  const { onSelect } = Nav.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
   const activeName = Layout.useSelectActiveMosaicTabName();
   const activeProjectName = Project.useSelectActiveName();
   const button = (
@@ -420,7 +420,7 @@ const NavTop = (): ReactElement | null => {
     </Button.Button>
   );
   return (
-    <Layout.Nav.Bar
+    <Nav.Bar
       location="top"
       size="6rem"
       data-tauri-drag-region
@@ -446,7 +446,7 @@ const NavTop = (): ReactElement | null => {
       <PNav.Bar.End data-tauri-drag-region align="center" justify="end">
         {isWindowsOS ? <Controls visibleIfOS="Windows" forceOS={os} /> : button}
       </PNav.Bar.End>
-    </Layout.Nav.Bar>
+    </Nav.Bar>
   );
 };
 
@@ -456,7 +456,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
     const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
       dispatch(
-        Layout.setNavDrawer({
+        Nav.setNavDrawer({
           windowKey: layoutKey,
           location: "bottom",
           menuItems: ["visualization"],
@@ -476,7 +476,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
           style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
         >
           <Internal windowKey={windowKey} mosaic={mosaic} />
-          <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
+          <Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
         </Flex.Box>
       </>
     );

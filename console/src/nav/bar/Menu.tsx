@@ -9,44 +9,41 @@
 
 import "@/layouts/nav/Nav.css";
 
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { CSS as PCSS, Menu as PMenu, Triggers, useSyncedRef } from "@synnaxlabs/pluto";
 import { xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
-import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
-import { selectActiveMosaicTabState } from "@/layout/selectors";
-import { setNavDrawerVisible, toggleNavHover } from "@/layout/slice";
-import { DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
-import { type RootState } from "@/store";
+import { type Item } from "@/nav/item";
 
 interface MenuItemProps {
-  item: Layout.NavMenuItem;
+  item: Item.MenuItem;
   isActive: boolean;
+  enabled: boolean;
   onStartHover: (key: string) => void;
   onStopHover: () => void;
+  onToggle: (key: string) => void;
+  onPin: (key: string) => void;
 }
 
 const MenuItem = ({
   item,
   isActive,
+  enabled,
   onStartHover,
   onStopHover,
+  onToggle,
+  onPin,
 }: MenuItemProps): ReactElement | null => {
   const positionRef = useRef<xy.XY>({ ...xy.ZERO });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const dispatch = useDispatch();
-  const store = useStore<RootState>();
-  const windowKey = useSelectWindowKey();
 
   const isVisible = item.useVisible?.() ?? true;
   const isVisibleRef = useSyncedRef(isVisible);
+  const enabledRef = useSyncedRef(enabled);
 
   const { key, icon, trigger } = item;
 
-  // Build triggers regardless of visibility: single press + double press.
   const triggers = useMemo(() => {
     if (!trigger?.length) return [];
     return [trigger, [trigger[0], trigger[0]]];
@@ -59,20 +56,16 @@ const MenuItem = ({
       (e: Triggers.UseEvent) => {
         if (
           !isVisibleRef.current ||
+          !enabledRef.current ||
           e.stage !== "start" ||
-          windowKey == null ||
           (e.prevTriggers.length > 0 && e.prevTriggers[0].length > 1)
         )
           return;
-        const state = store.getState();
-        const { blurred } = selectActiveMosaicTabState(state, windowKey);
-        if (blurred) return;
-
         const isDouble = e.triggers.some((t) => t.length === 2);
-        if (isDouble) dispatch(setNavDrawerVisible({ windowKey, key, value: true }));
-        else dispatch(toggleNavHover({ windowKey, key }));
+        if (isDouble) onPin(key);
+        else onToggle(key);
       },
-      [dispatch, windowKey, key, store, isVisibleRef],
+      [key, onToggle, onPin, isVisibleRef, enabledRef],
     ),
   });
 
@@ -120,24 +113,39 @@ const MenuItem = ({
 };
 
 export interface MenuProps extends Omit<PMenu.MenuProps, "children" | "onChange"> {
-  location: Layout.NavDrawerLocation;
+  items: Item.Item[];
+  activeKey?: string;
+  enabled?: boolean;
+  onSelect: (key: string) => void;
+  onStartHover: (key: string) => void;
+  onStopHover: () => void;
+  onToggle: (key: string) => void;
+  onPin: (key: string) => void;
 }
 
-export const Menu = ({ location, ...rest }: MenuProps): ReactElement => {
-  const { onSelect, menuItems, activeItem, onStartHover, onStopHover } =
-    Layout.useNavDrawer(location, DRAWER_ITEMS);
-
-  return (
-    <PMenu.Menu {...rest} onChange={onSelect}>
-      {menuItems.map((item) => (
-        <MenuItem
-          key={item.key}
-          item={item}
-          isActive={activeItem?.key === item.key}
-          onStartHover={onStartHover}
-          onStopHover={onStopHover}
-        />
-      ))}
-    </PMenu.Menu>
-  );
-};
+export const Menu = ({
+  items,
+  activeKey,
+  enabled = true,
+  onSelect,
+  onStartHover,
+  onStopHover,
+  onToggle,
+  onPin,
+  ...rest
+}: MenuProps): ReactElement => (
+  <PMenu.Menu {...rest} onChange={onSelect}>
+    {items.map((item) => (
+      <MenuItem
+        key={item.key}
+        item={item}
+        isActive={activeKey === item.key}
+        enabled={enabled}
+        onStartHover={onStartHover}
+        onStopHover={onStopHover}
+        onToggle={onToggle}
+        onPin={onPin}
+      />
+    ))}
+  </PMenu.Menu>
+);

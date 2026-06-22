@@ -10,17 +10,11 @@
 import "@/layouts/nav/Nav.css";
 
 import { Nav } from "@synnaxlabs/pluto";
-import { box, direction, xy } from "@synnaxlabs/x";
+import { box, direction, type location, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type NavDrawerLocation } from "@/layout/types";
-import { type NavDrawerItem, useNavDrawer } from "@/layout/useNavDrawer";
-
-export interface DrawerProps {
-  location: NavDrawerLocation;
-  menuItems: NavDrawerItem[];
-}
+import { type Item } from "@/nav/item";
 
 const mouseLeaveBy =
   (threshold: xy.XY, onLeave: (e: MouseEvent) => void) => (e: React.MouseEvent) => {
@@ -47,26 +41,37 @@ const SHORT_AXIS_THRESHOLD = 24;
 
 const X_THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
 
-export const Drawer = ({ location: loc, menuItems }: DrawerProps): ReactElement => {
-  const { activeItem, onResize, onSelect, hover, onStopHover, onCollapse } =
-    useNavDrawer(loc, menuItems);
-  return (
-    <Nav.Drawer
-      location={loc}
-      className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
-      activeItem={activeItem}
-      onResize={onResize}
-      onSelect={onSelect}
-      onMouseLeave={mouseLeaveBy(
-        direction.construct(loc) === "y" ? xy.swap(X_THRESHOLD) : X_THRESHOLD,
-        onStopHover,
-      )}
-      eraseEnabled={activeItem != null && !hover}
-      onCollapse={onCollapse}
-      background={0}
-      rounded={1}
-      bordered
-      borderColor={5}
-    />
-  );
-};
+interface DrawerProps {
+  location: location.Location;
+  activeItem?: Item.Item;
+  hover: boolean;
+  onResize: (size: number) => void;
+  onCollapse: () => void;
+  onStopHover: () => void;
+}
+
+export const Drawer = ({
+  location: loc,
+  activeItem,
+  hover,
+  onResize,
+  onCollapse,
+  onStopHover,
+}: DrawerProps): ReactElement => (
+  <Nav.Drawer
+    location={loc}
+    className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
+    activeItem={activeItem}
+    onResize={onResize}
+    onMouseLeave={mouseLeaveBy(
+      direction.construct(loc) === "y" ? xy.swap(X_THRESHOLD) : X_THRESHOLD,
+      onStopHover,
+    )}
+    eraseEnabled={activeItem != null && !hover}
+    onCollapse={onCollapse}
+    background={0}
+    rounded={1}
+    bordered
+    borderColor={5}
+  />
+);

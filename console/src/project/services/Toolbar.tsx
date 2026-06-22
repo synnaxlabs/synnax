@@ -58,7 +58,7 @@ const EmptyContent = () => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "project",
   icon: <Icon.Project />,
   content: <Content />,

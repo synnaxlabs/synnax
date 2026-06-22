@@ -99,7 +99,7 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (editable)
-      dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+      dispatch(Nav.setNavDrawerVisible({ key: "visualization", value: true }));
   }, [editable, dispatch]);
 
   const handleNodeClickAction = useHandleNodeClickAction(key);

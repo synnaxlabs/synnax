@@ -17,5 +17,5 @@ export const logout = (dispatch: Dispatch) => {
   dispatch(Cluster.setActive(null));
   dispatch(Project.setActive(null));
   dispatch(Layout.clearProject());
-  dispatch(Layout.hideAllNavDrawers());
+  dispatch(Nav.hideAllNavDrawers());
 };

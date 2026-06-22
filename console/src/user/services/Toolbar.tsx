@@ -52,7 +52,7 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "user",
   icon: <Icon.User />,
   content: <Content />,

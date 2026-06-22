@@ -223,7 +223,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (!state.graph.editable) return;
-    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+    dispatch(Nav.setNavDrawerVisible({ key: "visualization", value: true }));
   }, [state.graph.editable, dispatch]);
 
   const handleViewportModeChange = useCallback(

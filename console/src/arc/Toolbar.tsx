@@ -158,7 +158,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "arc",
   icon: <Icon.Arc />,
   content: <Content />,

@@ -24,6 +24,7 @@ import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
+import { Nav } from "@/nav";
 import { Persist } from "@/persist";
 import { Project } from "@/project";
 import { Range } from "@/range";
@@ -45,6 +46,7 @@ const ZERO_STATE: RootState = {
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+  [Nav.Session.SLICE_NAME]: Nav.Session.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
@@ -60,6 +62,7 @@ const reducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Log.SLICE_NAME]: Log.reducer,
+  [Nav.Session.SLICE_NAME]: Nav.Session.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Schematic.SLICE_NAME]: Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
@@ -75,6 +78,7 @@ export interface RootState {
   [Layout.SLICE_NAME]: Layout.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
+  [Nav.Session.SLICE_NAME]: Nav.Session.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
@@ -90,6 +94,7 @@ export type RootAction =
   | Layout.Action
   | LinePlot.Action
   | Log.Action
+  | Nav.Session.Action
   | Range.Action
   | Schematic.Action
   | Status.Action
@@ -162,6 +167,7 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 
 const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
+  ...Nav.Session.MIDDLEWARE,
   ...LinePlot.MIDDLEWARE,
   ...Schematic.MIDDLEWARE,
   ...Arc.MIDDLEWARE,

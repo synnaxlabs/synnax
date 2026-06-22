@@ -172,7 +172,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [dispatch, layoutKey],
   );
   const handleDoubleClick = useCallback(() => {
-    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+    dispatch(Nav.setNavDrawerVisible({ key: "visualization", value: true }));
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
   }, [dispatch, layoutKey]);
 

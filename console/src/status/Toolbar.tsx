@@ -162,7 +162,7 @@ const Actions = (): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "status",
   icon: <Icon.Status />,
   content: <Content />,

@@ -38,4 +38,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...OPC.Device.LAYOUTS,
 };
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR];
+export const NAV_DRAWER_ITEMS: Nav.DrawerItem[] = [TOOLBAR];

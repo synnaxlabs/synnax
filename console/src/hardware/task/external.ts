@@ -68,4 +68,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [SELECTOR_LAYOUT_TYPE]: Selector,
 };
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR_NAV_DRAWER_ITEM];
+export const NAV_DRAWER_ITEMS: Nav.DrawerItem[] = [TOOLBAR_NAV_DRAWER_ITEM];

@@ -63,7 +63,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (canEdit)
-      dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+      dispatch(Nav.setNavDrawerVisible({ key: "visualization", value: true }));
   }, [canEdit, dispatch]);
 
   // When editing, indicators always show; the hideIndicators setting only

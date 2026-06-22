@@ -70,7 +70,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "visualization",
   content: <Content />,
   tooltip: "Visualize",

@@ -27,7 +27,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "device",
   icon: <Icon.Device />,
   content: <Content />,

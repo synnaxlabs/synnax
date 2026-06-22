@@ -238,7 +238,7 @@ const Content = () => {
   );
 };
 
-export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
+export const TOOLBAR_NAV_DRAWER_ITEM: Nav.DrawerItem = {
   key: "task",
   icon: <Icon.Task />,
   content: <Content />,

@@ -25,8 +25,6 @@ import * as v11 from "@/layout/types/v11";
 
 export type State<A = unknown> = v0.State<A>;
 export type SliceState = v11.SliceState;
-export type NavDrawerLocation = v0.NavDrawerLocation;
-export type NavDrawerEntryState = v0.NavDrawerEntryState;
 export type WindowProps = v0.WindowProps;
 export type AnyState<A = unknown> = v0.State<A>;
 export type AnySliceState =

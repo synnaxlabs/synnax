@@ -37,7 +37,7 @@ export const LINK_HANDLERS: Record<string, Link.Handler> = {
   task: Task.handleLink,
 };
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
+export const NAV_DRAWER_ITEMS: Nav.DrawerItem[] = [
   ...Device.NAV_DRAWER_ITEMS,
   ...Task.NAV_DRAWER_ITEMS,
 ];

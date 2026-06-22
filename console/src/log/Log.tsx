@@ -36,7 +36,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+    dispatch(Nav.setNavDrawerVisible({ key: "visualization", value: true }));
   }, [dispatch]);
 
   const handleConfigureChannels = useCallback(() => {

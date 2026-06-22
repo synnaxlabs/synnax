@@ -19,12 +19,12 @@ import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
-import { Nav } from "@/layouts/nav";
 import { Notifications } from "@/layouts/Notifications";
 import { useTriggers } from "@/layouts/useTriggers";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { LogServices } from "@/log/services";
+import { Nav } from "@/nav";
 import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
 import { Range } from "@/range";
@@ -80,20 +80,20 @@ export const Main = (): ReactElement => (
     <Auth.Guard>
       <Project.Guard>
         <ProjectSideEffect />
-        <Nav.Top />
+        <Nav.Bar.Top />
         <Flex.Box
           x
           gap="tiny"
           grow
           style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
         >
-          <Nav.Left />
+          <Nav.Bar.Left />
           <Flex.Box gap="tiny" grow style={{ width: 0 }}>
             <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
-              <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
+              <Nav.Drawer.Left />
               <Mosaic />
             </Flex.Box>
-            <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
+            <Nav.Drawer.Bottom />
           </Flex.Box>
         </Flex.Box>
       </Project.Guard>
