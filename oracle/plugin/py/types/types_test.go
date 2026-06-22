@@ -1868,6 +1868,22 @@ var _ = Describe("Collection type aliases and maps", func() {
 		)
 	})
 
+	It("Should render an explicitly empty map default as default_factory=dict", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Graph struct {
+				configs map<string, record> = {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
+		)
+	})
+
 	It("Should render a struct-valued map field as a dict[str, Struct]", func(ctx SpecContext) {
 		loader := NewMockFileLoader()
 		typesPlugin := types.New(types.DefaultOptions())

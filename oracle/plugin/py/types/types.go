@@ -999,9 +999,11 @@ func collectValidation(
 				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
 			}
 		case resolution.ValueKindStruct:
-			// Records (dict[str, Any]) are mutable, so they use default_factory. An
-			// empty record defaults to dict; a populated one to a dict literal.
-			if typeRef.Name == "record" {
+			// Records (dict[str, Any]) and maps are mutable dicts, so they use
+			// default_factory. An empty default becomes dict; a populated one a dict
+			// literal. Other struct types default to a model constructor.
+			kind, _ := resolution.CollectionKind(typeRef, table)
+			if typeRef.Name == "record" || kind == "Map" {
 				if len(defaultVal.Fields) == 0 {
 					constraints = append(constraints, "default_factory=dict")
 				} else {
@@ -1045,7 +1047,7 @@ func pyDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
 	case resolution.ValueKindStruct:
-		if typeRef.Name == "record" {
+		if kind, _ := resolution.CollectionKind(typeRef, table); typeRef.Name == "record" || kind == "Map" {
 			return pyRecordLiteral(val, table, data)
 		}
 		return pyStructLiteral(typeRef, val, table, data)
