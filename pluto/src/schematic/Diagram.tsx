@@ -139,7 +139,10 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
     const unsubscribe = rfStore.subscribe(schedule);
     return () => {
       unsubscribe();
-      if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
+      if (frameRef.current != null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
     };
   }, [recompute, rfStore]);
 
