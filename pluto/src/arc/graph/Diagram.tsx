@@ -34,9 +34,8 @@ export const nodeChangesToActions = (changes: Base.NodeChange[]): arc.Action[] =
   return actions;
 };
 
-// edgeChangesToActions converts diagram edge gestures into Arc actions. Removal
-// recovers the endpoints from the diagram edge key, since Arc edges carry no key
-// on the wire.
+// edgeChangesToActions converts diagram edge gestures into Arc actions. The
+// diagram edge key is the edge's stable identity, carried through to the graph.
 export const edgeChangesToActions = (changes: Base.EdgeChange[]): arc.Action[] =>
   changes.flatMap((ch) => {
     switch (ch.type) {
@@ -44,6 +43,7 @@ export const edgeChangesToActions = (changes: Base.EdgeChange[]): arc.Action[] =
         return [
           arc.addEdge({
             edge: {
+              key: ch.edge.key,
               source: ch.edge.source,
               target: ch.edge.target,
               kind: arc.ir.EdgeKind.continuous,
@@ -51,7 +51,11 @@ export const edgeChangesToActions = (changes: Base.EdgeChange[]): arc.Action[] =
           }),
         ];
       case "remove":
-        return [arc.removeEdge(arc.ir.parseEdgeKey(ch.key))];
+        return [arc.removeEdge({ key: ch.key })];
+      case "reconnect":
+        return [
+          arc.reconnectEdge({ key: ch.key, source: ch.source, target: ch.target }),
+        ];
       default:
         return [];
     }

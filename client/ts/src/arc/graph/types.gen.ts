@@ -28,8 +28,16 @@ export const nodeZ = z.object({
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
+export const edgeZ = ir.edgeZ.extend({
+  key: z.string(),
+});
+export interface Edge extends z.infer<typeof edgeZ> {}
+
 export const nodesZ = nodeZ.array().default(() => []);
 export type Nodes = z.infer<typeof nodesZ>;
+
+export const edgesZ = edgeZ.array().default(() => []);
+export type Edges = z.infer<typeof edgesZ>;
 
 /**
  * Graph is a visual dataflow graph representation combining IR elements with
@@ -39,7 +47,7 @@ export const graphZ = z.object({
   /** functions contains function definitions available in this graph. */
   functions: ir.functionsZ.default([]),
   /** edges contains dataflow connections between node parameters. */
-  edges: ir.edgesZ.default([]),
+  edges: edgesZ.default([]),
   /** nodes contains visual nodes with canvas positions. */
   nodes: nodesZ.default([]),
   /**

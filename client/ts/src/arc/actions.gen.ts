@@ -76,24 +76,33 @@ export type RemoveNodePayload = z.infer<typeof removeNodePayloadZ>;
 
 /**
  * AddEdge appends the edge to the graph. No-op when an edge with the same
- * source and target handles already exists.
+ * source and target handles already exists, so concurrent additions of
+ * the same connection converge regardless of differing keys.
  */
 export const addEdgePayloadZ = z.object({
-  edge: ir.edgeZ,
+  edge: graph.edgeZ,
 });
 
 export type AddEdgePayload = z.infer<typeof addEdgePayloadZ>;
 
-/**
- * RemoveEdge removes the edge matching the given source and target handles, if
- * present.
- */
+/** RemoveEdge removes the edge with the given key, if present. */
 export const removeEdgePayloadZ = z.object({
+  key: z.string(),
+});
+
+export type RemoveEdgePayload = z.infer<typeof removeEdgePayloadZ>;
+
+/**
+ * ReconnectEdge rewrites the endpoints of the edge with the given key, preserving its
+ * key and kind. No-op when no edge with the key exists.
+ */
+export const reconnectEdgePayloadZ = z.object({
+  key: z.string(),
   source: ir.handleZ,
   target: ir.handleZ,
 });
 
-export type RemoveEdgePayload = z.infer<typeof removeEdgePayloadZ>;
+export type ReconnectEdgePayload = z.infer<typeof reconnectEdgePayloadZ>;
 
 /**
  * InsertChar carries a single collaborative-edit character insertion against the
@@ -135,6 +144,7 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("remove_node"), removeNode: removeNodePayloadZ }),
   z.object({ type: z.literal("add_edge"), addEdge: addEdgePayloadZ }),
   z.object({ type: z.literal("remove_edge"), removeEdge: removeEdgePayloadZ }),
+  z.object({ type: z.literal("reconnect_edge"), reconnectEdge: reconnectEdgePayloadZ }),
   z.object({ type: z.literal("insert_char"), insertChar: insertCharPayloadZ }),
   z.object({ type: z.literal("delete_char"), deleteChar: deleteCharPayloadZ }),
 ]);
@@ -185,6 +195,13 @@ export const removeEdge = (payload: z.input<typeof removeEdgePayloadZ>): Action 
   removeEdge: removeEdgePayloadZ.parse(payload),
 });
 
+export const reconnectEdge = (
+  payload: z.input<typeof reconnectEdgePayloadZ>,
+): Action => ({
+  type: "reconnect_edge",
+  reconnectEdge: reconnectEdgePayloadZ.parse(payload),
+});
+
 export const insertChar = (payload: z.input<typeof insertCharPayloadZ>): Action => ({
   type: "insert_char",
   insertChar: insertCharPayloadZ.parse(payload),
@@ -211,6 +228,7 @@ export interface Handlers {
   removeNode: (state: Draft<Arc>, payload: RemoveNodePayload) => HandlerResult;
   addEdge: (state: Draft<Arc>, payload: AddEdgePayload) => HandlerResult;
   removeEdge: (state: Draft<Arc>, payload: RemoveEdgePayload) => HandlerResult;
+  reconnectEdge: (state: Draft<Arc>, payload: ReconnectEdgePayload) => HandlerResult;
   insertChar: (state: Draft<Arc>, payload: InsertCharPayload) => HandlerResult;
   deleteChar: (state: Draft<Arc>, payload: DeleteCharPayload) => HandlerResult;
 }
@@ -234,6 +252,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.addEdge(state, action.addEdge);
       case "remove_edge":
         return handlers.removeEdge(state, action.removeEdge);
+      case "reconnect_edge":
+        return handlers.reconnectEdge(state, action.reconnectEdge);
       case "insert_char":
         return handlers.insertChar(state, action.insertChar);
       case "delete_char":

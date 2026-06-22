@@ -23,17 +23,6 @@ const cfg = (type: string, params: record.Unknown = {}): record.Unknown => ({
   ...params,
 });
 
-const edge = (
-  srcNode: string,
-  srcParam: string,
-  tgtNode: string,
-  tgtParam: string,
-): arc.ir.Edge => ({
-  source: { node: srcNode, param: srcParam },
-  target: { node: tgtNode, param: tgtParam },
-  kind: arc.ir.EdgeKind.continuous,
-});
-
 const empty = (graph: Partial<arc.graph.Graph> = {}, name = "Test Arc"): arc.Arc =>
   arc.arcZ.parse({
     name,
@@ -52,7 +41,14 @@ describe("arc reducer", () => {
     it("should leave the graph untouched", () => {
       const state = empty({
         nodes: [node("n1", 0, 0)],
-        edges: [edge("n1", "out", "n2", "in")],
+        edges: [
+          {
+            key: "n1n2",
+            source: { node: "n1", param: "out" },
+            target: { node: "n2", param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
       });
       const out = apply(state, arc.rename({ name: "new" }));
       expect(out.graph.nodes).toEqual(state.graph.nodes);
@@ -134,7 +130,20 @@ describe("arc reducer", () => {
     it("should remove the node, its config, and every connected edge", () => {
       const state = empty({
         nodes: [node("n1", 0, 0), node("n2", 1, 1), node("n3", 2, 2)],
-        edges: [edge("n1", "out", "n2", "in"), edge("n2", "out", "n3", "in")],
+        edges: [
+          {
+            key: "n1n2",
+            source: { node: "n1", param: "out" },
+            target: { node: "n2", param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+          {
+            key: "n2n3",
+            source: { node: "n2", param: "out" },
+            target: { node: "n3", param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
         configs: { n2: cfg("add") },
       });
       const out = apply(state, arc.removeNode({ key: "n2" }));
@@ -145,10 +154,24 @@ describe("arc reducer", () => {
     it("should keep unrelated edges intact", () => {
       const state = empty({
         nodes: [node("n1", 0, 0), node("n2", 1, 1), node("n3", 2, 2)],
-        edges: [edge("n1", "out", "n3", "in")],
+        edges: [
+          {
+            key: "n1n3",
+            source: { node: "n1", param: "out" },
+            target: { node: "n3", param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
       });
       const out = apply(state, arc.removeNode({ key: "n2" }));
-      expect(out.graph.edges).toEqual([edge("n1", "out", "n3", "in")]);
+      expect(out.graph.edges).toEqual([
+        {
+          key: "n1n3",
+          source: { node: "n1", param: "out" },
+          target: { node: "n3", param: "in" },
+          kind: arc.ir.EdgeKind.continuous,
+        },
+      ]);
     });
     it("should be a no-op when the key does not match any node", () => {
       const state = empty({ nodes: [node("n1", 0, 0)] });
@@ -158,41 +181,159 @@ describe("arc reducer", () => {
 
   describe("addEdge", () => {
     it("should append an edge with new source and target handles", () => {
-      const state = empty({ edges: [edge("a", "o", "b", "i")] });
-      const out = apply(state, arc.addEdge({ edge: edge("b", "o", "c", "i") }));
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      const out = apply(
+        state,
+        arc.addEdge({
+          edge: {
+            key: "bc",
+            source: { node: "b", param: "o" },
+            target: { node: "c", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        }),
+      );
       expect(out.graph.edges).toEqual([
-        edge("a", "o", "b", "i"),
-        edge("b", "o", "c", "i"),
+        {
+          key: "ab",
+          source: { node: "a", param: "o" },
+          target: { node: "b", param: "i" },
+          kind: arc.ir.EdgeKind.continuous,
+        },
+        {
+          key: "bc",
+          source: { node: "b", param: "o" },
+          target: { node: "c", param: "i" },
+          kind: arc.ir.EdgeKind.continuous,
+        },
       ]);
     });
     it("should be a no-op when an edge with the same source and target exists", () => {
-      const state = empty({ edges: [edge("a", "o", "b", "i")] });
-      expect(apply(state, arc.addEdge({ edge: edge("a", "o", "b", "i") }))).toBe(state);
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      expect(
+        apply(
+          state,
+          arc.addEdge({
+            edge: {
+              key: "ab",
+              source: { node: "a", param: "o" },
+              target: { node: "b", param: "i" },
+              kind: arc.ir.EdgeKind.continuous,
+            },
+          }),
+        ),
+      ).toBe(state);
     });
   });
 
   describe("removeEdge", () => {
-    it("should remove the edge matching the source and target handles", () => {
+    it("should remove the edge matching the key", () => {
       const state = empty({
-        edges: [edge("a", "o", "b", "i"), edge("b", "o", "c", "i")],
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+          {
+            key: "bc",
+            source: { node: "b", param: "o" },
+            target: { node: "c", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      const out = apply(state, arc.removeEdge({ key: "ab" }));
+      expect(out.graph.edges).toEqual([
+        {
+          key: "bc",
+          source: { node: "b", param: "o" },
+          target: { node: "c", param: "i" },
+          kind: arc.ir.EdgeKind.continuous,
+        },
+      ]);
+    });
+    it("should be a no-op when no edge matches the key", () => {
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      expect(apply(state, arc.removeEdge({ key: "missing" }))).toBe(state);
+    });
+  });
+
+  describe("reconnectEdge", () => {
+    it("should rewrite the endpoints of the edge with the key, preserving key and kind", () => {
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
       });
       const out = apply(
         state,
-        arc.removeEdge({
+        arc.reconnectEdge({
+          key: "ab",
           source: { node: "a", param: "o" },
-          target: { node: "b", param: "i" },
+          target: { node: "c", param: "i" },
         }),
       );
-      expect(out.graph.edges).toEqual([edge("b", "o", "c", "i")]);
+      expect(out.graph.edges).toEqual([
+        {
+          key: "ab",
+          source: { node: "a", param: "o" },
+          target: { node: "c", param: "i" },
+          kind: arc.ir.EdgeKind.continuous,
+        },
+      ]);
     });
-    it("should be a no-op when no edge matches the handles", () => {
-      const state = empty({ edges: [edge("a", "o", "b", "i")] });
+    it("should be a no-op when no edge matches the key", () => {
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
       expect(
         apply(
           state,
-          arc.removeEdge({
-            source: { node: "x", param: "o" },
-            target: { node: "y", param: "i" },
+          arc.reconnectEdge({
+            key: "missing",
+            source: { node: "a", param: "o" },
+            target: { node: "c", param: "i" },
           }),
         ),
       ).toBe(state);
@@ -243,7 +384,14 @@ describe("arc reducer", () => {
         arc.setNodeConfig({ key: "src", config: cfg("on", { channel: 1 }) }),
         arc.setNode({ node: node("sink", 200, 0) }),
         arc.setNodeConfig({ key: "sink", config: cfg("write", { channel: 2 }) }),
-        arc.addEdge({ edge: edge("src", "out", "sink", "in") }),
+        arc.addEdge({
+          edge: {
+            key: "srcsink",
+            source: { node: "src", param: "out" },
+            target: { node: "sink", param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        }),
       );
       expect(out.graph.nodes).toHaveLength(2);
       expect(out.graph.edges).toHaveLength(1);
@@ -355,7 +503,14 @@ describe("arc reducer inverses", () => {
       expectGraphRoundTrip(
         empty({
           nodes: [node("n1", 0, 0), node("n2", 1, 1)],
-          edges: [edge("n1", "out", "n2", "in")],
+          edges: [
+            {
+              key: "n1n2",
+              source: { node: "n1", param: "out" },
+              target: { node: "n2", param: "in" },
+              kind: arc.ir.EdgeKind.continuous,
+            },
+          ],
           configs: { n1: cfg("on", { channel: 1 }) },
         }),
         [arc.removeNode({ key: "n1" })],
@@ -372,15 +527,31 @@ describe("arc reducer inverses", () => {
 
   describe("addEdge / removeEdge", () => {
     it("should invert addEdge with removeEdge", () => {
-      expectRoundTrip(empty(), [arc.addEdge({ edge: edge("a", "o", "b", "i") })]);
-    });
-    it("should invert removeEdge with addEdge", () => {
-      expectRoundTrip(empty({ edges: [edge("a", "o", "b", "i")] }), [
-        arc.removeEdge({
-          source: { node: "a", param: "o" },
-          target: { node: "b", param: "i" },
+      expectRoundTrip(empty(), [
+        arc.addEdge({
+          edge: {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
         }),
       ]);
+    });
+    it("should invert removeEdge with addEdge", () => {
+      expectRoundTrip(
+        empty({
+          edges: [
+            {
+              key: "ab",
+              source: { node: "a", param: "o" },
+              target: { node: "b", param: "i" },
+              kind: arc.ir.EdgeKind.continuous,
+            },
+          ],
+        }),
+        [arc.removeEdge({ key: "ab" })],
+      );
     });
   });
 
@@ -396,14 +567,25 @@ describe("arc reducer inverses", () => {
         true,
       );
       expect(arc.isUndoable(arc.removeNode({ key: "n1" }))).toBe(true);
-      expect(arc.isUndoable(arc.addEdge({ edge: edge("a", "o", "b", "i") }))).toBe(
-        true,
-      );
       expect(
         arc.isUndoable(
-          arc.removeEdge({
+          arc.addEdge({
+            edge: {
+              key: "ab",
+              source: { node: "a", param: "o" },
+              target: { node: "b", param: "i" },
+              kind: arc.ir.EdgeKind.continuous,
+            },
+          }),
+        ),
+      ).toBe(true);
+      expect(arc.isUndoable(arc.removeEdge({ key: "ab" }))).toBe(true);
+      expect(
+        arc.isUndoable(
+          arc.reconnectEdge({
+            key: "ab",
             source: { node: "a", param: "o" },
-            target: { node: "b", param: "i" },
+            target: { node: "c", param: "i" },
           }),
         ),
       ).toBe(true);

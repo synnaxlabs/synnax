@@ -20,6 +20,9 @@ import (
 // Nodes is a collection of visual nodes in an Arc graph.
 type Nodes []Node
 
+// Edges is a collection of graph edges in an Arc graph.
+type Edges []Edge
+
 // Node is a visual node in the Arc graph editor representing a function instantiation
 // with position data. The function type and configuration parameter values are stored
 // in the graph's configs map, keyed by the node key.
@@ -30,13 +33,22 @@ type Node struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 
+// Edge is a dataflow connection between node parameters carrying a stable identifier.
+// The key persists across endpoint edits, distinguishing the editable graph edge from
+// the keyless ir.Edge consumed by the compiler.
+type Edge struct {
+	ir.Edge
+	// Key is the stable identifier for this edge within the graph.
+	Key string `json:"key" msgpack:"key"`
+}
+
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.
 type Graph struct {
 	// Functions contains function definitions available in this graph.
 	Functions ir.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
 	// Edges contains dataflow connections between node parameters.
-	Edges ir.Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
+	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Nodes contains visual nodes with canvas positions.
 	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Configs contains per-node configuration keyed by node key. Each value is a JSON

@@ -15,6 +15,7 @@ import {
   addEdge,
   createReduceAll,
   type Handlers,
+  reconnectEdge,
   removeEdge,
   removeNode,
   rename,
@@ -23,7 +24,7 @@ import {
   setNodeConfig,
   setNodePosition,
 } from "@/arc/actions.gen";
-import { ir } from "@/arc/ir";
+import { type ir } from "@/arc/ir";
 
 const sameEndpoints = (a: ir.Edge, source: ir.Handle, target: ir.Handle): boolean =>
   a.source.node === source.node &&
@@ -110,24 +111,31 @@ const handlers: Handlers = {
     return { inverse, targets: [payload.key] };
   },
   addEdge: (state, payload) => {
-    const { source, target } = payload.edge;
-    if (state.graph.edges.some((e) => sameEndpoints(e, source, target)))
+    const { edge } = payload;
+    if (state.graph.edges.some((e) => sameEndpoints(e, edge.source, edge.target)))
       return actions.NO_OP_RESULT;
-    state.graph.edges.push(payload.edge);
-    return {
-      inverse: [removeEdge({ source, target })],
-      targets: [ir.edgeKey(source, target)],
-    };
+    state.graph.edges.push(edge);
+    return { inverse: [removeEdge({ key: edge.key })], targets: [edge.key] };
   },
   removeEdge: (state, payload) => {
-    const { source, target } = payload;
-    const idx = state.graph.edges.findIndex((e) => sameEndpoints(e, source, target));
+    const idx = state.graph.edges.findIndex((e) => e.key === payload.key);
     if (idx === -1) return actions.NO_OP_RESULT;
     const oldEdge = actions.snapshotDraft(state.graph.edges[idx]);
     state.graph.edges.splice(idx, 1);
+    return { inverse: [addEdge({ edge: oldEdge })], targets: [payload.key] };
+  },
+  reconnectEdge: (state, payload) => {
+    const edge = state.graph.edges.find((e) => e.key === payload.key);
+    if (edge == null) return actions.NO_OP_RESULT;
+    const oldSource = actions.snapshotDraft(edge.source);
+    const oldTarget = actions.snapshotDraft(edge.target);
+    edge.source = payload.source;
+    edge.target = payload.target;
     return {
-      inverse: [addEdge({ edge: oldEdge })],
-      targets: [ir.edgeKey(source, target)],
+      inverse: [
+        reconnectEdge({ key: payload.key, source: oldSource, target: oldTarget }),
+      ],
+      targets: [payload.key],
     };
   },
   insertChar: () => ({ inverse: [], targets: [] }),

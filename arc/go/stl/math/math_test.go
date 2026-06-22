@@ -39,10 +39,10 @@ func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 			"input": {"type": "input"},
 			"math":  {"type": nodeType},
 		},
-		Edges: []graph.Edge{{
+		Edges: graph.Edges{{Edge: ir.Edge{
 			Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "math", Param: ir.DefaultInputParam},
-		}},
+		}}},
 		Functions: []graph.Function{{
 			Key:     "input",
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
@@ -62,15 +62,15 @@ func makeMathGraphWithReset(nodeType string, dt types.Type) graph.Graph {
 			"reset_signal": {"type": "reset_signal"},
 			"math":         {"type": nodeType},
 		},
-		Edges: []graph.Edge{
-			{
+		Edges: graph.Edges{
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "math", Param: ir.DefaultInputParam},
-			},
-			{
+			}},
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "reset_signal", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "math", Param: "reset"},
-			},
+			}},
 		},
 		Functions: []graph.Function{
 			{Key: "input", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}}},
@@ -705,10 +705,10 @@ var _ = Describe("Derivative", func() {
 				"input": {"type": "input"},
 				"deriv": {"type": "derivative"},
 			},
-			Edges: []graph.Edge{{
+			Edges: graph.Edges{{Edge: ir.Edge{
 				Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "deriv", Param: ir.DefaultInputParam},
-			}},
+			}}},
 			Functions: []graph.Function{{
 				Key:     "input",
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},

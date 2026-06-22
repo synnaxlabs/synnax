@@ -130,10 +130,10 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		return item.Type != "none"
 	})
 	if len(cfg.Channel.Operations) == 0 {
-		g.Edges = []graph.Edge{{
+		g.Edges = graph.Edges{{Edge: ir.Edge{
 			Source: ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: writeKey, Param: ir.DefaultInputParam},
-		}}
+		}}}
 	} else {
 		for i, o := range cfg.Channel.Operations {
 			key := fmt.Sprintf("op_%d", i)
@@ -142,27 +142,27 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 			if o.ResetChannel != 0 {
 				resetKey := fmt.Sprintf("on_reset_%d", o.ResetChannel)
 				addNode(resetKey, "on", xmsgpack.EncodedJSON{"channel": o.ResetChannel})
-				g.Edges = append(g.Edges, graph.Edge{
+				g.Edges = append(g.Edges, graph.Edge{Edge: ir.Edge{
 					Source: ir.Handle{Node: resetKey, Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: key, Param: "reset"},
-				})
+				}})
 			}
 			if i == 0 {
-				g.Edges = append(g.Edges, graph.Edge{
+				g.Edges = append(g.Edges, graph.Edge{Edge: ir.Edge{
 					Source: ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: key, Param: ir.DefaultInputParam},
-				})
+				}})
 			}
 			if i == len(cfg.Channel.Operations)-1 {
-				g.Edges = append(g.Edges, graph.Edge{
+				g.Edges = append(g.Edges, graph.Edge{Edge: ir.Edge{
 					Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: writeKey, Param: ir.DefaultInputParam},
-				})
+				}})
 			} else {
-				g.Edges = append(g.Edges, graph.Edge{
+				g.Edges = append(g.Edges, graph.Edge{Edge: ir.Edge{
 					Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: nextKey, Param: ir.DefaultInputParam},
-				})
+				}})
 			}
 		}
 	}
@@ -178,10 +178,10 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 			types.Param{Name: sym.Name, Type: *sym.Type.Elem},
 		)
 		addNode(sym.Name, "on", xmsgpack.EncodedJSON{"channel": k})
-		g.Edges = append(g.Edges, graph.Edge{
+		g.Edges = append(g.Edges, graph.Edge{Edge: ir.Edge{
 			Source: ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: calculationKey, Param: sym.Name},
-		})
+		}})
 	}
 
 	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(resolver))

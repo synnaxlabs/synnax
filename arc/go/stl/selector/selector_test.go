@@ -47,11 +47,11 @@ var _ = Describe("Select", func() {
 					"source": {"type": "source"},
 					"select": {"type": "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -107,11 +107,11 @@ var _ = Describe("Select", func() {
 					"source": {"type": "source"},
 					"select": {"type": "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -396,11 +396,11 @@ var _ = Describe("Select", func() {
 					"source": {"type": "source"},
 					"select": {"type": "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -444,11 +444,11 @@ var _ = Describe("Select", func() {
 					"source": {"type": "source"},
 					"select": {"type": "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{

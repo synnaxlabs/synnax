@@ -57,11 +57,11 @@ var _ = Describe("StableFor", func() {
 				"source": {"type": "source"},
 				"stable": {"type": "stable_for"},
 			},
-			Edges: []graph.Edge{
-				{
+			Edges: graph.Edges{
+				{Edge: ir.Edge{
 					Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-				},
+				}},
 			},
 			Functions: []graph.Function{
 				{
@@ -408,11 +408,11 @@ var _ = Describe("StableFor", func() {
 						"duration": int(telem.Second),
 					},
 				},
-				Edges: []graph.Edge{
-					{
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{

@@ -73,13 +73,85 @@ func NodesFromPB(pbs []*Node) ([]graph.Node, error) {
 	return result, nil
 }
 
+// EdgeToPB converts Edge to Edge.
+func EdgeToPB(r graph.Edge) (*Edge, error) {
+	sourceVal, err := irpb.HandleToPB(r.Source)
+	if err != nil {
+		return nil, err
+	}
+	targetVal, err := irpb.HandleToPB(r.Target)
+	if err != nil {
+		return nil, err
+	}
+	kindVal, err := irpb.EdgeKindToPB(r.Kind)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Edge{
+		Key:    r.Key,
+		Source: sourceVal,
+		Target: targetVal,
+		Kind:   kindVal,
+	}
+	return pb, nil
+}
+
+// EdgeFromPB converts Edge to Edge.
+func EdgeFromPB(pb *Edge) (graph.Edge, error) {
+	var r graph.Edge
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Source, err = irpb.HandleFromPB(pb.Source)
+	if err != nil {
+		return graph.Edge{}, err
+	}
+	r.Target, err = irpb.HandleFromPB(pb.Target)
+	if err != nil {
+		return graph.Edge{}, err
+	}
+	r.Kind, err = irpb.EdgeKindFromPB(pb.Kind)
+	if err != nil {
+		return graph.Edge{}, err
+	}
+	r.Key = pb.Key
+	return r, nil
+}
+
+// EdgesToPB converts a slice of Edge to Edge.
+func EdgesToPB(rs []graph.Edge) ([]*Edge, error) {
+	result := make([]*Edge, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = EdgeToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// EdgesFromPB converts a slice of Edge to Edge.
+func EdgesFromPB(pbs []*Edge) ([]graph.Edge, error) {
+	result := make([]graph.Edge, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = EdgeFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // GraphToPB converts Graph to Graph.
 func GraphToPB(r graph.Graph) (*Graph, error) {
 	functionsVal, err := irpb.FunctionsToPB(r.Functions)
 	if err != nil {
 		return nil, err
 	}
-	edgesVal, err := irpb.EdgesToPB(r.Edges)
+	edgesVal, err := EdgesToPB(r.Edges)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +188,7 @@ func GraphFromPB(pb *Graph) (graph.Graph, error) {
 	if err != nil {
 		return graph.Graph{}, err
 	}
-	r.Edges, err = irpb.EdgesFromPB(pb.Edges)
+	r.Edges, err = EdgesFromPB(pb.Edges)
 	if err != nil {
 		return graph.Graph{}, err
 	}

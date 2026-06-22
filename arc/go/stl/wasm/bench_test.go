@@ -97,19 +97,19 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 			"b":      {"type": "b"},
 			"affine": {"type": "affine"},
 		},
-		Edges: []graph.Edge{
-			{
+		Edges: graph.Edges{
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "x"},
-			},
-			{
+			}},
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "a"},
-			},
-			{
+			}},
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "b"},
-			},
+			}},
 		},
 	}
 
@@ -263,19 +263,19 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 			"b":      {"type": "b"},
 			"affine": {"type": "affine"},
 		},
-		Edges: []graph.Edge{
-			{
+		Edges: graph.Edges{
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "x"},
-			},
-			{
+			}},
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "a"},
-			},
-			{
+			}},
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "b"},
-			},
+			}},
 		},
 	}
 

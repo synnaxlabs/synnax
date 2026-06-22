@@ -191,7 +191,8 @@ func Analyze(
 	}
 
 	// Step 5: Check Types Across Edges, Unify, and Apply Substitutions
-	if !analyzer.ResolveNodeTypes(irNodes, g.Edges, aCtx.Constraints, aCtx.Diagnostics) {
+	irEdges := g.Edges.IR()
+	if !analyzer.ResolveNodeTypes(irNodes, irEdges, aCtx.Constraints, aCtx.Diagnostics) {
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
@@ -233,7 +234,7 @@ func Analyze(
 	}
 	out := ir.IR{
 		Functions: g.Functions,
-		Edges:     g.Edges,
+		Edges:     irEdges,
 		Nodes:     irNodes,
 		Symbols:   aCtx.Scope,
 		Root:      irRoot,

@@ -47,11 +47,11 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 				},
 			},
 		},
-		Edges: []ir.Edge{
-			{
+		Edges: graph.Edges{
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "target", Param: ir.DefaultInputParam},
-			},
+			}},
 		},
 	}
 	inter, diagnostics := graph.Analyze(ctx, g, nil)

@@ -12,6 +12,7 @@ package graph
 import (
 	"maps"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/ir"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
@@ -64,7 +65,10 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 			return err
 		}
 		g.Functions = legacy.Functions
-		g.Edges = legacy.Edges
+		g.Edges = make(Edges, len(legacy.Edges))
+		for i, e := range legacy.Edges {
+			g.Edges[i] = Edge{Edge: e, Key: uuid.NewString()}
+		}
 		g.Nodes = legacy.Nodes
 	}
 	// Legacy graphs stored the function type and config inline on each node with

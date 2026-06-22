@@ -227,11 +227,11 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Dispatch(ctx, a.Key, "session-1", []arc.Action{
 				arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n1"}}),
 				arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n2"}}),
-				arc.NewAddEdgeAction(arc.AddEdgePayload{Edge: ir.Edge{
+				arc.NewAddEdgeAction(arc.AddEdgePayload{Edge: graph.Edge{Edge: ir.Edge{
 					Source: ir.Handle{Node: "n1", Param: "out"},
 					Target: ir.Handle{Node: "n2", Param: "in"},
 					Kind:   ir.EdgeKindContinuous,
-				}}),
+				}}}),
 			})).To(Succeed())
 			var res arc.Arc
 			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())

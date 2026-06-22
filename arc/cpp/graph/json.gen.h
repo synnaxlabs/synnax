@@ -36,10 +36,25 @@ inline x::json::json Node::to_json() const {
     return j;
 }
 
+inline Edge Edge::parse(x::json::Parser parser) {
+    Edge result;
+    static_cast<::arc::ir::Edge &>(result) = ::arc::ir::Edge::parse(parser);
+    result.key = parser.field<std::string>("key");
+    return result;
+}
+
+inline x::json::json Edge::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: ::arc::ir::Edge::to_json().items())
+        j[k] = v;
+    j["key"] = this->key;
+    return j;
+}
+
 inline Graph Graph::parse(x::json::Parser parser) {
     return Graph{
         .functions = parser.field<::arc::ir::Functions>("functions"),
-        .edges = parser.field<::arc::ir::Edges>("edges"),
+        .edges = parser.field<Edges>("edges"),
         .nodes = parser.field<Nodes>("nodes"),
         .configs = parser
                        .field<std::unordered_map<std::string, x::json::json::object_t>>(
@@ -65,6 +80,21 @@ inline Nodes Nodes::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Nodes::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto &item: *this) {
+        j.push_back(item.to_json());
+    }
+    return j;
+}
+
+inline Edges Edges::parse(x::json::Parser parser) {
+    Edges result;
+    for (auto &item: parser.field<std::vector<Edge>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json Edges::to_json() const {
     x::json::json j = x::json::json::array();
     for (const auto &item: *this) {
         j.push_back(item.to_json());

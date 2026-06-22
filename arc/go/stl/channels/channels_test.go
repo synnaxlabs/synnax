@@ -151,11 +151,11 @@ var _ = Describe("Channel", func() {
 					"producer": {"type": "producer"},
 					"writer":   {"type": "write"},
 				},
-				Edges: []graph.Edge{
-					{
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "producer", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "writer", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{Key: "on"},
@@ -569,11 +569,11 @@ var _ = Describe("Channel", func() {
 					"upstream": {"type": "producer"},
 					"sink":     {"type": "write"},
 				},
-				Edges: []graph.Edge{
-					{
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "upstream", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -706,11 +706,11 @@ var _ = Describe("Channel", func() {
 						"read":  {"type": "on"},
 						"write": {"type": "write"},
 					},
-					Edges: []graph.Edge{
-						{
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "read", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "write", Param: ir.DefaultInputParam},
-						},
+						}},
 					},
 					Functions: []graph.Function{
 						{
@@ -774,11 +774,11 @@ var _ = Describe("Channel", func() {
 						"write1": {"type": "write"},
 						"write2": {"type": "write2"},
 					},
-					Edges: []graph.Edge{
-						{Source: ir.Handle{Node: "read1", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "write1", Param: ir.DefaultInputParam}},
-						{Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam}},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{Source: ir.Handle{Node: "read1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "write1", Param: ir.DefaultInputParam}}},
+						{Edge: ir.Edge{Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam}}},
 					},
 					Functions: []graph.Function{
 						{Key: "on", Outputs: types.Params{
