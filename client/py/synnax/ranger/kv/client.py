@@ -10,7 +10,7 @@
 import uuid
 from typing import Any, overload
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from freighter import UnaryClient
 from synnax.ranger.kv.payload import Pair
@@ -23,7 +23,7 @@ class _GetRequest(BaseModel):
 
 
 class _GetResponse(BaseModel):
-    pairs: list[Pair]
+    pairs: list[Pair] = Field(default_factory=list)
 
 
 class _SetRequest(BaseModel):

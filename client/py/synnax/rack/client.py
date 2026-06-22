@@ -9,7 +9,7 @@
 
 from typing import overload
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -42,7 +42,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    racks: list[Rack] | None = None
+    racks: list[Rack] = Field(default_factory=list)
 
 
 class Client:
@@ -139,10 +139,10 @@ class Client:
             _RetrieveResponse,
         )
         if is_single:
-            if res.racks is not None and len(res.racks) > 0:
+            if len(res.racks) > 0:
                 return res.racks[0]
             raise NotFoundError("Rack not found")
-        return res.racks if res.racks is not None else []
+        return res.racks
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:

@@ -10,7 +10,7 @@
 from typing import Any, overload
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -39,7 +39,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    views: list[View] | None = None
+    views: list[View] = Field(default_factory=list)
 
 
 class Client:
@@ -144,7 +144,7 @@ class Client:
             ),
             _RetrieveResponse,
         )
-        views = res.views if res.views is not None else []
+        views = res.views
         if is_single:
             if len(views) == 0:
                 raise NotFoundError("View not found")
