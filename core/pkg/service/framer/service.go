@@ -162,13 +162,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	var calcSvc *calculation.Service
 	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
-		Instrumentation:   cfg.Child("calculation"),
-		DB:                cfg.DB,
-		Channel:           cfg.Channel,
-		Framer:            cfg.Framer,
-		Writer:            s.Writer,
-		ChannelObservable: cfg.Channel.Observe(),
-		Status:            cfg.Status,
+		Instrumentation: cfg.Child("calculation"),
+		DB:              cfg.DB,
+		Channel:         cfg.Channel,
+		Framer:          cfg.Framer,
+		Writer:          s.Writer,
+		Status:          cfg.Status,
 	}); !ok(err, calcSvc) {
 		return nil, err
 	}

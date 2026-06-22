@@ -35,7 +35,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	var (
 		dist        mock.Node
 		channelSvc  *channel.Service
-		wr          *writer.Service
+		writerSvc   *writer.Service
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
@@ -62,14 +62,16 @@ var _ = Describe("Streamer", Ordered, func() {
 			Group:        dist.Group,
 			Search:       dist.Search,
 		}))
-		wr = MustSucceed(writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc}))
+		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
+			Framer:  dist.Framer,
+			Channel: channelSvc,
+		}))
 		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-			DB:                dist.DB,
-			Framer:            dist.Framer,
-			Writer:            wr,
-			Channel:           channelSvc,
-			ChannelObservable: channelSvc.Observe(),
-			Status:            statusSvc,
+			DB:      dist.DB,
+			Framer:  dist.Framer,
+			Writer:  writerSvc,
+			Channel: channelSvc,
+			Status:  statusSvc,
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
 			DistFramer:  dist.Framer,
@@ -87,7 +89,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -144,7 +146,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			}))
@@ -183,7 +185,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			}))
@@ -250,12 +252,12 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(channelSvc.Create(ctx, calculation)).To(Succeed())
 
 			keysA := []channel.Key{idxA.Key(), dataA.Key()}
-			wA := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			wA := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keysA,
 			}))
 			keysB := []channel.Key{idxB.Key(), dataB.Key()}
-			wB := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			wB := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keysB,
 			}))
@@ -310,7 +312,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -381,7 +383,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(channelSvc.Create(ctx, calculation)).To(Succeed())
 
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			}))
@@ -428,7 +430,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -467,7 +469,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -505,7 +507,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -546,7 +548,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -585,7 +587,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -623,7 +625,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(wr.Open(ctx, framer.WriterConfig{
+			w := MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))

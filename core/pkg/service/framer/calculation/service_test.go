@@ -123,12 +123,11 @@ var _ = Describe("Calculation", Ordered, func() {
 		}))
 		wr = MustSucceed(writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc}))
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-			DB:                dist.DB,
-			Framer:            dist.Framer,
-			Writer:            wr,
-			Channel:           channelSvc,
-			ChannelObservable: channelSvc.Observe(),
-			Status:            statusSvc,
+			DB:      dist.DB,
+			Framer:  dist.Framer,
+			Writer:  wr,
+			Channel: channelSvc,
+			Status:  statusSvc,
 		}))
 	})
 

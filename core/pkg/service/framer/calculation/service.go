@@ -45,11 +45,6 @@ type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	// ChannelObservable is used to listen to real-time changes in calculated channels
-	// so the calculation routines can be updated accordingly.
-	//
-	// [REQUIRED]
-	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
 	// DB is the underlying database for transactional operations.
 	//
 	// [REQUIRED]
@@ -82,7 +77,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "writer", c.Writer)
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "channel_observable", c.ChannelObservable)
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
@@ -94,7 +88,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
@@ -133,7 +126,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		writer:       cfg.Writer,
 		statusWriter: status.NewWriter[types.Nil](cfg.Status, nil),
 	}
-	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
+	s.disconnectFromChannelChanges = cfg.Channel.Observe().OnChange(s.handleChange)
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)

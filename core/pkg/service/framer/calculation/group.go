@@ -39,9 +39,10 @@ func (g *group) Close() error {
 	return g.shutdown.Close()
 }
 
-type OnStatusChange = func(ctx context.Context, stats ...calculator.Status)
+type OnStatusChange = func(context.Context, ...calculator.Status)
 
 type groupConfig struct {
+	//
 	alamos.Instrumentation
 	Framer         *framer.Service
 	OnStatusChange OnStatusChange
