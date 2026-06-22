@@ -12,9 +12,12 @@ package ranges
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
@@ -23,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
@@ -96,12 +100,13 @@ func newEndSymbolType() types.Type {
 // contributes: the ranges module with its create and end members.
 func NewSymbols() []*symbol.Symbol {
 	createMember := &symbol.Symbol{
-		Name:    createMemberName,
-		Kind:    symbol.KindFunction,
-		Exec:    symbol.ExecBoth,
-		Type:    newCreateSymbolType(),
-		Trigger: symbol.TriggerOnly,
-		Doc:     createDoc,
+		Name:             createMemberName,
+		Kind:             symbol.KindFunction,
+		Exec:             symbol.ExecBoth,
+		Type:             newCreateSymbolType(),
+		Trigger:          symbol.TriggerOnly,
+		Doc:              createDoc,
+		AnalyzeArguments: analyzeCreateArguments,
 	}
 	endMember := &symbol.Symbol{
 		Name:    endMemberName,
@@ -227,6 +232,15 @@ func (n *createNode) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
+// parseColor parses a hex color, requiring a leading '#'. The '#' is mandatory so
+// there is one canonical form and editors render their native color swatch.
+func parseColor(s string) (color.Color, error) {
+	if !strings.HasPrefix(s, "#") {
+		return color.Color{}, errors.Newf("color must start with '#' (e.g. \"#3bc454\"): %q", s)
+	}
+	return color.FromHex(s)
+}
+
 // dispatchCreate creates an open range that starts now, parsing the color and
 // parent key, reporting failures as warnings so the task keeps running.
 func dispatchCreate(
@@ -237,7 +251,7 @@ func dispatchCreate(
 ) string {
 	var c color.Color
 	if colorHex != "" {
-		if parsed, err := color.FromHex(colorHex); err != nil {
+		if parsed, err := parseColor(colorHex); err != nil {
 			report(ctx, status.VariantWarning,
 				fmt.Sprintf("ranges.create: invalid color %q: %v", colorHex, err))
 		} else {
@@ -320,4 +334,39 @@ func dispatchEnd(
 		return ""
 	}
 	return r.Key.String()
+}
+
+const colorIndex = 1
+
+// analyzeCreateArguments validates the color argument across both call forms: it
+// binds by name ("color") or, when positional, by index.
+func analyzeCreateArguments(diags *diagnostics.Diagnostics, args []symbol.Argument) {
+	for _, arg := range args {
+		if arg.Name == "color" || (arg.Name == "" && arg.Index == colorIndex) {
+			checkColorLiteral(diags, arg.Expr)
+			return
+		}
+	}
+}
+
+func checkColorLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionContext) {
+	lit := parser.GetLiteral(expr)
+	if lit == nil {
+		return
+	}
+	strNode := lit.STR_LITERAL()
+	if strNode == nil {
+		return
+	}
+	parsed, err := literal.ParseString(strNode.GetText(), types.String())
+	if err != nil {
+		return
+	}
+	value, ok := parsed.Value.(string)
+	if !ok {
+		return
+	}
+	if _, err := parseColor(value); err != nil {
+		diags.Add(diagnostics.Errorf(expr, "%v", err))
+	}
 }
