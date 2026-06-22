@@ -1,0 +1,33 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "ranges",
+    hdrs = ["ranges.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/stl",
+        "//client/cpp:synnax",
+        "//client/cpp/status",
+        "//x/cpp/color",
+        "//x/cpp/errors",
+        "//x/cpp/mem",
+        "//x/cpp/telem",
+        "//x/cpp/uuid",
+    ],
+)
+
+cc_test(
+    name = "ranges_test",
+    srcs = ["ranges_test.cpp"],
+    deps = [
+        ":ranges",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//client/cpp/testutil",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
