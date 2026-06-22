@@ -9,6 +9,7 @@
 
 from synnax.arc import compiler, graph, ir, program, text, types
 from synnax.arc.client import Arc, Client
+from synnax.arc.graph import Edge as GraphEdge
 from synnax.arc.graph import Graph
 from synnax.arc.graph import Node as GraphNode
 from synnax.arc.ir import Edge, Handle
@@ -43,6 +44,7 @@ __all__ = [
     "Client",
     "Edge",
     "Graph",
+    "GraphEdge",
     "GraphNode",
     "Handle",
     "Key",

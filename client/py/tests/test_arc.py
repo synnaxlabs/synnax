@@ -144,7 +144,8 @@ class TestArcGraph:
                 sy.GraphNode(key="node2", position=sy.Position(x=100, y=0)),
             ],
             edges=[
-                sy.Edge(
+                sy.GraphEdge(
+                    key="edge1",
                     source=sy.Handle(param="output", node="node1"),
                     target=sy.Handle(param="input1", node="node2"),
                     kind=sy.arc.ir.EdgeKind.continuous,
