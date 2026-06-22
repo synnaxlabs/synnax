@@ -32,16 +32,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// nameCounter backs uniqueChannelName. The distribution layer does not enforce channel
-// name uniqueness (channels are keyed by Key), but distinct names keep test output
-// readable.
-var nameCounter int
-
-func uniqueChannelName() string {
-	nameCounter++
-	return fmt.Sprintf("test_ch_%09d", nameCounter)
-}
-
 // openWriter opens a writer against n, attaching the supplied channel metadata to the
 // config. The distribution writer no longer resolves channels itself — its caller (the
 // service layer in production, this helper in tests) supplies them. The writer maps
@@ -101,13 +91,13 @@ var _ = Describe("Writer", func() {
 			builder := mock.OpenCluster(ctx, 1)
 			dist := builder.Nodes[1]
 			idxCh = channel.Channel{
-				Name:     uniqueChannelName(),
+				Name:     "variable_time",
 				IsIndex:  true,
 				DataType: telem.TimeStampT,
 			}
 			idxCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 			strCh = channel.Channel{
-				Name:       uniqueChannelName(),
+				Name:       "variable_str",
 				DataType:   telem.StringT,
 				LocalIndex: idxCh.LocalKey,
 			}
@@ -144,7 +134,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should write mixed fixed and variable channels", func(ctx SpecContext) {
 			floatCh := channel.Channel{
-				Name:       uniqueChannelName(),
+				Name:       "variable_float",
 				DataType:   telem.Float64T,
 				LocalIndex: idxCh.LocalKey,
 			}
@@ -266,13 +256,13 @@ var _ = Describe("Writer", func() {
 				builder := mock.OpenCluster(ctx, 1)
 				dist := builder.Nodes[1]
 				idxCh := channel.Channel{
-					Name:     uniqueChannelName(),
+					Name:     "invalid_json_time",
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				idxCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 				jsonCh := channel.Channel{
-					Name:       uniqueChannelName(),
+					Name:       "invalid_json",
 					DataType:   telem.JSONT,
 					LocalIndex: idxCh.LocalKey,
 				}
@@ -308,13 +298,13 @@ var _ = Describe("Writer", func() {
 				builder := mock.OpenCluster(ctx, 1)
 				dist := builder.Nodes[1]
 				idxCh := channel.Channel{
-					Name:     uniqueChannelName(),
+					Name:     "invalid_utf8_time",
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				idxCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 				strCh := channel.Channel{
-					Name:       uniqueChannelName(),
+					Name:       "invalid_utf8_str",
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
@@ -350,13 +340,13 @@ var _ = Describe("Writer", func() {
 				builder := mock.OpenCluster(ctx, 1)
 				dist := builder.Nodes[1]
 				idxCh := channel.Channel{
-					Name:     uniqueChannelName(),
+					Name:     "malformed_prefix_time",
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				idxCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 				strCh := channel.Channel{
-					Name:       uniqueChannelName(),
+					Name:       "malformed_prefix_str",
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
@@ -503,14 +493,14 @@ var _ = Describe("Writer", func() {
 			peer := node.Key(2)
 
 			idx := channel.Channel{
-				Name:        uniqueChannelName(),
+				Name:        "auto_index_time",
 				IsIndex:     true,
 				DataType:    telem.TimeStampT,
 				Leaseholder: peer,
 			}
 			idx = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{idx}))[0]
 			data := channel.Channel{
-				Name:        uniqueChannelName(),
+				Name:        "auto_index_data",
 				DataType:    telem.Float64T,
 				LocalIndex:  idx.LocalKey,
 				Leaseholder: peer,

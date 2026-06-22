@@ -179,6 +179,11 @@ func New(pool *fgrpc.Pool) Transport {
 
 type writerServer struct{ writerServerCore }
 
+var (
+	_ framerpb.WriterServiceServer = (*writerServer)(nil)
+	_ writer.TransportServer       = (*writerServer)(nil)
+)
+
 func (w *writerServer) Write(server framerpb.WriterService_WriteServer) error {
 	return w.Handler(server.Context(), server)
 }
@@ -189,7 +194,7 @@ func (t *iteratorServer) Iterate(server framerpb.IteratorService_IterateServer) 
 	return t.Handler(server.Context(), server)
 }
 
-// Transport is a grpc backed implementation of the framer.Transport interface.
+// Transport is a gRPCbbacked implementation of the framer.Transport interface.
 type Transport struct {
 	alamos.ReportProvider
 	writer   writerTransport
@@ -228,10 +233,8 @@ type writerTransport struct {
 	server *writerServer
 }
 
-// Client implements the writer.Transport interface.
 func (t writerTransport) Client() writer.TransportClient { return t.client }
 
-// Server implements the writer.Transport interface.
 func (t writerTransport) Server() writer.TransportServer { return t.server }
 
 type iteratorTransport struct {
@@ -239,10 +242,8 @@ type iteratorTransport struct {
 	server *iteratorServer
 }
 
-// Client implements the iterator.Transport interface.
 func (t iteratorTransport) Client() iterator.TransportClient { return t.client }
 
-// Server implements the iterator.Transport interface.
 func (t iteratorTransport) Server() iterator.TransportServer { return t.server }
 
 type relayServer struct{ relayServerCore }
@@ -256,10 +257,8 @@ type relayTransport struct {
 	server *relayServer
 }
 
-// Client implements the framer.Transport interface.
 func (t relayTransport) Client() relay.TransportClient { return t.client }
 
-// Server implements the framer.Transport interface.
 func (t relayTransport) Server() relay.TransportServer { return t.server }
 
 type deleteTransport struct {
@@ -267,8 +266,6 @@ type deleteTransport struct {
 	server *deleteServer
 }
 
-// Client implements the framer.Transport interface.
 func (t deleteTransport) Client() deleter.TransportClient { return t.client }
 
-// Server implements the framer.Transport interface.
 func (t deleteTransport) Server() deleter.TransportServer { return t.server }

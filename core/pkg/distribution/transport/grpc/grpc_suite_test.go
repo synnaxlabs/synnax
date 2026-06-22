@@ -29,9 +29,8 @@ func TestGRPC(t *testing.T) {
 }
 
 var (
-	transport  transportgrpc.Transport
-	addr       address.Address
-	grpcServer *grpc.Server
+	transport transportgrpc.Transport
+	addr      address.Address
 )
 
 var _ = BeforeSuite(func() {
@@ -39,7 +38,7 @@ var _ = BeforeSuite(func() {
 	addr = address.Address(lis.Addr().String())
 	pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	transport = transportgrpc.New(pool)
-	grpcServer = grpc.NewServer()
+	grpcServer := grpc.NewServer()
 	for _, bt := range transport.BindableTransports() {
 		bt.BindTo(grpcServer)
 	}

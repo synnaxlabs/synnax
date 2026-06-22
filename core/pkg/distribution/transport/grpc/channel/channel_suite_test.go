@@ -29,15 +29,14 @@ func TestChannel(t *testing.T) {
 }
 
 var (
-	transport  channelgrpc.Transport
-	addr       address.Address
-	grpcServer *grpc.Server
+	transport channelgrpc.Transport
+	addr      address.Address
 )
 
 var _ = BeforeSuite(func() {
 	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 	addr = address.Address(lis.Addr().String())
-	grpcServer = grpc.NewServer()
+	grpcServer := grpc.NewServer()
 	pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	transport = channelgrpc.New(pool)
 	transport.BindTo(grpcServer)

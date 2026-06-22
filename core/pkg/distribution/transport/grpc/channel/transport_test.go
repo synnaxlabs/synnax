@@ -12,11 +12,19 @@ package channel_test
 import (
 	"context"
 	"go/types"
+	"net"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	channelgrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
+	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var _ = Describe("Transport", func() {
@@ -74,6 +82,52 @@ var _ = Describe("Transport", func() {
 			))
 			Expect(received.Keys).To(Equal(distchannel.Keys{1, 2}))
 			Expect(received.Names).To(Equal([]string{"beta", "gamma"}))
+		})
+	})
+
+	// Use is exercised against an isolated transport and server so the registered
+	// middleware does not leak into the shared transport used by the other specs.
+	Describe("Use", func() {
+		It("Should apply middleware to both the client and server endpoints", func(ctx SpecContext) {
+			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+			useAddr := address.Address(lis.Addr().String())
+			grpcServer := grpc.NewServer()
+			pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			t := channelgrpc.New(pool)
+			t.BindTo(grpcServer)
+			go func() {
+				defer GinkgoRecover()
+				Expect(grpcServer.Serve(lis)).To(Succeed())
+			}()
+			DeferCleanup(grpcServer.GracefulStop)
+
+			var clientCalls, serverCalls atomic.Int32
+			t.Use(freighter.MiddlewareFunc(func(
+				mCtx freighter.Context,
+				next freighter.Next,
+			) (freighter.Context, error) {
+				switch mCtx.Role {
+				case freighter.RoleClient:
+					clientCalls.Add(1)
+				case freighter.RoleServer:
+					serverCalls.Add(1)
+				}
+				return next(mCtx)
+			}))
+
+			t.CreateServer().BindHandler(
+				func(_ context.Context, req distchannel.CreateMessage) (distchannel.CreateMessage, error) {
+					return req, nil
+				},
+			)
+			res := MustSucceed(t.CreateClient().Send(
+				ctx,
+				useAddr,
+				distchannel.CreateMessage{Channels: []distchannel.Channel{{Name: "alpha"}}},
+			))
+			Expect(res.Channels).To(HaveLen(1))
+			Expect(clientCalls.Load()).To(BeNumerically(">=", int32(1)))
+			Expect(serverCalls.Load()).To(BeNumerically(">=", int32(1)))
 		})
 	})
 })

@@ -29,15 +29,14 @@ func TestFramer(t *testing.T) {
 }
 
 var (
-	transport  framergrpc.Transport
-	addr       address.Address
-	grpcServer *grpc.Server
+	transport framergrpc.Transport
+	addr      address.Address
 )
 
 var _ = BeforeSuite(func() {
 	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 	addr = address.Address(lis.Addr().String())
-	grpcServer = grpc.NewServer()
+	grpcServer := grpc.NewServer()
 	pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	transport = framergrpc.New(pool)
 	transport.BindTo(grpcServer)
