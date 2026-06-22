@@ -95,6 +95,7 @@ func (p *progressLogger) shouldLogProgress() bool {
 func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 	key string,
 	transform func(ctx context.Context, old I) (O, error),
+	deps ...string,
 ) migrate.Migration {
 	return NewMigration(key, func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
 		var (
@@ -126,7 +127,7 @@ func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
 		}
 		return err
 
-	})
+	}, deps...)
 }
 
 // NewMigration creates a migration that receives a fully wrapped gorp.Tx,

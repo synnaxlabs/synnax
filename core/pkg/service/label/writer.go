@@ -30,6 +30,9 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if l.Key == uuid.Nil {
 		l.Key = uuid.New()
 	}
+	if err := l.Validate(); err != nil {
+		return err
+	}
 	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}

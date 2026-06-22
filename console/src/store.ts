@@ -31,7 +31,6 @@ import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { Table } from "@/table";
-import { Version } from "@/version";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
@@ -51,7 +50,6 @@ const ZERO_STATE: RootState = {
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
-  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
 };
 
@@ -66,7 +64,6 @@ const reducer = combineReducers({
   [Schematic.Session.SLICE_NAME]: Schematic.Session.reducer,
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
-  [Version.SLICE_NAME]: Version.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Arc.SLICE_NAME]: Arc.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
@@ -82,7 +79,6 @@ export interface RootState {
   [Schematic.Session.SLICE_NAME]: Schematic.Session.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
-  [Version.SLICE_NAME]: Version.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Arc.SLICE_NAME]: Arc.SliceState;
 }
@@ -98,7 +94,6 @@ export type RootAction =
   | Schematic.Session.Action
   | Status.Action
   | Table.Action
-  | Version.Action
   | Project.Action
   | Arc.Action;
 
@@ -111,11 +106,9 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
 
 export const migrateState = (prev: RootState): RootState => {
   console.group("Migrating State");
-  console.log(`Previous Console Version: ${prev[Version.SLICE_NAME].version}`);
   const layout = Layout.migrateSlice(prev.layout);
   const line = LinePlot.migrateSlice(prev.line);
   const log = Log.migrateSlice(prev.log);
-  const version = Version.migrateSlice(prev.version);
   // The project slice was persisted under "workspace" before the rename;
   // migrateLegacySlice reads the legacy key so an upgrading user keeps their saved
   // active project.
@@ -133,7 +126,6 @@ export const migrateState = (prev: RootState): RootState => {
     layout,
     line,
     log,
-    version,
     project,
     range,
     docs,

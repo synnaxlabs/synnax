@@ -100,7 +100,7 @@ describe("createUseCreate", () => {
     const useCreate = buildUseCreate({
       toCreateParams: ({ overrides, project }) => ({
         name: "Default Log",
-        showChannelNames: false,
+        hideChannelNames: true,
         ...overrides,
         project,
       }),
@@ -114,7 +114,7 @@ describe("createUseCreate", () => {
     await waitFor(() => expect(placedLog(store)).toBeDefined());
     const created = await client.logs.retrieve({ key: placedLog(store)!.key });
     expect(created.name).toBe("Init Log");
-    expect(created.showChannelNames).toBe(false);
+    expect(created.hideChannelNames).toBe(true);
   });
 
   it("creates the record under the project passed to the hook over the active one", async () => {

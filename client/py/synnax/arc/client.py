@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import overload
 from uuid import UUID
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr
 
 from freighter import Empty, UnaryClient
 from synnax.arc.payload import (
@@ -25,7 +25,7 @@ from synnax.arc.payload import (
 )
 from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.ontology.payload import ID
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
@@ -45,7 +45,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    arcs: list[Payload] | None = None
+    arcs: list[Payload] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -203,7 +203,7 @@ class Client:
             _RetrieveResponse,
         )
 
-        arcs = self._sugar(res.arcs or [])
+        arcs = self._sugar(res.arcs)
         if not is_single:
             return arcs
         if len(arcs) == 0:

@@ -95,7 +95,7 @@ type (
 		Keys []lineplot.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveResponse struct {
-		LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
+		LinePlots []lineplot.LinePlot `json:"line_plots,omitzero" msgpack:"line_plots,omitzero"`
 	}
 )
 

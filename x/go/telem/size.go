@@ -9,7 +9,33 @@
 
 package telem
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+
+	xjson "github.com/synnaxlabs/x/encoding/json"
+)
+
+var (
+	_ json.Unmarshaler = (*Size)(nil)
+	_ json.Marshaler   = Size(0)
+)
+
+// MarshalJSON implements json.Marshaler. Size is encoded as a string to avoid
+// float64 precision loss for values beyond the safe integer range.
+func (s Size) MarshalJSON() ([]byte, error) {
+	return xjson.MarshalStringInt64(int64(s)), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (s *Size) UnmarshalJSON(b []byte) error {
+	n, err := xjson.UnmarshalStringInt64(b)
+	if err != nil {
+		return err
+	}
+	*s = Size(n)
+	return nil
+}
 
 // String implements fmt.Stringer.
 func (s Size) String() string {

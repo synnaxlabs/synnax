@@ -36,41 +36,41 @@ describe("log/toolbar/Properties", () => {
   });
 
   it("reflects showChannelNames from the server", async () => {
-    const { showChannelNames } = await renderProperties({ showChannelNames: false });
+    const { showChannelNames } = await renderProperties({ hideChannelNames: true });
     await waitFor(() => expect(showChannelNames().checked).toBe(false), TIMEOUT);
   });
 
   it("reflects showReceiptTimestamp from the server", async () => {
     const { showReceiptTimestamp } = await renderProperties({
-      showReceiptTimestamp: false,
+      hideReceiptTimestamp: true,
     });
     await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false), TIMEOUT);
   });
 
   it("toggles showChannelNames through the server", async () => {
     const { key, showChannelNames } = await renderProperties({
-      showChannelNames: true,
+      hideChannelNames: false,
     });
     await waitFor(() => expect(showChannelNames().disabled).toBe(false), TIMEOUT);
     fireEvent.click(showChannelNames());
     await waitFor(() => expect(showChannelNames().checked).toBe(false), TIMEOUT);
     await waitFor(
       async () =>
-        expect((await client.logs.retrieve({ key })).showChannelNames).toBe(false),
+        expect((await client.logs.retrieve({ key })).hideChannelNames).toBe(true),
       TIMEOUT,
     );
   });
 
   it("toggles showReceiptTimestamp through the server", async () => {
     const { key, showReceiptTimestamp } = await renderProperties({
-      showReceiptTimestamp: true,
+      hideReceiptTimestamp: false,
     });
     await waitFor(() => expect(showReceiptTimestamp().disabled).toBe(false), TIMEOUT);
     fireEvent.click(showReceiptTimestamp());
     await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false), TIMEOUT);
     await waitFor(
       async () =>
-        expect((await client.logs.retrieve({ key })).showReceiptTimestamp).toBe(false),
+        expect((await client.logs.retrieve({ key })).hideReceiptTimestamp).toBe(true),
       TIMEOUT,
     );
   });

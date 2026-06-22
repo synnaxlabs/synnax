@@ -57,7 +57,7 @@ describe("log type migrations", () => {
       expect(migrated.pendingUpload).toMatchObject({
         key: "test",
         timestampPrecision: 2,
-        showChannelNames: false,
+        hideChannelNames: true,
       });
       expect(migrated.pendingUpload?.channels[0]).toMatchObject({
         channel: 1,

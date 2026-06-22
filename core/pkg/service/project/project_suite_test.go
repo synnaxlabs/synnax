@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,11 +31,9 @@ func TestProject(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	svc     *project.Service
-	userSvc *user.Service
-	author  user.User
-	tx      gorp.Tx
+	db  *gorp.DB
+	svc *project.Service
+	tx  gorp.Tx
 )
 
 var (
@@ -51,20 +48,11 @@ var (
 				Search:   searchIdx,
 			}))
 		)
-		userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Search:   searchIdx,
-		}))
 		svc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Search:   searchIdx,
-		}))
-		author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: "test",
 		}))
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

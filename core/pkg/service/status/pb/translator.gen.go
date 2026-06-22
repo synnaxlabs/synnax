@@ -72,10 +72,6 @@ func StatusToPB[Details any](
 	if err != nil {
 		return nil, err
 	}
-	labelsVal, err := labelpb.LabelsToPB(r.Labels)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Status{
 		Key:         r.Key,
 		Name:        r.Name,
@@ -84,7 +80,13 @@ func StatusToPB[Details any](
 		Time:        int64(r.Time),
 		Details:     detailsAny,
 		Variant:     variantVal,
-		Labels:      labelsVal,
+	}
+	if r.Labels != nil {
+		vals, err := labelpb.LabelsToPB(r.Labels)
+		if err != nil {
+			return nil, err
+		}
+		pb.Labels = &LabelList{Values: vals}
 	}
 	return pb, nil
 }
@@ -107,15 +109,18 @@ func StatusFromPB[Details any](
 	if err != nil {
 		return status.Status[Details]{}, err
 	}
-	r.Labels, err = labelpb.LabelsFromPB(pb.Labels)
-	if err != nil {
-		return status.Status[Details]{}, err
-	}
 	r.Key = pb.Key
 	r.Name = pb.Name
 	r.Message = pb.Message
 	r.Description = pb.Description
 	r.Time = telem.TimeStamp(pb.Time)
+	if pb.Labels != nil {
+		vals, err := labelpb.LabelsFromPB(pb.Labels.Values)
+		if err != nil {
+			return status.Status[Details]{}, err
+		}
+		r.Labels = vals
+	}
 	return r, nil
 }
 

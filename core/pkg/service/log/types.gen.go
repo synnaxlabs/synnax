@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
@@ -28,6 +30,13 @@ type TimestampConfig struct {
 	Format telem.TimestampFormat `json:"format" msgpack:"format"`
 	// Tz is the time zone used when rendering timestamps.
 	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
+}
+
+func (t TimestampConfig) Validate() error {
+	v := validate.New("TimestampConfig")
+	v.Ternaryf("format", !t.Format.IsValid(), "invalid format: %v", t.Format)
+	v.Ternaryf("tz", !t.Tz.IsValid(), "invalid tz: %v", t.Tz)
+	return v.Error()
 }
 
 // ChannelEntry is a per-channel display configuration entry within a log.
@@ -47,6 +56,30 @@ type ChannelEntry struct {
 	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
 }
 
+func (c *ChannelEntry) ApplyDefaults() {
+	if c.Notation == "" {
+		c.Notation = "standard"
+	}
+	if c.Precision == 0 {
+		c.Precision = -1
+	}
+	if c.Timestamp.Format == "" {
+		c.Timestamp.Format = "preciseDate"
+	}
+	if c.Timestamp.Tz == "" {
+		c.Timestamp.Tz = "local"
+	}
+}
+
+func (c ChannelEntry) Validate() error {
+	v := validate.New("ChannelEntry")
+	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
+	validate.GreaterThanEq(v, "precision", c.Precision, -1)
+	validate.LessThanEq(v, "precision", c.Precision, 17)
+	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
+	return v.Error()
+}
+
 // Log is a timestamped event and message logging component. Logs display chronological
 // records of events, system messages, and audit trails with filtering and formatting
 // capabilities.
@@ -56,11 +89,30 @@ type Log struct {
 	// Name is a human-readable name for the log.
 	Name string `json:"name" msgpack:"name"`
 	// Channels are the channels displayed in this log, in order.
-	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
+	Channels []ChannelEntry `json:"channels,omitzero" msgpack:"channels,omitzero"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
-	// ShowChannelNames controls whether channel names are displayed.
-	ShowChannelNames bool `json:"show_channel_names" msgpack:"show_channel_names"`
-	// ShowReceiptTimestamp controls whether the receipt timestamp column is displayed.
-	ShowReceiptTimestamp bool `json:"show_receipt_timestamp" msgpack:"show_receipt_timestamp"`
+	// HideChannelNames controls whether channel names are hidden. When false (the default),
+	// names are displayed.
+	HideChannelNames bool `json:"hide_channel_names" msgpack:"hide_channel_names"`
+	// HideReceiptTimestamp controls whether the receipt timestamp column is hidden. When
+	// false (the default), it is displayed.
+	HideReceiptTimestamp bool `json:"hide_receipt_timestamp" msgpack:"hide_receipt_timestamp"`
+}
+
+func (l *Log) ApplyDefaults() {
+	for i := range l.Channels {
+		l.Channels[i].ApplyDefaults()
+	}
+}
+
+func (l Log) Validate() error {
+	v := validate.New("Log")
+	validate.NotEmptyString(v, "name", l.Name)
+	validate.GreaterThanEq(v, "timestamp_precision", l.TimestampPrecision, 0)
+	validate.LessThanEq(v, "timestamp_precision", l.TimestampPrecision, 3)
+	for i := range l.Channels {
+		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

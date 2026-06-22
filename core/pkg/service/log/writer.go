@@ -49,6 +49,10 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 			return err
 		}
 	}
+	l.ApplyDefaults()
+	if err = l.Validate(); err != nil {
+		return err
+	}
 	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}

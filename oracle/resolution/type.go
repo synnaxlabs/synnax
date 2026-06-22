@@ -328,6 +328,49 @@ func primitiveBase(ref TypeRef, table *Table, visited set.Set[string]) string {
 	return ""
 }
 
+// CollectionKind reports the collection kind that ref ultimately resolves to:
+// "Array", "Map", or "record". It follows type-parameter constraints and defaults,
+// alias targets, and distinct bases. ok is false when ref does not resolve to a
+// collection. Generators use it to decide which fields are nilable collections (for
+// omitzero tagging and empty defaults) even when the field is typed through an alias
+// or a constrained type parameter.
+func CollectionKind(ref TypeRef, table *Table) (kind string, ok bool) {
+	return collectionKind(ref, table, set.New[string]())
+}
+
+func collectionKind(ref TypeRef, table *Table, visited set.Set[string]) (string, bool) {
+	if ref.IsTypeParam() {
+		if ref.TypeParam == nil {
+			return "", false
+		}
+		if ref.TypeParam.Constraint != nil {
+			return collectionKind(*ref.TypeParam.Constraint, table, visited)
+		}
+		if ref.TypeParam.Default != nil {
+			return collectionKind(*ref.TypeParam.Default, table, visited)
+		}
+		return "", false
+	}
+	if ref.Name == "Array" || ref.Name == "Map" || ref.Name == "record" {
+		return ref.Name, true
+	}
+	if visited.Contains(ref.Name) {
+		return "", false
+	}
+	visited.Add(ref.Name)
+	resolved, ok := table.Get(ref.Name)
+	if !ok {
+		return "", false
+	}
+	switch form := resolved.Form.(type) {
+	case DistinctForm:
+		return collectionKind(form.Base, table, visited)
+	case AliasForm:
+		return collectionKind(form.Target, table, visited)
+	}
+	return "", false
+}
+
 type TypeParam struct {
 	Constraint *TypeRef
 	Default    *TypeRef

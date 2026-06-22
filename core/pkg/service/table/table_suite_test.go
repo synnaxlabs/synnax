@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -56,22 +55,13 @@ var (
 				Group:    g,
 				Search:   searchIdx,
 			}))
-			userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Search:   searchIdx,
-			}))
 		)
 		svc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		author := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: "test",
-		}))
-		proj.Author = author.Key
+		proj.Name = "test-project"
 		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

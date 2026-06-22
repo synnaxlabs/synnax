@@ -23,14 +23,12 @@ func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	w.String(rv.Name)
 	w.Uint32(uint32(rv.TaskCounter))
 	w.Bool(rv.Embedded)
+	w.Bool(rv.Integrations != nil)
 	if rv.Integrations != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(rv.Integrations)))
-		for j := range rv.Integrations {
-			w.String(rv.Integrations[j])
+		for i := range rv.Integrations {
+			w.String(rv.Integrations[i])
 		}
-	} else {
-		w.Bool(false)
 	}
 	return nil
 }
@@ -64,8 +62,8 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			rv.Integrations = make([]string, n)
-			for j := range rv.Integrations {
-				if rv.Integrations[j], err = r.String(); err != nil {
+			for i := range rv.Integrations {
+				if rv.Integrations[i], err = r.String(); err != nil {
 					return err
 				}
 			}

@@ -47,6 +47,20 @@ var _ = Describe("Alignment", func() {
 			Expect(unmarshalled.UnmarshalJSON(marshalled)).To(Succeed())
 			Expect(unmarshalled).To(Equal(align))
 		})
+
+		It("Should unmarshal the alignment from a number", func() {
+			var unmarshalled telem.Alignment
+			Expect(unmarshalled.UnmarshalJSON([]byte("123"))).To(Succeed())
+			Expect(unmarshalled).To(Equal(telem.Alignment(123)))
+		})
+
+		It("Should return an error and leave the alignment untouched on invalid input", func() {
+			align := telem.NewAlignment(2, 1)
+			Expect(align.UnmarshalJSON([]byte(`"not-a-number"`))).To(
+				MatchError(ContainSubstring("invalid syntax")),
+			)
+			Expect(align).To(Equal(telem.NewAlignment(2, 1)))
+		})
 	})
 
 	Describe("AddSamples", func() {

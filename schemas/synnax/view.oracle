@@ -18,7 +18,7 @@ Key = uuid {
 }
 
 View struct {
-    key   Key    {
+    key   Key = create {
         @key
         @doc value "is the unique identifier for this view."
     }
@@ -44,18 +44,9 @@ View struct {
         types.
     """
     @ontology type "view"
+    @create
     @retrieve
     @search
     @go marshal
     @go migrate
-}
-
-New struct extends View {
-    key?
-
-    @doc value    "contains parameters for creating a new view."
-    @ts use_input
-    @go omit
-    @pb omit
-    @cpp omit
 }

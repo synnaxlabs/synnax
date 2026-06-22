@@ -293,7 +293,7 @@ describe("log/aether/Log", () => {
         empty: true,
         visible: true,
       });
-      expect(parsed.showChannelNames).toBe(true);
+      expect(parsed.hideChannelNames).toBe(false);
       expect(parsed.timestampPrecision).toBe(0);
       expect(parsed.channelNames).toEqual({});
       expect(parsed.channels).toEqual([]);
@@ -314,10 +314,10 @@ describe("log/aether/Log", () => {
           }),
           clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
         ],
-        showChannelNames: false,
+        hideChannelNames: true,
         timestampPrecision: 2,
       });
-      expect(parsed.showChannelNames).toBe(false);
+      expect(parsed.hideChannelNames).toBe(true);
       expect(parsed.timestampPrecision).toBe(2);
       expect(parsed.channels).toHaveLength(2);
       expect(parsed.channels[0].color).toEqual([255, 0, 0, 1]);
@@ -672,10 +672,10 @@ describe("log/aether/Log", () => {
   });
 
   describe("channel configs and formatting", () => {
-    it("should format entries with channel names when showChannelNames is true", () => {
+    it("should format entries with channel names when hideChannelNames is false", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1));
       const { log } = setupWithContext(entries, REGION_500, {
-        showChannelNames: true,
+        hideChannelNames: false,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "Sensor1" },
         selectionStart: 0,
@@ -686,10 +686,10 @@ describe("log/aether/Log", () => {
       expect(log.state.selectedText).toContain("Sensor1");
     });
 
-    it("should format entries without channel names when showChannelNames is false", () => {
+    it("should format entries without channel names when hideChannelNames is true", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1));
       const { log } = setupWithContext(entries, REGION_500, {
-        showChannelNames: false,
+        hideChannelNames: true,
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -758,8 +758,8 @@ describe("log/aether/Log", () => {
         { channelKey: 1, timestamp: TimeStamp.milliseconds(2000), value: "again" },
       ];
       const { log } = setupWithContext(entries, REGION_500, {
-        showChannelNames: true,
-        showReceiptTimestamp: false,
+        hideChannelNames: false,
+        hideReceiptTimestamp: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -782,8 +782,8 @@ describe("log/aether/Log", () => {
         { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "" },
       ];
       const { log } = setupWithContext(entries, REGION_500, {
-        showChannelNames: true,
-        showReceiptTimestamp: false,
+        hideChannelNames: false,
+        hideReceiptTimestamp: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -811,8 +811,8 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setupWithContext(entries, REGION_500, {
-        showChannelNames: true,
-        showReceiptTimestamp: true,
+        hideChannelNames: false,
+        hideReceiptTimestamp: false,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "sensor" },
         selectionStart: 0,
@@ -840,8 +840,8 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setupWithContext(entries, REGION_500, {
-        showChannelNames: false,
-        showReceiptTimestamp: false,
+        hideChannelNames: true,
+        hideReceiptTimestamp: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         selectionStart: 0,
         selectionEnd: 1,
@@ -870,8 +870,8 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setupWithContext(entries, REGION_500, {
-        showChannelNames: true,
-        showReceiptTimestamp: false,
+        hideChannelNames: false,
+        hideReceiptTimestamp: true,
         channels: [
           clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
           clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
@@ -903,8 +903,8 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setupWithContext(entries, REGION_500, {
-        showChannelNames: true,
-        showReceiptTimestamp: false,
+        hideChannelNames: false,
+        hideReceiptTimestamp: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -1060,7 +1060,7 @@ describe("log/aether/Log", () => {
         makeEntry(3, 3),
       ];
       const { log } = setupWithContext(entries, REGION_500, {
-        showChannelNames: true,
+        hideChannelNames: false,
         channels: [
           clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
           clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),

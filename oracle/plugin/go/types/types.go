@@ -401,18 +401,21 @@ func processField(field resolution.Field, data *templateData) fieldData {
 	if field.Optional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "msgpack.EncodedJSON") {
 		goType = "*" + goType
 	}
-	// An optional slice or map stays a plain nilable container (not a pointer), so a
-	// nil slice ("not loaded") must serialize as null, not be omitted; otherwise it is
-	// indistinguishable from a present-but-empty slice. So these fields drop omitempty.
-	isOptionalContainer := field.Optional &&
-		(strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map["))
+	// Collection fields (arrays, maps, records) carry `,omitzero` so a nil ("not
+	// loaded") collection is omitted from the wire while an allocated empty
+	// collection still serializes as [] / {}. Receivers default an absent
+	// collection to its empty form, preserving the distinction between "not
+	// loaded" and "present but empty". CollectionKind sees through aliases and
+	// type-parameter constraints so a field typed as an array/map alias or a
+	// collection-constrained type parameter is tagged too.
+	_, isContainer := resolution.CollectionKind(field.Type, data.table)
 	return fieldData{
-		GoName:              naming.GetFieldName(field),
-		GoType:              goType,
-		JSONName:            casing.FieldSnake(field.Name),
-		IsOptional:          field.Optional,
-		IsOptionalContainer: isOptionalContainer,
-		Doc:                 doc.Get(field.Domains),
+		GoName:      naming.GetFieldName(field),
+		GoType:      goType,
+		JSONName:    casing.FieldSnake(field.Name),
+		IsOptional:  field.Optional,
+		IsContainer: isContainer,
+		Doc:         doc.Get(field.Domains),
 	}
 }
 
@@ -515,19 +518,22 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	GoName              string
-	GoType              string
-	JSONName            string
-	Doc                 string
-	IsOptional          bool
-	IsOptionalContainer bool
+	GoName      string
+	GoType      string
+	JSONName    string
+	Doc         string
+	IsOptional  bool
+	IsContainer bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix for the field. Optional containers
-// (nilable slices/maps) deliberately omit `,omitempty` so a nil container serializes
-// as null (not loaded) distinctly from a present empty container.
+// TagSuffix returns the JSON/msgpack tag suffix for the field. Collection fields
+// use `,omitzero` so a nil collection is omitted while an allocated empty one
+// serializes as [] / {}. Other optional fields use `,omitempty`.
 func (f fieldData) TagSuffix() string {
-	if f.IsOptional && !f.IsOptionalContainer {
+	if f.IsContainer {
+		return ",omitzero"
+	}
+	if f.IsOptional {
 		return ",omitempty"
 	}
 	return ""
@@ -675,7 +681,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- $s := .}}
 {{- if or .DefaultFills .DefaultRecurse}}
 
-func ({{$s.Receiver}} {{$s.Name}}) ApplyDefaults() {{$s.Name}} {
+func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- range $s.DefaultFills}}
 	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
 		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
@@ -683,23 +689,22 @@ func ({{$s.Receiver}} {{$s.Name}}) ApplyDefaults() {{$s.Name}} {
 {{- end}}
 {{- range $s.DefaultRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
-	{{$s.Receiver}}.{{.GoName}} = {{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
+	{{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
 {{- else if eq (printf "%s" .Kind) "pointer"}}
 	if {{$s.Receiver}}.{{.GoName}} != nil {
-		applied := {{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
-		{{$s.Receiver}}.{{.GoName}} = &applied
+		{{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
 	}
 {{- else if eq (printf "%s" .Kind) "slice"}}
 	for i := range {{$s.Receiver}}.{{.GoName}} {
-		{{$s.Receiver}}.{{.GoName}}[i] = {{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
+		{{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
 	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$s.Receiver}}.{{.GoName}} {
-		{{$s.Receiver}}.{{.GoName}}[key] = value.ApplyDefaults()
+		value.ApplyDefaults()
+		{{$s.Receiver}}.{{.GoName}}[key] = value
 	}
 {{- end}}
 {{- end}}
-	return {{$s.Receiver}}
 }
 {{- end}}
 {{- if or .EnumChecks .ConstraintChecks .ValidateRecurse}}
@@ -779,26 +784,25 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 {{- $vt := .}}
 {{- if .NeedsApplyDefaults}}
 
-func ({{$vt.Receiver}} {{$vt.TypeName}}) ApplyDefaults() {{$vt.TypeName}} {
+func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 {{- range $vt.DefaultRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
-	{{$vt.Receiver}}.{{.GoName}} = {{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
+	{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
 {{- else if eq (printf "%s" .Kind) "pointer"}}
 	if {{$vt.Receiver}}.{{.GoName}} != nil {
-		applied := {{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
-		{{$vt.Receiver}}.{{.GoName}} = &applied
+		{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
 	}
 {{- else if eq (printf "%s" .Kind) "slice"}}
 	for i := range {{$vt.Receiver}}.{{.GoName}} {
-		{{$vt.Receiver}}.{{.GoName}}[i] = {{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
+		{{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
 	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
-		{{$vt.Receiver}}.{{.GoName}}[key] = value.ApplyDefaults()
+		value.ApplyDefaults()
+		{{$vt.Receiver}}.{{.GoName}}[key] = value
 	}
 {{- end}}
 {{- end}}
-	return {{$vt.Receiver}}
 }
 {{- end}}
 {{- if .NeedsValidate}}
@@ -892,16 +896,16 @@ func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
 }
 {{- if .NeedsApplyDefaults}}
 
-func (u {{.Name}}) ApplyDefaults() {{.Name}} {
+func (u *{{.Name}}) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
 {{- range .Variants}}
 {{- if .NeedsApplyDefaults}}
 	case {{.TypeName}}:
-		u.Variant = variant.ApplyDefaults()
+		variant.ApplyDefaults()
+		u.Variant = variant
 {{- end}}
 {{- end}}
 	}
-	return u
 }
 {{- end}}
 {{- if .NeedsValidate}}

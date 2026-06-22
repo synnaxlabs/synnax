@@ -81,14 +81,14 @@ ID struct {
 }
 
 Resource struct {
-    id   ID      {
+    id   ID     {
         @doc value "is the unique identifier for this resource."
     }
-    name string  {
+    name string {
         @doc value  "is a human-readable name for the resource."
         @go marshal omit
     }
-    data record? {
+    data record = {} {
         @doc value  "is optional metadata associated with the resource."
         @go marshal omit
     }

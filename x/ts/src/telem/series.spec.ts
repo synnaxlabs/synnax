@@ -1519,6 +1519,10 @@ describe("Series", () => {
       expect(s.dataType.equals(DataType.STRING)).toBe(true);
       expect(s.length).toEqual(0);
     });
+    it("should coerce a string alignment to a bigint", () => {
+      const s = Series.z.parse({ dataType: "uint8", alignment: "200" });
+      expect(s.alignment).toEqual(200n);
+    });
   });
 
   describe("toString", () => {

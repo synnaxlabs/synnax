@@ -107,8 +107,8 @@ var _ = Describe("Go Types Plugin", func() {
 				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring("Labels []uuid.UUID `json:\"labels\" msgpack:\"labels\"`"))
-				Expect(content).To(ContainSubstring("Tags []string `json:\"tags\" msgpack:\"tags\"`"))
+				Expect(content).To(ContainSubstring("Labels []uuid.UUID `json:\"labels,omitzero\" msgpack:\"labels,omitzero\"`"))
+				Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitzero\"`"))
 			})
 
 		})
@@ -1342,7 +1342,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring("Age *int32 `json:\"age,omitempty\" msgpack:\"age,omitempty\"`"))
 			})
 
-			It("Should keep optional arrays as plain nilable slices without omitempty", func(ctx SpecContext) {
+			It("Should keep slices plain and tag them omitzero", func(ctx SpecContext) {
 				source := `
 				@go output "core/config"
 
@@ -1361,13 +1361,13 @@ var _ = Describe("Go Types Plugin", func() {
 				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Optional slices stay plain (no pointer) and drop omitempty so a nil
-				// slice serializes as null distinctly from a present empty slice.
-				Expect(content).To(ContainSubstring("Tags []string `json:\"tags\" msgpack:\"tags\"`"))
-				Expect(content).To(ContainSubstring("Counts []int32 `json:\"counts\" msgpack:\"counts\"`"))
+				// Slices stay plain (no pointer) and carry omitzero so a nil slice is
+				// omitted while a present empty slice still serializes as [].
+				Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitzero\"`"))
+				Expect(content).To(ContainSubstring("Counts []int32 `json:\"counts,omitzero\" msgpack:\"counts,omitzero\"`"))
 			})
 
-			It("Should keep optional maps as plain nilable maps without omitempty", func(ctx SpecContext) {
+			It("Should keep maps plain and tag them omitzero", func(ctx SpecContext) {
 				source := `
 				@go output "core/config"
 
@@ -1385,7 +1385,32 @@ var _ = Describe("Go Types Plugin", func() {
 				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring("Settings map[string]string `json:\"settings\" msgpack:\"settings\"`"))
+				Expect(content).To(ContainSubstring("Settings map[string]string `json:\"settings,omitzero\" msgpack:\"settings,omitzero\"`"))
+			})
+
+			It("Should tag required slices and maps with omitzero but leave bytes untagged", func(ctx SpecContext) {
+				source := `
+				@go output "core/config"
+
+				Config struct {
+					tags string[]
+					settings map<string, string>
+					blob bytes
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp := MustSucceed(goPlugin.Generate(req))
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitzero\"`"))
+				Expect(content).To(ContainSubstring("Settings map[string]string `json:\"settings,omitzero\" msgpack:\"settings,omitzero\"`"))
+				Expect(content).To(ContainSubstring("Blob []byte `json:\"blob\" msgpack:\"blob\"`"))
 			})
 
 		})
@@ -1422,7 +1447,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`json:"wasm"`))
-				Expect(content).To(ContainSubstring(`json:"output_memory_bases"`))
+				Expect(content).To(ContainSubstring(`json:"output_memory_bases,omitzero"`))
 				Expect(content).To(ContainSubstring(`json:"camel_case_field"`))
 				Expect(content).To(ContainSubstring(`json:"pascal_case_field"`))
 				Expect(content).To(ContainSubstring(`json:"already_snake_case"`))
@@ -2087,7 +2112,7 @@ var _ = Describe("Go Union Field & Variant Coverage", func() {
 	It("Should resolve an array-of-union field to a slice of the interface", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
 		ExpectContent(resp, "types.gen.go").
-			ToContain("Scales []Scale `" + `json:"scales" msgpack:"scales"` + "`")
+			ToContain("Scales []Scale `" + `json:"scales,omitzero" msgpack:"scales,omitzero"` + "`")
 	})
 })
 

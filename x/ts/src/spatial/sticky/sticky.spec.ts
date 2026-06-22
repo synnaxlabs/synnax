@@ -12,6 +12,7 @@ import { describe, expect, test } from "vitest";
 import { box } from "@/spatial/box";
 import { type location } from "@/spatial/location";
 import { sticky } from "@/spatial/sticky";
+import { type xy } from "@/spatial/xy";
 
 describe("sticky", () => {
   describe("toCSS", () => {
@@ -21,27 +22,52 @@ describe("sticky", () => {
     }
     const SPECS: Spec[] = [
       {
-        pos: { x: 10, y: 20 },
-        expected: { left: "1000%", top: "2000%" },
-      },
-      {
-        pos: { x: 10, y: 20, units: { x: "px", y: "px" } },
+        pos: sticky.xyZ.parse({ x: 10, y: 20 }),
         expected: { left: "10px", top: "20px" },
       },
       {
-        pos: { x: 10, y: 20, units: { x: "decimal", y: "decimal" } },
+        pos: {
+          x: 10,
+          y: 20,
+          root: { x: "left", y: "top" },
+          units: { x: "px", y: "px" },
+        },
+        expected: { left: "10px", top: "20px" },
+      },
+      {
+        pos: {
+          x: 10,
+          y: 20,
+          root: { x: "left", y: "top" },
+          units: { x: "decimal", y: "decimal" },
+        },
         expected: { left: "1000%", top: "2000%" },
       },
       {
-        pos: { x: 10, y: 20, units: { x: "px", y: "decimal" } },
+        pos: {
+          x: 10,
+          y: 20,
+          root: { x: "left", y: "top" },
+          units: { x: "px", y: "decimal" },
+        },
         expected: { left: "10px", top: "2000%" },
       },
       {
-        pos: { x: 10, y: 20, units: { x: "decimal", y: "px" } },
+        pos: {
+          x: 10,
+          y: 20,
+          root: { x: "left", y: "top" },
+          units: { x: "decimal", y: "px" },
+        },
         expected: { left: "1000%", top: "20px" },
       },
       {
-        pos: { x: 10, y: 20, root: { x: "right", y: "bottom" } },
+        pos: {
+          x: 10,
+          y: 20,
+          root: { x: "right", y: "bottom" },
+          units: { x: "decimal", y: "decimal" },
+        },
         expected: { right: "1000%", bottom: "2000%" },
       },
       {
@@ -72,19 +98,30 @@ describe("sticky", () => {
         expected: { right: "10px", top: "2000%" },
       },
       {
-        pos: { x: 0, y: 0 },
+        pos: {
+          x: 0,
+          y: 0,
+          root: { x: "left", y: "top" },
+          units: { x: "decimal", y: "decimal" },
+        },
         expected: { left: "0%", top: "0%" },
       },
       {
-        pos: { x: 0.5, y: 0.5 },
+        pos: {
+          x: 0.5,
+          y: 0.5,
+          root: { x: "left", y: "top" },
+          units: { x: "decimal", y: "decimal" },
+        },
         expected: { left: "50%", top: "50%" },
       },
       {
-        pos: { x: 0.5, y: 0.5, units: { x: "decimal", y: "decimal" } },
-        expected: { left: "50%", top: "50%" },
-      },
-      {
-        pos: { x: 0.1, y: 0.9, root: { x: "right", y: "bottom" } },
+        pos: {
+          x: 0.1,
+          y: 0.9,
+          root: { x: "right", y: "bottom" },
+          units: { x: "decimal", y: "decimal" },
+        },
         expected: { right: "10%", bottom: "90%" },
       },
     ];
@@ -210,7 +247,12 @@ describe("sticky", () => {
     }
     const SPECS: Spec[] = [
       {
-        position: { x: 100, y: 200, units: { x: "px", y: "px" } },
+        position: {
+          x: 100,
+          y: 200,
+          root: { x: "left", y: "top" },
+          units: { x: "px", y: "px" },
+        },
         element: box.construct(0, 0, 50, 50),
         container: box.construct(0, 0, 1000, 1000),
         expected: { x: 0.1, y: 0.2 },
@@ -227,7 +269,12 @@ describe("sticky", () => {
         expected: { x: 0.85, y: 0.75 },
       },
       {
-        position: { x: 0.5, y: 0.25, units: { x: "decimal", y: "decimal" } },
+        position: {
+          x: 0.5,
+          y: 0.25,
+          root: { x: "left", y: "top" },
+          units: { x: "decimal", y: "decimal" },
+        },
         element: box.construct(0, 0, 50, 50),
         container: box.construct(0, 0, 1000, 1000),
         expected: { x: 0.5, y: 0.25 },
@@ -255,7 +302,12 @@ describe("sticky", () => {
         expected: { x: 0.1, y: 0.2 },
       },
       {
-        position: { x: 0, y: 0, units: { x: "px", y: "px" } },
+        position: {
+          x: 0,
+          y: 0,
+          root: { x: "left", y: "top" },
+          units: { x: "px", y: "px" },
+        },
         element: box.construct(0, 0, 50, 50),
         container: box.construct(0, 0, 1000, 1000),
         expected: { x: 0, y: 0 },
@@ -304,7 +356,7 @@ describe("sticky", () => {
   });
   describe("calculate", () => {
     interface Spec {
-      position: sticky.XY;
+      position: xy.XY;
       element: box.Box;
       container: box.Box;
       expected: {
@@ -440,7 +492,7 @@ describe("sticky", () => {
   });
   describe("calculate with custom thresholds", () => {
     interface Spec {
-      position: sticky.XY;
+      position: xy.XY;
       element: box.Box;
       container: box.Box;
       lowerThreshold: number;

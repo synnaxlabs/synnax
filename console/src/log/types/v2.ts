@@ -60,8 +60,8 @@ const buildPendingUpload = (state: v1.State): PendingUpload => ({
     ...entry,
     color: migrateColor(entry.color),
   })),
-  showChannelNames: state.showChannelNames,
-  showReceiptTimestamp: state.showReceiptTimestamp,
+  hideChannelNames: !state.showChannelNames,
+  hideReceiptTimestamp: !state.showReceiptTimestamp,
   timestampPrecision: state.timestampPrecision,
 });
 

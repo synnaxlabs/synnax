@@ -59,7 +59,8 @@ export const ChannelName = ({
     status.Status,
     "variant" | "message" | "description"
   > => {
-    if (channel === 0) return { variant: "warning", message: "No channel selected" };
+    if (channel === 0)
+      return { variant: "warning", message: "No channel selected", description: "" };
     if (
       restResult.status.variant === "error" &&
       NotFoundError.matches(restResult.status.details.error) &&

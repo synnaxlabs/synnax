@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/user"
-
 @ts output "client/ts/src/project"
 @py output "client/py/synnax/project"
 @go output "core/pkg/service/project"
@@ -19,19 +17,15 @@ Key = uuid {
 }
 
 Project struct {
-    key    Key       {
+    key    Key = create {
         @doc value "is the unique identifier for this project."
         @key
     }
-    name   string    {
+    name   string {
         @doc value         "is a human-readable name for the project."
         @validate required
     }
-    author user.Key? {
-        @doc value     "is the UUID of the user who created this project."
-        @filter scalar
-    }
-    layout record    {
+    layout record {
         @doc value        """
             is the mosaic tree structure that defines how visualizations are
             arranged. Contains tab layout, split configurations, and window
@@ -46,18 +40,9 @@ Project struct {
         custom arrangements of visualizations, tabs, and window configurations.
     """
     @ontology type "project"
+    @create
     @retrieve
     @search
     @go marshal
     @go migrate
-}
-
-New struct extends Project {
-    -author
-    key?
-
-    @doc value    "contains parameters for creating a new project."
-    @ts use_input
-    @go omit
-    @pb omit
 }

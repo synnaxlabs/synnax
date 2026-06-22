@@ -32,7 +32,6 @@ import { RangeServices } from "@/range/services";
 import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
-import { Version } from "@/version";
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
   arc: ArcServices.handleLink,
@@ -48,7 +47,6 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});
-  Version.useLoadTauri();
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
   Range.useListenForChanges();

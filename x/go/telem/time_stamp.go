@@ -32,8 +32,11 @@ var (
 // UnmarshalJSON implements json.Unmarshaler.
 func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
 	n, err := xjson.UnmarshalStringInt64(b)
+	if err != nil {
+		return err
+	}
 	*ts = TimeStamp(n)
-	return err
+	return nil
 }
 
 // MarshalJSON implements json.Marshaler.

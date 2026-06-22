@@ -9,7 +9,15 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { useStoreApi } from "@xyflow/react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 
 import { Component } from "@/component";
 import { Edge } from "@/schematic/edge";
@@ -17,6 +25,7 @@ import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
 import { useSelectElementConfig, useSingleDispatch } from "@/schematic/queries";
 import { Diagram as Base } from "@/vis/diagram";
+import { internalNodeBox, resolveEndpoint } from "@/vis/diagram/util";
 
 const useConfig = <T extends ElementConfig>(
   key: string,
@@ -55,10 +64,84 @@ const EdgeRenderer = (props: Base.EdgeProps): ReactElement | null => {
   );
 };
 
+const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
+  const key = Key.use<string>("Schematic.EdgeJumps");
+  const edges = useSelectAllEdges({ key });
+  const edgeKeys = useMemo(() => edges.map((e) => e.key), [edges]);
+  const configs = useSelectConfigs({ key, keys: edgeKeys });
+  const rfStore = useStoreApi();
+  const jumpStoreRef = useInitializerRef<Edge.Jumps.Store>(Edge.Jumps.createStore);
+  const jumpStore = jumpStoreRef.current;
+
+  const recompute = useCallback(() => {
+    const { nodeLookup, transform } = rfStore.getState();
+    const zoom = transform[2];
+    const polylines: Edge.Jumps.Polyline[] = [];
+    edges.forEach((edge, order) => {
+      const sourceNode = nodeLookup.get(edge.source.node);
+      const targetNode = nodeLookup.get(edge.target.node);
+      if (sourceNode == null || targetNode == null) return;
+      const source = resolveEndpoint(sourceNode.internals, edge.source.param);
+      const target = resolveEndpoint(targetNode.internals, edge.target.param);
+      if (source == null || target == null) return;
+      const cfg = configs.get(edge.key) as Edge.Config | undefined;
+      const segments = Edge.Segmented.build({
+        source,
+        target,
+        sourceBox: internalNodeBox(sourceNode),
+        targetBox: internalNodeBox(targetNode),
+        middleSegments: cfg?.segments ?? [],
+      });
+      const points = Edge.Segmented.segmentsToPoints(
+        source.position,
+        segments,
+        zoom,
+        true,
+      );
+      if (points.length >= 2) polylines.push({ key: edge.key, points, order });
+    });
+    jumpStore.commit(Edge.Jumps.findCrossings(polylines));
+  }, [edges, configs, rfStore, jumpStore]);
+
+  // Coalesce React Flow's many per-interaction store updates into one recompute per frame,
+  // skipping frames where no node geometry or zoom changed (panning, selection, hover).
+  const frameRef = useRef<number | null>(null);
+  const geometryRef = useRef("");
+  useEffect(() => {
+    recompute();
+    const schedule = (): void => {
+      if (frameRef.current != null) return;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        const { nodeLookup, transform } = rfStore.getState();
+        let geometry = `${transform[2]}`;
+        for (const node of nodeLookup.values()) {
+          const { x, y } = node.internals.positionAbsolute;
+          geometry += `;${x},${y},${node.measured.width},${node.measured.height}`;
+        }
+        if (geometry === geometryRef.current) return;
+        geometryRef.current = geometry;
+        recompute();
+      });
+    };
+    const unsubscribe = rfStore.subscribe(schedule);
+    return () => {
+      unsubscribe();
+      if (frameRef.current != null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+    };
+  }, [recompute, rfStore]);
+
+  return <Edge.Jumps.Context value={jumpStore}>{children}</Edge.Jumps.Context>;
+};
+
 export const Diagram = Base.create({
   node: Component.renderProp(NodeRenderer),
   edge: Component.renderProp(EdgeRenderer),
   connectionLine: Component.renderProp(Edge.ConnectionLine),
+  Provider: EdgeJumpProvider,
 });
 
 export const nodeChangesToActions = (
@@ -69,13 +152,6 @@ export const nodeChangesToActions = (
     switch (ch.type) {
       case "position":
         actions.push(schematic.setNodePosition({ key: ch.key, position: ch.position }));
-        return;
-      case "dimensions":
-        // onResize drives the symbol's size during a drag; skip the competing write.
-        if (ch.resizing) return;
-        actions.push(
-          schematic.setNodeMeasured({ key: ch.key, measured: ch.dimensions }),
-        );
         return;
       case "remove":
         actions.push(schematic.removeNode({ key: ch.key }));

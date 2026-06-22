@@ -107,15 +107,15 @@ func (p SetTimestampPrecisionPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle controls whether channel names are displayed.
-func (p SetShowChannelNamesPayload) Handle(state Log) (Log, error) {
-	state.ShowChannelNames = p.ShowChannelNames
+// Handle controls whether channel names are hidden.
+func (p SetHideChannelNamesPayload) Handle(state Log) (Log, error) {
+	state.HideChannelNames = p.HideChannelNames
 	return state, nil
 }
 
-// Handle controls whether the receipt timestamp column is displayed.
-func (p SetShowReceiptTimestampPayload) Handle(state Log) (Log, error) {
-	state.ShowReceiptTimestamp = p.ShowReceiptTimestamp
+// Handle controls whether the receipt timestamp column is hidden.
+func (p SetHideReceiptTimestampPayload) Handle(state Log) (Log, error) {
+	state.HideReceiptTimestamp = p.HideReceiptTimestamp
 	return state, nil
 }
 

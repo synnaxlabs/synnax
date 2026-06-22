@@ -7,14 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
-export const sliceStateZ = z.object({
-  version: z.string(),
-});
-
-export type SliceState = z.infer<typeof sliceStateZ>;
-
-export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.0.0",
-};
+export { Context, useCrossings } from "@/schematic/edge/common/jumps/context";
+export { findCrossings, type Polyline } from "@/schematic/edge/common/jumps/crossings";
+export { createStore, type Store } from "@/schematic/edge/common/jumps/store";

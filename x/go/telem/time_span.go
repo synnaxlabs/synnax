@@ -38,8 +38,11 @@ func (ts TimeSpan) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler.
 func (ts *TimeSpan) UnmarshalJSON(b []byte) error {
 	n, err := xjson.UnmarshalStringInt64(b)
+	if err != nil {
+		return err
+	}
 	*ts = TimeSpan(n)
-	return err
+	return nil
 }
 
 // Duration converts TimeSpan to a time.Duration.
