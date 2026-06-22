@@ -571,4 +571,3 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	return l, nil
 }
-
