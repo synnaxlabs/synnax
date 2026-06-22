@@ -42,7 +42,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
 	lp.Lines = reconcileLines(*lp)
-	*lp = lp.ApplyDefaults()
+	lp.ApplyDefaults()
 	if err := lp.Validate(); err != nil {
 		return err
 	}
