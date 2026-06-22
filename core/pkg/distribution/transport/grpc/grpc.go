@@ -11,38 +11,37 @@ package grpc
 
 import (
 	"github.com/synnaxlabs/freighter/grpc"
-	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	disframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 )
 
-// Transports bundles the gRPC-backed implementations of the distribution layer's
+// Transport bundles the gRPC-backed implementations of the distribution layer's
 // node-to-node transports. Construct it with New; the zero value is not usable. It
 // implements the distribution.Transport interface.
-type Transports struct {
-	// channelTransport forwards channel create, rename, and delete operations from a
-	// gateway node to the leaseholder that owns the channels.
-	channelTransport channel.Transport
-	// framerTransport forwards frame write, iterate, relay, and delete operations from a
-	// gateway node to the leaseholders that own the channels.
-	framerTransport framer.Transport
+type Transport struct {
+	channel channel.Transport
+	framer  framer.Transport
 }
+
+var _ distribution.Transport = Transport{}
 
 // New constructs the distribution layer's gRPC transports, opening connections from
 // pool.
-func New(pool *grpc.Pool) Transports {
-	return Transports{channelTransport: channel.New(pool), framerTransport: framer.New(pool)}
+func New(pool *grpc.Pool) Transport {
+	return Transport{channel: channel.New(pool), framer: framer.New(pool)}
 }
 
 // Channel implements distribution.Transport.
-func (t Transports) Channel() dischannel.Transport { return t.channelTransport }
+func (t Transport) Channel() distchannel.Transport { return t.channel }
 
 // Framer implements distribution.Transport.
-func (t Transports) Framer() disframer.Transport { return t.framerTransport }
+func (t Transport) Framer() distframer.Transport { return t.framer }
 
 // BindableTransports returns the transports as a slice for registration with the
 // server's gRPC branch.
-func (t Transports) BindableTransports() []grpc.BindableTransport {
-	return []grpc.BindableTransport{t.channelTransport, t.framerTransport}
+func (t Transport) BindableTransports() []grpc.BindableTransport {
+	return []grpc.BindableTransport{t.channel, t.framer}
 }
