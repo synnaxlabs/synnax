@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Access, Arc as Base, Diagram, Viewport } from "@synnaxlabs/pluto";
+import { Access, Arc as Base, Diagram, Menu, Viewport } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -69,10 +69,22 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }): ReactElement =>
     dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
   }, [state.graph.editable, dispatch]);
 
+  const renderExtraMenuItems = useCallback(
+    (): ReactElement => (
+      <>
+        {hasUpdatePermission && <Diagram.Menu.ToggleEditItem />}
+        <Menu.Divider />
+        <CMenu.ReloadConsoleItem />
+      </>
+    ),
+    [hasUpdatePermission],
+  );
+
   return (
     <>
       <Base.Graph.Graph
         resourceKey={layoutKey}
+        extraMenuItems={renderExtraMenuItems}
         viewport={state.graph.viewport}
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
