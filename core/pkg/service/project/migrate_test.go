@@ -154,6 +154,55 @@ var _ = Describe("Workspace to project migration", func() {
 	})
 })
 
+var _ = Describe("Remove author relationships migration", func() {
+	parentOf := func(from, to ontology.ID) ontology.Relationship {
+		return ontology.Relationship{From: from, Type: ontology.RelationshipTypeParentOf, To: to}
+	}
+	hasRel := func(ctx context.Context, db *gorp.DB, r ontology.Relationship) error {
+		return MustOpen(gorp.OpenTable[string, ontology.Relationship](
+			ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
+		)).NewRetrieve().Where(gorp.MatchKeys[string, ontology.Relationship](r.GorpKey())).
+			Entry(&ontology.Relationship{}).Exec(ctx, db)
+	}
+
+	It("Should delete user-to-project parent relationships and leave others intact", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		relTable := MustOpen(gorp.OpenTable[string, ontology.Relationship](
+			ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
+		))
+		projectID := ontology.ID{Type: ontology.ResourceTypeProject, Key: uuid.NewString()}
+		userID := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.NewString()}
+		groupID := group.OntologyID(uuid.New())
+		lpID := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: uuid.NewString()}
+
+		authorToProject := parentOf(userID, projectID)
+		groupToProject := parentOf(groupID, projectID)
+		projectToLP := parentOf(projectID, lpID)
+		for _, r := range []ontology.Relationship{authorToProject, groupToProject, projectToLP} {
+			rr := r
+			Expect(relTable.NewCreate().Entry(&rr).Exec(ctx, db)).To(Succeed())
+		}
+
+		tx := db.OpenTx()
+		Expect(project.RemoveAuthorRelationships(ctx, tx, alamos.Instrumentation{})).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+
+		By("Deleting the author user-to-project relationship")
+		Expect(hasRel(ctx, db, authorToProject)).To(MatchError(query.ErrNotFound))
+
+		By("Leaving the group parent and project children untouched")
+		Expect(hasRel(ctx, db, groupToProject)).To(Succeed())
+		Expect(hasRel(ctx, db, projectToLP)).To(Succeed())
+	})
+
+	It("Should be a no-op when no author relationships exist", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		tx := db.OpenTx()
+		Expect(project.RemoveAuthorRelationships(ctx, tx, alamos.Instrumentation{})).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+	})
+})
+
 var _ = Describe("Project layout staging migration", func() {
 	It("Should stage each non-empty layout under its key and skip empty ones", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))

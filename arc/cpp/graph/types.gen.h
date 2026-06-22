@@ -114,7 +114,7 @@ struct Graph {
     /// JSON object holding the node's function type under "type" plus its configuration
     /// parameter values. The wire format stores it as an opaque record; the client
     /// types it per function.
-    std::unordered_map<std::string, x::json::json::object_t> configs;
+    std::unordered_map<std::string, x::json::json::object_t> configs = {};
 
     static Graph parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -134,7 +134,7 @@ type (
 		Compile       bool      `json:"compile" msgpack:"compile"`
 	}
 	RetrieveResponse struct {
-		Arcs []Arc `json:"arcs" msgpack:"arcs"`
+		Arcs []Arc `json:"arcs,omitzero" msgpack:"arcs,omitzero"`
 	}
 )
 

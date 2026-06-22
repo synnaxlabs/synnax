@@ -30,7 +30,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ logs: array.nullishToEmpty(logZ) });
+const retrieveResZ = z.object({ logs: logZ.array().default(() => []) });
 
 const createReqZ = z.object({ project: project.keyZ, logs: logZ.array() });
 const createResZ = z.object({ logs: logZ.array() });

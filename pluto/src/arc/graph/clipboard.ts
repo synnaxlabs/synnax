@@ -36,7 +36,10 @@ export const useClipboard = ({
     getSnapshot: () => {
       const a = store.arcs.get(key);
       if (a == null) return null;
-      return { nodes: a.graph.nodes, edges: a.graph.edges, configs: a.graph.configs };
+      const {
+        graph: { nodes, edges, configs },
+      } = a;
+      return { nodes, edges, configs };
     },
     apply: ({ nodes, edges, newKeys }) => {
       const actions: arc.Action[] = [];

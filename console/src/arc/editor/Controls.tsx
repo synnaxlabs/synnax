@@ -15,7 +15,7 @@ import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
 import { useTask } from "@/arc/hooks";
-import { type State, ZERO_GRAPH } from "@/arc/slice";
+import { type State } from "@/arc/slice";
 import { CSS } from "@/css";
 import { Controls as Base } from "@/hardware/common/task/controls";
 import { Layout } from "@/layout";
@@ -41,14 +41,11 @@ export const Controls = ({ state }: ControlsProps) => {
   );
 
   const handleConfigure = useCallback(() => {
+    if (remote == null) return;
     update({
+      ...remote,
       name,
       key: state.key,
-      // Text and graph documents are server-synced via the flux store; deploy the
-      // remote copy rather than any console-local state.
-      text: remote?.text ?? ZERO_TEXT,
-      graph: remote?.graph ?? ZERO_GRAPH,
-      mode: remote?.mode ?? "graph",
       rack: selectedRack,
     });
   }, [state.key, update, name, selectedRack, remote]);
@@ -92,5 +89,3 @@ export const Controls = ({ state }: ControlsProps) => {
 };
 
 const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "arc" };
-
-const ZERO_TEXT: arc.text.Text = { raw: "", doc: { inserts: [], deletes: [] } };

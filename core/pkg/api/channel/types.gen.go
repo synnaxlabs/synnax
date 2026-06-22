@@ -58,7 +58,7 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 	// Operations contains optional aggregation operations (min, max, avg) applied to
 	// channel data over time or triggered by a reset channel.
-	Operations []distributionchannel.Operation `json:"operations" msgpack:"operations"`
+	Operations []distributionchannel.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
 	// channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`

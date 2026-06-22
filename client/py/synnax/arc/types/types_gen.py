@@ -12,11 +12,9 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Annotated, Any, TypeAlias
+from typing import Any, TypeAlias
 
-from pydantic import BaseModel, BeforeValidator, Field
-
-from x import dicts
+from pydantic import BaseModel, Field
 
 
 class Kind(IntEnum):
@@ -58,12 +56,8 @@ class Channels(BaseModel):
         write: Contains writable channel indices mapped to parameter names.
     """
 
-    read: Annotated[dict[int, str], BeforeValidator(dicts.none_to_empty)] = Field(
-        default_factory=dict
-    )
-    write: Annotated[dict[int, str], BeforeValidator(dicts.none_to_empty)] = Field(
-        default_factory=dict
-    )
+    read: dict[int, str] = Field(default_factory=dict)
+    write: dict[int, str] = Field(default_factory=dict)
 
 
 class Dimensions(BaseModel):

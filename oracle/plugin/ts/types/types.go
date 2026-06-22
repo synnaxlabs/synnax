@@ -475,8 +475,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				}
 				zodType = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				addXImport(data, xImport{name: "array", submodule: "array"})
-				zodType = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+				zodType = fmt.Sprintf("%s.array().default(() => [])", elemZod)
 			}
 		} else {
 			zodType = p.typeDefBaseToZod(&form.Base, data)
@@ -508,8 +507,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				}
 				zodType = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				addXImport(data, xImport{name: "array", submodule: "array"})
-				zodType = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+				zodType = fmt.Sprintf("%s.array().default(() => [])", elemZod)
 			}
 		} else {
 			zodType = p.typeDefBaseToZod(&form.Target, data)
@@ -627,8 +625,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				}
 				sd.AliasOf = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				addXImport(data, xImport{name: "array", submodule: "array"})
-				sd.AliasOf = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+				sd.AliasOf = fmt.Sprintf("%s.array().default(() => [])", elemZod)
 			}
 		} else {
 			sd.AliasOf = p.typeRefToZod(&aliasForm.Target, table, data)
@@ -1340,7 +1337,7 @@ var typeParamMappings = map[string]typeParamMapping{
 	"uuid":      {zodType: "z.ZodString", zodValue: "z.string()"},
 	"timestamp": {zodType: "z.ZodNumber", zodValue: "z.number()"},
 	"timespan":  {zodType: "z.ZodNumber", zodValue: "z.number()"},
-	"record":    {zodType: "z.ZodType<record.Unknown>", zodValue: "record.nullishToEmpty()"},
+	"record":    {zodType: "z.ZodType<record.Unknown>", zodValue: "record.unknownZ().default(() => ({}))"},
 }
 
 func defaultToTS(rawType string) string {
@@ -1524,14 +1521,14 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s.array())", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<z.ZodArray<%s>>>", fd.ZodSchemaType)
 		} else {
-			addXImport(data, xImport{name: "array", submodule: "array"})
-			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
-			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
-			// nullishToEmpty already defaults a missing array to []; only a
-			// non-empty declared default needs an explicit .default().
+			// The server omits a nil ("not loaded") array, so a missing array
+			// defaults to []; an allocated empty array still arrives as [].
+			arrayZod := fmt.Sprintf("%s.array()", fd.ZodType)
+			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<z.ZodArray<%s>>", fd.ZodSchemaType)
 			if field.Default != nil && field.Default.Kind == resolution.ValueKindArray && len(field.Default.Elements) > 0 {
-				fd.ZodType = fmt.Sprintf("%s.default(%s)", fd.ZodType, p.tsDefaultLiteral(field.Type, *field.Default, table, data))
-				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+				fd.ZodType = fmt.Sprintf("%s.default(%s)", arrayZod, p.tsDefaultLiteral(field.Type, *field.Default, table, data))
+			} else {
+				fd.ZodType = fmt.Sprintf("%s.default(() => [])", arrayZod)
 			}
 		}
 	} else if isMap {
@@ -1544,9 +1541,8 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(z.record(%s, %s))", keyZ, valueZ)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<z.ZodRecord<%s, %s>>>", keySchemaType, valueSchemaType)
 		} else {
-			addXImport(data, xImport{name: "record", submodule: "record"})
-			fd.ZodType = fmt.Sprintf("record.nullishToEmpty(%s, %s)", keyZ, valueZ)
-			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof record.nullishToEmpty<%s, %s>>", keySchemaType, valueSchemaType)
+			fd.ZodType = fmt.Sprintf("z.record(%s, %s).default(() => ({}))", keyZ, valueZ)
+			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<z.ZodRecord<%s, %s>>", keySchemaType, valueSchemaType)
 		}
 	} else if isJSON {
 		if isAnyOptional {
@@ -1555,8 +1551,8 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<%s>>", fd.ZodSchemaType)
 		} else {
 			addXImport(data, xImport{name: "record", submodule: "record"})
-			fd.ZodType = "record.nullishToEmpty()"
-			fd.ZodSchemaType = "typeof record.nullishToEmpty()"
+			fd.ZodType = "record.unknownZ().default(() => ({}))"
+			fd.ZodSchemaType = "z.ZodDefault<ReturnType<typeof record.unknownZ>>"
 		}
 	} else if isAnyOptional {
 		if isUnionField(field, table) {

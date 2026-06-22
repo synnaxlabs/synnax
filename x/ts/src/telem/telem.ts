@@ -2321,6 +2321,7 @@ export class Size
   /** A zod schema for a Size. */
   static readonly z = z.union([
     z.number().transform((v) => new Size(v)),
+    z.string().transform((v) => new Size(Number(v))),
     z.instanceof(Size),
   ]);
 

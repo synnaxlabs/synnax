@@ -11,11 +11,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from pydantic import BaseModel, Field
 
-from pydantic import BaseModel, BeforeValidator, Field
-
-from x import crdt, lists, telem
+from x import crdt, telem
 
 
 class Document(BaseModel):
@@ -28,12 +26,8 @@ class Document(BaseModel):
         deletes: Are the operations that tombstone deleted characters.
     """
 
-    inserts: Annotated[list[crdt.Insert], BeforeValidator(lists.none_to_empty)] = Field(
-        default_factory=list
-    )
-    deletes: Annotated[list[crdt.Delete], BeforeValidator(lists.none_to_empty)] = Field(
-        default_factory=list
-    )
+    inserts: list[crdt.Insert] = Field(default_factory=list)
+    deletes: list[crdt.Delete] = Field(default_factory=list)
 
 
 class Text(BaseModel):

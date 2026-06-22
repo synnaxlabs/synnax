@@ -121,7 +121,11 @@ export const stateMigration = migrate.createMigration<v2.State, State>({
     mode: state.mode,
     pendingUpload: state.remoteCreated
       ? undefined
-      : { graph: buildPendingGraph(state), text: state.text, mode: state.mode },
+      : {
+          graph: buildPendingGraph(state),
+          text: arc.text.textZ.parse({ raw: state.text.raw }),
+          mode: state.mode,
+        },
   }),
 });
 
@@ -136,10 +140,3 @@ export const sliceMigration = migrate.createMigration<v2.SliceState, SliceState>
     ),
   }),
 });
-
-export const ZERO_GRAPH: arc.graph.Graph = {
-  nodes: [],
-  edges: [],
-  configs: {},
-  functions: [],
-};

@@ -63,10 +63,10 @@ Arc struct {
             Either "text" for text-based Arc code or "graph" for visual dataflow.
         """
     }
-    graph   graph.Graph      {
+    graph   graph.Graph = {} {
         @doc value "is the visual dataflow graph representation of the module."
     }
-    text    text.Text        {
+    text    text.Text = {} {
         @doc value "is the text-based Arc source code."
     }
     program program.Program? {

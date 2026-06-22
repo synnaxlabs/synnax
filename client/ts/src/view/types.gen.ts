@@ -33,7 +33,7 @@ export const viewZ = z.object({
    * query is a type-agnostic JSON object containing view-specific configuration
    * and query parameters.
    */
-  query: record.nullishToEmpty(),
+  query: record.unknownZ().default(() => ({})),
 });
 export interface View extends z.infer<typeof viewZ> {}
 export interface New extends z.input<typeof viewZ> {}

@@ -112,7 +112,7 @@ type (
 		Offset     int           `json:"offset" msgpack:"offset"`
 	}
 	RetrieveResponse struct {
-		Projects []project.Project `json:"projects" msgpack:"projects"`
+		Projects []project.Project `json:"projects,omitzero" msgpack:"projects,omitzero"`
 	}
 )
 

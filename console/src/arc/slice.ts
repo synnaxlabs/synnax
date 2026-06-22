@@ -23,7 +23,6 @@ export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
 export const anyStateZ = latest.anyStateZ;
 export const TYPE = latest.TYPE;
-export const ZERO_GRAPH = latest.ZERO_GRAPH;
 
 export const SLICE_NAME = "arc";
 
@@ -70,25 +69,6 @@ export interface SetViewportModePayload {
   mode: Viewport.Mode;
 }
 
-const clearOtherSelections = (state: SliceState, layoutKey: string): void => {
-  Object.keys(state.arcs).forEach((key) => {
-    if (key === layoutKey) return;
-    state.arcs[key].graph.selected = [];
-  });
-};
-
-const setActiveTabFromSelection = (
-  state: latest.SliceState,
-  layoutKey: string,
-  hasSelection: boolean,
-): void => {
-  if (hasSelection) {
-    if (state.toolbar.activeTab !== "properties")
-      clearOtherSelections(state, layoutKey);
-    state.toolbar.activeTab = "properties";
-  } else state.toolbar.activeTab = "stages";
-};
-
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
@@ -111,7 +91,14 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey, selected } = payload;
       const arc = state.arcs[layoutKey];
       arc.graph.selected = selected;
-      setActiveTabFromSelection(state, layoutKey, selected.length > 0);
+      if (selected.length > 0) {
+        if (state.toolbar.activeTab !== "properties")
+          Object.keys(state.arcs).forEach((key) => {
+            if (key === layoutKey) return;
+            state.arcs[key].graph.selected = [];
+          });
+        state.toolbar.activeTab = "properties";
+      } else state.toolbar.activeTab = "stages";
     },
     setActiveToolbarTab: (
       state,

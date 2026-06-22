@@ -48,7 +48,7 @@ type Rack struct {
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 	// Integrations is the list of hardware integrations this rack supports (e.g., "ni",
 	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
-	Integrations []string `json:"integrations" msgpack:"integrations"`
+	Integrations []string `json:"integrations,omitzero" msgpack:"integrations,omitzero"`
 }
 
 func (r Rack) Validate() error {

@@ -34,19 +34,12 @@ const edge = (
   kind: arc.ir.EdgeKind.continuous,
 });
 
-const empty = (graph: Partial<arc.graph.Graph> = {}, name = ""): arc.Arc => ({
-  key: "arc-key",
-  name,
-  mode: "graph",
-  text: { raw: "", doc: { inserts: [], deletes: [] }, lastEdit: TimeStamp.ZERO },
-  graph: {
-    functions: [],
-    edges: [],
-    nodes: [],
-    configs: {},
-    ...graph,
-  },
-});
+const empty = (graph: Partial<arc.graph.Graph> = {}, name = "Test Arc"): arc.Arc =>
+  arc.arcZ.parse({
+    name,
+    mode: "graph",
+    graph: arc.graph.graphZ.parse(graph),
+  });
 
 const apply = (state: arc.Arc, ...actions: arc.Action[]): arc.Arc =>
   arc.reduceAll(state, actions).next;

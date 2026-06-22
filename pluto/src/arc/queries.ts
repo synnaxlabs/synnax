@@ -272,23 +272,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   },
 });
 
-export const formSchema = arc.arcZ.partial({ key: true });
+export const formSchema = arc.arcZ
+  .partial({ key: true, name: true })
+  .extend({ name: z.string() });
 
-export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
+export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = formSchema.parse({
   name: "",
   mode: "text",
-  graph: {
-    nodes: [],
-    edges: [],
-    configs: {},
-    functions: [],
-  },
-  text: {
-    raw: "",
-    doc: { inserts: [], deletes: [] },
-    lastEdit: new TimeStamp(0),
-  },
-};
+});
 
 export const useForm = Flux.createForm<
   Partial<RetrieveQuery>,

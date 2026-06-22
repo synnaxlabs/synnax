@@ -11,11 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
-
-from pydantic import BaseModel, BeforeValidator, Field
-
-from x import dicts
+from pydantic import BaseModel, Field
 
 
 class Output(BaseModel):
@@ -29,6 +25,4 @@ class Output(BaseModel):
     """
 
     WASM: bytes
-    OutputMemoryBases: Annotated[
-        dict[str, int], BeforeValidator(dicts.none_to_empty)
-    ] = Field(default_factory=dict)
+    OutputMemoryBases: dict[str, int] = Field(default_factory=dict)

@@ -51,9 +51,9 @@ export const arcZ = z.object({
    */
   mode: modeZ,
   /** graph is the visual dataflow graph representation of the module. */
-  graph: graph.graphZ,
+  graph: graph.graphZ.prefault({}),
   /** text is the text-based Arc source code. */
-  text: text.textZ,
+  text: text.textZ.prefault({}),
   /** program is the compiled module output including IR and WebAssembly bytecode. */
   program: program.programZ.optional(),
   /** status is the current execution status of the module. */
