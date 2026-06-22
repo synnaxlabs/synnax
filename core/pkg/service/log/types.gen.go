@@ -56,7 +56,7 @@ type ChannelEntry struct {
 	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
 }
 
-func (c ChannelEntry) ApplyDefaults() ChannelEntry {
+func (c *ChannelEntry) ApplyDefaults() {
 	if c.Notation == "" {
 		c.Notation = "standard"
 	}
@@ -69,7 +69,6 @@ func (c ChannelEntry) ApplyDefaults() ChannelEntry {
 	if c.Timestamp.Tz == "" {
 		c.Timestamp.Tz = "local"
 	}
-	return c
 }
 
 func (c ChannelEntry) Validate() error {
@@ -101,11 +100,10 @@ type Log struct {
 	HideReceiptTimestamp bool `json:"hide_receipt_timestamp" msgpack:"hide_receipt_timestamp"`
 }
 
-func (l Log) ApplyDefaults() Log {
+func (l *Log) ApplyDefaults() {
 	for i := range l.Channels {
-		l.Channels[i] = l.Channels[i].ApplyDefaults()
+		l.Channels[i].ApplyDefaults()
 	}
-	return l
 }
 
 func (l Log) Validate() error {
