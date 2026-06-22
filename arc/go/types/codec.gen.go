@@ -131,27 +131,23 @@ func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
 }
 
 func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
+	w.Bool(fp.Inputs != nil)
 	if fp.Inputs != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(fp.Inputs)))
-		for j := range fp.Inputs {
-			if err := fp.Inputs[j].EncodeOrc(w); err != nil {
+		for i := range fp.Inputs {
+			if err := fp.Inputs[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
+	w.Bool(fp.Outputs != nil)
 	if fp.Outputs != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(fp.Outputs)))
-		for j := range fp.Outputs {
-			if err := fp.Outputs[j].EncodeOrc(w); err != nil {
+		for i := range fp.Outputs {
+			if err := fp.Outputs[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
 	return nil
 }
@@ -172,8 +168,8 @@ func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			fp.Inputs = make([]Param, n)
-			for j := range fp.Inputs {
-				if err = fp.Inputs[j].DecodeOrc(r); err != nil {
+			for i := range fp.Inputs {
+				if err = fp.Inputs[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -190,8 +186,8 @@ func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			fp.Outputs = make([]Param, n)
-			for j := range fp.Outputs {
-				if err = fp.Outputs[j].DecodeOrc(r); err != nil {
+			for i := range fp.Outputs {
+				if err = fp.Outputs[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -240,27 +236,23 @@ func (p *Param) DecodeOrc(r *orc.Reader) error {
 }
 
 func (t Type) EncodeOrc(w *orc.Writer) error {
+	w.Bool(t.Inputs != nil)
 	if t.Inputs != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(t.Inputs)))
-		for j := range t.Inputs {
-			if err := t.Inputs[j].EncodeOrc(w); err != nil {
+		for i := range t.Inputs {
+			if err := t.Inputs[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
+	w.Bool(t.Outputs != nil)
 	if t.Outputs != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(t.Outputs)))
-		for j := range t.Outputs {
-			if err := t.Outputs[j].EncodeOrc(w); err != nil {
+		for i := range t.Outputs {
+			if err := t.Outputs[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
 	w.Int64(int64(t.Kind))
 	w.String(t.Name)
@@ -309,8 +301,8 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			t.Inputs = make([]Param, n)
-			for j := range t.Inputs {
-				if err = t.Inputs[j].DecodeOrc(r); err != nil {
+			for i := range t.Inputs {
+				if err = t.Inputs[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -327,8 +319,8 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			t.Outputs = make([]Param, n)
-			for j := range t.Outputs {
-				if err = t.Outputs[j].DecodeOrc(r); err != nil {
+			for i := range t.Outputs {
+				if err = t.Outputs[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}

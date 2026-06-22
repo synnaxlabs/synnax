@@ -69,7 +69,7 @@ var _ = Describe("Type Definition Generation", func() {
 	})
 
 	Describe("Aliased array types", func() {
-		It("Should wrap an array alias with array.nullishToEmpty", func(ctx SpecContext) {
+		It("Should render an array alias as a defaulted z.array", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -77,7 +77,7 @@ var _ = Describe("Type Definition Generation", func() {
 			`
 			resp := MustGenerate(ctx, source, "tags", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
-			Expect(content).To(ContainSubstring("array.nullishToEmpty"))
+			Expect(content).To(ContainSubstring("z.string().array().default(() => [])"))
 		})
 	})
 })

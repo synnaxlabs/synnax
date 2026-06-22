@@ -64,7 +64,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
         value,
       }: Flux.FormBeforeSaveParams<
         PView.FormQuery,
-        typeof view.newZ,
+        typeof PView.formSchema,
         PView.FluxSubStore
       >) => {
         const { key, query } = value();
@@ -88,7 +88,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
   const [selected, setSelected] = useState<K[]>([]);
   const contextValue = useMemo(() => ({ search }), [search]);
   return (
-    <PForm.Form<typeof view.newZ> {...form}>
+    <PForm.Form<typeof PView.formSchema> {...form}>
       <Select.Frame
         multiple
         data={data}

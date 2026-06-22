@@ -9,7 +9,7 @@
 
 from typing import Any, Literal, overload
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -17,7 +17,7 @@ from synnax import rack as rack_
 from synnax.device.types_gen import Device
 from synnax.exceptions import NotFoundError
 from synnax.ontology.payload import ID as OntologyID
-from x.normalize import check_for_none, normalize, override
+from x.lists import check_for_none, normalize, override
 
 
 class _CreateRequest(BaseModel):
@@ -41,7 +41,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    devices: list[Device] | None = None
+    devices: list[Device] = Field(default_factory=list)
 
 
 class Client:
@@ -201,9 +201,9 @@ class Client:
             _RetrieveResponse,
         )
         if is_single:
-            if res.devices is not None and len(res.devices) > 0:
+            if len(res.devices) > 0:
                 return res.devices[0]
             if ignore_not_found:
                 return None
             raise NotFoundError("Device not found")
-        return res.devices if res.devices is not None else []
+        return res.devices

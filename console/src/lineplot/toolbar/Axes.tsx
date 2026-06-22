@@ -96,7 +96,7 @@ export const LinePlotAxisControls = ({
       lineplot.setAxisBounds({
         key: axisKey,
         bounds: { ...axis.bounds, lower: value },
-        autoBounds: { ...axis.autoBounds, lower: false },
+        manualBounds: { ...axis.manualBounds, lower: true },
       }),
     );
 
@@ -105,7 +105,7 @@ export const LinePlotAxisControls = ({
       lineplot.setAxisBounds({
         key: axisKey,
         bounds: axis.bounds,
-        autoBounds: { ...axis.autoBounds, lower: true },
+        manualBounds: { ...axis.manualBounds, lower: false },
       }),
     );
 
@@ -114,7 +114,7 @@ export const LinePlotAxisControls = ({
       lineplot.setAxisBounds({
         key: axisKey,
         bounds: { ...axis.bounds, upper: value },
-        autoBounds: { ...axis.autoBounds, upper: false },
+        manualBounds: { ...axis.manualBounds, upper: true },
       }),
     );
 
@@ -123,7 +123,7 @@ export const LinePlotAxisControls = ({
       lineplot.setAxisBounds({
         key: axisKey,
         bounds: axis.bounds,
-        autoBounds: { ...axis.autoBounds, upper: true },
+        manualBounds: { ...axis.manualBounds, upper: false },
       }),
     );
 
@@ -147,7 +147,7 @@ export const LinePlotAxisControls = ({
             dragScale={AXES_BOUNDS_DRAG_SCALE}
           >
             <AutoBoundButton
-              enabled={axis.autoBounds.lower}
+              enabled={!axis.manualBounds.lower}
               onClick={handleLowerAutoBoundEnable}
             />
           </Input.Numeric>
@@ -160,7 +160,7 @@ export const LinePlotAxisControls = ({
             dragScale={AXES_BOUNDS_DRAG_SCALE}
           >
             <AutoBoundButton
-              enabled={axis.autoBounds.upper}
+              enabled={!axis.manualBounds.upper}
               onClick={handleUpperAutoBoundEnable}
             />
           </Input.Numeric>

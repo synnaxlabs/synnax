@@ -46,7 +46,7 @@ class TestSubject:
         s = Subject(key="test-key", name="Test")
         assert s.key == "test-key"
         assert s.name == "Test"
-        assert s.group is None
+        assert s.group == 0
 
     def test_with_group(self) -> None:
         s = Subject(key="k", name="n", group=42)

@@ -90,10 +90,13 @@ Status<Details>::to_proto() const {
         else
             *pb.mutable_details() = x::json::to_any(this->details.to_json());
     }
-    for (const auto &item: this->labels) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_labels() = v;
+    if (this->labels.has_value()) {
+        auto *wrapper = pb.mutable_labels();
+        for (const auto &item: *this->labels) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
     }
     return {pb, x::errors::NIL};
 }
@@ -130,11 +133,14 @@ Status<Details>::from_proto(const ::service::status::pb::Status &pb) {
                 cpp.details = Details::parse(x::json::Parser(val));
         }
     }
-    if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
-            cpp.labels,
-            pb.labels()
-        ))
-        return {{}, err};
+    if (pb.has_labels()) {
+        cpp.labels.emplace();
+        if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
+                *cpp.labels,
+                pb.labels().values()
+            ))
+            return {{}, err};
+    }
     return {cpp, x::errors::NIL};
 }
 

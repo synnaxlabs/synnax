@@ -18,24 +18,17 @@ Key = uuid {
 }
 
 Node struct {
-    key      string              {
+    key      string     {
         @doc value "is the unique node identifier within the schematic."
     }
-    position spatial.XY          {
+    position spatial.XY {
         @doc value "is the top-left position of the node."
     }
-    z_index  int16?              {
+    z_index  int16 = 0 {
         @doc value """
             is the stacking order of the node within the schematic. Higher
             values render above lower values. Set by the user via
             send-to-back / bring-to-front actions.
-        """
-    }
-    measured spatial.Dimensions? {
-        @doc value """
-            is the rendered pixel size of the node. Populated by the
-            renderer after the node is mounted and used to keep diagram
-            measurements consistent across re-renders.
         """
     }
 
@@ -71,25 +64,26 @@ Edge struct {
 }
 
 Schematic struct {
-    key      Key                 {
+    key      Key = create {
         @doc value "is the unique identifier for this schematic."
         @key
     }
     name     string              {
-        @doc value "is a human-readable name for the schematic."
+        @doc value         "is a human-readable name for the schematic."
+        @validate required
     }
     snapshot bool = false {
         @doc value """
             indicates whether this schematic represents a saved snapshot state.
         """
     }
-    nodes    Node[]              {
+    nodes    Node[] = [] {
         @doc value "contains all diagram nodes in the schematic."
     }
-    edges    Edge[]              {
+    edges    Edge[] = [] {
         @doc value "contains all connections between nodes."
     }
-    configs  map<string, record> {
+    configs  map<string, record> = {} {
         @doc value        """
             contains per-element configuration keyed by node or edge key. The
             shape of each value is determined by the element's variant; the
@@ -109,17 +103,6 @@ Schematic struct {
         position spatial.XY
 
         @doc value "moves a node to a new position."
-    }
-
-    action SetNodeMeasured {
-        key      string
-        measured spatial.Dimensions
-
-        @doc value """
-            updates the rendered pixel size of a node. Emitted by the
-            renderer after measuring the mounted node and stored on the
-            node so diagram measurements stay consistent across re-renders.
-        """
     }
 
     action SetNode {
@@ -179,18 +162,7 @@ Schematic struct {
     """
     @ontology type "schematic"
     @retrieve
+    @create
     @go marshal
     @go migrate
-}
-
-New struct extends Schematic {
-    key     = create
-    nodes   = []
-    edges   = []
-    configs = {}
-
-    @doc value    "contains parameters for creating a new schematic."
-    @ts use_input
-    @go omit
-    @pb omit
 }

@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { project } from "@/project";
 import { type Action, dispatchReqZ, rename as renameAction } from "@/table/actions.gen";
-import { type Key, keyZ, type New, newZ, type Table, tableZ } from "@/table/types.gen";
+import { type Key, keyZ, type New, type Table, tableZ } from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
@@ -30,9 +30,9 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ tables: array.nullishToEmpty(tableZ) });
+const retrieveResZ = z.object({ tables: tableZ.array().default(() => []) });
 
-const createReqZ = z.object({ project: project.keyZ, tables: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, tables: tableZ.array() });
 const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});

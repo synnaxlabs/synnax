@@ -51,10 +51,10 @@ class Base(BaseModel):
 
     key: Key = Field(ge=0, le=4294967295)
     name: str
-    task_counter: int | None = Field(default=None, ge=0, le=4294967295)
-    embedded: bool | None = None
+    task_counter: int = Field(default=0, ge=0, le=4294967295)
+    embedded: bool = False
     status: Status | None = None
-    integrations: list[str] | None = None
+    integrations: list[str] = Field(default_factory=list)
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -64,12 +64,17 @@ class Rack(Base):
     """Contains parameters for creating a new rack.
 
     Attributes:
-        key: Is an optional key for the rack. If 0, one will be automatically assigned.
+        key: Is the composite identifier for this rack.
+        task_counter: Is an internal counter used for generating unique local task keys.
+        embedded: Is true if this rack is embedded within the Synnax server process.
     """
 
-    key: int = Field(default=0, ge=0, le=4294967295)
-    task_counter: int | None = Field(default=None, exclude=True)
-    embedded: bool | None = Field(default=None, exclude=True)
+    key: Key = Field(default=Key(0), ge=0, le=4294967295)
+    task_counter: int = Field(default=0, ge=0, le=4294967295, exclude=True)
+    embedded: bool = Field(default=False, exclude=True)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 ONTOLOGY_TYPE = ID(type="rack")

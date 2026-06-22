@@ -237,7 +237,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
 					TraverseTo(ontology.ChildrenTraverser).
-					WhereTypes(sampleOntologyType).
+					WhereTypes(ontology.ResourceTypeChannel).
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
@@ -268,9 +268,9 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.NewRetrieve().
 				WhereIDs(grandparent).
 				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(sampleOntologyType). // Intermediate filter, no Entries() bound
+				WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter, no Entries() bound
 				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(sampleOntologyType).
+				WhereTypes(ontology.ResourceTypeChannel).
 				Entries(&results). // Only final clause has entries
 				Exec(ctx, tx),
 			).To(Succeed())
@@ -301,9 +301,9 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.NewRetrieve().
 				WhereIDs(a).
 				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(sampleOntologyType). // Intermediate filter #1
+				WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter #1
 				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(sampleOntologyType). // Intermediate filter #2
+				WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter #2
 				TraverseTo(ontology.ChildrenTraverser).
 				Entries(&results). // Only final clause has entries
 				Exec(ctx, tx),
@@ -353,7 +353,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.DefineResource(ctx, b)).To(Succeed())
 			var r []ontology.Resource
 			Expect(w.NewRetrieve().
-				WhereTypes(sampleOntologyType).
+				WhereTypes(ontology.ResourceTypeChannel).
 				Entries(&r).
 				Exec(ctx, tx),
 			).To(Succeed())
@@ -362,7 +362,7 @@ var _ = Describe("Retrieve", func() {
 				return res.ID.Type
 			})
 			for _, t := range types {
-				Expect(t).To(Equal(sampleOntologyType))
+				Expect(t).To(Equal(ontology.ResourceTypeChannel))
 			}
 		})
 
@@ -386,13 +386,13 @@ var _ = Describe("Retrieve", func() {
 			otherType := ontology.ResourceType("other")
 			var r []ontology.Resource
 			Expect(w.NewRetrieve().
-				WhereTypes(sampleOntologyType, otherType).
+				WhereTypes(ontology.ResourceTypeChannel, otherType).
 				Entries(&r).
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(len(r)).To(BeNumerically(">=", 2))
 			for _, res := range r {
-				Expect(res.ID.Type).To(BeElementOf(sampleOntologyType, otherType))
+				Expect(res.ID.Type).To(BeElementOf(ontology.ResourceTypeChannel, otherType))
 			}
 		})
 
@@ -415,7 +415,7 @@ var _ = Describe("Retrieve", func() {
 			var r []ontology.Resource
 			Expect(w.NewRetrieve().
 				WhereIDs(a, b).
-				WhereTypes(sampleOntologyType).
+				WhereTypes(ontology.ResourceTypeChannel).
 				Entries(&r).
 				Exec(ctx, tx),
 			).To(Succeed())
@@ -446,7 +446,7 @@ var _ = Describe("Retrieve", func() {
 			}
 			var r []ontology.Resource
 			Expect(w.NewRetrieve().
-				WhereTypes(sampleOntologyType).
+				WhereTypes(ontology.ResourceTypeChannel).
 				Limit(3).
 				Entries(&r).
 				Exec(ctx, tx),
@@ -460,7 +460,7 @@ var _ = Describe("Retrieve", func() {
 			}
 			var r []ontology.Resource
 			Expect(w.NewRetrieve().
-				WhereTypes(sampleOntologyType, ontology.ResourceType("other")).
+				WhereTypes(ontology.ResourceTypeChannel, ontology.ResourceType("other")).
 				Limit(3).
 				Entries(&r).
 				Exec(ctx, tx),
@@ -472,16 +472,16 @@ var _ = Describe("Retrieve", func() {
 	Describe("RelationshipPrefix", func() {
 		It("Should return a prefix matching the relationship key format", func() {
 			prefix := ontology.RelationshipPrefix("parent")
-			id := ontology.ID{Type: "channel", Key: "123"}
+			id := ontology.ID{Type: ontology.ResourceTypeChannel, Key: "123"}
 			Expect(string(prefix(id))).To(Equal("channel:123->parent->"))
 		})
 		It("Should produce a prefix that matches relationship GorpKeys", func() {
 			prefix := ontology.RelationshipPrefix(ontology.RelationshipTypeParentOf)
-			from := ontology.ID{Type: "rack", Key: "1"}
+			from := ontology.ID{Type: ontology.ResourceTypeRack, Key: "1"}
 			rel := ontology.Relationship{
 				From: from,
 				Type: ontology.RelationshipTypeParentOf,
-				To:   ontology.ID{Type: "device", Key: "2"},
+				To:   ontology.ID{Type: ontology.ResourceTypeDevice, Key: "2"},
 			}
 			key := rel.GorpKey()
 			p := prefix(from)
@@ -495,7 +495,7 @@ var _ = Describe("Retrieve", func() {
 			w.String("channel")
 			w.String("42")
 			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
-			Expect(id.Type).To(Equal(ontology.ResourceType("channel")))
+			Expect(id.Type).To(Equal(ontology.ResourceTypeChannel))
 			Expect(id.Key).To(Equal("42"))
 		})
 
@@ -505,7 +505,7 @@ var _ = Describe("Retrieve", func() {
 			w.String("abc")
 			w.String("trailing")
 			id := ontology.ReadRawID(orc.Raw(w.Bytes()))
-			Expect(id.Type).To(Equal(ontology.ResourceType("device")))
+			Expect(id.Type).To(Equal(ontology.ResourceTypeDevice))
 			Expect(id.Key).To(Equal("abc"))
 		})
 

@@ -135,23 +135,6 @@ describe("Flux.createDispatch", () => {
       await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
     });
 
-    it("does not push non-undoable actions onto the stack", async () => {
-      const { result, key } = await setupHook((td, k) => ({
-        dispatch: td.useDispatch(),
-        undo: td.useUndo({ key: k }),
-      }));
-      await act(async () => {
-        await result.current.dispatch.dispatchAsync({
-          key,
-          actions: schematic.setNodeMeasured({
-            key: "n1",
-            measured: { width: 1, height: 1 },
-          }),
-        });
-      });
-      expect(result.current.undo.canUndo).toBe(false);
-    });
-
     it("rolls back local state when send fails", async () => {
       const send = vi.fn<SendFn>(async () => {
         throw new Error("send failed");

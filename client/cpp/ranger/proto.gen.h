@@ -38,15 +38,18 @@ Range::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_time_range() = v;
     }
-    {
-        auto [v, err] = this->color.to_proto();
+    if (this->color.has_value()) {
+        auto [v, err] = this->color->to_proto();
         if (err) return {{}, err};
         *pb.mutable_color() = v;
     }
-    for (const auto &item: this->labels) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_labels() = v;
+    if (this->labels.has_value()) {
+        auto *wrapper = pb.mutable_labels();
+        for (const auto &item: *this->labels) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
     }
     if (this->parent.has_value()) {
         auto [v, err] = this->parent->to_proto();
@@ -70,16 +73,19 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.time_range = v;
     }
-    {
+    if (pb.has_color()) {
         auto [v, err] = ::x::color::Color::from_proto(pb.color());
         if (err) return {{}, err};
         cpp.color = v;
     }
-    if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
-            cpp.labels,
-            pb.labels()
-        ))
-        return {{}, err};
+    if (pb.has_labels()) {
+        cpp.labels.emplace();
+        if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
+                *cpp.labels,
+                pb.labels().values()
+            ))
+            return {{}, err};
+    }
     if (pb.has_parent()) {
         auto [v, err] = Range::from_proto(pb.parent());
         if (err) return {{}, err};

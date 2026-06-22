@@ -27,13 +27,13 @@ TabBase struct {
 }
 
 View struct {
-    type string  {
+    type string {
         @doc value """
             is the Console-owned view type identifier (e.g., 'docs',
             'about') used to select a renderer.
         """
     }
-    name string? {
+    name string = "" {
         @doc value """
             is the human-readable tab name for the view. A view has no
             backing resource to derive a name from, so it carries its own.
@@ -41,7 +41,7 @@ View struct {
             back to a type-derived default.
         """
     }
-    args record? {
+    args record = {} {
         @doc value        """
             is an opaque, Console-owned configuration payload for the
             view. Core never interprets it; it round-trips as-is.
@@ -139,18 +139,18 @@ Key = uuid {
 }
 
 Panel struct {
-    key    Key           {
+    key    Key = create {
         @doc value "is the unique identifier for this panel."
         @key
     }
-    name   string        {
+    name   string       {
         @doc value         "is a human-readable name for the panel."
         @validate required
     }
-    root   Node          {
+    root   Node = { variant = "leaf", tabs = [] } {
         @doc value "is the root of the panel tree."
     }
-    parent ontology.ID?? {
+    parent ontology.ID? {
         @doc value  """
             is an optional parent resource for the panel in the ontology.
             When absent on create, the panel is parented to the creating
@@ -174,8 +174,8 @@ Panel struct {
     action InsertTab {
         tab         Tab
         target_leaf int32
-        index       int32??
-        location    spatial.Location??
+        index       int32?
+        location    spatial.Location?
 
         @doc value """
             inserts a tab into the leaf with the given path-derived key at
@@ -199,8 +199,8 @@ Panel struct {
     action MoveTab {
         key         uuid
         target_leaf int32
-        index       int32??
-        location    spatial.Location??
+        index       int32?
+        location    spatial.Location?
 
         @doc value """
             moves a tab to a position within the panel. When location is an
@@ -216,7 +216,7 @@ Panel struct {
     action SplitLeaf {
         leaf     int32
         location spatial.Location
-        size     spatial.Decimal??
+        size     spatial.Decimal?
 
         @doc value """
             splits the given leaf into a parent split with two children:
@@ -265,17 +265,8 @@ Panel struct {
     """
     @ontology type "panel"
     @retrieve
+    @create
     @search
     @go marshal
     @go migrate
-}
-
-New struct extends Panel {
-    key  = create
-    root = { variant = "leaf", tabs = [] }
-
-    @doc value    "contains parameters for creating a new panel."
-    @ts use_input
-    @go omit
-    @pb omit
 }

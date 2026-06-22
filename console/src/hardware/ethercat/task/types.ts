@@ -168,6 +168,8 @@ export const ZERO_READ_PAYLOAD = {
   name: "EtherCAT Read Task",
   config: ZERO_READ_CONFIG,
   type: "ethercat_read",
+  internal: false,
+  snapshot: false,
 } as const satisfies ReadPayload;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
@@ -211,6 +213,8 @@ export const ZERO_WRITE_PAYLOAD = {
   name: "EtherCAT Write Task",
   config: ZERO_WRITE_CONFIG,
   type: "ethercat_write",
+  internal: false,
+  snapshot: false,
 } as const satisfies WritePayload;
 
 /** Generates a unique map key for a channel configuration within a slave. */

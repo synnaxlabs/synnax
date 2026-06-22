@@ -25,7 +25,7 @@ import (
 
 func TestPanelPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Panel PB Suite")
+	RunSpecs(t, "Service Panel PB Suite")
 }
 
 // viewVariant builds a non-trivial view member, including an opaque Args map

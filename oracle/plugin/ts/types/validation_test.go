@@ -179,7 +179,7 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default(uuid.create)`)
 	})
 
-	It("Should rely on nullishToEmpty for an empty array default, not a misplaced element default", func(ctx SpecContext) {
+	It("Should default an empty array default to (() => []), not a misplaced element default", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
 
@@ -189,7 +189,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`vals: array.nullishToEmpty(z.number()),`))
+		Expect(content).To(ContainSubstring(`vals: z.number().array().default(() => []),`))
 		Expect(content).ToNot(ContainSubstring(`z.number().default`))
 	})
 
@@ -203,7 +203,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`vals: array.nullishToEmpty(z.number()).default([1.500000, 2.500000]),`))
+		Expect(content).To(ContainSubstring(`vals: z.number().array().default([1.500000, 2.500000]),`))
 		Expect(content).ToNot(ContainSubstring(`z.number().default`))
 	})
 

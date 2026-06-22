@@ -171,7 +171,7 @@ type (
 		Usernames []string   `json:"usernames" msgpack:"usernames"`
 	}
 	RetrieveResponse struct {
-		Users []user.User `json:"users" msgpack:"users"`
+		Users []user.User `json:"users,omitzero" msgpack:"users,omitzero"`
 	}
 )
 

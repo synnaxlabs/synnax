@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -46,11 +47,11 @@ struct Range {
     /// @brief color is an optional display color for visual identification of the range
     /// in
     /// user interfaces.
-    ::x::color::Color color;
+    std::optional<::x::color::Color> color;
     /// @brief labels contains optional labels attached to this range for categorization
     /// and
     /// filtering.
-    std::vector<::synnax::label::Label> labels;
+    std::optional<std::vector<::synnax::label::Label>> labels;
     /// @brief parent is an optional parent range for hierarchical organization. Ranges
     /// can
     /// be nested within other ranges.

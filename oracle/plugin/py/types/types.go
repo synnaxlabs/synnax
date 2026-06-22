@@ -828,35 +828,26 @@ func processField(
 	// Optional (?) fields become T | None in Python (no pointer distinction). A field
 	// typed as an optional type parameter (e.g. details Details, where Details?) is
 	// likewise optional: an unspecialized struct may omit it. A required collection
-	// instead coerces a null or absent value to its empty form, so it is always
-	// present and iterable.
-	isRecord := field.Type.Name == "record"
-	isMap := field.Type.Name == "Map"
+	// defaults an absent value to its empty form, so it is always present and
+	// iterable; the server omits a nil ("not loaded") collection from the wire, so
+	// the default is what fills it. CollectionKind sees through aliases and
+	// type-parameter constraints so an alias- or type-parameter-typed collection is
+	// defaulted too.
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
 	if field.Optional || isOptionalTypeParam {
 		fd.PyType = fd.PyType + " | None"
-	} else if fd.IsArray {
-		fd.PyType = wrapNoneToEmpty(fd.PyType, "lists", data)
-		fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
-	} else if isRecord || isMap {
-		fd.PyType = wrapNoneToEmpty(fd.PyType, "dicts", data)
-		fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
+	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
+		if kind == "Array" {
+			fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
+		} else {
+			fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
+		}
 	}
 
 	fd.Default = buildDefault(field, fieldConstraints, fd.Alias, data, isOptionalTypeParam)
 
 	return fd
-}
-
-// wrapNoneToEmpty wraps pyType in an Annotated carrying a BeforeValidator that maps a
-// null value to the empty form of the given x submodule ("lists" -> [], "dicts" ->
-// {}). It registers the typing, pydantic, and x imports the annotation needs.
-func wrapNoneToEmpty(pyType, module string, data *templateData) string {
-	data.imports.addTyping("Annotated")
-	data.imports.addPydantic("BeforeValidator")
-	alias := data.imports.addModuleImport("x", module)
-	return fmt.Sprintf("Annotated[%s, BeforeValidator(%s.none_to_empty)]", pyType, alias)
 }
 
 // ensureDefaultFactory appends a default_factory constraint unless one is already

@@ -43,12 +43,11 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		`
 		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 		ExpectContent(resp, "types.gen.go").ToContain(
-			"func (c Cfg) ApplyDefaults() Cfg {",
+			"func (c *Cfg) ApplyDefaults() {",
 			"c.Rolling = 1",
 			"c.Scale = 1.5",
 			`c.Name = "untitled"`,
 			"c.Level = LevelH2",
-			"return c",
 		)
 	})
 
@@ -159,10 +158,10 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (a Axes) ApplyDefaults() Axes {",
+				"func (a *Axes) ApplyDefaults() {",
 				"if a.X1.Key == \"\" {",
 				"a.X1.Key = AxisKeyX1",
-				"a.X1 = a.X1.ApplyDefaults()",
+				"a.X1.ApplyDefaults()",
 			)
 		})
 
@@ -194,8 +193,8 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (o Outer) ApplyDefaults() Outer {",
-				"o.Inner = o.Inner.ApplyDefaults()",
+				"func (o *Outer) ApplyDefaults() {",
+				"o.Inner.ApplyDefaults()",
 			)
 		})
 
@@ -210,7 +209,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				}
 			`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
-			ExpectContent(resp, "types.gen.go").ToContain("func (o Outer) ApplyDefaults() Outer {")
+			ExpectContent(resp, "types.gen.go").ToContain("func (o *Outer) ApplyDefaults() {")
 		})
 
 		It("Should iterate a slice of structs in ApplyDefaults", func(ctx SpecContext) {
@@ -223,7 +222,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
 				"for i := range o.Inners {",
-				"o.Inners[i] = o.Inners[i].ApplyDefaults()",
+				"o.Inners[i].ApplyDefaults()",
 			)
 		})
 
@@ -237,8 +236,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
 				"if o.Inner != nil {",
-				"applied := o.Inner.ApplyDefaults()",
-				"o.Inner = &applied",
+				"o.Inner.ApplyDefaults()",
 			)
 		})
 
@@ -252,7 +250,8 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
 				"for key, value := range o.Inners {",
-				"o.Inners[key] = value.ApplyDefaults()",
+				"value.ApplyDefaults()",
+				"o.Inners[key] = value",
 			)
 		})
 
@@ -308,9 +307,9 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			`
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (n Node) ApplyDefaults() Node {",
+				"func (n *Node) ApplyDefaults() {",
 				"if n.Child != nil {",
-				"applied := n.Child.ApplyDefaults()",
+				"n.Child.ApplyDefaults()",
 			)
 		})
 	})
@@ -427,8 +426,8 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		It("Should emit ApplyDefaults on the variant carrying a defaulted payload", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (s ScaleLinear) ApplyDefaults() ScaleLinear {",
-				"s.LinearScale = s.LinearScale.ApplyDefaults()",
+				"func (s *ScaleLinear) ApplyDefaults() {",
+				"s.LinearScale.ApplyDefaults()",
 			)
 		})
 
@@ -443,10 +442,11 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		It("Should dispatch the wrapper ApplyDefaults on the active variant", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (u Scale) ApplyDefaults() Scale {",
+				"func (u *Scale) ApplyDefaults() {",
 				"switch variant := u.Variant.(type) {",
 				"case ScaleLinear:",
-				"u.Variant = variant.ApplyDefaults()",
+				"variant.ApplyDefaults()",
+				"u.Variant = variant",
 			)
 		})
 
@@ -461,8 +461,8 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		It("Should recurse a struct field whose type is a method-bearing union", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
-				"func (c Container) ApplyDefaults() Container {",
-				"c.Scale = c.Scale.ApplyDefaults()",
+				"func (c *Container) ApplyDefaults() {",
+				"c.Scale.ApplyDefaults()",
 			)
 		})
 	})

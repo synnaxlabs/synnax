@@ -167,6 +167,16 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch2)).
 					To(MatchError(ContainSubstring(fmt.Sprintf("channel with name '%s' already exists", ch.Name))))
 			})
+			It("Should return a validation error if an operation has an invalid type", func(ctx SpecContext) {
+				ch2 := channel.Channel{
+					Name:        channel.NewRandomName(),
+					DataType:    telem.Float64T,
+					Leaseholder: 1,
+					Operations:  []channel.Operation{{Type: "not-a-real-op"}},
+				}
+				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch2)).
+					To(MatchError(ContainSubstring("operations.0.type: invalid type")))
+			})
 		})
 	})
 	Context("Multiple channels", func() {
@@ -565,7 +575,6 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(resChannels[1].Name).To(Equal("UpdatedName"))
 			})
 	})
-
 })
 
 var _ = Context("Name Validation Disabled", func() {

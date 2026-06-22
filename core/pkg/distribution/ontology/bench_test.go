@@ -33,17 +33,15 @@ type benchService struct {
 
 var _ ontology.Service = (*benchService)(nil)
 
-const benchOntologyType ontology.ResourceType = "bench"
-
 type BenchResource struct{ Key string }
 
 func newBenchID(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: benchOntologyType}
+	return ontology.ID{Key: key, Type: ontology.ResourceTypeChannel}
 }
 
 var benchSchema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func (s *benchService) Type() ontology.ResourceType { return benchOntologyType }
+func (s *benchService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
 func (s *benchService) Schema() zyn.Schema { return benchSchema }
 
@@ -264,7 +262,7 @@ func BenchmarkRetrieveByType(b *testing.B) {
 			var err error
 			for i := 0; i < b.N; i++ {
 				var res []ontology.Resource
-				err = env.otg.NewRetrieve().WhereTypes(benchOntologyType).Entries(&res).Exec(env.ctx, nil)
+				err = env.otg.NewRetrieve().WhereTypes(ontology.ResourceTypeChannel).Entries(&res).Exec(env.ctx, nil)
 			}
 			if err != nil {
 				b.Fatalf("benchmark failed: %v", err)
@@ -390,7 +388,7 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 					err = env.otg.NewRetrieve().
 						WhereIDs(parents...).
 						TraverseTo(ontology.ChildrenTraverser).
-						WhereTypes(benchOntologyType).
+						WhereTypes(ontology.ResourceTypeChannel).
 						Entries(&res).
 						Exec(env.ctx, nil)
 				}
