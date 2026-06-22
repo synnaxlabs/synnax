@@ -140,14 +140,12 @@ const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
 const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
 const MainUnderContext = (): ReactElement => {
-  const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   useBlockDefaultDropBehavior();
   Runtime.useExternalLinkHandler();
 
   return (
     <Pluto.Provider
-      theming={theme}
       workerEnabled
       connParams={cluster ?? undefined}
       workerURL={WorkerURL}

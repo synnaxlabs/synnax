@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { Theming } from "@synnaxlabs/pluto";
 import { MdDarkMode } from "react-icons/md";
 
-import { setActiveTheme } from "@/layout/slice";
 import { Palette } from "@/palette";
 
-export const ToggleCommand: Palette.Command = ({ store, ...listProps }) => {
-  const handleSelect = useCallback(() => store.dispatch(setActiveTheme()), [store]);
+export const ToggleCommand: Palette.Command = (listProps) => {
+  const { toggleTheme } = Theming.useContext();
   return (
     <Palette.CommandListItem
       {...listProps}
       name="Toggle color theme"
       icon={<MdDarkMode />}
-      onSelect={handleSelect}
+      onSelect={toggleTheme}
     />
   );
 };
