@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import type * as monacoT from "@codingame/monaco-vscode-editor-api";
-import { type destructor, errors } from "@synnaxlabs/x";
+import { errors } from "@synnaxlabs/x";
+
+import { type Language, registerLanguage } from "@/code/language";
 
 const WORKER_LOADERS: Partial<Record<string, () => Worker>> = {
   TextEditorWorker: () =>
@@ -35,19 +37,19 @@ const getWorker = (_: string, label: string) => {
   throw new Error(`Worker ${label} not found`);
 };
 
-export type Service = () => Promise<destructor.Async>;
-
 export interface InitializeProps {
-  services: Service[];
+  languages: Language[];
 }
 
 export interface InitializeReturn {
   monaco: typeof monacoT;
-  destructor: destructor.Async;
 }
 
 let initPromise: Promise<InitializeReturn> | null = null;
 
+/** initializeMonaco performs the one-time, ordered bootstrap of the monaco-vscode-api
+ * runtime and registers the given languages. It is memoized: monaco-vscode-api can only
+ * be initialized once per page, so every caller shares a single promise. */
 export const initializeMonaco = (props: InitializeProps): Promise<InitializeReturn> => {
   if (initPromise != null) return initPromise;
   initPromise = doInitialize(props).catch((e: unknown) => {
@@ -58,9 +60,13 @@ export const initializeMonaco = (props: InitializeProps): Promise<InitializeRetu
 };
 
 const doInitialize = async ({
-  services,
+  languages,
 }: InitializeProps): Promise<InitializeReturn> => {
   self.MonacoEnvironment = { getWorker };
+  // Everything in this batch must load BEFORE initialize(). In particular importing
+  // vscode/localExtensionHost registers the participant that publishes the default vscode
+  // api during initialize(); deferring it past initialize() leaves the api permanently
+  // unavailable (the LSP client and token theming both depend on it).
   const [
     ,
     { initialize },
@@ -73,6 +79,7 @@ const doInitialize = async ({
     import("@codingame/monaco-vscode-textmate-service-override"),
     import("@codingame/monaco-vscode-theme-service-override"),
     import("@codingame/monaco-vscode-languages-service-override"),
+    import("@codingame/monaco-vscode-extension-api/localExtensionHost"),
   ]);
   await initialize({
     ...getTextMateServiceOverride(),
@@ -80,9 +87,6 @@ const doInitialize = async ({
     ...getLanguagesServiceOverride(),
   });
   const monaco = await import("@codingame/monaco-vscode-editor-api");
-  const destructors = await Promise.all(services.map(async (s) => await s()));
-  const dest: destructor.Async = async () => {
-    await Promise.all(destructors.map((d) => d()));
-  };
-  return { monaco, destructor: dest };
+  for (const language of languages) await registerLanguage(language);
+  return { monaco };
 };

@@ -48,6 +48,8 @@ import { View } from "@/view";
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
 
+const ARC_LANGUAGES = [Arc.LANGUAGE];
+
 export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   theming?: Theming.ProviderProps;
   workerEnabled?: boolean;
@@ -140,12 +142,10 @@ export const Provider = ({
                 <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
                   <Color.Provider {...color}>
                     <Theming.Provider {...theming}>
-                      <Code.Provider initServices={Arc.LSP.SERVICES}>
-                        <Arc.LSP.Provider>
-                          <CanDisableTelem {...telem}>
-                            <Control.StateProvider>{children}</Control.StateProvider>
-                          </CanDisableTelem>
-                        </Arc.LSP.Provider>
+                      <Code.Provider languages={ARC_LANGUAGES}>
+                        <CanDisableTelem {...telem}>
+                          <Control.StateProvider>{children}</Control.StateProvider>
+                        </CanDisableTelem>
                       </Code.Provider>
                     </Theming.Provider>
                   </Color.Provider>

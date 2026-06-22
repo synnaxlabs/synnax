@@ -74,12 +74,11 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
               {({ value, onChange }) => (
                 <Code.Editor
                   initialValue={value}
-                  language={Arc.LSP.LANGUAGE}
-                  onChange={(change) => onChange(change.value)}
+                  language={Arc.NAME}
+                  onValueChange={onChange}
                   isBlock
                   bordered
                   rounded
-                  extensions={Arc.Text.EXTENSIONS}
                 />
               )}
             </Form.Field>

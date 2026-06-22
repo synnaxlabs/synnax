@@ -15,7 +15,7 @@ import {
   status,
   task,
 } from "@synnaxlabs/client";
-import { errors, id, primitive, type record, TimeStamp, xy } from "@synnaxlabs/x";
+import { errors, id, primitive, type record, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 

@@ -10,9 +10,9 @@
 import { type arc } from "@synnaxlabs/client";
 import { useCallback, useMemo } from "react";
 
+import { NAME } from "@/arc/language";
 import { type FluxSubStore, useDispatch, useSelectHasText } from "@/arc/queries";
-import { changesToDiffs, CollabText } from "@/arc/text/collab";
-import { EXTENSIONS } from "@/arc/text/placeholderSuggest";
+import { changesToDiffs, CollabText, type TextChange } from "@/arc/text/collab";
 import { Code } from "@/code";
 import { Flux } from "@/flux";
 
@@ -32,8 +32,8 @@ export const Editor = ({ resourceKey }: EditorProps) => {
     return doc != null ? CollabText.bootstrap(doc) : null;
   }, [store, resourceKey, hasText]);
 
-  const handleChange = useCallback(
-    ({ edits }: Code.EditorChange) => {
+  const handleEdit = useCallback(
+    (edits: readonly TextChange[]) => {
       if (text == null) return;
       const actions = text.applyChanges(changesToDiffs(text.value(), edits));
       if (actions.length > 0) void dispatch({ key: resourceKey, actions });
@@ -60,10 +60,9 @@ export const Editor = ({ resourceKey }: EditorProps) => {
     <Code.Editor
       ref={connect}
       initialValue={text.value()}
-      onChange={handleChange}
-      language="arc"
+      onEdit={handleEdit}
+      language={NAME}
       scrollBeyondLastLine
-      extensions={EXTENSIONS}
     />
   );
 };

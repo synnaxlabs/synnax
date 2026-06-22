@@ -9,6 +9,6 @@
 
 export * from "@/arc/graph";
 export * from "@/arc/haul";
-export * from "@/arc/lsp";
+export * from "@/arc/language";
 export * from "@/arc/queries";
 export * from "@/arc/text";

@@ -12,6 +12,7 @@ import "@/code/Editor.css";
 import { type ILanguageFeaturesService } from "@codingame/monaco-vscode-api/services";
 import { debounce, TimeSpan } from "@synnaxlabs/x";
 import {
+  type ReactNode,
   type Ref,
   type RefObject,
   useCallback,
@@ -22,10 +23,13 @@ import {
   useState,
 } from "react";
 
-import { type Monaco, useMonaco } from "@/code/Provider";
+import { type EditorExtension } from "@/code/language";
+import { type Monaco, useLanguage, useMonaco } from "@/code/Provider";
 import { diff, utf16Offset } from "@/code/text";
 import { CSS } from "@/css";
+import { Errors } from "@/errors";
 import { Flex } from "@/flex";
+import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { Theming } from "@/theming";
@@ -104,11 +108,6 @@ const forwardGlobalTriggers = (
   };
 };
 
-// Plug-in point for attaching language-specific behavior to a Monaco editor.
-export type EditorExtension = (
-  editor: Monaco.editor.IStandaloneCodeEditor,
-) => Monaco.IDisposable;
-
 // applyMinimalEdit reflects next into the model as the single contiguous edit that turns
 // its current value into it, so the local cursor and selection survive a programmatic set.
 const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void => {
@@ -130,13 +129,6 @@ const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void =
   ]);
 };
 
-// EditorChange reports a content change: the editor's full value plus the set of edits
-// that produced it, in Monaco's model-change form.
-export interface EditorChange {
-  value: string;
-  edits: readonly Monaco.editor.IModelContentChange[];
-}
-
 /** EditorHandle is the imperative surface an Editor exposes through its ref, for consumers
  * that own the editor's text and update it programmatically rather than through React
  * state. */
@@ -149,7 +141,8 @@ export interface EditorHandle {
 
 interface UseProps {
   initialValue?: string;
-  onChange?: (change: EditorChange) => void;
+  onValueChange?: (value: string) => void;
+  onEdit?: (changes: readonly Monaco.editor.IModelContentChange[]) => void;
   language: string;
   isBlock?: boolean;
   scrollBeyondLastLine?: boolean;
@@ -157,10 +150,10 @@ interface UseProps {
   extensions?: EditorExtension[];
 }
 
-const useTheme = (language: string) => {
+const useTheme = (hasCustomTheme: boolean) => {
   const theme = Theming.use();
   const prefersDark = theme.key.includes("Dark");
-  if (language === "arc") return prefersDark ? "Default Dark+" : "Default Light+";
+  if (hasCustomTheme) return prefersDark ? "Default Dark+" : "Default Light+";
   return prefersDark ? "vs-dark" : "vs";
 };
 
@@ -270,7 +263,8 @@ const useRenameAvailable = (
 
 const use = ({
   initialValue = "",
-  onChange,
+  onValueChange,
+  onEdit,
   language,
   isBlock = false,
   scrollBeyondLastLine = false,
@@ -279,15 +273,14 @@ const use = ({
 }: UseProps): UseReturn => {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
-  const openContextMenuRef = useRef(openContextMenu);
-  openContextMenuRef.current = openContextMenu;
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  // suppressChange silences the content listener while setValue applies a programmatic
-  // edit, so writing into the editor does not echo back as a user-originated change.
+  const openContextMenuRef = useSyncedRef(openContextMenu);
+  const onValueChangeRef = useSyncedRef(onValueChange);
+  const onEditRef = useSyncedRef(onEdit);
   const suppressChange = useRef(false);
-  const theme = useTheme(language);
+  const languageDef = useLanguage(language);
+  const theme = useTheme(languageDef?.theme != null);
   const monaco = useMonaco();
+  const resolvedExtensions = extensions ?? languageDef?.editorExtensions;
   const [editor, setEditor] = useState<Monaco.editor.IStandaloneCodeEditor | null>(
     null,
   );
@@ -305,7 +298,7 @@ const use = ({
   const customURI = customURIRef.current;
 
   useEffect(() => {
-    if (monaco == null || containerRef.current == null) return;
+    if (containerRef.current == null) return;
     const container = containerRef.current;
 
     // Create model with custom URI if this is a block
@@ -330,7 +323,8 @@ const use = ({
 
     const contentDispose = editor.onDidChangeModelContent((e) => {
       if (suppressChange.current) return;
-      onChangeRef.current?.({ value: editor.getValue(), edits: e.changes });
+      onValueChangeRef.current?.(editor.getValue());
+      onEditRef.current?.(e.changes);
     });
     const triggerDispose = forwardGlobalTriggers(editor);
     const contextMenuDispose = editor.onContextMenu((e) =>
@@ -343,7 +337,7 @@ const use = ({
       }),
     );
 
-    const extensionDisposables = extensions?.map((ext) => ext(editor)) ?? [];
+    const extensionDisposables = resolvedExtensions?.map((ext) => ext(editor)) ?? [];
 
     return () => {
       contentDispose.dispose();
@@ -354,10 +348,9 @@ const use = ({
       model?.dispose();
       setEditor(null);
     };
-  }, [monaco, customURI, extensions]);
+  }, [monaco, customURI, resolvedExtensions]);
 
   useEffect(() => {
-    if (monaco == null) return;
     monaco.editor.setTheme(theme);
   }, [monaco, theme]);
 
@@ -379,14 +372,10 @@ const use = ({
 
   return { containerRef, editorRef, cursorRenameable, handle };
 };
-export interface EditorProps extends Omit<Flex.BoxProps, "value" | "onChange" | "ref"> {
+export interface EditorProps
+  extends Omit<Flex.BoxProps, "value" | "onChange" | "ref">, UseProps {
   ref?: Ref<EditorHandle>;
-  initialValue?: string;
-  onChange?: (change: EditorChange) => void;
-  language: string;
-  isBlock?: boolean;
-  scrollBeyondLastLine?: boolean;
-  extensions?: EditorExtension[];
+  loading?: ReactNode;
 }
 
 const MENU_EDITOR_ACTIONS: Record<string, string> = {
@@ -397,21 +386,23 @@ const MENU_EDITOR_ACTIONS: Record<string, string> = {
   format: "editor.action.formatDocument",
 };
 
-export const Editor = ({
+const EditorInternal = ({
   ref,
   initialValue,
-  onChange,
+  onEdit,
+  onValueChange,
   className,
   language,
   isBlock,
   scrollBeyondLastLine,
   extensions,
   ...rest
-}: EditorProps) => {
+}: Omit<EditorProps, "loading">) => {
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
   const { containerRef, editorRef, cursorRenameable, handle } = use({
     initialValue,
-    onChange,
+    onEdit,
+    onValueChange,
     language,
     isBlock,
     scrollBeyondLastLine,
@@ -511,3 +502,12 @@ export const Editor = ({
     </Flex.Box>
   );
 };
+
+/** Editor is a Monaco-backed code editor. It suspends while the Monaco runtime
+ * initializes on first use, rendering `loading` until ready, and surfaces an
+ * initialization failure to the boundary it provides. */
+export const Editor = ({ loading, ...props }: EditorProps) => (
+  <Errors.SuspenseBoundary loading={loading}>
+    <EditorInternal {...props} />
+  </Errors.SuspenseBoundary>
+);
