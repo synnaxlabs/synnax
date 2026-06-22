@@ -1078,6 +1078,13 @@ func pyStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue,
 		return "None"
 	}
 	className := getPyName(resolved)
+	if resolved.Namespace != data.Namespace {
+		outputPath := output.GetPath(resolved, "py")
+		if outputPath == "" {
+			outputPath = resolved.Namespace
+		}
+		className = addCrossNamespaceImport(toPythonModulePath(outputPath), className, data)
+	}
 	fieldsByName := map[string]resolution.Field{}
 	for _, f := range resolution.UnifiedFields(resolved, table) {
 		fieldsByName[f.Name] = f

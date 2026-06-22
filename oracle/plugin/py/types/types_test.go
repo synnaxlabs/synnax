@@ -1292,6 +1292,10 @@ var _ = Describe("Python Types Plugin", func() {
 						code StatusCode
 						message string
 					}
+
+					Details struct {
+						running bool = false
+					}
 				`)
 			})
 
@@ -1330,6 +1334,25 @@ var _ = Describe("Python Types Plugin", func() {
 					ToContain(
 						`from synnax import status`,
 						`code: status.StatusCode`,
+					)
+			})
+
+			It("Should qualify cross-namespace struct default with its module alias", func(ctx SpecContext) {
+				source := `
+					import "schemas/status"
+
+					@py output "client/py/synnax/task"
+
+					Task struct {
+						key uuid
+						details status.Details = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from synnax import status`,
+						`details: status.Details = Field(default_factory=lambda: status.Details())`,
 					)
 			})
 
