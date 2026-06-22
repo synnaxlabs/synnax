@@ -82,6 +82,8 @@ const pasteResultOf = (
 const renderClipboard = (adapter: ClipboardAdapter<Node, Edge>, selected?: string[]) =>
   renderHook(() => useClipboard({ adapter, selected })).result.current;
 
+const readPayload = (store: Map<string, string>) => JSON.parse(store.get(MIME) ?? "");
+
 describe("clipboard", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -98,7 +100,7 @@ describe("clipboard", () => {
       const { event, store, preventDefault } = fakeClipboardEvent();
       onCopy(event, xy.ZERO);
       expect(preventDefault).toHaveBeenCalled();
-      const payload = JSON.parse(store.get(MIME) as string);
+      const payload = readPayload(store);
       expect(payload.version).toEqual(1);
       expect(payload.nodes.map((n: Node) => n.key)).toEqual(["a", "b"]);
       expect(payload.edges.map((e: Edge) => e.key)).toEqual(["e1"]);
@@ -137,7 +139,7 @@ describe("clipboard", () => {
       const { onCopy } = renderClipboard(makeAdapter(snapshot), ["a", "b", "e1"]);
       const { event, store } = fakeClipboardEvent();
       onCopy(event, xy.ZERO);
-      const payload = JSON.parse(store.get(MIME) as string);
+      const payload = readPayload(store);
       expect(payload.nodes.map((n: Node) => n.key)).toEqual(["a", "b"]);
       expect(payload.edges.map((e: Edge) => e.key)).toEqual(["e1"]);
     });
@@ -156,7 +158,7 @@ describe("clipboard", () => {
       const { onCopy } = renderClipboard(makeAdapter(snapshot), ["a", "e1"]);
       const { event, store } = fakeClipboardEvent();
       onCopy(event, xy.ZERO);
-      const payload = JSON.parse(store.get(MIME) as string);
+      const payload = readPayload(store);
       expect(payload.configs).toEqual({ a: { label: "A" }, e1: { stroke: "red" } });
     });
 
@@ -169,7 +171,7 @@ describe("clipboard", () => {
       const { onCopy } = renderClipboard(makeAdapter(snapshot), ["a", "b"]);
       const { event, store } = fakeClipboardEvent();
       onCopy(event, xy.ZERO);
-      const payload = JSON.parse(store.get(MIME) as string);
+      const payload = readPayload(store);
       expect(payload.anchor).toEqual({ x: 5, y: 15 });
     });
 

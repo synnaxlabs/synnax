@@ -15,16 +15,7 @@ import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
 
-const newTextArc = (name: string): arc.New => ({
-  name,
-  mode: "text",
-  graph: {
-    nodes: [],
-    edges: [],
-    functions: [],
-  },
-  text: { raw: "" },
-});
+const newTextArc = (name: string): arc.New => ({ name, mode: "text" });
 
 describe("arc", () => {
   describe("retrieve", () => {
