@@ -194,7 +194,7 @@ func (t *iteratorServer) Iterate(server framerpb.IteratorService_IterateServer) 
 	return t.Handler(server.Context(), server)
 }
 
-// Transport is a gRPCbbacked implementation of the framer.Transport interface.
+// Transport is a gRPC-backed implementation of the framer.Transport interface.
 type Transport struct {
 	alamos.ReportProvider
 	writer   writerTransport

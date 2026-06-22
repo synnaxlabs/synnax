@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	channelgrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -31,14 +31,18 @@ var _ = Describe("Transport", func() {
 	Describe("Create", func() {
 		It("Should round-trip a create request over the wire", func(ctx SpecContext) {
 			transport.CreateServer().BindHandler(
-				func(_ context.Context, req distchannel.CreateMessage) (distchannel.CreateMessage, error) {
+				func(
+					_ context.Context, req distchannel.CreateMessage,
+				) (distchannel.CreateMessage, error) {
 					return req, nil
 				},
 			)
 			res := MustSucceed(transport.CreateClient().Send(
 				ctx,
 				addr,
-				distchannel.CreateMessage{Channels: []distchannel.Channel{{Name: "alpha"}}},
+				distchannel.CreateMessage{
+					Channels: []distchannel.Channel{{Name: "alpha"}},
+				},
 			))
 			Expect(res.Channels).To(HaveLen(1))
 			Expect(res.Channels[0].Name).To(Equal("alpha"))
@@ -49,7 +53,9 @@ var _ = Describe("Transport", func() {
 		It("Should round-trip a delete request over the wire", func(ctx SpecContext) {
 			var received distchannel.DeleteRequest
 			transport.DeleteServer().BindHandler(
-				func(_ context.Context, req distchannel.DeleteRequest) (types.Nil, error) {
+				func(
+					_ context.Context, req distchannel.DeleteRequest,
+				) (types.Nil, error) {
 					received = req
 					return types.Nil{}, nil
 				},
@@ -67,7 +73,9 @@ var _ = Describe("Transport", func() {
 		It("Should round-trip a rename request over the wire", func(ctx SpecContext) {
 			var received distchannel.RenameRequest
 			transport.RenameServer().BindHandler(
-				func(_ context.Context, req distchannel.RenameRequest) (types.Nil, error) {
+				func(
+					_ context.Context, req distchannel.RenameRequest,
+				) (types.Nil, error) {
 					received = req
 					return types.Nil{}, nil
 				},
@@ -93,7 +101,7 @@ var _ = Describe("Transport", func() {
 			useAddr := address.Address(lis.Addr().String())
 			grpcServer := grpc.NewServer()
 			pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
-			t := channelgrpc.New(pool)
+			t := channel.New(pool)
 			t.BindTo(grpcServer)
 			go func() {
 				defer GinkgoRecover()
@@ -116,18 +124,22 @@ var _ = Describe("Transport", func() {
 			}))
 
 			t.CreateServer().BindHandler(
-				func(_ context.Context, req distchannel.CreateMessage) (distchannel.CreateMessage, error) {
+				func(
+					_ context.Context, req distchannel.CreateMessage,
+				) (distchannel.CreateMessage, error) {
 					return req, nil
 				},
 			)
 			res := MustSucceed(t.CreateClient().Send(
 				ctx,
 				useAddr,
-				distchannel.CreateMessage{Channels: []distchannel.Channel{{Name: "alpha"}}},
+				distchannel.CreateMessage{
+					Channels: []distchannel.Channel{{Name: "alpha"}},
+				},
 			))
 			Expect(res.Channels).To(HaveLen(1))
-			Expect(clientCalls.Load()).To(BeNumerically(">=", int32(1)))
-			Expect(serverCalls.Load()).To(BeNumerically(">=", int32(1)))
+			Expect(clientCalls.Load()).To(Equal(int32(1)))
+			Expect(serverCalls.Load()).To(Equal(int32(1)))
 		})
 	})
 })

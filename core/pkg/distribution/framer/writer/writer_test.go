@@ -32,12 +32,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// openWriter opens a writer against n, attaching the supplied channel metadata to the
-// config. The distribution writer no longer resolves channels itself — its caller (the
-// service layer in production, this helper in tests) supplies them. The writer maps
-// channels by key and only uses those whose key is in cfg.Keys, so passing a superset is
-// fine.
-func openWriter(ctx context.Context, n mock.Node, channels []channel.Channel, cfg writer.Config) (*writer.Writer, error) {
+func openWriter(
+	ctx context.Context,
+	n mock.Node,
+	channels []channel.Channel,
+	cfg writer.Config,
+) (*writer.Writer, error) {
 	cfg.Channels = channels
 	return n.Framer.OpenWriter(ctx, cfg)
 }
@@ -138,13 +138,16 @@ var _ = Describe("Writer", func() {
 				DataType:   telem.Float64T,
 				LocalIndex: idxCh.LocalKey,
 			}
-			floatCh = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{floatCh}))[0]
+			floatCh = MustSucceed(
+				s.dist.Channel.Create(ctx, []channel.Channel{floatCh}),
+			)[0]
 			keys := []channel.Key{idxCh.Key(), floatCh.Key(), strCh.Key()}
-			w := MustOpen(openWriter(ctx, s.dist, []channel.Channel{idxCh, floatCh, strCh}, writer.Config{
-				Keys:  keys,
-				Start: 20 * telem.SecondTS,
-				Sync:  new(true),
-			}))
+			w := MustOpen(openWriter(ctx,
+				s.dist, []channel.Channel{idxCh, floatCh, strCh}, writer.Config{
+					Keys:  keys,
+					Start: 20 * telem.SecondTS,
+					Sync:  new(true),
+				}))
 			MustSucceed(w.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{
@@ -260,13 +263,15 @@ var _ = Describe("Writer", func() {
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
-				idxCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+				idxCh = MustSucceed(
+					dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 				jsonCh := channel.Channel{
 					Name:       "invalid_json",
 					DataType:   telem.JSONT,
 					LocalIndex: idxCh.LocalKey,
 				}
-				jsonCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{jsonCh}))[0]
+				jsonCh = MustSucceed(
+					dist.Channel.Create(ctx, []channel.Channel{jsonCh}))[0]
 				s = DeferClose(scenario{
 					dist:     dist,
 					closer:   builder,
@@ -302,13 +307,15 @@ var _ = Describe("Writer", func() {
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
-				idxCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+				idxCh = MustSucceed(
+					dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 				strCh := channel.Channel{
 					Name:       "invalid_utf8_str",
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
-				strCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{strCh}))[0]
+				strCh = MustSucceed(
+					dist.Channel.Create(ctx, []channel.Channel{strCh}))[0]
 				s = DeferClose(scenario{
 					dist:     dist,
 					closer:   builder,
@@ -344,13 +351,17 @@ var _ = Describe("Writer", func() {
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
-				idxCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+				idxCh = MustSucceed(
+					dist.Channel.Create(ctx, []channel.Channel{idxCh}),
+				)[0]
 				strCh := channel.Channel{
 					Name:       "malformed_prefix_str",
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
-				strCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{strCh}))[0]
+				strCh = MustSucceed(
+					dist.Channel.Create(ctx, []channel.Channel{strCh}),
+				)[0]
 				s = DeferClose(scenario{
 					dist:     dist,
 					closer:   builder,
@@ -508,12 +519,13 @@ var _ = Describe("Writer", func() {
 			data = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{data}))[0]
 
 			before := telem.Now()
-			w := MustSucceed(openWriter(ctx, gw, []channel.Channel{idx, data}, writer.Config{
-				Keys:      []channel.Key{data.Key()},
-				Sync:      new(true),
-				AutoIndex: new(true),
-				Start:     1 * telem.SecondTS,
-			}))
+			w := MustSucceed(openWriter(ctx, gw, []channel.Channel{idx, data},
+				writer.Config{
+					Keys:      []channel.Key{data.Key()},
+					Sync:      new(true),
+					AutoIndex: new(true),
+					Start:     1 * telem.SecondTS,
+				}))
 			Expect((w.Write(frame.NewUnary(
 				data.Key(),
 				telem.NewSeriesV(1.1, 2.2, 3.3),
@@ -557,9 +569,13 @@ var _ = Describe("Writer", func() {
 					Virtual:     true,
 				}
 			)
-			idxCh = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+			idxCh = MustSucceed(
+				s.dist.Channel.Create(ctx, []channel.Channel{idxCh}),
+			)[0]
 			dataCh.LocalIndex = idxCh.LocalKey
-			dataCh = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{dataCh}))[0]
+			dataCh = MustSucceed(
+				s.dist.Channel.Create(ctx, []channel.Channel{dataCh}),
+			)[0]
 
 			keys := []channel.Key{idxCh.Key(), dataCh.Key()}
 			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
@@ -572,11 +588,12 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			writer := MustOpen(openWriter(ctx, s.dist, []channel.Channel{idxCh, dataCh}, writer.Config{
-				Keys:  keys,
-				Start: 10 * telem.SecondTS,
-				Sync:  new(true),
-			}))
+			writer := MustOpen(openWriter(ctx, s.dist, []channel.Channel{idxCh, dataCh},
+				writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
 			data := telem.NewSeriesV[float32](1, 2)
 			idx := telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS)
 			MustSucceed(writer.Write(frame.NewMulti(
@@ -649,7 +666,13 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 	dist := builder.Nodes[1]
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Gateway Only", keys: keys, dist: dist, closer: builder, channels: channels}
+	return scenario{
+		name:     "Gateway Only",
+		keys:     keys,
+		dist:     dist,
+		closer:   builder,
+		channels: channels,
+	}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
@@ -662,7 +685,13 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	}
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: builder, channels: channels}
+	return scenario{
+		name:     "Peer Only",
+		keys:     keys,
+		dist:     dist,
+		closer:   builder,
+		channels: channels,
+	}
 }
 
 func mixedScenario(ctx context.Context) scenario {
@@ -675,7 +704,13 @@ func mixedScenario(ctx context.Context) scenario {
 	}
 	channels = MustSucceed(svc.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: svc, closer: builder, channels: channels}
+	return scenario{
+		name:     "Mixed Gateway and Peer",
+		keys:     keys,
+		dist:     svc,
+		closer:   builder,
+		channels: channels,
+	}
 }
 
 func freeWriterScenario(ctx context.Context) scenario {
@@ -689,5 +724,11 @@ func freeWriterScenario(ctx context.Context) scenario {
 	}
 	channels = MustSucceed(svc.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Free Writes", keys: keys, dist: svc, closer: builder, channels: channels}
+	return scenario{
+		name:     "Free Writes",
+		keys:     keys,
+		dist:     svc,
+		closer:   builder,
+		channels: channels,
+	}
 }

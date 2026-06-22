@@ -11,14 +11,21 @@ package framer_test
 
 import (
 	"context"
+	"net"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	framergrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var _ = Describe("Transport", func() {
@@ -98,6 +105,58 @@ var _ = Describe("Transport", func() {
 		It("Should wire the deleter unary transport", func() {
 			Expect(transport.Deleter().Client()).ToNot(BeNil())
 			Expect(transport.Deleter().Server()).ToNot(BeNil())
+		})
+	})
+
+	// Use is exercised against an isolated transport and server so the registered
+	// middleware does not leak into the shared transport used by the other specs.
+	Describe("Use", func() {
+		// framer's Use applies middleware only to the streaming client endpoints
+		// (writer, iterator, relay), not the servers, so a stream round-trip invokes the
+		// middleware on the client side only.
+		It("Should apply middleware to the streaming client endpoints", func(ctx SpecContext) {
+			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+			useAddr := address.Address(lis.Addr().String())
+			grpcServer := grpc.NewServer()
+			pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			t := framergrpc.New(pool)
+			t.BindTo(grpcServer)
+			go func() {
+				defer GinkgoRecover()
+				Expect(grpcServer.Serve(lis)).To(Succeed())
+			}()
+			DeferCleanup(grpcServer.GracefulStop)
+
+			var clientCalls, serverCalls atomic.Int32
+			t.Use(freighter.MiddlewareFunc(func(
+				mCtx freighter.Context,
+				next freighter.Next,
+			) (freighter.Context, error) {
+				switch mCtx.Role {
+				case freighter.RoleClient:
+					clientCalls.Add(1)
+				case freighter.RoleServer:
+					serverCalls.Add(1)
+				}
+				return next(mCtx)
+			}))
+
+			t.Writer().Server().BindHandler(func(
+				_ context.Context,
+				srv freighter.ServerStream[writer.Request, writer.Response],
+			) error {
+				if _, err := srv.Receive(); err != nil {
+					return err
+				}
+				return srv.Send(writer.Response{})
+			})
+			stream := MustSucceed(t.Writer().Client().Stream(ctx, useAddr))
+			Expect(stream.Send(writer.Request{Command: writer.CommandWrite})).To(Succeed())
+			MustSucceed(stream.Receive())
+			Expect(stream.CloseSend()).To(Succeed())
+
+			Expect(clientCalls.Load()).To(Equal(int32(1)))
+			Expect(serverCalls.Load()).To(Equal(int32(0)))
 		})
 	})
 })
