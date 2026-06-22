@@ -10,10 +10,13 @@
 package telem_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Size", func() {
@@ -100,6 +103,37 @@ var _ = Describe("Size", func() {
 		It("Should return the correct number of exabytes", func() {
 			s := telem.Exabyte + telem.Petabyte + telem.Terabyte
 			Expect(s.Exabytes()).To(Equal(1.001001))
+		})
+	})
+	Describe("MarshalJSON", func() {
+		It("Should marshal the size into a string", func() {
+			b := MustSucceed(json.Marshal(telem.Kilobyte))
+			Expect(string(b)).To(Equal(`"1000"`))
+		})
+	})
+	Describe("UnmarshalJSON", func() {
+		It("Should unmarshal a size from a number", func() {
+			var s telem.Size
+			Expect(json.Unmarshal([]byte("1000"), &s)).To(Succeed())
+			Expect(s).To(Equal(telem.Kilobyte))
+		})
+		It("Should unmarshal a size from a string", func() {
+			var s telem.Size
+			Expect(json.Unmarshal([]byte(`"1000"`), &s)).To(Succeed())
+			Expect(s).To(Equal(telem.Kilobyte))
+		})
+		It("Should unmarshal a value past the float64 safe-integer range", func() {
+			big := telem.Size(1)<<62 + 7
+			b := MustSucceed(json.Marshal(big))
+			var s telem.Size
+			Expect(json.Unmarshal(b, &s)).To(Succeed())
+			Expect(s).To(Equal(big))
+		})
+		It("Should return an error on an invalid size", func() {
+			var s telem.Size
+			Expect(json.Unmarshal([]byte(`"not-a-number"`), &s)).To(
+				MatchError(ContainSubstring("invalid syntax")),
+			)
 		})
 	})
 })

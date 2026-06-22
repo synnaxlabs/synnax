@@ -49,6 +49,9 @@ func (w Writer) Create(
 			return
 		}
 	}
+	if err = s.Validate(); err != nil {
+		return
+	}
 	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
 		return
 	}

@@ -11,6 +11,10 @@
 
 package ontology
 
+import (
+	"github.com/synnaxlabs/x/validate"
+)
+
 // ResourceType is the type of the resource.
 type ResourceType string
 
@@ -65,4 +69,10 @@ type ID struct {
 	Type ResourceType `json:"type" msgpack:"type"`
 	// Key is the unique key identifying the resource within its type.
 	Key string `json:"key" msgpack:"key"`
+}
+
+func (i ID) Validate() error {
+	v := validate.New("ID")
+	v.Ternaryf("type", !i.Type.IsValid(), "invalid type: %v", i.Type)
+	return v.Error()
 }

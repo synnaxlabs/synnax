@@ -19,11 +19,10 @@ from synnax.channel.payload import (
     normalize_params,
 )
 from synnax.channel.retrieve import CacheRetriever
-from synnax.channel.types_gen import New
 
 
 class _CreateRequest(BaseModel):
-    channels: list[Payload | New]
+    channels: list[Payload]
 
 
 class _Response(BaseModel):
@@ -58,7 +57,7 @@ class Writer:
     @trace("debug")
     def create(
         self,
-        channels: list[Payload | New],
+        channels: list[Payload],
     ) -> list[Payload]:
         req = _CreateRequest(channels=channels)
         res = self._client.send("/channel/create", req, _Response)

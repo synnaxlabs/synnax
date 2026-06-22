@@ -157,6 +157,10 @@ type Action struct {
 	Domains map[string]Domain
 	Name    string
 	Fields  []Field
+	// Extends names struct types whose fields are flattened into the action's
+	// payload. The analyzer resolves these and prepends the inherited fields to
+	// Fields, so by code-generation time Fields already holds the unified list.
+	Extends []TypeRef
 }
 
 type Field struct {
@@ -166,10 +170,13 @@ type Field struct {
 	Type    TypeRef
 	// Default is the field's default value, declared inline as `name type = value`.
 	// It is nil when the field has no default.
-	Default        *ExpressionValue
-	IsOptional     bool
-	IsHardOptional bool
-	OmitIfUnset    bool
+	Default *ExpressionValue
+	// Optional reports whether the field is optional, declared with a trailing `?`
+	// on the field. An optional field admits an explicit absence (a Go pointer, a
+	// TypeScript `.optional()`, a Python `| None`, a C++ `std::optional`, a proto3
+	// `optional`) that round-trips faithfully rather than collapsing to the zero
+	// value.
+	Optional bool
 	// OmittedDomains names domains to drop from the inherited parent field during
 	// override resolution, declared with the `-@domain` syntax.
 	OmittedDomains []string
@@ -231,7 +238,7 @@ func (r TypeRef) MustResolve(table *Table) Type {
 //
 // This is the shared primitive behind the analyzer's IsRecursive detection
 // and the C++ plugin's decision between std::optional<T> and
-// x::mem::indirect<T> for hard-optional fields.
+// x::mem::indirect<T> for optional fields.
 func RefersTo(ref TypeRef, targetQualifiedName string, table *Table) bool {
 	return refersTo(ref, targetQualifiedName, table, set.New[string]())
 }
@@ -282,6 +289,86 @@ func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string
 		return refersTo(form.Base, targetQN, table, visited)
 	}
 	return false
+}
+
+// PrimitiveBase follows ref through distinct-type and alias chains to the underlying
+// primitive type name (e.g. a distinct Key over uint32 resolves to "uint32"). It returns
+// the primitive name when ref bottoms out at a primitive, or "" when it does not (a
+// struct, union, builtin container, or unresolved reference). A reference whose surface
+// name is already a primitive is returned directly. Used to classify named numeric and
+// string types for validation, where the constraint applies to the underlying primitive.
+func PrimitiveBase(ref TypeRef, table *Table) string {
+	return primitiveBase(ref, table, set.New[string]())
+}
+
+func primitiveBase(ref TypeRef, table *Table, visited set.Set[string]) string {
+	if ref.IsTypeParam() {
+		if ref.TypeParam != nil && ref.TypeParam.Constraint != nil {
+			return primitiveBase(*ref.TypeParam.Constraint, table, visited)
+		}
+		return ""
+	}
+	if IsPrimitive(ref.Name) {
+		return ref.Name
+	}
+	if visited.Contains(ref.Name) {
+		return ""
+	}
+	visited.Add(ref.Name)
+	resolved, ok := table.Get(ref.Name)
+	if !ok {
+		return ""
+	}
+	switch form := resolved.Form.(type) {
+	case DistinctForm:
+		return primitiveBase(form.Base, table, visited)
+	case AliasForm:
+		return primitiveBase(form.Target, table, visited)
+	}
+	return ""
+}
+
+// CollectionKind reports the collection kind that ref ultimately resolves to:
+// "Array", "Map", or "record". It follows type-parameter constraints and defaults,
+// alias targets, and distinct bases. ok is false when ref does not resolve to a
+// collection. Generators use it to decide which fields are nilable collections (for
+// omitzero tagging and empty defaults) even when the field is typed through an alias
+// or a constrained type parameter.
+func CollectionKind(ref TypeRef, table *Table) (kind string, ok bool) {
+	return collectionKind(ref, table, set.New[string]())
+}
+
+func collectionKind(ref TypeRef, table *Table, visited set.Set[string]) (string, bool) {
+	if ref.IsTypeParam() {
+		if ref.TypeParam == nil {
+			return "", false
+		}
+		if ref.TypeParam.Constraint != nil {
+			return collectionKind(*ref.TypeParam.Constraint, table, visited)
+		}
+		if ref.TypeParam.Default != nil {
+			return collectionKind(*ref.TypeParam.Default, table, visited)
+		}
+		return "", false
+	}
+	if ref.Name == "Array" || ref.Name == "Map" || ref.Name == "record" {
+		return ref.Name, true
+	}
+	if visited.Contains(ref.Name) {
+		return "", false
+	}
+	visited.Add(ref.Name)
+	resolved, ok := table.Get(ref.Name)
+	if !ok {
+		return "", false
+	}
+	switch form := resolved.Form.(type) {
+	case DistinctForm:
+		return collectionKind(form.Base, table, visited)
+	case AliasForm:
+		return collectionKind(form.Target, table, visited)
+	}
+	return "", false
 }
 
 type TypeParam struct {
@@ -454,11 +541,10 @@ func mergeOverrideField(parent, child Field) Field {
 	out := child
 	if !child.HasType() {
 		out.Type = parent.Type
-		// A typeless override inherits the parent's optionality unless it forces
-		// its own with a standalone `?`/`??` marker (key? / key??).
-		if !child.IsOptional && !child.IsHardOptional {
-			out.IsOptional = parent.IsOptional
-			out.IsHardOptional = parent.IsHardOptional
+		// A typeless override inherits the parent's nullability unless it forces
+		// its own with a standalone `?` marker (key?).
+		if !child.Optional {
+			out.Optional = parent.Optional
 		}
 		if child.Default == nil {
 			out.Default = parent.Default

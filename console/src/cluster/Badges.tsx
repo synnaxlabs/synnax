@@ -10,11 +10,7 @@
 import { type connection } from "@synnaxlabs/client";
 import { Flex, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
-
-import { detectConnection } from "@/cluster/detectConnection";
-import { Version } from "@/version";
+import { type ReactElement } from "react";
 
 /** Props for the ConnectionStateBadge component. */
 export interface ConnectionStateBadgeProps {
@@ -64,25 +60,7 @@ export const ConnectionStatusBadge = ({
   );
 };
 
-const RemoteVersionUpdater = (): null => {
-  const state = Synnax.useConnectionState();
-  const dispatch = useDispatch();
-  useEffect(() => {
-    if (state.status !== "connected") return;
-    const version = state.nodeVersion;
-    if (version == null) return;
-    dispatch(Version.set(version));
-  }, [state]);
-  return null;
-};
-
 export const ConnectionBadge = (): ReactElement => {
   const state = Synnax.useConnectionState();
-  const serving = detectConnection();
-  return (
-    <>
-      {serving != null && <RemoteVersionUpdater />}
-      <ConnectionStatusBadge state={state} />
-    </>
-  );
+  return <ConnectionStatusBadge state={state} />;
 };

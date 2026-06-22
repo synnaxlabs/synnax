@@ -46,6 +46,16 @@ var _ = Describe("Writer", func() {
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
 		})
 
+		It("Should return a validation error when an object has an invalid type", func(ctx SpecContext) {
+			p := &policy.Policy{
+				Name:    "test-policy",
+				Objects: []ontology.ID{{Type: "not-a-real-type", Key: "ch1"}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			Expect(w.Create(ctx, p)).
+				To(MatchError(ContainSubstring("objects.0.type: invalid type")))
+		})
+
 		It("Should create a policy with provided UUID", func(ctx SpecContext) {
 			key := uuid.New()
 			p := &policy.Policy{

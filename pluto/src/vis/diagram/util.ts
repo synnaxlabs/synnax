@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
-import { type InternalNode, type ReactFlowInstance } from "@xyflow/react";
+import {
+  type InternalNode,
+  type NodeChange as RFNodeChange,
+  type ReactFlowInstance,
+} from "@xyflow/react";
 
 import { type diagram } from "@/vis/diagram/aether";
 
@@ -150,4 +154,38 @@ export const calculateCursorPosition = (
     .translate(xy.scale(viewport.position, -1))
     .magnify(xy.reciprocal(zoomXY));
   return s.pos(xy.construct(cursor));
+};
+
+export interface PartitionedNodeChanges {
+  /// @brief changes that should be forwarded to the diagram's onNodesChange handler.
+  passthrough: RFNodeChange[];
+  /// @brief finalized measured dimensions keyed by node id. Excludes in-progress
+  /// resizes and zero-area measurements, which react-flow emits before a node has
+  /// actually been laid out.
+  sizes: [string, dimensions.Dimensions][];
+  /// @brief ids of removed nodes, whose stale measurements should be discarded.
+  removed: string[];
+}
+
+/// @brief splits raw react-flow node changes into measured dimensions, removals, and
+/// the changes that should be passed through to the diagram. Dimension changes that are
+/// still resizing or report a zero width or height are dropped, since react-flow emits
+/// those before a node has settled into its final layout.
+export const partitionNodeChanges = (
+  changes: RFNodeChange[],
+): PartitionedNodeChanges => {
+  const passthrough: RFNodeChange[] = [];
+  const sizes: [string, dimensions.Dimensions][] = [];
+  const removed: string[] = [];
+  for (const change of changes) {
+    if (change.type === "dimensions") {
+      const d = change.dimensions;
+      if (d == null || d.width === 0 || d.height === 0 || change.resizing) continue;
+      sizes.push([change.id, { width: d.width, height: d.height }]);
+      continue;
+    }
+    if (change.type === "remove") removed.push(change.id);
+    passthrough.push(change);
+  }
+  return { passthrough, sizes, removed };
 };

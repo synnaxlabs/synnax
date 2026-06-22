@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -221,10 +220,10 @@ struct StickyXY {
     double x = 0;
     /// @brief y is the vertical coordinate.
     double y = 0;
-    /// @brief root is the optional anchor corner for the position.
-    std::optional<CornerLocation> root;
-    /// @brief units is the optional unit specification for the coordinates.
-    std::optional<StickyUnits> units;
+    /// @brief root is the anchor corner for the position.
+    CornerLocation root = {.x = X_LOCATION_LEFT, .y = Y_LOCATION_TOP};
+    /// @brief units is the unit specification for the coordinates.
+    StickyUnits units = {.x = STICKY_UNIT_PX, .y = STICKY_UNIT_PX};
 
     static StickyXY parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

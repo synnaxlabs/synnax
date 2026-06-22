@@ -11,7 +11,7 @@ import "@/hardware/common/task/Form.css";
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { Device, Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
-import { primitive, TimeStamp } from "@synnaxlabs/x";
+import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 import { type z } from "zod";
@@ -156,12 +156,14 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         }
         if (nonZeroRackKey) form.set("rackKey", rackKey);
         form.set("config", newConfig);
-        const status: task.NewStatus = {
+        const status: task.New<S>["status"] = {
+          key: id.create(),
           name,
+          description: "",
           time: TimeStamp.now(),
           variant: "loading",
           message: "Configuring task",
-          details: { running: true, data: null },
+          details: { running: true, cmd: "", data: null },
         };
         form.set("status", status);
         return true;

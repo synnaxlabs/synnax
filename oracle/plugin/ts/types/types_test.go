@@ -190,9 +190,9 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Required arrays use nullishToEmpty with element schema (not wrapped in z.array)
-			// The array wrapper handles the array semantics
-			Expect(content).To(ContainSubstring(`labels: array.nullishToEmpty(z.uuid())`))
+			// Required arrays default a missing array to [] (the server omits a nil
+			// array) while still validating a present array.
+			Expect(content).To(ContainSubstring(`labels: z.uuid().array().default(() => [])`))
 			Expect(content).To(ContainSubstring(`parent: z.uuid().optional()`))
 			// Optional arrays use nullToUndefined with array schema
 			Expect(content).To(ContainSubstring(`tags: zod.nullToUndefined(z.string().array())`))
@@ -227,6 +227,34 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`name: z.string().min(1).max(255)`))
 			Expect(content).To(ContainSubstring(`email: z.string()`))
 			Expect(content).To(ContainSubstring(`age: z.int32().min(0).max(150)`))
+		})
+
+		It("Should classify a distinct numeric type by its primitive base", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Key uint32
+
+				Device struct {
+					rack Key @validate { min 1 }
+				}
+			`
+			resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain("rack: keyZ.min(1)")
+		})
+
+		It("Should treat required on a numeric type as non-zero", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Key uint32
+
+				Device struct {
+					rack Key @validate { required }
+				}
+			`
+			resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").ToContain(`rack: keyZ.refine((v) => v !== 0, "rack is required")`)
 		})
 
 		It("Should generate enums", func(ctx SpecContext) {
@@ -358,7 +386,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Entry("uint64", "uint64", "z.uint64()"),
 				Entry("float32", "float32", "z.number()"),
 				Entry("float64", "float64", "z.number()"),
-				Entry("record", "record", "record.nullishToEmpty()"),
+				Entry("record", "record", "record.unknownZ().default(() => ({}))"),
 				Entry("bytes", "bytes", "z.instanceof(Uint8Array)"),
 			)
 
@@ -450,7 +478,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export interface New extends z.infer<typeof newZ> {}`))
 		})
 
-		It("Should handle soft optional types (?)", func(ctx SpecContext) {
+		It("Should handle optional types (?)", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -470,37 +498,11 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Soft optional (?) uses .optional() in TypeScript
+			// An optional (?) field uses .optional() in TypeScript
 			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
 		})
 
-		It("Should handle hard optional types (??)", func(ctx SpecContext) {
-			source := `
-				@ts output "out"
-
-				Task struct {
-					key uuid
-					name string
-					status string??
-					description string??
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp := MustSucceed(typesPlugin.Generate(req))
-
-			content := string(resp.Files[0].Content)
-			// Hard optional (??) also uses .optional() in TypeScript (no distinction from ?)
-			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
-			Expect(content).To(ContainSubstring(`description: z.string().optional()`))
-		})
-
-		It("Should handle required arrays with array.nullishToEmpty", func(ctx SpecContext) {
+		It("Should handle required arrays with a defaulted z.array", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -520,10 +522,9 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`import { array } from "@synnaxlabs/x"`))
-			// Required arrays use nullishToEmpty with element schema (not double-wrapped with z.array)
-			Expect(content).To(ContainSubstring(`objects: array.nullishToEmpty(z.uuid())`))
-			Expect(content).To(ContainSubstring(`actions: array.nullishToEmpty(z.string())`))
+			// Required arrays default a missing array to [] without double-wrapping z.array.
+			Expect(content).To(ContainSubstring(`objects: z.uuid().array().default(() => [])`))
+			Expect(content).To(ContainSubstring(`actions: z.string().array().default(() => [])`))
 		})
 
 		It("Should handle optional arrays with zod.nullToUndefined", func(ctx SpecContext) {
@@ -549,7 +550,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`operations: zod.nullToUndefined(z.string().array())`))
 		})
 
-		It("Should handle required record fields with record.nullishToEmpty()", func(ctx SpecContext) {
+		It("Should handle required record fields with a defaulted record.unknownZ", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
@@ -568,8 +569,9 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Required record fields use record.nullishToEmpty() to coerce null -> {}
-			Expect(content).To(ContainSubstring(`layout: record.nullishToEmpty()`))
+			// Required record fields default a missing record to {} (the server omits
+			// a nil record).
+			Expect(content).To(ContainSubstring(`layout: record.unknownZ().default(() => ({}))`))
 		})
 
 		It("Should handle optional record fields with zod.nullToUndefined", func(ctx SpecContext) {
@@ -595,13 +597,13 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
 		})
 
-		It("Should handle hard optional record fields with zod.nullToUndefined", func(ctx SpecContext) {
+		It("Should handle optional record fields with zod.nullToUndefined", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
 				Workspace struct {
 					key uuid
-					layout record??
+					layout record?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
@@ -614,7 +616,7 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Hard optional record fields also use zod.nullToUndefined
+			// Optional record fields also use zod.nullToUndefined
 			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
 		})
 
@@ -640,7 +642,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// Required record fields with preserve_case wrap with caseconv.preserveCase
-			Expect(content).To(ContainSubstring(`layout: caseconv.preserveCase(record.nullishToEmpty())`))
+			Expect(content).To(ContainSubstring(`layout: caseconv.preserveCase(record.unknownZ().default(() => ({})))`))
 			Expect(content).To(ContainSubstring(`import { caseconv`))
 		})
 
@@ -692,7 +694,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// Type parameter fields with preserve_case wrap with caseconv.preserveCase
-			Expect(content).To(ContainSubstring(`config: caseconv.preserveCase(config ?? record.nullishToEmpty())`))
+			Expect(content).To(ContainSubstring(`config: caseconv.preserveCase(config ?? record.unknownZ().default(() => ({})))`))
 			Expect(content).To(ContainSubstring(`import { caseconv`))
 		})
 
@@ -750,8 +752,8 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`username: z.string().min(1, "Username is required")`))
-			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "First Name is required")`))
+			Expect(content).To(ContainSubstring(`username: z.string().min(1, "username is required")`))
+			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "first_name is required")`))
 		})
 
 		It("Should use z.input when use_input is specified", func(ctx SpecContext) {
@@ -777,7 +779,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface New extends z.input<typeof newZ> {}`))
-			Expect(content).To(ContainSubstring(`data: record.nullishToEmpty()`))
+			Expect(content).To(ContainSubstring(`data: record.unknownZ().default(() => ({}))`))
 		})
 
 		It("Should use z.record for record fields in child struct with type param", func(ctx SpecContext) {
@@ -1132,7 +1134,7 @@ var _ = Describe("TS Types Plugin", func() {
 			// The 'type' field should use: type ?? z.string() since Type extends string
 			Expect(content).To(ContainSubstring(`type: type ?? z.string()`), "type field should use type param with fallback")
 			// The 'config' field should use fallback pattern since Config extends record
-			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "config field should use type param with fallback")
+			Expect(content).To(ContainSubstring(`config: config ?? record.unknownZ().default(() => ({}))`), "config field should use type param with fallback")
 			// The 'name' field should just be z.string() (not a type param)
 			Expect(content).To(ContainSubstring(`name: z.string()`))
 		})
@@ -1234,7 +1236,7 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			// Even with concrete_types, fields using type params should have the fallback pattern
 			Expect(content).To(ContainSubstring(`type: type ?? z.string()`), "type field should use type param with fallback even with concrete_types")
-			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "config field should use type param with fallback")
+			Expect(content).To(ContainSubstring(`config: config ?? record.unknownZ().default(() => ({}))`), "config field should use type param with fallback")
 		})
 
 		It("Should preserve type params when extending generic parent with pass-through type args", func(ctx SpecContext) {
@@ -1301,7 +1303,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>`), "record constraint should generate record.Unknown")
-			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "record field should use record fallback")
+			Expect(content).To(ContainSubstring(`config: config ?? record.unknownZ().default(() => ({}))`), "record field should use record fallback")
 			Expect(content).To(ContainSubstring(`import { record`), "should import record")
 		})
 
@@ -1353,7 +1355,7 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>`), "constrained record param should use record.Unknown")
 			Expect(content).To(ContainSubstring(`StatusData extends z.ZodType = z.ZodNever`), "optional param should have ZodNever default")
-			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "constrained record field should use record fallback")
+			Expect(content).To(ContainSubstring(`config: config ?? record.unknownZ().default(() => ({}))`), "constrained record field should use record fallback")
 			Expect(content).To(ContainSubstring(`statusData: statusData ?? z.unknown().optional()`), "optional param field should use z.unknown().optional() fallback")
 		})
 
@@ -1712,9 +1714,9 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`rackStatusZ = z.unknown()`))
 		})
 
-		It("Should wrap array type aliases with array.nullishToEmpty", func(ctx SpecContext) {
-			// Type aliases that ARE arrays should use nullishToEmpty to coerce
-			// null/undefined to [] since the type itself is fundamentally an array
+		It("Should render array type aliases as defaulted z.array schemas", func(ctx SpecContext) {
+			// Type aliases that ARE arrays default a missing array to [] since the
+			// type itself is fundamentally an array.
 			source := `
 				@ts output "out"
 
@@ -1737,10 +1739,9 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Array type aliases should use array.nullishToEmpty with element schema
-			Expect(content).To(ContainSubstring(`import { array } from "@synnaxlabs/x"`))
-			Expect(content).To(ContainSubstring(`export const stagesZ = array.nullishToEmpty(stageZ)`))
-			Expect(content).To(ContainSubstring(`export const stratumZ = array.nullishToEmpty(z.string())`))
+			// Array type aliases default a missing array to [] using the element schema.
+			Expect(content).To(ContainSubstring(`export const stagesZ = stageZ.array().default(() => [])`))
+			Expect(content).To(ContainSubstring(`export const stratumZ = z.string().array().default(() => [])`))
 			// Should NOT be plain z.array()
 			Expect(content).NotTo(ContainSubstring(`stagesZ = z.array(stageZ)`))
 			Expect(content).NotTo(ContainSubstring(`stratumZ = z.array(z.string())`))
@@ -1774,14 +1775,14 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// Should use operationZ directly, not z.array(operationZ)
-			Expect(content).To(ContainSubstring(`operations: array.nullishToEmpty(operationZ)`))
+			Expect(content).To(ContainSubstring(`operations: operationZ.array().default(() => [])`))
 			Expect(content).To(ContainSubstring(`optionalOps: zod.nullToUndefined(operationZ.array())`))
 			// Make sure we don't have the double-wrapped version
 			Expect(content).NotTo(ContainSubstring(`z.array(operationZ)`))
 		})
 
 		Context("map types", func() {
-			It("Should wrap required map fields with record.nullishToEmpty so a nil map serialized as null parses cleanly", func(ctx SpecContext) {
+			It("Should default a required map field to an empty record so a missing map parses cleanly", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1792,11 +1793,11 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
-						`settings: record.nullishToEmpty(z.string(), z.string())`,
+						`settings: z.record(z.string(), z.string()).default(() => ({}))`,
 					)
 			})
 
-			It("Should preserve typed value schemas when wrapping with record.nullishToEmpty", func(ctx SpecContext) {
+			It("Should preserve typed value schemas when defaulting a required map", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1806,10 +1807,10 @@ var _ = Describe("TS Types Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "metrics", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
-					ToContain(`counts: record.nullishToEmpty(z.string(), z.int64())`)
+					ToContain(`counts: z.record(z.string(), z.int64()).default(() => ({}))`)
 			})
 
-			It("Should reference struct value schemas inside record.nullishToEmpty", func(ctx SpecContext) {
+			It("Should reference struct value schemas inside a defaulted required map", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1823,7 +1824,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "store", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
-					ToContain(`entries: record.nullishToEmpty(z.string(), entryZ)`)
+					ToContain(`entries: z.record(z.string(), entryZ).default(() => ({}))`)
 			})
 
 			It("Should wrap optional map fields with zod.nullToUndefined around z.record", func(ctx SpecContext) {
@@ -1841,7 +1842,7 @@ var _ = Describe("TS Types Plugin", func() {
 					)
 			})
 
-			It("Should compose record.nullishToEmpty inside caseconv.preserveCase for required map fields", func(ctx SpecContext) {
+			It("Should compose a defaulted required map inside caseconv.preserveCase", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1854,7 +1855,7 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
-						`configs: caseconv.preserveCase(record.nullishToEmpty(z.string(), record.unknownZ()))`,
+						`configs: caseconv.preserveCase(z.record(z.string(), record.unknownZ()).default(() => ({})))`,
 					)
 			})
 		})
@@ -2131,11 +2132,11 @@ var _ = Describe("TS Types Plugin", func() {
 							@key
 						}
 						name   string
-						parent Range??
+						parent Range?
 					}
 
 					New struct extends Range {
-						parent Range?? {
+						parent Range? {
 							@ts pick key
 						}
 					}
@@ -2344,7 +2345,7 @@ var _ = Describe("TS Types Plugin", func() {
 					> {
 						name string
 						type Type
-						data Data??
+						data Data?
 
 						@ts {
 							concrete_types
@@ -2364,7 +2365,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 					Wrapper struct<Data?> {
 						value string
-						data  Data??
+						data  Data?
 
 						@ts concrete_types
 					}
@@ -2378,7 +2379,7 @@ var _ = Describe("TS Types Plugin", func() {
 						name   string
 						type   Type
 						config Config
-						status Wrapper<StatusData>??
+						status Wrapper<StatusData>?
 
 						@ts {
 							concrete_types
@@ -2803,7 +2804,7 @@ var _ = Describe("TS Union Generation", func() {
 		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
-				`configs: caseconv.preserveKeys(record.nullishToEmpty(z.string(), configZ)),`,
+				`configs: caseconv.preserveKeys(z.record(z.string(), configZ).default(() => ({}))),`,
 			)
 	})
 
@@ -2998,7 +2999,7 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 
 	It("Should resolve an array-of-union field", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, scaleSource("\t\t\t\tscales Scale[]"), "ni", loader, typesPlugin)
-		ExpectContent(resp, "types.gen.ts").ToContain(`scales: array.nullishToEmpty(scaleZ),`)
+		ExpectContent(resp, "types.gen.ts").ToContain(`scales: scaleZ.array().default(() => []),`)
 	})
 
 	It("Should import and qualify a cross-namespace union reference", func(ctx SpecContext) {

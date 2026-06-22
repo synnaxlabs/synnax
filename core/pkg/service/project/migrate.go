@@ -202,6 +202,34 @@ func rewriteWorkspaceRelationships(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
+// RemoveAuthorRelationships deletes the parent-of relationships that pointed from a
+// project's author user to the project. The author field is no longer part of a
+// project, so its relationships are orphaned on existing clusters; a project's only
+// parent is now the Projects group. This must run after the workspace-to-project
+// migration, which re-types the legacy user-to-workspace relationships to
+// user-to-project before they can be matched here.
+func RemoveAuthorRelationships(ctx context.Context, tx gorp.Tx, otg *ontology.Ontology) error {
+	stale, err := collectEntries(
+		ctx,
+		gorp.WrapReader[string, ontology.Relationship](tx),
+		func(rel ontology.Relationship) bool {
+			return rel.Type == ontology.RelationshipTypeParentOf &&
+				rel.From.Type == ontology.ResourceTypeUser &&
+				rel.To.Type == ontology.ResourceTypeProject
+		},
+	)
+	if err != nil {
+		return err
+	}
+	w := otg.NewWriter(tx)
+	for _, rel := range stale {
+		if err := w.DeleteRelationship(ctx, rel.From, rel.Type, rel.To); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // collectEntries drains a reader into a slice of the entries matching keep.
 // Mutating a gorp table while iterating it is unsafe, so callers gather first and
 // write after.
