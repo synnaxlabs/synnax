@@ -14,7 +14,6 @@ package text
 import (
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/telem"
 )
 
 func (d Document) EncodeOrc(w *orc.Writer) error {
@@ -83,7 +82,6 @@ func (t Text) EncodeOrc(w *orc.Writer) error {
 	if err := t.Doc.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Int64(int64(t.LastEdit))
 	return nil
 }
 
@@ -91,13 +89,6 @@ func (t *Text) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = t.Doc.DecodeOrc(r); err != nil {
 		return err
-	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		t.LastEdit = telem.TimeStamp(v)
 	}
 	return nil
 }

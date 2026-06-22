@@ -11,6 +11,7 @@ package arc
 
 import (
 	"maps"
+	"sync"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
@@ -176,6 +177,44 @@ const (
 	defaultTextSweepThreshold = 128
 )
 
+// lastEdits records the cluster time of each arc's most recent character edit. The
+// timestamp only gates the text sweeper's quiescence check; it never replicates and
+// need not survive a node restart, so it is held in memory rather than persisted on the
+// arc. A restarted node reads the zero time for every arc, which is safe: a zero last
+// edit reads as quiet, and a quiet arc is exactly one whose tombstones are eligible to
+// be forgotten. lastEdits is safe for concurrent use.
+type lastEdits struct {
+	mu    sync.Mutex
+	times map[Key]telem.TimeStamp
+}
+
+func newLastEdits() *lastEdits {
+	return &lastEdits{times: make(map[Key]telem.TimeStamp)}
+}
+
+// get returns the recorded last-edit time for the arc, or the zero time if none has been
+// recorded.
+func (l *lastEdits) get(key Key) telem.TimeStamp {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.times[key]
+}
+
+// set records ts as the arc's most recent character-edit time.
+func (l *lastEdits) set(key Key, ts telem.TimeStamp) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.times[key] = ts
+}
+
+// forget drops the recorded last-edit time for the arc. It is called when the arc is
+// deleted so the map does not retain keys for arcs that no longer exist.
+func (l *lastEdits) forget(key Key) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.times, key)
+}
+
 // textSweeper reclaims the space held by tombstoned characters in an arc's replicated
 // text document. Deleting a character leaves both its insert and delete operation in the
 // op-log forever, so a heavily edited document grows without bound; the sweeper drops
@@ -191,6 +230,9 @@ type textSweeper struct {
 	now        func() telem.TimeStamp
 	quiescence telem.TimeSpan
 	threshold  int
+	// edits tracks the most recent character-edit time per arc, gating the quiescence
+	// check below.
+	edits *lastEdits
 }
 
 func newTextSweeper(
@@ -198,14 +240,27 @@ func newTextSweeper(
 	quiescence telem.TimeSpan,
 	threshold int,
 ) textSweeper {
-	return textSweeper{now: now, quiescence: quiescence, threshold: threshold}
+	return textSweeper{
+		now:        now,
+		quiescence: quiescence,
+		threshold:  threshold,
+		edits:      newLastEdits(),
+	}
 }
 
-// quiet reports whether enough time has elapsed since lastEdit, the time of the arc's
-// most recent character edit, that its tombstoned characters are safe to forget.
-func (s textSweeper) quiet(lastEdit telem.TimeStamp) bool {
-	return lastEdit.Span(s.now()) > s.quiescence
+// quiet reports whether enough time has elapsed since the arc's most recent character
+// edit that its tombstoned characters are safe to forget.
+func (s textSweeper) quiet(key Key) bool {
+	return s.edits.get(key).Span(s.now()) > s.quiescence
 }
+
+// recordEdit marks the current time as the arc's most recent character edit, restarting
+// its quiescence window.
+func (s textSweeper) recordEdit(key Key) { s.edits.set(key, s.now()) }
+
+// forget discards the arc's tracked edit time. It is called when the arc is deleted so
+// the tracker does not retain keys for arcs that no longer exist.
+func (s textSweeper) forget(key Key) { s.edits.forget(key) }
 
 // forgettable returns the ids of the tombstoned characters in doc that are safe to drop:
 // those whose entire subtree is also tombstoned, so removing them orphans no surviving

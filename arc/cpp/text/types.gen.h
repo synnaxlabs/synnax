@@ -18,7 +18,6 @@
 #include "x/cpp/crdt/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
 
 #include "arc/go/text/pb/text.pb.h"
 
@@ -55,11 +54,6 @@ struct Text {
     /// @brief raw is the materialized Arc source code, derived from doc and not
     /// persisted.
     std::string raw = "";
-    /// @brief last_edit is the cluster time of the most recent character edit. The
-    /// server
-    /// uses it to detect a quiet editing period before reclaiming tombstoned characters
-    /// from doc. It is not part of the replicated text.
-    ::x::telem::TimeStamp last_edit = x::telem::TimeStamp(0);
 
     static Text parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

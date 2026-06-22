@@ -14,7 +14,6 @@ package pb
 import (
 	"github.com/synnaxlabs/arc/text"
 	crdtpb "github.com/synnaxlabs/x/crdt/pb"
-	"github.com/synnaxlabs/x/telem"
 )
 
 // DocumentToPB converts Document to Document.
@@ -85,9 +84,8 @@ func TextToPB(r text.Text) (*Text, error) {
 		return nil, err
 	}
 	pb := &Text{
-		Raw:      r.Raw,
-		LastEdit: int64(r.LastEdit),
-		Doc:      docVal,
+		Raw: r.Raw,
+		Doc: docVal,
 	}
 	return pb, nil
 }
@@ -104,7 +102,6 @@ func TextFromPB(pb *Text) (text.Text, error) {
 		return text.Text{}, err
 	}
 	r.Raw = pb.Raw
-	r.LastEdit = telem.TimeStamp(pb.LastEdit)
 	return r, nil
 }
 

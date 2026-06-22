@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/crdt"
-import "schemas/x/telem"
 
 @ts output  "client/ts/src/arc/text"
 @py output  "client/py/synnax/arc/text"
@@ -32,22 +31,15 @@ Document struct {
 }
 
 Text struct {
-    doc       Document = {} {
+    doc Document = {} {
         @doc value """
             is the replicated source of truth for the text. It defaults to empty on create,
             in which case the server seeds it from raw.
         """
     }
-    raw       string = "" {
+    raw string = "" {
         @go marshal omit
         @doc value  "is the materialized Arc source code, derived from doc and not persisted."
-    }
-    last_edit telem.TimeStamp = 0 {
-        @doc value """
-            is the cluster time of the most recent character edit. The server uses it to
-            detect a quiet editing period before reclaiming tombstoned characters from
-            doc. It is not part of the replicated text.
-        """
     }
 
     @doc value  "is text-based Arc source code with optional parsed AST for compilation."

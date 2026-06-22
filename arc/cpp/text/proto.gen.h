@@ -64,7 +64,6 @@ inline std::pair<::arc::text::pb::Text, x::errors::Error> Text::to_proto() const
         *pb.mutable_doc() = v;
     }
     pb.set_raw(this->raw);
-    pb.set_last_edit(this->last_edit.to_proto());
     return {pb, x::errors::NIL};
 }
 
@@ -77,7 +76,6 @@ Text::from_proto(const ::arc::text::pb::Text &pb) {
         cpp.doc = v;
     }
     cpp.raw = pb.raw();
-    cpp.last_edit = ::x::telem::TimeStamp::from_proto(pb.last_edit());
     return {cpp, x::errors::NIL};
 }
 

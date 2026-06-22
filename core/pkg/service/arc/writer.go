@@ -102,7 +102,7 @@ func (w Writer) Dispatch(
 		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
 			sweep = nil
 			var dead []crdt.ID
-			if w.sweeper.quiet(a.Text.LastEdit) {
+			if w.sweeper.quiet(key) {
 				dead = w.sweeper.forgettable(a.Text.Doc)
 			}
 			a, err := Reduce(a, actions...)
@@ -116,7 +116,7 @@ func (w Writer) Dispatch(
 				}
 			}
 			if containsTextEdit(actions) {
-				a.Text.LastEdit = w.sweeper.now()
+				w.sweeper.recordEdit(key)
 			}
 			return a, nil
 		}).Exec(ctx, w.tx); err != nil {
@@ -144,6 +144,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err
 		}
+		w.sweeper.forget(key)
 	}
 	return nil
 }
