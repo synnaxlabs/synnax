@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	sframer "github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -161,7 +161,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
 			createdChannels[i] = ch
 		}
-		writer := MustSucceed(MustSucceed(sframer.OpenService(ctx, sframer.ServiceConfig{Framer: dist.Framer, Channel: limitSvc})).OpenWriter(ctx, framer.WriterConfig{
+		writer := MustSucceed(MustSucceed(writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: limitSvc})).Open(ctx, framer.WriterConfig{
 			Keys: []channel.Key{createdChannels[0].Key()},
 		}))
 		Expect(limitSvc.Delete(ctx, createdChannels[0].Key(), false)).

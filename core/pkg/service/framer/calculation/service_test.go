@@ -22,9 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	serviceframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -40,6 +40,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		dist       mock.Node
 		statusSvc  *status.Service
 		channelSvc *channel.Service
+		wr         *writer.Service
 	)
 	open := func(
 		ctx context.Context,
@@ -71,7 +72,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
 		}
 		sCtx, cancel := signal.Isolated()
-		w := MustSucceed(MustSucceed(serviceframer.OpenService(ctx, serviceframer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})).OpenWriter(
+		w := MustSucceed(wr.Open(
 			ctx,
 			framer.WriterConfig{
 				Start: 1 * telem.SecondTS,
@@ -120,9 +121,11 @@ var _ = Describe("Calculation", Ordered, func() {
 			Group:        dist.Group,
 			Search:       dist.Search,
 		}))
+		wr = MustSucceed(writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc}))
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
+			Writer:            wr,
 			Channel:           channelSvc,
 			ChannelObservable: channelSvc.Observe(),
 			Status:            statusSvc,

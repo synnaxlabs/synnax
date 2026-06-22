@@ -33,17 +33,25 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Transport bundles the node-to-node transports the distribution layer requires. Both
+// the gRPC (transport/grpc.Transports) and mock (transport/mock.Transport)
+// implementations satisfy it.
+type Transport interface {
+	// Channel returns the transport for channel create, rename, and delete RPCs.
+	Channel() channel.Transport
+	// Framer returns the transport for frame write, iterate, relay, and delete
+	// operations.
+	Framer() framer.Transport
+}
+
 // LayerConfig is the configuration for opening the distribution layer.  See fields for
 // details on defining the configuration.
 type LayerConfig struct {
-	// ChannelTransport is the network transport used for channel-related RPCs.
+	// Transport bundles the network transports used for channel and framer node-to-node
+	// RPCs.
 	//
 	// [REQUIRED]
-	ChannelTransport channel.Transport
-	// FramerTransport is the network transport used for moving telemetry frames.
-	//
-	// [REQUIRED]
-	FrameTransport framer.Transport
+	Transport Transport
 	// GorpCodec sets the codec used to encode/decode data structures within the cluster
 	// meta-data DB (Gorp).
 	//
@@ -89,8 +97,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.AdvertiseAddress = override.String(c.AdvertiseAddress, other.AdvertiseAddress)
 	c.PeerAddresses = override.Slice(c.PeerAddresses, other.PeerAddresses)
-	c.ChannelTransport = override.Nil(c.ChannelTransport, other.ChannelTransport)
-	c.FrameTransport = override.Nil(c.FrameTransport, other.FrameTransport)
+	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.AspenTransport = override.Nil(c.AspenTransport, other.AspenTransport)
 	c.AspenOptions = override.Slice(c.AspenOptions, other.AspenOptions)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
@@ -103,8 +110,7 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("distribution")
 	validate.NotNil(v, "storage", c.Storage)
 	validate.NotEmptyString(v, "advertise_address", c.AdvertiseAddress)
-	validate.NotNil(v, "channel_transport", c.ChannelTransport)
-	validate.NotNil(v, "frame_transport", c.FrameTransport)
+	validate.NotNil(v, "transport", c.Transport)
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
 	validate.NotNil(v, "codec", c.GorpCodec)
 	return v.Error()
@@ -216,7 +222,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		HostResolver:    l.Cluster,
 		KVReadWriter:    l.DB,
 		TS:              cfg.Storage.TS,
-		Transport:       cfg.ChannelTransport,
+		Transport:       cfg.Transport.Channel(),
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -224,7 +230,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Framer, err = framer.OpenService(ctx, framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
 		TS:              cfg.Storage.TS,
-		Transport:       cfg.FrameTransport,
+		Transport:       cfg.Transport.Framer(),
 		HostResolver:    l.Cluster,
 	}); !ok(err, l.Framer) {
 		return nil, err

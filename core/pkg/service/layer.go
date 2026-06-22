@@ -11,7 +11,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -265,9 +264,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
-	if err = configureControlUpdates(ctx, cfg.Distribution, l.Channel); !ok(err, nil) {
-		return nil, err
-	}
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.ServiceConfig{
@@ -276,6 +272,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			Status:          l.Status,
+			HostResolver:    cfg.Distribution.Cluster,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err
@@ -575,20 +572,3 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	return l, nil
 }
 
-// configureControlUpdates creates this node's internal control channel and registers it
-// with the distribution framer for control-state propagation. It lives in the service
-// layer because the control channel is an internal (rich) channel owned by the
-// service-layer channel service.
-func configureControlUpdates(ctx context.Context, dist *distribution.Layer, ch *channel.Service) error {
-	controlCh := channel.Channel{
-		Name:        fmt.Sprintf("sy_node_%v_control", dist.Cluster.HostKey()),
-		Leaseholder: dist.Cluster.HostKey(),
-		Virtual:     true,
-		DataType:    telem.StringT,
-		Internal:    true,
-	}
-	if err := ch.Create(ctx, &controlCh, channel.RetrieveIfNameExists()); err != nil {
-		return err
-	}
-	return dist.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key())
-}

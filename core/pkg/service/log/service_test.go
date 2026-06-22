@@ -17,8 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -127,10 +129,25 @@ var _ = Describe("OpenService", func() {
 			Group:        node.Group,
 			Search:       node.Search,
 		}))
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Search:   node.Search,
+		}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Label:    labelSvc,
+			Search:   node.Search,
+		}))
 		framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:  node.Framer,
-			Channel: channelSvc,
-			DB:      node.DB,
+			Framer:       node.Framer,
+			Channel:      channelSvc,
+			DB:           node.DB,
+			Status:       statusSvc,
+			HostResolver: node.Cluster,
 		}))
 		sigs := MustSucceed(signals.New(signals.Config{
 			Channel: channelSvc,

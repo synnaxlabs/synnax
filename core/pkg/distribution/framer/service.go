@@ -197,15 +197,12 @@ func (s *Service) DeleteTimeRange(
 }
 
 // ConfigureControlUpdateChannel registers the channel used to propagate control
-// transfers between opened writers. The channel must already exist; the framer needs
-// only its key to route control-state frames to subscribed streamers. Creating and
-// naming the channel is owned by the service layer — no channel name crosses the
-// distribution boundary.
-func (s *Service) ConfigureControlUpdateChannel(ctx context.Context, ch channel.Key) error {
+// transfers between opened writers.
+func (s *Service) ConfigureControlUpdateChannel(
+	ctx context.Context, ch channel.Key, name string,
+) error {
 	s.controlStateKey = ch
-	// The name is only consulted by the storage layer when it has to create the channel
-	// itself; here it always already exists, so we pass none.
-	return s.cfg.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(ch), "")
+	return s.cfg.TS.ConfigureControlUpdateChannel(ctx, ch.StorageKey(), name)
 }
 
 // Close closes the Service.

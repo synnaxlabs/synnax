@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	serviceframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -28,7 +28,7 @@ type benchIterEnv struct {
 	ctx         context.Context
 	dist        mock.Node
 	channelSvc  *channel.Service
-	fr          *serviceframer.Service
+	wr          *writer.Service
 	iteratorSvc *iterator.Service
 }
 
@@ -56,16 +56,16 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		b.Fatalf("failed to open iterator service: %v", err)
 	}
 
-	fr, err := serviceframer.OpenService(b.Context(), serviceframer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})
+	wr, err := writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})
 	if err != nil {
-		b.Fatalf("failed to open framer service: %v", err)
+		b.Fatalf("failed to open writer service: %v", err)
 	}
 
 	return &benchIterEnv{
 		ctx:         b.Context(),
 		dist:        dist,
 		channelSvc:  channelSvc,
-		fr:          fr,
+		wr:          wr,
 		iteratorSvc: iteratorSvc,
 	}
 }
@@ -114,7 +114,7 @@ func (e *benchIterEnv) writeData(
 	for i, ch := range dataChannels {
 		keys[i+1] = ch.Key()
 	}
-	w, err := e.fr.OpenWriter(e.ctx, framer.WriterConfig{
+	w, err := e.wr.Open(e.ctx, framer.WriterConfig{
 		Start:            telem.SecondTS,
 		Keys:             keys,
 		EnableAutoCommit: new(true),
@@ -353,7 +353,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
 			for d := range numDomains {
 				startTS := telem.TimeStamp(d*1000+1) * telem.SecondTS
-				w, err := env.fr.OpenWriter(env.ctx, framer.WriterConfig{
+				w, err := env.wr.Open(env.ctx, framer.WriterConfig{
 					Start:            startTS,
 					Keys:             keys,
 					EnableAutoCommit: new(true),

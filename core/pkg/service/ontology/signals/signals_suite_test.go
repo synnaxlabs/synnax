@@ -19,8 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
 	svcsignals "github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/observe"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -48,10 +50,25 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
 	dist.Ontology.RegisterService(svc)
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Search:   dist.Search,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Label:    labelSvc,
+		Search:   dist.Search,
+	}))
 	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:  dist.Framer,
-		Channel: channelSvc,
-		DB:      dist.DB,
+		Framer:       dist.Framer,
+		Channel:      channelSvc,
+		DB:           dist.DB,
+		Status:       statusSvc,
+		HostResolver: dist.Cluster,
 	}))
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		Channel: channelSvc,

@@ -125,9 +125,11 @@ func (c *Cluster) Provision(
 		addr              = c.addrFactory.Next()
 		storageLayer      = c.storage.Provision(ctx)
 		distributionLayer = testutil.MustSucceed(distribution.OpenLayer(ctx, append([]distribution.LayerConfig{{
-			Storage:          storageLayer,
-			FrameTransport:   c.framerNet.New(addr, 1),
-			ChannelTransport: c.channelNet.New(addr),
+			Storage: storageLayer,
+			Transport: tmock.Transport{
+				ChannelTransport: c.channelNet.New(addr),
+				FramerTransport:  c.framerNet.New(addr, 1),
+			},
 			AspenTransport:   c.aspenNet.NewTransport(),
 			AdvertiseAddress: addr,
 			PeerAddresses:    peers,

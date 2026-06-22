@@ -211,8 +211,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		AdvertiseAddress: cfg.listenAddress,
 		PeerAddresses:    cfg.peers,
 		AspenTransport:   aspenTransport,
-		FrameTransport:   distTransports.Framer,
-		ChannelTransport: distTransports.Channel,
+		Transport:        distTransports,
 		Storage:          storageLayer,
 	}); !ok(err, distributionLayer) {
 		return err

@@ -54,11 +54,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Framer is the underlying frame service to stream cache channel values and write
-	// calculated samples.
+	// Framer is the underlying frame service used to stream cached channel values.
 	//
 	// [REQUIRED]
 	Framer *framer.Service
+	// Writer opens the writers used to write calculated samples back to the cluster.
+	//
+	// [REQUIRED]
+	Writer *writer.Service
 	// Channel is used to retrieve information about the channels being calculated and
 	// to resolve channel symbols for Arc expression compilation.
 	//
@@ -77,6 +80,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "writer", c.Writer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "channel_observable", c.ChannelObservable)
 	validate.NotNil(v, "db", c.DB)
@@ -88,6 +92,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
 	c.DB = override.Nil(c.DB, other.DB)
@@ -123,18 +128,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 
-	writerSvc, err := writer.NewService(writer.ServiceConfig{
-		Instrumentation: cfg.Child("writer"),
-		Framer:          cfg.Framer,
-		Channel:         cfg.Channel,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	s := &Service{
 		cfg:          cfg,
-		writer:       writerSvc,
+		writer:       cfg.Writer,
 		statusWriter: status.NewWriter[types.Nil](cfg.Status, nil),
 	}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)

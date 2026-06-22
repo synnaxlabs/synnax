@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	serviceframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
@@ -35,7 +35,7 @@ type benchStreamerEnv struct {
 	ctx         context.Context
 	dist        mock.Node
 	channelSvc  *channel.Service
-	fr          *serviceframer.Service
+	wr          *writer.Service
 	streamerSvc *streamer.Service
 }
 
@@ -80,13 +80,14 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
-	fr, err := serviceframer.OpenService(b.Context(), serviceframer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})
+	wr, err := writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc})
 	if err != nil {
-		b.Fatalf("failed to open framer service: %v", err)
+		b.Fatalf("failed to open writer service: %v", err)
 	}
 	calc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
 		DB:                dist.DB,
 		Framer:            dist.Framer,
+		Writer:            wr,
 		Channel:           channelSvc,
 		ChannelObservable: channelSvc.Observe(),
 		Status:            statusSvc,
@@ -108,7 +109,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		ctx:         b.Context(),
 		dist:        dist,
 		channelSvc:  channelSvc,
-		fr:          fr,
+		wr:          wr,
 		streamerSvc: streamerSvc,
 	}
 }
@@ -177,7 +178,7 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 	ch := env.createVirtualChannel(b, "throughput")
 	keys := []channel.Key{ch.Key()}
 
-	w, err := env.fr.OpenWriter(env.ctx, framer.WriterConfig{
+	w, err := env.wr.Open(env.ctx, framer.WriterConfig{
 		Start: telem.SecondTS,
 		Keys:  keys,
 	})
@@ -233,7 +234,7 @@ func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
 			ch := env.createVirtualChannel(b, fmt.Sprintf("ds%d", factor))
 			keys := []channel.Key{ch.Key()}
 
-			w, err := env.fr.OpenWriter(env.ctx, framer.WriterConfig{
+			w, err := env.wr.Open(env.ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			})
@@ -291,7 +292,7 @@ func BenchmarkStreamerCalc_WithCalculation(b *testing.B) {
 	calc := env.createCalculation(b, "calc_sum", "return calc_sensor_0 + calc_sensor_1")
 	keys := []channel.Key{indexCh.Key(), dataChannels[0].Key(), dataChannels[1].Key()}
 
-	w, err := env.fr.OpenWriter(env.ctx, framer.WriterConfig{
+	w, err := env.wr.Open(env.ctx, framer.WriterConfig{
 		Start: telem.SecondTS,
 		Keys:  keys,
 	})
@@ -361,7 +362,7 @@ func BenchmarkStreamerCalc_FrameSize(b *testing.B) {
 			ch := env.createVirtualChannel(b, fmt.Sprintf("size%d", size))
 			keys := []channel.Key{ch.Key()}
 
-			w, err := env.fr.OpenWriter(env.ctx, framer.WriterConfig{
+			w, err := env.wr.Open(env.ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			})
@@ -428,7 +429,7 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 
 			keys := []channel.Key{indexCh.Key(), dataChannels[0].Key()}
 
-			w, err := env.fr.OpenWriter(env.ctx, framer.WriterConfig{
+			w, err := env.wr.Open(env.ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			})

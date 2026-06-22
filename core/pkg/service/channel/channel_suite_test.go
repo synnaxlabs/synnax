@@ -59,7 +59,7 @@ func openService(ctx context.Context, n mock.Node, cfgs ...channel.ServiceConfig
 		Internal:    true,
 	}
 	Expect(channelSvc.Create(ctx, &controlCh, channel.RetrieveIfNameExists())).To(Succeed())
-	Expect(n.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key())).To(Succeed())
+	Expect(n.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name)).To(Succeed())
 	return channelSvc
 }
 

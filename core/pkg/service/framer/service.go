@@ -11,10 +11,12 @@ package framer
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -49,12 +51,23 @@ type (
 )
 
 type ServiceConfig struct {
+	// DB is the underlying database used by the calculation service.
+	// [REQUIRED]
 	DB *gorp.DB
-	//  Distribution layer framer service.
-	Framer  *framer.Service
+	// Framer is the distribution-layer framer service this service extends.
+	// [REQUIRED]
+	Framer *framer.Service
+	// Channel is used to resolve channel metadata and to create the node's control
+	// update channel.
+	// [REQUIRED]
 	Channel *channel.Service
 	// Status is used for persisting calculation status updates.
+	// [REQUIRED]
 	Status *status.Service
+	// HostResolver identifies the host node, used to name and lease the node's control
+	// update channel.
+	// [REQUIRED]
+	HostResolver node.HostResolver
 	alamos.Instrumentation
 }
 
@@ -65,6 +78,9 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("framer")
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "host_resolver", c.HostResolver)
 	return v.Error()
 }
 
@@ -75,6 +91,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	return c
 }
 
@@ -125,12 +142,9 @@ func (s *Service) NewStreamer(
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-// OpenService opens a framer Service from the provided configuration. Framer and Channel
-// are always required. When DB and Status are also provided, OpenService wires up the
-// calculation-backed streaming and iteration (NewStreamer, OpenIterator,
-// NewStreamIterator). When they are omitted, the returned Service supports only the
-// writer operations that delegate directly to the distribution framer (OpenWriter,
-// NewStreamWriter, DeleteTimeRange); the streaming and iteration methods will panic.
+// OpenService opens a framer Service from the provided configuration. All fields are
+// required. It wires up the writer, calculation-backed streaming and iteration, and
+// configures the host node's control update channel.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -146,15 +160,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if cfg.DB == nil || cfg.Status == nil {
-		return s, nil
-	}
 	var calcSvc *calculation.Service
 	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation:   cfg.Child("calculation"),
 		DB:                cfg.DB,
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
+		Writer:            s.Writer,
 		ChannelObservable: cfg.Channel.Observe(),
 		Status:            cfg.Status,
 	}); !ok(err, calcSvc) {
@@ -175,5 +187,26 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, nil) {
 		return nil, err
 	}
+	if err = s.configureControlUpdates(ctx); err != nil {
+		return nil, err
+	}
 	return s, nil
+}
+
+// configureControlUpdates creates the host node's control update channel (if it does not
+// already exist) and registers it with the distribution framer so control state changes
+// are streamed to clients.
+func (s *Service) configureControlUpdates(ctx context.Context) error {
+	name := fmt.Sprintf("sy_node_%v_control", s.cfg.HostResolver.HostKey())
+	controlCh := channel.Channel{
+		Name:        name,
+		Leaseholder: s.cfg.HostResolver.HostKey(),
+		Virtual:     true,
+		DataType:    telem.StringT,
+		Internal:    true,
+	}
+	if err := s.cfg.Channel.Create(ctx, &controlCh, channel.RetrieveIfNameExists()); err != nil {
+		return err
+	}
+	return s.cfg.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), name)
 }

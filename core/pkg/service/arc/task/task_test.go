@@ -77,10 +77,11 @@ var _ = Describe("Task", Ordered, func() {
 			Search:   dist.Search,
 		}))
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:  dist.Framer,
-			Channel: channelSvc,
-			DB:      dist.DB,
-			Status:  statusSvc,
+			Framer:       dist.Framer,
+			Channel:      channelSvc,
+			DB:           dist.DB,
+			Status:       statusSvc,
+			HostResolver: dist.Cluster,
 		}))
 	})
 
