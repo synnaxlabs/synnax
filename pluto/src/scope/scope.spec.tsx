@@ -60,10 +60,10 @@ describe("Scope", () => {
     });
   });
 
-  describe("scoped", () => {
+  describe("bindHook", () => {
     it("should source the key from the provider", () => {
       const s = Scope.create<string>("Test");
-      const useSelect = s.scoped(select);
+      const useSelect = s.bindHook(select);
       const wrapper = ({ children }: PropsWithChildren): ReactElement => (
         <s.Provider value="ctx">{children}</s.Provider>
       );
@@ -73,7 +73,7 @@ describe("Scope", () => {
 
     it("should forward non-key arguments unchanged", () => {
       const s = Scope.create<string>("Test");
-      const useSelect = s.scoped(select);
+      const useSelect = s.bindHook(select);
       const wrapper = ({ children }: PropsWithChildren): ReactElement => (
         <s.Provider value="ctx">{children}</s.Provider>
       );
@@ -83,7 +83,7 @@ describe("Scope", () => {
 
     it("should let an explicit key override the provider", () => {
       const s = Scope.create<string>("Test");
-      const useSelect = s.scoped(select);
+      const useSelect = s.bindHook(select);
       const wrapper = ({ children }: PropsWithChildren): ReactElement => (
         <s.Provider value="ctx">{children}</s.Provider>
       );

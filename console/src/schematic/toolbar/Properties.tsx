@@ -205,8 +205,17 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     });
   };
 
+  const getZoom = useCallback(
+    () =>
+      Session.selectViewport({
+        state: store.getState(),
+        key: schematicKey,
+      }).zoom,
+    [schematicKey, store],
+  );
+
   const getLayoutsForAlignment = () => {
-    const zoom = Session.selectViewport(store.getState(), schematicKey).zoom;
+    const zoom = getZoom();
     return selected
       .map((nodeKey) => {
         const node = nodesByKey.get(nodeKey);
@@ -237,7 +246,10 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     layouts: Diagram.NodeLayout[];
     adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
-    const zoom = Session.selectViewport(store.getState(), schematicKey).zoom;
+    const zoom = Session.selectViewport({
+      state: store.getState(),
+      key: schematicKey,
+    }).zoom;
     const topOffsets = new Map<string, number>();
     const layouts = selected
       .map((nodeKey) => {

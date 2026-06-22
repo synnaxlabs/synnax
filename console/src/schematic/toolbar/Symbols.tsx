@@ -580,7 +580,7 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
 export const Symbols = (): ReactElement => {
   const dispatch = useDispatch();
   const layoutKey = Key.use<string>("Schematic.Symbols");
-  const groupKey = useSelectSelectedSymbolGroup(layoutKey);
+  const groupKey = useSelectSelectedSymbolGroup({ key: layoutKey });
   const setGroupKey = useCallback(
     (group: group.Key) => dispatch(setSelectedSymbolGroup({ key: layoutKey, group })),
     [dispatch, layoutKey],

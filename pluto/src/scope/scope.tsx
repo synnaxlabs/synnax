@@ -12,21 +12,16 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
 import { context } from "@/context";
 
-/** Keyed is the minimal argument shape a scoped hook operates on. */
-export interface Keyed<K extends record.Key> {
-  key: K;
-}
-
 export interface ProviderProps<K extends record.Key> extends PropsWithChildren {
   value: K;
 }
 
 /**
- * Hook is a hook whose key argument has been made optional by {@link Instance.scoped}.
+ * Hook is a hook whose key argument has been made optional by {@link Instance.bindHook}.
  * The key is resolved from the surrounding scope unless overridden. If the hook has no
  * arguments other than the key, it may be called with no arguments at all.
  */
-export type Hook<K extends record.Key, Args extends Keyed<K>, R> =
+export type Hook<K extends record.Key, Args extends record.Keyed<K>, R> =
   {} extends optional.Optional<Args, "key">
     ? (args?: optional.Optional<Args, "key">) => R
     : (args: optional.Optional<Args, "key">) => R;
@@ -43,10 +38,12 @@ export interface Instance<K extends record.Key> {
   /** useOptional behaves like use but returns undefined instead of throwing. */
   useOptional: (override?: K) => K | undefined;
   /**
-   * scoped lifts a hook that requires a key into one whose key is optional, sourcing it
-   * from the surrounding scope. All non-key arguments are forwarded unchanged.
+   * bindHook lifts a hook that requires a key into one whose key is optional, sourcing
+   * it from the surrounding scope. All non-key arguments are forwarded unchanged.
    */
-  scoped: <Args extends Keyed<K>, R>(hook: (args: Args) => R) => Hook<K, Args, R>;
+  bindHook: <Args extends record.Keyed<K>, R>(
+    hook: (args: Args) => R,
+  ) => Hook<K, Args, R>;
 }
 
 /**
@@ -80,12 +77,12 @@ export const create = <K extends record.Key>(name: string): Instance<K> => {
     return value;
   };
 
-  const scoped =
-    <Args extends Keyed<K>, R>(hook: (args: Args) => R): Hook<K, Args, R> =>
+  const bindHook =
+    <Args extends record.Keyed<K>, R>(hook: (args: Args) => R): Hook<K, Args, R> =>
     (args?: optional.Optional<Args, "key">): R => {
       const key = use(args?.key);
       return hook({ ...args, key } as Args);
     };
 
-  return { Provider, use, useOptional, scoped };
+  return { Provider, use, useOptional, bindHook };
 };

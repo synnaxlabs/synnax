@@ -16,6 +16,7 @@ import { useSelectLegend } from "@/schematic/session/selectors";
 import { moveLegend, setLegendColors } from "@/schematic/session/slice";
 
 export const Legend = memo((): ReactElement | null => {
+  const key = Schematic.useKey();
   const { visible, position, colors } = useSelectLegend();
   const dispatch = useDispatch();
   const handleLegendPositionChange = useCallback(

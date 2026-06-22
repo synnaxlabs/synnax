@@ -97,14 +97,14 @@ const requireSchematic = (
   return schem;
 };
 
-export const useSelectAllNodes = Scope.scoped(
+export const useSelectAllNodes = Scope.bindHook(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Node[]>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).nodes,
   }),
 );
 
-export const useSelectAllEdges = Scope.scoped(
+export const useSelectAllEdges = Scope.bindHook(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Edge[]>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).edges,
@@ -116,7 +116,7 @@ export interface SelectConfigArgs {
   elKey: string;
 }
 
-export const useSelectElementConfig = Scope.scoped(
+export const useSelectElementConfig = Scope.bindHook(
   Flux.createSelector<FluxSubStore, SelectConfigArgs, ElementConfig | undefined>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key, elKey }) =>
@@ -129,7 +129,7 @@ export interface SelectConfigsArgs {
   keys: string[];
 }
 
-export const useSelectConfigs = Scope.scoped(
+export const useSelectConfigs = Scope.bindHook(
   Flux.createSelector<FluxSubStore, SelectConfigsArgs, Map<string, ElementConfig>>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key, keys }) => {
@@ -151,7 +151,7 @@ export interface SelectNodesArgs {
   keys: string[];
 }
 
-export const useSelectNodes = Scope.scoped(
+export const useSelectNodes = Scope.bindHook(
   Flux.createSelector<FluxSubStore, SelectNodesArgs, schematic.Node[]>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key, keys }) => {
@@ -168,14 +168,14 @@ export interface SelectFieldArgs {
   key: schematic.Key;
 }
 
-export const useSelectSnapshot = Scope.scoped(
+export const useSelectSnapshot = Scope.bindHook(
   Flux.createSelector<FluxSubStore, SelectFieldArgs, boolean>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).snapshot,
   }),
 );
 
-export const useSelectName = Scope.scoped(
+export const useSelectName = Scope.bindHook(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).name,
@@ -327,8 +327,8 @@ export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
 
 export const {
   useDispatch,
-  useUndo,
-  useRedo,
+  useUndo: useUndoBase,
+  useRedo: useRedoBase,
   useSingleDispatch: useSingleDispatchBase,
 } = Flux.createDispatch<
   schematic.Key,
@@ -342,7 +342,9 @@ export const {
     client.schematics.dispatch(key, dispatchKey, actions),
 });
 
-export const useSingleDispatch = () => useSingleDispatchBase(Scope.use());
+export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
+export const useUndo = Scope.bindHook(useUndoBase);
+export const useRedo = Scope.bindHook(useRedoBase);
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}
 

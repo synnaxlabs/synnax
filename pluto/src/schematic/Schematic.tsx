@@ -35,7 +35,7 @@ import {
   useUndo,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
-import { type Triggers } from "@/triggers";
+import { Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<
@@ -52,8 +52,6 @@ export interface SchematicProps extends Omit<
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
-const UNDO_TRIGGER: Triggers.Trigger = ["Control", "Z"];
-const REDO_TRIGGER: Triggers.Trigger = ["Control", "Shift", "Z"];
 
 export const Schematic = ({
   className,
@@ -123,8 +121,8 @@ export const Schematic = ({
       ...edgesRef.current.map((e) => e.key),
     ]);
   }, [onSelectionChange]);
-  const { undo, canUndo } = useUndo({ key });
-  const { redo, canRedo } = useRedo({ key });
+  const { undo, canUndo } = useUndo();
+  const { redo, canRedo } = useRedo();
 
   const { onCopy, onPaste } = useClipboard({
     selected,
@@ -149,7 +147,7 @@ export const Schematic = ({
               itemKey="undo"
               onClick={undo}
               disabled={!canUndo}
-              triggerIndicator={UNDO_TRIGGER}
+              triggerIndicator={Triggers.UNDO}
             >
               <Icon.Undo />
               Undo
@@ -158,7 +156,7 @@ export const Schematic = ({
               itemKey="redo"
               onClick={redo}
               disabled={!canRedo}
-              triggerIndicator={REDO_TRIGGER}
+              triggerIndicator={Triggers.REDO}
             >
               <Icon.Redo />
               Redo
