@@ -77,17 +77,18 @@ type (
 	]
 )
 
+// Transport is a gRPC-backed implementation of the framer.Transport interface.
+type Transport struct {
+	alamos.ReportProvider
+	writer   writerTransport
+	iterator iteratorTransport
+	relay    relayTransport
+	deleter  deleteTransport
+}
+
 var (
-	_ framerpb.WriterServiceServer   = (*writerServer)(nil)
-	_ writer.TransportServer         = (*writerServer)(nil)
-	_ writer.TransportClient         = (*writerClient)(nil)
-	_ framerpb.IteratorServiceServer = (*iteratorServer)(nil)
-	_ iterator.TransportServer       = (*iteratorServer)(nil)
-	_ iterator.TransportClient       = (*iteratorClient)(nil)
-	_ relay.TransportServer          = (*relayServer)(nil)
-	_ relay.TransportClient          = (*relayClient)(nil)
-	_ framer.Transport               = Transport{}
-	_ fgrpc.BindableTransport        = Transport{}
+	_ framer.Transport        = Transport{}
+	_ fgrpc.BindableTransport = Transport{}
 )
 
 // New creates a new grpc Transport that opens connections from the given pool.
@@ -188,32 +189,6 @@ func New(pool *fgrpc.Pool) Transport {
 	}
 }
 
-type writerServer struct{ writerServerCore }
-
-var (
-	_ framerpb.WriterServiceServer = (*writerServer)(nil)
-	_ writer.TransportServer       = (*writerServer)(nil)
-)
-
-func (w *writerServer) Write(server framerpb.WriterService_WriteServer) error {
-	return w.Handler(server.Context(), server)
-}
-
-type iteratorServer struct{ iteratorServerCore }
-
-func (t *iteratorServer) Iterate(server framerpb.IteratorService_IterateServer) error {
-	return t.Handler(server.Context(), server)
-}
-
-// Transport is a gRPC-backed implementation of the framer.Transport interface.
-type Transport struct {
-	alamos.ReportProvider
-	writer   writerTransport
-	iterator iteratorTransport
-	relay    relayTransport
-	deleter  deleteTransport
-}
-
 // Writer implements the framer.Transport interface.
 func (t Transport) Writer() writer.Transport { return t.writer }
 
@@ -234,6 +209,7 @@ func (t Transport) BindTo(server grpc.ServiceRegistrar) {
 	t.deleter.server.BindTo(server)
 }
 
+// Use implements the freighter.Transport interface.
 func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.writer.client.Use(middleware...)
 	t.writer.server.Use(middleware...)
@@ -245,6 +221,8 @@ func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.deleter.server.Use(middleware...)
 }
 
+type writerServer struct{ writerServerCore }
+
 type writerTransport struct {
 	client *writerClient
 	server *writerServer
@@ -253,6 +231,16 @@ type writerTransport struct {
 func (t writerTransport) Client() writer.TransportClient { return t.client }
 
 func (t writerTransport) Server() writer.TransportServer { return t.server }
+
+func (w *writerServer) Write(server framerpb.WriterService_WriteServer) error {
+	return w.Handler(server.Context(), server)
+}
+
+type iteratorServer struct{ iteratorServerCore }
+
+func (t *iteratorServer) Iterate(server framerpb.IteratorService_IterateServer) error {
+	return t.Handler(server.Context(), server)
+}
 
 type iteratorTransport struct {
 	client *iteratorClient

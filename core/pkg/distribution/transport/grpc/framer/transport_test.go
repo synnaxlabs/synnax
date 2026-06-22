@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	framergrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -132,7 +132,7 @@ var _ = Describe("Transport", func() {
 			useAddr := address.Address(lis.Addr().String())
 			grpcServer := grpc.NewServer()
 			pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
-			t := framergrpc.New(pool)
+			t := framer.New(pool)
 			t.BindTo(grpcServer)
 			go func() {
 				defer GinkgoRecover()
