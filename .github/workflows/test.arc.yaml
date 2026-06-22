@@ -58,7 +58,7 @@ jobs:
     needs: [server]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
@@ -139,7 +139,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Update Submodules
         run: git submodule update --init --recursive
