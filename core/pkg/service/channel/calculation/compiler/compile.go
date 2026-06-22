@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -63,8 +62,8 @@ const (
 // and infer output types without building the full execution graph.
 func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 	resolver := cfg.ChannelService.NewArcSymbolResolver(nil)
-	ana := analyzer.New(resolver)
-	result, err := ana.Analyze(ctx, cfg.Channel.Name, cfg.Channel.Key(), cfg.Channel.Expression, cfg.Channel.HasDerivativeOperation())
+	ana := channel.NewAnalyzer(resolver)
+	result, err := ana.Analyze(ctx, cfg.Channel)
 	if err != nil {
 		return arc.Program{}, err
 	}

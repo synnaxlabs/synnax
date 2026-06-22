@@ -48,34 +48,34 @@ var (
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		searchIdx := MustOpen(search.Open())
-		dist := mock.MustOpenNode(ctx)
-		db = dist.DB
-		otg = dist.Ontology
+		node := mock.MustOpenNode(ctx)
+		db = node.DB
+		otg = node.Ontology
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      dist.Channel,
-			DB:           dist.DB,
-			HostResolver: dist.Cluster,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			Search:       dist.Search,
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostResolver: node.Cluster,
+			Ontology:     node.Ontology,
+			Group:        node.Group,
+			Search:       node.Search,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    dist.Group,
+			Group:    node.Group,
 			Search:   searchIdx,
 		}))
 		statSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    dist.Group,
+			Group:    node.Group,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
-			Group:               dist.Group,
+			Group:               node.Group,
 			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              statSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
@@ -84,7 +84,7 @@ var (
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    dist.Group,
+			Group:    node.Group,
 			Rack:     rackSvc,
 			Status:   statSvc,
 			Search:   searchIdx,

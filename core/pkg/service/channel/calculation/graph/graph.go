@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -292,15 +291,15 @@ func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
 	}
 }
 
-func (s *Graph) newAnalyzer(tx gorp.Tx) *analyzer.Analyzer {
-	return analyzer.New(s.svc.NewArcSymbolResolver(tx))
+func (s *Graph) newAnalyzer(tx gorp.Tx) *channel.Analyzer {
+	return channel.NewAnalyzer(s.svc.NewArcSymbolResolver(tx))
 }
 
 func (s *Graph) inspectNode(
 	ctx context.Context,
 	tx gorp.Tx,
 	ch channel.Channel,
-	analyzer *analyzer.Analyzer,
+	analyzer *channel.Analyzer,
 ) (node, error) {
 	if analyzer == nil {
 		analyzer = s.newAnalyzer(tx)
@@ -308,7 +307,7 @@ func (s *Graph) inspectNode(
 	if ch.Key() == 0 {
 		return node{}, errors.Newf("channel %q has no key, cannot inspect", ch.Name)
 	}
-	result, err := analyzer.Analyze(ctx, ch.Name, ch.Key(), ch.Expression, ch.HasDerivativeOperation())
+	result, err := analyzer.Analyze(ctx, ch)
 	nd := node{Channel: ch}
 	if err == nil {
 		nd.DataType = result.ChanDataType
@@ -326,7 +325,7 @@ func (s *Graph) reconcileQueued(
 	queued set.Set[channel.Key],
 	unresolvedNames []string,
 	overlayMap map[channel.Key]channel.Channel,
-	analyzer *analyzer.Analyzer,
+	analyzer *channel.Analyzer,
 ) []channel.Channel {
 	if overlayMap == nil {
 		overlayMap = make(map[channel.Key]channel.Channel)

@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -23,7 +22,7 @@ import (
 type Writer struct {
 	svc      *Service
 	tx       gorp.Tx
-	analyzer *analyzer.Analyzer
+	analyzer *Analyzer
 }
 
 // NewWriter returns a Writer scoped to the provided transaction (nil writes directly to
@@ -32,7 +31,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		svc:      s,
 		tx:       s.db.OverrideTx(tx),
-		analyzer: analyzer.New(s.NewArcSymbolResolver(tx)),
+		analyzer: NewAnalyzer(s.NewArcSymbolResolver(tx)),
 	}
 }
 
@@ -84,7 +83,7 @@ func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 			if !ch.IsCalculated() {
 				continue
 			}
-			result, err := w.analyzer.Analyze(ctx, ch.Name, ch.Key(), ch.Expression, ch.HasDerivativeOperation())
+			result, err := w.analyzer.Analyze(ctx, ch)
 			if err != nil {
 				return err
 			}

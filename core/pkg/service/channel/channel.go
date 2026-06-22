@@ -13,12 +13,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -35,6 +38,17 @@ var (
 	NewKey         = channel.NewKey
 	KeysFromUint32 = channel.KeysFromUint32
 )
+
+// ParseKey attempts to parse the string representation of a Key into a Key.
+func ParseKey(s string) (Key, error) {
+	k, err := strconv.Atoi(s)
+	if err != nil {
+		return Key(0), errors.Wrapf(
+			validate.ErrValidation, "%s is not a valid channel key", s,
+		)
+	}
+	return Key(k), nil
+}
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).
 func KeysFromChannels(channels []Channel) Keys {
