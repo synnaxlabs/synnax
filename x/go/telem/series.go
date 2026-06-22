@@ -214,6 +214,40 @@ func ValueAt[T FixedSample](s Series, i int) T {
 	return data[i]
 }
 
+// AtAny returns the i-th sample as an any matching the series' DataType (string for
+// variable types, TimeStamp for TimeStampT), or nil if the DataType is unsupported.
+func (s Series) AtAny(i int) any {
+	if s.DataType.IsVariable() {
+		return string(s.At(i))
+	}
+	switch s.DataType {
+	case Float64T:
+		return ValueAt[float64](s, i)
+	case Float32T:
+		return ValueAt[float32](s, i)
+	case Int64T:
+		return ValueAt[int64](s, i)
+	case Int32T:
+		return ValueAt[int32](s, i)
+	case Int16T:
+		return ValueAt[int16](s, i)
+	case Int8T:
+		return ValueAt[int8](s, i)
+	case Uint64T:
+		return ValueAt[uint64](s, i)
+	case Uint32T:
+		return ValueAt[uint32](s, i)
+	case Uint16T:
+		return ValueAt[uint16](s, i)
+	case Uint8T:
+		return ValueAt[uint8](s, i)
+	case TimeStampT:
+		return ValueAt[TimeStamp](s, i)
+	default:
+		return nil
+	}
+}
+
 // SetValueAt sets the value at the given index in the series. SetValueAt supports
 // negative indices, which will be wrapped around the end of the series. This function
 // cannot be used for variable density series.

@@ -50,6 +50,8 @@ import (
 
 const FmtStrSyntheticPrefix = "fmt$"
 
+const InputExprSyntheticPrefix = "expr$"
+
 type compiledFunction struct {
 	scopeName string
 	typeIdx   uint32
@@ -95,6 +97,14 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 	for _, i := range program.Functions {
 		if strings.HasPrefix(i.Key, FmtStrSyntheticPrefix) {
 			cf, err := compileFmtStrSynthetic(compCtx, i)
+			if err != nil {
+				return Output{}, err
+			}
+			compiled = append(compiled, cf)
+			continue
+		}
+		if strings.HasPrefix(i.Key, InputExprSyntheticPrefix) {
+			cf, err := compileInputExprSynthetic(compCtx, i)
 			if err != nil {
 				return Output{}, err
 			}
@@ -227,6 +237,33 @@ func compileFmtStrSynthetic(
 	typeIdx := ctx.Module.AddType(funcT)
 	if _, err := expression.EmitFmtSegments(ctx, segments); err != nil {
 		return compiledFunction{}, err
+	}
+	return compiledFunction{
+		scopeName: fn.Key,
+		typeIdx:   typeIdx,
+		writer:    ctx.Writer,
+	}, nil
+}
+
+// compileInputExprSynthetic emits a zero-param WASM body returning the value of an
+// analyzer-synthesized brace-input expression Function.
+func compileInputExprSynthetic(
+	rootCtx ccontext.Context[antlr.ParserRuleContext],
+	fn ir.Function,
+) (compiledFunction, error) {
+	exprCtx, ok := fn.Body.AST.(parser.IExpressionContext)
+	if !ok {
+		return compiledFunction{}, errors.Newf(
+			"input expr synthetic %s missing expression AST", fn.Key,
+		)
+	}
+	ctx := rootCtx.WithNewWriter()
+	funcT := wasm.FunctionType{
+		Results: []wasm.ValueType{wasm.ConvertType(fn.Outputs[0].Type)},
+	}
+	typeIdx := ctx.Module.AddType(funcT)
+	if err := compileExpression(ccontext.Child(ctx, exprCtx)); err != nil {
+		return compiledFunction{}, errors.Wrapf(err, "failed to compile input expr %s", fn.Key)
 	}
 	return compiledFunction{
 		scopeName: fn.Key,

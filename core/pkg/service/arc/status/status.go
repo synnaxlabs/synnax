@@ -131,30 +131,27 @@ func (m *Module) ModuleName() string { return moduleName }
 func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case setMemberName:
-		var sc setConfig
-		if err := setConfigSchema.Parse(cfg.Node.Inputs.ValueMap(), &sc); err != nil {
-			return nil, errors.Wrap(err, "status.set config")
+		inputs, err := node.ResolveInputs(cfg.State, cfg.Node)
+		if err != nil {
+			return nil, err
 		}
-		return &setNode{
-			State:     cfg.State,
-			stat:      m.stat,
-			report:    m.report,
-			keyOrName: sc.KeyOrName,
-			message:   sc.Message,
-			variant:   sc.Variant,
-		}, nil
+		var in setInputs
+		if err := setInputsSchema.Parse(inputs.ValidationMap(), &in); err != nil {
+			return nil, errors.Wrap(err, "status.set inputs")
+		}
+		return &setNode{State: cfg.State, stat: m.stat, report: m.report, inputs: inputs}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
 }
 
-type setConfig struct {
+type setInputs struct {
 	KeyOrName string `json:"key_or_name"`
 	Message   string `json:"message"`
 	Variant   string `json:"variant"`
 }
 
-var setConfigSchema = zyn.Object(map[string]zyn.Schema{
+var setInputsSchema = zyn.Object(map[string]zyn.Schema{
 	"key_or_name": zyn.String(),
 	"message":     zyn.String(),
 	"variant":     zyn.String(),
@@ -162,15 +159,21 @@ var setConfigSchema = zyn.Object(map[string]zyn.Schema{
 
 type setNode struct {
 	*node.State
-	stat      *status.Service
-	report    taskreporter.Reporter
-	keyOrName string
-	message   string
-	variant   string
+	stat   *status.Service
+	report taskreporter.Reporter
+	inputs node.ResolvedInputs
 }
 
 func (s *setNode) Next(ctx node.Context) {
-	key := dispatchSet(ctx, s.stat, s.report, s.keyOrName, s.message, s.variant)
+	if s.inputs.HasEdges() && !s.RefreshInputs() {
+		return
+	}
+	var in setInputs
+	if err := setInputsSchema.Parse(s.inputs.ValueMap(s.State), &in); err != nil {
+		s.report(ctx, status.VariantWarning, fmt.Sprintf("status.set inputs: %v", err))
+		return
+	}
+	key := dispatchSet(ctx, s.stat, s.report, in.KeyOrName, in.Message, in.Variant)
 	*s.Output(0) = telem.NewSeriesV[string](key)
 	*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)

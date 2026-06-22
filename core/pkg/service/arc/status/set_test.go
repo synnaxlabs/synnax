@@ -231,7 +231,7 @@ var _ = Describe("Module", func() {
 					{Name: "variant", Type: types.String(), Value: "info"},
 				}},
 			}
-			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("status.set config")))
+			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("status.set inputs")))
 		})
 
 		It("Should return a clean error when set inputs are missing variant", func(ctx SpecContext) {
@@ -241,7 +241,7 @@ var _ = Describe("Module", func() {
 					{Name: "message", Type: types.String(), Value: "y"},
 				}},
 			}
-			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("status.set config")))
+			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("status.set inputs")))
 		})
 	})
 })

@@ -174,30 +174,25 @@ func (m *Module) ModuleName() string { return moduleName }
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case createMemberName:
+		inputs, err := node.ResolveInputs(cfg.State, cfg.Node)
+		if err != nil {
+			return nil, err
+		}
 		var in createInputs
-		if err := createInputsSchema.Parse(cfg.Node.Inputs.ValueMap(), &in); err != nil {
+		if err := createInputsSchema.Parse(inputs.ValidationMap(), &in); err != nil {
 			return nil, errors.Wrap(err, "ranges.create inputs")
 		}
-		return &createNode{
-			State:  cfg.State,
-			rng:    m.rng,
-			report: m.report,
-			name:   in.Name,
-			color:  in.Color,
-			parent: in.Parent,
-		}, nil
+		return &createNode{State: cfg.State, rng: m.rng, report: m.report, inputs: inputs}, nil
 	case endMemberName:
+		inputs, err := node.ResolveInputs(cfg.State, cfg.Node)
+		if err != nil {
+			return nil, err
+		}
 		var in endInputs
-		if err := endInputsSchema.Parse(cfg.Node.Inputs.ValueMap(), &in); err != nil {
+		if err := endInputsSchema.Parse(inputs.ValidationMap(), &in); err != nil {
 			return nil, errors.Wrap(err, "ranges.end inputs")
 		}
-		return &endNode{
-			State:  cfg.State,
-			rng:    m.rng,
-			report: m.report,
-			key:    in.Key,
-			time:   telem.TimeStamp(in.Time),
-		}, nil
+		return &endNode{State: cfg.State, rng: m.rng, report: m.report, inputs: inputs}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
@@ -219,13 +214,19 @@ type createNode struct {
 	*node.State
 	rng    *ranger.Service
 	report taskreporter.Reporter
-	name   string
-	color  string
-	parent string
+	inputs node.ResolvedInputs
 }
 
 func (n *createNode) Next(ctx node.Context) {
-	key := dispatchCreate(ctx, n.rng, n.report, n.name, n.color, n.parent)
+	if n.inputs.HasEdges() && !n.RefreshInputs() {
+		return
+	}
+	var in createInputs
+	if err := createInputsSchema.Parse(n.inputs.ValueMap(n.State), &in); err != nil {
+		n.report(ctx, status.VariantWarning, fmt.Sprintf("ranges.create inputs: %v", err))
+		return
+	}
+	key := dispatchCreate(ctx, n.rng, n.report, in.Name, in.Color, in.Parent)
 	*n.Output(0) = telem.NewSeriesV[string](key)
 	*n.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)
@@ -277,19 +278,26 @@ type endInputs struct {
 
 var endInputsSchema = zyn.Object(map[string]zyn.Schema{
 	"key":  zyn.String(),
-	"time": zyn.Int64(),
+	"time": zyn.Int64().Coerce(),
 })
 
 type endNode struct {
 	*node.State
 	rng    *ranger.Service
 	report taskreporter.Reporter
-	key    string
-	time   telem.TimeStamp
+	inputs node.ResolvedInputs
 }
 
 func (n *endNode) Next(ctx node.Context) {
-	key := dispatchEnd(ctx, n.rng, n.report, n.key, n.time)
+	if n.inputs.HasEdges() && !n.RefreshInputs() {
+		return
+	}
+	var in endInputs
+	if err := endInputsSchema.Parse(n.inputs.ValueMap(n.State), &in); err != nil {
+		n.report(ctx, status.VariantWarning, fmt.Sprintf("ranges.end inputs: %v", err))
+		return
+	}
+	key := dispatchEnd(ctx, n.rng, n.report, in.Key, telem.TimeStamp(in.Time))
 	*n.Output(0) = telem.NewSeriesV[string](key)
 	*n.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)
