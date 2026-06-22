@@ -790,7 +790,7 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	isSelfRef := resolution.RefersTo(field.Type, entry.QualifiedName, data.table)
 	underlyingPrimitive := getUnderlyingPrimitive(field.Type, data.table)
 
-	if field.IsHardOptional {
+	if field.Optional {
 		if isSelfRef {
 			data.includes.addInternal("x/cpp/mem/indirect.h")
 			cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)
@@ -1516,7 +1516,10 @@ struct {{$td.Name}} : private std::vector<{{$td.ElementType}}> {
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    {{$td.Name}}() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    {{$td.Name}}();
 {{- if $td.ElementIsPrimitive}}
     {{$td.Name}}(std::initializer_list<{{$td.ElementType}}> init) : Base(init) {}
 {{- end}}
@@ -1633,6 +1636,12 @@ using {{$u.Name}} = std::variant<{{range $j, $v := $u.Variants}}{{if $j}}, {{end
 
 {{$u.Name}} parse_{{$u.SnakeName}}(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const {{$u.Name}}& value);
+{{- end}}
+{{- end}}
+{{- range $d := .SortedDecls}}
+{{- if and $d.IsTypeDef $d.TypeDef.IsArrayWrapper (not $d.TypeDef.IsFixedSizeArray)}}
+
+inline {{$d.TypeDef.Name}}::{{$d.TypeDef.Name}}() = default;
 {{- end}}
 {{- end}}
 {{- if .Ontology}}

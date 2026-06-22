@@ -46,33 +46,34 @@ Mode enum {
 }
 
 Arc struct {
-    key     Key               {
+    key     Key = create {
         @key
         @doc value "is the unique identifier for this module."
     }
-    name    string            {
-        @doc value "is a human-readable name for the module."
+    name    string           {
+        @doc value         "is a human-readable name for the module."
         @filter
+        @validate required
     }
-    mode    Mode              {
+    mode    Mode             {
         @doc value """
             specifies the representation mode for this module.
             Either "text" for text-based Arc code or "graph" for visual dataflow.
         """
     }
-    graph   graph.Graph       {
+    graph   graph.Graph      {
         @doc value "is the visual dataflow graph representation of the module."
     }
-    text    text.Text         {
+    text    text.Text        {
         @doc value "is the text-based Arc source code."
     }
-    program program.Program?? {
+    program program.Program? {
         @doc value  """
             is the compiled module output including IR and WebAssembly bytecode.
         """
         @go marshal omit
     }
-    status  Status??          {
+    status  Status?          {
         @doc value  "is the current execution status of the module."
         @go marshal omit
     }
@@ -87,34 +88,5 @@ Arc struct {
     @go migrate
     @retrieve
     @search
-}
-
-New struct {
-    key   Key?        {
-        @doc value """
-            is an optional key for the module. If not provided, one will be
-            automatically assigned.
-        """
-    }
-    name  string      {
-        @doc value "is a human-readable name for the module."
-    }
-    mode  Mode        {
-        @doc value """
-            specifies the representation mode for this module.
-            Either "text" for text-based Arc code or "graph" for visual dataflow.
-        """
-    }
-    graph graph.Graph {
-        @doc value "is the visual dataflow graph representation."
-    }
-    text  text.Text   {
-        @doc value "is the text-based Arc source code."
-    }
-
-    @doc value    "contains parameters for creating a new Arc module."
-    @ts use_input
-    @go omit
-    @pb omit
-    @cpp omit
+    @create
 }

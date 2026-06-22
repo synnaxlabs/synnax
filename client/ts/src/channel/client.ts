@@ -10,6 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
+  control,
   type CrudeDensity,
   type CrudeTimeRange,
   type CrudeTimeSpan,
@@ -115,6 +116,7 @@ export class Channel {
    */
   readonly expression: string;
   readonly operations: Operation[];
+  readonly concurrency: control.Concurrency;
   /**
    * The status of the channel.
    */
@@ -134,6 +136,7 @@ export class Channel {
     status: argsStatus,
     expression = "",
     operations = [],
+    concurrency = control.Concurrency.exclusive,
   }: New & {
     internal?: boolean;
     frameClient?: framer.Client;
@@ -152,6 +155,7 @@ export class Channel {
     this.virtual = virtual;
     this.expression = expression;
     this.operations = operations;
+    this.concurrency = concurrency;
     if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }

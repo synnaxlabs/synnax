@@ -20,7 +20,6 @@ import (
 func (p Project) EncodeOrc(w *orc.Writer) error {
 	w.Write(p.Key[:])
 	w.String(p.Name)
-	w.Write(p.Author[:])
 	{
 		b, err := json.Marshal(p.Layout)
 		if err != nil {
@@ -37,9 +36,6 @@ func (p *Project) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if p.Name, err = r.String(); err != nil {
-		return err
-	}
-	if _, err := r.Read(p.Author[:]); err != nil {
 		return err
 	}
 	{

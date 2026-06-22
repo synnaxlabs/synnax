@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	gotypes "go/types"
+	"strconv"
 )
 
 // Status is channel-specific status information.
@@ -45,7 +47,7 @@ type Channel struct {
 	// a timestamp.
 	Index servicechannel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
-	Alias string `json:"alias" msgpack:"alias"`
+	Alias *string `json:"alias,omitempty" msgpack:"alias,omitempty"`
 	// Virtual is true if this channel does not store data in the database but can still be
 	// used for streaming purposes.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
@@ -56,10 +58,18 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 	// Operations contains optional aggregation operations (min, max, avg) applied to
 	// channel data over time or triggered by a reset channel.
-	Operations []servicechannel.Operation `json:"operations" msgpack:"operations"`
+	Operations []servicechannel.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
 	// channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+}
+
+func (c Channel) Validate() error {
+	v := validate.New("Channel")
+	for i := range c.Operations {
+		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

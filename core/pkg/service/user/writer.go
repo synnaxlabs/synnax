@@ -52,6 +52,9 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 	if exists {
 		return User{}, auth.ErrRepeatedUsername
 	}
+	if err := u.Validate(); err != nil {
+		return User{}, err
+	}
 	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
 		return User{}, err
 	}

@@ -1647,6 +1647,8 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   name: "NI Analog Read Task",
   config: ZERO_ANALOG_READ_CONFIG,
   type: "ni_analog_read",
+  internal: false,
+  snapshot: false,
 };
 
 const validateCounterPorts = createPortValidator("Counter");
@@ -1692,6 +1694,8 @@ export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
   name: "NI Counter Read Task",
   config: ZERO_COUNTER_READ_CONFIG,
   type: "ni_counter_read",
+  internal: false,
+  snapshot: false,
 };
 
 export const analogWriteConfigZ = baseWriteConfigZ.extend({
@@ -1722,6 +1726,8 @@ export const ZERO_ANALOG_WRITE_PAYLOAD = {
   name: "NI Analog Write Task",
   config: ZERO_ANALOG_WRITE_CONFIG,
   type: "ni_analog_write",
+  internal: false,
+  snapshot: false,
 } as const satisfies AnalogWritePayload;
 
 export const digitalReadConfigZ = baseReadConfigZ
@@ -1754,6 +1760,8 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   name: "NI Digital Read Task",
   config: ZERO_DIGITAL_READ_CONFIG,
   type: "ni_digital_read",
+  internal: false,
+  snapshot: false,
 };
 
 export const digitalWriteConfigZ = baseWriteConfigZ.extend({
@@ -1784,6 +1792,8 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
   name: "NI Digital Write Task",
   config: ZERO_DIGITAL_WRITE_CONFIG,
   type: "ni_digital_write",
+  internal: false,
+  snapshot: false,
 };
 
 export const SCAN_TYPE = `${PREFIX}_scanner`;

@@ -1209,3 +1209,45 @@ var _ = Describe("RefersTo", func() {
 		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
 	})
 })
+
+var _ = Describe("PrimitiveBase", func() {
+	var table *resolution.Table
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name: "Key", QualifiedName: "rack.Key", Namespace: "rack",
+			Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: "uint32"}},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "Name", QualifiedName: "ns.Name", Namespace: "ns",
+			Form: resolution.AliasForm{Target: resolution.TypeRef{Name: "string"}},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "Outer", QualifiedName: "ns.Outer", Namespace: "ns",
+			Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: "rack.Key"}},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "Box", QualifiedName: "ns.Box", Namespace: "ns",
+			Form: resolution.StructForm{},
+		})).To(Succeed())
+	})
+
+	It("returns a primitive name directly", func() {
+		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "uint32"}, table)).To(Equal("uint32"))
+	})
+	It("unwraps a distinct type to its primitive base", func() {
+		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "rack.Key"}, table)).To(Equal("uint32"))
+	})
+	It("unwraps an alias to its primitive base", func() {
+		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Name"}, table)).To(Equal("string"))
+	})
+	It("follows a chain of distinct types", func() {
+		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Outer"}, table)).To(Equal("uint32"))
+	})
+	It("returns empty for a struct type", func() {
+		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Box"}, table)).To(Equal(""))
+	})
+	It("returns empty for an unresolved reference", func() {
+		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Missing"}, table)).To(Equal(""))
+	})
+})

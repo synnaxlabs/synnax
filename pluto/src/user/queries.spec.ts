@@ -264,7 +264,7 @@ describe("User queries", () => {
 
         const usernameField = result.current.form.get("username");
         expect(usernameField.status.variant).toBe("error");
-        expect(usernameField.status.message).toContain("Username is required");
+        expect(usernameField.status.message).toContain("username is required");
       });
 
       it("should validate all required fields", async () => {

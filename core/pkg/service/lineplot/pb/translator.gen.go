@@ -83,7 +83,7 @@ func LegendToPB(r lineplot.Legend) (*Legend, error) {
 		return nil, err
 	}
 	pb := &Legend{
-		Visible:  r.Visible,
+		Hidden:   r.Hidden,
 		Position: positionVal,
 	}
 	return pb, nil
@@ -100,7 +100,7 @@ func LegendFromPB(pb *Legend) (lineplot.Legend, error) {
 	if err != nil {
 		return lineplot.Legend{}, err
 	}
-	r.Visible = pb.Visible
+	r.Hidden = pb.Hidden
 	return r, nil
 }
 
@@ -230,18 +230,18 @@ func RangesListFromPB(pbs []*Ranges) ([]lineplot.Ranges, error) {
 	return result, nil
 }
 
-// AutoBoundsToPB converts AutoBounds to AutoBounds.
-func AutoBoundsToPB(r lineplot.AutoBounds) (*AutoBounds, error) {
-	pb := &AutoBounds{
+// ManualBoundsToPB converts ManualBounds to ManualBounds.
+func ManualBoundsToPB(r lineplot.ManualBounds) (*ManualBounds, error) {
+	pb := &ManualBounds{
 		Lower: r.Lower,
 		Upper: r.Upper,
 	}
 	return pb, nil
 }
 
-// AutoBoundsFromPB converts AutoBounds to AutoBounds.
-func AutoBoundsFromPB(pb *AutoBounds) (lineplot.AutoBounds, error) {
-	var r lineplot.AutoBounds
+// ManualBoundsFromPB converts ManualBounds to ManualBounds.
+func ManualBoundsFromPB(pb *ManualBounds) (lineplot.ManualBounds, error) {
+	var r lineplot.ManualBounds
 	if pb == nil {
 		return r, nil
 	}
@@ -250,12 +250,12 @@ func AutoBoundsFromPB(pb *AutoBounds) (lineplot.AutoBounds, error) {
 	return r, nil
 }
 
-// AutoBoundsListToPB converts a slice of AutoBounds to AutoBounds.
-func AutoBoundsListToPB(rs []lineplot.AutoBounds) ([]*AutoBounds, error) {
-	result := make([]*AutoBounds, len(rs))
+// ManualBoundsListToPB converts a slice of ManualBounds to ManualBounds.
+func ManualBoundsListToPB(rs []lineplot.ManualBounds) ([]*ManualBounds, error) {
+	result := make([]*ManualBounds, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = AutoBoundsToPB(rs[i])
+		result[i], err = ManualBoundsToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -263,12 +263,12 @@ func AutoBoundsListToPB(rs []lineplot.AutoBounds) ([]*AutoBounds, error) {
 	return result, nil
 }
 
-// AutoBoundsListFromPB converts a slice of AutoBounds to AutoBounds.
-func AutoBoundsListFromPB(pbs []*AutoBounds) ([]lineplot.AutoBounds, error) {
-	result := make([]lineplot.AutoBounds, len(pbs))
+// ManualBoundsListFromPB converts a slice of ManualBounds to ManualBounds.
+func ManualBoundsListFromPB(pbs []*ManualBounds) ([]lineplot.ManualBounds, error) {
+	result := make([]lineplot.ManualBounds, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = AutoBoundsFromPB(pb)
+		result[i], err = ManualBoundsFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -294,7 +294,7 @@ func AxisToPB(r lineplot.Axis) (*Axis, error) {
 	if err != nil {
 		return nil, err
 	}
-	autoBoundsVal, err := AutoBoundsToPB(r.AutoBounds)
+	manualBoundsVal, err := ManualBoundsToPB(r.ManualBounds)
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +305,7 @@ func AxisToPB(r lineplot.Axis) (*Axis, error) {
 		LabelDirection: labelDirectionVal,
 		LabelLevel:     labelLevelVal,
 		Bounds:         boundsVal,
-		AutoBounds:     autoBoundsVal,
+		ManualBounds:   manualBoundsVal,
 	}
 	if r.Type != nil {
 		val, err := TickTypeToPB(*r.Type)
@@ -340,7 +340,7 @@ func AxisFromPB(pb *Axis) (lineplot.Axis, error) {
 	if err != nil {
 		return lineplot.Axis{}, err
 	}
-	r.AutoBounds, err = AutoBoundsFromPB(pb.AutoBounds)
+	r.ManualBounds, err = ManualBoundsFromPB(pb.ManualBounds)
 	if err != nil {
 		return lineplot.Axis{}, err
 	}

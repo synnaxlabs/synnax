@@ -56,23 +56,6 @@ func (cl *CornerLocation) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-func (d Dimensions) EncodeOrc(w *orc.Writer) error {
-	w.Float64(float64(d.Width))
-	w.Float64(float64(d.Height))
-	return nil
-}
-
-func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if d.Width, err = r.Float64(); err != nil {
-		return err
-	}
-	if d.Height, err = r.Float64(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (su StickyUnits) EncodeOrc(w *orc.Writer) error {
 	w.String(string(su.X))
 	w.String(string(su.Y))
@@ -100,21 +83,11 @@ func (su *StickyUnits) DecodeOrc(r *orc.Reader) error {
 func (sxy StickyXY) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(sxy.X))
 	w.Float64(float64(sxy.Y))
-	if sxy.Root != nil {
-		w.Bool(true)
-		if err := (*sxy.Root).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
+	if err := sxy.Root.EncodeOrc(w); err != nil {
+		return err
 	}
-	if sxy.Units != nil {
-		w.Bool(true)
-		if err := (*sxy.Units).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
+	if err := sxy.Units.EncodeOrc(w); err != nil {
+		return err
 	}
 	return nil
 }
@@ -127,31 +100,11 @@ func (sxy *StickyXY) DecodeOrc(r *orc.Reader) error {
 	if sxy.Y, err = r.Float64(); err != nil {
 		return err
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv CornerLocation
-			if err = hv.DecodeOrc(r); err != nil {
-				return err
-			}
-			sxy.Root = &hv
-		}
+	if err = sxy.Root.DecodeOrc(r); err != nil {
+		return err
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv StickyUnits
-			if err = hv.DecodeOrc(r); err != nil {
-				return err
-			}
-			sxy.Units = &hv
-		}
+	if err = sxy.Units.DecodeOrc(r); err != nil {
+		return err
 	}
 	return nil
 }

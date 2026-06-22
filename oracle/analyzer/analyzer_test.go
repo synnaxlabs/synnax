@@ -427,11 +427,11 @@ var _ = Describe("Analyzer", func() {
 			Expect(labelsField.Type.Name).To(Equal("Array"))
 			Expect(labelsField.Type.TypeArgs).To(HaveLen(1))
 			Expect(labelsField.Type.TypeArgs[0].Name).To(Equal("uuid"))
-			Expect(labelsField.IsOptional).To(BeFalse())
+			Expect(labelsField.Optional).To(BeFalse())
 
 			tagsField, _ := form.Field("tags")
 			Expect(tagsField.Type.Name).To(Equal("Array"))
-			Expect(tagsField.IsOptional).To(BeTrue())
+			Expect(tagsField.Optional).To(BeTrue())
 		})
 
 		It("Should handle optional types", func(ctx SpecContext) {
@@ -446,7 +446,7 @@ var _ = Describe("Analyzer", func() {
 			rangeType := table.MustGet("ranger.Range")
 			form := rangeType.Form.(resolution.StructForm)
 			parentField, _ := form.Field("parent")
-			Expect(parentField.IsOptional).To(BeTrue())
+			Expect(parentField.Optional).To(BeTrue())
 			Expect(parentField.Type.Name).To(Equal("uuid"))
 		})
 	})
@@ -845,7 +845,7 @@ var _ = Describe("Analyzer", func() {
 			// Child has its own name field that overrides parent
 			Expect(form.Fields).To(HaveLen(1))
 			Expect(form.Fields[0].Name).To(Equal("name"))
-			Expect(form.Fields[0].IsOptional).To(BeTrue())
+			Expect(form.Fields[0].Optional).To(BeTrue())
 
 			// UnifiedFields should have child's version of name
 			allFields := resolution.UnifiedFields(childType, table)
@@ -859,7 +859,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			}
 			Expect(nameField).NotTo(BeNil())
-			Expect(nameField.IsOptional).To(BeTrue())
+			Expect(nameField.Optional).To(BeTrue())
 		})
 
 		It("Should inherit type and optionality when an override omits its type", func(ctx SpecContext) {
@@ -998,24 +998,32 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		DescribeTable("Should resolve optionality on a typeless override",
-			func(ctx SpecContext, parentField, childField, field, wantType string, wantOptional, wantHard bool) {
+			func(ctx SpecContext, parentField, childField, field, wantType string, wantOptional bool) {
 				source := "Key uint32\n\nParent struct {\n  " + parentField +
 					"\n}\n\nChild struct extends Parent {\n  " + childField + "\n}\n"
 				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				f := findField(resolution.UnifiedFields(table.MustGet("test.Child"), table), field)
 				Expect(f.Type.Name).To(Equal(wantType))
-				Expect(f.IsOptional).To(Equal(wantOptional))
-				Expect(f.IsHardOptional).To(Equal(wantHard))
+				Expect(f.Optional).To(Equal(wantOptional))
 			},
-			Entry("? makes a required field soft-optional",
-				"key Key", "key?", "key", "test.Key", true, false),
-			Entry("? makes a required array field soft-optional",
-				"items string[]", "items?", "items", "Array", true, false),
-			Entry("?? makes a field hard-optional",
-				"note string", "note??", "note", "string", false, true),
+			Entry("? makes a required field optional",
+				"key Key", "key?", "key", "test.Key", true),
+			Entry("? makes a required array field optional",
+				"items string[]", "items?", "items", "Array", true),
 			Entry("restating the type makes an optional field required",
-				"name string?", "name string", "name", "string", false, false),
+				"name string?", "name string", "name", "string", false),
+		)
+
+		DescribeTable("Should reject the removed ?? optionality marker as a syntax error",
+			func(ctx SpecContext, source string) {
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+			},
+			Entry("?? on a typed field",
+				"S struct {\n  note string??\n}\n"),
+			Entry("?? on a typeless override",
+				"Parent struct {\n  note string\n}\n\nChild struct extends Parent {\n  note??\n}\n"),
 		)
 
 		DescribeTable("Should reject partial-override syntax that cannot resolve",
@@ -1226,7 +1234,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			}
 			Expect(keyField).NotTo(BeNil())
-			Expect(keyField.IsOptional).To(BeTrue())   // Child's type
+			Expect(keyField.Optional).To(BeTrue())     // Child's type
 			Expect(keyField.Domains).To(HaveKey("id")) // Parent's domain inherited
 		})
 
@@ -1295,7 +1303,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			}
 			Expect(keyField).NotTo(BeNil())
-			Expect(keyField.IsOptional).To(BeTrue())
+			Expect(keyField.Optional).To(BeTrue())
 			Expect(keyField.Domains).To(HaveKey("id"))       // Inherited from parent
 			Expect(keyField.Domains).To(HaveKey("validate")) // Added by child
 		})
@@ -1456,6 +1464,209 @@ var _ = Describe("Analyzer", func() {
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
+		})
+	})
+
+	Describe("Action Extension", func() {
+		findAction := func(table *resolution.Table, qname, name string) resolution.Action {
+			form := table.MustGet(qname).Form.(resolution.StructForm)
+			for _, a := range form.Actions {
+				if a.Name == name {
+					return a
+				}
+			}
+			Fail("action not found: " + name)
+			return resolution.Action{}
+		}
+
+		It("Should flatten an extended struct's fields into the action payload", func(ctx SpecContext) {
+			source := `
+				Named struct {
+					name string
+				}
+
+				Schematic struct {
+					key uuid
+
+					action Rename extends Named {
+						@doc value "renames the schematic"
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Schematic", "Rename")
+			Expect(action.Fields).To(HaveLen(1))
+			Expect(action.Fields[0].Name).To(Equal("name"))
+			Expect(action.Fields[0].Type.Name).To(Equal("string"))
+		})
+
+		It("Should prepend inherited fields before the action's own fields", func(ctx SpecContext) {
+			source := `
+				NodeRef struct {
+					key      string
+					position int32
+				}
+
+				Schematic struct {
+					id uuid
+
+					action SetNodePosition extends NodeRef {
+						animate int32
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Schematic", "SetNodePosition")
+			names := make([]string, len(action.Fields))
+			for i, f := range action.Fields {
+				names[i] = f.Name
+			}
+			Expect(names).To(Equal([]string{"key", "position", "animate"}))
+		})
+
+		It("Should let an action's own field override an inherited field", func(ctx SpecContext) {
+			source := `
+				Base struct {
+					value int32
+				}
+
+				Container struct {
+					key uuid
+
+					action SetValue extends Base {
+						value string
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Container", "SetValue")
+			Expect(action.Fields).To(HaveLen(1))
+			Expect(findField(action.Fields, "value").Type.Name).To(Equal("string"))
+		})
+
+		It("Should flatten fields from multiple extended structs (first wins)", func(ctx SpecContext) {
+			source := `
+				A struct {
+					a string
+				}
+				B struct {
+					a int32
+					b string
+				}
+
+				Container struct {
+					key uuid
+
+					action Combine extends A, B {}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Container", "Combine")
+			names := make([]string, len(action.Fields))
+			for i, f := range action.Fields {
+				names[i] = f.Name
+			}
+			Expect(names).To(Equal([]string{"a", "b"}))
+			Expect(findField(action.Fields, "a").Type.Name).To(Equal("string"))
+		})
+
+		It("Should inherit transitively through the extended struct's own parents", func(ctx SpecContext) {
+			source := `
+				GrandParent struct { a string }
+				Parent struct extends GrandParent { b string }
+
+				Container struct {
+					key uuid
+
+					action Apply extends Parent {
+						c string
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Container", "Apply")
+			names := make([]string, len(action.Fields))
+			for i, f := range action.Fields {
+				names[i] = f.Name
+			}
+			Expect(names).To(Equal([]string{"a", "b", "c"}))
+		})
+
+		It("Should substitute type arguments when extending a generic struct", func(ctx SpecContext) {
+			source := `
+				Box struct<T extends record> {
+					data T
+				}
+
+				Details struct {
+					message string
+				}
+
+				Container struct {
+					key uuid
+
+					action Load extends Box<Details> {}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			action := findAction(table, "test.Container", "Load")
+			Expect(action.Fields).To(HaveLen(1))
+			Expect(action.Fields[0].Name).To(Equal("data"))
+			Expect(action.Fields[0].Type.Name).To(Equal("test.Details"))
+		})
+
+		It("Should error when an action extends an unresolved type", func(ctx SpecContext) {
+			source := `
+				Container struct {
+					key uuid
+
+					action Apply extends Missing {}
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("extends unresolved type"))
+		})
+
+		It("Should error when an action extends a non-struct type", func(ctx SpecContext) {
+			source := `
+				Color enum {
+					red = 0
+					green = 1
+				}
+
+				Container struct {
+					key uuid
+
+					action Apply extends Color {}
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("extends non-struct type"))
+		})
+
+		It("Should error when extending a generic struct without type arguments", func(ctx SpecContext) {
+			source := `
+				Box struct<T extends record> {
+					data T
+				}
+
+				Container struct {
+					key uuid
+
+					action Load extends Box {}
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("type arguments"))
 		})
 	})
 
@@ -1902,23 +2113,18 @@ var _ = Describe("Analyzer", func() {
 				resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 1.5}),
 			Entry("string", "name string = \"untitled\"",
 				resolution.ExpressionValue{Kind: resolution.ValueKindString, StringValue: "untitled"}),
-			Entry("bool", "active bool = true",
-				resolution.ExpressionValue{Kind: resolution.ValueKindBool, BoolValue: true}),
+			Entry("bool", "active bool = false",
+				resolution.ExpressionValue{Kind: resolution.ValueKindBool, BoolValue: false}),
 			Entry("ident", "key string = create",
 				resolution.ExpressionValue{Kind: resolution.ValueKindIdent, IdentValue: "create"}),
 			Entry("qualified ident", "mode string = control.Exclusive",
 				resolution.ExpressionValue{Kind: resolution.ValueKindIdent, IdentValue: "control.Exclusive"}),
-			Entry("optional type", "name string? = \"\"",
-				resolution.ExpressionValue{Kind: resolution.ValueKindString, StringValue: ""}),
 		)
 
-		It("Should mark a defaulted optional field as optional", func(ctx SpecContext) {
+		It("Should reject a field that is both optional and defaulted", func(ctx SpecContext) {
 			source := "Item struct {\n\tname string? = \"\"\n}\n"
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
-			form := table.MustGet("test.Item").Form.(resolution.StructForm)
-			Expect(form.Fields[0].IsOptional).To(BeTrue())
-			Expect(form.Fields[0].Default).NotTo(BeNil())
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Error()).To(ContainSubstring("both nullable"))
 		})
 
 		It("Should leave Default nil when no default is declared", func(ctx SpecContext) {

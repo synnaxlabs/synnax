@@ -26,11 +26,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-const (
-	testResourceType  ontology.ResourceType = "imex_test"
-	errorResourceType ontology.ResourceType = "imex_test_error"
-	testVersion       imex.Version          = 1
-)
+const testVersion imex.Version = 1
 
 type testResource struct {
 	Name     string `json:"name"`
@@ -84,7 +80,7 @@ func openTestService(ctx context.Context, db *gorp.DB) *testService {
 	return &testService{db: db, table: table}
 }
 
-func (*testService) Type() ontology.ResourceType { return testResourceType }
+func (*testService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
 func (s *testService) Import(
 	ctx context.Context,
@@ -100,7 +96,7 @@ func (s *testService) Import(
 	if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
 		return ontology.ID{}, err
 	}
-	return ontology.ID{Type: testResourceType, Key: key}, nil
+	return ontology.ID{Type: ontology.ResourceTypeChannel, Key: key}, nil
 }
 
 func (s *testService) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
@@ -111,7 +107,7 @@ func (s *testService) Export(ctx context.Context, id ontology.ID) (imex.Envelope
 		Exec(ctx, s.db); err != nil {
 		return imex.Envelope{}, err
 	}
-	env := imex.Envelope{Version: testVersion, Type: string(testResourceType)}
+	env := imex.Envelope{Version: testVersion, Type: string(ontology.ResourceTypeChannel)}
 	if err := imex.Encode(
 		&env,
 		testResource{Name: e.Name, FieldOne: e.FieldOne, FieldTwo: e.FieldTwo},
@@ -138,7 +134,7 @@ func (s *testService) Close() error { return s.table.Close() }
 
 type errorService struct{}
 
-func (errorService) Type() ontology.ResourceType { return errorResourceType }
+func (errorService) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
 
 func (errorService) Import(context.Context, gorp.Tx, imex.Envelope) (ontology.ID, error) {
 	return ontology.ID{}, errors.New("importer error: forced failure")
@@ -183,8 +179,8 @@ var _ = Describe("Service", func() {
 	Describe("ImporterType", func() {
 		It("Should return the registered importer's broader Type", func() {
 			Expect(
-				svc.ImporterType(string(testResourceType)),
-			).To(Equal(testResourceType))
+				svc.ImporterType(string(ontology.ResourceTypeChannel)),
+			).To(Equal(ontology.ResourceTypeChannel))
 		})
 
 		It("Should return a validation error scoped to the type field if not registered", func() {
@@ -199,18 +195,18 @@ var _ = Describe("Service", func() {
 	Describe("RegisterImporter", func() {
 		It("Should register an importer under a narrow type string", func() {
 			s := imex.NewService()
-			s.RegisterImporter("narrow", noopImporter{typ: "broad"})
-			Expect(s.ImporterType("narrow")).To(Equal(ontology.ResourceType("broad")))
+			s.RegisterImporter("narrow", noopImporter{typ: ontology.ResourceTypeChannel})
+			Expect(s.ImporterType("narrow")).To(Equal(ontology.ResourceTypeChannel))
 		})
 
 		It(
 			"Should map the narrow type to the importer's broader Type for access control",
 			func(ctx SpecContext) {
 				s := imex.NewService()
-				s.RegisterImporter("http_read", noopImporter{typ: "task"})
-				s.RegisterImporter("opc_scan", noopImporter{typ: "task"})
-				Expect(s.ImporterType("http_read")).To(Equal(ontology.ResourceType("task")))
-				Expect(s.ImporterType("opc_scan")).To(Equal(ontology.ResourceType("task")))
+				s.RegisterImporter("http_read", noopImporter{typ: ontology.ResourceTypeTask})
+				s.RegisterImporter("opc_scan", noopImporter{typ: ontology.ResourceTypeTask})
+				Expect(s.ImporterType("http_read")).To(Equal(ontology.ResourceTypeTask))
+				Expect(s.ImporterType("opc_scan")).To(Equal(ontology.ResourceTypeTask))
 				k1 := MustSucceed(s.Import(
 					ctx, db,
 					imex.Envelope{Version: 1, Type: "http_read", Name: "ingest"},
@@ -219,8 +215,8 @@ var _ = Describe("Service", func() {
 					ctx, db,
 					imex.Envelope{Version: 1, Type: "opc_scan", Name: "scan"},
 				))
-				Expect(k1).To(Equal(ontology.ID{Type: "task", Key: "noop-key"}))
-				Expect(k2).To(Equal(ontology.ID{Type: "task", Key: "noop-key"}))
+				Expect(k1).To(Equal(ontology.ID{Type: ontology.ResourceTypeTask, Key: "noop-key"}))
+				Expect(k2).To(Equal(ontology.ID{Type: ontology.ResourceTypeTask, Key: "noop-key"}))
 			},
 		)
 	})
@@ -228,12 +224,12 @@ var _ = Describe("Service", func() {
 	Describe("RegisterExporter", func() {
 		It("Should register an exporter under its own Type", func(ctx SpecContext) {
 			s := imex.NewService()
-			s.RegisterExporter(noopExporter{typ: "noop_export"})
+			s.RegisterExporter(noopExporter{typ: ontology.ResourceTypeLog})
 			env := MustSucceed(s.Export(ctx, ontology.ID{
-				Type: "noop_export",
+				Type: ontology.ResourceTypeLog,
 				Key:  "any",
 			}))
-			Expect(env.Type).To(Equal("noop_export"))
+			Expect(env.Type).To(Equal(string(ontology.ResourceTypeLog)))
 			Expect(env.Name).To(Equal("noop"))
 		})
 	})
@@ -241,9 +237,9 @@ var _ = Describe("Service", func() {
 	Describe("Import", func() {
 		It("Should route to the correct service by type and return the new ID", func(ctx SpecContext) {
 			id := MustSucceed(svc.Import(
-				ctx, db, sampleEnvelope("Registry Test", testResourceType),
+				ctx, db, sampleEnvelope("Registry Test", ontology.ResourceTypeChannel),
 			))
-			Expect(id.Type).To(Equal(testResourceType))
+			Expect(id.Type).To(Equal(ontology.ResourceTypeChannel))
 			Expect(id.Key).NotTo(BeEmpty())
 		})
 
@@ -260,7 +256,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should pass errors from the importer through verbatim", func(ctx SpecContext) {
 			Expect(svc.Import(
-				ctx, db, sampleEnvelope("Erroring", errorResourceType),
+				ctx, db, sampleEnvelope("Erroring", ontology.ResourceTypeDevice),
 			)).Error().To(MatchError(ContainSubstring("importer error: forced failure")))
 		})
 
@@ -272,7 +268,7 @@ var _ = Describe("Service", func() {
 			// good envelope's write is rolled back along with it.
 			err := db.WithTx(ctx, func(tx gorp.Tx) error {
 				if _, err := svc.Import(
-					ctx, tx, sampleEnvelope("Good Record", testResourceType),
+					ctx, tx, sampleEnvelope("Good Record", ontology.ResourceTypeChannel),
 				); err != nil {
 					return err
 				}
@@ -293,11 +289,11 @@ var _ = Describe("Service", func() {
 	Describe("Export", func() {
 		It("Should round-trip a registered resource through Import then Export", func(ctx SpecContext) {
 			id := MustSucceed(svc.Import(
-				ctx, db, sampleEnvelope("Round Trip", testResourceType),
+				ctx, db, sampleEnvelope("Round Trip", ontology.ResourceTypeChannel),
 			))
 			env := MustSucceed(svc.Export(ctx, id))
 			Expect(env.Version).To(Equal(testVersion))
-			Expect(env.Type).To(Equal(string(testResourceType)))
+			Expect(env.Type).To(Equal(string(ontology.ResourceTypeChannel)))
 			Expect(env.Name).To(Equal("Round Trip"))
 			roundTripped := MustSucceed(imex.Decode[testResource](ctx, wireRoundTrip(env)))
 			Expect(roundTripped.FieldOne).To(Equal("value"))
@@ -305,7 +301,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should pass errors from the exporter through verbatim", func(ctx SpecContext) {
 			Expect(svc.Export(ctx, ontology.ID{
-				Type: errorResourceType,
+				Type: ontology.ResourceTypeDevice,
 				Key:  "any-key",
 			})).Error().To(MatchError(ContainSubstring("exporter error: forced failure")))
 		})
@@ -334,7 +330,7 @@ var _ = Describe("Service", func() {
 			for _, t := range types {
 				go func(t string) {
 					defer wg.Done()
-					s.RegisterImporter(t, noopImporter{typ: "task"})
+					s.RegisterImporter(t, noopImporter{typ: ontology.ResourceTypeTask})
 				}(t)
 			}
 			wg.Wait()
@@ -342,7 +338,7 @@ var _ = Describe("Service", func() {
 			for _, t := range types {
 				go func(t string) {
 					defer wg.Done()
-					Expect(s.ImporterType(t)).To(Equal(ontology.ResourceType("task")))
+					Expect(s.ImporterType(t)).To(Equal(ontology.ResourceTypeTask))
 				}(t)
 			}
 			wg.Wait()

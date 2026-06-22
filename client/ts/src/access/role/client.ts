@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { keyZ, type New, newZ, type Role, roleZ } from "@/access/role/types.gen";
+import { keyZ, type New, type Role, roleZ } from "@/access/role/types.gen";
 import { user } from "@/user";
 
 const retrieveRequestZ = z.object({
@@ -25,16 +24,16 @@ const keyRetrieveRequestZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-const singleCreateArgsZ = newZ.transform((r) => ({ roles: [r] }));
+const singleCreateArgsZ = roleZ.transform((r) => ({ roles: [r] }));
 export type SingleCreateArgs = z.input<typeof singleCreateArgsZ>;
 
-export const multipleCreateArgsZ = newZ.array().transform((roles) => ({ roles }));
+export const multipleCreateArgsZ = roleZ.array().transform((roles) => ({ roles }));
 
 export const createArgsZ = z.union([singleCreateArgsZ, multipleCreateArgsZ]);
 export type CreateArgs = z.input<typeof createArgsZ>;
 
 const createResZ = z.object({ roles: roleZ.array() });
-const retrieveResZ = z.object({ roles: array.nullishToEmpty(roleZ) });
+const retrieveResZ = z.object({ roles: roleZ.array().default(() => []) });
 
 export type RetrieveSingleParams = z.input<typeof keyRetrieveRequestZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;

@@ -35,6 +35,10 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).ToNot(Equal(uuid.Nil))
 		})
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			Expect(w.Create(ctx, &ranger.Range{})).
+				To(MatchError(ContainSubstring("name: required")))
+		})
 		It("should return an error if the time range is invalid", func(ctx SpecContext) {
 			r := &ranger.Range{
 				Name: "Range",

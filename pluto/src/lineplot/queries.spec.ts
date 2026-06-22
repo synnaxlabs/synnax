@@ -292,7 +292,7 @@ describe("lineplot queries", () => {
             lineplotClient.setAxisBounds({
               key: original.key,
               bounds: { lower: 0, upper: 100 },
-              autoBounds: { lower: false, upper: false },
+              manualBounds: { lower: true, upper: true },
             }),
           ],
         });
@@ -325,7 +325,7 @@ describe("lineplot queries", () => {
             lineplotClient.setAxisBounds({
               key: original.key,
               bounds: { lower: -5, upper: 25 },
-              autoBounds: { lower: false, upper: false },
+              manualBounds: { lower: true, upper: true },
             }),
           ],
         });
@@ -362,7 +362,7 @@ describe("lineplot queries", () => {
               lineplotClient.setAxisBounds({
                 key: original.key,
                 bounds: { lower: 0, upper },
-                autoBounds: { lower: false, upper: false },
+                manualBounds: { lower: true, upper: true },
               }),
             ],
           });
@@ -395,7 +395,7 @@ describe("lineplot queries", () => {
             lineplotClient.setAxisBounds({
               key: x1Orig.key,
               bounds: { lower: 0, upper: 50 },
-              autoBounds: { lower: false, upper: false },
+              manualBounds: { lower: true, upper: true },
             }),
           ],
         });
@@ -407,7 +407,7 @@ describe("lineplot queries", () => {
             lineplotClient.setAxisBounds({
               key: x2Orig.key,
               bounds: { lower: 0, upper: 70 },
-              autoBounds: { lower: false, upper: false },
+              manualBounds: { lower: true, upper: true },
             }),
           ],
         });
@@ -534,11 +534,11 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setLegendVisible({ visible: !original.visible })],
+          actions: [lineplotClient.setLegendHidden({ hidden: !original.hidden })],
         });
       });
       await waitFor(() =>
-        expect(result.current.legend.visible).toEqual(!original.visible),
+        expect(result.current.legend.hidden).toEqual(!original.hidden),
       );
     });
 

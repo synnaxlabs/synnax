@@ -30,6 +30,7 @@ var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func(ctx SpecContext) {
 		a := arc.Arc{
 			Name: "test-arc",
+			Mode: arc.ModeGraph,
 			Graph: graph.Graph{
 				Functions: []ir.Function{
 					{
@@ -63,6 +64,7 @@ var _ = Describe("CompileProgram", func() {
 	It("Should return error when graph compilation fails", func(ctx SpecContext) {
 		a := arc.Arc{
 			Name: "invalid-arc",
+			Mode: arc.ModeGraph,
 			Graph: graph.Graph{
 				Functions: []ir.Function{
 					{

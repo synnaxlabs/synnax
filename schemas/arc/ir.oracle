@@ -70,10 +70,10 @@ Liveness enum {
 }
 
 Transition struct {
-    on        Handle   {
+    on        Handle  {
         @doc value "is the dataflow handle whose truthy value fires this transition."
     }
-    targetKey string?? {
+    targetKey string? {
         @doc value """
             is the sibling step key to activate. Null when the transition
             exits the scope, yielding to the parent.
@@ -85,13 +85,13 @@ Transition struct {
 }
 
 Member struct {
-    nodeKey string?? {
+    nodeKey string? {
         @doc value """
             is the key of the referenced node in IR.nodes. Null when this
             member is a nested scope.
         """
     }
-    scope   Scope??  {
+    scope   Scope?  {
         @doc value "is set when this member is a nested scope."
     }
 
@@ -118,7 +118,7 @@ Scope struct {
     liveness    Liveness     {
         @doc value "defines whether this scope is continuously active or must be activated."
     }
-    activation  Handle??     {
+    activation  Handle?      {
         @doc value "is the handle whose truthy value activates a gated scope. Unset for always-live scopes."
     }
     strata      Members[]    {
@@ -157,7 +157,7 @@ Function struct {
     key      string         {
         @doc value "is the function identifier (template name)."
     }
-    body     Body?          {
+    body     Body           {
         @doc value "is raw source code for user-defined functions."
     }
     inputs   types.Params   {
@@ -209,7 +209,7 @@ Nodes Node[] {
 }
 
 Authorities struct {
-    default  uint8??            {
+    default  uint8?             {
         @doc value "is the default authority for all write channels not explicitly listed."
     }
     channels map<uint32, uint8> {

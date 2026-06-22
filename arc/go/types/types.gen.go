@@ -59,9 +59,9 @@ const (
 // FunctionProperties contains common parameter definitions for function-like types.
 type FunctionProperties struct {
 	// Inputs contains input parameter definitions.
-	Inputs Params `json:"inputs" msgpack:"inputs"`
+	Inputs Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 	// Outputs contains output parameter definitions.
-	Outputs Params `json:"outputs" msgpack:"outputs"`
+	Outputs Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 }
 
 // Type is a type in Arc's type system with optional element type for compounds,
@@ -96,9 +96,9 @@ type Param struct {
 // channels.
 type Channels struct {
 	// Read contains readable channel indices mapped to parameter names.
-	Read map[uint32]string `json:"read" msgpack:"read"`
+	Read map[uint32]string `json:"read,omitzero" msgpack:"read,omitzero"`
 	// Write contains writable channel indices mapped to parameter names.
-	Write map[uint32]string `json:"write" msgpack:"write"`
+	Write map[uint32]string `json:"write,omitzero" msgpack:"write,omitzero"`
 }
 
 // Dimensions contains physical dimension exponents for dimensional analysis (SI base

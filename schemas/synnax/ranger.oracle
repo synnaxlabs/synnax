@@ -45,18 +45,20 @@ Range struct {
         """
     }
     labels     label.Label[]?  {
-        @doc value  """
+        @doc value     """
             contains optional labels attached to this range for categorization
             and filtering.
         """
-        @go marshal omit
+        @go marshal    omit
+        @validate skip
     }
-    parent     Range??         {
-        @doc value  """
+    parent     Range?          {
+        @doc value     """
             is an optional parent range for hierarchical organization. Ranges
             can be nested within other ranges.
         """
-        @go marshal omit
+        @go marshal    omit
+        @validate skip
     }
 
     @doc value       """
@@ -79,7 +81,7 @@ Range struct {
 
 New struct extends Range {
     -labels
-    parent Range?? {
+    parent Range? {
         @doc value "references the parent range by key."
         @ts pick   key
     }

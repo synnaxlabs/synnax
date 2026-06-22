@@ -65,6 +65,10 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil)))
 		})
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			Expect(w.Create(ctx, &label.Label{})).
+				To(MatchError(ContainSubstring("name: required")))
+		})
 		It("Should create many labels", func(ctx SpecContext) {
 			ls := []label.Label{
 				{

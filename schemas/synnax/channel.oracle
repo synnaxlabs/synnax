@@ -169,42 +169,42 @@ Status = status.Status<nil> {
 }
 
 APIChannel struct {
-    key         Key                  {
+    key         Key = 0 {
         @doc value """
             is the unique identifier for this channel, automatically assigned
             by Synnax.
         """
         @key
     }
-    name        Name                 {
+    name        Name                {
         @doc value "is the human-readable channel name."
     }
-    leaseholder cluster.NodeKey      {
+    leaseholder cluster.NodeKey = 0 {
         @doc value """
             is the cluster node that holds the lease for this channel. Mostly
             for internal use.
         """
     }
-    data_type   telem.DataType       {
+    data_type   telem.DataType      {
         @doc value """
             is the data type of samples stored in this channel (e.g., Float64,
             Int32, TimeStamp).
         """
     }
-    is_index    bool                 {
+    is_index    bool = false {
         @doc value """
             is true if this is an index channel. Index channels must have int64
             values (TIMESTAMP data type) written in ascending order, and are
             most commonly unix nanosecond timestamps.
         """
     }
-    index       Key                  {
+    index       Key = 0 {
         @doc value """
             is the channel used to index this channel's values, associating
             each value with a timestamp.
         """
     }
-    alias       string?              {
+    alias       string?             {
         @doc value "is an optional alternate name for the channel within a specific context."
     }
     virtual     bool = false {
@@ -223,19 +223,19 @@ APIChannel struct {
             is automatically configured as virtual.
         """
     }
-    operations  Operation[]?         {
+    operations  Operation[] = [] {
         @doc value """
             contains optional aggregation operations (min, max, avg) applied to
             channel data over time or triggered by a reset channel.
         """
     }
-    concurrency control.Concurrency? = control.ConcurrencyExclusive {
+    concurrency control.Concurrency = control.ConcurrencyExclusive {
         @doc value """
             sets the policy for concurrent writes to the channel's data. Only
             virtual channels can have a policy of shared concurrency.
         """
     }
-    status      Status??             {
+    status      Status?             {
         @doc value "is the current operational status of the channel."
     }
 
@@ -245,63 +245,11 @@ APIChannel struct {
         storage and streaming in Synnax.
     """
     @go output     "core/pkg/api/channel"
+    @create
     @ontology type "channel"
     @py name       "Payload"
     @ts name       "Payload"
     @pb name       "Channel"
     @go name       "Channel"
     @cpp name      "Channel"
-}
-
-NewChannel struct extends APIChannel {
-    key?
-    leaseholder  uint12? {
-        @doc value """
-            is an optional leaseholder node. If not provided, Synnax will assign one.
-        """
-    }
-    index?       {
-        @doc value """
-            is the channel used to index this channel's values, associating
-            each value with a timestamp.
-        """
-    }
-    is_index?    {
-        @doc value """
-            should be set to true to create an index channel. Index channels
-            must have int64 values (TIMESTAMP data type) written in ascending
-            order.
-        """
-    }
-    internal     bool?   {
-        @doc value """
-            should be set to true to create a system channel hidden from normal
-            user queries.
-        """
-    }
-    virtual      bool?   {
-        @doc value """
-            should be set to true to create a streaming-only channel that does
-            not persist data.
-        """
-    }
-    expression?  = "" {
-        @doc value "is an Arc expression for creating a calculated channel."
-    }
-    concurrency? {
-        @doc value """
-            sets the policy for concurrent writes. Only virtual channels can
-            have shared concurrency.
-        """
-    }
-
-    @doc value    """
-        contains parameters for creating a new channel. Most fields are optional
-        and will be assigned default values by Synnax.
-    """
-    @py name      "New"
-    @ts name      "New"
-    @ts use_input
-    @cpp omit
-    @pb omit
 }

@@ -41,7 +41,7 @@ message Channel {
   // a timestamp.
   uint32 index = 6;
   // alias is an optional alternate name for the channel within a specific context.
-  string alias = 7;
+  optional string alias = 7;
   // virtual is true if this channel does not store data in the database but can still be
   // used for streaming purposes.
   bool virtual = 8;

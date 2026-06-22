@@ -73,20 +73,21 @@ Column struct {
 }
 
 Table struct {
-    key     Key               {
+    key     Key = create {
         @doc value "is the unique identifier for this table."
         @key
     }
     name    string            {
-        @doc value "is a human-readable name for the table."
+        @doc value         "is a human-readable name for the table."
+        @validate required
     }
-    rows    Row[]             {
+    rows    Row[] = [] {
         @doc value "are the table rows in display order, top to bottom."
     }
-    columns Column[]          {
+    columns Column[] = [] {
         @doc value "are the table columns in display order, left to right."
     }
-    cells   map<string, Cell> {
+    cells   map<string, Cell> = {} {
         @doc value        """
             contains all cells in the table, keyed by cell key. Cell positions
             are derived from rows[*].cells[*] references; cells not referenced
@@ -106,7 +107,7 @@ Table struct {
         index         uint32
         size          float64
         cells         Cell[]
-        cell_template Cell??
+        cell_template Cell?
 
         @doc value """
             inserts a row at the given index. Three flows:
@@ -141,7 +142,7 @@ Table struct {
         index         uint32
         size          float64
         cells         Cell[]
-        cell_template Cell??
+        cell_template Cell?
 
         @doc value """
             inserts a column at the given index. Three flows:
@@ -218,18 +219,7 @@ Table struct {
     """
     @ontology type "table"
     @retrieve
+    @create
     @go marshal
     @go migrate
-}
-
-New struct extends Table {
-    key     = create
-    rows    = []
-    columns = []
-    cells   = {}
-
-    @doc value    "contains parameters for creating a new table."
-    @ts use_input
-    @go omit
-    @pb omit
 }
