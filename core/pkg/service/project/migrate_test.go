@@ -183,8 +183,9 @@ var _ = Describe("Remove author relationships migration", func() {
 			Expect(relTable.NewCreate().Entry(&rr).Exec(ctx, db)).To(Succeed())
 		}
 
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		tx := db.OpenTx()
-		Expect(project.RemoveAuthorRelationships(ctx, tx, alamos.Instrumentation{})).To(Succeed())
+		Expect(project.RemoveAuthorRelationships(ctx, tx, otg)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 
 		By("Deleting the author user-to-project relationship")
@@ -197,8 +198,9 @@ var _ = Describe("Remove author relationships migration", func() {
 
 	It("Should be a no-op when no author relationships exist", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		tx := db.OpenTx()
-		Expect(project.RemoveAuthorRelationships(ctx, tx, alamos.Instrumentation{})).To(Succeed())
+		Expect(project.RemoveAuthorRelationships(ctx, tx, otg)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 	})
 })

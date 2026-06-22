@@ -208,7 +208,7 @@ func rewriteWorkspaceRelationships(ctx context.Context, tx gorp.Tx) error {
 // parent is now the Projects group. This must run after the workspace-to-project
 // migration, which re-types the legacy user-to-workspace relationships to
 // user-to-project before they can be matched here.
-func RemoveAuthorRelationships(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+func RemoveAuthorRelationships(ctx context.Context, tx gorp.Tx, otg *ontology.Ontology) error {
 	stale, err := collectEntries(
 		ctx,
 		gorp.WrapReader[string, ontology.Relationship](tx),
@@ -221,9 +221,9 @@ func RemoveAuthorRelationships(ctx context.Context, tx gorp.Tx, _ alamos.Instrum
 	if err != nil {
 		return err
 	}
-	w := gorp.WrapWriter[string, ontology.Relationship](tx)
+	w := otg.NewWriter(tx)
 	for _, rel := range stale {
-		if err := w.Delete(ctx, rel.GorpKey()); err != nil {
+		if err := w.DeleteRelationship(ctx, rel.From, rel.Type, rel.To); err != nil {
 			return err
 		}
 	}
