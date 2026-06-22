@@ -1195,6 +1195,10 @@ class Alignment(int):
         :param sample_idx: Optional sample index if value is provided as domain index.
         :returns: A new Alignment.
         """
+        if isinstance(value, str):
+            # The Go server marshals the uint64 alignment as a JSON string to avoid
+            # float64 precision loss, so a packed value can arrive as a string.
+            value = int(value)
         if isinstance(value, Alignment):
             return value
         elif isinstance(value, tuple):

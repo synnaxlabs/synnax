@@ -529,6 +529,16 @@ class TestAlignment:
         assert align2.domain_index == 5
         assert align2.sample_index == 10
 
+    def test_construction_from_string(self) -> None:
+        """Should reconstruct a packed alignment delivered as a JSON string.
+
+        The Go server marshals the uint64 alignment as a JSON string to avoid
+        float64 precision loss; this is the exact value a streamed frame carries.
+        """
+        align = sy.Alignment(str((5 << 32) | 10))
+        assert align.domain_index == 5
+        assert align.sample_index == 10
+
     def test_construction_from_tuple(self) -> None:
         """Should construct alignment from a tuple"""
         align = sy.Alignment((3, 7))
@@ -663,3 +673,31 @@ class TestSecondsLinspace:
 
     def test_empty(self) -> None:
         assert sy.seconds_linspace(0, 0) == []
+
+
+@pytest.mark.telem
+class TestStringEncodedInts:
+    """Regression coverage for the JSON wire format. The Go server marshals its
+    int64/uint64 telemetry primitives as JSON strings to avoid float64 precision
+    loss, so each must parse a decimal string back into its packed integer value.
+    """
+
+    @pytest.mark.parametrize("typ", [sy.TimeStamp, sy.TimeSpan, sy.Size, sy.Alignment])
+    def test_construction_from_string(self, typ: type) -> None:
+        """Should construct the primitive from a decimal string."""
+        assert typ("1234567890123") == typ(1234567890123)
+
+    @pytest.mark.parametrize("typ", [sy.TimeStamp, sy.TimeSpan, sy.Size, sy.Alignment])
+    def test_construction_from_large_string(self, typ: type) -> None:
+        """Should parse a value past the float64 safe-integer range without loss."""
+        big = (1 << 62) + 7
+        assert int(typ(str(big))) == big
+
+    @pytest.mark.parametrize("typ", [sy.TimeStamp, sy.TimeSpan, sy.Alignment])
+    def test_pydantic_validation_from_string(self, typ: type) -> None:
+        """Should validate a primitive delivered as a JSON string in a model field."""
+        from pydantic import create_model
+
+        model_cls = create_model("M", v=(typ, ...))
+        big = (1 << 62) + 7
+        assert int(model_cls.model_validate({"v": str(big)}).v) == big
