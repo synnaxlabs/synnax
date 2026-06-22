@@ -27,7 +27,6 @@ import { z } from "zod";
 import { LoginNav } from "@/auth/LoginNav";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
-import { Version } from "@/version";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
@@ -89,8 +88,6 @@ export const Login = (): ReactElement => {
         const message = state.message ?? "Unknown error";
         return setStatus(status.create({ variant: "error", message }));
       }
-      if (state.nodeVersion != null && servingCluster != null)
-        dispatch(Version.set(state.nodeVersion));
       dispatch(Cluster.set({ ...clusterToConnect, key, ...credentials }));
       dispatch(Cluster.setActive(key));
     }, "Failed to log in");
