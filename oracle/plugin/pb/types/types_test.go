@@ -228,7 +228,7 @@ var _ = Describe("Plugin", func() {
 					Fields: []resolution.Field{
 						{Name: "key", Type: resolution.TypeRef{Name: "uuid"}},
 						{Name: "username", Type: resolution.TypeRef{Name: "string"}},
-						{Name: "email", Type: resolution.TypeRef{Name: "string"}, IsOptional: true},
+						{Name: "email", Type: resolution.TypeRef{Name: "string"}, Optional: true},
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
@@ -248,7 +248,7 @@ var _ = Describe("Plugin", func() {
 			Expect(content).To(ContainSubstring("message User"))
 			Expect(content).To(ContainSubstring("string key = 1;"))
 			Expect(content).To(ContainSubstring("string username = 2;"))
-			// Soft optional (?) is a regular field in proto
+			// Optional (?) is a regular field in proto
 			Expect(content).To(ContainSubstring("string email = 3;"))
 		})
 
@@ -661,8 +661,8 @@ var _ = Describe("Plugin", func() {
 			})
 		})
 
-		Context("hard optional fields", func() {
-			It("Should mark hard optional fields with optional keyword", func() {
+		Context("optional fields", func() {
+			It("Should mark optional fields with optional keyword", func() {
 				table := resolution.NewTable()
 				Expect(table.Add(resolution.Type{
 					Name:          "User",
@@ -671,7 +671,7 @@ var _ = Describe("Plugin", func() {
 					Form: resolution.StructForm{
 						Fields: []resolution.Field{
 							{Name: "name", Type: resolution.TypeRef{Name: "string"}},
-							{Name: "nickname", Type: resolution.TypeRef{Name: "string"}, IsHardOptional: true},
+							{Name: "nickname", Type: resolution.TypeRef{Name: "string"}, Optional: true},
 						},
 					},
 					Domains: pbDomains("core/pkg/api/grpc/v1"),

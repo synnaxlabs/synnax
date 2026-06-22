@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -474,8 +475,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				}
 				zodType = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				addXImport(data, xImport{name: "array", submodule: "array"})
-				zodType = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+				zodType = fmt.Sprintf("%s.array().default(() => [])", elemZod)
 			}
 		} else {
 			zodType = p.typeDefBaseToZod(&form.Base, data)
@@ -507,8 +507,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				}
 				zodType = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				addXImport(data, xImport{name: "array", submodule: "array"})
-				zodType = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+				zodType = fmt.Sprintf("%s.array().default(() => [])", elemZod)
 			}
 		} else {
 			zodType = p.typeDefBaseToZod(&form.Target, data)
@@ -587,6 +586,8 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				switch expr.Name {
 				case "use_input":
 					sd.UseInput = true
+				case "type_only":
+					sd.TypeOnly = true
 				case "omit":
 					sd.Handwritten = true
 				case "name":
@@ -624,8 +625,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				}
 				sd.AliasOf = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				addXImport(data, xImport{name: "array", submodule: "array"})
-				sd.AliasOf = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+				sd.AliasOf = fmt.Sprintf("%s.array().default(() => [])", elemZod)
 			}
 		} else {
 			sd.AliasOf = p.typeRefToZod(&aliasForm.Target, table, data)
@@ -656,6 +656,8 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			switch expr.Name {
 			case "use_input":
 				sd.UseInput = true
+			case "type_only":
+				sd.TypeOnly = true
 			case "omit":
 				sd.Handwritten = true
 			case "concrete_types":
@@ -789,6 +791,80 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				}
 			}
 
+			// An input type makes defaulted base fields optional: the default fills any
+			// absent value. The non-concrete path gets this from `z.input` plus each
+			// field's own `.default()`, but the concrete factory's type is an
+			// `optional.Optional<...>` wrapper rather than `z.input`, so the defaulted
+			// fields must be folded into the partial set explicitly here.
+			if sd.UseInput && sd.ConcreteTypes {
+				handled := make(set.Set[string])
+				for _, f := range sd.PartialFields {
+					handled.Add(f.TSName)
+				}
+				for _, f := range sd.OmittedFields {
+					handled.Add(f)
+				}
+				for _, f := range sd.ExtendFields {
+					handled.Add(f.TSName)
+				}
+				optionalTypeParams := make(set.Set[string])
+				for _, tp := range form.TypeParams {
+					if tp.Optional {
+						optionalTypeParams.Add(tp.Name)
+					}
+				}
+				for _, extendsRef := range form.Extends {
+					parentType, _ := extendsRef.Resolve(table)
+					for _, pf := range resolution.UnifiedFields(parentType, table) {
+						name := fieldCamel(pf.Name)
+						if handled.Contains(name) {
+							continue
+						}
+						// A base field whose type is itself a `@create`-d struct must
+						// carry that struct's input projection (its `New`), not the
+						// output type the optional.Optional wrapper would inherit. The
+						// New makes the nested struct's defaulted fields optional too.
+						if sd.TypeOnly {
+							if newType, ok := p.createNewRefForField(pf, table, data); ok {
+								handled.Add(name)
+								sd.OmittedFields = append(sd.OmittedFields, name)
+								sd.ExtendFields = append(sd.ExtendFields, fieldData{
+									TSName:     name,
+									IsOptional: pf.Optional,
+									TSType:     newType,
+								})
+								continue
+							}
+							// A conditional (type-param-typed) base field projects as
+							// z.infer in the base type. The New is an input type, so it
+							// must re-project the field as z.input. The base's z.infer
+							// projection is stripped via Omit so only the z.input
+							// conditional survives.
+							if pf.Type.IsTypeParam() && pf.Type.TypeParam != nil &&
+								optionalTypeParams.Contains(pf.Type.TypeParam.Name) {
+								handled.Add(name)
+								sd.ConditionalOmittedFields = append(sd.ConditionalOmittedFields, name)
+								sd.ConditionalFields = append(sd.ConditionalFields, conditionalFieldData{
+									TypeParamName: pf.Type.TypeParam.Name,
+									NeverType:     "z.ZodNever",
+									UseInput:      true,
+									Field: fieldData{
+										TSName:     name,
+										IsOptional: false,
+									},
+								})
+								continue
+							}
+						}
+						if pf.Default == nil {
+							continue
+						}
+						handled.Add(name)
+						sd.PartialFields = append(sd.PartialFields, fieldData{TSName: name})
+					}
+				}
+			}
+
 			if sd.ConcreteTypes && len(sd.PartialFields) > 0 {
 				addXImport(data, xImport{name: "optional", submodule: "optional"})
 			}
@@ -837,8 +913,8 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 }
 
 func isFieldUnchanged(parent, child resolution.Field) bool {
-	childIsOptional := child.IsOptional || child.IsHardOptional
-	parentIsOptional := parent.IsOptional || parent.IsHardOptional
+	childIsOptional := child.Optional
+	parentIsOptional := parent.Optional
 	if childIsOptional != parentIsOptional {
 		return false
 	}
@@ -907,8 +983,8 @@ func sameDefault(a, b *resolution.ExpressionValue) bool {
 }
 
 func isOnlyOptionalityChange(parent, child resolution.Field) bool {
-	childIsOptional := child.IsOptional || child.IsHardOptional
-	parentIsOptional := parent.IsOptional || parent.IsHardOptional
+	childIsOptional := child.Optional
+	parentIsOptional := parent.Optional
 	if !childIsOptional || parentIsOptional {
 		return false
 	}
@@ -1048,6 +1124,112 @@ func parentSchemaName(ref resolution.TypeRef, table *resolution.Table, data *tem
 	return name, true
 }
 
+// createNewRefForField reports whether field's type resolves to a `@create`-d
+// struct carrying a synthesized `New`, and if so returns the rendered TS type
+// referencing that `New` with the struct's primary details type passed as a zod
+// schema (e.g. "status.New<typeof statusDetailsZ>"). It follows a single alias
+// level (e.g. a `Status<D>` alias to `status.Status<...>`), substituting the
+// alias's type params with the field's type args so the primary details type is
+// the concrete one the field binds. It reports false when the field type does not
+// resolve to a create struct with a synthesized New, or when it is a type param,
+// primitive, array, or map.
+//
+// The details schema ref renders as `typeof <schema>` for a non-generic details
+// struct and `ReturnType<typeof <schema>>` for a generic one (whose schema is a
+// factory function), matching how the plugin annotates schema types elsewhere.
+func (p *Plugin) createNewRefForField(
+	field resolution.Field,
+	table *resolution.Table,
+	data *templateData,
+) (string, bool) {
+	ref := field.Type
+	if ref.IsTypeParam() || ref.Name == "" || resolution.IsPrimitive(ref.Name) ||
+		ref.Name == "Array" || ref.Name == "Map" {
+		return "", false
+	}
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return "", false
+	}
+	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		argMap := make(map[string]resolution.TypeRef, len(aliasForm.TypeParams))
+		for i, tp := range aliasForm.TypeParams {
+			if i < len(ref.TypeArgs) {
+				argMap[tp.Name] = ref.TypeArgs[i]
+			}
+		}
+		ref = resolution.SubstituteTypeRef(aliasForm.Target, argMap)
+		resolved, ok = ref.Resolve(table)
+		if !ok {
+			return "", false
+		}
+	}
+	if _, isStruct := resolved.Form.(resolution.StructForm); !isStruct {
+		return "", false
+	}
+	if _, isCreate := resolved.Domains["create"]; !isCreate {
+		return "", false
+	}
+	if _, exists := table.Get(resolved.Namespace + ".New"); !exists {
+		return "", false
+	}
+	if len(ref.TypeArgs) == 0 {
+		return "", false
+	}
+	detailsRef := ref.TypeArgs[0]
+	detailsSchema, ok := p.detailsSchemaRef(detailsRef, table, data)
+	if !ok {
+		return "", false
+	}
+	newName := "New"
+	if resolved.Namespace != data.Namespace {
+		ns := resolved.Namespace
+		targetOutputPath := output.GetPath(resolved, "ts")
+		if targetOutputPath == "" {
+			targetOutputPath = ns
+		}
+		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+		newName = ns + ".New"
+	}
+	return fmt.Sprintf("%s<%s>", newName, detailsSchema), true
+}
+
+// detailsSchemaRef renders the zod schema reference for a details type bound to a
+// `@create` base's primary param. A non-generic struct's schema is a const, so it
+// renders as `typeof <schema>`; a generic struct's schema is a factory function,
+// so it renders as `ReturnType<typeof <schema>>` (without threading type args, to
+// reference the factory's broadest return). It reports false when the details type
+// is not a struct.
+func (p *Plugin) detailsSchemaRef(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) (string, bool) {
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return "", false
+	}
+	form, isStruct := resolved.Form.(resolution.StructForm)
+	if !isStruct {
+		return "", false
+	}
+	prefix := ""
+	if resolved.Namespace != data.Namespace {
+		ns := resolved.Namespace
+		targetOutputPath := output.GetPath(resolved, "ts")
+		if targetOutputPath == "" {
+			targetOutputPath = ns
+		}
+		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+		prefix = ns + "."
+	}
+	schema := prefix + camelCase(domain.GetName(resolved, "ts")) + "Z"
+	if form.IsGeneric() {
+		return fmt.Sprintf("ReturnType<typeof %s>", schema), true
+	}
+	return fmt.Sprintf("typeof %s", schema), true
+}
+
 func coalesceTSType(tsType string, typeParams []typeParamData) string {
 	sorted := make([]typeParamData, len(typeParams))
 	copy(sorted, typeParams)
@@ -1056,7 +1238,11 @@ func coalesceTSType(tsType string, typeParams []typeParamData) string {
 	})
 	result := tsType
 	for _, tp := range sorted {
-		result = strings.ReplaceAll(result, tp.Name, `S["`+camelCase(tp.Name)+`"]`)
+		// Match the type-param name only as a whole identifier so a name that
+		// is a substring of a larger identifier (e.g. `Type` inside `ReturnType`)
+		// is left untouched.
+		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(tp.Name) + `\b`)
+		result = re.ReplaceAllString(result, `S["`+camelCase(tp.Name)+`"]`)
 	}
 	return result
 }
@@ -1151,7 +1337,7 @@ var typeParamMappings = map[string]typeParamMapping{
 	"uuid":      {zodType: "z.ZodString", zodValue: "z.string()"},
 	"timestamp": {zodType: "z.ZodNumber", zodValue: "z.number()"},
 	"timespan":  {zodType: "z.ZodNumber", zodValue: "z.number()"},
-	"record":    {zodType: "z.ZodType<record.Unknown>", zodValue: "record.nullishToEmpty()"},
+	"record":    {zodType: "z.ZodType<record.Unknown>", zodValue: "record.unknownZ().default(() => ({}))"},
 }
 
 func defaultToTS(rawType string) string {
@@ -1249,13 +1435,12 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	needsGetter := isSelfReference(field.Type, parentType) || isForwardReference(field.Type, data, table)
 
 	fd := fieldData{
-		Name:           field.Name,
-		TSName:         fieldCamel(field.Name),
-		Doc:            doc.Get(field.Domains),
-		IsOptional:     field.IsOptional,
-		IsHardOptional: field.IsHardOptional,
-		IsArray:        isArray,
-		IsSelfRef:      needsGetter,
+		Name:       field.Name,
+		TSName:     fieldCamel(field.Name),
+		Doc:        doc.Get(field.Domains),
+		IsOptional: field.Optional,
+		IsArray:    isArray,
+		IsSelfRef:  needsGetter,
 	}
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
 		// A `@ts type` override may name either a primitive (e.g. `string`) or another
@@ -1326,7 +1511,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.ZodType = fmt.Sprintf("%s.pick({ %s: true })", fd.ZodType, camel)
 		fd.TSType = fmt.Sprintf("Pick<%s, %q>", fd.TSType, camel)
 	}
-	isAnyOptional := field.IsOptional || field.IsHardOptional
+	isAnyOptional := field.Optional
 	typeOverride := getFieldTypeOverride(field, "ts")
 	isJSON := field.Type.Name == "record" || typeOverride == "record"
 	isMap := field.Type.Name == "Map" && len(field.Type.TypeArgs) >= 2
@@ -1336,14 +1521,14 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s.array())", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<z.ZodArray<%s>>>", fd.ZodSchemaType)
 		} else {
-			addXImport(data, xImport{name: "array", submodule: "array"})
-			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
-			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
-			// nullishToEmpty already defaults a missing array to []; only a
-			// non-empty declared default needs an explicit .default().
+			// The server omits a nil ("not loaded") array, so a missing array
+			// defaults to []; an allocated empty array still arrives as [].
+			arrayZod := fmt.Sprintf("%s.array()", fd.ZodType)
+			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<z.ZodArray<%s>>", fd.ZodSchemaType)
 			if field.Default != nil && field.Default.Kind == resolution.ValueKindArray && len(field.Default.Elements) > 0 {
-				fd.ZodType = fmt.Sprintf("%s.default(%s)", fd.ZodType, p.tsDefaultLiteral(field.Type, *field.Default, table, data))
-				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+				fd.ZodType = fmt.Sprintf("%s.default(%s)", arrayZod, p.tsDefaultLiteral(field.Type, *field.Default, table, data))
+			} else {
+				fd.ZodType = fmt.Sprintf("%s.default(() => [])", arrayZod)
 			}
 		}
 	} else if isMap {
@@ -1356,9 +1541,8 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(z.record(%s, %s))", keyZ, valueZ)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<z.ZodRecord<%s, %s>>>", keySchemaType, valueSchemaType)
 		} else {
-			addXImport(data, xImport{name: "record", submodule: "record"})
-			fd.ZodType = fmt.Sprintf("record.nullishToEmpty(%s, %s)", keyZ, valueZ)
-			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof record.nullishToEmpty<%s, %s>>", keySchemaType, valueSchemaType)
+			fd.ZodType = fmt.Sprintf("z.record(%s, %s).default(() => ({}))", keyZ, valueZ)
+			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<z.ZodRecord<%s, %s>>", keySchemaType, valueSchemaType)
 		}
 	} else if isJSON {
 		if isAnyOptional {
@@ -1367,8 +1551,8 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<%s>>", fd.ZodSchemaType)
 		} else {
 			addXImport(data, xImport{name: "record", submodule: "record"})
-			fd.ZodType = "record.nullishToEmpty()"
-			fd.ZodSchemaType = "typeof record.nullishToEmpty()"
+			fd.ZodType = "record.unknownZ().default(() => ({}))"
+			fd.ZodSchemaType = "z.ZodDefault<ReturnType<typeof record.unknownZ>>"
 		}
 	} else if isAnyOptional {
 		if isUnionField(field, table) {
@@ -1379,8 +1563,8 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<%s>>", fd.ZodSchemaType)
 		} else if !field.Type.IsTypeParam() {
 			fd.ZodType += ".optional()"
-		} else if field.IsHardOptional {
-			// Hard-optional (??) on a type-param field: the field is ALWAYS
+		} else if field.Optional {
+			// Optional (?) on a type-param field: the field is ALWAYS
 			// optional, even when a caller passes a concrete schema. Wrap the
 			// whole "param ?? fallback" expression in .optional() so caller
 			// schemas get wrapped too. Strip a trailing .optional() from the
@@ -1927,13 +2111,18 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 	// the overridden primitive, not the underlying schema type.
 	if tsTypeOverride != "" {
 		effectiveType = tsTypeOverride
+	} else if !resolution.IsPrimitive(effectiveType) {
+		// A named numeric or string type (e.g. a distinct Key over uint32) carries its
+		// constraints on the underlying primitive, so classify by that base.
+		if base := resolution.PrimitiveBase(typeRef, table); base != "" {
+			effectiveType = base
+		}
 	}
 	isString := resolution.IsPrimitive(effectiveType) && resolution.IsStringPrimitive(effectiveType)
 	isNumber := resolution.IsPrimitive(effectiveType) && resolution.IsNumberPrimitive(effectiveType)
 	if isString {
 		if rules.Required {
-			humanName := lo.Capitalize(strings.ReplaceAll(fieldName, "_", " "))
-			zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, humanName)
+			zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, fieldName)
 		}
 		if rules.MinLength != nil {
 			zodType = fmt.Sprintf("%s.min(%d)", zodType, *rules.MinLength)
@@ -1950,6 +2139,9 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		}
 	}
 	if isNumber {
+		if rules.Required {
+			zodType = fmt.Sprintf("%s.refine((v) => v !== 0, \"%s is required\")", zodType, fieldName)
+		}
 		if rules.Min != nil {
 			if rules.Min.IsInt {
 				zodType = fmt.Sprintf("%s.min(%d)", zodType, rules.Min.Int)
@@ -1970,6 +2162,19 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		case resolution.ValueKindString:
 			zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(defaultVal.StringValue))
 		case resolution.ValueKindInt:
+			stringTyped := tsTypeOverride == "string"
+			if !stringTyped {
+				if resolved, ok := typeRef.Resolve(table); ok && getTypeTypeOverride(resolved, "ts") == "string" {
+					stringTyped = true
+				}
+			}
+			if stringTyped {
+				// A uint64 surfaced as a string (e.g. Key uint64 { @ts type string })
+				// accepts string input, so an integer default must be emitted as a
+				// string literal.
+				zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(fmt.Sprintf("%d", defaultVal.IntValue)))
+				break
+			}
 			expr, ok := "", false
 			if tsTypeOverride == "" {
 				expr, ok = tsTelemNumericDefault(
@@ -2009,10 +2214,10 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 			if defaultVal.IdentValue == "create" {
 				if primitive == "uuid" {
 					addXImport(data, xImport{name: "uuid", submodule: "uuid"})
-					zodType = fmt.Sprintf("%s.default(() => uuid.create())", zodType)
+					zodType = fmt.Sprintf("%s.default(uuid.create)", zodType)
 				} else if isString || primitive == "string" {
 					addXImport(data, xImport{name: "id", submodule: "id"})
-					zodType = fmt.Sprintf("%s.default(() => id.create())", zodType)
+					zodType = fmt.Sprintf("%s.default(id.create)", zodType)
 				}
 			}
 			if ev, ok := validation.ResolveEnumVariant(defaultVal.IdentValue, typeRef, table); ok {
@@ -2234,25 +2439,36 @@ type structData struct {
 	ExtendFields            []fieldData
 	PartialFields           []fieldData
 	OmittedFields           []string
-	Fields                  []fieldData
-	ExtendsParents          []extendsParentInfo
-	HasExtends              bool
-	UseInput                bool
-	AllParamsOptional       bool
-	ExtendsParentIsGeneric  bool
-	Handwritten             bool
-	IsRecursive             bool
-	IsAlias                 bool
-	IsSingleParam           bool
-	IsGeneric               bool
-	ConcreteTypes           bool
-	CoalesceTypeParams      bool
+	// ConditionalOmittedFields names the conditional (type-param-typed) base
+	// fields a synthesized @create New strips from its inner optional.Optional
+	// base before re-appending them as z.input conditionals. The New's template
+	// wraps the base in Omit<..., these> so the field's z.infer projection from
+	// the base type does not collide with the re-appended z.input conditional.
+	ConditionalOmittedFields []string
+	Fields                   []fieldData
+	ExtendsParents           []extendsParentInfo
+	HasExtends               bool
+	UseInput                 bool
+	AllParamsOptional        bool
+	ExtendsParentIsGeneric   bool
+	Handwritten              bool
+	IsRecursive              bool
+	IsAlias                  bool
+	IsSingleParam            bool
+	IsGeneric                bool
+	ConcreteTypes            bool
+	CoalesceTypeParams       bool
 	// IsPrimitiveConstrainedGeneric is true when every type param is constrained
 	// to a primitive set (e.g. T extends numeric) and has a default. In this mode
 	// the runtime zod schema is emitted as a plain z.object (defaults substituted
 	// for type-param-typed fields), but the TS interface keeps the generic shape
 	// with primitive constraints (e.g. T extends number | bigint = number).
 	IsPrimitiveConstrainedGeneric bool
+	// TypeOnly is set for @create-synthesized New types. The runtime zod schema
+	// const is suppressed (the base schema already accepts the same input via its
+	// own .default()s), and the New type references the base schema directly
+	// rather than the now-absent newZ.
+	TypeOnly bool
 }
 
 type extendsParentInfo struct {
@@ -2275,10 +2491,10 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name, TSName, ZodType, TSType, ZodSchemaType   string
-	CoalescedTSType                                string
-	Doc                                            string
-	IsOptional, IsHardOptional, IsArray, IsSelfRef bool
+	Name, TSName, ZodType, TSType, ZodSchemaType string
+	CoalescedTSType                              string
+	Doc                                          string
+	IsOptional, IsArray, IsSelfRef               bool
 }
 
 type conditionalFieldData struct {
@@ -2286,6 +2502,10 @@ type conditionalFieldData struct {
 	NeverType          string
 	FallbackSchemaType string
 	Field              fieldData
+	// UseInput renders the conditional field's value type as z.input<Param>
+	// rather than z.infer<Param>. It is set for a synthesized @create New, whose
+	// conditional field accepts the schema's input (pre-default) shape.
+	UseInput bool
 }
 
 type enumData struct {
@@ -2419,11 +2639,12 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- if $.GenerateTypes }}
 export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.BareConstraint }}{{ if $p.HasDefault }} = {{ $p.BareDefault }}{{ end }}{{ end }}> {
 {{- range .Fields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
 {{- end }}
 {{- else if .IsGeneric }}
+{{- if not .TypeOnly }}
 {{- if .IsSingleParam }}
 {{- if and .ConcreteTypes .ConditionalFields }}
 
@@ -2432,7 +2653,7 @@ export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }
     {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
 {{- range .ConditionalFields }}
-    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ if .Field.IsHardOptional }}z.ZodOptional<{{ .TypeParamName }}>{{ else }}{{ .TypeParamName }}{{ end }};
+    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ if .Field.IsOptional }}z.ZodOptional<{{ .TypeParamName }}>{{ else }}{{ .TypeParamName }}{{ end }};
 {{- end }}
 }>;
 
@@ -2498,7 +2719,7 @@ export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }},
     {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
 {{- range .ConditionalFields }}
-    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ if .Field.IsHardOptional }}z.ZodOptional<{{ .TypeParamName }}>{{ else }}{{ .TypeParamName }}{{ end }};
+    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ if .Field.IsOptional }}z.ZodOptional<{{ .TypeParamName }}>{{ else }}{{ .TypeParamName }}{{ end }};
 {{- end }}
 }>;
 
@@ -2559,48 +2780,49 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
   });
 {{- end }}
 {{- end }}
+{{- end }}
 {{- if $.GenerateTypes }}
 {{- if .ConcreteTypes }}
 {{- if .HasExtends }}
 {{- if .CoalesceTypeParams }}
-export type {{ .TSName }}<S extends {{ .TSName }}Schemas = {{ .TSName }}Schemas> = {{ if .PartialFields }}optional.Optional<{{ end }}{{ if .OmittedFields }}Omit<{{ end }}{{ .ExtendsTypeName }}<S>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .PartialFields }}, {{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}>{{ end }}{{ if .ExtendFields }} & {
+export type {{ .TSName }}<S extends {{ if .TypeOnly }}{{ .ExtendsTypeName }}{{ else }}{{ .TSName }}{{ end }}Schemas = {{ if .TypeOnly }}{{ .ExtendsTypeName }}{{ else }}{{ .TSName }}{{ end }}Schemas> = {{ if .ConditionalOmittedFields }}Omit<{{ end }}{{ if .PartialFields }}optional.Optional<{{ end }}{{ if .OmittedFields }}Omit<{{ end }}{{ .ExtendsTypeName }}<S>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .PartialFields }}, {{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}>{{ end }}{{ if .ConditionalOmittedFields }}, {{ range $i, $f := .ConditionalOmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .ExtendFields }} & {
 {{- range .ExtendFields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}{{ end }};
+}{{ end }}{{ range .ConditionalFields }} & ([S["{{ .TypeParamName | camelCase }}"]] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsOptional }}?{{ end }}: {{ if .UseInput }}z.input{{ else }}z.infer{{ end }}<S["{{ .TypeParamName | camelCase }}"]>{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
 {{- else }}
-export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {{ if .PartialFields }}optional.Optional<{{ end }}{{ if .OmittedFields }}Omit<{{ end }}{{ .ExtendsTypeName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .PartialFields }}, {{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}>{{ end }}{{ if .ExtendFields }} & {
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {{ if .ConditionalOmittedFields }}Omit<{{ end }}{{ if .PartialFields }}optional.Optional<{{ end }}{{ if .OmittedFields }}Omit<{{ end }}{{ .ExtendsTypeName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .PartialFields }}, {{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}>{{ end }}{{ if .ConditionalOmittedFields }}, {{ range $i, $f := .ConditionalOmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .ExtendFields }} & {
 {{- range .ExtendFields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}{{ end }};
+}{{ end }}{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsOptional }}?{{ end }}: {{ if .UseInput }}z.input{{ else }}z.infer{{ end }}<{{ .TypeParamName }}>{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
 {{- end }}
 {{- else }}
 {{- if .ConditionalFields }}
 {{- if .CoalesceTypeParams }}
 export type {{ .TSName }}<S extends {{ .TSName }}Schemas = {{ .TSName }}Schemas> = {
 {{- range .BaseFields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}{{ range .ConditionalFields }} & ([S["{{ .TypeParamName | camelCase }}"]] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsHardOptional }}?{{ end }}: {{ .Field.CoalescedTSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
+}{{ range .ConditionalFields }} & ([S["{{ .TypeParamName | camelCase }}"]] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsOptional }}?{{ end }}: {{ .Field.CoalescedTSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
 {{- else }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {
 {{- range .BaseFields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsHardOptional }}?{{ end }}: {{ .Field.TSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
+}{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsOptional }}?{{ end }}: {{ .Field.TSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
 {{- end }}
 {{- else }}
 {{- if .CoalesceTypeParams }}
 export interface {{ .TSName }}<S extends {{ .TSName }}Schemas = {{ .TSName }}Schemas> {
 {{- range .Fields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
 {{- else }}
 export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
 {{- range .Fields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
 {{- end }}
@@ -2613,6 +2835,7 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }
 {{- end }}
 {{- end }}
 {{- else if .HasExtends }}
+{{- if not .TypeOnly }}
 
 export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ if $i }}.extend({{ end }}{{ $p.Name }}{{ if $i }}.shape){{ end }}{{ end }}
 {{- if .OmittedFields }}
@@ -2634,8 +2857,13 @@ export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ 
 {{- end }}
   })
 {{- end }};
+{{- end }}
 {{- if $.GenerateTypes }}
+{{- if .TypeOnly }}
+export interface {{ .TSName }} extends {{ if .OmittedFields }}Omit<{{ end }}z.input<typeof {{ .ExtendsName }}>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }} {}
+{{- else }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
+{{- end }}
 {{- end }}
 {{- else }}
 {{- if .Doc }}
@@ -2645,7 +2873,7 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- if and .IsRecursive $.GenerateTypes }}
 export interface {{ .TSName }} {
 {{- range .Fields }}
-  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
 export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({

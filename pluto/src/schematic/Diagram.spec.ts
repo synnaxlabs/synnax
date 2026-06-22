@@ -32,30 +32,6 @@ describe("nodeChangesToActions", () => {
     ]);
   });
 
-  it("translates a dimensions change to a setNodeMeasured action", () => {
-    const change: Base.NodeChange = {
-      type: "dimensions",
-      key: "n1",
-      dimensions: { width: 80, height: 40 },
-    };
-    expect(nodeChangesToActions([change])).toEqual([
-      schematic.setNodeMeasured({
-        key: "n1",
-        measured: { width: 80, height: 40 },
-      }),
-    ]);
-  });
-
-  it("drops a dimensions change that originates from an active resize drag", () => {
-    const change: Base.NodeChange = {
-      type: "dimensions",
-      key: "n1",
-      dimensions: { width: 80, height: 40 },
-      resizing: true,
-    };
-    expect(nodeChangesToActions([change])).toEqual([]);
-  });
-
   it("translates a remove change to a removeNode action", () => {
     const change: Base.NodeChange = { type: "remove", key: "n1" };
     expect(nodeChangesToActions([change])).toEqual([
@@ -76,15 +52,10 @@ describe("nodeChangesToActions", () => {
       { type: "position", key: "n1", position: { x: 1, y: 2 }, dragging: false },
       { type: "select", key: "n3", selected: true },
       { type: "remove", key: "n2" },
-      { type: "dimensions", key: "n1", dimensions: { width: 10, height: 20 } },
     ];
     expect(nodeChangesToActions(changes)).toEqual([
       schematic.setNodePosition({ key: "n1", position: { x: 1, y: 2 } }),
       schematic.removeNode({ key: "n2" }),
-      schematic.setNodeMeasured({
-        key: "n1",
-        measured: { width: 10, height: 20 },
-      }),
     ]);
   });
 });

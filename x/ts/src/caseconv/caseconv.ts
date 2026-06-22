@@ -135,8 +135,8 @@ const hasPreserveCaseMarker = (schema: unknown): boolean => {
 
 /**
  * Unwraps an array schema to get its element schema.
- * Handles direct arrays and unions containing arrays (e.g., from nullishToEmpty).
- * Returns undefined if the schema is not an array or is undefined.
+ * Handles direct arrays, wrappers (optional, nullable, default, catch), and unions
+ * containing arrays. Returns undefined if the schema is not an array or is undefined.
  */
 const getArrayElementSchema = (
   schema: z.ZodType | z.core.SomeType | undefined,
@@ -146,7 +146,7 @@ const getArrayElementSchema = (
   if (def?.type === "array" && def.element != null) return def.element as z.ZodType;
   // Traverse through wrappers (optional, nullable, default, catch) to inner schema
   if (def?.innerType != null) return getArrayElementSchema(def.innerType);
-  // Handle union types that may contain arrays (e.g., nullishToEmpty)
+  // Handle union types that may contain arrays
   if (def?.type === "union" && Array.isArray(def.options))
     for (const option of def.options) {
       const result = getArrayElementSchema(option);

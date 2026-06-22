@@ -34,10 +34,10 @@ class TestProject:
         assert p.name == "No Layout"
         assert p.layout == {}
 
-    def test_create_from_new(self, client: sy.Synnax):
-        """Should create a project from a New object."""
+    def test_create_from_object(self, client: sy.Synnax):
+        """Should create a project from a Project object."""
         p = client.projects.create(
-            sy.project.New(name="From Object", layout={"split": "row"})
+            sy.project.Project(name="From Object", layout={"split": "row"})
         )
         assert p.name == "From Object"
         assert p.layout == {"split": "row"}
@@ -46,8 +46,8 @@ class TestProject:
         """Should create multiple projects."""
         projects = client.projects.create(
             [
-                sy.project.New(name="Multi 1", layout={}),
-                sy.project.New(name="Multi 2", layout={}),
+                sy.project.Project(name="Multi 1", layout={}),
+                sy.project.Project(name="Multi 2", layout={}),
             ]
         )
         assert len(projects) == 2
@@ -74,8 +74,8 @@ class TestProject:
         prefix = f"searchable-project-{uuid4()}"
         client.projects.create(
             [
-                sy.project.New(name=f"{prefix}-1", layout={}),
-                sy.project.New(name=f"{prefix}-2", layout={}),
+                sy.project.Project(name=f"{prefix}-1", layout={}),
+                sy.project.Project(name=f"{prefix}-2", layout={}),
             ]
         )
 

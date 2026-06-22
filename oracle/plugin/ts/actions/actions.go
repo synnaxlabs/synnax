@@ -176,9 +176,9 @@ export const actionZ = z.discriminatedUnion("type", [
 
 export type Action = z.infer<typeof actionZ>;
 {{range .Actions}}
-export const {{ camelCase .Name }} = (payload: {{ .Name }}Payload): Action => ({
+export const {{ camelCase .Name }} = (payload: z.input<typeof {{ camelCase .Name }}PayloadZ>): Action => ({
   type: "{{ .TypeName }}",
-  {{ camelCase .Name }}: payload,
+  {{ camelCase .Name }}: {{ camelCase .Name }}PayloadZ.parse(payload),
 });
 {{end}}
 export type HandlerResult = actions.HandlerResult<Action>;

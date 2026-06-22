@@ -121,7 +121,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
-			gorp.CodecMigration[Key, Range]("msgpack_to_orc", v0Mig.Key()),
+			gorp.CodecMigration[Key, v0.Range](codecMigrationKey, v0Mig.Key()),
+			colorNullableMigration(),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

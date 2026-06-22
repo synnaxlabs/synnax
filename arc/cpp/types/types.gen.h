@@ -144,7 +144,10 @@ struct Params : private std::vector<Param> {
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Params() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Params();
 
     // Container interface
     using Base::begin;
@@ -197,9 +200,9 @@ struct Params : private std::vector<Param> {
 /// types.
 struct FunctionProperties {
     /// @brief inputs contains input parameter definitions.
-    Params inputs;
+    Params inputs = {};
     /// @brief outputs contains output parameter definitions.
-    Params outputs;
+    Params outputs = {};
 
     static FunctionProperties parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -262,4 +265,6 @@ struct Param {
     [[nodiscard]] std::string to_string() const;
     friend std::ostream &operator<<(std::ostream &os, const Param &p);
 };
+
+inline Params::Params() = default;
 }

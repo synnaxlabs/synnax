@@ -56,8 +56,8 @@ export interface LogProps extends Omit<
   BaseProps,
   | "channels"
   | "telem"
-  | "showChannelNames"
-  | "showReceiptTimestamp"
+  | "hideChannelNames"
+  | "hideReceiptTimestamp"
   | "timestampPrecision"
 > {
   resourceKey: log.Key;
@@ -73,7 +73,7 @@ export const Log = ({
   enableTriggers,
   ...rest
 }: LogProps): ReactElement | null => {
-  const { channels, showChannelNames, showReceiptTimestamp, timestampPrecision } =
+  const { channels, hideChannelNames, hideReceiptTimestamp, timestampPrecision } =
     useRetrieveSuspended({ key });
   useUndoRedoTriggers(key, enableTriggers);
   // A channel entry with key 0 is an unconfigured placeholder row; the telem source
@@ -88,8 +88,8 @@ export const Log = ({
     <Base
       telem={telem}
       channels={activeChannels}
-      showChannelNames={showChannelNames}
-      showReceiptTimestamp={showReceiptTimestamp}
+      hideChannelNames={hideChannelNames}
+      hideReceiptTimestamp={hideReceiptTimestamp}
       timestampPrecision={timestampPrecision}
       enableTriggers={enableTriggers}
       {...rest}

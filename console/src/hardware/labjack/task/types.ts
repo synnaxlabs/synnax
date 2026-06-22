@@ -275,6 +275,8 @@ export const ZERO_READ_PAYLOAD = {
   name: "LabJack Read Task",
   config: ZERO_READ_CONFIG,
   type: "labjack_read",
+  internal: false,
+  snapshot: false,
 } as const satisfies ReadPayload;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
@@ -322,4 +324,6 @@ export const ZERO_WRITE_PAYLOAD = {
   name: "LabJack Write Task",
   config: ZERO_WRITE_CONFIG,
   type: "labjack_write",
+  internal: false,
+  snapshot: false,
 } as const satisfies WritePayload;

@@ -14,6 +14,7 @@ package label
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a label, represented as a UUID.
@@ -28,4 +29,10 @@ type Label struct {
 	Name string `json:"name" msgpack:"name"`
 	// Color is the display color for visual identification of the label.
 	Color color.Color `json:"color" msgpack:"color"`
+}
+
+func (l Label) Validate() error {
+	v := validate.New("Label")
+	validate.NotEmptyString(v, "name", l.Name)
+	return v.Error()
 }

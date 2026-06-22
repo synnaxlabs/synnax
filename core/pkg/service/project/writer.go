@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -33,6 +32,9 @@ func (w Writer) Create(
 	if p.Key == uuid.Nil {
 		p.Key = uuid.New()
 	}
+	if err = p.Validate(); err != nil {
+		return
+	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return
 	}
@@ -43,14 +45,6 @@ func (w Writer) Create(
 	if err := w.otg.DefineRelationship(
 		ctx,
 		w.group.OntologyID(),
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	); err != nil {
-		return err
-	}
-	if err := w.otg.DefineRelationship(
-		ctx,
-		user.OntologyID(p.Author),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	); err != nil {

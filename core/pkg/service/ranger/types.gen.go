@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a range, represented as a UUID.
@@ -32,11 +33,17 @@ type Range struct {
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is an optional display color for visual identification of the range in user
 	// interfaces.
-	Color color.Color `json:"color" msgpack:"color"`
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Labels contains optional labels attached to this range for categorization and
 	// filtering.
-	Labels []label.Label `json:"labels" msgpack:"labels"`
+	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
 	// Parent is an optional parent range for hierarchical organization. Ranges can be
 	// nested within other ranges.
 	Parent *Range `json:"parent,omitempty" msgpack:"parent,omitempty"`
+}
+
+func (r Range) Validate() error {
+	v := validate.New("Range")
+	validate.NotEmptyString(v, "name", r.Name)
+	return v.Error()
 }

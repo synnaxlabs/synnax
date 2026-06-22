@@ -15,7 +15,6 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -70,15 +69,6 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 func MatchKeys(keys ...Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Project] {
 		return gorp.MatchKeys[Key, Project](keys...)
-	}
-}
-
-// MatchAuthor returns a filter for projects whose Author matches the provided value.
-func MatchAuthor(v user.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Project] {
-		return gorp.Match(func(_ gorp.Context, e *Project) (bool, error) {
-			return e.Author == v, nil
-		})
 	}
 }
 

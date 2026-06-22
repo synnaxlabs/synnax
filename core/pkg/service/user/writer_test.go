@@ -69,6 +69,10 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, user.User{Username: name})).
 				Error().To(MatchError(auth.ErrRepeatedUsername))
 		})
+		It("Should return a validation error when the username is empty", func(ctx SpecContext) {
+			Expect(w.Create(ctx, user.User{})).Error().
+				To(MatchError(ContainSubstring("username: required")))
+		})
 		It("Should reject RootUser=true so the root-user invariant cannot be bypassed", func(ctx SpecContext) {
 			Expect(w.Create(ctx, user.User{
 				Username: uuid.NewString(),

@@ -65,8 +65,9 @@ message Title {
 
 // Legend is the plot legend configuration.
 message Legend {
-  // visible is whether the legend is shown.
-  bool visible = 1;
+  // hidden is whether the legend is hidden. When false (the default), the legend is
+  // shown.
+  bool hidden = 1;
   // position is the anchor position of the legend within the plot container.
   .x.spatial.pb.StickyXY position = 2;
 }
@@ -99,13 +100,14 @@ message Ranges {
   repeated string x2 = 2;
 }
 
-// AutoBounds controls whether an axis derives its bounds from the rendered data window
-// on each side independently. When a bound is auto, the corresponding entry in
-// Axis.bounds is recomputed locally and never broadcast to the server.
-message AutoBounds {
-  // lower is whether the lower bound is computed from data.
+// ManualBounds controls whether an axis uses a manually-set bound on each side
+// independently. When a side is false (the default), the corresponding entry in
+// Axis.bounds is recomputed locally from the rendered data window and never broadcast
+// to the server; when true, Axis.bounds holds the user-set value.
+message ManualBounds {
+  // lower is whether the lower bound is set manually rather than computed from data.
   bool lower = 1;
-  // upper is whether the upper bound is computed from data.
+  // upper is whether the upper bound is set manually rather than computed from data.
   bool upper = 2;
 }
 
@@ -119,12 +121,12 @@ message Axis {
   .x.spatial.pb.Direction label_direction = 3;
   // label_level is the typography level of the label.
   .x.text.pb.Level label_level = 4;
-  // bounds is the value-space window of the axis. When the matching entry in auto_bounds
-  // is true the field is overwritten locally on every render; otherwise it is the
-  // user-set fixed bound.
+  // bounds is the value-space window of the axis. When the matching entry in
+  // manual_bounds is false the field is overwritten locally on every render; otherwise it
+  // is the user-set fixed bound.
   .x.spatial.pb.Bounds bounds = 5;
-  // auto_bounds controls per-edge automatic bound derivation.
-  AutoBounds auto_bounds = 6;
+  // manual_bounds controls per-edge manual bound override.
+  ManualBounds manual_bounds = 6;
   // tick_spacing is the target pixel distance between adjacent tick marks.
   double tick_spacing = 7;
   // type selects the tick label style. Null means default (linear). X-axes typically

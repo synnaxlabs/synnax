@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -29,9 +30,6 @@ type Node struct {
 	// ZIndex is the stacking order of the node within the schematic. Higher values render
 	// above lower values. Set by the user via send-to-back / bring-to-front actions.
 	ZIndex int16 `json:"z_index" msgpack:"z_index"`
-	// Measured is the rendered pixel size of the node. Populated by the renderer after the
-	// node is mounted and used to keep diagram measurements consistent across re-renders.
-	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
 }
 
 // Handle is a reference to a specific connection point on a specific node. For
@@ -64,11 +62,17 @@ type Schematic struct {
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Nodes contains all diagram nodes in the schematic.
-	Nodes []Node `json:"nodes" msgpack:"nodes"`
+	Nodes []Node `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Edges contains all connections between nodes.
-	Edges []Edge `json:"edges" msgpack:"edges"`
+	Edges []Edge `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Configs contains per-element configuration keyed by node or edge key. The shape of
 	// each value is determined by the element's variant; the wire format intentionally
 	// stores it as an opaque record.
-	Configs map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
+	Configs map[string]msgpack.EncodedJSON `json:"configs,omitzero" msgpack:"configs,omitzero"`
+}
+
+func (s Schematic) Validate() error {
+	v := validate.New("Schematic")
+	validate.NotEmptyString(v, "name", s.Name)
+	return v.Error()
 }
