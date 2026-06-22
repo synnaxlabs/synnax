@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -193,4 +194,17 @@ func (s *Service) RetrieveParentKey(
 		return uuid.Nil, errors.Wrapf(query.ErrNotFound, "range %s has no parent", key)
 	}
 	return KeyFromOntologyID(resources[0].ID)
+}
+
+// SetEnd atomically sets the end bound of the range with the given key, preserving all
+// other fields. Returns query.ErrNotFound if no range with the key exists.
+func (s *Service) SetEnd(ctx context.Context, key Key, end telem.TimeStamp) error {
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var r Range
+		if err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&r).Exec(ctx, tx); err != nil {
+			return err
+		}
+		r.TimeRange.End = end
+		return s.NewWriter(tx).Create(ctx, &r)
+	})
 }

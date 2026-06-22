@@ -323,17 +323,11 @@ func dispatchEnd(
 			fmt.Sprintf("ranges.end: invalid range key %q", key))
 		return ""
 	}
-	var r ranger.Range
-	if err := rng.NewRetrieve().Where(ranger.MatchKeys(uid)).Entry(&r).Exec(ctx, nil); err != nil {
+	if err := rng.SetEnd(ctx, uid, t); err != nil {
 		report(ctx, status.VariantWarning, fmt.Sprintf("ranges.end: %v", err))
 		return ""
 	}
-	r.TimeRange.End = t
-	if err := rng.NewWriter(nil).Create(ctx, &r); err != nil {
-		report(ctx, status.VariantWarning, fmt.Sprintf("ranges.end: %v", err))
-		return ""
-	}
-	return r.Key.String()
+	return uid.String()
 }
 
 const colorIndex = 1
