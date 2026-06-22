@@ -149,6 +149,7 @@ func New(pool *fgrpc.Pool) Transport {
 		ServiceDesc: &channelpb.DeleteService_ServiceDesc,
 	}
 	deleteServer := &deleteServer{
+		Internal:           true,
 		RequestTranslator:  channelpb.DeleteRequestTranslator,
 		ResponseTranslator: fgrpc.EmptyTranslator{},
 		ServiceDesc:        &channelpb.DeleteService_ServiceDesc,
@@ -167,6 +168,7 @@ func New(pool *fgrpc.Pool) Transport {
 		ServiceDesc: &channelpb.RenameService_ServiceDesc,
 	}
 	renameServer := &renameServer{
+		Internal:           true,
 		RequestTranslator:  channelpb.RenameMessageTranslator,
 		ResponseTranslator: fgrpc.EmptyTranslator{},
 		ServiceDesc:        &channelpb.RenameService_ServiceDesc,

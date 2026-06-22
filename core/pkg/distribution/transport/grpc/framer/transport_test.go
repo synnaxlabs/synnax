@@ -11,6 +11,7 @@ package framer_test
 
 import (
 	"context"
+	"go/types"
 	"net"
 	"sync/atomic"
 
@@ -18,6 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -90,6 +93,24 @@ var _ = Describe("Transport", func() {
 		})
 	})
 
+	Describe("Deleter", func() {
+		It("Should round-trip a delete request over the wire", func(ctx SpecContext) {
+			var received deleter.Request
+			transport.Deleter().Server().BindHandler(
+				func(_ context.Context, req deleter.Request) (types.Nil, error) {
+					received = req
+					return types.Nil{}, nil
+				},
+			)
+			MustSucceed(transport.Deleter().Client().Send(
+				ctx,
+				addr,
+				deleter.Request{Keys: channel.Keys{1, 2, 3}},
+			))
+			Expect(received.Keys).To(Equal(channel.Keys{1, 2, 3}))
+		})
+	})
+
 	Describe("Wiring", func() {
 		It("Should wire all stream transport accessors", func() {
 			Expect(transport.Writer().Client()).ToNot(BeNil())
@@ -99,22 +120,14 @@ var _ = Describe("Transport", func() {
 			Expect(transport.Relay().Client()).ToNot(BeNil())
 			Expect(transport.Relay().Server()).ToNot(BeNil())
 		})
-
-		// BindTo does not register the deleter gRPC service, so the deleter cannot be
-		// round-tripped over the wire here. We only assert it is wired structurally.
-		It("Should wire the deleter unary transport", func() {
-			Expect(transport.Deleter().Client()).ToNot(BeNil())
-			Expect(transport.Deleter().Server()).ToNot(BeNil())
-		})
 	})
 
 	// Use is exercised against an isolated transport and server so the registered
 	// middleware does not leak into the shared transport used by the other specs.
 	Describe("Use", func() {
-		// framer's Use applies middleware only to the streaming client endpoints
-		// (writer, iterator, relay), not the servers, so a stream round-trip invokes the
-		// middleware on the client side only.
-		It("Should apply middleware to the streaming client endpoints", func(ctx SpecContext) {
+		// Use applies middleware to both the client and server endpoints of every
+		// operation, so a writer stream round-trip invokes it on both sides.
+		It("Should apply middleware to both the client and server endpoints", func(ctx SpecContext) {
 			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 			useAddr := address.Address(lis.Addr().String())
 			grpcServer := grpc.NewServer()
@@ -156,7 +169,7 @@ var _ = Describe("Transport", func() {
 			Expect(stream.CloseSend()).To(Succeed())
 
 			Expect(clientCalls.Load()).To(Equal(int32(1)))
-			Expect(serverCalls.Load()).To(Equal(int32(0)))
+			Expect(serverCalls.Load()).To(Equal(int32(1)))
 		})
 	})
 })
