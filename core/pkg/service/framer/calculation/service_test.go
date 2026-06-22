@@ -40,7 +40,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		dist       mock.Node
 		statusSvc  *status.Service
 		channelSvc *channel.Service
-		wr         *writer.Service
+		writerSvc  *writer.Service
 	)
 	open := func(
 		ctx context.Context,
@@ -72,7 +72,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
 		}
 		sCtx, cancel := signal.Isolated()
-		w := MustSucceed(wr.Open(
+		w := MustSucceed(writerSvc.Open(
 			ctx,
 			framer.WriterConfig{
 				Start: 1 * telem.SecondTS,
@@ -121,11 +121,13 @@ var _ = Describe("Calculation", Ordered, func() {
 			Group:        dist.Group,
 			Search:       dist.Search,
 		}))
-		wr = MustSucceed(writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc}))
+		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
+			Framer: dist.Framer, Channel: channelSvc,
+		}))
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:      dist.DB,
 			Framer:  dist.Framer,
-			Writer:  wr,
+			Writer:  writerSvc,
 			Channel: channelSvc,
 			Status:  statusSvc,
 		}))

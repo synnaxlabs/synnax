@@ -52,22 +52,30 @@ type (
 
 type ServiceConfig struct {
 	// DB is the underlying database used by the calculation service.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Framer is the distribution-layer framer service this service extends.
+	//
 	// [REQUIRED]
 	Framer *framer.Service
 	// Channel is used to resolve channel metadata and to create the node's control
 	// update channel.
+	//
 	// [REQUIRED]
 	Channel *channel.Service
 	// Status is used for persisting calculation status updates.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// HostResolver identifies the host node, used to name and lease the node's control
 	// update channel.
+	//
 	// [REQUIRED]
 	HostResolver node.HostResolver
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
@@ -97,32 +105,32 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 type Service struct {
 	closer   io.MultiCloser
-	Streamer *streamer.Service
-	Iterator *iterator.Service
-	Writer   *writer.Service
+	streamer *streamer.Service
+	iterator *iterator.Service
+	writer   *writer.Service
 	cfg      ServiceConfig
 }
 
 func (s *Service) OpenIterator(
 	ctx context.Context, cfg IteratorConfig,
 ) (*Iterator, error) {
-	return s.Iterator.Open(ctx, cfg)
+	return s.iterator.Open(ctx, cfg)
 }
 
 func (s *Service) NewStreamIterator(
 	ctx context.Context, cfg IteratorConfig,
 ) (StreamIterator, error) {
-	return s.Iterator.NewStream(ctx, cfg)
+	return s.iterator.NewStream(ctx, cfg)
 }
 
 func (s *Service) NewStreamWriter(
 	ctx context.Context, cfg WriterConfig,
 ) (StreamWriter, error) {
-	return s.Writer.NewStream(ctx, cfg)
+	return s.writer.NewStream(ctx, cfg)
 }
 
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	return s.Writer.Open(ctx, cfg)
+	return s.writer.Open(ctx, cfg)
 }
 
 func (s *Service) DeleteTimeRange(
@@ -137,7 +145,7 @@ func (s *Service) NewStreamer(
 	ctx context.Context,
 	cfg StreamerConfig,
 ) (Streamer, error) {
-	return s.Streamer.New(ctx, cfg)
+	return s.streamer.New(ctx, cfg)
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
@@ -151,27 +159,27 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s = &Service{cfg: cfg}
-	if s.Writer, err = writer.NewService(writer.ServiceConfig{
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.writer, err = writer.NewService(writer.ServiceConfig{
 		Instrumentation: cfg.Child("writer"),
 		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
 	}); err != nil {
 		return nil, err
 	}
-	cleanup, ok := service.NewOpener(ctx, &s.closer)
-	defer func() { err = cleanup(err) }()
 	var calcSvc *calculation.Service
 	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation: cfg.Child("calculation"),
 		DB:              cfg.DB,
 		Channel:         cfg.Channel,
 		Framer:          cfg.Framer,
-		Writer:          s.Writer,
+		Writer:          s.writer,
 		Status:          cfg.Status,
 	}); !ok(err, calcSvc) {
 		return nil, err
 	}
-	if s.Streamer, err = streamer.NewService(streamer.ServiceConfig{
+	if s.streamer, err = streamer.NewService(streamer.ServiceConfig{
 		Instrumentation: cfg.Child("streamer"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
@@ -179,7 +187,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if s.Iterator, err = iterator.NewService(iterator.ServiceConfig{
+	if s.iterator, err = iterator.NewService(iterator.ServiceConfig{
 		Instrumentation: cfg.Child("iterator"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
@@ -192,9 +200,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	return s, nil
 }
 
-// configureControlUpdates creates the host node's control update channel (if it does not
-// already exist) and registers it with the distribution framer so control state changes
-// are streamed to clients.
+// configureControlUpdates creates the host node's control update channel (if it does
+// not already exist) and registers it with the distribution framer so control state
+// changes are streamed to clients.
 func (s *Service) configureControlUpdates(ctx context.Context) error {
 	name := fmt.Sprintf("sy_node_%v_control", s.cfg.HostResolver.HostKey())
 	controlCh := channel.Channel{
@@ -204,7 +212,9 @@ func (s *Service) configureControlUpdates(ctx context.Context) error {
 		DataType:    telem.StringT,
 		Internal:    true,
 	}
-	if err := s.cfg.Channel.Create(ctx, &controlCh, channel.RetrieveIfNameExists()); err != nil {
+	if err := s.cfg.Channel.Create(
+		ctx, &controlCh, channel.RetrieveIfNameExists(),
+	); err != nil {
 		return err
 	}
 	return s.cfg.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), name)

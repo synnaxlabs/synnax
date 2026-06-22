@@ -42,32 +42,30 @@ func (g *group) Close() error {
 type OnStatusChange = func(context.Context, ...calculator.Status)
 
 type groupConfig struct {
-	//
 	alamos.Instrumentation
-	Framer         *framer.Service
-	OnStatusChange OnStatusChange
-	Calculators    calculator.Group
-	// Writer opens the writer the group uses to write calculated values, resolving the
-	// distribution-layer channel metadata from the write keys.
-	Writer *writer.Service
+	framer         *framer.Service
+	onStatusChange OnStatusChange
+	calculators    calculator.Group
+	writer         *writer.Service
 }
 
 var _ config.Config[groupConfig] = (*groupConfig)(nil)
 
 func (c groupConfig) Override(other groupConfig) groupConfig {
-	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.Calculators = override.Slice(c.Calculators, other.Calculators)
-	c.OnStatusChange = override.Nil(c.OnStatusChange, other.OnStatusChange)
-	c.Writer = override.Nil(c.Writer, other.Writer)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.framer = override.Nil(c.framer, other.framer)
+	c.calculators = override.Slice(c.calculators, other.calculators)
+	c.onStatusChange = override.Nil(c.onStatusChange, other.onStatusChange)
+	c.writer = override.Nil(c.writer, other.writer)
 	return c
 }
 
 func (c groupConfig) Validate() error {
 	v := validate.New("calculation.group.config")
-	validate.NotNil(v, "framer", c.Framer)
-	validate.NotEmptySlice(v, "calculators", c.Calculators)
-	validate.NotNil(v, "on_status_change", c.OnStatusChange)
-	validate.NotNil(v, "writer", c.Writer)
+	validate.NotNil(v, "framer", c.framer)
+	validate.NotEmptySlice(v, "calculators", c.calculators)
+	validate.NotNil(v, "on_status_change", c.onStatusChange)
+	validate.NotNil(v, "writer", c.writer)
 	return v.Error()
 }
 
@@ -85,23 +83,23 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		return nil, err
 	}
 
-	readKeys := cfg.Calculators.ReadFrom()
-	writeKeys := cfg.Calculators.WriteTo()
+	readKeys := cfg.calculators.ReadFrom()
+	writeKeys := cfg.calculators.WriteTo()
 
 	cfg.L.Debug("opening group pipeline",
-		zap.Int("calculator_count", len(cfg.Calculators)),
+		zap.Int("calculator_count", len(cfg.calculators)),
 		zap.Int("read_channel_count", len(readKeys)),
 		zap.Int("write_channel_count", len(writeKeys)),
 	)
 
-	strm, err := cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{
+	strm, err := cfg.framer.NewStreamer(ctx, framer.StreamerConfig{
 		Keys: readKeys,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	wrt, err := cfg.Writer.NewStream(ctx, writer.Config{
+	wrt, err := cfg.writer.NewStream(ctx, writer.Config{
 		Keys:  writeKeys,
 		Start: telem.Now(),
 	})
@@ -117,8 +115,8 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 	strm.InFrom(streamerRequests)
 	c := &transform{
 		streamerRequests: streamerRequests,
-		calculators:      cfg.Calculators,
-		onStatusChange:   cfg.OnStatusChange,
+		calculators:      cfg.calculators,
+		onStatusChange:   cfg.onStatusChange,
 	}
 
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](
@@ -138,12 +136,12 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
 
 	cfg.L.Debug("group pipeline opened successfully",
-		zap.Int("calculator_count", len(cfg.Calculators)),
+		zap.Int("calculator_count", len(cfg.calculators)),
 	)
 
 	return &group{
 		shutdown:         signal.NewGracefulShutdown(sCtx, cancel),
 		streamerRequests: streamerRequests,
-		Calculators:      cfg.Calculators,
+		Calculators:      cfg.calculators,
 	}, nil
 }

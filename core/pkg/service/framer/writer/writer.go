@@ -115,8 +115,6 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Writer, error) {
 	return s.cfg.Framer.OpenWriter(ctx, cfg)
 }
 
-// resolve attaches the distribution-layer metadata for every key in cfg.Keys to
-// cfg.Channels, which the distribution writer requires.
 func (s *Service) resolve(ctx context.Context, cfg Config) (Config, error) {
 	var channels []channel.Channel
 	if err := s.cfg.Channel.NewRetrieve().
@@ -125,9 +123,11 @@ func (s *Service) resolve(ctx context.Context, cfg Config) (Config, error) {
 		Exec(ctx, nil); err != nil {
 		return cfg, err
 	}
-	cfg.Channels = lo.Map(channels,
+	cfg.Channels = lo.Map(
+		channels,
 		func(ch channel.Channel, _ int) distchannel.Channel {
 			return ch.Distribution()
-		})
+		},
+	)
 	return cfg, nil
 }

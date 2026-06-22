@@ -96,7 +96,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type Service struct {
 	disconnectFromChannelChanges observe.Disconnect
 	cfg                          ServiceConfig
-	writer                       *writer.Service
 	mu                           struct {
 		graph       *graph.Graph
 		calculators map[channel.Key]*calculator.Calculator
@@ -123,7 +122,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	s := &Service{
 		cfg:          cfg,
-		writer:       cfg.Writer,
 		statusWriter: status.NewWriter[types.Nil](cfg.Status, nil),
 	}
 	s.disconnectFromChannelChanges = cfg.Channel.Observe().OnChange(s.handleChange)
@@ -261,10 +259,10 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 		ctx,
 		groupConfig{
 			Instrumentation: s.cfg.Child("group"),
-			Calculators:     calculators,
-			OnStatusChange:  s.setStatus,
-			Framer:          s.cfg.Framer,
-			Writer:          s.writer,
+			calculators:     calculators,
+			onStatusChange:  s.setStatus,
+			framer:          s.cfg.Framer,
+			writer:          s.cfg.Writer,
 		},
 	)
 	if err != nil {

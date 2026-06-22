@@ -353,8 +353,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Expression: "return calc_circ_a + 1",
 					}
 					// Bypass create-time analysis: these channels intentionally form a
-					// cycle (and forward-reference), which the iterator's topological sort
-					// is what's under test.
+					// cycle (and forward-reference), which the iterator's topological
+					// sort is what's under test.
 					Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, calcB)).To(Succeed())
 
 					// Create calc_circ_a that depends on calc_circ_b (creating the cycle)

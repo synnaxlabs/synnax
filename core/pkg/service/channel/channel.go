@@ -15,7 +15,7 @@ import (
 	"slices"
 
 	"github.com/samber/lo"
-	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
@@ -25,15 +25,15 @@ import (
 // Type aliases re-exporting the distribution-layer key types so service-layer callers
 // can refer to them through this package.
 type (
-	Key      = dischannel.Key
-	Keys     = dischannel.Keys
-	LocalKey = dischannel.LocalKey
+	Key      = channel.Key
+	Keys     = channel.Keys
+	LocalKey = channel.LocalKey
 	Name     = string
 )
 
 var (
-	NewKey         = dischannel.NewKey
-	KeysFromUint32 = dischannel.KeysFromUint32
+	NewKey         = channel.NewKey
+	KeysFromUint32 = channel.KeysFromUint32
 )
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).
@@ -102,8 +102,8 @@ func (c Channel) Storage() ts.Channel {
 
 // Distribution returns the minimal distribution-layer representation of the channel,
 // carrying only the storage and routing metadata the distribution layer needs.
-func (c Channel) Distribution() dischannel.Channel {
-	return dischannel.Channel{
+func (c Channel) Distribution() channel.Channel {
+	return channel.Channel{
 		Name:        c.Name,
 		Leaseholder: c.Leaseholder,
 		DataType:    c.DataType,
