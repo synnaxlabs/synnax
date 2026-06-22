@@ -700,4 +700,5 @@ class TestStringEncodedInts:
 
         model_cls = create_model("M", v=(typ, ...))
         big = (1 << 62) + 7
-        assert int(model_cls.model_validate({"v": str(big)}).v) == big
+        validated = model_cls.model_validate({"v": str(big)})
+        assert int(getattr(validated, "v")) == big
