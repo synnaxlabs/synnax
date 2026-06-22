@@ -23,6 +23,7 @@ import { initializeMonaco } from "@/code/init/initialize";
 import { type Language } from "@/code/language";
 import { useLanguageServer } from "@/code/lsp";
 import { context } from "@/context";
+import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 export type * as Monaco from "@codingame/monaco-vscode-editor-api";
@@ -32,13 +33,11 @@ type Monaco = typeof monacoT;
 interface ContextValue {
   ensure: () => Promise<Monaco>;
   getLanguage: (name: string) => Language | undefined;
-  lspStatus: Record<string, status.Status>;
 }
 
 const ZERO_CONTEXT_VALUE: ContextValue = {
   ensure: () => Promise.reject(new Error("Code.Provider is not mounted")),
   getLanguage: () => undefined,
-  lspStatus: {},
 };
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -61,8 +60,8 @@ export const Provider = ({
   languages = EMPTY_LANGUAGES,
 }: ProviderProps): ReactElement => {
   const [monaco, setMonaco] = useState<Monaco | null>(null);
-  const [lspStatus, setLSPStatus] = useState<Record<string, status.Status>>({});
   const initRef = useRef<Promise<Monaco> | null>(null);
+  const addStatus = Status.useAdder();
 
   const ensure = useCallback((): Promise<Monaco> => {
     initRef.current ??= initializeMonaco({ languages }).then((ret) => {
@@ -81,13 +80,16 @@ export const Provider = ({
     [languageMap],
   );
 
-  const handleStatus = useCallback((name: string, s: status.Status) => {
-    setLSPStatus((prev) => ({ ...prev, [name]: s }));
-  }, []);
-
   const value = useMemo<ContextValue>(
-    () => ({ ensure, getLanguage, lspStatus }),
-    [ensure, getLanguage, lspStatus],
+    () => ({ ensure, getLanguage }),
+    [ensure, getLanguage],
+  );
+
+  const handleStatus = useCallback(
+    (stat: status.Status) => {
+      if (stat.variant === "error" || stat.variant === "warning") addStatus(stat);
+    },
+    [addStatus],
   );
 
   return (
@@ -110,7 +112,7 @@ export const Provider = ({
 interface LanguageServerRunnerProps {
   monaco: Monaco | null;
   language: Language;
-  onStatus: (name: string, s: status.Status) => void;
+  onStatus: (s: status.Status) => void;
 }
 
 const LanguageServerRunner = ({
@@ -119,16 +121,12 @@ const LanguageServerRunner = ({
   onStatus,
 }: LanguageServerRunnerProps): null => {
   const client = Synnax.use();
-  const handleStatus = useCallback(
-    (s: status.Status) => onStatus(language.name, s),
-    [onStatus, language.name],
-  );
   useLanguageServer({
     monaco,
     client,
     languageID: language.name,
     open: language.languageServer!,
-    onStatus: handleStatus,
+    onStatus,
   });
   return null;
 };
@@ -142,8 +140,3 @@ export const useMonaco = (): Monaco => use(useContext().ensure());
  * if none is registered. */
 export const useLanguage = (name: string): Language | undefined =>
   useContext().getLanguage(name);
-
-/** useLanguageServerStatus returns the current connection status of the named language's
- * server, or undefined if the language has no server or has not connected yet. */
-export const useLanguageServerStatus = (name: string): status.Status | undefined =>
-  useContext().lspStatus[name];
