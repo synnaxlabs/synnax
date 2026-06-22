@@ -10,13 +10,40 @@
 package framer_test
 
 import (
+	"net"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	framergrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/x/address"
+	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Distribution Transport gRPC Framer Suite")
 }
+
+var (
+	transport  framergrpc.Transport
+	addr       address.Address
+	grpcServer *grpc.Server
+)
+
+var _ = BeforeSuite(func() {
+	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+	addr = address.Address(lis.Addr().String())
+	grpcServer = grpc.NewServer()
+	pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	transport = framergrpc.New(pool)
+	transport.BindTo(grpcServer)
+	go func() {
+		defer GinkgoRecover()
+		Expect(grpcServer.Serve(lis)).To(Succeed())
+	}()
+	DeferCleanup(grpcServer.GracefulStop)
+})

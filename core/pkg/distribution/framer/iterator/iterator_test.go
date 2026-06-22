@@ -26,7 +26,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func openWriter(ctx context.Context, n mock.Node, channels []channel.Channel, cfg writer.Config) (*writer.Writer, error) {
+func openWriter(
+	ctx context.Context,
+	n mock.Node,
+	channels []channel.Channel,
+	cfg writer.Config,
+) (*writer.Writer, error) {
 	cfg.Channels = channels
 	return n.Framer.OpenWriter(ctx, cfg)
 }
@@ -43,11 +48,14 @@ var _ = Describe("Iterator", func() {
 			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
 				BeforeAll(func(ctx SpecContext) {
 					s = sF(ctx)
-					writer := MustSucceed(openWriter(ctx, s.dist, s.channels, writer.Config{
-						Keys:  s.keys,
-						Start: 10 * telem.SecondTS,
-						Sync:  new(true),
-					}))
+					writer := MustSucceed(openWriter(ctx,
+						s.dist,
+						s.channels,
+						writer.Config{
+							Keys:  s.keys,
+							Start: 10 * telem.SecondTS,
+							Sync:  new(true),
+						}))
 					writeBatch := func(ts ...telem.TimeStamp) {
 						series := make([]telem.Series, len(s.keys))
 						for i := range s.keys {
@@ -158,7 +166,13 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 	dist := builder.Nodes[1]
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: builder, channels: channels}
+	return scenario{
+		name:     "Gateway Only",
+		keys:     keys,
+		dist:     dist,
+		close:    builder,
+		channels: channels,
+	}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
@@ -171,7 +185,13 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	}
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Peer Only", keys: keys, dist: dist, close: builder, channels: channels}
+	return scenario{
+		name:     "Peer Only",
+		keys:     keys,
+		dist:     dist,
+		close:    builder,
+		channels: channels,
+	}
 }
 
 func mixedScenario(ctx context.Context) scenario {
@@ -183,5 +203,11 @@ func mixedScenario(ctx context.Context) scenario {
 	dist := builder.Nodes[1]
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: dist, close: builder, channels: channels}
+	return scenario{
+		name:     "Mixed Gateway and Peer",
+		keys:     keys,
+		dist:     dist,
+		close:    builder,
+		channels: channels,
+	}
 }

@@ -12,46 +12,14 @@ package channel_test
 import (
 	"context"
 	"go/types"
-	"net"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	channelgrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
-	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
-var _ = Describe("Transport", Ordered, Serial, func() {
-	var (
-		transport  channelgrpc.Transport
-		addr       address.Address
-		grpcServer *grpc.Server
-	)
-
-	BeforeAll(func() {
-		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
-		addr = address.Address(lis.Addr().String())
-
-		grpcServer = grpc.NewServer()
-		pool := fgrpc.NewPool(
-			"",
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-		transport = channelgrpc.New(pool)
-		transport.BindTo(grpcServer)
-
-		go func() {
-			defer GinkgoRecover()
-			Expect(grpcServer.Serve(lis)).To(Succeed())
-		}()
-	})
-
-	AfterAll(func() { grpcServer.GracefulStop() })
-
+var _ = Describe("Transport", func() {
 	Describe("Create", func() {
 		It("Should round-trip a create request over the wire", func(ctx SpecContext) {
 			transport.CreateServer().BindHandler(

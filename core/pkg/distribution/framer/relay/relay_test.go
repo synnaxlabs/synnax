@@ -40,7 +40,9 @@ type scenario struct {
 	resCount int
 }
 
-func openWriter(ctx context.Context, n mock.Node, channels []channel.Channel, cfg writer.Config) (*writer.Writer, error) {
+func openWriter(
+	ctx context.Context, n mock.Node, channels []channel.Channel, cfg writer.Config,
+) (*writer.Writer, error) {
 	cfg.Channels = channels
 	return n.Framer.OpenWriter(ctx, cfg)
 }

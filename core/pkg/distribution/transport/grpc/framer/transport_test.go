@@ -11,43 +11,17 @@ package framer_test
 
 import (
 	"context"
-	"net"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	framergrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
-	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
-var _ = Describe("Transport", Ordered, Serial, func() {
-	var (
-		transport  framergrpc.Transport
-		addr       address.Address
-		grpcServer *grpc.Server
-	)
-
-	BeforeAll(func() {
-		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
-		addr = address.Address(lis.Addr().String())
-		grpcServer = grpc.NewServer()
-		pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		transport = framergrpc.New(pool)
-		transport.BindTo(grpcServer)
-		go func() {
-			defer GinkgoRecover()
-			Expect(grpcServer.Serve(lis)).To(Succeed())
-		}()
-		DeferCleanup(grpcServer.GracefulStop)
-	})
-
+var _ = Describe("Transport", func() {
 	Describe("Writer", func() {
 		// The WriterRequest proto carries no SeqNum field (it is assigned server-side),
 		// so we round-trip the Command on the request and assert the SeqNum the server

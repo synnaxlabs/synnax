@@ -10,13 +10,42 @@
 package grpc_test
 
 import (
+	"net"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	transportgrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
+	"github.com/synnaxlabs/x/address"
+	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestGRPC(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Distribution Transport gRPC Suite")
 }
+
+var (
+	transport  transportgrpc.Transport
+	addr       address.Address
+	grpcServer *grpc.Server
+)
+
+var _ = BeforeSuite(func() {
+	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+	addr = address.Address(lis.Addr().String())
+	pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	transport = transportgrpc.New(pool)
+	grpcServer = grpc.NewServer()
+	for _, bt := range transport.BindableTransports() {
+		bt.BindTo(grpcServer)
+	}
+	go func() {
+		defer GinkgoRecover()
+		Expect(grpcServer.Serve(lis)).To(Succeed())
+	}()
+	DeferCleanup(grpcServer.GracefulStop)
+})
