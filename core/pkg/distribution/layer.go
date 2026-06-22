@@ -33,9 +33,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Transport bundles the node-to-node transports the distribution layer requires. Both
-// the gRPC (transport/grpc.Transports) and mock (transport/mock.Transport)
-// implementations satisfy it.
+// Transport bundles the node-to-node transports the distribution layer requires.
 type Transport interface {
 	// Channel returns the transport for channel create, rename, and delete RPCs.
 	Channel() channel.Transport
@@ -44,8 +42,7 @@ type Transport interface {
 	Framer() framer.Transport
 }
 
-// LayerConfig is the configuration for opening the distribution layer.  See fields for
-// details on defining the configuration.
+// LayerConfig is the configuration for opening the distribution layer.
 type LayerConfig struct {
 	// Transport bundles the network transports used for channel and framer node-to-node
 	// RPCs.
@@ -53,9 +50,9 @@ type LayerConfig struct {
 	// [REQUIRED]
 	Transport Transport
 	// GorpCodec sets the codec used to encode/decode data structures within the cluster
-	// meta-data DB (Gorp).
+	// metadata DB.
 	//
-	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
+	// [OPTIONAL] - Defaults to orc.NewCodec(msgpack.Codec)
 	GorpCodec encoding.Codec
 	// AspenTransport is the network transport used for key-value gossip and cluster
 	// topology information.
@@ -104,34 +101,32 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	return c
 }
 
-// Validate implements config.Config. It does nothing and leaves
-// validation to the individual components.
+// Validate implements config.Config.
 func (c LayerConfig) Validate() error {
 	v := validate.New("distribution")
 	validate.NotNil(v, "storage", c.Storage)
 	validate.NotEmptyString(v, "advertise_address", c.AdvertiseAddress)
 	validate.NotNil(v, "transport", c.Transport)
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
-	validate.NotNil(v, "codec", c.GorpCodec)
+	validate.NotNil(v, "gorp_codec", c.GorpCodec)
 	return v.Error()
 }
 
-// Layer contains all relevant services within the Synnax distribution layer.
-// The distribution layer wraps the storage layer to provide a monolithic data space
-// for working with core data structures across Synnax.
+// Layer contains all relevant services within the Synnax distribution layer. The
+// distribution layer wraps the storage layer to provide a monolithic data space for
+// working with core data structures across Synnax.
 //
-// The Layer must be closed when it is no longer in use. It is not safe to modify any
-// of the public fields in this struct, or to access these fields after Close has
-// been called.
+// The Layer must be closed when it is no longer in use. It is not safe to modify any of
+// the public fields in this struct, or to access these fields after Close has been
+// called.
 type Layer struct {
-	// DB is the database for storing cluster wide meta-data.
+	// DB is the database for storing cluster wide metadata.
 	DB *gorp.DB
 	// Cluster provides information about the cluster topology. Nodes, keys, addresses,
 	// states, etc.
 	Cluster node.Cluster
 	// Channel is the distribution-layer channel allocator: it assigns local keys and
-	// creates, renames, and deletes storage channels across the cluster. Rich channel
-	// metadata and retrieval live in the service layer.
+	// creates, renames, and deletes storage channels across the cluster.
 	Channel *channel.Service
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
@@ -191,17 +186,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 
 	if l.Ontology, err = ontology.Open(
 		ctx,
-		ontology.Config{
-			Instrumentation: cfg.Child("ontology"),
-			DB:              l.DB,
-		},
+		ontology.Config{Instrumentation: cfg.Child("ontology"), DB: l.DB},
 	); !ok(err, l.Ontology) {
 		return nil, err
 	}
 
-	if l.Search, err = search.Open(search.Config{
-		Instrumentation: cfg.Child("search"),
-	}); err != nil {
+	if l.Search, err = search.Open(
+		search.Config{Instrumentation: cfg.Child("search")},
+	); err != nil {
 		return nil, err
 	}
 
