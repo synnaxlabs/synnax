@@ -23,7 +23,6 @@ export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
 export const anyStateZ = latest.anyStateZ;
 export const TYPE = latest.TYPE;
-export const ZERO_GRAPH = latest.ZERO_GRAPH;
 
 export const SLICE_NAME = "arc";
 

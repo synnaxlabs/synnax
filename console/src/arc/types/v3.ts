@@ -138,10 +138,3 @@ export const sliceMigration = migrate.createMigration<v2.SliceState, SliceState>
     ),
   }),
 });
-
-export const ZERO_GRAPH: arc.graph.Graph = {
-  nodes: [],
-  edges: [],
-  configs: {},
-  functions: [],
-};

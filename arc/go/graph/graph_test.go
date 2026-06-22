@@ -1109,6 +1109,30 @@ var _ = Describe("Graph", func() {
 			})
 		})
 
+		Describe("Malformed Node Config", func() {
+			DescribeTable("Should report a clear diagnostic instead of failing to resolve an empty type",
+				func(ctx SpecContext, cfg msgpack.EncodedJSON, expected string) {
+					g := graph.Graph{
+						Nodes:   graph.Nodes{{Key: "n1"}},
+						Configs: map[string]msgpack.EncodedJSON{"n1": cfg},
+					}
+					g = MustSucceed(graph.Parse(g))
+					_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+					Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+					Expect(diagnostics.String()).To(ContainSubstring(expected))
+				},
+				Entry("missing type key",
+					msgpack.EncodedJSON{"channel": 12},
+					"node 'n1' is missing its function type"),
+				Entry("nil config entry",
+					msgpack.EncodedJSON(nil),
+					"node 'n1' is missing its function type"),
+				Entry("non-string type",
+					msgpack.EncodedJSON{"type": 42},
+					"node 'n1' function type must be a string, got int"),
+			)
+		})
+
 	})
 
 	Describe("Qualified Module Names", func() {

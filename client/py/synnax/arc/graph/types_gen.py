@@ -56,4 +56,4 @@ class Graph(BaseModel):
     nodes: Nodes = Field(default_factory=list)
     configs: Annotated[
         dict[str, dict[str, Any]], BeforeValidator(dicts.none_to_empty)
-    ] = Field(default_factory=dict)
+    ] = Field(default_factory=lambda: Map())

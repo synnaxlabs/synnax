@@ -32,7 +32,6 @@ export type Mode = v3.Mode;
 export const TYPE = v3.TYPE;
 export const ZERO_STATE = v3.ZERO_STATE;
 export const ZERO_SLICE_STATE = v3.ZERO_SLICE_STATE;
-export const ZERO_GRAPH = v3.ZERO_GRAPH;
 
 const STATE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.stateMigration,

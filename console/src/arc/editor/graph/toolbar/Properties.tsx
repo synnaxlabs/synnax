@@ -142,8 +142,8 @@ const MultiConfig = ({
     const newPositions = Diagram.alignNodesAlongDirection(getLayouts(), direction);
     dispatch({
       key: layoutKey,
-      actions: newPositions.map((n) =>
-        arc.setNodePosition({ key: n.key, position: box.topLeft(n.box) }),
+      actions: newPositions.map(({ key, box: b }) =>
+        arc.setNodePosition({ key, position: box.topLeft(b) }),
       ),
     });
   };

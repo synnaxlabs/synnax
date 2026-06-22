@@ -13,14 +13,9 @@ import { useCallback } from "react";
 
 import { useCreateModal } from "@/arc/editor/CreateModal";
 import { create } from "@/arc/editor/layout";
-import { ZERO_GRAPH } from "@/arc/slice";
 import { Layout } from "@/layout";
 
-interface CreateArgs {
-  key?: string;
-  name?: string;
-  mode?: arc.Mode;
-}
+interface CreateArgs extends Partial<Pick<arc.New, "key" | "name" | "mode">> {}
 
 export const useCreate = (): ((args?: CreateArgs) => void) => {
   const openModal = useCreateModal();
@@ -35,27 +30,14 @@ export const useCreate = (): ((args?: CreateArgs) => void) => {
       [openModal],
     ),
     afterSuccess: useCallback(
-      ({ data }: Flux.AfterSuccessParams<arc.Arc>) => {
-        placeLayout(
-          create({
-            key: data.key,
-            name: data.name,
-            mode: data.mode,
-          }),
-        );
+      ({ data: { key, name, mode } }: Flux.AfterSuccessParams<arc.Arc>) => {
+        placeLayout(create({ key, name, mode }));
       },
       [placeLayout],
     ),
   });
   return useCallback(
-    (args: CreateArgs = {}) =>
-      void update({
-        key: args.key,
-        name: args.name ?? "Arc Editor",
-        mode: args.mode ?? "graph",
-        graph: ZERO_GRAPH,
-        text: { raw: "" },
-      }),
+    (args: CreateArgs = {}) => update({ name: "Arc Editor", mode: "graph", ...args }),
     [update],
   );
 };

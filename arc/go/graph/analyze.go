@@ -116,7 +116,25 @@ func Analyze(
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
 		cfg := g.Configs[n.Key]
-		nodeType, _ := cfg["type"].(string)
+		rawType, ok := cfg["type"]
+		if !ok {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				nil,
+				"node '%s' is missing its function type",
+				n.Key,
+			))
+			return ir.IR{}, aCtx.Diagnostics
+		}
+		nodeType, ok := rawType.(string)
+		if !ok {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				nil,
+				"node '%s' function type must be a string, got %T",
+				n.Key,
+				rawType,
+			))
+			return ir.IR{}, aCtx.Diagnostics
+		}
 		fnSym, err := resolveQualified(aCtx, aCtx.Scope, nodeType)
 		if err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
