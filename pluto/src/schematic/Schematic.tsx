@@ -48,13 +48,6 @@ export interface SchematicProps extends Omit<
   | "onChange"
 > {
   enableTriggers?: boolean | (() => boolean);
-  /**
-   * Extra items appended to the canvas right-click context menu, below Pluto's
-   * built-in actions (Undo, Redo). The render-prop signature mirrors
-   * {@link Menu.ContextMenu}'s, so consumers can branch on right-clicked
-   * `keys` and cursor position. The schematic key is available via
-   * {@link Key.use}.
-   */
   extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;

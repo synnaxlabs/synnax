@@ -98,13 +98,14 @@ const requireSchematic = (
   return schem;
 };
 
-const withKey = <Args extends { key: string }, Selected>(
-  useSelect: Flux.UseSelect<Args, Selected>,
-): Flux.UseSelect<optional.Optional<Args, "key">, Selected> =>
-  ((args?: optional.Optional<Args, "key">) => {
+const withKey =
+  <Args extends { key: string }, Selected>(
+    useSelect: Flux.UseSelect<Args, Selected>,
+  ): Flux.UseSelect<optional.Optional<Args, "key">, Selected> =>
+  (args?: optional.Optional<Args, "key">) => {
     const key = useKey(args?.key);
     return useSelect({ ...args, key } as Args);
-  }) as Flux.UseSelect<optional.Optional<Args, "key">, Selected>;
+  };
 
 export const useSelectAllNodes = withKey(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Node[]>({
