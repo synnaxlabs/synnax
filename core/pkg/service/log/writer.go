@@ -49,7 +49,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 			return err
 		}
 	}
-	*l = l.ApplyDefaults()
+	l.ApplyDefaults()
 	if err = l.Validate(); err != nil {
 		return err
 	}

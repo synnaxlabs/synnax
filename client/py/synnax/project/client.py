@@ -10,7 +10,7 @@
 from typing import Any, overload
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -45,7 +45,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    projects: list[Project] | None = None
+    projects: list[Project] = Field(default_factory=list)
 
 
 class Client:
@@ -172,7 +172,7 @@ class Client:
             ),
             _RetrieveResponse,
         )
-        projects = res.projects if res.projects is not None else []
+        projects = res.projects
         if is_single:
             if len(projects) == 0:
                 raise NotFoundError("Project not found")

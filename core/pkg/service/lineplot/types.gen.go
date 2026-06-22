@@ -128,11 +128,10 @@ type Title struct {
 	Visible bool `json:"visible" msgpack:"visible"`
 }
 
-func (t Title) ApplyDefaults() Title {
+func (t *Title) ApplyDefaults() {
 	if t.Level == "" {
 		t.Level = text.LevelH4
 	}
-	return t
 }
 
 func (t Title) Validate() error {
@@ -150,7 +149,7 @@ type Legend struct {
 	Position spatial.StickyXY `json:"position" msgpack:"position"`
 }
 
-func (l Legend) ApplyDefaults() Legend {
+func (l *Legend) ApplyDefaults() {
 	if l.Position.X == 0 {
 		l.Position.X = 50
 	}
@@ -169,8 +168,7 @@ func (l Legend) ApplyDefaults() Legend {
 	if l.Position.Units.Y == "" {
 		l.Position.Units.Y = spatial.StickyUnitPx
 	}
-	l.Position = l.Position.ApplyDefaults()
-	return l
+	l.Position.ApplyDefaults()
 }
 
 func (l Legend) Validate() error {
@@ -241,7 +239,7 @@ type Axis struct {
 	Type *TickType `json:"type,omitempty" msgpack:"type,omitempty"`
 }
 
-func (a Axis) ApplyDefaults() Axis {
+func (a *Axis) ApplyDefaults() {
 	if a.LabelDirection == "" {
 		a.LabelDirection = spatial.DirectionX
 	}
@@ -251,7 +249,6 @@ func (a Axis) ApplyDefaults() Axis {
 	if a.TickSpacing == 0 {
 		a.TickSpacing = 75
 	}
-	return a
 }
 
 func (a Axis) Validate() error {
@@ -278,7 +275,7 @@ type Axes struct {
 	Y4 Axis `json:"y4" msgpack:"y4"`
 }
 
-func (a Axes) ApplyDefaults() Axes {
+func (a *Axes) ApplyDefaults() {
 	if a.X1.Key == "" {
 		a.X1.Key = AxisKeyX1
 	}
@@ -309,13 +306,12 @@ func (a Axes) ApplyDefaults() Axes {
 	if a.Y4.LabelDirection == "" {
 		a.Y4.LabelDirection = spatial.DirectionY
 	}
-	a.X1 = a.X1.ApplyDefaults()
-	a.X2 = a.X2.ApplyDefaults()
-	a.Y1 = a.Y1.ApplyDefaults()
-	a.Y2 = a.Y2.ApplyDefaults()
-	a.Y3 = a.Y3.ApplyDefaults()
-	a.Y4 = a.Y4.ApplyDefaults()
-	return a
+	a.X1.ApplyDefaults()
+	a.X2.ApplyDefaults()
+	a.Y1.ApplyDefaults()
+	a.Y2.ApplyDefaults()
+	a.Y3.ApplyDefaults()
+	a.Y4.ApplyDefaults()
 }
 
 func (a Axes) Validate() error {
@@ -349,7 +345,7 @@ type Line struct {
 	DownsampleMode DownsampleMode `json:"downsample_mode" msgpack:"downsample_mode"`
 }
 
-func (l Line) ApplyDefaults() Line {
+func (l *Line) ApplyDefaults() {
 	if l.StrokeWidth == 0 {
 		l.StrokeWidth = 2
 	}
@@ -359,7 +355,6 @@ func (l Line) ApplyDefaults() Line {
 	if l.DownsampleMode == "" {
 		l.DownsampleMode = DownsampleModeDecimate
 	}
-	return l
 }
 
 func (l Line) Validate() error {
@@ -389,11 +384,10 @@ type Rule struct {
 	Position float64 `json:"position" msgpack:"position"`
 }
 
-func (r Rule) ApplyDefaults() Rule {
+func (r *Rule) ApplyDefaults() {
 	if r.LineWidth == 0 {
 		r.LineWidth = 1
 	}
-	return r
 }
 
 func (r Rule) Validate() error {
@@ -427,17 +421,16 @@ type LinePlot struct {
 	Rules []Rule `json:"rules,omitzero" msgpack:"rules,omitzero"`
 }
 
-func (l LinePlot) ApplyDefaults() LinePlot {
-	l.Title = l.Title.ApplyDefaults()
-	l.Legend = l.Legend.ApplyDefaults()
-	l.Axes = l.Axes.ApplyDefaults()
+func (l *LinePlot) ApplyDefaults() {
+	l.Title.ApplyDefaults()
+	l.Legend.ApplyDefaults()
+	l.Axes.ApplyDefaults()
 	for i := range l.Lines {
-		l.Lines[i] = l.Lines[i].ApplyDefaults()
+		l.Lines[i].ApplyDefaults()
 	}
 	for i := range l.Rules {
-		l.Rules[i] = l.Rules[i].ApplyDefaults()
+		l.Rules[i].ApplyDefaults()
 	}
-	return l
 }
 
 func (l LinePlot) Validate() error {

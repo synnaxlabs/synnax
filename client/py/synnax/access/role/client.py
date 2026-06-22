@@ -10,7 +10,7 @@
 from typing import overload
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -33,7 +33,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    roles: list[Role] | None
+    roles: list[Role] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -109,8 +109,7 @@ class Client:
             keys = [key]
         req = _RetrieveRequest(keys=keys, limit=limit, offset=offset, internal=internal)
         res = self._client.send("/access/role/retrieve", req, _RetrieveResponse)
-        roles = [] if res.roles is None else res.roles
-        return roles[0] if is_single else roles
+        return res.roles[0] if is_single else res.roles
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

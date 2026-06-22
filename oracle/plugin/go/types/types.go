@@ -681,7 +681,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- $s := .}}
 {{- if or .DefaultFills .DefaultRecurse}}
 
-func ({{$s.Receiver}} {{$s.Name}}) ApplyDefaults() {{$s.Name}} {
+func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- range $s.DefaultFills}}
 	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
 		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
@@ -689,23 +689,22 @@ func ({{$s.Receiver}} {{$s.Name}}) ApplyDefaults() {{$s.Name}} {
 {{- end}}
 {{- range $s.DefaultRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
-	{{$s.Receiver}}.{{.GoName}} = {{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
+	{{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
 {{- else if eq (printf "%s" .Kind) "pointer"}}
 	if {{$s.Receiver}}.{{.GoName}} != nil {
-		applied := {{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
-		{{$s.Receiver}}.{{.GoName}} = &applied
+		{{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
 	}
 {{- else if eq (printf "%s" .Kind) "slice"}}
 	for i := range {{$s.Receiver}}.{{.GoName}} {
-		{{$s.Receiver}}.{{.GoName}}[i] = {{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
+		{{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
 	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$s.Receiver}}.{{.GoName}} {
-		{{$s.Receiver}}.{{.GoName}}[key] = value.ApplyDefaults()
+		value.ApplyDefaults()
+		{{$s.Receiver}}.{{.GoName}}[key] = value
 	}
 {{- end}}
 {{- end}}
-	return {{$s.Receiver}}
 }
 {{- end}}
 {{- if or .EnumChecks .ConstraintChecks .ValidateRecurse}}
@@ -785,26 +784,25 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 {{- $vt := .}}
 {{- if .NeedsApplyDefaults}}
 
-func ({{$vt.Receiver}} {{$vt.TypeName}}) ApplyDefaults() {{$vt.TypeName}} {
+func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 {{- range $vt.DefaultRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
-	{{$vt.Receiver}}.{{.GoName}} = {{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
+	{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
 {{- else if eq (printf "%s" .Kind) "pointer"}}
 	if {{$vt.Receiver}}.{{.GoName}} != nil {
-		applied := {{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
-		{{$vt.Receiver}}.{{.GoName}} = &applied
+		{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
 	}
 {{- else if eq (printf "%s" .Kind) "slice"}}
 	for i := range {{$vt.Receiver}}.{{.GoName}} {
-		{{$vt.Receiver}}.{{.GoName}}[i] = {{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
+		{{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
 	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
-		{{$vt.Receiver}}.{{.GoName}}[key] = value.ApplyDefaults()
+		value.ApplyDefaults()
+		{{$vt.Receiver}}.{{.GoName}}[key] = value
 	}
 {{- end}}
 {{- end}}
-	return {{$vt.Receiver}}
 }
 {{- end}}
 {{- if .NeedsValidate}}
@@ -898,16 +896,16 @@ func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
 }
 {{- if .NeedsApplyDefaults}}
 
-func (u {{.Name}}) ApplyDefaults() {{.Name}} {
+func (u *{{.Name}}) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
 {{- range .Variants}}
 {{- if .NeedsApplyDefaults}}
 	case {{.TypeName}}:
-		u.Variant = variant.ApplyDefaults()
+		variant.ApplyDefaults()
+		u.Variant = variant
 {{- end}}
 {{- end}}
 	}
-	return u
 }
 {{- end}}
 {{- if .NeedsValidate}}

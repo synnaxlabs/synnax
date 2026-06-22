@@ -296,7 +296,7 @@ type StickyXY struct {
 	Units StickyUnits `json:"units" msgpack:"units"`
 }
 
-func (s StickyXY) ApplyDefaults() StickyXY {
+func (s *StickyXY) ApplyDefaults() {
 	if s.Root.X == "" {
 		s.Root.X = XLocationLeft
 	}
@@ -309,7 +309,6 @@ func (s StickyXY) ApplyDefaults() StickyXY {
 	if s.Units.Y == "" {
 		s.Units.Y = StickyUnitPx
 	}
-	return s
 }
 
 func (s StickyXY) Validate() error {
@@ -335,11 +334,10 @@ type Viewport struct {
 	Position XY `json:"position" msgpack:"position"`
 }
 
-func (v Viewport) ApplyDefaults() Viewport {
+func (v *Viewport) ApplyDefaults() {
 	if v.Zoom == 0 {
 		v.Zoom = 1
 	}
-	return v
 }
 
 // SignedDimensions is a 2D size whose width and height components carry sign, allowing
