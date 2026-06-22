@@ -54,4 +54,4 @@ class Graph(BaseModel):
     functions: ir.Functions = Field(default_factory=list)
     edges: ir.Edges = Field(default_factory=list)
     nodes: Nodes = Field(default_factory=list)
-    configs: dict[str, dict[str, Any]] = Field(default_factory=lambda: Map())
+    configs: dict[str, dict[str, Any]] = Field(default_factory=dict)

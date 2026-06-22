@@ -64,8 +64,8 @@ class Payload(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
     mode: Mode
-    graph: graph_.Graph = Field(default_factory=lambda: Graph())
-    text: text_.Text = Field(default_factory=lambda: Text())
+    graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
+    text: text_.Text = Field(default_factory=lambda: text_.Text())
     program: program_.Program | None = None
     status: Status | None = None
 
