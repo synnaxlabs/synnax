@@ -15,6 +15,7 @@ import {
   type Connection as RFConnection,
   type ConnectionLineComponentProps as RFConnectionLineProps,
   ConnectionMode,
+  type Edge as RFEdge,
   type EdgeChange as RFEdgeChange,
   type EdgeProps as RFEdgeProps,
   type IsValidConnection,
@@ -139,6 +140,7 @@ export interface DiagramProps
       | "snapToGrid"
       | "onNodeClick"
       | "onNodeDoubleClick"
+      | "edgesReconnectable"
     > {
   edges: Edge[];
   nodes: Node[];
@@ -425,6 +427,12 @@ export const create = ({
       [onEdgesChange],
     );
 
+    const handleReconnect = useCallback(
+      (oldEdge: RFEdge, conn: RFConnection) =>
+        onEdgesChange([diagram.createReconnect(oldEdge.id, conn)]),
+      [onEdgesChange],
+    );
+
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
     const triggerRef = useRef<HTMLElement>(null);
@@ -548,6 +556,7 @@ export const create = ({
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}
                 onConnect={handleConnect}
+                onReconnect={handleReconnect}
                 connectionLineComponent={ConnectionLine}
                 defaultViewport={defautlViewport}
                 elevateEdgesOnSelect

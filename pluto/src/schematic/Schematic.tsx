@@ -196,6 +196,7 @@ export const Schematic = ({
         viewport={viewport}
         onSelectionChange={onSelectionChange}
         editable={editable}
+        edgesReconnectable={false}
         onDoubleClick={onDoubleClick}
         onContextMenu={contextMenu.open}
         onCopy={onCopy}

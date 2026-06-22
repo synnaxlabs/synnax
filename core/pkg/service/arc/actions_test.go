@@ -26,17 +26,20 @@ func gnode(key string, x, y float64) graph.Node {
 	return graph.Node{Key: key, Position: spatial.XY{X: x, Y: y}}
 }
 
-// gedge constructs a continuous edge between two node parameters.
-func gedge(srcNode, srcParam, tgtNode, tgtParam string) ir.Edge {
-	return ir.Edge{
-		Source: ir.Handle{Node: srcNode, Param: srcParam},
-		Target: ir.Handle{Node: tgtNode, Param: tgtParam},
-		Kind:   ir.EdgeKindContinuous,
+// gedge constructs a continuous edge with the given key between two node parameters.
+func gedge(key, srcNode, srcParam, tgtNode, tgtParam string) graph.Edge {
+	return graph.Edge{
+		Edge: ir.Edge{
+			Source: ir.Handle{Node: srcNode, Param: srcParam},
+			Target: ir.Handle{Node: tgtNode, Param: tgtParam},
+			Kind:   ir.EdgeKindContinuous,
+		},
+		Key: key,
 	}
 }
 
 // withGraph builds an Arc whose graph holds the given nodes and edges.
-func withGraph(nodes graph.Nodes, edges ir.Edges) arc.Arc {
+func withGraph(nodes graph.Nodes, edges graph.Edges) arc.Arc {
 	return arc.Arc{Graph: graph.Graph{Nodes: nodes, Edges: edges}}
 }
 
@@ -132,7 +135,7 @@ var _ = Describe("Reducer", func() {
 		It("Should remove the matching node, its config, and every edge connected to it", func() {
 			state := withGraph(
 				graph.Nodes{gnode("n1", 0, 0), gnode("n2", 1, 1), gnode("n3", 2, 2)},
-				ir.Edges{gedge("n1", "out", "n2", "in"), gedge("n2", "out", "n3", "in")},
+				graph.Edges{gedge("e1", "n1", "out", "n2", "in"), gedge("e2", "n2", "out", "n3", "in")},
 			)
 			state.Graph.Configs = map[string]msgpack.EncodedJSON{
 				"n2": {"type": "stage"},
@@ -149,15 +152,15 @@ var _ = Describe("Reducer", func() {
 		It("Should keep unrelated edges intact", func() {
 			state := withGraph(
 				graph.Nodes{gnode("n1", 0, 0), gnode("n2", 1, 1), gnode("n3", 2, 2)},
-				ir.Edges{gedge("n1", "out", "n3", "in")},
+				graph.Edges{gedge("e1", "n1", "out", "n3", "in")},
 			)
 			out := MustSucceed(arc.Reduce(state, arc.NewRemoveNodeAction(arc.RemoveNodePayload{
 				Key: "n2",
 			})))
-			Expect(out.Graph.Edges).To(Equal(ir.Edges{gedge("n1", "out", "n3", "in")}))
+			Expect(out.Graph.Edges).To(Equal(graph.Edges{gedge("e1", "n1", "out", "n3", "in")}))
 		})
 		It("Should be a no-op when the key does not match any node", func() {
-			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, ir.Edges{gedge("n1", "out", "n1", "in")})
+			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, graph.Edges{gedge("e1", "n1", "out", "n1", "in")})
 			out := MustSucceed(arc.Reduce(state, arc.NewRemoveNodeAction(arc.RemoveNodePayload{
 				Key: "ghost",
 			})))
@@ -168,39 +171,58 @@ var _ = Describe("Reducer", func() {
 
 	Describe("AddEdge", func() {
 		It("Should append an edge whose source and target are not yet present", func() {
-			state := withGraph(nil, ir.Edges{gedge("a", "o", "b", "i")})
+			state := withGraph(nil, graph.Edges{gedge("e1", "a", "o", "b", "i")})
 			out := MustSucceed(arc.Reduce(state, arc.NewAddEdgeAction(arc.AddEdgePayload{
-				Edge: gedge("b", "o", "c", "i"),
+				Edge: gedge("e2", "b", "o", "c", "i"),
 			})))
 			Expect(out.Graph.Edges).To(HaveLen(2))
-			Expect(out.Graph.Edges[1]).To(Equal(gedge("b", "o", "c", "i")))
+			Expect(out.Graph.Edges[1]).To(Equal(gedge("e2", "b", "o", "c", "i")))
 		})
 		It("Should be a no-op when an edge with the same source and target exists", func() {
-			state := withGraph(nil, ir.Edges{gedge("a", "o", "b", "i")})
+			state := withGraph(nil, graph.Edges{gedge("e1", "a", "o", "b", "i")})
 			out := MustSucceed(arc.Reduce(state, arc.NewAddEdgeAction(arc.AddEdgePayload{
-				Edge: gedge("a", "o", "b", "i"),
+				Edge: gedge("e2", "a", "o", "b", "i"),
 			})))
 			Expect(out.Graph.Edges).To(Equal(state.Graph.Edges))
 		})
 	})
 
 	Describe("RemoveEdge", func() {
-		It("Should remove the edge matching the source and target handles", func() {
-			state := withGraph(nil, ir.Edges{
-				gedge("a", "o", "b", "i"),
-				gedge("b", "o", "c", "i"),
+		It("Should remove the edge matching the key", func() {
+			state := withGraph(nil, graph.Edges{
+				gedge("e1", "a", "o", "b", "i"),
+				gedge("e2", "b", "o", "c", "i"),
 			})
 			out := MustSucceed(arc.Reduce(state, arc.NewRemoveEdgeAction(arc.RemoveEdgePayload{
-				Source: ir.Handle{Node: "a", Param: "o"},
-				Target: ir.Handle{Node: "b", Param: "i"},
+				Key: "e1",
 			})))
-			Expect(out.Graph.Edges).To(Equal(ir.Edges{gedge("b", "o", "c", "i")}))
+			Expect(out.Graph.Edges).To(Equal(graph.Edges{gedge("e2", "b", "o", "c", "i")}))
 		})
-		It("Should be a no-op when no edge matches the handles", func() {
-			state := withGraph(nil, ir.Edges{gedge("a", "o", "b", "i")})
+		It("Should be a no-op when no edge matches the key", func() {
+			state := withGraph(nil, graph.Edges{gedge("e1", "a", "o", "b", "i")})
 			out := MustSucceed(arc.Reduce(state, arc.NewRemoveEdgeAction(arc.RemoveEdgePayload{
-				Source: ir.Handle{Node: "x", Param: "o"},
-				Target: ir.Handle{Node: "y", Param: "i"},
+				Key: "missing",
+			})))
+			Expect(out.Graph.Edges).To(Equal(state.Graph.Edges))
+		})
+	})
+
+	Describe("ReconnectEdge", func() {
+		It("Should rewrite the endpoints of the edge with the key, preserving key and kind", func() {
+			state := withGraph(nil, graph.Edges{gedge("e1", "a", "o", "b", "i")})
+			out := MustSucceed(arc.Reduce(state, arc.NewReconnectEdgeAction(arc.ReconnectEdgePayload{
+				Key:    "e1",
+				Source: ir.Handle{Node: "a", Param: "o"},
+				Target: ir.Handle{Node: "c", Param: "i"},
+			})))
+			Expect(out.Graph.Edges).To(Equal(graph.Edges{gedge("e1", "a", "o", "c", "i")}))
+		})
+		It("Should be a no-op when no edge matches the key", func() {
+			state := withGraph(nil, graph.Edges{gedge("e1", "a", "o", "b", "i")})
+			out := MustSucceed(arc.Reduce(state, arc.NewReconnectEdgeAction(arc.ReconnectEdgePayload{
+				Key:    "missing",
+				Source: ir.Handle{Node: "a", Param: "o"},
+				Target: ir.Handle{Node: "c", Param: "i"},
 			})))
 			Expect(out.Graph.Edges).To(Equal(state.Graph.Edges))
 		})
@@ -213,8 +235,8 @@ var _ = Describe("Reducer", func() {
 				arc.NewSetNodeAction(arc.SetNodePayload{Node: gnode("src", 0, 0)}),
 				arc.NewSetNodeAction(arc.SetNodePayload{Node: gnode("op", 100, 0)}),
 				arc.NewSetNodeAction(arc.SetNodePayload{Node: gnode("sink", 200, 0)}),
-				arc.NewAddEdgeAction(arc.AddEdgePayload{Edge: gedge("src", "out", "op", "in")}),
-				arc.NewAddEdgeAction(arc.AddEdgePayload{Edge: gedge("op", "out", "sink", "in")}),
+				arc.NewAddEdgeAction(arc.AddEdgePayload{Edge: gedge("e1", "src", "out", "op", "in")}),
+				arc.NewAddEdgeAction(arc.AddEdgePayload{Edge: gedge("e2", "op", "out", "sink", "in")}),
 			}
 			out := MustSucceed(arc.Reduce(arc.Arc{}, actions...))
 			Expect(out.Mode).To(Equal(arc.ModeGraph))
@@ -260,12 +282,13 @@ var _ = Describe("Reducer", func() {
 			Entry("remove_node", arc.ActionTypeRemoveNode),
 			Entry("add_edge", arc.ActionTypeAddEdge),
 			Entry("remove_edge", arc.ActionTypeRemoveEdge),
+			Entry("reconnect_edge", arc.ActionTypeReconnectEdge),
 		)
 
 		It("Should dispatch on Type and ignore extra payload pointers", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
 			pos := arc.SetNodePositionPayload{Key: "n1", Position: spatial.XY{X: 50, Y: 60}}
-			edge := arc.AddEdgePayload{Edge: gedge("n1", "o", "n2", "i")}
+			edge := arc.AddEdgePayload{Edge: gedge("e1", "n1", "o", "n2", "i")}
 			out := MustSucceed(arc.Reduce(state, arc.Action{
 				Type:            arc.ActionTypeSetNodePosition,
 				SetNodePosition: &pos,

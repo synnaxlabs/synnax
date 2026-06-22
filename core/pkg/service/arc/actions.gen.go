@@ -29,6 +29,7 @@ const (
 	ActionTypeRemoveNode      = "remove_node"
 	ActionTypeAddEdge         = "add_edge"
 	ActionTypeRemoveEdge      = "remove_edge"
+	ActionTypeReconnectEdge   = "reconnect_edge"
 	ActionTypeInsertChar      = "insert_char"
 	ActionTypeDeleteChar      = "delete_char"
 	ActionTypeForgetChars     = "forget_chars"
@@ -73,14 +74,21 @@ type RemoveNodePayload struct {
 }
 
 // AddEdgePayload appends the edge to the graph. No-op when an edge with the same source
-// and target handles already exists.
+// and target handles already exists, so concurrent additions of the same connection
+// converge regardless of differing keys.
 type AddEdgePayload struct {
-	Edge ir.Edge `json:"edge" msgpack:"edge"`
+	Edge graph.Edge `json:"edge" msgpack:"edge"`
 }
 
-// RemoveEdgePayload removes the edge matching the given source and target handles, if
-// present.
+// RemoveEdgePayload removes the edge with the given key, if present.
 type RemoveEdgePayload struct {
+	Key string `json:"key" msgpack:"key"`
+}
+
+// ReconnectEdgePayload rewrites the endpoints of the edge with the given key,
+// preserving its key and kind. No-op when no edge with the key exists.
+type ReconnectEdgePayload struct {
+	Key    string    `json:"key" msgpack:"key"`
 	Source ir.Handle `json:"source" msgpack:"source"`
 	Target ir.Handle `json:"target" msgpack:"target"`
 }
@@ -123,6 +131,7 @@ type Action struct {
 	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
 	AddEdge         *AddEdgePayload         `json:"add_edge,omitempty" msgpack:"add_edge,omitempty"`
 	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
+	ReconnectEdge   *ReconnectEdgePayload   `json:"reconnect_edge,omitempty" msgpack:"reconnect_edge,omitempty"`
 	InsertChar      *InsertCharPayload      `json:"insert_char,omitempty" msgpack:"insert_char,omitempty"`
 	DeleteChar      *DeleteCharPayload      `json:"delete_char,omitempty" msgpack:"delete_char,omitempty"`
 	ForgetChars     *ForgetCharsPayload     `json:"forget_chars,omitempty" msgpack:"forget_chars,omitempty"`
@@ -177,6 +186,11 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveEdge.Handle(state)
+		case ActionTypeReconnectEdge:
+			if a.ReconnectEdge == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.ReconnectEdge.Handle(state)
 		case ActionTypeInsertChar:
 			if a.InsertChar == nil {
 				return state, union.MissingPayload(a.Type)
@@ -240,6 +254,11 @@ func NewAddEdgeAction(p AddEdgePayload) Action {
 // NewRemoveEdgeAction wraps a RemoveEdgePayload in an Action envelope.
 func NewRemoveEdgeAction(p RemoveEdgePayload) Action {
 	return Action{Type: ActionTypeRemoveEdge, RemoveEdge: &p}
+}
+
+// NewReconnectEdgeAction wraps a ReconnectEdgePayload in an Action envelope.
+func NewReconnectEdgeAction(p ReconnectEdgePayload) Action {
+	return Action{Type: ActionTypeReconnectEdge, ReconnectEdge: &p}
 }
 
 // NewInsertCharAction wraps a InsertCharPayload in an Action envelope.

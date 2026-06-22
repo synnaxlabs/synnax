@@ -28,7 +28,7 @@ beforeAll(async () => {
 
 const N1 = "n1";
 const N2 = "n2";
-const EDGE_KEY = arc.ir.edgeKey({ node: N1, param: "out" }, { node: N2, param: "in" });
+const EDGE_KEY = "edge-n1-n2";
 
 const createGraphArc = async (): Promise<arc.Arc> =>
   await client.arcs.create({
@@ -41,6 +41,7 @@ const createGraphArc = async (): Promise<arc.Arc> =>
       ],
       edges: [
         {
+          key: EDGE_KEY,
           source: { node: N1, param: "out" },
           target: { node: N2, param: "in" },
           kind: arc.ir.EdgeKind.continuous,

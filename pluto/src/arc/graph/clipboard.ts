@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
+import { uuid } from "@synnaxlabs/x";
 
 import { type FluxSubStore, useDispatch } from "@/arc/queries";
 import { Flux } from "@/flux";
@@ -30,9 +31,9 @@ export const useClipboard = ({
 }: UseClipboardArgs): Diagram.UseClipboardReturn => {
   const { dispatch } = useDispatch();
   const store = Flux.useStore<FluxSubStore>();
-  const adapter: Diagram.ClipboardAdapter<arc.graph.Node, arc.ir.Edge> = {
+  const adapter: Diagram.ClipboardAdapter<arc.graph.Node, arc.graph.Edge> = {
     mime: MIME,
-    edgeKey: (edge) => arc.ir.edgeKey(edge.source, edge.target),
+    edgeKey: (edge) => edge.key,
     getSnapshot: () => {
       const a = store.arcs.get(key);
       if (a == null) return null;
@@ -47,7 +48,8 @@ export const useClipboard = ({
         actions.push(arc.setNode({ node }));
         if (config != null) actions.push(arc.setNodeConfig({ key: node.key, config }));
       }
-      for (const { edge } of edges) actions.push(arc.addEdge({ edge }));
+      for (const { edge } of edges)
+        actions.push(arc.addEdge({ edge: { ...edge, key: uuid.create() } }));
       dispatch({ key, actions });
       onPaste?.(newKeys);
     },

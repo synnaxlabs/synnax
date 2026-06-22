@@ -13,6 +13,7 @@ package v56
 
 import (
 	"context"
+	uuid "github.com/google/uuid"
 	graph "github.com/synnaxlabs/arc/graph"
 	ir "github.com/synnaxlabs/arc/ir"
 	irv56 "github.com/synnaxlabs/arc/ir/migrations/v56"
@@ -28,7 +29,7 @@ func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
 			return graph.Graph{}, err
 		}
 	}
-	edges := make(ir.Edges, len(old.Edges))
+	edges := make(graph.Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
 		if edges[i], err = AutoMigrateEdge(ctx, v); err != nil {
@@ -59,11 +60,14 @@ func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
 	}, nil
 }
 
-func AutoMigrateEdge(_ context.Context, old irv56.Edge) (ir.Edge, error) {
-	return ir.Edge{
-		Source: ir.Handle(old.Source),
-		Target: ir.Handle(old.Target),
-		Kind:   ir.EdgeKind(old.Kind),
+func AutoMigrateEdge(_ context.Context, old irv56.Edge) (graph.Edge, error) {
+	return graph.Edge{
+		Edge: ir.Edge{
+			Source: ir.Handle(old.Source),
+			Target: ir.Handle(old.Target),
+			Kind:   ir.EdgeKind(old.Kind),
+		},
+		Key: uuid.NewString(),
 	}, nil
 }
 

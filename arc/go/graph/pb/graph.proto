@@ -29,13 +29,27 @@ message Node {
   .x.spatial.pb.XY position = 2;
 }
 
+// Edge is a dataflow connection between node parameters carrying a stable identifier.
+// The key persists across endpoint edits, distinguishing the editable graph edge from
+// the keyless ir.Edge consumed by the compiler.
+message Edge {
+  // source is the source node parameter producing data.
+  .arc.ir.pb.Handle source = 1;
+  // target is the target node parameter consuming data.
+  .arc.ir.pb.Handle target = 2;
+  // kind defines execution semantics for this connection.
+  .arc.ir.pb.EdgeKind kind = 3;
+  // key is the stable identifier for this edge within the graph.
+  string key = 4;
+}
+
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.
 message Graph {
   // functions contains function definitions available in this graph.
   repeated .arc.ir.pb.Function functions = 1;
   // edges contains dataflow connections between node parameters.
-  repeated .arc.ir.pb.Edge edges = 2;
+  repeated Edge edges = 2;
   // nodes contains visual nodes with canvas positions.
   repeated Node nodes = 3;
   // configs contains per-node configuration keyed by node key. Each value is a JSON

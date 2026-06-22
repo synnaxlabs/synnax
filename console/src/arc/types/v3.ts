@@ -93,6 +93,7 @@ export const ZERO_SLICE_STATE: SliceState = {
 const buildPendingGraph = (state: v2.State): arc.graph.Graph => ({
   nodes: state.graph.nodes.map((n) => ({ key: n.key, position: n.position })),
   edges: state.graph.edges.map((e) => ({
+    key: e.key,
     source: e.source,
     target: e.target,
     kind: arc.ir.EdgeKind.continuous,

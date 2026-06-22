@@ -92,6 +92,81 @@ func (x *Node) GetPosition() *pb.XY {
 	return nil
 }
 
+// Edge is a dataflow connection between node parameters carrying a stable identifier.
+// The key persists across endpoint edits, distinguishing the editable graph edge from
+// the keyless ir.Edge consumed by the compiler.
+type Edge struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// source is the source node parameter producing data.
+	Source *pb1.Handle `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	// target is the target node parameter consuming data.
+	Target *pb1.Handle `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	// kind defines execution semantics for this connection.
+	Kind pb1.EdgeKind `protobuf:"varint,3,opt,name=kind,proto3,enum=arc.ir.pb.EdgeKind" json:"kind,omitempty"`
+	// key is the stable identifier for this edge within the graph.
+	Key           string `protobuf:"bytes,4,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Edge) Reset() {
+	*x = Edge{}
+	mi := &file_arc_go_graph_pb_graph_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Edge) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Edge) ProtoMessage() {}
+
+func (x *Edge) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_graph_pb_graph_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Edge.ProtoReflect.Descriptor instead.
+func (*Edge) Descriptor() ([]byte, []int) {
+	return file_arc_go_graph_pb_graph_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Edge) GetSource() *pb1.Handle {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *Edge) GetTarget() *pb1.Handle {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
+func (x *Edge) GetKind() pb1.EdgeKind {
+	if x != nil {
+		return x.Kind
+	}
+	return pb1.EdgeKind(0)
+}
+
+func (x *Edge) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.
 type Graph struct {
@@ -99,7 +174,7 @@ type Graph struct {
 	// functions contains function definitions available in this graph.
 	Functions []*pb1.Function `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
 	// edges contains dataflow connections between node parameters.
-	Edges []*pb1.Edge `protobuf:"bytes,2,rep,name=edges,proto3" json:"edges,omitempty"`
+	Edges []*Edge `protobuf:"bytes,2,rep,name=edges,proto3" json:"edges,omitempty"`
 	// nodes contains visual nodes with canvas positions.
 	Nodes []*Node `protobuf:"bytes,3,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	// configs contains per-node configuration keyed by node key. Each value is a JSON
@@ -113,7 +188,7 @@ type Graph struct {
 
 func (x *Graph) Reset() {
 	*x = Graph{}
-	mi := &file_arc_go_graph_pb_graph_proto_msgTypes[1]
+	mi := &file_arc_go_graph_pb_graph_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -125,7 +200,7 @@ func (x *Graph) String() string {
 func (*Graph) ProtoMessage() {}
 
 func (x *Graph) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_graph_pb_graph_proto_msgTypes[1]
+	mi := &file_arc_go_graph_pb_graph_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -138,7 +213,7 @@ func (x *Graph) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Graph.ProtoReflect.Descriptor instead.
 func (*Graph) Descriptor() ([]byte, []int) {
-	return file_arc_go_graph_pb_graph_proto_rawDescGZIP(), []int{1}
+	return file_arc_go_graph_pb_graph_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Graph) GetFunctions() []*pb1.Function {
@@ -148,7 +223,7 @@ func (x *Graph) GetFunctions() []*pb1.Function {
 	return nil
 }
 
-func (x *Graph) GetEdges() []*pb1.Edge {
+func (x *Graph) GetEdges() []*Edge {
 	if x != nil {
 		return x.Edges
 	}
@@ -176,10 +251,15 @@ const file_arc_go_graph_pb_graph_proto_rawDesc = "" +
 	"\x1barc/go/graph/pb/graph.proto\x12\farc.graph.pb\x1a\x15arc/go/ir/pb/ir.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"F\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
-	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\"\x9c\x02\n" +
+	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\"\x97\x01\n" +
+	"\x04Edge\x12)\n" +
+	"\x06source\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x06source\x12)\n" +
+	"\x06target\x18\x02 \x01(\v2\x11.arc.ir.pb.HandleR\x06target\x12'\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\x12\x10\n" +
+	"\x03key\x18\x04 \x01(\tR\x03key\"\x9f\x02\n" +
 	"\x05Graph\x121\n" +
-	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12%\n" +
-	"\x05edges\x18\x02 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x12(\n" +
+	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12(\n" +
+	"\x05edges\x18\x02 \x03(\v2\x12.arc.graph.pb.EdgeR\x05edges\x12(\n" +
 	"\x05nodes\x18\x03 \x03(\v2\x12.arc.graph.pb.NodeR\x05nodes\x12:\n" +
 	"\aconfigs\x18\x04 \x03(\v2 .arc.graph.pb.Graph.ConfigsEntryR\aconfigs\x1aS\n" +
 	"\fConfigsEntry\x12\x10\n" +
@@ -200,28 +280,33 @@ func file_arc_go_graph_pb_graph_proto_rawDescGZIP() []byte {
 	return file_arc_go_graph_pb_graph_proto_rawDescData
 }
 
-var file_arc_go_graph_pb_graph_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_arc_go_graph_pb_graph_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_arc_go_graph_pb_graph_proto_goTypes = []any{
 	(*Node)(nil),            // 0: arc.graph.pb.Node
-	(*Graph)(nil),           // 1: arc.graph.pb.Graph
-	nil,                     // 2: arc.graph.pb.Graph.ConfigsEntry
-	(*pb.XY)(nil),           // 3: x.spatial.pb.XY
-	(*pb1.Function)(nil),    // 4: arc.ir.pb.Function
-	(*pb1.Edge)(nil),        // 5: arc.ir.pb.Edge
-	(*structpb.Struct)(nil), // 6: google.protobuf.Struct
+	(*Edge)(nil),            // 1: arc.graph.pb.Edge
+	(*Graph)(nil),           // 2: arc.graph.pb.Graph
+	nil,                     // 3: arc.graph.pb.Graph.ConfigsEntry
+	(*pb.XY)(nil),           // 4: x.spatial.pb.XY
+	(*pb1.Handle)(nil),      // 5: arc.ir.pb.Handle
+	(pb1.EdgeKind)(0),       // 6: arc.ir.pb.EdgeKind
+	(*pb1.Function)(nil),    // 7: arc.ir.pb.Function
+	(*structpb.Struct)(nil), // 8: google.protobuf.Struct
 }
 var file_arc_go_graph_pb_graph_proto_depIdxs = []int32{
-	3, // 0: arc.graph.pb.Node.position:type_name -> x.spatial.pb.XY
-	4, // 1: arc.graph.pb.Graph.functions:type_name -> arc.ir.pb.Function
-	5, // 2: arc.graph.pb.Graph.edges:type_name -> arc.ir.pb.Edge
-	0, // 3: arc.graph.pb.Graph.nodes:type_name -> arc.graph.pb.Node
-	2, // 4: arc.graph.pb.Graph.configs:type_name -> arc.graph.pb.Graph.ConfigsEntry
-	6, // 5: arc.graph.pb.Graph.ConfigsEntry.value:type_name -> google.protobuf.Struct
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	4, // 0: arc.graph.pb.Node.position:type_name -> x.spatial.pb.XY
+	5, // 1: arc.graph.pb.Edge.source:type_name -> arc.ir.pb.Handle
+	5, // 2: arc.graph.pb.Edge.target:type_name -> arc.ir.pb.Handle
+	6, // 3: arc.graph.pb.Edge.kind:type_name -> arc.ir.pb.EdgeKind
+	7, // 4: arc.graph.pb.Graph.functions:type_name -> arc.ir.pb.Function
+	1, // 5: arc.graph.pb.Graph.edges:type_name -> arc.graph.pb.Edge
+	0, // 6: arc.graph.pb.Graph.nodes:type_name -> arc.graph.pb.Node
+	3, // 7: arc.graph.pb.Graph.configs:type_name -> arc.graph.pb.Graph.ConfigsEntry
+	8, // 8: arc.graph.pb.Graph.ConfigsEntry.value:type_name -> google.protobuf.Struct
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_graph_pb_graph_proto_init() }
@@ -235,7 +320,7 @@ func file_arc_go_graph_pb_graph_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_graph_pb_graph_proto_rawDesc), len(file_arc_go_graph_pb_graph_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

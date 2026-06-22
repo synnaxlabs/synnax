@@ -31,20 +31,27 @@ describe("arc gesture converters", () => {
   });
 
   describe("edgeChangesToActions", () => {
-    it("maps an add change to add_edge with a continuous kind", () => {
+    it("maps an add change to add_edge carrying the edge key and a continuous kind", () => {
       const source = handle("a", "out");
       const target = handle("b", "in");
-      const edge = { key: arc.ir.edgeKey(source, target), source, target };
+      const edge = { key: "e1", source, target };
       expect(edgeChangesToActions([{ type: "add", edge }])).toEqual([
-        arc.addEdge({ edge: { source, target, kind: arc.ir.EdgeKind.continuous } }),
+        arc.addEdge({
+          edge: { key: "e1", source, target, kind: arc.ir.EdgeKind.continuous },
+        }),
       ]);
     });
-    it("recovers the endpoints from the diagram key on remove", () => {
+    it("maps a remove change to remove_edge by key", () => {
+      expect(edgeChangesToActions([{ type: "remove", key: "e1" }])).toEqual([
+        arc.removeEdge({ key: "e1" }),
+      ]);
+    });
+    it("maps a reconnect change to reconnect_edge", () => {
       const source = handle("a", "out");
-      const target = handle("b", "in");
+      const target = handle("c", "in");
       expect(
-        edgeChangesToActions([{ type: "remove", key: arc.ir.edgeKey(source, target) }]),
-      ).toEqual([arc.removeEdge({ source, target })]);
+        edgeChangesToActions([{ type: "reconnect", key: "e1", source, target }]),
+      ).toEqual([arc.reconnectEdge({ key: "e1", source, target })]);
     });
   });
 });

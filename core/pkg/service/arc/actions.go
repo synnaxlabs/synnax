@@ -13,7 +13,7 @@ import (
 	"maps"
 	"sync"
 
-	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -86,7 +86,7 @@ func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 		}
 	}
 	delete(state.Graph.Configs, p.Key)
-	kept := make(ir.Edges, 0, len(state.Graph.Edges))
+	kept := make(graph.Edges, 0, len(state.Graph.Edges))
 	for _, e := range state.Graph.Edges {
 		if e.Source.Node == p.Key || e.Target.Node == p.Key {
 			continue
@@ -109,7 +109,8 @@ func (p InsertCharPayload) Handle(state Arc) (Arc, error) {
 }
 
 // Handle appends the edge to the graph. No-op when an edge with the same source
-// and target handles already exists.
+// and target handles already exists, so concurrent additions of the same
+// connection converge regardless of differing keys.
 func (p AddEdgePayload) Handle(state Arc) (Arc, error) {
 	for _, e := range state.Graph.Edges {
 		if e.Source == p.Edge.Source && e.Target == p.Edge.Target {
@@ -120,17 +121,29 @@ func (p AddEdgePayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle removes the edge matching the given source and target handles, if
-// present.
+// Handle removes the edge with the given key, if present.
 func (p RemoveEdgePayload) Handle(state Arc) (Arc, error) {
-	kept := make(ir.Edges, 0, len(state.Graph.Edges))
+	kept := make(graph.Edges, 0, len(state.Graph.Edges))
 	for _, e := range state.Graph.Edges {
-		if e.Source == p.Source && e.Target == p.Target {
+		if e.Key == p.Key {
 			continue
 		}
 		kept = append(kept, e)
 	}
 	state.Graph.Edges = kept
+	return state, nil
+}
+
+// Handle rewrites the endpoints of the edge with the given key, preserving its
+// key and kind. No-op when no edge with the key exists.
+func (p ReconnectEdgePayload) Handle(state Arc) (Arc, error) {
+	for i := range state.Graph.Edges {
+		if state.Graph.Edges[i].Key == p.Key {
+			state.Graph.Edges[i].Source = p.Source
+			state.Graph.Edges[i].Target = p.Target
+			break
+		}
+	}
 	return state, nil
 }
 

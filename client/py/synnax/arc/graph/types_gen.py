@@ -34,7 +34,21 @@ class Node(BaseModel):
     position: spatial.XY
 
 
+class Edge(ir.Edge):
+    """Is a dataflow connection between node parameters carrying a stable
+    identifier. The key persists across endpoint edits, distinguishing the
+    editable graph edge from the keyless ir.Edge consumed by the compiler.
+
+    Attributes:
+        key: Is the stable identifier for this edge within the graph.
+    """
+
+    key: str
+
+
 Nodes: TypeAlias = list[Node]
+
+Edges: TypeAlias = list[Edge]
 
 
 class Graph(BaseModel):
@@ -52,6 +66,6 @@ class Graph(BaseModel):
     """
 
     functions: ir.Functions = Field(default_factory=list)
-    edges: ir.Edges = Field(default_factory=list)
+    edges: Edges = Field(default_factory=list)
     nodes: Nodes = Field(default_factory=list)
     configs: dict[str, dict[str, Any]] = Field(default_factory=dict)

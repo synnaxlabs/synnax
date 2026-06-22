@@ -45,6 +45,7 @@ describe("Arc queries", () => {
         ],
         edges: [
           {
+            key: "edge1",
             source: { node: "n1", param: "out" },
             target: { node: "n2", param: "in" },
             kind: arc.ir.EdgeKind.continuous,
@@ -927,9 +928,7 @@ describe("Arc queries", () => {
       });
       expect(result.current).toHaveLength(1);
       const edge = result.current[0];
-      expect(edge.key).toBe(
-        arc.ir.edgeKey({ node: "n1", param: "out" }, { node: "n2", param: "in" }),
-      );
+      expect(edge.key).toBe("edge1");
       expect(edge.source).toEqual({ node: "n1", param: "out" });
       expect(edge.target).toEqual({ node: "n2", param: "in" });
     });
@@ -1038,6 +1037,7 @@ describe("Arc queries", () => {
           actions: [
             arc.addEdge({
               edge: {
+                key: "edge2",
                 source: { node: "n2", param: "out" },
                 target: { node: "n1", param: "in" },
                 kind: arc.ir.EdgeKind.continuous,

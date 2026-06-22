@@ -81,11 +81,11 @@ var _ = Describe("CompileProgram", func() {
 				Configs: map[string]msgpack.EncodedJSON{
 					"src": {"type": "source"},
 				},
-				Edges: []ir.Edge{
-					{
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "nonexistent", Param: "input"},
-					},
+					}},
 				},
 			},
 		}

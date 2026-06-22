@@ -50,6 +50,41 @@ Node::from_proto(const ::arc::graph::pb::Node &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::arc::graph::pb::Edge, x::errors::Error> Edge::to_proto() const {
+    ::arc::graph::pb::Edge pb;
+    {
+        auto [v, err] = this->source.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_source() = v;
+    }
+    {
+        auto [v, err] = this->target.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_target() = v;
+    }
+    pb.set_kind(static_cast<::arc::ir::pb::EdgeKind>(this->kind));
+    pb.set_key(this->key);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Edge, x::errors::Error>
+Edge::from_proto(const ::arc::graph::pb::Edge &pb) {
+    Edge cpp;
+    {
+        auto [v, err] = ::arc::ir::Handle::from_proto(pb.source());
+        if (err) return {{}, err};
+        cpp.source = v;
+    }
+    {
+        auto [v, err] = ::arc::ir::Handle::from_proto(pb.target());
+        if (err) return {{}, err};
+        cpp.target = v;
+    }
+    cpp.kind = static_cast<::arc::ir::EdgeKind>(pb.kind());
+    cpp.key = pb.key();
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::arc::graph::pb::Graph, x::errors::Error> Graph::to_proto() const {
     ::arc::graph::pb::Graph pb;
     for (const auto &item: this->functions) {
@@ -83,7 +118,7 @@ Graph::from_proto(const ::arc::graph::pb::Graph &pb) {
             pb.functions()
         ))
         return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<::arc::ir::Edge>(cpp.edges, pb.edges()))
+    if (auto err = x::pb::from_proto_repeated<Edge>(cpp.edges, pb.edges()))
         return {{}, err};
     if (auto err = x::pb::from_proto_repeated<Node>(cpp.nodes, pb.nodes()))
         return {{}, err};

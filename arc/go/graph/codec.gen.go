@@ -19,6 +19,39 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+func (e Edge) EncodeOrc(w *orc.Writer) error {
+	if err := e.Source.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := e.Target.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Int64(int64(e.Kind))
+	w.String(e.Key)
+	return nil
+}
+
+func (e *Edge) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = e.Source.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = e.Target.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		v, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		e.Kind = ir.EdgeKind(v)
+	}
+	if e.Key, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (g Graph) EncodeOrc(w *orc.Writer) error {
 	w.Bool(g.Functions != nil)
 	if g.Functions != nil {
@@ -93,7 +126,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			g.Edges = make([]ir.Edge, n)
+			g.Edges = make([]Edge, n)
 			for i := range g.Edges {
 				if err = g.Edges[i].DecodeOrc(r); err != nil {
 					return err

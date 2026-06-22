@@ -71,15 +71,18 @@ var _ = Describe("Codec", func() {
 							},
 						},
 					},
-					Edges: []ir.Edge{
+					Edges: []graph.Edge{
 						{
-							Source: ir.Handle{Node: "test_22", Param: "test_23"},
-							Target: ir.Handle{Node: "test_25", Param: "test_26"},
-							Kind:   ir.EdgeKind(0),
+							Edge: ir.Edge{
+								Source: ir.Handle{Node: "test_22", Param: "test_23"},
+								Target: ir.Handle{Node: "test_25", Param: "test_26"},
+								Kind:   ir.EdgeKind(0),
+							},
+							Key: "test_28",
 						},
 					},
-					Nodes:   []graph.Node{{Key: "test_29", Position: spatial.XY{X: 31.5, Y: 32.5}}},
-					Configs: map[string]msgpack.EncodedJSON{"test_33": {"key_33": "value_33"}},
+					Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+					Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 				},
 				Text: text.Text{
 					Doc: text.Document{
@@ -88,7 +91,7 @@ var _ = Describe("Codec", func() {
 								ID:     crdt.ID{},
 								Origin: crdt.ID{},
 								Side:   spatial.XLocation("left"),
-								Char:   41,
+								Char:   42,
 							},
 						},
 						Deletes: []crdt.Delete{{ID: crdt.ID{}}},
@@ -156,15 +159,18 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 					},
 				},
 			},
-			Edges: []ir.Edge{
+			Edges: []graph.Edge{
 				{
-					Source: ir.Handle{Node: "test_22", Param: "test_23"},
-					Target: ir.Handle{Node: "test_25", Param: "test_26"},
-					Kind:   ir.EdgeKind(0),
+					Edge: ir.Edge{
+						Source: ir.Handle{Node: "test_22", Param: "test_23"},
+						Target: ir.Handle{Node: "test_25", Param: "test_26"},
+						Kind:   ir.EdgeKind(0),
+					},
+					Key: "test_28",
 				},
 			},
-			Nodes:   []graph.Node{{Key: "test_29", Position: spatial.XY{X: 31.5, Y: 32.5}}},
-			Configs: map[string]msgpack.EncodedJSON{"test_33": {"key_33": "value_33"}},
+			Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+			Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 		},
 		Text: text.Text{
 			Doc: text.Document{
@@ -173,7 +179,7 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 						ID:     crdt.ID{},
 						Origin: crdt.ID{},
 						Side:   spatial.XLocation("left"),
-						Char:   41,
+						Char:   42,
 					},
 				},
 				Deletes: []crdt.Delete{{ID: crdt.ID{}}},
@@ -243,15 +249,18 @@ func FuzzDecodeArc(f *testing.F) {
 						},
 					},
 				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
-						Source: ir.Handle{Node: "test_22", Param: "test_23"},
-						Target: ir.Handle{Node: "test_25", Param: "test_26"},
-						Kind:   ir.EdgeKind(0),
+						Edge: ir.Edge{
+							Source: ir.Handle{Node: "test_22", Param: "test_23"},
+							Target: ir.Handle{Node: "test_25", Param: "test_26"},
+							Kind:   ir.EdgeKind(0),
+						},
+						Key: "test_28",
 					},
 				},
-				Nodes:   []graph.Node{{Key: "test_29", Position: spatial.XY{X: 31.5, Y: 32.5}}},
-				Configs: map[string]msgpack.EncodedJSON{"test_33": {"key_33": "value_33"}},
+				Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+				Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 			},
 			Text: text.Text{
 				Doc: text.Document{
@@ -260,7 +269,7 @@ func FuzzDecodeArc(f *testing.F) {
 							ID:     crdt.ID{},
 							Origin: crdt.ID{},
 							Side:   spatial.XLocation("left"),
-							Char:   41,
+							Char:   42,
 						},
 					},
 					Deletes: []crdt.Delete{{ID: crdt.ID{}}},

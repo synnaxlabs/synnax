@@ -36,11 +36,27 @@ Nodes Node[] {
     @doc value "is a collection of visual nodes in an Arc graph."
 }
 
+Edge struct extends ir.Edge {
+    key string {
+        @doc value "is the stable identifier for this edge within the graph."
+    }
+
+    @doc value """
+        is a dataflow connection between node parameters carrying a stable
+        identifier. The key persists across endpoint edits, distinguishing the
+        editable graph edge from the keyless ir.Edge consumed by the compiler.
+    """
+}
+
+Edges Edge[] {
+    @doc value "is a collection of graph edges in an Arc graph."
+}
+
 Graph struct {
     functions ir.Functions = [] {
         @doc value "contains function definitions available in this graph."
     }
-    edges     ir.Edges = [] {
+    edges     Edges = [] {
         @doc value "contains dataflow connections between node parameters."
     }
     nodes     Nodes = [] {

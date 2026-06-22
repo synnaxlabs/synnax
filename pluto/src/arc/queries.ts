@@ -29,13 +29,6 @@ import { Task } from "@/task";
 import { Theming } from "@/theming";
 import { type Diagram } from "@/vis/diagram";
 
-const edgesToDiagram = (edges: arc.ir.Edge[]): Diagram.Edge[] =>
-  edges.map((e) => ({
-    key: arc.ir.edgeKey(e.source, e.target),
-    source: e.source,
-    target: e.target,
-  }));
-
 export interface FluxStore extends Flux.UndoableUnaryStore<
   arc.Key,
   arc.Arc,
@@ -123,19 +116,17 @@ export const useSelectNodes = Flux.createSelector<
   select: (store, { key }) => requireArc(store, key).graph.nodes,
 });
 
-// useSelectEdges returns the graph edges of the Arc with the given key as keyed
-// diagram edges. select returns the stored ir.Edge array by reference; transform
-// derives the keyed diagram edges and is memoized on that reference, so it only
-// re-runs when the edges actually change.
+// useSelectEdges returns the graph edges of the Arc with the given key as diagram
+// edges. graph.Edge is a structural superset of Diagram.Edge, so the stored array
+// is returned by reference with no translation, keeping selections referentially
+// stable across unrelated store updates.
 export const useSelectEdges = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
-  Diagram.Edge[],
-  arc.ir.Edge[]
+  Diagram.Edge[]
 >({
   subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
   select: (store, { key }) => requireArc(store, key).graph.edges,
-  transform: edgesToDiagram,
 });
 
 export interface SelectNodePropsArgs {
