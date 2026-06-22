@@ -21,20 +21,17 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	dist       mock.Node
-	channelSvc *channel.Service
-)
+var channelSvc *channel.Service
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = mock.MustOpenNode(ctx)
+	node := mock.MustOpenNode(ctx)
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostResolver: dist.Cluster,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		Search:       dist.Search,
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
 	}))
 })
 
@@ -126,7 +123,7 @@ var _ = Describe("Compile", func() {
 		}
 		// Bypass analysis on create so the invalid expression reaches the compiler,
 		// which is the component under test here.
-		Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, &calc)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
 		Expect(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,

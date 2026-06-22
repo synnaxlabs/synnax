@@ -35,13 +35,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
-// NewWriterNoAnalysis returns a Writer that persists channels without inferring
-// calculated-channel data types. The calculation graph uses it to write DataType
-// repairs it has already computed, avoiding redundant re-analysis.
-func (s *Service) NewWriterNoAnalysis(tx gorp.Tx) Writer {
-	return Writer{svc: s, tx: s.db.OverrideTx(tx)}
-}
-
 type CreateOptions struct {
 	RetrieveIfNameExists                        bool
 	OverwriteIfNameExistsAndDifferentProperties bool
@@ -78,17 +71,15 @@ func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 	if len(*channels) == 0 {
 		return nil
 	}
-	if w.analyzer != nil {
-		for i, ch := range *channels {
-			if !ch.IsCalculated() {
-				continue
-			}
-			result, err := w.analyzer.Analyze(ctx, ch)
-			if err != nil {
-				return err
-			}
-			(*channels)[i].DataType = result.ChanDataType
+	for i, ch := range *channels {
+		if !ch.IsCalculated() {
+			continue
 		}
+		result, err := w.analyzer.Analyze(ctx, ch)
+		if err != nil {
+			return err
+		}
+		(*channels)[i].DataType = result.ChanDataType
 	}
 	var o CreateOptions
 	for _, opt := range opts {

@@ -65,10 +65,15 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should detect circular dependencies", func(ctx SpecContext) {
-			calc1 := channel.Channel{Name: "circ1", DataType: telem.Int64T, Virtual: true, Expression: "return circ2"}
-			Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, &calc1)).To(Succeed())
+			// A cycle cannot be created directly (create-time analysis rejects the forward
+			// reference), so create both channels with resolvable expressions and then
+			// update one to close the cycle, the only way it can arise in practice.
+			calc1 := channel.Channel{Name: "circ1", DataType: telem.Int64T, Virtual: true, Expression: "return 1"}
+			Expect(channelSvc.Create(ctx, &calc1)).To(Succeed())
 			calc2 := channel.Channel{Name: "circ2", DataType: telem.Int64T, Virtual: true, Expression: "return circ1"}
-			Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, &calc2)).To(Succeed())
+			Expect(channelSvc.Create(ctx, &calc2)).To(Succeed())
+			calc1.Expression = "return circ2"
+			Expect(channelSvc.Create(ctx, &calc1)).To(Succeed())
 			Expect(g.Add(ctx, calc1)).To(MatchError(ContainSubstring("circular dependency")))
 		})
 
@@ -769,7 +774,7 @@ var _ = Describe("Graph", func() {
 				Virtual:    true,
 				Expression: "return invalid_syntax {{",
 			}
-			Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, &calc)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).Error().To(MatchError(ContainSubstring("bad_calc_add")))
 		})
 
@@ -785,7 +790,7 @@ var _ = Describe("Graph", func() {
 			Expect(channelSvc.Create(ctx, &calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			calc.Expression = "return invalid_syntax {{"
-			Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, &calc)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
 			Expect(g.Update(ctx, calc)).Error().To(MatchError(ContainSubstring("bad_calc_update")))
 		})
 	})

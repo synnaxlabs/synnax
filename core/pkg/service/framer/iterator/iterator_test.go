@@ -343,29 +343,31 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				})
 
 				It("Should detect circular dependencies", func(ctx SpecContext) {
-					// This test verifies that circular dependencies are caught by the topological sort
-					// Create a simple 2-node cycle: A → B → A
+					// Form a 2-node cycle calc_circ_a -> calc_circ_b -> calc_circ_a. A cycle
+					// cannot be created directly because create-time analysis rejects the
+					// forward reference, so we build it the only way it can occur in
+					// practice: create both channels with resolvable expressions, then
+					// update one to close the cycle. Analysis resolves symbols but does not
+					// detect cycles, so the cyclic state persists for the iterator's
+					// topological sort to catch.
+					calcA := &channel.Channel{
+						Name:       "calc_circ_a",
+						DataType:   telem.Float32T,
+						Expression: "return 1",
+					}
+					Expect(channelSvc.Create(ctx, calcA)).To(Succeed())
 
-					// Create calc_circ_b that depends on calc_circ_a (doesn't exist yet, but Arc allows it)
 					calcB := &channel.Channel{
 						Name:       "calc_circ_b",
 						DataType:   telem.Float32T,
 						Expression: "return calc_circ_a + 1",
 					}
-					// Bypass create-time analysis: these channels intentionally form a
-					// cycle (and forward-reference), which the iterator's topological
-					// sort is what's under test.
-					Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, calcB)).To(Succeed())
+					Expect(channelSvc.Create(ctx, calcB)).To(Succeed())
 
-					// Create calc_circ_a that depends on calc_circ_b (creating the cycle)
-					calcA := &channel.Channel{
-						Name:       "calc_circ_a",
-						DataType:   telem.Float32T,
-						Expression: "return calc_circ_b + 1",
-					}
-					Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, calcA)).To(Succeed())
+					calcA.Expression = "return calc_circ_b + 1"
+					Expect(channelSvc.Create(ctx, calcA)).To(Succeed())
 
-					// Now try to open an iterator - this should fail with circular dependency error
+					// Opening an iterator over the now-cyclic channel should fail.
 					Expect(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcA.Key()},
 						Bounds: telem.TimeRangeMax,

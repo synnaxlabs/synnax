@@ -487,7 +487,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			}}
 			// Bypass create-time analysis so the invalid expression reaches the
 			// calculation request manager, whose error-status handling is under test.
-			Expect(channelSvc.NewWriterNoAnalysis(nil).CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
@@ -517,7 +517,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			calcs[0].Expression = "invalid expression without return"
-			Expect(channelSvc.NewWriterNoAnalysis(nil).Create(ctx, &calcs[0])).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &calcs[0])).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
 			Eventually(func(g Gomega) {
@@ -539,7 +539,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Expression:  "invalid expression",
 			}}
-			Expect(channelSvc.NewWriterNoAnalysis(nil).CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status

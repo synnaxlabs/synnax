@@ -18,8 +18,13 @@ import (
 	"github.com/synnaxlabs/x/testutil"
 )
 
+// Node represents a single node in a cluster. It contains both the distribution layer
+// it uses to talk to other nodes and the storage layer it uses to persist data.
 type Node struct {
+	// Layer is the distribution layer for the node. It routes channel and frames to the
+	// appropriate nodes in the cluster.
 	*distribution.Layer
+	// Storage is the storage layer for the node. It persists frame data to this node.
 	Storage *storage.Layer
 	// owner is non-nil only for the Node returned by OpenNode, where the node owns its
 	// single-node cluster. When set, Close tears down the whole cluster (including
