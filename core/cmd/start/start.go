@@ -198,12 +198,8 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return ctx.Err()
 	}
 	var (
-		aspenTransport         = aspentransport.New(grpcClientPool)
-		distTransports         = disttransport.New(grpcClientPool)
-		distributionTransports = append(
-			[]grpc.BindableTransport{aspenTransport},
-			distTransports.BindableTransports()...,
-		)
+		aspenTransport = aspentransport.New(grpcClientPool)
+		distTransport  = disttransport.New(grpcClientPool)
 	)
 
 	if distributionLayer, err = distribution.OpenLayer(ctx, distribution.LayerConfig{
@@ -211,7 +207,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		AdvertiseAddress: cfg.listenAddress,
 		PeerAddresses:    cfg.peers,
 		AspenTransport:   aspenTransport,
-		Transport:        distTransports,
+		Transport:        distTransport,
 		Storage:          storageLayer,
 	}); !ok(err, distributionLayer) {
 		return err
@@ -268,7 +264,8 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 				},
 				&server.GRPCBranch{Transports: slices.Concat(
 					transportLayer.GRPC,
-					distributionTransports,
+					[]grpc.BindableTransport{aspenTransport},
+					distTransport.BindableTransports(),
 				)},
 				server.NewHTTPRedirectBranch(),
 			},
