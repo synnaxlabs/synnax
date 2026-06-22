@@ -13,12 +13,10 @@ from alamos import Instrumentation
 from freighter import (
     URL,
     AsyncMiddleware,
-    AsyncStreamClient,
     AsyncWebsocketClient,
     HTTPClient,
     JSONCodec,
     Middleware,
-    MsgPackCodec,
     UnaryClient,
     WebsocketClient,
     async_instrumentation_middleware,
@@ -30,7 +28,7 @@ from synnax.telem import Size, TimeSpan
 class Transport:
     url: URL
     stream: WebsocketClient
-    stream_async: AsyncStreamClient
+    stream_async: AsyncWebsocketClient
     unary: UnaryClient
     secure: bool
 
@@ -45,9 +43,10 @@ class Transport:
         max_retries: int = 3,
     ) -> None:
         self.url = url.child("/api/v1/")
+        codec = JSONCodec()
         ws_args = {
             "base_url": self.url,
-            "encoder": MsgPackCodec(),
+            "encoder": codec,
             "max_message_size": int(Size.MB * 5),
             "secure": secure,
             "open_timeout": open_timeout.seconds,
@@ -61,7 +60,7 @@ class Transport:
         self.stream_async = AsyncWebsocketClient(**ws_args)
         self.unary = HTTPClient(
             url=self.url,
-            codec=JSONCodec(),
+            codec=codec,
             secure=secure,
             timeout=Timeout(connect=open_timeout.seconds, read=read_timeout.seconds),
             retries=Retry(total=max_retries),
