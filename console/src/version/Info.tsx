@@ -16,7 +16,7 @@ import { z } from "zod";
 
 import { type Layout } from "@/layout";
 import { Runtime } from "@/runtime";
-import { useSelectVersion } from "@/version/selectors";
+import { use } from "@/version/use";
 
 export const INFO_LAYOUT_TYPE = "versionInfo";
 
@@ -105,7 +105,7 @@ const { useUpdate } = Flux.createUpdate<
 });
 
 export const Info: Layout.Renderer = () => {
-  const version = useSelectVersion();
+  const version = use();
   const availableQuery = useRetrieveUpdateAvailable({});
   const updateQuery = useUpdate();
   let totalSize: Size = Size.bytes(0);

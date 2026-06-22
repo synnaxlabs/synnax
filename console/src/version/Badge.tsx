@@ -15,11 +15,11 @@ import { type ReactElement } from "react";
 import { Layout } from "@/layout";
 import { Runtime } from "@/runtime";
 import { INFO_LAYOUT } from "@/version/Info";
-import { useSelectVersion } from "@/version/selectors";
 import { useCheckForUpdates } from "@/version/Updater";
+import { use } from "@/version/use";
 
 export const Badge = (): ReactElement => {
-  const version = useSelectVersion();
+  const version = use();
   const placeLayout = Layout.usePlacer();
   const updateAvailable = useCheckForUpdates();
   return (
