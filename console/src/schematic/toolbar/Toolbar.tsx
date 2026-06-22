@@ -52,7 +52,7 @@ const NotEditableContent = (): ReactElement => {
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus();
   const { isCurrentlyEditable, canEdit } = useSelectEditable();
-  const name = Schematic.useSelectName({});
+  const name = Schematic.useSelectName();
   return (
     <EmptyAction
       x
@@ -75,7 +75,7 @@ const Internal = (): ReactElement | null => {
   const key = Schematic.useKey();
   const dispatch = useDispatch();
   const activeTab = useSelectActiveToolbarTab();
-  const name = Schematic.useSelectName({});
+  const name = Schematic.useSelectName();
   const { isCurrentlyEditable, canEdit } = useSelectEditable();
   const handleExport = useExport();
   const selected = useSelectSelected();

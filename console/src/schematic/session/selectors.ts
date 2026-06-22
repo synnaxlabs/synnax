@@ -104,7 +104,7 @@ export const useSelectEditable = (
   overrideKey?: schematic.Key,
 ): UseSelectEditableReturn => {
   const key = Schematic.useKey(overrideKey);
-  const isSnapshot = Schematic.useSelectSnapshot({});
+  const isSnapshot = Schematic.useSelectSnapshot();
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(key));
   const editable = useSelectEditableBase();
   const canEdit = hasUpdatePermission && !isSnapshot;

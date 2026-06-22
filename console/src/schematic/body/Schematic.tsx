@@ -22,7 +22,7 @@ import { type RootState } from "@/store";
 
 const Internal: Layout.Renderer = ({ visible }) => {
   const key = Base.useKey();
-  const isSnapshot = Base.useSelectSnapshot({});
+  const isSnapshot = Base.useSelectSnapshot();
   const dispatch = useDispatch();
   const viewport = Session.useSelectViewport();
   const selected = Session.useSelectSelected();

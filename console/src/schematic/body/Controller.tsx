@@ -18,7 +18,7 @@ export interface ControllerProps extends PropsWithChildren {}
 export const Controller = memo(({ children }: ControllerProps): ReactElement => {
   const key = Schematic.useKey();
   const authority = Session.useSelectAuthority();
-  const name = Schematic.useSelectName({});
+  const name = Schematic.useSelectName();
   const dispatch = useDispatch();
   const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
   const username = user?.username ?? "";

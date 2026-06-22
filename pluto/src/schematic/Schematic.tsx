@@ -9,7 +9,6 @@
 
 import "@/schematic/Schematic.css";
 
-import { type schematic } from "@synnaxlabs/client";
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
@@ -76,9 +75,9 @@ export const Schematic = ({
   ...props
 }: SchematicProps): ReactElement => {
   const key = useKey();
-  const nodes = useSelectAllNodes({});
+  const nodes = useSelectAllNodes();
   const nodesRef = useSyncedRef(nodes);
-  const edges = useSelectAllEdges({});
+  const edges = useSelectAllEdges();
   const edgesRef = useSyncedRef(edges);
   const dispatch = useSingleDispatch();
   const handleNodesChange = useCallback(
