@@ -13,6 +13,7 @@ from typing import Protocol
 import msgpack
 from pydantic import BaseModel
 
+from freighter.file import FileCodec
 from freighter.transport import P
 
 
@@ -43,7 +44,7 @@ class Codec(Protocol):
         ...
 
 
-class MessagePackCodec(Codec):
+class MessagePackCodec(FileCodec):
     """A MessagePack implementation of Codec."""
 
     def content_type(self) -> str:
@@ -64,7 +65,7 @@ class MessagePackCodec(Codec):
         return pld_t.model_validate(msgpack.unpackb(data))
 
 
-class JSONCodec(Codec):
+class JSONCodec(FileCodec):
     """A JSON implementation of Codec."""
 
     def content_type(self) -> str:

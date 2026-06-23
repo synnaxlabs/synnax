@@ -14,8 +14,9 @@ import pytest
 from pydantic import BaseModel
 
 import freighter.exceptions
-from freighter.codec import Codec, JSONCodec, MessagePackCodec
+from freighter.codec import JSONCodec, MessagePackCodec
 from freighter.context import Context
+from freighter.file import FileCodec
 from freighter.http import HTTPClient
 from freighter.transport import AsyncNext, Next, P
 from freighter.url import URL
@@ -29,7 +30,7 @@ from freighter.websocket import Message as WebsocketMessage
 from .interface import Error, Message
 
 
-class MyVerySpecialCustomCodec(Codec):
+class MyVerySpecialCustomCodec(FileCodec):
     """A custom codec that uses JSON for encoding and decoding."""
 
     base = JSONCodec()
