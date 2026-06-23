@@ -22,8 +22,8 @@ const PRELOAD = TimeSpan.seconds(30);
 type UndoRedoMode = "undo" | "redo" | "default";
 
 const UNDO_REDO_CONFIG: Triggers.ModeConfig<UndoRedoMode> = {
-  undo: [["Control", "Z"]],
-  redo: [["Control", "Shift", "Z"]],
+  undo: [Triggers.UNDO],
+  redo: [Triggers.REDO],
   default: [],
   defaultMode: "default",
 };

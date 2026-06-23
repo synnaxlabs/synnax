@@ -29,13 +29,12 @@ import { Persist } from "@/persist";
 import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
-import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { Table } from "@/table";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
-  ...Schematic.PERSIST_EXCLUDE,
+  ...Session.Schematic.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
 ];
 
@@ -49,7 +48,7 @@ const ZERO_STATE: RootState = {
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
-  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Session.Theme.SLICE_NAME]: Session.Theme.ZERO_SLICE_STATE,
@@ -65,7 +64,7 @@ const reducer = combineReducers({
   [Log.SLICE_NAME]: Log.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Range.SLICE_NAME]: Range.reducer,
-  [Schematic.SLICE_NAME]: Schematic.reducer,
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Session.Theme.SLICE_NAME]: Session.Theme.reducer,
@@ -81,7 +80,7 @@ export interface RootState {
   [Log.SLICE_NAME]: Log.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
-  [Schematic.SLICE_NAME]: Schematic.SliceState;
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
   [Session.Theme.SLICE_NAME]: Session.Theme.SliceState;
@@ -97,7 +96,7 @@ export type RootAction =
   | Log.Action
   | Project.Action
   | Range.Action
-  | Schematic.Action
+  | Session.Schematic.Action
   | Status.Action
   | Table.Action
   | Session.Theme.Action;
@@ -122,7 +121,6 @@ export const migrateState = (prev: RootState): RootState => {
   // active project.
   const project = Project.migrateLegacySlice(prev);
   const range = Range.migrateSlice(prev.range);
-  const schematic = Schematic.migrateSlice(prev.schematic);
   const status = Status.migrateSlice(prev.status);
   const table = Table.migrateSlice(prev.table);
   console.log("Migrated State");
@@ -137,7 +135,6 @@ export const migrateState = (prev: RootState): RootState => {
     log,
     project,
     range,
-    schematic,
     status,
     table,
   };
@@ -168,7 +165,6 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
   ...LinePlot.MIDDLEWARE,
-  ...Schematic.MIDDLEWARE,
   ...Arc.MIDDLEWARE,
 ];
 

@@ -10,9 +10,9 @@
 import { Arc } from "@/arc";
 import { type Export } from "@/export";
 import { Hardware } from "@/hardware";
+import { Schematic } from "@/layered/service/schematic";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
-import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 
 export const EXTRACTORS: Export.Extractors = {

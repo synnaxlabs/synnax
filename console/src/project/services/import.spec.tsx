@@ -24,11 +24,11 @@ import { Provider } from "react-redux";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Import } from "@/import";
+import { Schematic } from "@/layered/service/schematic";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
-import { Schematic } from "@/schematic";
-import { SchematicServices } from "@/schematic/services";
 import { Table } from "@/table";
 import { TableServices } from "@/table/services";
 
@@ -43,7 +43,7 @@ const THERMO_KEY = "cdb27884-a73f-4696-bcee-a71c1f6625bd";
 // The real ingesters for these types; the full FILE_INGESTERS registry would drag in
 // the Arc/Monaco editor, which Vitest can't load.
 const FILE_INGESTERS: Import.FileIngesters = {
-  ...SchematicServices.FILE_INGESTERS,
+  ...Schematic.ImEx.FILE_INGESTERS,
   ...TableServices.FILE_INGESTERS,
 };
 
@@ -70,7 +70,7 @@ const TABLE_DATA = {
 
 const rootReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
-  [Schematic.SLICE_NAME]: Schematic.reducer,
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   drift: Drift.reducer,

@@ -22,7 +22,6 @@ import { type Palette } from "@/palette";
 import { Persist } from "@/persist";
 import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
-import { SchematicServices } from "@/schematic/services";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
@@ -39,7 +38,7 @@ export const COMMANDS: Palette.Command[] = [
   ...LogServices.COMMANDS,
   ...Persist.COMMANDS,
   ...RangeServices.COMMANDS,
-  ...SchematicServices.COMMANDS,
+  ...Service.Schematic.COMMANDS,
   ...TableServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...ProjectServices.COMMANDS,
