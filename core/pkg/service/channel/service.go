@@ -35,31 +35,52 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// IntOverflowChecker reports an error when the provided channel index would exceed the
-// permitted number of external channels.
+// IntOverflowChecker reports whether a channel causes an integer overflow.
 type IntOverflowChecker = func(types.Uint20) error
 
 // ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
+	// Instrumentation is for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// Channel is the distribution-layer channel service the service drives to assign
 	// local keys and create, rename, and delete storage channels across the cluster.
+	//
+	// [REQUIRED]
 	Channel *channel.Service
 	// DB is the cluster-wide metadata database backing the channel table.
+	//
+	// [REQUIRED]
 	DB *gorp.DB
 	// HostResolver provides this node's key for default leaseholder assignment.
+	//
+	// [REQUIRED]
 	HostResolver node.HostResolver
 	// Ontology integrates channels into the resource ontology.
+	//
+	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is the channel group resources are parented under.
+	//
+	// [REQUIRED]
 	Group *group.Service
 	// Search is the full-text search index channels are registered with.
+	//
+	// [REQUIRED]
 	Search *search.Index
 	// IntOverflowCheck enforces the cap on external (non-internal, non-virtual) channels.
+	//
+	// [OPTIONAL] - Defaults to system integer overflow check.
 	IntOverflowCheck IntOverflowChecker
 	// Status publishes error/clear statuses for calculated channels.
+	//
+	// [REQUIRED]
 	Status *status.Service
-	// ValidateNames sets whether to validate channel names during creation and renaming.
+	// ValidateNames sets whether to validate channel names during creation and
+	// renaming.
+	//
+	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
 }
 
@@ -71,7 +92,11 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "host_resolver", c.HostResolver)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "search", c.Search)
 	validate.NotNil(v, "int_overflow_check", c.IntOverflowCheck)
+	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "validate_names", c.ValidateNames)
 	validate.NotNil(v, "search", c.Search)
 	return v.Error()
@@ -90,13 +115,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
 	return c
-}
-
-// DefaultServiceConfig is the default configuration for the channel service. The overflow
-// check defaults to the free tier; production overrides it with the verification service.
-var DefaultServiceConfig = ServiceConfig{
-	ValidateNames:    new(true),
-	IntOverflowCheck: verification.FreeOverflowCheck,
 }
 
 // Service is the top-level channel service. It owns the channel metadata table,
@@ -122,7 +140,10 @@ type Service struct {
 
 // OpenService opens a channel service using the provided configuration(s).
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{
+		ValidateNames:    new(true),
+		IntOverflowCheck: verification.FreeOverflowCheck,
+	}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -135,17 +156,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := xservice.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
-		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Channel]("msgpack_to_orc")},
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[Key, Channel]("msgpack_to_orc"),
+		},
 		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if cfg.Group != nil {
-		if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Channels", ontology.RootID); !ok(err, nil) {
-			return nil, err
-		}
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx, "Channels", ontology.RootID,
+	); !ok(err, nil) {
+		return nil, err
 	}
 	// Seed the external/non-virtual key set by scanning the table once at startup. This
 	// is the only call site that unavoidably walks the table — there is no index for
@@ -160,19 +183,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Exec(ctx, cfg.DB); !ok(err, nil) {
 		return nil, err
 	}
-	s.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
+	s.mu.externalNonVirtualSet = set.NewInteger(
+		KeysFromChannels(externalNonVirtualChannels),
+	)
 	s.Writer = s.NewWriter(nil)
-	if cfg.Ontology != nil {
-		cfg.Ontology.RegisterService(s)
-	}
+	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	return s, nil
 }
 
-// Group returns the ontology group under which the service's channels are created.
+// Group returns the group under which the service's channels are created.
 func (s *Service) Group() group.Group { return s.group }
 
-// Observe returns an observable that notifies callers of changes to channel entries.
+// Observe returns an observable that notifies callers of changes to channels.
 func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 	return s.table.Observe()
 }

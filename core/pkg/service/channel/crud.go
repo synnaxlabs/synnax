@@ -14,7 +14,7 @@ import (
 	"fmt"
 
 	"github.com/samber/lo"
-	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
-	xtypes "github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -33,7 +33,7 @@ const calculatedIndexNameSuffix = "_time"
 // channels, resolves existing channels, allocates keys and storage through the
 // distribution allocator, writes the rich channel records to the table, and registers
 // ontology resources.
-func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
+func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts createOptions) error {
 	channels := *_channels
 	if *s.cfg.ValidateNames {
 		skipExisting := opts.retrieveIfNameExists || opts.overwriteIfNameExistsAndDifferentProperties
@@ -120,7 +120,7 @@ func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, 
 // applying name and (for calculated channels) expression/operations/index/data-type
 // changes. When RetrieveIfNameExists is set the in-memory channel is reset to the stored
 // record instead.
-func (s *Service) updateExisting(ctx context.Context, tx gorp.Tx, channels *[]Channel, opts CreateOptions) error {
+func (s *Service) updateExisting(ctx context.Context, tx gorp.Tx, channels *[]Channel, opts createOptions) error {
 	keys := KeysFromChannels(*channels)
 	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k.LocalKey() != 0 })
 	if len(existingKeys) == 0 {
@@ -180,7 +180,7 @@ func (s *Service) resolveExistingAndAssignKeys(
 	}
 
 	newIndices := make([]int, 0, len(*channels))
-	minimal := make([]dischannel.Channel, 0, len(*channels))
+	minimal := make([]channel.Channel, 0, len(*channels))
 	for i, ch := range *channels {
 		if ch.LocalKey == 0 {
 			newIndices = append(newIndices, i)
@@ -268,7 +268,7 @@ func (s *Service) writeChannels(ctx context.Context, tx gorp.Tx, toCreate []Chan
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	count := s.mu.externalNonVirtualSet.Size()
-	if err := s.cfg.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
+	if err := s.cfg.IntOverflowCheck(types.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
 		return err
 	}
 	if err := s.table.NewCreate().Entries(&toCreate).Exec(ctx, tx); err != nil {
@@ -383,7 +383,7 @@ func (s *Service) maybeSetResources(
 	ctx context.Context,
 	txn gorp.Tx,
 	channels []Channel,
-	opts CreateOptions,
+	opts createOptions,
 ) error {
 	if s.cfg.Ontology == nil || s.cfg.Group == nil {
 		return nil
