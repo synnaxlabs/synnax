@@ -15,7 +15,6 @@ from freighter import FileClient, FilePath
 from synnax.imex.types import Envelope
 from synnax.ontology.payload import ID
 
-_IMPORT_PATH = "/imex/import"
 _EXPORT_PATH = "/imex/export"
 
 
@@ -27,10 +26,10 @@ class Client:
     the response into it as it arrives.
     """
 
-    _file: FileClient
+    _client: FileClient
 
-    def __init__(self, files: FileClient) -> None:
-        self._file = files
+    def __init__(self, client: FileClient) -> None:
+        self._client = client
 
     def import_(self, source: FilePath | Envelope) -> ID:
         """Imports the resource described by source and returns its new ontology id.
@@ -39,7 +38,7 @@ class Client:
             from disk.
         :returns: the new resource's ontology id as stamped by the Core.
         """
-        return self._file.upload(_IMPORT_PATH, source, ID)
+        return self._client.upload("/imex/import", source, ID)
 
     @overload
     def export(self, id: ID) -> Envelope: ...
@@ -58,6 +57,6 @@ class Client:
         :returns: the parsed Envelope when ``dest`` is None; otherwise None.
         """
         if dest is None:
-            return self._file.download(_EXPORT_PATH, id, Envelope)
-        self._file.download(_EXPORT_PATH, id, dest=dest)
+            return self._client.download(_EXPORT_PATH, id, Envelope)
+        self._client.download(_EXPORT_PATH, id, dest=dest)
         return None

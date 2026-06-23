@@ -32,7 +32,7 @@ class Transport:
     stream: WebsocketClient
     stream_async: AsyncWebsocketClient
     unary: UnaryClient
-    files: FileClient
+    file_client: FileClient
     secure: bool
 
     def __init__(
@@ -70,7 +70,7 @@ class Transport:
             retries=Retry(total=max_retries),
         )
         self.unary = http
-        self.files = http
+        self.file_client = http
         self.use(instrumentation_middleware(instrumentation))
         self.use_async(async_instrumentation_middleware(instrumentation))
 

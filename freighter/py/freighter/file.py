@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 from typing import Protocol, TypeAlias, overload
 
+from freighter.codec import Codec
 from freighter.transport import RQ, RS, Transport
 
 FilePath: TypeAlias = str | os.PathLike[str]
@@ -19,6 +20,21 @@ FilePath: TypeAlias = str | os.PathLike[str]
 
 Equivalent to ``str | os.PathLike[str]`` — the same shape ``open()`` accepts for paths.
 """
+
+
+class FileCodec(Codec, Protocol):
+    """A Codec that also has an on-disk file representation.
+
+    A FileClient uses file_extension to negotiate a content type from a file path during
+    upload and download. Codecs that only exist on a wire (e.g., a WebSocket framer
+    codec) need only satisfy Codec.
+    """
+
+    def file_extension(self) -> str:
+        """:returns: the file extension (without leading dot) associated with the
+        Codec's on-disk format, e.g. "json" or "msgpack".
+        """
+        ...
 
 
 class FileClient(Transport, Protocol):
@@ -60,10 +76,10 @@ class FileClient(Transport, Protocol):
     ) -> RS | None:
         """Sends req to target and returns the response.
 
-        When dest is provided, the response body is streamed straight into that file path
-        and the call returns None — the on-disk format is driven by the destination's
-        extension. When res_t is provided, the response is decoded into an in-memory
-        payload of that type. Exactly one of res_t or dest must be given.
+        When dest is provided, the response body is streamed straight into that file
+        path and the call returns None — the on-disk format is driven by the
+        destination's extension. When res_t is provided, the response is decoded into an
+        in-memory payload of that type. Exactly one of res_t or dest must be given.
 
         :param target: the target address of the server.
         :param req: the typed request payload.

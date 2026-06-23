@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import pathlib
 from collections.abc import Iterable, Sequence
-from typing import IO, Any, Protocol, overload
+from typing import IO, Any, overload
 
 import urllib3
 from pydantic import BaseModel
@@ -20,30 +20,14 @@ from urllib3 import PoolManager
 from urllib3.exceptions import MaxRetryError
 from urllib3.response import BaseHTTPResponse
 
-from freighter.codec import Codec
 from freighter.context import Context
 from freighter.exceptions import Unreachable
-from freighter.file import FilePath
+from freighter.file import FileCodec, FilePath
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.url import URL
 from x.exceptions import ExceptionPayload, decode_exception
 
 _CONTENT_TYPE_HEADER_KEY = "Content-Type"
-
-
-class FileCodec(Codec, Protocol):
-    """A Codec that also has an on-disk file representation.
-
-    HTTPClient uses file_extension to negotiate a content type from a file path during
-    upload and download. Codecs that only exist on a wire (e.g., a WebSocket framer
-    codec) need only satisfy Codec.
-    """
-
-    def file_extension(self) -> str:
-        """:returns: the file extension (without leading dot) associated with the
-        Codec's on-disk format, e.g. "json" or "msgpack".
-        """
-        ...
 
 
 class HTTPClient(MiddlewareCollector):
@@ -141,12 +125,12 @@ class HTTPClient(MiddlewareCollector):
         dest: FilePath | None = None,
     ) -> RS | None:
         """
-        Sends req to target and returns the response. When res_t is given the response is
-        decoded into an in-memory payload of that type. When dest is given the response
-        body is streamed directly into dest, without buffering the full body in memory;
-        the Accept header is derived from the dest extension via the client's registered
-        codecs (e.g., a .json destination requests application/json), so the on-disk
-        format and the negotiated wire format are guaranteed to match.
+        Sends req to target and returns the response. When res_t is given the response
+        is decoded into an in-memory payload of that type. When dest is given the
+        response body is streamed directly into dest, without buffering the full body in
+        memory; the Accept header is derived from the dest extension via the client's
+        registered codecs (e.g., a .json destination requests application/json), so the
+        on-disk format and the negotiated wire format are guaranteed to match.
         """
         if dest is None:
             if res_t is None:
