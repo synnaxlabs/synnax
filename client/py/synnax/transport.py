@@ -46,9 +46,10 @@ class Transport:
         max_retries: int = 3,
     ) -> None:
         self.url = url.child("/api/v1/")
+        codec = JSONCodec()
         ws_args = {
             "base_url": self.url,
-            "encoder": MessagePackCodec(),
+            "encoder": codec,
             "max_message_size": int(Size.MB * 5),
             "secure": secure,
             "open_timeout": open_timeout.seconds,
@@ -60,11 +61,10 @@ class Transport:
         ws_args["ping_interval"] = keep_alive.seconds
         ws_args["ping_timeout"] = 180
         self.stream_async = AsyncWebsocketClient(**ws_args)
-        json_codec = JSONCodec()
         http = HTTPClient(
             url=self.url,
-            encoder=json_codec,
-            decoders=[json_codec],
+            encoder=codec,
+            decoders=[codec],
             secure=secure,
             timeout=Timeout(connect=open_timeout.seconds, read=read_timeout.seconds),
             retries=Retry(total=max_retries),
