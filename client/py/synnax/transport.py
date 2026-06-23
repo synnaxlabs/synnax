@@ -17,7 +17,6 @@ from freighter import (
     FileClient,
     HTTPClient,
     JSONCodec,
-    MessagePackCodec,
     Middleware,
     UnaryClient,
     WebsocketClient,
