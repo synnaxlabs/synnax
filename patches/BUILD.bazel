@@ -1,1 +1,4 @@
-exports_files(["cpp-httplib-add-load.patch"])
+exports_files([
+    "grpc-address-sorting-add-load.patch",
+    "grpc-xxhash-add-load.patch",
+])
