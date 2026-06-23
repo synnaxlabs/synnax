@@ -8,9 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.imex.client import Client
-from synnax.imex.types import Envelope
 
 __all__ = [
     "Client",
-    "Envelope",
 ]
