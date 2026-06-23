@@ -10,7 +10,7 @@
 import os
 import pathlib
 from collections.abc import Iterable, Sequence
-from typing import IO, Any, overload
+from typing import IO, Any, NoReturn, overload
 
 import urllib3
 from pydantic import BaseModel
@@ -100,8 +100,6 @@ class HTTPClient(MiddlewareCollector):
         if isinstance(req, BaseModel):
             return self.send(target, req, res_t)
         codec = self._codec_for_path(req)
-        if isinstance(codec, Exception):
-            raise codec
         with open(req, "rb") as f:
             return self._typed_response_request(
                 target=target,
@@ -135,8 +133,6 @@ class HTTPClient(MiddlewareCollector):
                 raise ValueError("download requires either res_t or dest")
             return self.send(target, req, res_t)
         dest_codec = self._codec_for_path(dest)
-        if isinstance(dest_codec, Exception):
-            raise dest_codec
         url = self._build_url(target)
         body = self._encoder.encode(req)
         content_type = self._encoder.content_type()
@@ -162,7 +158,7 @@ class HTTPClient(MiddlewareCollector):
             try:
                 out_ctx.params = http_res.headers
                 if http_res.status < 200 or http_res.status >= 300:
-                    raise self._decode_error(http_res, http_res.read())
+                    self._raise_response_error(http_res, http_res.read())
                 with open(dest, "wb") as out:
                     for chunk in http_res.stream():
                         out.write(chunk)
@@ -177,11 +173,11 @@ class HTTPClient(MiddlewareCollector):
     def _build_url(self, target: str) -> str:
         return self._endpoint.child(target).stringify()
 
-    def _codec_for_path(self, path: FilePath) -> FileCodec | Exception:
+    def _codec_for_path(self, path: FilePath) -> FileCodec:
         ext = pathlib.Path(os.fspath(path)).suffix.lstrip(".").lower()
         codec = self._codecs_by_extension.get(ext)
         if codec is None:
-            return ValueError(
+            raise ValueError(
                 f"no codec registered for file extension {ext!r} (path: {os.fspath(path)!r})"
             )
         return codec
@@ -217,12 +213,10 @@ class HTTPClient(MiddlewareCollector):
                 raise Unreachable(url, e.url or "Unreachable") from e
             out_ctx.params = http_res.headers
             if not 200 <= http_res.status < 300:
-                raise self._decode_error(http_res, http_res.data)
+                self._raise_response_error(http_res, http_res.data)
             if http_res.data is None or len(http_res.data) == 0:
                 raise ValueError(f"expected a non-empty response body from {url!r}")
             decoder = self._resolve_decoder(http_res)
-            if isinstance(decoder, Exception):
-                raise decoder
             res_container[0] = decoder.decode(http_res.data, res_t)
             return out_ctx
 
@@ -231,22 +225,20 @@ class HTTPClient(MiddlewareCollector):
         assert res is not None
         return res
 
-    def _resolve_decoder(self, http_res: BaseHTTPResponse) -> FileCodec | Exception:
+    def _resolve_decoder(self, http_res: BaseHTTPResponse) -> FileCodec:
         ct = http_res.headers.get(_CONTENT_TYPE_HEADER_KEY, "")
         decoder = self._decoders_by_content_type.get(ct.split(";", 1)[0].strip())
         if decoder is None:
-            return ValueError(f"no decoder registered for response Content-Type {ct!r}")
+            raise ValueError(f"no decoder registered for response Content-Type {ct!r}")
         return decoder
 
-    def _decode_error(self, http_res: BaseHTTPResponse, data: bytes) -> Exception:
+    def _raise_response_error(self, http_res: BaseHTTPResponse, data: bytes) -> NoReturn:
         decoder = self._resolve_decoder(http_res)
-        if isinstance(decoder, Exception):
-            return decoder
         try:
             payload = decoder.decode(data, ExceptionPayload)
-        except Exception:
-            return ValueError(f"undecodable error response: {data!r}")
+        except Exception as e:
+            raise ValueError(f"undecodable error response: {data!r}") from e
         decoded = decode_exception(payload)
         if decoded is None:
-            return ValueError(f"undecodable error response: {data!r}")
-        return decoded
+            raise ValueError(f"undecodable error response: {data!r}")
+        raise decoded
