@@ -10,9 +10,9 @@
 import { ArcServices } from "@/arc/services";
 import { Hardware } from "@/hardware";
 import { type Import } from "@/import";
+import { Schematic } from "@/layered/service/schematic";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
-import { Schematic } from "@/schematic";
 import { TableServices } from "@/table/services";
 
 export const FILE_INGESTERS: Import.FileIngesters = {

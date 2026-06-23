@@ -15,12 +15,12 @@ import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
+import { Schematic } from "@/layered/service/schematic";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
 import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
-import { Schematic } from "@/schematic";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
 

@@ -17,6 +17,7 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
+import { Schematic } from "@/layered/service/schematic";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { Nav } from "@/layouts/nav";
@@ -29,7 +30,6 @@ import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
 import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
-import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
 

@@ -21,6 +21,7 @@ import { type deep, type record } from "@synnaxlabs/x";
 import { Arc } from "@/arc";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -28,13 +29,12 @@ import { Persist } from "@/persist";
 import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
-import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { Table } from "@/table";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
-  ...Schematic.Session.PERSIST_EXCLUDE,
+  ...Session.Schematic.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
 ];
 
@@ -46,7 +46,7 @@ const ZERO_STATE: RootState = {
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
-  [Schematic.Session.SLICE_NAME]: Schematic.Session.ZERO_SLICE_STATE,
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
@@ -61,7 +61,7 @@ const reducer = combineReducers({
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [Range.SLICE_NAME]: Range.reducer,
-  [Schematic.Session.SLICE_NAME]: Schematic.Session.reducer,
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Project.SLICE_NAME]: Project.reducer,
@@ -76,7 +76,7 @@ export interface RootState {
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
-  [Schematic.Session.SLICE_NAME]: Schematic.Session.SliceState;
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
@@ -91,7 +91,7 @@ export type RootAction =
   | LinePlot.Action
   | Log.Action
   | Range.Action
-  | Schematic.Session.Action
+  | Session.Schematic.Action
   | Status.Action
   | Table.Action
   | Project.Action

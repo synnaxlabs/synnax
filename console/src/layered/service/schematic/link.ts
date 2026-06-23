@@ -7,15 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Arc } from "@/arc";
-import { type Schematic } from "@/layered/service/schematic";
-import { type LinePlot } from "@/lineplot";
-import { type Log } from "@/log";
-import { type Table } from "@/table";
+import { create } from "@/layered/service/schematic/layout";
+import { type Link } from "@/link";
 
-export type LayoutType =
-  | LinePlot.LayoutType
-  | Log.LayoutType
-  | Schematic.LayoutType
-  | Table.LayoutType
-  | Arc.EditorLayoutType;
+export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
+  const { name } = await client.schematics.retrieve({ key });
+  placeLayout(create({ key, name }));
+};

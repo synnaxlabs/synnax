@@ -24,10 +24,11 @@ import { Provider } from "react-redux";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Import } from "@/import";
+import { Schematic } from "@/layered/service/schematic";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
-import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 import { TableServices } from "@/table/services";
 
@@ -69,7 +70,7 @@ const TABLE_DATA = {
 
 const rootReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
-  [Schematic.Session.SLICE_NAME]: Schematic.Session.reducer,
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   drift: Drift.reducer,
