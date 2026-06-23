@@ -19,6 +19,8 @@
 package crdt
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -157,14 +159,14 @@ func (t *Text) walk() {
 			t.order = append(t.order, f.node)
 			continue
 		}
-		for i := len(f.node.right) - 1; i >= 0; i-- {
-			stack = append(stack, frame{node: f.node.right[i]})
+		for _, r := range slices.Backward(f.node.right) {
+			stack = append(stack, frame{node: r})
 		}
 		if f.node != t.root {
 			stack = append(stack, frame{node: f.node, emit: true})
 		}
-		for i := len(f.node.left) - 1; i >= 0; i-- {
-			stack = append(stack, frame{node: f.node.left[i]})
+		for _, l := range slices.Backward(f.node.left) {
+			stack = append(stack, frame{node: l})
 		}
 	}
 }
