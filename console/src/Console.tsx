@@ -40,6 +40,7 @@ import { Hardware } from "@/hardware";
 import { Import } from "@/import";
 import { FILE_INGESTERS } from "@/ingesters";
 import { Label } from "@/label";
+import { Schematic } from "@/layered/service/schematic";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
@@ -50,7 +51,6 @@ import { Palette } from "@/palette";
 import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
-import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { Status } from "@/status";
 import { store } from "@/store";
@@ -59,6 +59,8 @@ import { User } from "@/user";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
+
+import { Session } from "./layered/session";
 
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
@@ -140,14 +142,13 @@ const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
 const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
 const MainUnderContext = (): ReactElement => {
-  const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
+  const themingProps = Session.Theme.useProviderProps();
   useBlockDefaultDropBehavior();
   Runtime.useExternalLinkHandler();
 
   return (
     <Pluto.Provider
-      theming={theme}
       workerEnabled
       connParams={cluster ?? undefined}
       workerURL={WorkerURL}
@@ -155,6 +156,7 @@ const MainUnderContext = (): ReactElement => {
       haul={HAUL_PROPS}
       color={COLOR_PROPS}
       alamos={ALAMOS_PROPS}
+      theming={themingProps}
     >
       <Code.Provider initServices={MONACO_SERVICES}>
         <Arc.LSP.Provider>

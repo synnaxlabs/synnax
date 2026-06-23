@@ -50,7 +50,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = ["hauling", "themes"].map(
+export const PERSIST_EXCLUDE = ["hauling"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<RootState>>;
 
@@ -61,9 +61,6 @@ export type PlacePayload = State;
 export interface RemovePayload {
   keys: string[];
 }
-
-/** Signature for the setTheme action. */
-export type SetActiveThemePayload = string | undefined;
 
 export interface MoveMosaicTabPayload {
   tabKey: string;
@@ -378,21 +375,6 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.renameTab(mosaic.root, layout.key, name);
       state.mosaics[layout.windowKey] = mosaic;
     },
-    setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
-      if (key != null) state.activeTheme = key;
-      else {
-        const keys = Object.keys(state.themes).sort();
-        const index = keys.indexOf(state.activeTheme);
-        const next = keys[(index + 1) % keys.length];
-        state.activeTheme = next;
-      }
-    },
-    toggleActiveTheme: (state) => {
-      const keys = Object.keys(state.themes);
-      const index = keys.indexOf(state.activeTheme);
-      const next = keys[(index + 1) % keys.length];
-      state.activeTheme = next;
-    },
     setNavDrawer: (state, { payload }: PayloadAction<SetNavDrawerPayload>) => {
       const { windowKey, location, ...rest } = payload;
       if (!(windowKey in state.nav)) state.nav[windowKey] = { drawers: {} };
@@ -516,8 +498,6 @@ export const { actions, reducer } = createSlice({
             main: MAIN_LAYOUT,
           },
           hauling: s.hauling,
-          themes: s.themes,
-          activeTheme: s.activeTheme,
           nav: keepNav ? s.nav : slice.nav,
         }),
       );
@@ -531,8 +511,6 @@ export const { actions, reducer } = createSlice({
         main: MAIN_LAYOUT,
       },
       hauling: state.hauling,
-      themes: state.themes,
-      activeTheme: state.activeTheme,
       nav: state.nav,
     }),
     setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
@@ -588,8 +566,6 @@ export const {
   place,
   setFocus,
   remove,
-  toggleActiveTheme,
-  setActiveTheme,
   moveMosaicTab,
   selectMosaicTab,
   resizeMosaicTab,

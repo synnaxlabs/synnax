@@ -9,7 +9,6 @@
 
 import "@/schematic/Schematic.css";
 
-import { type schematic } from "@synnaxlabs/client";
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
@@ -18,7 +17,6 @@ import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
-import { Key } from "@/key";
 import { Menu } from "@/menu";
 import { useClipboard } from "@/schematic/clipboard";
 import {
@@ -30,13 +28,14 @@ import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
 import {
   useAddNode,
-  useDispatch,
   useRedo,
   useSelectAllEdges,
   useSelectAllNodes,
+  useSingleDispatch,
   useUndo,
 } from "@/schematic/queries";
-import { type Triggers } from "@/triggers";
+import { useKey } from "@/schematic/Suspended";
+import { Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<
@@ -49,24 +48,13 @@ export interface SchematicProps extends Omit<
   | "onChange"
 > {
   enableTriggers?: boolean | (() => boolean);
-  resourceKey: schematic.Key;
-  /**
-   * Extra items appended to the canvas right-click context menu, below Pluto's
-   * built-in actions (Undo, Redo). The render-prop signature mirrors
-   * {@link Menu.ContextMenu}'s, so consumers can branch on right-clicked
-   * `keys` and cursor position. The schematic key is available via
-   * {@link Key.use}.
-   */
   extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
-const UNDO_TRIGGER: Triggers.Trigger = ["Control", "Z"];
-const REDO_TRIGGER: Triggers.Trigger = ["Control", "Shift", "Z"];
 
 export const Schematic = ({
   className,
-  resourceKey: key,
   viewport,
   onDoubleClick,
   onSelectionChange,
@@ -77,24 +65,23 @@ export const Schematic = ({
   children,
   ...props
 }: SchematicProps): ReactElement => {
-  const nodes = useSelectAllNodes({ key });
+  const key = useKey();
+  const nodes = useSelectAllNodes();
   const nodesRef = useSyncedRef(nodes);
-  const edges = useSelectAllEdges({ key });
+  const edges = useSelectAllEdges();
   const edgesRef = useSyncedRef(edges);
-  const { dispatch } = useDispatch();
+  const dispatch = useSingleDispatch();
   const handleNodesChange = useCallback(
-    (changes: BaseDiagram.NodeChange[]) =>
-      dispatch({ key, actions: nodeChangesToActions(changes) }),
-    [key, dispatch],
+    (changes: BaseDiagram.NodeChange[]) => dispatch(nodeChangesToActions(changes)),
+    [dispatch],
   );
 
   const handleEdgesChange = useCallback(
-    (changes: BaseDiagram.EdgeChange[]) =>
-      dispatch({ key, actions: edgeChangesToActions(changes) }),
-    [key, dispatch],
+    (changes: BaseDiagram.EdgeChange[]) => dispatch(edgeChangesToActions(changes)),
+    [dispatch],
   );
 
-  const handleAddNode = useAddNode(key);
+  const handleAddNode = useAddNode();
   const ref = useRef<HTMLDivElement>(null);
   const viewportRef = useSyncedRef(viewport);
   const calculateCursorPosition = useCallback((cursor: xy.Crude) => {
@@ -134,11 +121,10 @@ export const Schematic = ({
       ...edgesRef.current.map((e) => e.key),
     ]);
   }, [onSelectionChange]);
-  const { undo, canUndo } = useUndo({ key });
-  const { redo, canRedo } = useRedo({ key });
+  const { undo, canUndo } = useUndo();
+  const { redo, canRedo } = useRedo();
 
   const { onCopy, onPaste } = useClipboard({
-    key,
     selected,
     onPaste: onSelectionChange,
   });
@@ -161,7 +147,7 @@ export const Schematic = ({
               itemKey="undo"
               onClick={undo}
               disabled={!canUndo}
-              triggerIndicator={UNDO_TRIGGER}
+              triggerIndicator={Triggers.UNDO}
             >
               <Icon.Undo />
               Undo
@@ -170,7 +156,7 @@ export const Schematic = ({
               itemKey="redo"
               onClick={redo}
               disabled={!canRedo}
-              triggerIndicator={REDO_TRIGGER}
+              triggerIndicator={Triggers.REDO}
             >
               <Icon.Redo />
               Redo
@@ -185,30 +171,29 @@ export const Schematic = ({
   );
 
   return (
-    <Key.Provider value={key}>
-      <Diagram
-        ref={ref}
-        className={CSS(CSS.B("schematic"), className)}
-        dragHandleSelector={DRAG_HANDLE_SELECTOR}
-        autoRenderInterval={AUTO_RENDER_INTERVAL}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        viewport={viewport}
-        onSelectionChange={onSelectionChange}
-        editable={editable}
-        onDoubleClick={onDoubleClick}
-        onContextMenu={contextMenu.open}
-        onCopy={onCopy}
-        onPaste={onPaste}
-        nodes={nodes}
-        edges={edges}
-        selected={selected}
-        {...dropProps}
-        {...props}
-      >
-        {children}
-        <Menu.ContextMenu {...contextMenu} menu={renderMenu} />
-      </Diagram>
-    </Key.Provider>
+    <Diagram
+      ref={ref}
+      className={CSS(CSS.B("schematic"), className)}
+      dragHandleSelector={DRAG_HANDLE_SELECTOR}
+      autoRenderInterval={AUTO_RENDER_INTERVAL}
+      onNodesChange={handleNodesChange}
+      onEdgesChange={handleEdgesChange}
+      viewport={viewport}
+      onSelectionChange={onSelectionChange}
+      edgesReconnectable={false}
+      editable={editable}
+      onDoubleClick={onDoubleClick}
+      onContextMenu={contextMenu.open}
+      onCopy={onCopy}
+      onPaste={onPaste}
+      nodes={nodes}
+      edges={edges}
+      selected={selected}
+      {...dropProps}
+      {...props}
+    >
+      {children}
+      <Menu.ContextMenu {...contextMenu} menu={renderMenu} />
+    </Diagram>
   );
 };

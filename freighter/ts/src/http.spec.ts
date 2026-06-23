@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, URL } from "@synnaxlabs/x";
+import { binary, url } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { Unreachable } from "@/errors";
 import { HTTPClient } from "@/http";
 
-const ENDPOINT = new URL({
+const ENDPOINT = new url.URL({
   host: "127.0.0.1",
   protocol: "http",
   port: 8080,
@@ -56,7 +56,12 @@ describe("http", () => {
 
   test("unreachable", async () => {
     const c = new HTTPClient(
-      new URL({ host: "127.0.0.1", protocol: "http", port: 9999, pathPrefix: "unary" }),
+      new url.URL({
+        host: "127.0.0.1",
+        protocol: "http",
+        port: 9999,
+        pathPrefix: "unary",
+      }),
       new binary.JSONCodec(),
     );
     const send = c.send("/unreachable", {}, messageZ, messageZ);

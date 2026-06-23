@@ -9,5 +9,8 @@
 
 export * from "@/arc/editor/CreateModal";
 export * from "@/arc/editor/Editor";
+export * from "@/arc/editor/layout";
+export * from "@/arc/editor/Selectable";
 export * from "@/arc/editor/text";
 export * from "@/arc/editor/Toolbar";
+export * from "@/arc/editor/useCreate";

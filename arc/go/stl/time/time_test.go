@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -43,13 +44,10 @@ var _ = Describe("Time", func() {
 			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
-				Nodes: []graph.Node{{
-					Key:  "interval_1",
-					Type: "interval",
-					Config: map[string]any{
-						"period": int64(telem.Second),
-					},
-				}},
+				Nodes: []graph.Node{{Key: "interval_1"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"interval_1": {"type": "interval", "period": int64(telem.Second)},
+				},
 				Functions: []graph.Function{{
 					Key: "interval",
 					Outputs: types.Params{
@@ -332,13 +330,10 @@ var _ = Describe("Time", func() {
 			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
-				Nodes: []graph.Node{{
-					Key:  "wait_1",
-					Type: "wait",
-					Config: map[string]any{
-						"duration": int64(telem.Second),
-					},
-				}},
+				Nodes: []graph.Node{{Key: "wait_1"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"wait_1": {"type": "wait", "duration": int64(telem.Second)},
+				},
 				Functions: []graph.Function{{
 					Key: "wait",
 					Outputs: types.Params{
@@ -875,20 +870,12 @@ var _ = Describe("Time", func() {
 			factory := MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{
-						Key:  "interval_1",
-						Type: "interval",
-						Config: map[string]any{
-							"period": int64(100 * telem.Millisecond),
-						},
-					},
-					{
-						Key:  "interval_2",
-						Type: "interval",
-						Config: map[string]any{
-							"period": int64(150 * telem.Millisecond),
-						},
-					},
+					{Key: "interval_1"},
+					{Key: "interval_2"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"interval_1": {"type": "interval", "period": int64(100 * telem.Millisecond)},
+					"interval_2": {"type": "interval", "period": int64(150 * telem.Millisecond)},
 				},
 				Functions: []graph.Function{{
 					Key: "interval",
@@ -996,13 +983,10 @@ var _ = Describe("Time", func() {
 			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
-				Nodes: []graph.Node{{
-					Key:  "interval_1",
-					Type: "interval",
-					Config: map[string]any{
-						"period": int64(100 * telem.Millisecond),
-					},
-				}},
+				Nodes: []graph.Node{{Key: "interval_1"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"interval_1": {"type": "interval", "period": int64(100 * telem.Millisecond)},
+				},
 				Functions: []graph.Function{{
 					Key: "interval",
 					Outputs: types.Params{
@@ -1191,13 +1175,10 @@ var _ = Describe("Time", func() {
 		Describe("Wait with tolerance", func() {
 			It("Should fire early within tolerance", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{
-						Key:  "wait_1",
-						Type: "wait",
-						Config: map[string]any{
-							"duration": int64(100 * telem.Millisecond),
-						},
-					}},
+					Nodes: []graph.Node{{Key: "wait_1"}},
+					Configs: map[string]msgpack.EncodedJSON{
+						"wait_1": {"type": "wait", "duration": int64(100 * telem.Millisecond)},
+					},
 					Functions: []graph.Function{{
 						Key: "wait",
 						Outputs: types.Params{
@@ -1265,13 +1246,10 @@ var _ = Describe("Time", func() {
 			BeforeEach(func(ctx SpecContext) {
 				factory = MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
-					Nodes: []graph.Node{{
-						Key:  "interval_1",
-						Type: "interval",
-						Config: map[string]any{
-							"period": int64(telem.Second),
-						},
-					}},
+					Nodes: []graph.Node{{Key: "interval_1"}},
+					Configs: map[string]msgpack.EncodedJSON{
+						"interval_1": {"type": "interval", "period": int64(telem.Second)},
+					},
 					Functions: []graph.Function{{
 						Key: "interval",
 						Outputs: types.Params{
@@ -1354,13 +1332,10 @@ var _ = Describe("Time", func() {
 			BeforeEach(func(ctx SpecContext) {
 				factory = MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
-					Nodes: []graph.Node{{
-						Key:  "wait_1",
-						Type: "wait",
-						Config: map[string]any{
-							"duration": int64(telem.Second),
-						},
-					}},
+					Nodes: []graph.Node{{Key: "wait_1"}},
+					Configs: map[string]msgpack.EncodedJSON{
+						"wait_1": {"type": "wait", "duration": int64(telem.Second)},
+					},
 					Functions: []graph.Function{{
 						Key: "wait",
 						Outputs: types.Params{
@@ -1498,10 +1473,10 @@ var _ = Describe("Time", func() {
 			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
-				Nodes: []graph.Node{{
-					Key:  "now_1",
-					Type: "now",
-				}},
+				Nodes: []graph.Node{{Key: "now_1"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"now_1": {"type": "now"},
+				},
 				Functions: []graph.Function{{
 					Key:     "now",
 					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},

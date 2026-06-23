@@ -870,6 +870,44 @@ TEST(StateTest, IsSeriesTruthy_Int64Series) {
     EXPECT_TRUE(Node::is_series_truthy(non_zero_series));
 }
 
+/// @brief Test that is_series_truthy treats a non-empty string as truthy
+TEST(StateTest, IsSeriesTruthy_StringSeries) {
+    x::telem::Series empty_string(std::string(""));
+    EXPECT_FALSE(Node::is_series_truthy(empty_string));
+
+    x::telem::Series non_empty_string(std::string("ox_alarm"));
+    EXPECT_TRUE(Node::is_series_truthy(non_empty_string));
+}
+
+/// @brief Test that a real node's string output drives is_output_truthy
+TEST(StateTest, IsOutputTruthy_StringOutput) {
+    arc::types::Param output_param;
+    output_param.name = "output";
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::String};
+
+    arc::ir::Node producer;
+    producer.key = "producer";
+    producer.type = "producer";
+    producer.outputs.push_back(output_param);
+
+    arc::ir::Function fn;
+    fn.key = "test";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(producer);
+    ir.functions.push_back(fn);
+
+    Config cfg{.ir = ir, .channels = {}};
+    State s(cfg, arc::runtime::errors::noop_handler);
+    auto node = ASSERT_NIL_P(s.node("producer"));
+
+    *node.output(0) = x::telem::Series(std::string("ox_alarm"));
+    EXPECT_TRUE(node.is_output_truthy(0));
+
+    *node.output(0) = x::telem::Series(std::string(""));
+    EXPECT_FALSE(node.is_output_truthy(0));
+}
+
 TEST(StateTest, SetAuthority_BufferAndFlush) {
     State s = create_minimal_state();
     s.set_authority(42, 200);
