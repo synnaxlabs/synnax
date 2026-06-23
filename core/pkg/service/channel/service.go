@@ -117,25 +117,28 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
+// externalSet tracks the keys of external (non-internal, non-virtual) channels. The
+// create path and the retrieve-time overflow validator consult it to enforce the uint20
+// channel-index overflow limit. mu guards set.
+type externalSet struct {
+	mu  sync.RWMutex
+	set *set.Integer[Key]
+}
+
 // Service is the top-level channel service. It owns the channel metadata table,
 // retrieval, ontology and search integration, and the create/delete/rename
 // orchestration, driving the distribution-layer allocator for key assignment and
 // storage. It also infers DataTypes for calculated channels on write.
 type Service struct {
-	cfg    ServiceConfig
-	db     *gorp.DB
-	closer xio.MultiCloser
-	Writer
-	otg     *ontology.Ontology
+	cfg     ServiceConfig
+	db      *gorp.DB
+	closer  xio.MultiCloser
 	group   group.Group
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
-	// mu guards externalNonVirtualSet, which tracks the key set used by
-	// validateChannels to enforce the uint20 channel-index overflow limit.
-	mu struct {
-		externalNonVirtualSet *set.Integer[Key]
-		sync.RWMutex
-	}
+	// external tracks external non-virtual channel keys for overflow enforcement, shared
+	// across every Writer the service spawns and the retrieve-time validator.
+	external *externalSet
 }
 
 // OpenService opens a channel service using the provided configuration(s).
@@ -147,12 +150,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{
-		cfg:     cfg,
-		db:      cfg.DB,
-		otg:     cfg.Ontology,
-		indexes: newIndexes(),
-	}
+	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes()}
 	cleanup, ok := xservice.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
@@ -183,10 +181,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Exec(ctx, cfg.DB); !ok(err, nil) {
 		return nil, err
 	}
-	s.mu.externalNonVirtualSet = set.NewInteger(
-		KeysFromChannels(externalNonVirtualChannels),
-	)
-	s.Writer = s.NewWriter(nil)
+	s.external = &externalSet{set: set.NewInteger(KeysFromChannels(externalNonVirtualChannels))}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	return s, nil
@@ -195,16 +190,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // Group returns the group under which the service's channels are created.
 func (s *Service) Group() group.Group { return s.group }
 
-// Observe returns an observable that notifies callers of changes to channels.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
-	return s.table.Observe()
-}
-
 // newRetrieve returns a Retrieve without the channel-index overflow validator attached.
-// Internal callers (create / delete / rename paths) must use this instead of
-// NewRetrieve because they run inside the write window that validateChannels' RLock
-// would block on, and because they don't need the overflow check — they already enforce
-// it inline at commit time.
+// Internal callers (the create / delete / rename paths) use this instead of NewRetrieve
+// because they run inside the write window that validateChannels' RLock would block on,
+// and because they enforce the overflow check inline at commit time.
 func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
 		baseTX:  s.db,
@@ -212,6 +201,11 @@ func (s *Service) newRetrieve() Retrieve {
 		search:  s.cfg.Search,
 		indexes: s.indexes,
 	}
+}
+
+// Observe returns an observable that notifies callers of changes to channels.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return s.table.Observe()
 }
 
 // NewRetrieve opens a retrieve query for external callers, with the channel index
@@ -265,14 +259,6 @@ func (s *Service) RetrieveName(ctx context.Context, key Key) string {
 	return ch.Name
 }
 
-// CountExternalNonVirtual returns the number of external non-virtual channels in the
-// service.
-func (s *Service) CountExternalNonVirtual() uint32 {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return uint32(s.mu.externalNonVirtualSet.Size())
-}
-
 // Close releases the resources held by the Service.
 func (s *Service) Close() error { return s.closer.Close() }
 
@@ -280,14 +266,14 @@ func (s *Service) Close() error { return s.closer.Close() }
 // fails the query if any retrieved external non-virtual channel would push the uint20
 // channel index past the configured overflow limit.
 func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.external.mu.RLock()
+	defer s.external.mu.RUnlock()
 	for _, ch := range channels {
 		key := ch.Key()
-		if !s.mu.externalNonVirtualSet.Contains(key) {
+		if !s.external.set.Contains(key) {
 			continue
 		}
-		channelNumber := s.mu.externalNonVirtualSet.NumLessThan(key) + 1
+		channelNumber := s.external.set.NumLessThan(key) + 1
 		if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
 			return err
 		}
