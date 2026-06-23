@@ -297,15 +297,15 @@ TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
 
 TEST(EndRangeTest, NextSetsExplicitEnd) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto start = x::telem::TimeStamp::now();
     synnax::ranger::Range r;
     r.name = unique_name("cpp_end_");
-    r.time_range = x::telem::TimeRange{
-        x::telem::TimeStamp::now(),
-        x::telem::TimeStamp::max()
-    };
+    r.time_range = x::telem::TimeRange{start, x::telem::TimeStamp::max()};
     ASSERT_NIL(client->ranges.create(r));
 
-    const auto end = x::telem::TimeStamp(10 * x::telem::SECOND);
+    const auto end = x::telem::TimeStamp(
+        start.nanoseconds() + 10 * x::telem::SECOND.nanoseconds()
+    );
     auto node = make_end_ir_node(r.key.to_string(), end.nanoseconds());
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
