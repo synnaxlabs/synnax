@@ -68,7 +68,7 @@ jobs:
     # job to the required-checks list in branch protection.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # The full formatter chain runs during the `generated` gate, so we
       # need every formatter the chain dispatches: gofmt (Go),
@@ -99,7 +99,7 @@ jobs:
           python-version-file: pyproject.toml
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
 

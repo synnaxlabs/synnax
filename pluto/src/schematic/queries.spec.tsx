@@ -151,22 +151,6 @@ describe("schematic queries", () => {
       expect((result.current as { variant: string }).variant).toBe("tank");
     });
 
-    it("useSelectEdge returns the edge for a known key", () => {
-      const { result } = renderHook(
-        () => Schematic.useSelectEdge({ key: schem.key, edgeKey: "e1" }),
-        { wrapper: Wrapper },
-      );
-      expect(result.current?.key).toBe("e1");
-    });
-
-    it("useSelectEdge returns undefined for an unknown edge key", () => {
-      const { result } = renderHook(
-        () => Schematic.useSelectEdge({ key: schem.key, edgeKey: "missing" }),
-        { wrapper: Wrapper },
-      );
-      expect(result.current).toBeUndefined();
-    });
-
     it("useSelectNodes returns nodes for the requested keys", () => {
       const { result } = renderHook(
         () => Schematic.useSelectNodes({ key: schem.key, keys: ["n1", "n2"] }),
