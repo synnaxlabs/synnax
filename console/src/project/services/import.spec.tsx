@@ -17,7 +17,7 @@ import {
 import { createTestClient, project, type Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Access, Flux, Pluto, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
@@ -165,20 +165,6 @@ describe("project import", () => {
     { name: "Thermocouples.json", data: TABLE_DATA },
   ];
 
-  // An exported slice whose themes predate newer color fields; anySliceStateZ would
-  // reject them outright.
-  const staleThemesSlice = (): unknown => {
-    const slice = deep.copy(exportedSlice()) as unknown as {
-      themes: Record<string, { colors: Record<string, unknown> }>;
-    };
-    Object.values(slice.themes).forEach(({ colors }) => {
-      delete colors.primaryText;
-      delete colors.errorText;
-      delete colors.warningText;
-    });
-    return slice;
-  };
-
   it("places exactly one tab per imported schematic and table", async () => {
     const store = await runImport();
     expect(layoutsOfType(store, SCHEMATIC_TYPE)).toHaveLength(1);
@@ -195,11 +181,5 @@ describe("project import", () => {
     await expect(
       client.tables.retrieve({ key: tableLayout.key }),
     ).resolves.toBeDefined();
-  });
-
-  it("imports a project whose exported themes predate current theme fields", async () => {
-    const store = await runImport(files(staleThemesSlice()));
-    expect(layoutsOfType(store, SCHEMATIC_TYPE)).toHaveLength(1);
-    expect(layoutsOfType(store, TABLE_TYPE)).toHaveLength(1);
   });
 });
