@@ -17,9 +17,7 @@ export const LAYOUT_TYPE = "table";
 export type LayoutType = typeof LAYOUT_TYPE;
 
 export interface CreateArg
-  extends
-    Partial<Layout.BaseState>,
-    Partial<Pick<Session.Table.State, "editable">> {
+  extends Partial<Layout.BaseState>, Partial<Pick<Session.Table.State, "editable">> {
   key?: string;
 }
 
