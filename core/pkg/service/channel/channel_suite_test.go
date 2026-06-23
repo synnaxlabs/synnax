@@ -42,6 +42,19 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 // Extra configs override the derived distribution-layer fields.
 func openService(ctx context.Context, n mock.Node, cfgs ...channel.ServiceConfig) *channel.Service {
 	GinkgoHelper()
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       n.DB,
+		Ontology: n.Ontology,
+		Group:    n.Group,
+		Search:   n.Search,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       n.DB,
+		Group:    n.Group,
+		Ontology: n.Ontology,
+		Label:    labelSvc,
+		Search:   n.Search,
+	}))
 	base := channel.ServiceConfig{
 		Channel:      n.Channel,
 		DB:           n.DB,
@@ -49,6 +62,7 @@ func openService(ctx context.Context, n mock.Node, cfgs ...channel.ServiceConfig
 		Ontology:     n.Ontology,
 		Group:        n.Group,
 		Search:       n.Search,
+		Status:       statusSvc,
 	}
 	channelSvc := MustOpen(channel.OpenService(ctx, append([]channel.ServiceConfig{base}, cfgs...)...))
 	controlCh := channel.Channel{
@@ -65,18 +79,5 @@ func openService(ctx context.Context, n mock.Node, cfgs ...channel.ServiceConfig
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.MustOpenNode(ctx)
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Search:   dist.Search,
-	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       dist.DB,
-		Group:    dist.Group,
-		Ontology: dist.Ontology,
-		Label:    labelSvc,
-		Search:   dist.Search,
-	}))
-	svc = openService(ctx, dist, channel.ServiceConfig{Status: statusSvc})
+	svc = openService(ctx, dist)
 })

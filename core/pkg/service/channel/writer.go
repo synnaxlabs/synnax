@@ -463,7 +463,7 @@ func (w Writer) validateChannelNames(
 	skipExisting bool,
 ) error {
 	for i, name := range names {
-		if err := ValidateName(name); err != nil {
+		if err := validateName(name); err != nil {
 			return validate.PathedError(err, fmt.Sprintf("[%d].name", i))
 		}
 	}
