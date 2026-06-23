@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -454,6 +455,32 @@ func (w Writer) writeChannels(ctx context.Context, toCreate []Channel) error {
 	return nil
 }
 
+// validNamePattern matches valid channel names: a leading letter or underscore
+// followed by letters, digits, and underscores.
+var validNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// validateName returns a pathed validation error if name is empty or contains
+// characters outside the set matched by validNamePattern.
+func validateName(name string) error {
+	if name == "" {
+		return validate.PathedError(
+			errors.Wrap(validate.ErrValidation, "name cannot be empty"),
+			"name",
+		)
+	}
+	if !validNamePattern.MatchString(name) {
+		return validate.PathedError(
+			errors.Wrapf(
+				validate.ErrValidation,
+				"channel name '%s' contains invalid characters. Only letters, digits, and underscores are allowed, and it cannot start with a digit",
+				name,
+			),
+			"name",
+		)
+	}
+	return nil
+}
+
 // validateChannelNames rejects a create/rename request whose proposed names either
 // duplicate each other or collide with an existing channel under a different key.
 func (w Writer) validateChannelNames(
@@ -464,7 +491,7 @@ func (w Writer) validateChannelNames(
 ) error {
 	for i, name := range names {
 		if err := validateName(name); err != nil {
-			return validate.PathedError(err, fmt.Sprintf("[%d].name", i))
+			return validate.PathedError(err, fmt.Sprintf("[%d]", i))
 		}
 	}
 	namesSeen := make(set.Set[string], len(names))

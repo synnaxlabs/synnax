@@ -1014,14 +1014,14 @@ var _ = Describe("Delete", Ordered, func() {
 				It("Should delete the channel without error", func(ctx SpecContext) {
 					Expect(services[1].DeleteMany(ctx, []channel.Key{idxCh.Key(), ch.Key()}, true)).To(Succeed())
 				})
-				// PENDING (SY-4331 follow-up): deleting a remote-leased channel's metadata
-				// from a non-leaseholder node does not propagate. The gorp delete on the
-				// originating node cannot derive the channel's existing aspen lease (its
-				// local digest lookup misses), so the delete defaults to the host
-				// leaseholder and never removes the leaseholder's authoritative copy. The
-				// pre-refactor code routed deletes to the leaseholder; the service-layer
-				// metadata delete needs equivalent leaseholder routing.
-				PIt("Should not be able to retrieve the channel after deletion", func(ctx SpecContext) {
+				It("Should not be able to retrieve the channel after deletion", func(ctx SpecContext) {
+					// The channel is leased to node 2, so its metadata reaches node 1
+					// only via aspen gossip. Wait for it to propagate before deleting:
+					// the metadata delete resolves its target key through a local
+					// retrieve, which would otherwise miss and no-op.
+					Eventually(func(g Gomega) {
+						g.Expect(MustSucceed(services[1].NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))).To(BeTrue())
+					}).Should(Succeed())
 					Expect(services[1].Delete(ctx, ch.Key(), true)).To(Succeed())
 					Eventually(func(g Gomega) {
 						g.Expect(MustSucceed(services[1].NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))).To(BeFalse())
