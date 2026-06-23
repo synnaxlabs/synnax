@@ -18,7 +18,7 @@ import {
   Flex,
   Form,
   List,
-  Nav as PNav,
+  Nav,
   OS,
   Project as PProject,
   Select,
@@ -28,8 +28,8 @@ import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
+import { View } from "@/layered/view";
 import { Layout } from "@/layout";
-import { Nav } from "@/nav";
 import { setActive } from "@/project/slice";
 import { Triggers } from "@/triggers";
 import { Version } from "@/version";
@@ -50,15 +50,15 @@ const listItem = Component.renderProp(
 const SplashNav = (): ReactElement => {
   const os = OS.use();
   return (
-    <Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
-      <PNav.Bar.Start data-tauri-drag-region>
-        <Layout.Controls visibleIfOS="macOS" forceOS={os} />
-      </PNav.Bar.Start>
-      <PNav.Bar.End data-tauri-drag-region justify="end">
+    <View.Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
+      <Nav.Bar.Start data-tauri-drag-region>
+        <View.Window.Controls visibleIfOS="macOS" forceOS={os} />
+      </Nav.Bar.Start>
+      <Nav.Bar.End data-tauri-drag-region justify="end">
         <Version.Badge />
-        <Layout.Controls visibleIfOS="Windows" forceOS={os} />
-      </PNav.Bar.End>
-    </Nav.Bar>
+        <View.Window.Controls visibleIfOS="Windows" forceOS={os} />
+      </Nav.Bar.End>
+    </View.Nav.Bar>
   );
 };
 

@@ -106,7 +106,7 @@ export const ingest: Import.DirectoryIngester = async (
 
   const remappedLayout = remapLayoutKeys(layout, remap);
   store.dispatch(Project.setActive(proj));
-  store.dispatch(Layout.setProject({ slice: remappedLayout, keepNav: false }));
+  store.dispatch(Layout.setProject({ slice: remappedLayout }));
   if (remap.size > 0) await client.projects.setLayout(projectKey, remappedLayout);
 };
 

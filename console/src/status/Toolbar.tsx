@@ -34,6 +34,7 @@ import { EXPLORER_LAYOUT } from "@/status/Explorer";
 import { contextMenu } from "@/status/list/ContextMenu";
 import { useSelectFavorites } from "@/status/selectors";
 import { removeFavorites } from "@/status/slice";
+import { View } from "@/layered/view";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
@@ -162,7 +163,7 @@ const Actions = (): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: Nav.DrawerItem = {
+export const TOOLBAR: View.Nav.Item = {
   key: "status",
   icon: <Icon.Status />,
   content: <Content />,

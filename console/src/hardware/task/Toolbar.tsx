@@ -39,6 +39,7 @@ import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
 import { getIcon, parseType } from "@/hardware/task/types";
 import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/hardware/task/useSetDataSaving";
+import { type View } from "@/layered/view";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
@@ -238,7 +239,7 @@ const Content = () => {
   );
 };
 
-export const TOOLBAR_NAV_DRAWER_ITEM: Nav.DrawerItem = {
+export const TOOLBAR: View.Nav.Item = {
   key: "task",
   icon: <Icon.Task />,
   content: <Content />,

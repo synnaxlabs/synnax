@@ -17,6 +17,7 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
+import { App } from "@/layered/app";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { Notifications } from "@/layouts/Notifications";
@@ -24,7 +25,6 @@ import { useTriggers } from "@/layouts/useTriggers";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { LogServices } from "@/log/services";
-import { Nav } from "@/nav";
 import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
 import { Range } from "@/range";
@@ -80,20 +80,20 @@ export const Main = (): ReactElement => (
     <Auth.Guard>
       <Project.Guard>
         <ProjectSideEffect />
-        <Nav.Bar.Top />
+        <App.Nav.Bar.Top />
         <Flex.Box
           x
           gap="tiny"
           grow
           style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
         >
-          <Nav.Bar.Left />
+          <App.Nav.Bar.Left />
           <Flex.Box gap="tiny" grow style={{ width: 0 }}>
             <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
-              <Nav.Drawer.Left />
+              <App.Nav.Drawer.Left />
               <Mosaic />
             </Flex.Box>
-            <Nav.Drawer.Bottom />
+            <App.Nav.Drawer.Bottom />
           </Flex.Box>
         </Flex.Box>
       </Project.Guard>

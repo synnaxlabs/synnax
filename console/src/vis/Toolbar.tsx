@@ -12,6 +12,7 @@ import { type FC, type ReactElement } from "react";
 
 import { Arc } from "@/arc";
 import { EmptyAction, Toolbar } from "@/components";
+import { type View } from "@/layered/view";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -70,7 +71,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Nav.DrawerItem = {
+export const TOOLBAR: View.Nav.Item = {
   key: "visualization",
   content: <Content />,
   tooltip: "Visualize",

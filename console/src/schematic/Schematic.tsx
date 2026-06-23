@@ -37,6 +37,7 @@ import {
   setViewportMode,
 } from "@/schematic/slice";
 import { type RootState } from "@/store";
+import { Session } from "@/layered/session";
 
 const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });
@@ -99,7 +100,7 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (editable)
-      dispatch(Nav.setNavDrawerVisible({ key: "visualization", value: true }));
+      dispatch(Session.Nav.setBottomVisible({ visible: true }));
   }, [editable, dispatch]);
 
   const handleNodeClickAction = useHandleNodeClickAction(key);

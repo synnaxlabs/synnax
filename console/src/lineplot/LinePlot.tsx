@@ -25,6 +25,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu } from "@/components";
 import { createEnsureState } from "@/hooks/useEnsureState";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Controls } from "@/lineplot/Controls";
 import {
@@ -172,7 +173,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [dispatch, layoutKey],
   );
   const handleDoubleClick = useCallback(() => {
-    dispatch(Nav.setNavDrawerVisible({ key: "visualization", value: true }));
+    dispatch(Session.Nav.setBottomVisible({ visible: true }));
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
   }, [dispatch, layoutKey]);
 

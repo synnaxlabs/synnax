@@ -18,6 +18,7 @@ import { useDispatch } from "react-redux";
 import { ContextMenu, Controls } from "@/components";
 import { CSS } from "@/css";
 import { createEnsureState } from "@/hooks/useEnsureState";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import {
   useSelectEditable,
@@ -62,8 +63,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    if (canEdit)
-      dispatch(Nav.setNavDrawerVisible({ key: "visualization", value: true }));
+    if (canEdit) dispatch(Session.Nav.setBottomVisible({ visible: true }));
   }, [canEdit, dispatch]);
 
   // When editing, indicators always show; the hideIndicators setting only

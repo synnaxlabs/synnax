@@ -14,6 +14,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { createEnsureState } from "@/hooks/useEnsureState";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { useSelectExists } from "@/log/selectors";
 import { internalCreate, setActiveToolbarTab } from "@/log/slice";
@@ -36,7 +37,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    dispatch(Nav.setNavDrawerVisible({ key: "visualization", value: true }));
+    dispatch(Session.Nav.setBottomVisible({ visible: true }));
   }, [dispatch]);
 
   const handleConfigureChannels = useCallback(() => {

@@ -31,6 +31,7 @@ import { useRename, useTask } from "@/arc/hooks";
 import { translateGraphToConsole } from "@/arc/types/translate";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
+import { type View } from "@/layered/view";
 import { Layout } from "@/layout";
 
 interface EmptyContentProps {
@@ -158,7 +159,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: Nav.DrawerItem = {
+export const TOOLBAR: View.Nav.Item = {
   key: "arc",
   icon: <Icon.Arc />,
   content: <Content />,

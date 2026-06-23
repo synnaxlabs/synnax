@@ -45,8 +45,6 @@ import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Modals } from "@/modals";
-import { Nav } from "@/nav";
-import { NAV_ITEMS } from "@/navs";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
 import { Project } from "@/project";
@@ -173,21 +171,19 @@ export const Console = (): ReactElement => (
   <Errors.OverlayWithoutStore>
     <Provider store={store}>
       <Errors.OverlayWithStore>
-        <Nav.Item.Context value={NAV_ITEMS}>
-          <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-            <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-              <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
-                <Export.ExtractorsProvider extractors={EXTRACTORS}>
-                  <Ontology.ServicesProvider services={SERVICES}>
-                    <Palette.CommandProvider commands={COMMANDS}>
-                      <MainUnderContext />
-                    </Palette.CommandProvider>
-                  </Ontology.ServicesProvider>
-                </Export.ExtractorsProvider>
-              </Import.FileIngestersProvider>
-            </Layout.ContextMenuProvider>
-          </Layout.RendererProvider>
-        </Nav.Item.Context>
+        <Layout.RendererProvider value={LAYOUT_RENDERERS}>
+          <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
+            <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
+              <Export.ExtractorsProvider extractors={EXTRACTORS}>
+                <Ontology.ServicesProvider services={SERVICES}>
+                  <Palette.CommandProvider commands={COMMANDS}>
+                    <MainUnderContext />
+                  </Palette.CommandProvider>
+                </Ontology.ServicesProvider>
+              </Export.ExtractorsProvider>
+            </Import.FileIngestersProvider>
+          </Layout.ContextMenuProvider>
+        </Layout.RendererProvider>
       </Errors.OverlayWithStore>
     </Provider>
   </Errors.OverlayWithoutStore>

@@ -49,6 +49,7 @@ import {
 } from "@/arc/slice";
 import { ContextMenu as CMenu, Controls as BaseControls } from "@/components";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 
@@ -223,7 +224,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (!state.graph.editable) return;
-    dispatch(Nav.setNavDrawerVisible({ key: "visualization", value: true }));
+    dispatch(Session.Nav.setBottomVisible({ visible: true }));
   }, [state.graph.editable, dispatch]);
 
   const handleViewportModeChange = useCallback(

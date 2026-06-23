@@ -14,6 +14,7 @@ import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { type View } from "@/layered/view";
 import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
@@ -38,4 +39,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...OPC.Device.LAYOUTS,
 };
 
-export const NAV_DRAWER_ITEMS: Nav.DrawerItem[] = [TOOLBAR];
+export const NAV_DRAWER_ITEMS: View.Nav.Item[] = [TOOLBAR];

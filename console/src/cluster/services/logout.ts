@@ -10,6 +10,7 @@
 import { type Dispatch } from "@reduxjs/toolkit";
 
 import { Cluster } from "@/cluster";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 
@@ -17,5 +18,5 @@ export const logout = (dispatch: Dispatch) => {
   dispatch(Cluster.setActive(null));
   dispatch(Project.setActive(null));
   dispatch(Layout.clearProject());
-  dispatch(Nav.hideAllNavDrawers());
+  dispatch(Session.Nav.hideAll({}));
 };

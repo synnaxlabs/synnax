@@ -38,6 +38,7 @@ import { EXPLORER_LAYOUT } from "@/range/Explorer";
 import { select, useSelect, useSelectStaticKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
+import { View } from "@/layered/view";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
@@ -205,7 +206,7 @@ const Content = (): ReactElement => (
   </Toolbar.Content>
 );
 
-export const TOOLBAR: Nav.DrawerItem = {
+export const TOOLBAR: View.Nav.Item = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,

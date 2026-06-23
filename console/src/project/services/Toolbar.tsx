@@ -12,6 +12,7 @@ import { Access, Icon, Project } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
+import { type View } from "@/layered/view";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { CREATE_LAYOUT } from "@/project/Create";
@@ -58,7 +59,7 @@ const EmptyContent = () => {
   );
 };
 
-export const TOOLBAR: Nav.DrawerItem = {
+export const TOOLBAR: View.Nav.Item = {
   key: "project",
   icon: <Icon.Project />,
   content: <Content />,

@@ -7,24 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Nav as PNav, OS } from "@synnaxlabs/pluto";
+import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Layout } from "@/layout";
-import { Nav } from "@/nav";
+import { View } from "@/layered/view";
 import { Version } from "@/version";
 
 export const LoginNav = (): ReactElement => {
   const os = OS.use();
   return (
-    <Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
-      <PNav.Bar.Start data-tauri-drag-region>
-        <Layout.Controls visibleIfOS="macOS" forceOS={os} />
-      </PNav.Bar.Start>
-      <PNav.Bar.End data-tauri-drag-region justify="end">
+    <View.Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
+      <Nav.Bar.Start data-tauri-drag-region>
+        <View.Window.Controls visibleIfOS="macOS" forceOS={os} />
+      </Nav.Bar.Start>
+      <Nav.Bar.End data-tauri-drag-region justify="end">
         <Version.Badge />
-        <Layout.Controls visibleIfOS="Windows" forceOS={os} />
-      </PNav.Bar.End>
-    </Nav.Bar>
+        <View.Window.Controls visibleIfOS="Windows" forceOS={os} />
+      </Nav.Bar.End>
+    </View.Nav.Bar>
   );
 };
