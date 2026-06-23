@@ -11,10 +11,10 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { renderLog } from "@/layered/service/log/toolbar/testutil";
+import { Toolbar } from "@/layered/service/log/toolbar/Toolbar";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import { Log } from "@/log";
-import { renderLog } from "@/log/toolbar/testutil";
-import { Toolbar } from "@/log/toolbar/Toolbar";
 import { type ConsolePreloadedState, renderWithConsole } from "@/testUtils";
 
 const layoutState = (key: string, name: string): Layout.State => ({
@@ -28,15 +28,15 @@ const layoutState = (key: string, name: string): Layout.State => ({
 const preloadedState = (
   key: string,
   name: string,
-  logState: Partial<Log.State> = {},
+  logState: Partial<Session.Log.State> = {},
 ): ConsolePreloadedState => ({
   [Layout.SLICE_NAME]: {
     ...Layout.ZERO_SLICE_STATE,
     layouts: { ...Layout.ZERO_SLICE_STATE.layouts, [key]: layoutState(key, name) },
   },
-  [Log.SLICE_NAME]: {
-    ...Log.ZERO_SLICE_STATE,
-    logs: { [key]: { ...Log.ZERO_STATE, key, ...logState } },
+  [Session.Log.SLICE_NAME]: {
+    ...Session.Log.ZERO_SLICE_STATE,
+    logs: { [key]: { ...Session.Log.ZERO_STATE, ...logState } },
   },
 });
 
@@ -47,7 +47,7 @@ describe("log/toolbar/Toolbar", () => {
   describe("gating", () => {
     it("renders null when the log does not exist in state", () => {
       const { container } = renderWithConsole(<Toolbar layoutKey="no-log" />, {
-        preloadedState: { [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE },
+        preloadedState: { [Session.Log.SLICE_NAME]: Session.Log.ZERO_SLICE_STATE },
       });
       expect(container.firstChild).toBeNull();
     });

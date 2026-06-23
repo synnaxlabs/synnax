@@ -15,9 +15,11 @@ import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
+import { ImEx } from "@/layered/service/log/imex";
+import { create } from "@/layered/service/log/layout";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
-import { Log } from "@/log";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -28,7 +30,7 @@ const useDelete = createUseDelete({
   convertKey: String,
   beforeUpdate: async ({ data, removeLayout, store }) => {
     removeLayout(...data);
-    store.dispatch(Log.remove({ keys: array.toArray(data) }));
+    store.dispatch(Session.Log.remove({ keys: array.toArray(data) }));
     return data;
   },
 });
@@ -52,7 +54,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = Log.useExport();
+  const handleExport = ImEx.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -96,7 +98,7 @@ const loadLog = async (
   placeLayout: Layout.Placer,
 ) => {
   const l = await client.logs.retrieve({ key });
-  placeLayout(Log.create({ key: l.key, name: l.name }));
+  placeLayout(create({ key: l.key, name: l.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -125,7 +127,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError(async () => {
     const l = await client.logs.retrieve({ key });
     placeLayout(
-      Log.create({
+      create({
         key: l.key,
         name: l.name,
         location: "mosaic",

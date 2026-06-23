@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/log/toolbar/Toolbar.css";
+import "@/layered/service/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
 import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
@@ -18,12 +18,11 @@ import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
+import { useExport } from "@/layered/service/log/imex/export";
+import { Channels } from "@/layered/service/log/toolbar/Channels";
+import { Properties } from "@/layered/service/log/toolbar/Properties";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import { useExport } from "@/log/export";
-import { useSelectActiveToolbarTab, useSelectExists } from "@/log/selectors";
-import { setActiveToolbarTab, type ToolbarTab } from "@/log/slice";
-import { Channels } from "@/log/toolbar/Channels";
-import { Properties } from "@/log/toolbar/Properties";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -38,10 +37,15 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
   Log.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const activeTab = useSelectActiveToolbarTab(layoutKey);
+  const activeTab = Session.Log.useSelectActiveToolbarTab({ key: layoutKey });
   const handleTabSelect = useCallback(
     (tab: string) =>
-      dispatch(setActiveToolbarTab({ key: layoutKey, tab: tab as ToolbarTab })),
+      dispatch(
+        Session.Log.setActiveToolbarTab({
+          key: layoutKey,
+          tab: tab as Session.Log.ToolbarTab,
+        }),
+      ),
     [dispatch, layoutKey],
   );
   const handleExport = useExport();
@@ -86,7 +90,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
 };
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
-  const exists = useSelectExists(layoutKey);
+  const exists = Session.Log.useSelectExists({ key: layoutKey });
   if (!exists) return null;
   return <Internal layoutKey={layoutKey} />;
 };

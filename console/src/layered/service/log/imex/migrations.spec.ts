@@ -11,28 +11,51 @@ import { log } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { anyStateZ, migrateSlice, migrateState } from "@/log/types";
-import * as v0 from "@/log/types/v0";
-import * as v1 from "@/log/types/v1";
-import * as v2 from "@/log/types/v2";
+import { anyStateZ } from "@/layered/service/log/imex/import";
 
-describe("log type migrations", () => {
+const V0_ZERO = { key: "", version: "0.0.0", channels: [], remoteCreated: false };
+const V1_ZERO = {
+  key: "",
+  version: "1.0.0",
+  channels: [],
+  remoteCreated: false,
+  timestampPrecision: 0,
+  showChannelNames: true,
+  showReceiptTimestamp: true,
+  toolbar: { activeTab: "channels" },
+};
+const V2_ZERO = {
+  key: "",
+  version: "2.0.0",
+  toolbar: { activeTab: "channels" },
+};
+
+const v1Channel = (channel: number, channelColor = "", precision = -1) => ({
+  channel,
+  color: channelColor,
+  notation: "standard",
+  precision,
+  alias: "",
+  timestamp: { format: "preciseDate", tz: "local" },
+});
+
+describe("log state migrations", () => {
   describe("identity", () => {
     it("should leave a v2 state unchanged", () => {
-      expect(migrateState(v2.ZERO_STATE)).toEqual(v2.ZERO_STATE);
+      expect(anyStateZ.parse(V2_ZERO)).toMatchObject(V2_ZERO);
     });
 
     it("should stamp the latest version on every input", () => {
-      [v0.ZERO_STATE, v1.ZERO_STATE, v2.ZERO_STATE].forEach((state) =>
-        expect(migrateState(state).version).toBe(v2.VERSION),
+      [V0_ZERO, V1_ZERO, V2_ZERO].forEach((state) =>
+        expect(anyStateZ.parse(state).version).toBe("2.0.0"),
       );
     });
   });
 
   describe("body -> pendingUpload", () => {
     it("should park a v0 body in pendingUpload with default channel config", () => {
-      const migrated = migrateState({
-        ...v0.ZERO_STATE,
+      const migrated = anyStateZ.parse({
+        ...V0_ZERO,
         key: "test",
         channels: [1, 2],
         remoteCreated: false,
@@ -44,15 +67,13 @@ describe("log type migrations", () => {
     });
 
     it("should park a v1 body in pendingUpload, preserving display config", () => {
-      const migrated = migrateState({
-        ...v1.ZERO_STATE,
+      const migrated = anyStateZ.parse({
+        ...V1_ZERO,
         key: "test",
         remoteCreated: false,
         timestampPrecision: 2,
         showChannelNames: false,
-        channels: [
-          v1.channelEntryZ.parse({ channel: 1, color: "#ff0000", precision: 3 }),
-        ],
+        channels: [v1Channel(1, "#ff0000", 3)],
       });
       expect(migrated.pendingUpload).toMatchObject({
         key: "test",
@@ -67,18 +88,18 @@ describe("log type migrations", () => {
     });
 
     it("should leave pendingUpload undefined for a remoteCreated log", () => {
-      const migrated = migrateState({
-        ...v1.ZERO_STATE,
+      const migrated = anyStateZ.parse({
+        ...V1_ZERO,
         key: "test",
         remoteCreated: true,
-        channels: [v1.channelEntryZ.parse({ channel: 1 })],
+        channels: [v1Channel(1)],
       });
       expect(migrated.pendingUpload).toBeUndefined();
     });
 
     it("should preserve the toolbar tab through migration", () => {
-      const migrated = migrateState({
-        ...v1.ZERO_STATE,
+      const migrated = anyStateZ.parse({
+        ...V1_ZERO,
         key: "test",
         toolbar: { activeTab: "properties" },
       });
@@ -88,11 +109,11 @@ describe("log type migrations", () => {
 
   describe("v1 color migration into pendingUpload", () => {
     const migratedColor = (channelColor: string) =>
-      migrateState({
-        ...v1.ZERO_STATE,
+      anyStateZ.parse({
+        ...V1_ZERO,
         key: "test",
         remoteCreated: false,
-        channels: [v1.channelEntryZ.parse({ channel: 1, color: channelColor })],
+        channels: [v1Channel(1, channelColor)],
       }).pendingUpload?.channels[0].color;
 
     it("should convert an empty-string color to color.ZERO", () => {
@@ -108,31 +129,13 @@ describe("log type migrations", () => {
     });
   });
 
-  describe("slice", () => {
-    it("should migrate every log in a v1 slice", () => {
-      const migrated = migrateSlice({
-        ...v1.ZERO_SLICE_STATE,
-        logs: {
-          test: {
-            ...v1.ZERO_STATE,
-            key: "test",
-            remoteCreated: false,
-            channels: [v1.channelEntryZ.parse({ channel: 1, color: "" })],
-          },
-        },
-      });
-      expect(migrated.version).toBe(v2.VERSION);
-      expect(migrated.logs.test.pendingUpload?.channels[0].color).toEqual(color.ZERO);
-    });
-  });
-
   describe("anyStateZ", () => {
     it("should parse a v2 state as-is", () => {
-      expect(anyStateZ.parse(v2.ZERO_STATE).version).toBe(v2.VERSION);
+      expect(anyStateZ.parse(V2_ZERO).version).toBe("2.0.0");
     });
 
     it("should parse and migrate a v0 state", () => {
-      expect(anyStateZ.parse(v0.ZERO_STATE).version).toBe(v2.VERSION);
+      expect(anyStateZ.parse(V0_ZERO).version).toBe("2.0.0");
     });
 
     it("should parse a persisted v1 log export into a pendingUpload", () => {
@@ -155,7 +158,7 @@ describe("log type migrations", () => {
         toolbar: { activeTab: "channels" },
         type: "log",
       });
-      expect(result.version).toBe(v2.VERSION);
+      expect(result.version).toBe("2.0.0");
       expect(result.pendingUpload?.channels[0].color).toEqual(color.ZERO);
       expect(result.pendingUpload?.channels[0].timestamp).toEqual({
         format: "preciseDate",

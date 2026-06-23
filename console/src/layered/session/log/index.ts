@@ -7,10 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Link } from "@/link";
-import { Log } from "@/log";
-
-export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const log = await client.logs.retrieve({ key });
-  placeLayout(Log.create({ key: log.key, name: log.name }));
-};
+export * as Log from "@/layered/session/log/external";

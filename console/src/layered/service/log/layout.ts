@@ -10,8 +10,8 @@
 import { log } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
+import { Session } from "@/layered/session";
 import { type Layout } from "@/layout";
-import { internalCreate } from "@/log/slice";
 
 export const LAYOUT_TYPE = "log";
 export type LayoutType = typeof LAYOUT_TYPE;
@@ -25,7 +25,7 @@ export const create =
   ({ dispatch }) => {
     const { name = "Log", location = "mosaic", window, tab } = initial;
     const key = log.keyZ.safeParse(initial.key).data ?? uuid.create();
-    dispatch(internalCreate({ key }));
+    dispatch(Session.Log.internalCreate({ key }));
     return {
       key,
       name,

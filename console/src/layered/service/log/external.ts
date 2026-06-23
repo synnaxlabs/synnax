@@ -8,19 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { type Export } from "@/export";
+import { Log } from "@/layered/service/log/body/Log";
+import { extract } from "@/layered/service/log/imex/export";
+import { LAYOUT_TYPE } from "@/layered/service/log/layout";
+import { Selectable } from "@/layered/service/log/Selectable";
 import { type Layout } from "@/layout";
-import { extract } from "@/log/export";
-import { LAYOUT_TYPE, Log } from "@/log/Log";
-import { Selectable } from "@/log/Selectable";
 import { type Selector } from "@/selector";
 
-export * from "@/log/export";
-export * from "@/log/Log";
-export * from "@/log/Selectable";
-export * from "@/log/selectors";
-export * from "@/log/slice";
-export * from "@/log/toolbar/Toolbar";
-export * from "@/log/useCreate";
+export * from "@/layered/service/log/imex";
+export * from "@/layered/service/log/layout";
+export * from "@/layered/service/log/link";
+export * from "@/layered/service/log/ontology";
+export * from "@/layered/service/log/palette";
+export * from "@/layered/service/log/Selectable";
+export * from "@/layered/service/log/toolbar";
+export * from "@/layered/service/log/useCreate";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

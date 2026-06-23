@@ -13,26 +13,22 @@ import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
-import { createEnsureState } from "@/hooks/useEnsureState";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import { useSelectExists } from "@/log/selectors";
-import { internalCreate, setActiveToolbarTab } from "@/log/slice";
 import { type RootState } from "@/store";
-
-export { create, LAYOUT_TYPE, type LayoutType } from "@/log/layout";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
-const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  PLog.useEnsureRetrieved({ key: layoutKey });
+const Internal: Layout.Renderer = ({ visible }) => {
+  const key = PLog.useKey();
   const dispatch = useDispatch();
   const store = useStore<RootState>();
-  const channelKeys = PLog.useSelectChannelKeys({ key: layoutKey });
+  const channelKeys = PLog.useSelectChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
 
   const enableTriggers = useCallback(
-    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey,
-    [store, layoutKey],
+    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key,
+    [store, key],
   );
 
   const handleDoubleClick = useCallback(() => {
@@ -40,13 +36,12 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [dispatch]);
 
   const handleConfigureChannels = useCallback(() => {
-    dispatch(setActiveToolbarTab({ key: layoutKey, tab: "channels" }));
+    dispatch(Session.Log.setActiveToolbarTab({ key, tab: "channels" }));
     handleDoubleClick();
-  }, [dispatch, layoutKey, handleDoubleClick]);
+  }, [dispatch, key, handleDoubleClick]);
 
   return (
     <PLog.Log
-      resourceKey={layoutKey}
       onDoubleClick={handleDoubleClick}
       enableTriggers={enableTriggers}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
@@ -66,15 +61,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-const useEnsureState = createEnsureState({
-  useExists: useSelectExists,
-  create: (key) => internalCreate({ key }),
-});
-
-export const Log: Layout.Renderer = (props) => {
-  const exists = useEnsureState(props.layoutKey);
-  if (!exists) return null;
-  return <Loaded {...props} />;
-};
-
+export const Log: Layout.Renderer = (props) => (
+  <PLog.Suspended logKey={props.layoutKey}>
+    <Internal {...props} />
+  </PLog.Suspended>
+);
 Log.useName = Layout.createUseFluxName(PLog.useRename, PLog.useRetrieveObservableName);

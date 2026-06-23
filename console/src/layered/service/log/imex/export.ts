@@ -10,9 +10,10 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/export";
+import { LAYOUT_TYPE } from "@/layered/service/log/layout";
 import { Layout } from "@/layout";
-import { LAYOUT_TYPE } from "@/log/layout";
-import { VERSION } from "@/log/types/v2";
+
+export const VERSION = "2.0.0";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const name = Layout.select(store.getState(), key)?.name;

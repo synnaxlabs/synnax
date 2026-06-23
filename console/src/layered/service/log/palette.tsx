@@ -10,7 +10,7 @@
 import { log } from "@synnaxlabs/client";
 import { Access, Log } from "@synnaxlabs/pluto";
 
-import { useCreate } from "@/log/useCreate";
+import { useCreate } from "@/layered/service/log/useCreate";
 import { Palette } from "@/palette";
 
 const CreateCommand: Palette.Command = (listProps) => {
