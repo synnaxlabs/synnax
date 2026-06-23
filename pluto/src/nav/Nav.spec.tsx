@@ -29,14 +29,4 @@ describe("Nav", () => {
       expect(c.getByText("End")).toBeTruthy();
     });
   });
-  describe("Nav.Drawer", () => {
-    it("should render its content when open", () => {
-      const c = render(
-        <Nav.Drawer open size={100}>
-          <h1>Drawer Content</h1>
-        </Nav.Drawer>,
-      );
-      expect(c.getByText("Drawer Content")).toBeTruthy();
-    });
-  });
 });

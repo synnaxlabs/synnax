@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type bounds, box, clamp, location } from "@synnaxlabs/x";
-import { clsx } from "clsx";
 import { type ReactElement, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -96,7 +95,7 @@ export const Single = ({
       location={loc}
       size={clampedSize}
       onDragStart={handleDragStart}
-      className={clsx(className, CSS.expanded(clampedSize !== COLLAPSED_SIZE))}
+      className={CSS(className, CSS.expanded(clampedSize !== COLLAPSED_SIZE))}
       {...rest}
     />
   );

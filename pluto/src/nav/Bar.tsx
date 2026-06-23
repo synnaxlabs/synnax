@@ -22,14 +22,14 @@ export interface BarProps extends Omit<Flex.BoxProps, "direction" | "size" | "re
 }
 
 const BaseBar = ({
-  location: location_ = "left",
+  location: propsLoc = "left",
   size = "9rem",
   className,
   style,
   bordered = false,
   ...rest
 }: BarProps): ReactElement => {
-  const loc = location.construct(location_);
+  const loc = location.construct(propsLoc);
   const dir = location.direction(loc);
   const oppositeDir = direction.swap(dir);
   return (

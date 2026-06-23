@@ -17,14 +17,6 @@ import { Errors } from "@/errors";
 import { Resize } from "@/resize";
 import { Eraser } from "@/vis/eraser";
 
-export interface DrawerItem {
-  key: string;
-  content: ReactElement;
-  minSize?: number;
-  maxSize?: number;
-  initialSize?: number;
-}
-
 export interface DrawerProps extends Resize.SingleProps {
   open?: boolean;
   eraseEnabled?: boolean;
