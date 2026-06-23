@@ -10,11 +10,10 @@
 import "@/nav/Drawer.css";
 
 import { type box, location } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/css";
 import { Errors } from "@/errors";
-import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";
 import { Eraser } from "@/vis/eraser";
 
@@ -26,77 +25,44 @@ export interface DrawerItem {
   initialSize?: number;
 }
 
-export interface UseDrawerProps {
-  initialKey?: string;
-  items: DrawerItem[];
-}
-
-export interface UseDrawerReturn {
-  activeItem?: DrawerItem;
-  onSelect?: (key: string) => void;
-}
-
-export interface DrawerProps
-  extends
-    Omit<BarProps, "onSelect" | "onResize">,
-    UseDrawerReturn,
-    Partial<Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">> {
+export interface DrawerProps extends Resize.SingleProps {
+  open?: boolean;
   eraseEnabled?: boolean;
 }
 
-export const useDrawer = ({ items, initialKey }: UseDrawerProps): UseDrawerReturn => {
-  const [activeKey, setActiveKey] = useState<string | undefined>(initialKey);
-  const handleSelect = (key: string): void =>
-    setActiveKey(key === activeKey ? undefined : key);
-  const activeItem = items.find((item) => item.key === activeKey);
-  return { onSelect: handleSelect, activeItem };
-};
-
 export const Drawer = ({
-  activeItem,
+  open = false,
   children,
-  onSelect,
-  location: loc_ = "left",
+  location: loc,
   collapseThreshold = 0.65,
   className,
   onResize,
-  onCollapse,
   eraseEnabled,
   ...rest
-}: DrawerProps): ReactElement | null => {
-  const dir = location.direction(loc_);
-  eraseEnabled ??= activeItem != null;
-  const handleCollapse = useCallback(() => {
-    if (onCollapse) onCollapse();
-    else if (activeItem != null) onSelect?.(activeItem.key);
-  }, [onSelect, activeItem?.key, onCollapse]);
+}: DrawerProps): ReactElement => {
+  eraseEnabled ??= open;
   const { erase } = Eraser.use({ enabled: eraseEnabled });
   const handleResize = useCallback(
-    (size: number, box: box.Box) => {
-      onResize?.(size, box);
-      erase(box);
+    (size: number, b: box.Box) => {
+      onResize?.(size, b);
+      erase(b);
     },
     [onResize, erase],
   );
-  const { content, minSize, maxSize, initialSize = 0 } = activeItem ?? {};
   return (
     <Resize.Single
       className={CSS(
         CSS.B("nav-drawer"),
-        CSS.dir(dir),
-        CSS.visible(activeItem != null),
+        CSS.dir(location.direction(loc)),
+        CSS.visible(open),
         className,
       )}
       collapseThreshold={collapseThreshold}
-      onCollapse={handleCollapse}
-      location={loc_}
+      location={loc}
       onResize={handleResize}
-      minSize={minSize}
-      maxSize={maxSize}
-      initialSize={initialSize}
       {...rest}
     >
-      <Errors.Boundary>{content}</Errors.Boundary>
+      <Errors.Boundary>{children}</Errors.Boundary>
     </Resize.Single>
   );
 };

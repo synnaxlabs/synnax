@@ -19,7 +19,7 @@ describe("Resize", () => {
   describe("Resize", () => {
     it("should render a resize div", async () => {
       const c = render(
-        <Resize.Single location="left" initialSize={50} minSize={20} maxSize={500}>
+        <Resize.Single location="left" size={50} minSize={20} maxSize={500}>
           <p>Hello</p>
         </Resize.Single>,
       );

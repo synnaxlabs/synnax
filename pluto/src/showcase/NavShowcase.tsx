@@ -17,6 +17,14 @@ import { Text } from "@/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 
+const useShowcaseDrawer = (items: Nav.DrawerItem[]) => {
+  const [activeKey, setActiveKey] = useState<string>();
+  const activeItem = items.find((i) => i.key === activeKey);
+  const onSelect = (key: string) =>
+    setActiveKey((prev) => (prev === key ? undefined : key));
+  return { activeItem, onSelect };
+};
+
 export const NavShowcase = () => {
   const [topDrawerItems] = useState([
     {
@@ -86,8 +94,8 @@ export const NavShowcase = () => {
     },
   ]);
 
-  const topDrawer = Nav.useDrawer({ items: topDrawerItems });
-  const leftDrawer = Nav.useDrawer({ items: leftDrawerItems });
+  const topDrawer = useShowcaseDrawer(topDrawerItems);
+  const leftDrawer = useShowcaseDrawer(leftDrawerItems);
 
   return (
     <Flex.Box y pack empty>
@@ -336,7 +344,13 @@ export const NavShowcase = () => {
                     </Button.Button>
                   </Nav.Bar.End>
                 </Nav.Bar>
-                <Nav.Drawer {...topDrawer} location="top" />
+                <Nav.Drawer
+                  open={topDrawer.activeItem != null}
+                  size={topDrawer.activeItem?.initialSize}
+                  location="top"
+                >
+                  {topDrawer.activeItem?.content}
+                </Nav.Drawer>
                 <Flex.Box
                   style={{
                     padding: "2rem",
@@ -399,7 +413,13 @@ export const NavShowcase = () => {
                     </Button.Button>
                   </Nav.Bar.End>
                 </Nav.Bar>
-                <Nav.Drawer {...leftDrawer} location="left" />
+                <Nav.Drawer
+                  open={leftDrawer.activeItem != null}
+                  size={leftDrawer.activeItem?.initialSize}
+                  location="left"
+                >
+                  {leftDrawer.activeItem?.content}
+                </Nav.Drawer>
                 <Flex.Box
                   style={{
                     padding: "2rem",

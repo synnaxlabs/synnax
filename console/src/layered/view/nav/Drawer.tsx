@@ -46,20 +46,20 @@ interface DrawerProps extends Nav.DrawerProps {
 
 export const Drawer = ({
   location: loc,
-  activeItem,
+  open = false,
   hover,
   onStopHover,
   ...rest
 }: DrawerProps): ReactElement => (
   <Nav.Drawer
     location={loc}
+    open={open}
     className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
-    activeItem={activeItem}
     onMouseLeave={mouseLeaveBy(
       direction.construct(loc) === "y" ? xy.swap(X_THRESHOLD) : X_THRESHOLD,
       onStopHover,
     )}
-    eraseEnabled={activeItem != null && !hover}
+    eraseEnabled={open && !hover}
     background={0}
     rounded={1}
     bordered

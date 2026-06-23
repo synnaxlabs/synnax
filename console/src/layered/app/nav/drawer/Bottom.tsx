@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, useDebouncedCallback } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Items } from "@/layered/app/nav/items";
@@ -18,16 +17,8 @@ import { View } from "@/layered/view";
 export const Bottom = (): ReactElement => {
   const { visible, hover, size } = Session.Nav.useSelectBottom();
   const dispatch = useDispatch();
-  const activeItem = useMemo(
-    () =>
-      visible
-        ? { ...Items.BOTTOM, initialSize: size ?? Items.BOTTOM.initialSize }
-        : undefined,
-    [size],
-  );
-  const onResize = useDebouncedCallback(
+  const onResize = useCallback(
     (size: number) => dispatch(Session.Nav.resizeBottom({ size })),
-    TimeSpan.milliseconds(100),
     [dispatch],
   );
   const onCollapse = useCallback(() => {
@@ -41,11 +32,16 @@ export const Bottom = (): ReactElement => {
   return (
     <View.Nav.Drawer
       location="bottom"
-      activeItem={activeItem}
+      open={visible}
+      size={size ?? Items.BOTTOM.initialSize}
+      minSize={Items.BOTTOM.minSize}
+      maxSize={Items.BOTTOM.maxSize}
       hover={hover}
       onResize={onResize}
       onCollapse={onCollapse}
       onStopHover={onStopHover}
-    />
+    >
+      {Items.BOTTOM.content}
+    </View.Nav.Drawer>
   );
 };

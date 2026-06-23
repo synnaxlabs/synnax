@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, useDebouncedCallback } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Items } from "@/layered/app/nav/items";
@@ -18,14 +17,9 @@ import { Drawer } from "@/layered/view/nav/Drawer";
 export const Left = (): ReactElement => {
   const { selected, hover, size } = Session.Nav.useSelectLeft();
   const dispatch = useDispatch();
-  const activeItem = useMemo(() => {
-    const item = Items.LEFT.find((i) => i.key === selected);
-    if (item == null) return undefined;
-    return size != null ? { ...item, initialSize: size } : item;
-  }, [selected, size]);
-  const onResize = useDebouncedCallback(
+  const item = Items.LEFT.find((i) => i.key === selected);
+  const onResize = useCallback(
     (size: number) => dispatch(Session.Nav.resizeLeft({ size })),
-    TimeSpan.milliseconds(100),
     [dispatch],
   );
   const onCollapse = useCallback(() => {
@@ -39,11 +33,16 @@ export const Left = (): ReactElement => {
   return (
     <Drawer
       location="left"
-      activeItem={activeItem}
+      open={item != null}
+      size={size ?? item?.initialSize}
+      minSize={item?.minSize}
+      maxSize={item?.maxSize}
       hover={hover}
       onResize={onResize}
       onCollapse={onCollapse}
       onStopHover={onStopHover}
-    />
+    >
+      {item?.content}
+    </Drawer>
   );
 };

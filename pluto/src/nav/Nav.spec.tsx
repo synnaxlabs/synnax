@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { render } from "@testing-library/react";
-import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Nav } from "@/nav";
@@ -31,19 +30,13 @@ describe("Nav", () => {
     });
   });
   describe("Nav.Drawer", () => {
-    it("should show the correct item", () => {
-      const items: Nav.DrawerItem[] = [
-        { key: "1", content: <h1>Item 1 Content</h1> },
-        { key: "2", content: <h1>Item 2 Content</h1> },
-      ];
-      const TestNavDrawer = (): ReactElement => {
-        const props = Nav.useDrawer({ items, initialKey: "1" });
-        return <Nav.Drawer {...props} />;
-      };
-
-      const c = render(<TestNavDrawer />);
-      expect(c.getByText("Item 1 Content")).toBeTruthy();
-      expect(c.queryByText("Item 2 Content")).toBeNull();
+    it("should render its content when open", () => {
+      const c = render(
+        <Nav.Drawer open size={100}>
+          <h1>Drawer Content</h1>
+        </Nav.Drawer>,
+      );
+      expect(c.getByText("Drawer Content")).toBeTruthy();
     });
   });
 });
