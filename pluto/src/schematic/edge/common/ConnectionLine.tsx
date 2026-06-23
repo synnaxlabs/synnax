@@ -32,14 +32,7 @@ export const ConnectionLine = ({
     if (res.success) target.orientation = res.data;
   }
   const flow = useReactFlow();
-  const conn = Segmented.createConnector({
-    sourcePos: source.position,
-    targetPos: target.position,
-    sourceOrientation: source.orientation,
-    targetOrientation: target.orientation,
-    sourceBox,
-    targetBox,
-  });
+  const conn = Segmented.createConnector({ source, target, sourceBox, targetBox });
   const points = Segmented.segmentsToPoints(
     source.position,
     conn,
