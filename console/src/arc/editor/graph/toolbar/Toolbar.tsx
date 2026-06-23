@@ -72,6 +72,7 @@ export interface ToolbarProps {
 }
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  Arc.useEnsureRetrieved({ key: layoutKey });
   const dispatch = useDispatch();
   const { name } = Layout.useSelectRequired(layoutKey);
   const toolbar = useSelectToolbar();

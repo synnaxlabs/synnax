@@ -15,7 +15,7 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { graph } from "@/arc/graph";
 import { ir } from "@/arc/ir";
-import { type Arc, keyZ, modeZ } from "@/arc/types.gen";
+import { type Arc, keyZ } from "@/arc/types.gen";
 
 /** Rename renames the Arc module. */
 export const renamePayloadZ = z.object({
@@ -23,13 +23,6 @@ export const renamePayloadZ = z.object({
 });
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
-
-/** SetMode switches the module between text and graph representation. */
-export const setModePayloadZ = z.object({
-  mode: modeZ,
-});
-
-export type SetModePayload = z.infer<typeof setModePayloadZ>;
 
 /**
  * SetNode inserts the node if no node with the same key exists, otherwise
@@ -144,7 +137,6 @@ export type ForgetCharsPayload = z.infer<typeof forgetCharsPayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
-  z.object({ type: z.literal("set_mode"), setMode: setModePayloadZ }),
   z.object({ type: z.literal("set_node"), setNode: setNodePayloadZ }),
   z.object({
     type: z.literal("set_node_position"),
@@ -168,11 +160,6 @@ export type Action = z.infer<typeof actionZ>;
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
   rename: renamePayloadZ.parse(payload),
-});
-
-export const setMode = (payload: z.input<typeof setModePayloadZ>): Action => ({
-  type: "set_mode",
-  setMode: setModePayloadZ.parse(payload),
 });
 
 export const setNode = (payload: z.input<typeof setNodePayloadZ>): Action => ({
@@ -237,7 +224,6 @@ export type ReduceAllResult = actions.ReduceAllResult<Arc, Action>;
 
 export interface Handlers {
   rename: (state: Draft<Arc>, payload: RenamePayload) => HandlerResult;
-  setMode: (state: Draft<Arc>, payload: SetModePayload) => HandlerResult;
   setNode: (state: Draft<Arc>, payload: SetNodePayload) => HandlerResult;
   setNodePosition: (
     state: Draft<Arc>,
@@ -258,8 +244,6 @@ export const createReduceAll = (handlers: Handlers) =>
     switch (action.type) {
       case "rename":
         return handlers.rename(state, action.rename);
-      case "set_mode":
-        return handlers.setMode(state, action.setMode);
       case "set_node":
         return handlers.setNode(state, action.setNode);
       case "set_node_position":

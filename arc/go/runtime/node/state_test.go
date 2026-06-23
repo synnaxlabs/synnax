@@ -1486,7 +1486,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should treat a non-empty string as truthy and an empty string as falsy", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
