@@ -343,13 +343,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				})
 
 				It("Should detect circular dependencies", func(ctx SpecContext) {
-					// Form a 2-node cycle calc_circ_a -> calc_circ_b -> calc_circ_a. A cycle
-					// cannot be created directly because create-time analysis rejects the
-					// forward reference, so we build it the only way it can occur in
-					// practice: create both channels with resolvable expressions, then
-					// update one to close the cycle. Analysis resolves symbols but does not
-					// detect cycles, so the cyclic state persists for the iterator's
-					// topological sort to catch.
+					// Form a 2-node cycle calc_circ_a -> calc_circ_b -> calc_circ_a. A
+					// cycle cannot be created directly because create-time analysis
+					// rejects the forward reference, so we build it the only way it can
+					// occur in practice: create both channels with resolvable
+					// expressions, then update one to close the cycle. Analysis
+					// resolves symbols but does not detect cycles, so the cyclic state
+					// persists for the iterator's topological sort to catch.
 					calcA := &channel.Channel{
 						Name:       "calc_circ_a",
 						DataType:   telem.Float32T,

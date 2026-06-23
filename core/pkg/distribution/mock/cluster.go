@@ -68,6 +68,7 @@ func newCluster() *Cluster {
 // Provision provisions a new Node in the cluster and returns it.
 func (c *Cluster) Provision(ctx context.Context) Node {
 	var (
+		peers             = c.addrFactory.Generated()
 		addr              = c.addrFactory.Next()
 		storageLayer      = c.storage.Provision(ctx)
 		distributionLayer = testutil.MustSucceed(distribution.OpenLayer(
@@ -77,7 +78,7 @@ func (c *Cluster) Provision(ctx context.Context) Node {
 				Transport:        c.net.New(addr, 1),
 				AspenTransport:   c.aspenNet.NewTransport(),
 				AdvertiseAddress: addr,
-				PeerAddresses:    c.addrFactory.Generated(),
+				PeerAddresses:    peers,
 				AspenOptions: []aspen.Option{
 					aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 				},

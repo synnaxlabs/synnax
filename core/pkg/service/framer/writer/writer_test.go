@@ -12,8 +12,8 @@ package writer_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/x/confluence"
@@ -23,28 +23,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Writer", Ordered, func() {
-	var (
-		dist       mock.Node
-		channelSvc *channel.Service
-		writerSvc  *writer.Service
-	)
-	BeforeAll(func(ctx SpecContext) {
-		dist = mock.MustOpenNode(ctx)
-		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      dist.Channel,
-			DB:           dist.DB,
-			HostResolver: dist.Cluster,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			Search:       dist.Search,
-		}))
-		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
-			Framer:  dist.Framer,
-			Channel: channelSvc,
-		}))
-	})
-
+var _ = Describe("Writer", func() {
 	createIndexed := func(ctx SpecContext) (channel.Channel, channel.Channel) {
 		idxCh := channel.Channel{
 			Name:     channel.NewRandomName(),
@@ -60,6 +39,65 @@ var _ = Describe("Writer", Ordered, func() {
 		Expect(channelSvc.Create(ctx, &dataCh)).To(Succeed())
 		return idxCh, dataCh
 	}
+
+	Describe("ServiceConfig", func() {
+		Describe("Override", func() {
+			It("Should retain the base value when the override is nil", func() {
+				base := writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc}
+				res := base.Override(writer.ServiceConfig{})
+				Expect(res.Framer).To(Equal(dist.Framer))
+				Expect(res.Channel).To(Equal(channelSvc))
+			})
+			It("Should replace the base value when the override is non-nil", func() {
+				res := writer.ServiceConfig{}.Override(writer.ServiceConfig{
+					Framer:  dist.Framer,
+					Channel: channelSvc,
+				})
+				Expect(res.Framer).To(Equal(dist.Framer))
+				Expect(res.Channel).To(Equal(channelSvc))
+			})
+			It("Should override zero-value instrumentation", func() {
+				ins := alamos.New("writer-test")
+				res := writer.ServiceConfig{}.Override(writer.ServiceConfig{
+					Instrumentation: ins,
+				})
+				Expect(res.Instrumentation.IsZero()).To(BeFalse())
+			})
+			It("Should retain base instrumentation when the override is zero", func() {
+				base := writer.ServiceConfig{Instrumentation: alamos.New("writer-test")}
+				res := base.Override(writer.ServiceConfig{})
+				Expect(res.Instrumentation.IsZero()).To(BeFalse())
+			})
+		})
+
+		Describe("Validate", func() {
+			It("Should return nil for a fully specified configuration", func() {
+				cfg := writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc}
+				Expect(cfg.Validate()).To(Succeed())
+			})
+			It("Should return an error when Framer is nil", func() {
+				cfg := writer.ServiceConfig{Channel: channelSvc}
+				Expect(cfg.Validate()).To(MatchError(ContainSubstring("framer")))
+			})
+			It("Should return an error when Channel is nil", func() {
+				cfg := writer.ServiceConfig{Framer: dist.Framer}
+				Expect(cfg.Validate()).To(MatchError(ContainSubstring("channel")))
+			})
+		})
+	})
+
+	Describe("NewService", func() {
+		It("Should open a service from a valid configuration", func() {
+			Expect(writer.NewService(writer.ServiceConfig{
+				Framer:  dist.Framer,
+				Channel: channelSvc,
+			})).Error().ToNot(HaveOccurred())
+		})
+		It("Should return an error for an invalid configuration", func() {
+			Expect(writer.NewService(writer.ServiceConfig{Channel: channelSvc})).
+				Error().To(MatchError(ContainSubstring("framer: must be non-nil")))
+		})
+	})
 
 	Describe("Open", func() {
 		It("Should resolve channels by key and write a frame", func(ctx SpecContext) {
@@ -100,6 +138,11 @@ var _ = Describe("Writer", Ordered, func() {
 				Keys:  []channel.Key{channel.NewKey(dist.Cluster.HostKey(), 9999)},
 			})).Error().To(MatchError(query.ErrNotFound))
 		})
+
+		It("Should return a validation error when no keys are provided", func(ctx SpecContext) {
+			Expect(writerSvc.Open(ctx, writer.Config{Start: telem.SecondTS})).
+				Error().To(MatchError(ContainSubstring("keys: must be non-empty")))
+		})
 	})
 
 	Describe("NewStream", func() {
@@ -125,6 +168,18 @@ var _ = Describe("Writer", Ordered, func() {
 			}
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
+		})
+
+		It("Should return an error when a key has no corresponding channel", func(ctx SpecContext) {
+			Expect(writerSvc.NewStream(ctx, writer.Config{
+				Start: telem.SecondTS,
+				Keys:  []channel.Key{channel.NewKey(dist.Cluster.HostKey(), 9999)},
+			})).Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should return a validation error when no keys are provided", func(ctx SpecContext) {
+			Expect(writerSvc.NewStream(ctx, writer.Config{Start: telem.SecondTS})).
+				Error().To(MatchError(ContainSubstring("keys: must be non-empty")))
 		})
 	})
 })
