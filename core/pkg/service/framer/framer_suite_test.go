@@ -37,10 +37,11 @@ var (
 	validCfg   framer.ServiceConfig
 )
 
-// newFramerConfig opens the label, status, and channel services backing a framer Service
-// on n and returns a valid framer.ServiceConfig. It is used both to build the shared
-// suite-level service and to spin up isolated services within individual specs (e.g. to
-// exercise Close without conflicting with the shared service's control update channel).
+// newFramerConfig opens the label, status, and channel services backing a framer
+// Service on n and returns a valid framer.ServiceConfig. It is used both to build the
+// shared suite-level service and to spin up isolated services within individual specs
+// (e.g. to exercise Close without conflicting with the shared service's control update
+// channel).
 func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{

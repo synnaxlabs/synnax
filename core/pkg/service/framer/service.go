@@ -105,9 +105,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// Service is the service-layer entry point for reading, writing, streaming, and deleting
-// telemetry against a Synnax cluster. It composes the writer, iterator, streamer, and
-// calculation services behind a single handle.
+// Service is the service-layer entry point for reading, writing, streaming, and
+// deleting telemetry against a Synnax cluster. It composes the writer, iterator,
+// streamer, and calculation services behind a single handle.
 type Service struct {
 	closer   io.MultiCloser
 	streamer *streamer.Service
@@ -134,9 +134,9 @@ func (s *Service) NewStreamIterator(
 	return s.iterator.NewStream(ctx, cfg)
 }
 
-// NewStreamWriter opens a StreamWriter for the channels in cfg, driven through confluence
-// inlet requests and outlet responses. It returns an error if cfg is invalid or any
-// channel in cfg.Keys cannot be resolved.
+// NewStreamWriter opens a StreamWriter for the channels in cfg, driven through
+// confluence inlet requests and outlet responses. It returns an error if cfg is invalid
+// or any channel in cfg.Keys cannot be resolved.
 func (s *Service) NewStreamWriter(
 	ctx context.Context, cfg WriterConfig,
 ) (StreamWriter, error) {
@@ -150,8 +150,8 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 	return s.writer.Open(ctx, cfg)
 }
 
-// DeleteTimeRange deletes all samples stored for the given channels within tr. It returns
-// an error if a channel is currently under the control of a writer over tr.
+// DeleteTimeRange deletes all samples stored for the given channels within tr. It
+// returns an error if a channel is currently under the control of a writer over tr.
 func (s *Service) DeleteTimeRange(
 	ctx context.Context,
 	keys channel.Keys,
