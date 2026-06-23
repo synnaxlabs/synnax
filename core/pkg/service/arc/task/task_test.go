@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
@@ -74,6 +75,7 @@ var _ = Describe("Task", Ordered, func() {
 	var (
 		dist      mock.Node
 		statusSvc *status.Service
+		rangerSvc *ranger.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -92,6 +94,13 @@ var _ = Describe("Task", Ordered, func() {
 			Label:    labelSvc,
 			Search:   dist.Search,
 		}))
+		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Label:    labelSvc,
+			Search:   dist.Search,
+		}))
 	})
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
@@ -100,6 +109,7 @@ var _ = Describe("Task", Ordered, func() {
 			Framer:     dist.Framer,
 			Status:     statusSvc,
 			GetProgram: getModule,
+			Ranger:     rangerSvc,
 		}))
 	}
 
@@ -235,6 +245,7 @@ var _ = Describe("Task", Ordered, func() {
 				Channel: channel.Wrap(dist.Channel),
 				Framer:  dist.Framer,
 				Status:  statusSvc,
+				Ranger:  rangerSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
 					return svcarc.Arc{}, nil
 				},
@@ -261,6 +272,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -277,6 +289,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -293,6 +306,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 2),
@@ -317,6 +331,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 3),
