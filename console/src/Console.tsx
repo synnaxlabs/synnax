@@ -60,6 +60,8 @@ import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 
+import { Session } from "./layered/session";
+
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
   ...Cluster.LAYOUTS,
@@ -141,6 +143,7 @@ const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
 const MainUnderContext = (): ReactElement => {
   const cluster = Cluster.useSelect();
+  const themingProps = Session.Theme.useProviderProps();
   useBlockDefaultDropBehavior();
   Runtime.useExternalLinkHandler();
 
@@ -153,6 +156,7 @@ const MainUnderContext = (): ReactElement => {
       haul={HAUL_PROPS}
       color={COLOR_PROPS}
       alamos={ALAMOS_PROPS}
+      theming={themingProps}
     >
       <Code.Provider initServices={MONACO_SERVICES}>
         <Arc.LSP.Provider>
