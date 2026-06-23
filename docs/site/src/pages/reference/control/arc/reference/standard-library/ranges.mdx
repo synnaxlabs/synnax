@@ -1,0 +1,68 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`ranges`"
+description: "Arc standard library reference for the ranges module: create and end"
+prev: "math"
+prevURL: "/reference/control/arc/reference/standard-library/math"
+next: "status"
+nextURL: "/reference/control/arc/reference/standard-library/status"
+---
+
+import { Note, Icon, Text } from "@synnaxlabs/pluto";
+import Details from "@/components/details/Details.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+The `ranges` module creates and closes ranges on the Core, letting a program mark
+regions of time as an automation runs.
+
+## `create`
+
+Creates a range that starts now and stays open (its end is set to the maximum timestamp,
+shown as "In Progress"), and outputs the new range key.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+| Parameter | Type  | Required | Description                                                                               |
+| --------- | ----- | -------- | ----------------------------------------------------------------------------------------- |
+| `name`    | `str` | Yes      | A human-readable name for the range.                                                      |
+| `color`   | `str` | No       | A display color: hex (`#3bc454`), `rgb(r, g, b)`, or `rgba(r, g, b, a)`.                  |
+| `parent`  | `str` | No       | The key of an existing range to nest the new range under. Defaults to the program's rack. |
+
+**Output** `str`: the new range key.
+
+</Details>
+
+```arc
+range_key := trigger -> ranges.create{name="Terminal Count", color="#3bc454"}
+
+func ranges_create() {
+    range_key = ranges.create("Terminal Count", "#3bc454")
+}
+```
+
+## `end`
+
+Sets the end bound of an existing range to now, closing an open range, and outputs the
+range key.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+| Parameter | Type  | Required | Description                    |
+| --------- | ----- | -------- | ------------------------------ |
+| `key`     | `str` | Yes      | The key of the range to close. |
+
+**Output** `str`: the range key that was closed.
+
+</Details>
+
+```arc
+trigger -> ranges.end{key=range_key}
+
+func ranges_end() {
+    ranges.end(range_key)
+}
+```
