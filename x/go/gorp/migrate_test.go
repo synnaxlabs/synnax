@@ -327,6 +327,30 @@ var _ = Describe("Migrate", func() {
 			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{m2, m1})).To(Succeed())
 			Expect(order).To(Equal([]string{"no_dep", "has_dep"}))
 		})
+
+		It("Should respect dependencies declared on an entry migration", func(ctx SpecContext) {
+			testDB := gorp.Wrap(memkv.New())
+			defer func() { Expect(testDB.Close()).To(Succeed()) }()
+			w := gorp.WrapWriter[int32, entryV1](testDB)
+			Expect(w.Set(ctx, entryV1{ID: 1, Data: "x"})).To(Succeed())
+			var order []string
+			base := gorp.NewMigration("base", func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error {
+				order = append(order, "base")
+				return nil
+			})
+			entry := gorp.NewEntryMigration(
+				"entry_dep",
+				func(_ context.Context, old entryV1) (entryV1, error) {
+					order = append(order, "entry_dep")
+					return entryV1{ID: old.ID, Data: old.Data + "_done"}, nil
+				},
+				"base",
+			)
+			Expect(migrateWithEntryV1(ctx, testDB, []migrate.Migration{entry, base})).To(Succeed())
+			Expect(order).To(Equal([]string{"base", "entry_dep"}))
+			r := gorp.WrapReader[int32, entryV1](testDB)
+			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("x_done"))
+		})
 	})
 
 	Describe("CodecMigration", func() {

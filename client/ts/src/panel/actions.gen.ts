@@ -137,44 +137,46 @@ export const actionZ = z.discriminatedUnion("type", [
 
 export type Action = z.infer<typeof actionZ>;
 
-export const rename = (payload: RenamePayload): Action => ({
+export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
-  rename: payload,
+  rename: renamePayloadZ.parse(payload),
 });
 
-export const insertTab = (payload: InsertTabPayload): Action => ({
+export const insertTab = (payload: z.input<typeof insertTabPayloadZ>): Action => ({
   type: "insert_tab",
-  insertTab: payload,
+  insertTab: insertTabPayloadZ.parse(payload),
 });
 
-export const removeTab = (payload: RemoveTabPayload): Action => ({
+export const removeTab = (payload: z.input<typeof removeTabPayloadZ>): Action => ({
   type: "remove_tab",
-  removeTab: payload,
+  removeTab: removeTabPayloadZ.parse(payload),
 });
 
-export const moveTab = (payload: MoveTabPayload): Action => ({
+export const moveTab = (payload: z.input<typeof moveTabPayloadZ>): Action => ({
   type: "move_tab",
-  moveTab: payload,
+  moveTab: moveTabPayloadZ.parse(payload),
 });
 
-export const splitLeaf = (payload: SplitLeafPayload): Action => ({
+export const splitLeaf = (payload: z.input<typeof splitLeafPayloadZ>): Action => ({
   type: "split_leaf",
-  splitLeaf: payload,
+  splitLeaf: splitLeafPayloadZ.parse(payload),
 });
 
-export const resizeSplit = (payload: ResizeSplitPayload): Action => ({
+export const resizeSplit = (payload: z.input<typeof resizeSplitPayloadZ>): Action => ({
   type: "resize_split",
-  resizeSplit: payload,
+  resizeSplit: resizeSplitPayloadZ.parse(payload),
 });
 
-export const setTabResource = (payload: SetTabResourcePayload): Action => ({
+export const setTabResource = (
+  payload: z.input<typeof setTabResourcePayloadZ>,
+): Action => ({
   type: "set_tab_resource",
-  setTabResource: payload,
+  setTabResource: setTabResourcePayloadZ.parse(payload),
 });
 
-export const setTabView = (payload: SetTabViewPayload): Action => ({
+export const setTabView = (payload: z.input<typeof setTabViewPayloadZ>): Action => ({
   type: "set_tab_view",
-  setTabView: payload,
+  setTabView: setTabViewPayloadZ.parse(payload),
 });
 
 export type HandlerResult = actions.HandlerResult<Action>;

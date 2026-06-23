@@ -53,6 +53,9 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
+Payload.model_rebuild()
+
+
 ONTOLOGY_TYPE = ID(type="range")
 
 

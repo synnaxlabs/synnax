@@ -123,6 +123,32 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)))
 		})
 
+		It("Advances past steps whose terminal node outputs a string", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"done":      {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				func make_key() str {
+				    return "ox_alarm"
+				}
+				sequence main {
+				    make_key{}
+				    make_key{}
+				    make_key{}
+				    1 -> done
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)))
+		})
+
 		It("Blocks at a bare expression gate until truthy", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},

@@ -312,7 +312,7 @@ type Channel struct {
 
 **Correct:**
 
-Edit `/schemas/channel.oracle` to add `new_field`, then ask the user to run
+Edit `/schemas/synnax/channel.oracle` to add `new_field`, then ask the user to run
 `oracle sync` and commit the regenerated `.gen` files alongside the schema change.
 
 ### Rule 6: Always prefer `any` over `interface{}`

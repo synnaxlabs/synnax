@@ -99,7 +99,7 @@ jobs:
         steps.test-matrix.outputs.TEST_MATRIX }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Get Version
         id: version

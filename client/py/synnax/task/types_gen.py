@@ -31,9 +31,9 @@ class StatusDetails(BaseModel):
         data: Contains task-specific status data.
     """
 
-    task: Key = Field(ge=0, le=18446744073709551615)
+    task: Key = Field(default=Key(0), ge=0, le=18446744073709551615)
     running: bool
-    cmd: str | None = None
+    cmd: str = ""
     data: dict[str, Any] | None = None
 
 
@@ -50,7 +50,7 @@ class Command(BaseModel):
     task: Key = Field(ge=0, le=18446744073709551615)
     type: str
     key: str
-    args: dict[str, Any] | None = None
+    args: dict[str, Any] = Field(default_factory=dict)
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
@@ -73,12 +73,12 @@ class Payload(BaseModel):
         status: Is the current execution status of the task.
     """
 
-    key: Key = Field(ge=0, le=18446744073709551615)
+    key: Key = Field(default=Key(0), ge=0, le=18446744073709551615)
     name: str
     type: str
-    config: dict[str, Any]
-    internal: bool | None = None
-    snapshot: bool | None = None
+    config: dict[str, Any] = Field(default_factory=dict)
+    internal: bool = False
+    snapshot: bool = False
     status: Status | None = None
 
     def __hash__(self) -> int:

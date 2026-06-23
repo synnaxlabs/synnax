@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"go/types"
+	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -60,6 +61,11 @@ func (s *Service) renameHandler(ctx context.Context, msg RenameRequest) (types.N
 
 func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
 	channels := *_channels
+	for i := range channels {
+		if err := channels[i].Validate(); err != nil {
+			return validate.PathedError(err, strconv.Itoa(i))
+		}
+	}
 	if *s.cfg.ValidateNames {
 		keys := KeysFromChannels(channels)
 		names := Names(channels)

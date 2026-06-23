@@ -47,6 +47,9 @@ func (w Writer) Create(
 	if err := validateTree(p.Root); err != nil {
 		return err
 	}
+	if err := p.Validate(); err != nil {
+		return err
+	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return
 	}

@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -126,12 +128,53 @@ type Title struct {
 	Visible bool `json:"visible" msgpack:"visible"`
 }
 
+func (t *Title) ApplyDefaults() {
+	if t.Level == "" {
+		t.Level = text.LevelH4
+	}
+}
+
+func (t Title) Validate() error {
+	v := validate.New("Title")
+	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
+	return v.Error()
+}
+
 // Legend is the plot legend configuration.
 type Legend struct {
-	// Visible is whether the legend is shown.
-	Visible bool `json:"visible" msgpack:"visible"`
+	// Hidden is whether the legend is hidden. When false (the default), the legend is
+	// shown.
+	Hidden bool `json:"hidden" msgpack:"hidden"`
 	// Position is the anchor position of the legend within the plot container.
 	Position spatial.StickyXY `json:"position" msgpack:"position"`
+}
+
+func (l *Legend) ApplyDefaults() {
+	if l.Position.X == 0 {
+		l.Position.X = 50
+	}
+	if l.Position.Y == 0 {
+		l.Position.Y = 50
+	}
+	if l.Position.Root.X == "" {
+		l.Position.Root.X = spatial.XLocationLeft
+	}
+	if l.Position.Root.Y == "" {
+		l.Position.Root.Y = spatial.YLocationTop
+	}
+	if l.Position.Units.X == "" {
+		l.Position.Units.X = spatial.StickyUnitPx
+	}
+	if l.Position.Units.Y == "" {
+		l.Position.Units.Y = spatial.StickyUnitPx
+	}
+	l.Position.ApplyDefaults()
+}
+
+func (l Legend) Validate() error {
+	v := validate.New("Legend")
+	v.Exec(func() error { return validate.PathedError(l.Position.Validate(), "position") })
+	return v.Error()
 }
 
 // Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
@@ -142,13 +185,13 @@ type Channels struct {
 	// X2 is the channel rendered on the x2 axis.
 	X2 channel.Key `json:"x2" msgpack:"x2"`
 	// Y1 are the channels rendered on the y1 axis.
-	Y1 []channel.Key `json:"y1" msgpack:"y1"`
+	Y1 []channel.Key `json:"y1,omitzero" msgpack:"y1,omitzero"`
 	// Y2 are the channels rendered on the y2 axis.
-	Y2 []channel.Key `json:"y2" msgpack:"y2"`
+	Y2 []channel.Key `json:"y2,omitzero" msgpack:"y2,omitzero"`
 	// Y3 are the channels rendered on the y3 axis.
-	Y3 []channel.Key `json:"y3" msgpack:"y3"`
+	Y3 []channel.Key `json:"y3,omitzero" msgpack:"y3,omitzero"`
 	// Y4 are the channels rendered on the y4 axis.
-	Y4 []channel.Key `json:"y4" msgpack:"y4"`
+	Y4 []channel.Key `json:"y4,omitzero" msgpack:"y4,omitzero"`
 }
 
 // Ranges binds range keys to each x-axis.
@@ -157,18 +200,19 @@ type Ranges struct {
 	// rather than UUIDs because the console layers synthetic rolling-window ranges (e.g.
 	// "recent", "rolling1m") alongside persisted ranges; the server stores whatever the
 	// client sends.
-	X1 []string `json:"x1" msgpack:"x1"`
+	X1 []string `json:"x1,omitzero" msgpack:"x1,omitzero"`
 	// X2 are the range keys plotted against the x2 axis.
-	X2 []string `json:"x2" msgpack:"x2"`
+	X2 []string `json:"x2,omitzero" msgpack:"x2,omitzero"`
 }
 
-// AutoBounds controls whether an axis derives its bounds from the rendered data window
-// on each side independently. When a bound is auto, the corresponding entry in
-// Axis.bounds is recomputed locally and never broadcast to the server.
-type AutoBounds struct {
-	// Lower is whether the lower bound is computed from data.
+// ManualBounds controls whether an axis uses a manually-set bound on each side
+// independently. When a side is false (the default), the corresponding entry in
+// Axis.bounds is recomputed locally from the rendered data window and never broadcast
+// to the server; when true, Axis.bounds holds the user-set value.
+type ManualBounds struct {
+	// Lower is whether the lower bound is set manually rather than computed from data.
 	Lower bool `json:"lower" msgpack:"lower"`
-	// Upper is whether the upper bound is computed from data.
+	// Upper is whether the upper bound is set manually rather than computed from data.
 	Upper bool `json:"upper" msgpack:"upper"`
 }
 
@@ -182,17 +226,37 @@ type Axis struct {
 	LabelDirection spatial.Direction `json:"label_direction" msgpack:"label_direction"`
 	// LabelLevel is the typography level of the label.
 	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
-	// Bounds is the value-space window of the axis. When the matching entry in auto_bounds
-	// is true the field is overwritten locally on every render; otherwise it is the
-	// user-set fixed bound.
+	// Bounds is the value-space window of the axis. When the matching entry in
+	// manual_bounds is false the field is overwritten locally on every render; otherwise it
+	// is the user-set fixed bound.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// AutoBounds controls per-edge automatic bound derivation.
-	AutoBounds AutoBounds `json:"auto_bounds" msgpack:"auto_bounds"`
+	// ManualBounds controls per-edge manual bound override.
+	ManualBounds ManualBounds `json:"manual_bounds" msgpack:"manual_bounds"`
 	// TickSpacing is the target pixel distance between adjacent tick marks.
 	TickSpacing float64 `json:"tick_spacing" msgpack:"tick_spacing"`
 	// Type selects the tick label style. Null means default (linear). X-axes typically
 	// carry "time" when bound to a timestamp channel.
 	Type *TickType `json:"type,omitempty" msgpack:"type,omitempty"`
+}
+
+func (a *Axis) ApplyDefaults() {
+	if a.LabelDirection == "" {
+		a.LabelDirection = spatial.DirectionX
+	}
+	if a.LabelLevel == "" {
+		a.LabelLevel = text.LevelSmall
+	}
+	if a.TickSpacing == 0 {
+		a.TickSpacing = 75
+	}
+}
+
+func (a Axis) Validate() error {
+	v := validate.New("Axis")
+	v.Ternaryf("key", !a.Key.IsValid(), "invalid key: %v", a.Key)
+	v.Ternaryf("label_direction", !a.LabelDirection.IsValid(), "invalid label_direction: %v", a.LabelDirection)
+	v.Ternaryf("label_level", !a.LabelLevel.IsValid(), "invalid label_level: %v", a.LabelLevel)
+	return v.Error()
 }
 
 // Axes bundles configuration for all six fixed plot axes.
@@ -209,6 +273,56 @@ type Axes struct {
 	Y3 Axis `json:"y3" msgpack:"y3"`
 	// Y4 is the y4 axis configuration.
 	Y4 Axis `json:"y4" msgpack:"y4"`
+}
+
+func (a *Axes) ApplyDefaults() {
+	if a.X1.Key == "" {
+		a.X1.Key = AxisKeyX1
+	}
+	if a.X2.Key == "" {
+		a.X2.Key = AxisKeyX2
+	}
+	if a.Y1.Key == "" {
+		a.Y1.Key = AxisKeyY1
+	}
+	if a.Y1.LabelDirection == "" {
+		a.Y1.LabelDirection = spatial.DirectionY
+	}
+	if a.Y2.Key == "" {
+		a.Y2.Key = AxisKeyY2
+	}
+	if a.Y2.LabelDirection == "" {
+		a.Y2.LabelDirection = spatial.DirectionY
+	}
+	if a.Y3.Key == "" {
+		a.Y3.Key = AxisKeyY3
+	}
+	if a.Y3.LabelDirection == "" {
+		a.Y3.LabelDirection = spatial.DirectionY
+	}
+	if a.Y4.Key == "" {
+		a.Y4.Key = AxisKeyY4
+	}
+	if a.Y4.LabelDirection == "" {
+		a.Y4.LabelDirection = spatial.DirectionY
+	}
+	a.X1.ApplyDefaults()
+	a.X2.ApplyDefaults()
+	a.Y1.ApplyDefaults()
+	a.Y2.ApplyDefaults()
+	a.Y3.ApplyDefaults()
+	a.Y4.ApplyDefaults()
+}
+
+func (a Axes) Validate() error {
+	v := validate.New("Axes")
+	v.Exec(func() error { return validate.PathedError(a.X1.Validate(), "x1") })
+	v.Exec(func() error { return validate.PathedError(a.X2.Validate(), "x2") })
+	v.Exec(func() error { return validate.PathedError(a.Y1.Validate(), "y1") })
+	v.Exec(func() error { return validate.PathedError(a.Y2.Validate(), "y2") })
+	v.Exec(func() error { return validate.PathedError(a.Y3.Validate(), "y3") })
+	v.Exec(func() error { return validate.PathedError(a.Y4.Validate(), "y4") })
+	return v.Error()
 }
 
 // Line is the per-line styling and downsampling configuration.
@@ -229,6 +343,24 @@ type Line struct {
 	Downsample uint32 `json:"downsample" msgpack:"downsample"`
 	// DownsampleMode selects how the downsample factor is applied.
 	DownsampleMode DownsampleMode `json:"downsample_mode" msgpack:"downsample_mode"`
+}
+
+func (l *Line) ApplyDefaults() {
+	if l.StrokeWidth == 0 {
+		l.StrokeWidth = 2
+	}
+	if l.Downsample == 0 {
+		l.Downsample = 1
+	}
+	if l.DownsampleMode == "" {
+		l.DownsampleMode = DownsampleModeDecimate
+	}
+}
+
+func (l Line) Validate() error {
+	v := validate.New("Line")
+	v.Ternaryf("downsample_mode", !l.DownsampleMode.IsValid(), "invalid downsample_mode: %v", l.DownsampleMode)
+	return v.Error()
 }
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
@@ -252,6 +384,18 @@ type Rule struct {
 	Position float64 `json:"position" msgpack:"position"`
 }
 
+func (r *Rule) ApplyDefaults() {
+	if r.LineWidth == 0 {
+		r.LineWidth = 1
+	}
+}
+
+func (r Rule) Validate() error {
+	v := validate.New("Rule")
+	v.Ternaryf("axis", !r.Axis.IsValid(), "invalid axis: %v", r.Axis)
+	return v.Error()
+}
+
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
@@ -272,7 +416,34 @@ type LinePlot struct {
 	Axes Axes `json:"axes" msgpack:"axes"`
 	// Lines holds per-line styling and downsampling configuration. Each entry corresponds
 	// to one channel and range combination produced by the channels and ranges bindings.
-	Lines []Line `json:"lines" msgpack:"lines"`
+	Lines []Line `json:"lines,omitzero" msgpack:"lines,omitzero"`
 	// Rules holds annotation rules drawn over the plot.
-	Rules []Rule `json:"rules" msgpack:"rules"`
+	Rules []Rule `json:"rules,omitzero" msgpack:"rules,omitzero"`
+}
+
+func (l *LinePlot) ApplyDefaults() {
+	l.Title.ApplyDefaults()
+	l.Legend.ApplyDefaults()
+	l.Axes.ApplyDefaults()
+	for i := range l.Lines {
+		l.Lines[i].ApplyDefaults()
+	}
+	for i := range l.Rules {
+		l.Rules[i].ApplyDefaults()
+	}
+}
+
+func (l LinePlot) Validate() error {
+	v := validate.New("LinePlot")
+	validate.NotEmptyString(v, "name", l.Name)
+	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
+	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
+	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
+	for i := range l.Lines {
+		v.Exec(func() error { return validate.PathedError(l.Lines[i].Validate(), "lines", strconv.Itoa(i)) })
+	}
+	for i := range l.Rules {
+		v.Exec(func() error { return validate.PathedError(l.Rules[i].Validate(), "rules", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }

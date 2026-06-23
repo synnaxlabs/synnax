@@ -17,6 +17,7 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
+import { Schematic } from "@/layered/service/schematic";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { Nav } from "@/layouts/nav";
@@ -29,10 +30,8 @@ import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
 import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
-import { SchematicServices } from "@/schematic/services";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
-import { Version } from "@/version";
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
   arc: ArcServices.handleLink,
@@ -41,14 +40,13 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
   lineplot: LinePlotServices.handleLink,
   log: LogServices.handleLink,
   range: RangeServices.handleLink,
-  schematic: SchematicServices.handleLink,
+  schematic: Schematic.handleLink,
   table: TableServices.handleLink,
   project: ProjectServices.handleLink,
 };
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});
-  Version.useLoadTauri();
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
   Range.useListenForChanges();

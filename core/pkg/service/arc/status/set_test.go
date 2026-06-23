@@ -291,6 +291,17 @@ var _ = Describe("setNode.Next", func() {
 		Expect(outTime.Len()).To(Equal(int64(1)))
 	})
 
+	It("Should report a truthy output on success so a sequence step advances", func(ctx SpecContext) {
+		name := "next_truthy_" + uuid.NewString()
+		ok, _ := build(ctx, name, "msg", "info")
+		ok.Next(nodeCtx(ctx))
+		Expect(ok.IsOutputTruthy(0)).To(BeTrue())
+
+		failed, _ := build(ctx, "", "msg", "info")
+		failed.Next(nodeCtx(ctx))
+		Expect(failed.IsOutputTruthy(0)).To(BeFalse())
+	})
+
 	It("Should update an existing row by name (single match)", func(ctx SpecContext) {
 		name := "next_single_" + uuid.NewString()
 		existingKey := uuid.NewString()

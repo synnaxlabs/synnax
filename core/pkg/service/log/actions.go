@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Oracle does not emit Go struct defaults, so the defaults a newly added channel
-// entry receives are duplicated here. They must stay in sync with the field
-// defaults declared on ChannelEntry in schemas/log.oracle and with the TypeScript
+// Oracle does not emit Go struct defaults, so the defaults a newly added channel entry
+// receives are duplicated here. They must stay in sync with the field defaults declared
+// on ChannelEntry in schemas/synnax/log.oracle and with the TypeScript
 // defaultChannelEntry in client/ts/src/log/actions.ts.
 const (
 	defaultPrecision         int32                 = -1
@@ -32,7 +32,7 @@ const (
 
 // minTimestampPrecision and maxTimestampPrecision bound the log-level timestamp
 // precision. They mirror the @validate constraints on Log.timestamp_precision in
-// schemas/log.oracle.
+// schemas/synnax/log.oracle.
 const (
 	minTimestampPrecision int32 = 0
 	maxTimestampPrecision int32 = 3
@@ -107,15 +107,15 @@ func (p SetTimestampPrecisionPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle controls whether channel names are displayed.
-func (p SetShowChannelNamesPayload) Handle(state Log) (Log, error) {
-	state.ShowChannelNames = p.ShowChannelNames
+// Handle controls whether channel names are hidden.
+func (p SetHideChannelNamesPayload) Handle(state Log) (Log, error) {
+	state.HideChannelNames = p.HideChannelNames
 	return state, nil
 }
 
-// Handle controls whether the receipt timestamp column is displayed.
-func (p SetShowReceiptTimestampPayload) Handle(state Log) (Log, error) {
-	state.ShowReceiptTimestamp = p.ShowReceiptTimestamp
+// Handle controls whether the receipt timestamp column is hidden.
+func (p SetHideReceiptTimestampPayload) Handle(state Log) (Log, error) {
+	state.HideReceiptTimestamp = p.HideReceiptTimestamp
 	return state, nil
 }
 

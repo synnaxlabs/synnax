@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnexpectedError } from "@synnaxlabs/client";
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
-import { Color, type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
+import { Color, type Haul, type Mosaic } from "@synnaxlabs/pluto";
 
-import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
+import { selectByKeys, useMemoSelect } from "@/hooks";
 import {
   type NavDrawerEntryState,
   type NavDrawerLocation,
@@ -157,51 +156,6 @@ export const useSelectFocused = (): UseSelectFocusedReturn =>
  */
 export const useSelectMosaic = (): [string, Mosaic.Node] | [null, null] =>
   useMemoSelect(selectMosaic, []);
-
-/**
- * Selects the active theme key from the store.
- *
- * @param state - The store state.
- */
-export const selectActiveThemeKey = (state: StoreState): string =>
-  selectSliceState(state).activeTheme;
-
-/**
- * Selects the current theme from the store.
- *
- * @param state - The store state.
- * @returns  The current theme.
- */
-export const selectTheme = (
-  state: StoreState,
-  key?: string,
-): Theming.Theme | null | undefined => {
-  const t = selectByKey(
-    selectSliceState(state).themes,
-    key,
-    selectActiveThemeKey(state),
-  );
-  if (t == null) return t;
-  return Theming.themeZ.parse(t);
-};
-
-export const selectRawTheme = (state: StoreState, key?: string): Theming.ThemeSpec => {
-  const t = selectByKey(
-    selectSliceState(state).themes,
-    key,
-    selectActiveThemeKey(state),
-  );
-  if (t == null) throw new UnexpectedError(`Theme ${key} not found`);
-  return t;
-};
-
-/**
- * Selects the current theme from the store.
- *
- * @returns  The current theme.
- */
-export const useSelectTheme = (key?: string): Theming.Theme | null | undefined =>
-  useMemoSelect((state: StoreState) => selectTheme(state, key), [key]);
 
 /**
  * Selects layouts from the store by a set of keys. If no keys are provided, all layouts

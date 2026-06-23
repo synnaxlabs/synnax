@@ -62,7 +62,7 @@ var _ = Describe("ImEx", func() {
 					{Channel: channel.Key(1), Color: color.MustFromHex("#ff0000")},
 				},
 				TimestampPrecision: 2,
-				ShowChannelNames:   true,
+				HideChannelNames:   true,
 			})
 			env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(l.Key)))
 			Expect(env.Version).To(Equal(log.Version))
@@ -72,7 +72,7 @@ var _ = Describe("ImEx", func() {
 			decoded := MustSucceed(imex.Decode[log.Log](ctx, wireRoundTrip(env)))
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.TimestampPrecision).To(Equal(int32(2)))
-			Expect(decoded.ShowChannelNames).To(BeTrue())
+			Expect(decoded.HideChannelNames).To(BeTrue())
 			Expect(decoded.Channels).To(HaveLen(1))
 			Expect(decoded.Channels[0].Channel).To(Equal(channel.Key(1)))
 		})
@@ -119,8 +119,8 @@ var _ = Describe("ImEx", func() {
 			_, res := importAndRetrieve(ctx, v1Fixture)
 			Expect(res.Name).To(Equal("Test Log V1"))
 			Expect(res.TimestampPrecision).To(Equal(int32(1)))
-			Expect(res.ShowChannelNames).To(BeTrue())
-			Expect(res.ShowReceiptTimestamp).To(BeFalse())
+			Expect(res.HideChannelNames).To(BeFalse())
+			Expect(res.HideReceiptTimestamp).To(BeTrue())
 			Expect(res.Channels).To(HaveLen(2))
 			Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
 			Expect(res.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
@@ -134,7 +134,7 @@ var _ = Describe("ImEx", func() {
 			_, res := importAndRetrieve(ctx, v2Fixture)
 			Expect(res.Name).To(Equal("Test Log V2"))
 			Expect(res.TimestampPrecision).To(Equal(int32(1)))
-			Expect(res.ShowChannelNames).To(BeTrue())
+			Expect(res.HideChannelNames).To(BeFalse())
 			Expect(res.Channels).To(HaveLen(2))
 			Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
 			Expect(res.Channels[0].Color).To(Equal(color.MustFromHex("#7f1d1d")))
@@ -184,7 +184,7 @@ var _ = Describe("ImEx", func() {
 					{Channel: channel.Key(2), Alias: "second"},
 				},
 				TimestampPrecision:   1,
-				ShowReceiptTimestamp: true,
+				HideReceiptTimestamp: true,
 			})
 			env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(original.Key)))
 			id := MustSucceed(imexSvc.Import(ctx, db, wireRoundTrip(env)))

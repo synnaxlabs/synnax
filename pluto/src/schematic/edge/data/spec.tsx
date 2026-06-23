@@ -37,12 +37,12 @@ const DataSymbol = ({ position }: SymbolProps): ReactElement => (
 export const spec = Segmented.createSpec(
   VARIANT,
   NAME,
-  ({ points, color: colorVal }) => (
+  ({ points, crossings, color: colorVal }) => (
     <g
       className={CSS.B("symbol-colored")}
       style={{ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }}
     >
-      <Base.Base path={Path.rounded(points)} color={colorVal} />
+      <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
       {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
         ({ position, direction }, i) => (
           <DataSymbol key={i} position={position} direction={direction} />

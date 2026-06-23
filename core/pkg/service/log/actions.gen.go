@@ -24,8 +24,8 @@ const (
 	ActionTypeSetChannels             = "set_channels"
 	ActionTypeSwapChannel             = "swap_channel"
 	ActionTypeSetTimestampPrecision   = "set_timestamp_precision"
-	ActionTypeSetShowChannelNames     = "set_show_channel_names"
-	ActionTypeSetShowReceiptTimestamp = "set_show_receipt_timestamp"
+	ActionTypeSetHideChannelNames     = "set_hide_channel_names"
+	ActionTypeSetHideReceiptTimestamp = "set_hide_receipt_timestamp"
 )
 
 // RenamePayload renames the log.
@@ -71,15 +71,15 @@ type SetTimestampPrecisionPayload struct {
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 }
 
-// SetShowChannelNamesPayload controls whether channel names are displayed.
-type SetShowChannelNamesPayload struct {
-	ShowChannelNames bool `json:"show_channel_names" msgpack:"show_channel_names"`
+// SetHideChannelNamesPayload controls whether channel names are hidden.
+type SetHideChannelNamesPayload struct {
+	HideChannelNames bool `json:"hide_channel_names" msgpack:"hide_channel_names"`
 }
 
-// SetShowReceiptTimestampPayload controls whether the receipt timestamp column is
-// displayed.
-type SetShowReceiptTimestampPayload struct {
-	ShowReceiptTimestamp bool `json:"show_receipt_timestamp" msgpack:"show_receipt_timestamp"`
+// SetHideReceiptTimestampPayload controls whether the receipt timestamp column is
+// hidden.
+type SetHideReceiptTimestampPayload struct {
+	HideReceiptTimestamp bool `json:"hide_receipt_timestamp" msgpack:"hide_receipt_timestamp"`
 }
 
 // Action is a discriminated union for all Log mutations. Type names
@@ -93,8 +93,8 @@ type Action struct {
 	SetChannels             *SetChannelsPayload             `json:"set_channels,omitempty" msgpack:"set_channels,omitempty"`
 	SwapChannel             *SwapChannelPayload             `json:"swap_channel,omitempty" msgpack:"swap_channel,omitempty"`
 	SetTimestampPrecision   *SetTimestampPrecisionPayload   `json:"set_timestamp_precision,omitempty" msgpack:"set_timestamp_precision,omitempty"`
-	SetShowChannelNames     *SetShowChannelNamesPayload     `json:"set_show_channel_names,omitempty" msgpack:"set_show_channel_names,omitempty"`
-	SetShowReceiptTimestamp *SetShowReceiptTimestampPayload `json:"set_show_receipt_timestamp,omitempty" msgpack:"set_show_receipt_timestamp,omitempty"`
+	SetHideChannelNames     *SetHideChannelNamesPayload     `json:"set_hide_channel_names,omitempty" msgpack:"set_hide_channel_names,omitempty"`
+	SetHideReceiptTimestamp *SetHideReceiptTimestampPayload `json:"set_hide_receipt_timestamp,omitempty" msgpack:"set_hide_receipt_timestamp,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -141,16 +141,16 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTimestampPrecision.Handle(state)
-		case ActionTypeSetShowChannelNames:
-			if a.SetShowChannelNames == nil {
+		case ActionTypeSetHideChannelNames:
+			if a.SetHideChannelNames == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetShowChannelNames.Handle(state)
-		case ActionTypeSetShowReceiptTimestamp:
-			if a.SetShowReceiptTimestamp == nil {
+			state, err = a.SetHideChannelNames.Handle(state)
+		case ActionTypeSetHideReceiptTimestamp:
+			if a.SetHideReceiptTimestamp == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetShowReceiptTimestamp.Handle(state)
+			state, err = a.SetHideReceiptTimestamp.Handle(state)
 		default:
 			continue
 		}
@@ -196,12 +196,12 @@ func NewSetTimestampPrecisionAction(p SetTimestampPrecisionPayload) Action {
 	return Action{Type: ActionTypeSetTimestampPrecision, SetTimestampPrecision: &p}
 }
 
-// NewSetShowChannelNamesAction wraps a SetShowChannelNamesPayload in an Action envelope.
-func NewSetShowChannelNamesAction(p SetShowChannelNamesPayload) Action {
-	return Action{Type: ActionTypeSetShowChannelNames, SetShowChannelNames: &p}
+// NewSetHideChannelNamesAction wraps a SetHideChannelNamesPayload in an Action envelope.
+func NewSetHideChannelNamesAction(p SetHideChannelNamesPayload) Action {
+	return Action{Type: ActionTypeSetHideChannelNames, SetHideChannelNames: &p}
 }
 
-// NewSetShowReceiptTimestampAction wraps a SetShowReceiptTimestampPayload in an Action envelope.
-func NewSetShowReceiptTimestampAction(p SetShowReceiptTimestampPayload) Action {
-	return Action{Type: ActionTypeSetShowReceiptTimestamp, SetShowReceiptTimestamp: &p}
+// NewSetHideReceiptTimestampAction wraps a SetHideReceiptTimestampPayload in an Action envelope.
+func NewSetHideReceiptTimestampAction(p SetHideReceiptTimestampPayload) Action {
+	return Action{Type: ActionTypeSetHideReceiptTimestamp, SetHideReceiptTimestamp: &p}
 }

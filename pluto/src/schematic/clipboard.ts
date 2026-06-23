@@ -13,7 +13,8 @@ import { useCallback } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks";
-import { type FluxSubStore, useDispatch } from "@/schematic/queries";
+import { type FluxSubStore, useSingleDispatch } from "@/schematic/queries";
+import { useKey } from "@/schematic/Suspended";
 import { type DiagramClipboardHandler } from "@/vis/diagram/Diagram";
 
 // The "web " prefix is required: Chrome silently drops custom MIME types from
@@ -44,7 +45,6 @@ const centroid = (nodes: schematic.Node[]): xy.XY => {
 };
 
 export interface UseClipboardArgs {
-  key: schematic.Key;
   selected?: string[];
   onPaste?: (newKeys: string[]) => void;
 }
@@ -55,11 +55,11 @@ export interface UseClipboardReturn {
 }
 
 export const useClipboard = ({
-  key,
   selected,
   onPaste,
 }: UseClipboardArgs): UseClipboardReturn => {
-  const { dispatch } = useDispatch();
+  const key = useKey();
+  const dispatch = useSingleDispatch();
   const store = Flux.useStore<FluxSubStore>();
   const selectedRef = useSyncedRef(selected ?? []);
 
@@ -142,10 +142,10 @@ export const useClipboard = ({
         if (cfg != null)
           actions.push(schematic.setConfig({ key: newKey, config: cfg }));
       }
-      dispatch({ key, actions });
+      dispatch(actions);
       if (actions.length > 0) onPaste?.(Object.values(remap));
     },
-    [key, dispatch, onPaste],
+    [dispatch, onPaste],
   );
 
   return { onCopy: handleCopy, onPaste: handlePaste };

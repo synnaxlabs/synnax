@@ -84,11 +84,75 @@ var _ = Describe("Format", func() {
 		})
 	})
 
+	Describe("Actions", func() {
+		It("should format an action with payload fields", func() {
+			source := "Node struct {\n  action SetName {\n    name string\n  }\n}\n"
+			Expect(format(source)).To(Equal(
+				"Node struct {\n    action SetName {\n        name string\n    }\n}\n",
+			))
+		})
+
+		It("should format an action with an empty body", func() {
+			source := "Node struct {\n  action Delete {}\n}\n"
+			Expect(format(source)).To(Equal("Node struct {\n    action Delete {}\n}\n"))
+		})
+
+		It("should separate fields and actions with a blank line", func() {
+			source := "Node struct {\n  key string\n  action Rename {\n    name string\n  }\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("key string\n\n    action Rename {"))
+		})
+
+		It("should separate multiple actions with a blank line", func() {
+			source := "Node struct {\n  action A {\n    x int32\n  }\n  action B {\n    y int32\n  }\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("    }\n\n    action B {"))
+		})
+
+		It("should format an action-level domain", func() {
+			source := "Node struct {\n  action WithDoc {\n    name string\n    @doc value \"hi\"\n  }\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("action WithDoc {"))
+			Expect(result).To(ContainSubstring("name string"))
+			Expect(result).To(ContainSubstring("@doc value \"hi\""))
+		})
+
+		It("should keep a struct with actions idempotent", func() {
+			source := "Node struct {\n  key string\n  action A {\n    x int32\n  }\n  action B {}\n}\n"
+			once := format(source)
+			Expect(format(once)).To(Equal(once))
+		})
+
+		It("should preserve a single extends clause on an action", func() {
+			source := "Node struct {\n  name string\n\n  action Rename extends Named {\n    key string\n  }\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("action Rename extends Named {"))
+		})
+
+		It("should preserve multiple extends targets on an action", func() {
+			source := "Node struct {\n  action Update extends Named, Positioned {\n    key string\n  }\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("action Update extends Named, Positioned {"))
+		})
+
+		It("should preserve an extends clause on an action with an empty body", func() {
+			source := "Node struct {\n  action Rename extends Named {}\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("action Rename extends Named {}"))
+		})
+
+		It("should keep an action extends clause idempotent", func() {
+			source := "Node struct {\n  action Rename extends Named {\n    key string\n  }\n}\n"
+			once := format(source)
+			Expect(format(once)).To(Equal(once))
+		})
+	})
+
 	Describe("Partial Field Overrides", func() {
 		It("should preserve a standalone optionality marker on a typeless override", func() {
-			result := format("Child struct extends Parent {\n  key?\n  note??\n}\n")
+			result := format("Child struct extends Parent {\n  key?\n  note?\n}\n")
 			Expect(result).To(ContainSubstring("key?"))
-			Expect(result).To(ContainSubstring("note??"))
+			Expect(result).To(ContainSubstring("note?"))
 			Expect(result).NotTo(ContainSubstring("key ?"))
 		})
 

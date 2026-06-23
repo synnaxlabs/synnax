@@ -11,6 +11,7 @@ import { Button } from "@/button";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
+import { Triggers } from "@/triggers";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -360,11 +361,7 @@ export const ButtonShowcase = () => (
             <Button.Button variant="text" trigger={["Control", "D"]} triggerIndicator>
               Delete
             </Button.Button>
-            <Button.Button
-              variant="outlined"
-              trigger={["Control", "Shift", "Z"]}
-              triggerIndicator
-            >
+            <Button.Button variant="outlined" trigger={Triggers.REDO} triggerIndicator>
               <Icon.Release />
               Redo
             </Button.Button>
@@ -401,7 +398,7 @@ export const ButtonShowcase = () => (
             <Button.Button
               size="huge"
               variant="outlined"
-              trigger={["Control", "Z"]}
+              trigger={Triggers.UNDO}
               triggerIndicator
             >
               Undo

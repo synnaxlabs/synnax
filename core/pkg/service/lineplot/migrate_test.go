@@ -182,8 +182,9 @@ var _ = Describe("MigrateLinePlot", func() {
 			}`)
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Key).To(Equal(seed.Key))
-			// v1 lift forces legend.visible=true and sets default position.
-			Expect(got.Legend.Visible).To(BeTrue())
+			// v1 lift forces the legend shown, so the typed Hidden is false, and sets
+			// default position.
+			Expect(got.Legend.Hidden).To(BeFalse())
 			Expect(got.Legend.Position.X).To(Equal(50.0))
 			Expect(got.Legend.Position.Units).NotTo(BeNil())
 			Expect(got.Legend.Position.Units.X).To(BeEquivalentTo("px"))
@@ -214,20 +215,20 @@ var _ = Describe("MigrateLinePlot", func() {
 			Expect(out.Title.Visible).To(BeTrue())
 		})
 
-		It("Should pass Legend.Position root and units through as typed pointers", func(ctx SpecContext) {
+		It("Should pass Legend.Position root and units through as typed values", func(ctx SpecContext) {
 			out := migrateV4(ctx, `"legend": {"visible": true, "position": {"x": 12, "y": 34, "root": {"x": "right", "y": "bottom"}, "units": {"x": "decimal", "y": "decimal"}}}`)
 			Expect(out.Legend.Position.X).To(Equal(12.0))
-			Expect(out.Legend.Position.Root).NotTo(BeNil())
 			Expect(out.Legend.Position.Root.X).To(BeEquivalentTo("right"))
 			Expect(out.Legend.Position.Root.Y).To(BeEquivalentTo("bottom"))
-			Expect(out.Legend.Position.Units).NotTo(BeNil())
 			Expect(out.Legend.Position.Units.X).To(BeEquivalentTo("decimal"))
 		})
 
-		It("Should leave Legend.Position root and units nil when the wire omits them", func(ctx SpecContext) {
+		It("Should default Legend.Position root and units when the wire omits them", func(ctx SpecContext) {
 			out := migrateV4(ctx, `"legend": {"visible": true, "position": {"x": 0, "y": 0}}`)
-			Expect(out.Legend.Position.Root).To(BeNil())
-			Expect(out.Legend.Position.Units).To(BeNil())
+			Expect(out.Legend.Position.Root.X).To(BeEquivalentTo("left"))
+			Expect(out.Legend.Position.Root.Y).To(BeEquivalentTo("top"))
+			Expect(out.Legend.Position.Units.X).To(BeEquivalentTo("px"))
+			Expect(out.Legend.Position.Units.Y).To(BeEquivalentTo("px"))
 		})
 
 		It("Should preserve Channels arrays per axis", func(ctx SpecContext) {
@@ -254,8 +255,8 @@ var _ = Describe("MigrateLinePlot", func() {
 			}}`)
 			Expect(out.Axes.X1.Label).To(Equal("t"))
 			Expect(out.Axes.X1.Bounds.Lower).To(Equal(1.0))
-			Expect(out.Axes.X1.AutoBounds.Upper).To(BeTrue())
-			Expect(out.Axes.X1.AutoBounds.Lower).To(BeFalse())
+			Expect(out.Axes.X1.ManualBounds.Upper).To(BeFalse())
+			Expect(out.Axes.X1.ManualBounds.Lower).To(BeTrue())
 			Expect(out.Axes.X1.TickSpacing).To(Equal(60.0))
 		})
 

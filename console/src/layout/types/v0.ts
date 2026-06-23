@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
+import { Haul, Mosaic, Tabs } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -192,8 +192,6 @@ export const MAIN_LAYOUT: State = {
 
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),
-  activeTheme: z.string(),
-  themes: z.record(z.string(), Theming.themeZ),
   layouts: z.record(z.string(), stateZ),
   hauling: Haul.draggingStateZ,
   mosaics: z.record(z.string(), mosaicStateZ),
@@ -204,11 +202,6 @@ export type SliceState = z.infer<typeof sliceStateZ>;
 
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   version: VERSION,
-  activeTheme: Theming.SYNNAX_DARK.key,
-  themes: {
-    [Theming.SYNNAX_DARK.key]: Theming.SYNNAX_THEMES.synnaxDark,
-    [Theming.SYNNAX_LIGHT.key]: Theming.SYNNAX_THEMES.synnaxLight,
-  },
   layouts: { main: MAIN_LAYOUT },
   mosaics: { main: ZERO_MOSAIC_STATE },
   hauling: Haul.ZERO_DRAGGING_STATE,
