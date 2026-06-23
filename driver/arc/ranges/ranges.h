@@ -47,7 +47,7 @@ inline std::string dispatch_create(
     const std::string &color_hex,
     const std::string &parent
 ) {
-    x::color::Color c;
+    std::optional<x::color::Color> c;
     if (!color_hex.empty()) {
         auto [parsed, err] = x::color::from_css(color_hex);
         if (err)
