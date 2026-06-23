@@ -34,7 +34,7 @@ program::Program compile_arc(const synnax::Synnax &client, const std::string &so
     synnax::arc::Arc arc{
         .name = random_name("test_arc"),
         .mode = synnax::arc::MODE_TEXT,
-        .text = text::Text(source)
+        .text = text::Text{.raw = source}
     };
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());

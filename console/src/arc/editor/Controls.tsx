@@ -9,7 +9,7 @@
 
 import "@/arc/editor/Controls.css";
 
-import { type arc, type rack, task } from "@synnaxlabs/client";
+import { type rack, task } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";

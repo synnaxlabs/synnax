@@ -23,52 +23,59 @@ const applyDiff = (old: string, d: Diff): string => {
 describe("code/text", () => {
   describe("diff", () => {
     describe("roundtrip contract", () => {
-      it("should reconstruct next from old for a pure insertion", () => {
-        const old = "hello world";
-        const next = "hello brave world";
-        expect(applyDiff(old, diff(old, next))).toEqual(next);
-      });
-
-      it("should reconstruct next from old for a pure deletion", () => {
-        const old = "hello brave world";
-        const next = "hello world";
-        expect(applyDiff(old, diff(old, next))).toEqual(next);
-      });
-
-      it("should reconstruct next from old for a replacement", () => {
-        const old = "the quick brown fox";
-        const next = "the slow brown fox";
+      it.each([
+        { name: "a pure insertion", old: "hello world", next: "hello brave world" },
+        { name: "a pure deletion", old: "hello brave world", next: "hello world" },
+        {
+          name: "a replacement",
+          old: "the quick brown fox",
+          next: "the slow brown fox",
+        },
+      ])("should reconstruct next from old for $name", ({ old, next }) => {
         expect(applyDiff(old, diff(old, next))).toEqual(next);
       });
     });
 
     describe("minimal change", () => {
-      it("should strip a common prefix and suffix, leaving only the middle", () => {
-        expect(diff("hello world", "hello brave world")).toEqual({
-          index: 6,
-          deleteCount: 0,
-          insert: "brave ",
-        });
-      });
-
-      it("should report an insertion at the head", () => {
-        expect(diff("bc", "abc")).toEqual({ index: 0, deleteCount: 0, insert: "a" });
-      });
-
-      it("should report an insertion at the tail", () => {
-        expect(diff("ab", "abc")).toEqual({ index: 2, deleteCount: 0, insert: "c" });
-      });
-
-      it("should report a deletion at the head", () => {
-        expect(diff("abc", "bc")).toEqual({ index: 0, deleteCount: 1, insert: "" });
-      });
-
-      it("should report a deletion at the tail", () => {
-        expect(diff("abc", "ab")).toEqual({ index: 2, deleteCount: 1, insert: "" });
-      });
-
-      it("should report a single-character replacement in the middle", () => {
-        expect(diff("cat", "cot")).toEqual({ index: 1, deleteCount: 1, insert: "o" });
+      it.each<{ name: string; old: string; next: string; want: Diff }>([
+        {
+          name: "a common prefix and suffix, leaving only the middle",
+          old: "hello world",
+          next: "hello brave world",
+          want: { index: 6, deleteCount: 0, insert: "brave " },
+        },
+        {
+          name: "an insertion at the head",
+          old: "bc",
+          next: "abc",
+          want: { index: 0, deleteCount: 0, insert: "a" },
+        },
+        {
+          name: "an insertion at the tail",
+          old: "ab",
+          next: "abc",
+          want: { index: 2, deleteCount: 0, insert: "c" },
+        },
+        {
+          name: "a deletion at the head",
+          old: "abc",
+          next: "bc",
+          want: { index: 0, deleteCount: 1, insert: "" },
+        },
+        {
+          name: "a deletion at the tail",
+          old: "abc",
+          next: "ab",
+          want: { index: 2, deleteCount: 1, insert: "" },
+        },
+        {
+          name: "a single-character replacement in the middle",
+          old: "cat",
+          next: "cot",
+          want: { index: 1, deleteCount: 1, insert: "o" },
+        },
+      ])("should strip $name", ({ old, next, want }) => {
+        expect(diff(old, next)).toEqual(want);
       });
     });
 
@@ -113,30 +120,35 @@ describe("code/text", () => {
     });
 
     describe("multi-code-point characters", () => {
-      it("should measure index in code points, not UTF-16 units", () => {
-        expect(diff("a😀b", "a😀c")).toEqual({
-          index: 2,
-          deleteCount: 1,
-          insert: "c",
-        });
-      });
-
-      it("should insert an emoji as a single code point", () => {
-        expect(diff("ab", "a😀b")).toEqual({
-          index: 1,
-          deleteCount: 0,
-          insert: "😀",
-        });
-      });
-
-      it("should delete an emoji as a single code point", () => {
-        expect(diff("a😀b", "ab")).toEqual({ index: 1, deleteCount: 1, insert: "" });
-      });
-
-      it("should replace one emoji with another", () => {
-        const d = diff("x😀y", "x🚀y");
-        expect(d).toEqual({ index: 1, deleteCount: 1, insert: "🚀" });
-        expect(applyDiff("x😀y", d)).toEqual("x🚀y");
+      it.each<{ name: string; old: string; next: string; want: Diff }>([
+        {
+          name: "measure index in code points, not UTF-16 units",
+          old: "a😀b",
+          next: "a😀c",
+          want: { index: 2, deleteCount: 1, insert: "c" },
+        },
+        {
+          name: "insert an emoji as a single code point",
+          old: "ab",
+          next: "a😀b",
+          want: { index: 1, deleteCount: 0, insert: "😀" },
+        },
+        {
+          name: "delete an emoji as a single code point",
+          old: "a😀b",
+          next: "ab",
+          want: { index: 1, deleteCount: 1, insert: "" },
+        },
+        {
+          name: "replace one emoji with another",
+          old: "x😀y",
+          next: "x🚀y",
+          want: { index: 1, deleteCount: 1, insert: "🚀" },
+        },
+      ])("should $name", ({ old, next, want }) => {
+        const d = diff(old, next);
+        expect(d).toEqual(want);
+        expect(applyDiff(old, d)).toEqual(next);
       });
     });
 
@@ -169,24 +181,29 @@ describe("code/text", () => {
   });
 
   describe("utf16Offset", () => {
-    it("should equal the code-point index for ASCII text", () => {
-      expect(utf16Offset("hello", 3)).toEqual(3);
-    });
-
-    it("should be 0 at the start of the string", () => {
-      expect(utf16Offset("a😀b", 0)).toEqual(0);
-    });
-
-    it("should count a surrogate pair before the index as two UTF-16 units", () => {
-      expect(utf16Offset("a😀b", 2)).toEqual(3);
-    });
-
-    it("should return the full UTF-16 length at the end of the string", () => {
-      expect(utf16Offset("a😀b", 3)).toEqual("a😀b".length);
-    });
-
-    it("should account for multiple surrogate pairs", () => {
-      expect(utf16Offset("😀😀x", 2)).toEqual(4);
+    it.each([
+      {
+        name: "equal the code-point index for ASCII text",
+        s: "hello",
+        index: 3,
+        want: 3,
+      },
+      { name: "be 0 at the start of the string", s: "a😀b", index: 0, want: 0 },
+      {
+        name: "count a surrogate pair before the index as two UTF-16 units",
+        s: "a😀b",
+        index: 2,
+        want: 3,
+      },
+      {
+        name: "return the full UTF-16 length at the end of the string",
+        s: "a😀b",
+        index: 3,
+        want: "a😀b".length,
+      },
+      { name: "account for multiple surrogate pairs", s: "😀😀x", index: 2, want: 4 },
+    ])("should $name", ({ s, index, want }) => {
+      expect(utf16Offset(s, index)).toEqual(want);
     });
 
     it("should map the diff boundaries a consumer reads back to UTF-16 offsets", () => {

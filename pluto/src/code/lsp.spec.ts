@@ -11,7 +11,12 @@ import { type status, type Synnax } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type LSPMessage, type LSPStream, useLanguageServer } from "@/code/lsp";
+import {
+  type LSPMessage,
+  type LSPStream,
+  useLanguageServer,
+  type UseLanguageServerArgs,
+} from "@/code/lsp";
 
 const { startMock, stopMock } = vi.hoisted(() => ({
   startMock: vi.fn(),
@@ -54,6 +59,18 @@ describe("useLanguageServer", () => {
   const variants = (): string[] => statuses().map((s) => s.variant);
   const last = (): status.Status => statuses().at(-1) as status.Status;
 
+  const renderLSP = (overrides: Partial<UseLanguageServerArgs> = {}) =>
+    renderHook(() =>
+      useLanguageServer({
+        monaco: MONACO,
+        client: CLIENT,
+        languageID: "arc",
+        open: vi.fn().mockResolvedValue(makeStream()),
+        onStatus,
+        ...overrides,
+      }),
+    );
+
   // The first client start cold-loads the monaco runtime, whose deep CSS imports cannot
   // be evaluated under Node's ESM loader. That failure is a test-env artifact (CSS loads
   // fine in the browser), so absorb it once here rather than letting it surface in the
@@ -84,51 +101,26 @@ describe("useLanguageServer", () => {
   });
 
   describe("inactive gating", () => {
-    it("should report inactive and not open a stream when monaco is absent", async () => {
-      const open = vi.fn();
-      renderHook(() =>
-        useLanguageServer({
-          monaco: null,
-          client: CLIENT,
-          languageID: "arc",
-          open,
-          onStatus,
-        }),
-      );
-      await waitFor(() => expect(last().variant).toEqual("disabled"));
-      expect(last().message).toEqual("Language server inactive");
-      expect(open).not.toHaveBeenCalled();
-    });
-
-    it("should report inactive and not open a stream when the client is absent", async () => {
-      const open = vi.fn();
-      renderHook(() =>
-        useLanguageServer({
-          monaco: MONACO,
-          client: null,
-          languageID: "arc",
-          open,
-          onStatus,
-        }),
-      );
-      await waitFor(() => expect(last().variant).toEqual("disabled"));
-      expect(open).not.toHaveBeenCalled();
-    });
+    it.each([
+      { name: "monaco is absent", monaco: null, client: CLIENT },
+      { name: "the client is absent", monaco: MONACO, client: null },
+    ])(
+      "should report inactive and not open a stream when $name",
+      async ({ monaco, client }) => {
+        const open = vi.fn();
+        renderLSP({ monaco, client, open });
+        await waitFor(() => expect(last().variant).toEqual("disabled"));
+        expect(last().message).toEqual("Language server inactive");
+        expect(open).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe("connection lifecycle", () => {
     it("should open the stream against the client and transition to connected", async () => {
       const stream = makeStream();
       const open = vi.fn().mockResolvedValue(stream);
-      renderHook(() =>
-        useLanguageServer({
-          monaco: MONACO,
-          client: CLIENT,
-          languageID: "arc",
-          open,
-          onStatus,
-        }),
-      );
+      renderLSP({ open });
       await waitFor(() => expect(last().variant).toEqual("success"));
       expect(open).toHaveBeenCalledWith(CLIENT);
       expect(startMock).toHaveBeenCalled();
@@ -140,15 +132,7 @@ describe("useLanguageServer", () => {
     it("should tear down the client and stream and report inactive on unmount", async () => {
       const stream = makeStream();
       const open = vi.fn().mockResolvedValue(stream);
-      const { unmount } = renderHook(() =>
-        useLanguageServer({
-          monaco: MONACO,
-          client: CLIENT,
-          languageID: "arc",
-          open,
-          onStatus,
-        }),
-      );
+      const { unmount } = renderLSP({ open });
       await waitFor(() => expect(last().variant).toEqual("success"));
       onStatus.mockClear();
       unmount();
@@ -166,15 +150,7 @@ describe("useLanguageServer", () => {
             resolveOpen = resolve;
           }),
       );
-      const { unmount } = renderHook(() =>
-        useLanguageServer({
-          monaco: MONACO,
-          client: CLIENT,
-          languageID: "arc",
-          open,
-          onStatus,
-        }),
-      );
+      const { unmount } = renderLSP({ open });
       await waitFor(() => expect(open).toHaveBeenCalled());
       unmount();
       await act(async () => {
@@ -194,15 +170,7 @@ describe("useLanguageServer", () => {
         .fn()
         .mockRejectedValueOnce(new Error("server down"))
         .mockResolvedValue(stream);
-      renderHook(() =>
-        useLanguageServer({
-          monaco: MONACO,
-          client: CLIENT,
-          languageID: "arc",
-          open,
-          onStatus,
-        }),
-      );
+      renderLSP({ open });
       await act(async () => {
         await vi.advanceTimersByTimeAsync(50);
       });

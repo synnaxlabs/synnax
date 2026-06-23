@@ -1,17 +1,17 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
-    name = "text",
+    name = "crdt",
     hdrs = [
         "json.gen.h",
         "proto.gen.h",
-        "text.h",
         "types.gen.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//arc/go/text:text_grpc",
-        "//x/cpp/crdt",
+        "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/pb",
+        "//x/go/crdt:crdt_grpc",
     ],
 )
