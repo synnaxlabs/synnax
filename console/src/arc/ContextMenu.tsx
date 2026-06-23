@@ -23,7 +23,6 @@ import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Editor } from "@/arc/editor";
-import { translateGraphToConsole } from "@/arc/types/translate";
 import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/components";
 import { Layout } from "@/layout";
@@ -77,8 +76,7 @@ export const ContextMenu = ({
         description: `Arc with key ${keys[0]} not found`,
       });
     const { name, key, text, mode } = retrieved;
-    const graph = translateGraphToConsole(retrieved.graph);
-    placeLayout(Editor.create({ key, name, graph, text, mode }));
+    placeLayout(Editor.create({ key, name, text, mode }));
   };
 
   const handleCopyLink = () => {

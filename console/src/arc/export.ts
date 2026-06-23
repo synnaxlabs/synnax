@@ -9,26 +9,18 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { select } from "@/arc/selectors";
-import { type State } from "@/arc/slice";
 import { TYPE } from "@/arc/types";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
-  const storeState = store.getState();
-  let state = select(storeState, key);
-  let name = Layout.select(storeState, key)?.name;
-  if (state == null || name == null) {
-    if (client == null) throw new DisconnectedError();
-    const arc = await client.arcs.retrieve({ key });
-    state ??= {
-      ...(arc as unknown as State),
-      key: arc.key,
-    };
-    name ??= arc.name;
-  }
-  return { data: JSON.stringify({ ...state, type: TYPE }), name };
+  const name = Layout.select(store.getState(), key)?.name;
+  if (client == null) throw new DisconnectedError();
+  const retrieved = await client.arcs.retrieve({ key });
+  return {
+    data: JSON.stringify({ ...retrieved, type: TYPE }),
+    name: name ?? retrieved.name,
+  };
 };
 
 export const useExport = () => Export.use(extract, "arc");

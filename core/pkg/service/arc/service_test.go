@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/query"
@@ -75,13 +76,16 @@ var _ = Describe("CompileProgram", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "src", Type: "source"},
+					{Key: "src"},
 				},
-				Edges: []ir.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"src": {"type": "source"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "nonexistent", Param: "input"},
-					},
+					}},
 				},
 			},
 		}

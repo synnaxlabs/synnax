@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -30,7 +31,8 @@ var _ = Describe("Control", func() {
 	Describe("NewModule", func() {
 		It("Should create factory with state", func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
+				Nodes:     []graph.Node{{Key: "set_auth"}},
+				Configs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -49,7 +51,8 @@ var _ = Describe("Control", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
+				Nodes:     []graph.Node{{Key: "set_auth"}},
+				Configs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -164,7 +167,8 @@ var _ = Describe("Control", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
+				Nodes:     []graph.Node{{Key: "set_auth"}},
+				Configs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -262,7 +266,8 @@ var _ = Describe("Control", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
+				Nodes:     []graph.Node{{Key: "set_auth"}},
+				Configs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -322,7 +327,8 @@ var _ = Describe("Control", func() {
 	Describe("IsOutputTruthy", func() {
 		It("Should always return false", func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
+				Nodes:     []graph.Node{{Key: "set_auth"}},
+				Configs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
