@@ -33,6 +33,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -246,7 +247,8 @@ func singleFunctionGraph(key string, outType types.Type, body string) arc.Graph 
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: outType}},
 			Body:    ir.Body{Raw: body},
 		}},
-		Nodes: []graph.Node{{Key: key, Type: key}},
+		Nodes:   []graph.Node{{Key: key}},
+		Configs: map[string]msgpack.EncodedJSON{key: {"type": key}},
 	}
 }
 
@@ -281,13 +283,18 @@ func binaryOpGraph(
 			},
 		},
 		Nodes: []graph.Node{
-			{Key: lhsKey, Type: lhsKey},
-			{Key: rhsKey, Type: rhsKey},
-			{Key: opKey, Type: opKey},
+			{Key: lhsKey},
+			{Key: rhsKey},
+			{Key: opKey},
 		},
-		Edges: []graph.Edge{
-			{Source: ir.Handle{Node: lhsKey, Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: opKey, Param: "lhs"}},
-			{Source: ir.Handle{Node: rhsKey, Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: opKey, Param: "rhs"}},
+		Configs: map[string]msgpack.EncodedJSON{
+			lhsKey: {"type": lhsKey},
+			rhsKey: {"type": rhsKey},
+			opKey:  {"type": opKey},
+		},
+		Edges: graph.Edges{
+			{Edge: ir.Edge{Source: ir.Handle{Node: lhsKey, Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: opKey, Param: "lhs"}}},
+			{Edge: ir.Edge{Source: ir.Handle{Node: rhsKey, Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: opKey, Param: "rhs"}}},
 		},
 	}
 }
@@ -366,10 +373,15 @@ var _ = Describe("WASM", func() {
 					{Key: "a", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 					{Key: "b", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
-				Nodes: []graph.Node{{Key: "a", Type: "a"}, {Key: "b", Type: "b"}, {Key: "math_ops", Type: "math_ops"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "a"}},
-					{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "b"}},
+				Nodes: []graph.Node{{Key: "a"}, {Key: "b"}, {Key: "math_ops"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"a":        {"type": "a"},
+					"b":        {"type": "b"},
+					"math_ops": {"type": "math_ops"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "a"}}},
+					{Edge: ir.Edge{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "b"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -437,8 +449,12 @@ var _ = Describe("WASM", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "c1", Type: "counter1"},
-					{Key: "c2", Type: "counter2"},
+					{Key: "c1"},
+					{Key: "c2"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"c1": {"type": "counter1"},
+					"c2": {"type": "counter2"},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -479,8 +495,12 @@ var _ = Describe("WASM", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "counter_a", Type: "counter"},
-					{Key: "counter_b", Type: "counter"},
+					{Key: "counter_a"},
+					{Key: "counter_b"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"counter_a": {"type": "counter"},
+					"counter_b": {"type": "counter"},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -531,9 +551,13 @@ var _ = Describe("WASM", func() {
 					},
 					{Key: "x", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
-				Nodes: []graph.Node{{Key: "x", Type: "x"}, {Key: "add", Type: "add"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add", Param: "x"}},
+				Nodes: []graph.Node{{Key: "x"}, {Key: "add"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"x":   {"type": "x"},
+					"add": {"type": "add"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add", Param: "x"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -555,9 +579,13 @@ var _ = Describe("WASM", func() {
 					},
 					{Key: "a", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
-				Nodes: []graph.Node{{Key: "a", Type: "a"}, {Key: "compute", Type: "compute"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "compute", Param: "a"}},
+				Nodes: []graph.Node{{Key: "a"}, {Key: "compute"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"a":       {"type": "a"},
+					"compute": {"type": "compute"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "compute", Param: "a"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -579,9 +607,13 @@ var _ = Describe("WASM", func() {
 					},
 					{Key: "value", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}}, Body: ir.Body{Raw: `{ return 1.0 }`}},
 				},
-				Nodes: []graph.Node{{Key: "value", Type: "value"}, {Key: "scale", Type: "scale"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "value", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale", Param: "value"}},
+				Nodes: []graph.Node{{Key: "value"}, {Key: "scale"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"value": {"type": "value"},
+					"scale": {"type": "scale"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "value", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale", Param: "value"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -617,9 +649,13 @@ var _ = Describe("WASM", func() {
 					},
 					{Key: "value", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}}, Body: ir.Body{Raw: `{ return 1.0 }`}},
 				},
-				Nodes: []graph.Node{{Key: "value", Type: "value"}, {Key: "scale", Type: "scale"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "value", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale", Param: "value"}},
+				Nodes: []graph.Node{{Key: "value"}, {Key: "scale"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"value": {"type": "value"},
+					"scale": {"type": "scale"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "value", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale", Param: "value"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -695,10 +731,15 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "a", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 					{Key: "b", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
-				Nodes: []graph.Node{{Key: "a", Type: "a"}, {Key: "b", Type: "b"}, {Key: "math_ops", Type: "math_ops"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "a"}},
-					{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "b"}},
+				Nodes: []graph.Node{{Key: "a"}, {Key: "b"}, {Key: "math_ops"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"a":        {"type": "a"},
+					"b":        {"type": "b"},
+					"math_ops": {"type": "math_ops"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "a"}}},
+					{Edge: ir.Edge{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "b"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1174,13 +1215,17 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "val_src", Type: "val_src"},
-					{Key: "neg_c", Type: "neg_c"},
+					{Key: "val_src"},
+					{Key: "neg_c"},
 				},
-				Edges: []graph.Edge{{
+				Configs: map[string]msgpack.EncodedJSON{
+					"val_src": {"type": "val_src"},
+					"neg_c":   {"type": "neg_c"},
+				},
+				Edges: graph.Edges{{Edge: ir.Edge{
 					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "neg_c", Param: "val"},
-				}},
+				}}},
 			}
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1206,13 +1251,17 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "val_src", Type: "val_src"},
-					{Key: "neg_cf", Type: "neg_cf"},
+					{Key: "val_src"},
+					{Key: "neg_cf"},
 				},
-				Edges: []graph.Edge{{
+				Configs: map[string]msgpack.EncodedJSON{
+					"val_src": {"type": "val_src"},
+					"neg_cf":  {"type": "neg_cf"},
+				},
+				Edges: graph.Edges{{Edge: ir.Edge{
 					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "neg_cf", Param: "val"},
-				}},
+				}}},
 			}
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1241,14 +1290,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "str_len", Type: "str_len"},
+					{Key: "source"},
+					{Key: "str_len"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source":  {"type": "source"},
+					"str_len": {"type": "str_len"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "str_len", Param: "s"},
-					},
+					}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1282,14 +1335,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "qstr_len", Type: "qstr_len"},
+					{Key: "source"},
+					{Key: "qstr_len"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source":   {"type": "source"},
+					"qstr_len": {"type": "qstr_len"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "qstr_len", Param: "s"},
-					},
+					}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1331,19 +1388,24 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "src_a", Type: "src_a"},
-					{Key: "src_b", Type: "src_b"},
-					{Key: "qstr_concat", Type: "qstr_concat"},
+					{Key: "src_a"},
+					{Key: "src_b"},
+					{Key: "qstr_concat"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"src_a":       {"type": "src_a"},
+					"src_b":       {"type": "src_b"},
+					"qstr_concat": {"type": "qstr_concat"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src_a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "qstr_concat", Param: "a"},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src_b", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "qstr_concat", Param: "b"},
-					},
+					}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1389,14 +1451,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "labeler", Type: "labeler"},
+					{Key: "source"},
+					{Key: "labeler"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source":  {"type": "source"},
+					"labeler": {"type": "labeler"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "labeler", Param: "x"},
-					},
+					}},
 				},
 			}
 			// The key assertion: this must not panic on Density() for
@@ -1436,14 +1502,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "tagger", Type: "tagger"},
+					{Key: "source"},
+					{Key: "tagger"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"tagger": {"type": "tagger"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "tagger", Param: "x"},
-					},
+					}},
 				},
 			}
 			// Must not panic even with multiple string outputs
@@ -1477,14 +1547,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "stringify", Type: "stringify"},
+					{Key: "source"},
+					{Key: "stringify"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source":    {"type": "source"},
+					"stringify": {"type": "stringify"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "stringify", Param: "x"},
-					},
+					}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1524,14 +1598,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "labeler", Type: "labeler"},
+					{Key: "source"},
+					{Key: "labeler"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source":  {"type": "source"},
+					"labeler": {"type": "labeler"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "labeler", Param: "x"},
-					},
+					}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1625,11 +1703,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "add_config", Type: "add_config", Config: map[string]any{"x": int64(10)}},
+					{Key: "input_source"},
+					{Key: "add_config"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add_config", Param: "y"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"add_config":   {"type": "add_config", "x": int64(10)},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add_config", Param: "y"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1662,11 +1744,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "multi_config", Type: "multi_config", Config: map[string]any{"a": int32(5), "b": int32(10)}},
+					{Key: "input_source"},
+					{Key: "multi_config"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "multi_config", Param: "c"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"multi_config": {"type": "multi_config", "a": int32(5), "b": int32(10)},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "multi_config", Param: "c"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1698,11 +1784,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "scale_config", Type: "scale_config", Config: map[string]any{"factor": 2.5}},
+					{Key: "input_source"},
+					{Key: "scale_config"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_config", Param: "value"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"scale_config": {"type": "scale_config", "factor": 2.5},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_config", Param: "value"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1734,11 +1824,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "offset_func", Type: "offset_func", Config: map[string]any{"offset": int64(-50)}},
+					{Key: "input_source"},
+					{Key: "offset_func"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "offset_func", Param: "value"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"offset_func":  {"type": "offset_func", "offset": int64(-50)},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "offset_func", Param: "value"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1771,11 +1865,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "scale_neg", Type: "scale_neg", Config: map[string]any{"factor": -3.0}},
+					{Key: "input_source"},
+					{Key: "scale_neg"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_neg", Param: "value"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"scale_neg":    {"type": "scale_neg", "factor": -3.0},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_neg", Param: "value"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -2122,11 +2220,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "trigger_source", Type: "trigger_source"},
-					{Key: "void_func", Type: "void_func"},
+					{Key: "trigger_source"},
+					{Key: "void_func"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_func", Param: "trigger"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"trigger_source": {"type": "trigger_source"},
+					"void_func":      {"type": "void_func"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_func", Param: "trigger"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -2162,11 +2264,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "trigger_source", Type: "trigger_source"},
-					{Key: "void_with_state", Type: "void_with_state"},
+					{Key: "trigger_source"},
+					{Key: "void_with_state"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_with_state", Param: "trigger"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"trigger_source":  {"type": "trigger_source"},
+					"void_with_state": {"type": "void_with_state"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_with_state", Param: "trigger"}}},
 				},
 			}
 			h := newHarness(ctx, g, chans, channels.Digest{Key: 100, DataType: telem.Int32T})
@@ -2279,9 +2385,12 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "increment_counter", Type: "increment_counter", Config: map[string]any{"counter": uint32(100)}},
+					{Key: "increment_counter"},
 				},
-				Edges: []graph.Edge{},
+				Configs: map[string]msgpack.EncodedJSON{
+					"increment_counter": {"type": "increment_counter", "counter": uint32(100)},
+				},
+				Edges: graph.Edges{},
 			}
 
 			h := newHarness(ctx, g, chans,
@@ -2332,11 +2441,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "count_rising", Type: "count_rising", Config: map[string]any{"counter": uint32(100)}},
+					{Key: "input_source"},
+					{Key: "count_rising"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "count_rising", Param: "input"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"count_rising": {"type": "count_rising", "counter": uint32(100)},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "count_rising", Param: "input"}}},
 				},
 			}
 
@@ -2422,17 +2535,17 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{
-						Key:  "combine_sensors",
-						Type: "combine_sensors",
-						Config: map[string]any{
-							"temp":     uint32(100),
-							"pressure": uint32(101),
-							"result":   uint32(102),
-						},
+					{Key: "combine_sensors"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"combine_sensors": {
+						"type":     "combine_sensors",
+						"temp":     uint32(100),
+						"pressure": uint32(101),
+						"result":   uint32(102),
 					},
 				},
-				Edges: []graph.Edge{},
+				Edges: graph.Edges{},
 			}
 
 			h := newHarness(ctx, g, chans,
@@ -2484,19 +2597,19 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{
-						Key:  "multi_op",
-						Type: "multi_op",
-						Config: map[string]any{
-							"a":       uint32(200),
-							"b":       uint32(201),
-							"sum":     uint32(202),
-							"diff":    uint32(203),
-							"product": uint32(204),
-						},
+					{Key: "multi_op"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"multi_op": {
+						"type":    "multi_op",
+						"a":       uint32(200),
+						"b":       uint32(201),
+						"sum":     uint32(202),
+						"diff":    uint32(203),
+						"product": uint32(204),
 					},
 				},
-				Edges: []graph.Edge{},
+				Edges: graph.Edges{},
 			}
 
 			h := newHarness(ctx, g, chans,
@@ -2550,16 +2663,16 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{
-						Key:  "square_value",
-						Type: "square_value",
-						Config: map[string]any{
-							"value":   uint32(300),
-							"squared": uint32(301),
-						},
+					{Key: "square_value"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"square_value": {
+						"type":    "square_value",
+						"value":   uint32(300),
+						"squared": uint32(301),
 					},
 				},
-				Edges: []graph.Edge{},
+				Edges: graph.Edges{},
 			}
 
 			h := newHarness(ctx, g, chans,
@@ -2633,20 +2746,21 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "value_source", Type: "value_source"},
-					{
-						Key:  "tolerance_check",
-						Type: "tolerance_check",
-						Config: map[string]any{
-							"tolerance_upper": float32(10.0),
-							"tolerance_lower": float32(5.0),
-							"set_point":       uint32(400),
-							"samples":         int64(3),
-						},
+					{Key: "value_source"},
+					{Key: "tolerance_check"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"value_source": {"type": "value_source"},
+					"tolerance_check": {
+						"type":            "tolerance_check",
+						"tolerance_upper": float32(10.0),
+						"tolerance_lower": float32(5.0),
+						"set_point":       uint32(400),
+						"samples":         int64(3),
 					},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "value_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "tolerance_check", Param: "value"}},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "value_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "tolerance_check", Param: "value"}}},
 				},
 			}
 
@@ -3158,11 +3272,10 @@ input_ch -> count_local{} -> sink_ch
 					Outputs: types.Params{},
 					Body:    ir.Body{Raw: `{}`},
 				}},
-				Nodes: []graph.Node{{
-					Key:    "log_fn",
-					Type:   "log_fn",
-					Config: map[string]any{"msg": "hello"},
-				}},
+				Nodes: []graph.Node{{Key: "log_fn"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"log_fn": {"type": "log_fn", "msg": "hello"},
+				},
 			}
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @ts output  "client/ts/src/arc/types"
+@py output  "client/py/synnax/arc/types"
 @go output  "arc/go/types"
 @cpp output "arc/cpp/types"
 @pb

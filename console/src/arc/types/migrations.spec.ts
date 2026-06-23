@@ -22,6 +22,8 @@ import * as v0 from "@/arc/types/v0";
 import * as v1 from "@/arc/types/v1";
 import * as v2 from "@/arc/types/v2";
 
+const LATEST_VERSION = ZERO_STATE.version;
+
 const STATES: AnyState[] = [v0.ZERO_STATE, v1.ZERO_STATE, v2.ZERO_STATE];
 const SLICE_STATES: AnySliceState[] = [
   v0.ZERO_SLICE_STATE,
@@ -34,7 +36,7 @@ describe("arc type migrations", () => {
     STATES.forEach((state) => {
       it(`should migrate state from ${state.version} to latest`, () => {
         const migrated = migrateState(state);
-        expect(migrated.version).toBe(v2.VERSION);
+        expect(migrated.version).toBe(LATEST_VERSION);
       });
     });
   });
@@ -48,7 +50,10 @@ describe("arc type migrations", () => {
     });
   });
 
-  describe("v1 → v2 set_status rewrite", () => {
+  // The set_status rewrite happens at v1 → v2; the v2 → v3 migration then lifts each
+  // node's props into the pendingUpload configs map, moving the function type from
+  // "key" to "type".
+  describe("set_status rewrite into pendingUpload", () => {
     const node = (key: string, extras: Record<string, unknown> = {}): v1.NodeProps => ({
       ...extras,
       key,
@@ -70,8 +75,8 @@ describe("arc type migrations", () => {
         }),
       });
       const migrated = migrateState(v1State);
-      expect(migrated.graph.props.n1).toEqual({
-        key: "status.set",
+      expect(migrated.pendingUpload?.configs.n1).toEqual({
+        type: "status.set",
         key_or_name: "alarm",
         variant: "warning",
         message: "overpressure",
@@ -81,15 +86,15 @@ describe("arc type migrations", () => {
     it("should default missing legacy fields when rewriting set_status", () => {
       const v1State = buildV1StateWithProps({ n1: legacySetStatus() });
       const migrated = migrateState(v1State);
-      expect(migrated.graph.props.n1).toEqual({
-        key: "status.set",
+      expect(migrated.pendingUpload?.configs.n1).toEqual({
+        type: "status.set",
         key_or_name: "",
         variant: "success",
         message: "",
       });
     });
 
-    it("should pass through non-set_status nodes unchanged", () => {
+    it("should pass through non-set_status nodes, moving key to type", () => {
       const v1State = buildV1StateWithProps({
         n1: node("status.set", {
           key_or_name: "x",
@@ -99,8 +104,16 @@ describe("arc type migrations", () => {
         n2: node("channel.read", { channel: 42 }),
       });
       const migrated = migrateState(v1State);
-      expect(migrated.graph.props.n1).toEqual(v1State.graph.props.n1);
-      expect(migrated.graph.props.n2).toEqual(v1State.graph.props.n2);
+      expect(migrated.pendingUpload?.configs.n1).toEqual({
+        type: "status.set",
+        key_or_name: "x",
+        variant: "info",
+        message: "m",
+      });
+      expect(migrated.pendingUpload?.configs.n2).toEqual({
+        type: "channel.read",
+        channel: 42,
+      });
     });
 
     it("should rewrite set_status nodes across multiple arcs in a slice", () => {
@@ -114,14 +127,14 @@ describe("arc type migrations", () => {
         },
       };
       const migrated = migrateSlice(v1Slice);
-      expect(migrated.arcs.a.graph.props.n).toMatchObject({
-        key: "status.set",
+      expect(migrated.arcs.a.pendingUpload?.configs.n).toMatchObject({
+        type: "status.set",
         key_or_name: "a",
         variant: "error",
         message: "boom",
       });
-      expect(migrated.arcs.b.graph.props.n).toMatchObject({
-        key: "status.set",
+      expect(migrated.arcs.b.pendingUpload?.configs.n).toMatchObject({
+        type: "status.set",
         key_or_name: "b",
         variant: "success",
         message: "",
@@ -130,19 +143,24 @@ describe("arc type migrations", () => {
   });
 
   describe("anyStateZ", () => {
-    it("should parse and migrate v0 state to v2", () => {
+    it("should parse and migrate v0 state to latest", () => {
       const result = anyStateZ.parse(v0.ZERO_STATE);
-      expect(result.version).toBe(v2.VERSION);
+      expect(result.version).toBe(LATEST_VERSION);
     });
 
-    it("should parse and migrate v1 state to v2", () => {
+    it("should parse and migrate v1 state to latest", () => {
       const result = anyStateZ.parse(v1.ZERO_STATE);
-      expect(result.version).toBe(v2.VERSION);
+      expect(result.version).toBe(LATEST_VERSION);
     });
 
-    it("should parse v2 state as-is", () => {
+    it("should parse v2 state, migrating to latest", () => {
+      const result = anyStateZ.parse(v2.ZERO_STATE);
+      expect(result.version).toBe(LATEST_VERSION);
+    });
+
+    it("should parse latest state as-is", () => {
       const result = anyStateZ.parse(ZERO_STATE);
-      expect(result.version).toBe(v2.VERSION);
+      expect(result.version).toBe(LATEST_VERSION);
     });
   });
 });

@@ -115,7 +115,27 @@ func Analyze(
 	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		fnSym, err := resolveQualified(aCtx, aCtx.Scope, n.Type)
+		cfg := g.Configs[n.Key]
+		rawType, ok := cfg["type"]
+		if !ok {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				nil,
+				"node '%s' is missing its function type",
+				n.Key,
+			))
+			return ir.IR{}, aCtx.Diagnostics
+		}
+		nodeType, ok := rawType.(string)
+		if !ok {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				nil,
+				"node '%s' function type must be a string, got %T",
+				n.Key,
+				rawType,
+			))
+			return ir.IR{}, aCtx.Diagnostics
+		}
+		fnSym, err := resolveQualified(aCtx, aCtx.Scope, nodeType)
 		if err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 			return ir.IR{}, aCtx.Diagnostics
@@ -124,15 +144,14 @@ func Analyze(
 		freshType := freshFuncTypes[n.Key]
 		node := ir.Node{
 			Key:      n.Key,
-			Type:     n.Type,
+			Type:     nodeType,
 			Channels: fnSym.Channels.Copy(),
 			Inputs:   freshType.Inputs,
 			Outputs:  freshType.Outputs,
 		}
-		// n.Config is the editor-supplied value map (a generated graph field),
-		// not the removed type-level Config.
+		// Param values come from the node's entry in the graph configs map.
 		for j, param := range freshType.Inputs {
-			paramValue, ok := n.Config[param.Name]
+			paramValue, ok := cfg[param.Name]
 			if !ok {
 				continue
 			}
@@ -172,7 +191,8 @@ func Analyze(
 	}
 
 	// Step 5: Check Types Across Edges, Unify, and Apply Substitutions
-	if !analyzer.ResolveNodeTypes(irNodes, g.Edges, aCtx.Constraints, aCtx.Diagnostics) {
+	irEdges := g.Edges.IR()
+	if !analyzer.ResolveNodeTypes(irNodes, irEdges, aCtx.Constraints, aCtx.Diagnostics) {
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
@@ -214,7 +234,7 @@ func Analyze(
 	}
 	out := ir.IR{
 		Functions: g.Functions,
-		Edges:     g.Edges,
+		Edges:     irEdges,
 		Nodes:     irNodes,
 		Symbols:   aCtx.Scope,
 		Root:      irRoot,

@@ -15,6 +15,7 @@ import {
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
+import { type Action, dispatchReqZ } from "@/arc/actions.gen";
 import { type Arc, arcZ, type Key, keyZ, type New } from "@/arc/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -110,5 +111,16 @@ export class Client {
 
   async openLSP(): Promise<Stream<typeof lspMessageZ, typeof lspMessageZ>> {
     return await this.streamClient.stream("/arc/lsp", lspMessageZ, lspMessageZ);
+  }
+
+  /** dispatch relays a sequence of collaborative-edit actions for the arc with the given
+   * key to the other clients editing it. */
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
+      "/arc/dispatch",
+      { key, dispatchKey, actions },
+      dispatchReqZ,
+      emptyResZ,
+    );
   }
 }

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { arc } from "@synnaxlabs/client";
 import {
   Arc,
   Button,
@@ -17,75 +18,75 @@ import {
   Input,
   Status,
 } from "@synnaxlabs/pluto";
-import { box, location, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { box, type direction, location, xy } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useMemo } from "react";
+import { useStore } from "react-redux";
 
-import {
-  selectViewport,
-  useSelectRequiredNodeProps,
-  useSelectSelectedElementDigests,
-  useSelectSelectedElementsProps,
-} from "@/arc/selectors";
-import { setElementProps, setNodePositions } from "@/arc/slice";
+import { selectViewport, useSelectSelected } from "@/arc/selectors";
 import { type RootState } from "@/store";
 
 export interface PropertiesProps {
   layoutKey: string;
 }
 
-export const PropertiesControls = memo(
+export const Properties = memo(
   ({ layoutKey }: PropertiesProps): ReactElement | null => {
-    const digests = useSelectSelectedElementDigests(layoutKey);
-    if (digests.length === 0)
+    const selected = useSelectSelected(layoutKey);
+    const nodes = Arc.useSelectNodes({ key: layoutKey });
+    const selectedNodeKeys = useMemo(() => {
+      const nodeKeys = new Set(nodes.map((n) => n.key));
+      return selected.filter((k) => nodeKeys.has(k));
+    }, [nodes, selected]);
+
+    if (selected.length === 0)
       return (
         <Status.Summary center variant="disabled" hideIcon>
-          Select a arc element to configure its properties.
+          Select an Arc element to configure its properties.
         </Status.Summary>
       );
-
-    if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
-
-    const selected = digests[0];
-
-    if (selected.type === "edge") return null;
+    if (selected.length > 1)
+      return <MultiConfig layoutKey={layoutKey} selectedNodeKeys={selectedNodeKeys} />;
+    if (selectedNodeKeys.length === 0) return null;
     return (
-      <IndividualProperties
-        key={selected.key}
+      <IndividualConfig
+        key={selectedNodeKeys[0]}
         layoutKey={layoutKey}
-        nodeKey={selected.key}
+        nodeKey={selectedNodeKeys[0]}
       />
     );
   },
 );
-PropertiesControls.displayName = "PropertiesControls";
+Properties.displayName = "PropertiesControls";
 
-interface IndividualPropertiesProps {
+interface IndividualConfigProps {
   layoutKey: string;
   nodeKey: string;
 }
 
-const IndividualProperties = ({
+const IndividualConfig = ({
   layoutKey,
   nodeKey,
-}: IndividualPropertiesProps): ReactElement | null => {
-  const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Arc.Stage.REGISTRY[props.key];
-  const dispatch = useDispatch();
-
-  const onChange = (key: string, props: any): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
-  };
-
-  const formMethods = Form.use({
-    values: structuredClone(props),
+}: IndividualConfigProps): ReactElement | null => {
+  const config = Arc.useSelectNodeConfig({ key: layoutKey, nodeKey });
+  const { dispatch } = Arc.useDispatch();
+  const formMethods = Form.use<typeof Arc.Graph.Node.configZ>({
+    values: structuredClone(config),
     sync: true,
-    onChange: ({ values }) => onChange(nodeKey, values),
+    onChange: useCallback(
+      ({ values: config }: Form.OnChangeArgs<typeof Arc.Graph.Node.configZ>) =>
+        dispatch({
+          key: layoutKey,
+          actions: [arc.setNodeConfig({ key: nodeKey, config })],
+        }),
+      [dispatch],
+    ),
   });
-
+  if (config == null) return null;
+  const C = Arc.Graph.Node.REGISTRY[config.type];
+  if (C == null) return null;
   return (
     <Flex.Box style={{ height: "100%", padding: "2rem" }} y>
-      <Form.Form {...formMethods}>
+      <Form.Form<typeof Arc.Graph.Node.configZ> {...formMethods}>
         <C.Form {...formMethods} key={nodeKey} />
       </Form.Form>
     </Flex.Box>
@@ -94,28 +95,26 @@ const IndividualProperties = ({
 
 interface MultiElementPropertiesProps {
   layoutKey: string;
+  selectedNodeKeys: string[];
 }
 
-const MultiElementProperties = ({
+const MultiConfig = ({
   layoutKey,
+  selectedNodeKeys,
 }: MultiElementPropertiesProps): ReactElement => {
-  const elements = useSelectSelectedElementsProps(layoutKey);
-  const dispatch = useDispatch();
-
+  const { dispatch } = Arc.useDispatch();
+  const nodes = Arc.useSelectNodes({ key: layoutKey });
   const store = useStore<RootState>();
 
   const getLayouts = () => {
     const viewport = selectViewport(store.getState(), layoutKey);
-    return elements
-      .map((el) => {
-        if (el.type !== "node") return null;
-        // grab all child elements with the class 'react-flow__handle'
+    return selectedNodeKeys
+      .map((key) => {
+        const node = nodes.find((n) => n.key === key);
+        if (node == null) return null;
         try {
-          const nodeEl = Diagram.selectNode(el.key);
-          const nodeBox = box.construct(
-            el.node.position,
-            box.dims(box.construct(nodeEl)),
-          );
+          const nodeEl = Diagram.selectNode(key);
+          const nodeBox = box.construct(node.position, box.dims(box.construct(nodeEl)));
           const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
           const nodeElBox = box.construct(nodeEl);
           const handles = Array.from(handleEls).map((el) => {
@@ -130,7 +129,7 @@ const MultiElementProperties = ({
             const orientation = location.construct(match[1]) as location.Outer;
             return new Diagram.HandleLayout(dist, orientation);
           });
-          return new Diagram.NodeLayout(el.key, nodeBox, handles);
+          return new Diagram.NodeLayout(key, nodeBox, handles);
         } catch (e) {
           console.error(e);
         }
@@ -139,40 +138,24 @@ const MultiElementProperties = ({
       .filter((el) => el !== null);
   };
 
+  const align = (direction: direction.Direction): void => {
+    const newPositions = Diagram.alignNodesAlongDirection(getLayouts(), direction);
+    dispatch({
+      key: layoutKey,
+      actions: newPositions.map(({ key, box: b }) =>
+        arc.setNodePosition({ key, position: box.topLeft(b) }),
+      ),
+    });
+  };
+
   return (
     <Flex.Box align="start" x style={{ padding: "2rem" }}>
       <Input.Item label="Align">
         <Flex.Box x>
-          <Button.Button
-            tooltip="Align nodes vertically"
-            onClick={() => {
-              const newPositions = Diagram.alignNodesAlongDirection(getLayouts(), "x");
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
-          >
+          <Button.Button tooltip="Align nodes vertically" onClick={() => align("x")}>
             <Icon.Align.YCenter />
           </Button.Button>
-          <Button.Button
-            tooltip="Align nodes horizontally"
-            onClick={() => {
-              const newPositions = Diagram.alignNodesAlongDirection(getLayouts(), "y");
-              dispatch(
-                setNodePositions({
-                  key: layoutKey,
-                  positions: Object.fromEntries(
-                    newPositions.map((n) => [n.key, box.topLeft(n.box)]),
-                  ),
-                }),
-              );
-            }}
-          >
+          <Button.Button tooltip="Align nodes horizontally" onClick={() => align("y")}>
             <Icon.Align.XCenter />
           </Button.Button>
         </Flex.Box>

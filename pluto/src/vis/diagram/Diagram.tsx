@@ -15,6 +15,7 @@ import {
   type Connection as RFConnection,
   type ConnectionLineComponentProps as RFConnectionLineProps,
   ConnectionMode,
+  type Edge as RFEdge,
   type EdgeChange as RFEdgeChange,
   type EdgeProps as RFEdgeProps,
   type IsValidConnection,
@@ -126,7 +127,7 @@ const PRO_OPTIONS: ProOptions = {
   hideAttribution: true,
 };
 
-export type DiagramClipboardHandler = (
+export type ClipboardHandler = (
   this: void,
   e: ReactClipboardEvent<HTMLDivElement>,
   cursor: xy.XY,
@@ -146,6 +147,7 @@ export interface DiagramProps
       | "snapToGrid"
       | "onNodeClick"
       | "onNodeDoubleClick"
+      | "edgesReconnectable"
     > {
   edges: Edge[];
   nodes: Node[];
@@ -168,13 +170,13 @@ export interface DiagramProps
    * cursor position in diagram space at the moment of the copy, derived from
    * the most recent mousemove over the diagram.
    */
-  onCopy?: DiagramClipboardHandler;
+  onCopy?: ClipboardHandler;
   /**
    * Called when a paste event fires on the diagram. The second argument is the
    * cursor position in diagram space at the moment of the paste, derived from
    * the most recent mousemove over the diagram.
    */
-  onPaste?: DiagramClipboardHandler;
+  onPaste?: ClipboardHandler;
 }
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
@@ -433,6 +435,12 @@ export const create = ({
       [onEdgesChange],
     );
 
+    const handleReconnect = useCallback(
+      (oldEdge: RFEdge, conn: RFConnection) =>
+        onEdgesChange([diagram.createReconnect(oldEdge.id, conn)]),
+      [onEdgesChange],
+    );
+
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
     const triggerRef = useRef<HTMLElement>(null);
@@ -556,6 +564,7 @@ export const create = ({
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}
                 onConnect={handleConnect}
+                onReconnect={handleReconnect}
                 connectionLineComponent={ConnectionLine}
                 defaultViewport={defautlViewport}
                 elevateEdgesOnSelect

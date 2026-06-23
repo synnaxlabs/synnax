@@ -20,36 +20,40 @@ import (
 // Nodes is a collection of visual nodes in an Arc graph.
 type Nodes []Node
 
+// Edges is a collection of graph edges in an Arc graph.
+type Edges []Edge
+
 // Node is a visual node in the Arc graph editor representing a function instantiation
-// with position data.
+// with position data. The function type and configuration parameter values are stored
+// in the graph's configs map, keyed by the node key.
 type Node struct {
 	// Key is the unique identifier for this node instance.
 	Key string `json:"key" msgpack:"key"`
-	// Type is the function type being instantiated.
-	Type string `json:"type" msgpack:"type"`
-	// Config contains configuration parameter values as a JSON object.
-	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitzero"`
 	// Position is the canvas position (x, y) for visual layout.
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 
-// Viewport is the camera state for viewing the Arc graph editor canvas.
-type Viewport struct {
-	// Position is the camera pan offset (x, y).
-	Position spatial.XY `json:"position" msgpack:"position"`
-	// Zoom is the zoom level where 1.0 equals 100%.
-	Zoom float64 `json:"zoom" msgpack:"zoom"`
+// Edge is a dataflow connection between node parameters carrying a stable identifier.
+// The key persists across endpoint edits, distinguishing the editable graph edge from
+// the keyless ir.Edge consumed by the compiler.
+type Edge struct {
+	ir.Edge
+	// Key is the stable identifier for this edge within the graph.
+	Key string `json:"key" msgpack:"key"`
 }
 
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.
 type Graph struct {
-	// Viewport is the current camera state for the graph view.
-	Viewport Viewport `json:"viewport" msgpack:"viewport"`
 	// Functions contains function definitions available in this graph.
 	Functions ir.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
 	// Edges contains dataflow connections between node parameters.
-	Edges ir.Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
+	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Nodes contains visual nodes with canvas positions.
 	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
+	// Configs contains per-node configuration keyed by node key. Each value is a JSON
+	// object holding the node's function type under "type" plus its configuration parameter
+	// values. The wire format stores it as an opaque record; the client types it per
+	// function.
+	Configs map[string]msgpack.EncodedJSON `json:"configs,omitzero" msgpack:"configs,omitzero"`
 }

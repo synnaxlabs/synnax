@@ -26,7 +26,7 @@ struct Text;
 /// @brief Text is text-based Arc source code with optional parsed AST for compilation.
 struct Text {
     /// @brief raw is the raw Arc source code in text form.
-    std::string raw;
+    std::string raw = "";
 
     static Text parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
