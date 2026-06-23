@@ -26,17 +26,31 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Type aliases re-exporting the distribution-layer key types so service-layer callers
-// can refer to them through this package.
+// These type aliases re-export the distribution-layer key types so service-layer callers
+// can refer to them through this package without importing the distribution layer
+// directly.
 type (
-	Key      = channel.Key
-	Keys     = channel.Keys
+	// Key is the cluster-unique identifier for a channel. It packs a leaseholder node key
+	// (first 12 bits) and a node-local LocalKey (last 20 bits) into a single uint32.
+	// Re-exported from [channel.Key].
+	Key = channel.Key
+	// Keys is a slice of Key with convenience methods for deduplication, grouping by
+	// leaseholder, and conversion to storage keys. Re-exported from [channel.Keys].
+	Keys = channel.Keys
+	// LocalKey is the 20-bit, node-local portion of a channel Key. Re-exported from
+	// [channel.LocalKey].
 	LocalKey = channel.LocalKey
-	Name     = string
+	// Name is the human-readable identifier for a channel. It is an alias for string,
+	// provided so callers can refer to channel names through a domain-specific type.
+	Name = string
 )
 
 var (
-	NewKey         = channel.NewKey
+	// NewKey composes a Key from a leaseholder node key and a node-local LocalKey.
+	// Re-exported from [channel.NewKey].
+	NewKey = channel.NewKey
+	// KeysFromUint32 reinterprets a []uint32 as Keys without copying the underlying
+	// memory. Re-exported from [channel.KeysFromUint32].
 	KeysFromUint32 = channel.KeysFromUint32
 )
 
@@ -154,14 +168,14 @@ func (c Channel) String() string {
 func (c *Channel) UnmarshalJSON(data []byte) error {
 	type alias Channel
 	if err := json.Unmarshal(data, (*alias)(c)); err != nil {
-		return err
+		return errors.Wrap(err, "failed to decode channel from JSON")
 	}
 	if c.Leaseholder == 0 {
 		var legacy struct {
 			NodeID node.Key `json:"node_id"`
 		}
 		if err := json.Unmarshal(data, &legacy); err != nil {
-			return err
+			return errors.Wrap(err, "failed to decode legacy node_id from JSON")
 		}
 		c.Leaseholder = legacy.NodeID
 	}
@@ -175,10 +189,10 @@ func (o *Operation) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Operation
 	raw, err := dec.DecodeRaw()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to read raw operation msgpack")
 	}
 	if err = msgpack.Unmarshal(raw, (*alias)(o)); err != nil {
-		return err
+		return errors.Wrap(err, "failed to decode operation from msgpack")
 	}
 	if len(o.Type) == 0 {
 		var legacy struct {
@@ -187,7 +201,7 @@ func (o *Operation) DecodeMsgpack(dec *msgpack.Decoder) error {
 			Duration     telem.TimeSpan
 		}
 		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
+			return errors.Wrap(err, "failed to decode legacy operation from msgpack")
 		}
 		o.Type = legacy.Type
 		o.ResetChannel = legacy.ResetChannel
@@ -202,17 +216,17 @@ func (c *Channel) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Channel
 	raw, err := dec.DecodeRaw()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to read raw channel msgpack")
 	}
 	if err = msgpack.Unmarshal(raw, (*alias)(c)); err != nil {
-		return err
+		return errors.Wrap(err, "failed to decode channel from msgpack")
 	}
 	if c.Leaseholder == 0 {
 		var legacy struct {
 			NodeID node.Key `msgpack:"node_id"`
 		}
 		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
+			return errors.Wrap(err, "failed to decode legacy node_id from msgpack")
 		}
 		c.Leaseholder = legacy.NodeID
 	}

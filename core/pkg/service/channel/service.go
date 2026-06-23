@@ -28,7 +28,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	xservice "github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
@@ -69,7 +69,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// IntOverflowCheck enforces the cap on external (non-internal, non-virtual) channels.
+	// IntOverflowCheck enforces the cap on external (non-internal, non-virtual)
+	// channels.
 	//
 	// [OPTIONAL] - Defaults to system integer overflow check.
 	IntOverflowCheck IntOverflowChecker
@@ -98,7 +99,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "int_overflow_check", c.IntOverflowCheck)
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "validate_names", c.ValidateNames)
-	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -117,14 +117,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// externalSet tracks the keys of external (non-internal, non-virtual) channels. The
-// create path and the retrieve-time overflow validator consult it to enforce the uint20
-// channel-index overflow limit. mu guards set.
-type externalSet struct {
-	mu  sync.RWMutex
-	set *set.Integer[Key]
-}
-
 // Service is the top-level channel service. It owns the channel metadata table,
 // retrieval, ontology and search integration, and the create/delete/rename
 // orchestration, driving the distribution-layer allocator for key assignment and
@@ -136,9 +128,15 @@ type Service struct {
 	group   group.Group
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
-	// external tracks external non-virtual channel keys for overflow enforcement, shared
-	// across every Writer the service spawns and the retrieve-time validator.
-	external *externalSet
+	// mu guards the external non-virtual channel key set, which is shared across every
+	// Writer the service spawns and the retrieve-time validator.
+	mu struct {
+		sync.RWMutex
+		// externalNonVirtualSet tracks the keys of external (non-internal, non-virtual)
+		// channels. The create path and the retrieve-time overflow validator consult it
+		// to enforce the uint20 channel-index overflow limit.
+		externalNonVirtualSet set.Integer[Key]
+	}
 }
 
 // OpenService opens a channel service using the provided configuration(s).
@@ -151,7 +149,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s = &Service{cfg: cfg, db: cfg.DB, indexes: newIndexes()}
-	cleanup, ok := xservice.NewOpener(ctx, &s.closer)
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
 		DB: cfg.DB,
@@ -181,7 +179,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Exec(ctx, cfg.DB); !ok(err, nil) {
 		return nil, err
 	}
-	s.external = &externalSet{set: set.NewInteger(KeysFromChannels(externalNonVirtualChannels))}
+	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	return s, nil
@@ -266,14 +264,14 @@ func (s *Service) Close() error { return s.closer.Close() }
 // fails the query if any retrieved external non-virtual channel would push the uint20
 // channel index past the configured overflow limit.
 func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
-	s.external.mu.RLock()
-	defer s.external.mu.RUnlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for _, ch := range channels {
 		key := ch.Key()
-		if !s.external.set.Contains(key) {
+		if !s.mu.externalNonVirtualSet.Contains(key) {
 			continue
 		}
-		channelNumber := s.external.set.NumLessThan(key) + 1
+		channelNumber := s.mu.externalNonVirtualSet.NumLessThan(key) + 1
 		if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
 			return err
 		}

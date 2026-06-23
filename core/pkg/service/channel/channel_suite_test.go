@@ -24,10 +24,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	dist mock.Node
-	svc  *channel.Service
-)
+var svc *channel.Service
 
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -40,44 +37,54 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 // control channel, mirroring what the service layer's OpenLayer does in production.
 // Tests rely on the control channel for their local-key and channel-count expectations.
 // Extra configs override the derived distribution-layer fields.
-func openService(ctx context.Context, n mock.Node, cfgs ...channel.ServiceConfig) *channel.Service {
+func openService(
+	ctx context.Context,
+	node mock.Node,
+	cfgs ...channel.ServiceConfig,
+) *channel.Service {
 	GinkgoHelper()
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       n.DB,
-		Ontology: n.Ontology,
-		Group:    n.Group,
-		Search:   n.Search,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       n.DB,
-		Group:    n.Group,
-		Ontology: n.Ontology,
+		DB:       node.DB,
+		Group:    node.Group,
+		Ontology: node.Ontology,
 		Label:    labelSvc,
-		Search:   n.Search,
+		Search:   node.Search,
 	}))
-	base := channel.ServiceConfig{
-		Channel:      n.Channel,
-		DB:           n.DB,
-		HostResolver: n.Cluster,
-		Ontology:     n.Ontology,
-		Group:        n.Group,
-		Search:       n.Search,
+	cfg := channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
 		Status:       statusSvc,
 	}
-	channelSvc := MustOpen(channel.OpenService(ctx, append([]channel.ServiceConfig{base}, cfgs...)...))
+	channelSvc := MustOpen(channel.OpenService(
+		ctx,
+		append([]channel.ServiceConfig{cfg}, cfgs...)...,
+	))
 	controlCh := channel.Channel{
-		Name:        fmt.Sprintf("sy_node_%v_control", n.Cluster.HostKey()),
-		Leaseholder: n.Cluster.HostKey(),
+		Name:        fmt.Sprintf("sy_node_%v_control", node.Cluster.HostKey()),
+		Leaseholder: node.Cluster.HostKey(),
 		Virtual:     true,
 		DataType:    telem.StringT,
 		Internal:    true,
 	}
-	Expect(channelSvc.Create(ctx, &controlCh, channel.RetrieveIfNameExists())).To(Succeed())
-	Expect(n.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name)).To(Succeed())
+	Expect(channelSvc.Create(ctx, &controlCh, channel.RetrieveIfNameExists())).
+		To(Succeed())
+	Expect(node.Framer.ConfigureControlUpdateChannel(
+		ctx, controlCh.Key(), controlCh.Name,
+	)).To(Succeed())
 	return channelSvc
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = mock.MustOpenNode(ctx)
-	svc = openService(ctx, dist)
+	node := mock.MustOpenNode(ctx)
+	svc = openService(ctx, node)
 })

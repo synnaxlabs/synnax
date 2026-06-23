@@ -442,16 +442,16 @@ func (w Writer) writeChannels(ctx context.Context, toCreate []Channel) error {
 			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
 		}
 	}
-	w.svc.external.mu.Lock()
-	defer w.svc.external.mu.Unlock()
-	count := w.svc.external.set.Size()
+	w.svc.mu.Lock()
+	defer w.svc.mu.Unlock()
+	count := w.svc.mu.externalNonVirtualSet.Size()
 	if err := w.svc.cfg.IntOverflowCheck(types.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
 		return err
 	}
 	if err := w.svc.table.NewCreate().Entries(&toCreate).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.svc.external.set.Insert(externalCreatedKeys...)
+	w.svc.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
 	return nil
 }
 
@@ -647,9 +647,9 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 	if err := w.svc.cfg.Channel.Delete(ctx, keys); err != nil {
 		return err
 	}
-	w.svc.external.mu.Lock()
-	w.svc.external.set.Remove(keys...)
-	w.svc.external.mu.Unlock()
+	w.svc.mu.Lock()
+	w.svc.mu.externalNonVirtualSet.Remove(keys...)
+	w.svc.mu.Unlock()
 	return nil
 }
 
