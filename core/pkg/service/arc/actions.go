@@ -22,12 +22,6 @@ func (p RenamePayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle switches the module between text and graph representation.
-func (p SetModePayload) Handle(state Arc) (Arc, error) {
-	state.Mode = p.Mode
-	return state, nil
-}
-
 // Handle inserts the node if no node with the same key exists, otherwise
 // replaces the existing node in place.
 func (p SetNodePayload) Handle(state Arc) (Arc, error) {

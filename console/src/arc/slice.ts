@@ -74,11 +74,6 @@ export interface SetRawTextPayload {
   raw: string;
 }
 
-export interface SetModePayload {
-  key: string;
-  mode: arc.Mode;
-}
-
 const clearOtherSelections = (state: SliceState, layoutKey: string): void => {
   Object.keys(state.arcs).forEach((key) => {
     if (key === layoutKey) return;
@@ -159,11 +154,6 @@ export const { actions, reducer } = createSlice({
       const arc = state.arcs[layoutKey];
       arc.text.raw = raw;
     },
-    setMode: (state, { payload }: PayloadAction<SetModePayload>) => {
-      const { key, mode } = payload;
-      const arc = state.arcs[key];
-      if (arc != null) arc.mode = mode;
-    },
   },
 });
 
@@ -177,7 +167,6 @@ export const {
   setEditable,
   setViewportMode,
   setRawText,
-  setMode,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

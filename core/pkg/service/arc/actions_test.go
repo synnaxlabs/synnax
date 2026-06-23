@@ -54,16 +54,6 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
-	Describe("SetMode", func() {
-		It("Should switch the representation mode", func() {
-			out := MustSucceed(arc.Reduce(
-				arc.Arc{Mode: arc.ModeText},
-				arc.NewSetModeAction(arc.SetModePayload{Mode: arc.ModeGraph}),
-			))
-			Expect(out.Mode).To(Equal(arc.ModeGraph))
-		})
-	})
-
 	Describe("SetNode", func() {
 		It("Should append the node when no node has the same key", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
@@ -231,7 +221,6 @@ var _ = Describe("Reducer", func() {
 	Describe("ReduceAll scenarios", func() {
 		It("Should build a complete graph from an empty module", func() {
 			actions := []arc.Action{
-				arc.NewSetModeAction(arc.SetModePayload{Mode: arc.ModeGraph}),
 				arc.NewSetNodeAction(arc.SetNodePayload{Node: gnode("src", 0, 0)}),
 				arc.NewSetNodeAction(arc.SetNodePayload{Node: gnode("op", 100, 0)}),
 				arc.NewSetNodeAction(arc.SetNodePayload{Node: gnode("sink", 200, 0)}),
@@ -239,7 +228,6 @@ var _ = Describe("Reducer", func() {
 				arc.NewAddEdgeAction(arc.AddEdgePayload{Edge: gedge("e2", "op", "out", "sink", "in")}),
 			}
 			out := MustSucceed(arc.Reduce(arc.Arc{}, actions...))
-			Expect(out.Mode).To(Equal(arc.ModeGraph))
 			Expect(out.Graph.Nodes).To(HaveLen(3))
 			Expect(out.Graph.Edges).To(HaveLen(2))
 		})
@@ -275,7 +263,6 @@ var _ = Describe("Reducer", func() {
 				Expect(out).To(Equal(state))
 			},
 			Entry("rename", arc.ActionTypeRename),
-			Entry("set_mode", arc.ActionTypeSetMode),
 			Entry("set_node", arc.ActionTypeSetNode),
 			Entry("set_node_position", arc.ActionTypeSetNodePosition),
 			Entry("set_node_config", arc.ActionTypeSetNodeConfig),
