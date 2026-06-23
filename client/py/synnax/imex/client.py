@@ -10,10 +10,11 @@
 
 from typing import overload
 
-from freighter import FileClient, FilePath
+from freighter import FileClient, FilePath, UnaryClient
 from synnax import ontology
 from synnax.imex.types import Envelope
 
+_IMPORT_PATH = "/imex/import"
 _EXPORT_PATH = "/imex/export"
 
 
@@ -22,22 +23,27 @@ class Client:
 
     Each call moves exactly one envelope. Large payloads are streamed: passing a path to
     ``import_`` streams the file from disk, and passing ``dest`` to ``export`` streams
-    the response into it as it arrives.
+    the response into it as it arrives. In-memory ``Envelope`` payloads are sent and
+    received inline via the unary client.
     """
 
-    _client: FileClient
+    _file_client: FileClient
+    _unary_client: UnaryClient
 
-    def __init__(self, client: FileClient) -> None:
-        self._client = client
+    def __init__(self, file_client: FileClient, unary_client: UnaryClient) -> None:
+        self._file_client = file_client
+        self._unary_client = unary_client
 
     def import_(self, source: FilePath | Envelope) -> ontology.ID:
         """Imports the resource described by source and returns its new ontology id.
 
-        :param source: an ``Envelope`` sent as a typed payload, or a file path streamed
-            from disk.
+        :param source: an ``Envelope`` sent inline as a typed payload, or a file path
+            streamed from disk.
         :returns: the new resource's ontology id as stamped by the Core.
         """
-        return self._client.upload("/imex/import", source, ontology.ID)
+        if isinstance(source, Envelope):
+            return self._unary_client.send(_IMPORT_PATH, source, ontology.ID)
+        return self._file_client.upload(_IMPORT_PATH, source, ontology.ID)
 
     @overload
     def export(self, id: ontology.ID) -> Envelope: ...
@@ -58,6 +64,6 @@ class Client:
         :returns: the parsed Envelope when ``dest`` is None; otherwise None.
         """
         if dest is None:
-            return self._client.download(_EXPORT_PATH, id, Envelope)
-        self._client.download(_EXPORT_PATH, id, dest=dest)
+            return self._unary_client.send(_EXPORT_PATH, id, Envelope)
+        self._file_client.download(_EXPORT_PATH, id, dest)
         return None

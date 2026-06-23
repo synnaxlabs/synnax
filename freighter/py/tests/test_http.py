@@ -101,7 +101,7 @@ class TestDownload:
         self, client: HTTPClient, tmp_path: Path
     ) -> None:
         out = tmp_path / "out.json"
-        client.download("/echo", Message(id=1, message="hello"), dest=out)
+        client.download("/echo", Message(id=1, message="hello"), out)
         parsed = Message.model_validate_json(out.read_bytes())
         assert parsed.message == "hello"
         assert parsed.id == 2
@@ -110,7 +110,7 @@ class TestDownload:
         self, client: HTTPClient, tmp_path: Path
     ) -> None:
         out = tmp_path / "out.msgpack"
-        client.download("/echo", Message(id=1, message="hi"), dest=out)
+        client.download("/echo", Message(id=1, message="hi"), out)
         parsed = MessagePackCodec().decode(out.read_bytes(), Message)
         assert parsed.message == "hi"
         assert parsed.id == 2
@@ -121,11 +121,11 @@ class TestDownload:
         """Should reject destinations whose extension has no registered codec."""
         out = tmp_path / "out.unknownext"
         with pytest.raises(ValueError, match="unknownext"):
-            client.download("/echo", Message(id=1, message="x"), dest=out)
+            client.download("/echo", Message(id=1, message="x"), out)
 
     def test_large_response_streams(self, client: HTTPClient, tmp_path: Path) -> None:
         big = "a" * (1024 * 1024)
         out = tmp_path / "big.json"
-        client.download("/echo", Message(id=1, message=big), dest=out)
+        client.download("/echo", Message(id=1, message=big), out)
         parsed = Message.model_validate_json(out.read_bytes())
         assert parsed.message == big

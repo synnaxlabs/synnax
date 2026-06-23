@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import os
-from typing import Protocol, TypeAlias, overload
+from typing import Protocol, TypeAlias
 
 from freighter.codec import Codec
 from freighter.transport import RQ, RS, Transport
@@ -41,20 +41,18 @@ class FileClient(Transport, Protocol):
     """Protocol for streaming files to and from a server when a payload could be too
     large to buffer in memory.
 
-    Each method accepts either a file path, which is streamed to or from disk, or an
-    in-memory typed payload. The transport infers any wire-format metadata from the file
-    path (e.g., from its extension).
+    The request or response body is streamed to or from disk, and any wire-format
+    metadata is inferred from the file path (e.g., from its extension).
     """
 
-    def upload(self, target: str, req: FilePath | RQ, res_t: type[RS]) -> RS:
-        """Sends req to target and decodes the response into res_t.
+    def upload(self, target: str, req: FilePath, res_t: type[RS]) -> RS:
+        """Streams the file at req to target and decodes the response into res_t.
 
-        When req is a file path, its contents are streamed from disk as the request body
-        and the wire format is inferred from the path's extension. When req is a typed
-        payload, it is encoded and sent inline.
+        The contents of req are streamed from disk as the request body and the wire
+        format is inferred from the path's extension.
 
         :param target: the target address of the server.
-        :param req: a file path streamed from disk, or a typed request payload.
+        :param req: a file path streamed from disk as the request body.
         :param res_t: the expected response payload type.
         :return: the response returned by the server.
         :raises Unreachable: when the target cannot be reached.
@@ -62,30 +60,15 @@ class FileClient(Transport, Protocol):
         """
         ...
 
-    @overload
-    def download(self, target: str, req: RQ, res_t: type[RS]) -> RS: ...
-    @overload
-    def download(self, target: str, req: RQ, *, dest: FilePath) -> None: ...
-    def download(
-        self,
-        target: str,
-        req: RQ,
-        res_t: type[RS] | None = None,
-        *,
-        dest: FilePath | None = None,
-    ) -> RS | None:
-        """Sends req to target and returns the response.
+    def download(self, target: str, req: RQ, dest: FilePath) -> None:
+        """Sends req to target and streams the response body into dest.
 
-        When dest is provided, the response body is streamed straight into that file
-        path and the call returns None — the on-disk format is driven by the
-        destination's extension. When res_t is provided, the response is decoded into an
-        in-memory payload of that type. Exactly one of res_t or dest must be given.
+        The response body is streamed straight into dest as it arrives — the on-disk
+        format is driven by the destination's extension.
 
         :param target: the target address of the server.
         :param req: the typed request payload.
-        :param res_t: the expected response payload type, for an in-memory response.
         :param dest: file path to stream the response body into.
-        :return: the decoded response when res_t is given; otherwise None.
         :raises Unreachable: when the target cannot be reached.
         :raises Exception: any error returned by the server.
         """

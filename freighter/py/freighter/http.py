@@ -10,7 +10,7 @@
 import os
 import pathlib
 from collections.abc import Iterable, Sequence
-from typing import IO, Any, NoReturn, overload
+from typing import IO, Any, NoReturn
 
 import urllib3
 from pydantic import BaseModel
@@ -89,16 +89,13 @@ class HTTPClient(MiddlewareCollector):
             res_t=res_t,
         )
 
-    def upload(self, target: str, req: FilePath | RQ, res_t: type[RS]) -> RS:
+    def upload(self, target: str, req: FilePath, res_t: type[RS]) -> RS:
         """
-        Sends req to target and decodes the response into res_t. When req is a typed
-        payload it is encoded and sent inline. When req is a file path, urllib3 uses
-        chunked transfer encoding so the body never has to fit in memory; the
+        Streams the file at req to target and decodes the response into res_t. urllib3
+        uses chunked transfer encoding so the body never has to fit in memory; the
         Content-Type is inferred from the file extension via the client's registered
         codecs.
         """
-        if isinstance(req, BaseModel):
-            return self.send(target, req, res_t)
         codec = self._codec_for_path(req)
         with open(req, "rb") as f:
             return self._typed_response_request(
@@ -108,30 +105,14 @@ class HTTPClient(MiddlewareCollector):
                 res_t=res_t,
             )
 
-    @overload
-    def download(self, target: str, req: BaseModel, res_t: type[RS]) -> RS: ...
-    @overload
-    def download(self, target: str, req: BaseModel, *, dest: FilePath) -> None: ...
-    def download(
-        self,
-        target: str,
-        req: BaseModel,
-        res_t: type[RS] | None = None,
-        *,
-        dest: FilePath | None = None,
-    ) -> RS | None:
+    def download(self, target: str, req: BaseModel, dest: FilePath) -> None:
         """
-        Sends req to target and returns the response. When res_t is given the response
-        is decoded into an in-memory payload of that type. When dest is given the
-        response body is streamed directly into dest, without buffering the full body in
-        memory; the Accept header is derived from the dest extension via the client's
-        registered codecs (e.g., a .json destination requests application/json), so the
-        on-disk format and the negotiated wire format are guaranteed to match.
+        Sends req to target and streams the response body directly into dest, without
+        buffering the full body in memory; the Accept header is derived from the dest
+        extension via the client's registered codecs (e.g., a .json destination requests
+        application/json), so the on-disk format and the negotiated wire format are
+        guaranteed to match.
         """
-        if dest is None:
-            if res_t is None:
-                raise ValueError("download requires either res_t or dest")
-            return self.send(target, req, res_t)
         dest_codec = self._codec_for_path(dest)
         url = self._build_url(target)
         body = self._encoder.encode(req)
