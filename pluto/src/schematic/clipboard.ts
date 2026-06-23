@@ -11,7 +11,8 @@ import { schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
-import { type FluxSubStore, useDispatch } from "@/schematic/queries";
+import { type FluxSubStore, useSingleDispatch } from "@/schematic/queries";
+import { useKey } from "@/schematic/Suspended";
 import { Diagram } from "@/vis/diagram";
 
 // The "web " prefix is required: Chrome silently drops custom MIME types from
@@ -19,17 +20,16 @@ import { Diagram } from "@/vis/diagram";
 const MIME = "web application/synnax-schematic+json";
 
 export interface UseClipboardArgs {
-  key: schematic.Key;
   selected?: string[];
   onPaste?: (newKeys: string[]) => void;
 }
 
 export const useClipboard = ({
-  key,
   selected,
   onPaste,
 }: UseClipboardArgs): Diagram.UseClipboardReturn => {
-  const { dispatch } = useDispatch();
+  const key = useKey();
+  const dispatch = useSingleDispatch();
   const store = Flux.useStore<FluxSubStore>();
   const adapter: Diagram.ClipboardAdapter<schematic.Node, schematic.Edge> = {
     mime: MIME,
@@ -48,8 +48,8 @@ export const useClipboard = ({
         actions.push(schematic.addEdge({ edge: { ...edge, key: edgeKey } }));
         if (config != null) actions.push(schematic.setConfig({ key: edgeKey, config }));
       }
-      dispatch({ key, actions });
-      onPaste?.(newKeys);
+      dispatch(actions);
+      if (actions.length > 0) onPaste?.(newKeys);
     },
   };
   return Diagram.useClipboard({ adapter, selected });

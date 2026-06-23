@@ -98,7 +98,7 @@ jobs:
       ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Diff Changes
         uses: dorny/paths-filter@v4
@@ -183,7 +183,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.19.0
@@ -233,7 +233,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Test Python
         uses: ./.github/actions/test-python
@@ -268,7 +268,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript

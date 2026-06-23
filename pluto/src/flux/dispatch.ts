@@ -183,7 +183,7 @@ export const createDispatch = <
     return { undo, canUndo };
   };
 
-  const useRedo = ({ key }: { key: Key }) => {
+  const useRedo = ({ key }: record.Keyed<Key>) => {
     const store = useStore<ScopedStore>();
     const client = Synnax.use();
     const addStatus = useAdder();
@@ -206,5 +206,15 @@ export const createDispatch = <
     return { redo, canRedo };
   };
 
-  return { useDispatch, useUndo, useRedo };
+  const useSingleDispatch = ({
+    key,
+  }: record.Keyed<Key>): ((action: Action | Action[]) => void) => {
+    const { dispatch } = useDispatch();
+    return useCallback(
+      (actions: Action | Action[]) => dispatch({ key, actions }),
+      [key, dispatch],
+    );
+  };
+
+  return { useDispatch, useUndo, useRedo, useSingleDispatch };
 };

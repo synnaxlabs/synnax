@@ -70,7 +70,7 @@ jobs:
     needs: server
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true

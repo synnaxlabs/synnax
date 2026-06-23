@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.arc.graph.types_gen import Graph, Node, Nodes
+from synnax.arc.graph.types_gen import Edge, Edges, Graph, Node, Nodes
 
 __all__ = [
+    "Edge",
+    "Edges",
     "Graph",
     "Node",
     "Nodes",
