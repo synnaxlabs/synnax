@@ -510,6 +510,63 @@ var _ = Describe("Task", Ordered, func() {
 
 	})
 
+	Describe("Sequence with consecutive status.set steps", func() {
+		It("Should advance through every status.set step", func(ctx SpecContext) {
+			trig := createVirtualCh(ctx, "seq_status_trig", telem.Uint8T)
+			base := "seq_status_" + uuid.NewString()[:8]
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				import status
+
+				sequence main {
+				    status.set{key_or_name="%[1]s_a", message="m", variant="info"},
+				    status.set{key_or_name="%[1]s_b", message="m", variant="error"},
+				    status.set{key_or_name="%[1]s_c", message="m", variant="warning"},
+				    status.set{key_or_name="%[1]s_d", message="m", variant="loading"},
+				}
+
+				%[2]s => main
+			`, base, trig.Name)}
+
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 7),
+				Name:   "test-status-sequence",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+			time.Sleep(20 * time.Millisecond)
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{trig.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			byName := func(name string) status.Status[svcarc.StatusDetails] {
+				var stat status.Status[svcarc.StatusDetails]
+				Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+						return s.Name == name, nil
+					})).Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				return stat
+			}
+
+			Eventually(func(g Gomega) {
+				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+						return s.Name == base+"_d", nil
+					})).Entry(&status.Status[svcarc.StatusDetails]{}).Exec(ctx, nil)).To(Succeed())
+			}).Should(Succeed())
+
+			Expect(byName(base + "_b").Variant).To(BeEquivalentTo("error"))
+			Expect(byName(base + "_c").Variant).To(BeEquivalentTo("warning"))
+			Expect(byName(base + "_d").Variant).To(BeEquivalentTo("loading"))
+		})
+	})
+
 	Describe("Status Reporting", func() {
 		It("Should set a task-level warning when status.set matches multiple statuses by name", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "report_trigger", Virtual: true, DataType: telem.Float32T}
