@@ -47,7 +47,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = ["hauling", "themes"].map(
+export const PERSIST_EXCLUDE = ["hauling"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<RootState>>;
 
@@ -58,9 +58,6 @@ export type PlacePayload = State;
 export interface RemovePayload {
   keys: string[];
 }
-
-/** Signature for the setTheme action. */
-export type SetActiveThemePayload = string | undefined;
 
 export interface MoveMosaicTabPayload {
   tabKey: string;
@@ -339,21 +336,6 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.renameTab(mosaic.root, layout.key, name);
       state.mosaics[layout.windowKey] = mosaic;
     },
-    setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
-      if (key != null) state.activeTheme = key;
-      else {
-        const keys = Object.keys(state.themes).sort();
-        const index = keys.indexOf(state.activeTheme);
-        const next = keys[(index + 1) % keys.length];
-        state.activeTheme = next;
-      }
-    },
-    toggleActiveTheme: (state) => {
-      const keys = Object.keys(state.themes);
-      const index = keys.indexOf(state.activeTheme);
-      const next = keys[(index + 1) % keys.length];
-      state.activeTheme = next;
-    },
     setProject: (state, { payload: { slice } }: PayloadAction<SetProjectPayload>) => {
       // Mosaic.insertTab mutates tabs arrays in place; clone before
       // reconciling s the helper does not fight frozen nested objects
@@ -370,8 +352,6 @@ export const { actions, reducer } = createSlice({
             main: MAIN_LAYOUT,
           },
           hauling: s.hauling,
-          themes: s.themes,
-          activeTheme: s.activeTheme,
         }),
       );
       reconcileMosaicLayouts(next);
@@ -384,8 +364,6 @@ export const { actions, reducer } = createSlice({
         main: MAIN_LAYOUT,
       },
       hauling: state.hauling,
-      themes: state.themes,
-      activeTheme: state.activeTheme,
     }),
     setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
       const layout = select(state, key);
@@ -432,8 +410,6 @@ export const {
   place,
   setFocus,
   remove,
-  toggleActiveTheme,
-  setActiveTheme,
   moveMosaicTab,
   selectMosaicTab,
   resizeMosaicTab,

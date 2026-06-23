@@ -17,18 +17,18 @@ import {
 import { createTestClient, project, type Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Access, Flux, Pluto, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Import } from "@/import";
+import { Schematic } from "@/layered/service/schematic";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
-import { Schematic } from "@/schematic";
-import { SchematicServices } from "@/schematic/services";
 import { Table } from "@/table";
 import { TableServices } from "@/table/services";
 
@@ -43,7 +43,7 @@ const THERMO_KEY = "cdb27884-a73f-4696-bcee-a71c1f6625bd";
 // The real ingesters for these types; the full FILE_INGESTERS registry would drag in
 // the Arc/Monaco editor, which Vitest can't load.
 const FILE_INGESTERS: Import.FileIngesters = {
-  ...SchematicServices.FILE_INGESTERS,
+  ...Schematic.ImEx.FILE_INGESTERS,
   ...TableServices.FILE_INGESTERS,
 };
 
@@ -70,7 +70,7 @@ const TABLE_DATA = {
 
 const rootReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
-  [Schematic.SLICE_NAME]: Schematic.reducer,
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   drift: Drift.reducer,
@@ -165,20 +165,6 @@ describe("project import", () => {
     { name: "Thermocouples.json", data: TABLE_DATA },
   ];
 
-  // An exported slice whose themes predate newer color fields; anySliceStateZ would
-  // reject them outright.
-  const staleThemesSlice = (): unknown => {
-    const slice = deep.copy(exportedSlice()) as unknown as {
-      themes: Record<string, { colors: Record<string, unknown> }>;
-    };
-    Object.values(slice.themes).forEach(({ colors }) => {
-      delete colors.primaryText;
-      delete colors.errorText;
-      delete colors.warningText;
-    });
-    return slice;
-  };
-
   it("places exactly one tab per imported schematic and table", async () => {
     const store = await runImport();
     expect(layoutsOfType(store, SCHEMATIC_TYPE)).toHaveLength(1);
@@ -195,11 +181,5 @@ describe("project import", () => {
     await expect(
       client.tables.retrieve({ key: tableLayout.key }),
     ).resolves.toBeDefined();
-  });
-
-  it("imports a project whose exported themes predate current theme fields", async () => {
-    const store = await runImport(files(staleThemesSlice()));
-    expect(layoutsOfType(store, SCHEMATIC_TYPE)).toHaveLength(1);
-    expect(layoutsOfType(store, TABLE_TYPE)).toHaveLength(1);
   });
 });

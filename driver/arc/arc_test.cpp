@@ -178,12 +178,12 @@ TEST(ArcTests, testCalcDoubling) {
         .name = make_unique_channel_name("calc_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func calc(val f32) f32 {\n"
-        "    return val * 2\n"
-        "}\n" +
-        input_name + " -> calc{} -> " + output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func calc(val f32) f32 {\n"
+               "    return val * 2\n"
+               "}\n" +
+               input_name + " -> calc{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -283,17 +283,17 @@ TEST(ArcTests, testBasicSequence) {
         .name = make_unique_channel_name("sequence_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "sequence main {\n"
-        "    stage run {\n"
-        "        1 -> " +
-        valve_cmd_name +
-        "\n"
-        "    }\n"
-        "}\n"
-        "\n" +
-        start_cmd_name + " => main\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "sequence main {\n"
+               "    stage run {\n"
+               "        1 -> " +
+               valve_cmd_name +
+               "\n"
+               "    }\n"
+               "}\n"
+               "\n" +
+               start_cmd_name + " => main\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     // Create rack and task
@@ -406,17 +406,17 @@ TEST(ArcTests, testOneShotTruthiness) {
         .name = make_unique_channel_name("truthiness_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "sequence main {\n"
-        "    stage run {\n"
-        "        42 -> " +
-        valve_cmd_name +
-        "\n"
-        "    }\n"
-        "}\n"
-        "\n" +
-        start_cmd_name + " => main\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "sequence main {\n"
+               "    stage run {\n"
+               "        42 -> " +
+               valve_cmd_name +
+               "\n"
+               "    }\n"
+               "}\n"
+               "\n" +
+               start_cmd_name + " => main\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     // Create rack and task
@@ -576,25 +576,25 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
         .name = make_unique_channel_name("two_stage_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "sequence main {\n"
-        "    stage pressurize {\n"
-        "        1 -> " +
-        valve_cmd_name +
-        "\n"
-        "        " +
-        pressure_name + " -> " + pressure_name +
-        " > 50 => next\n"
-        "    }\n"
-        "    stage idle {\n"
-        "        0 -> " +
-        valve_cmd_name +
-        "\n"
-        "    }\n"
-        "}\n"
-        "\n" +
-        start_cmd_name + " => main\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "sequence main {\n"
+               "    stage pressurize {\n"
+               "        1 -> " +
+               valve_cmd_name +
+               "\n"
+               "        " +
+               pressure_name + " -> " + pressure_name +
+               " > 50 => next\n"
+               "    }\n"
+               "    stage idle {\n"
+               "        0 -> " +
+               valve_cmd_name +
+               "\n"
+               "    }\n"
+               "}\n"
+               "\n" +
+               start_cmd_name + " => main\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     // Create rack and task
@@ -771,10 +771,10 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
         .name = make_unique_channel_name("trap_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func divide_by_zero(val i32) i32 { return val / 0 }\n" + input_name +
-        " -> divide_by_zero{} -> " + output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func divide_by_zero(val i32) i32 { return val / 0 }\n" + input_name +
+               " -> divide_by_zero{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -873,13 +873,13 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
         .name = make_unique_channel_name("restart_trap_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func maybe_trap(val i32) i32 {\n"
-        "    if val == 0 { return 1 / val }\n"
-        "    return val * 2\n"
-        "}\n" +
-        input_name + " -> maybe_trap{} -> " + output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func maybe_trap(val i32) i32 {\n"
+               "    if val == 0 { return 1 / val }\n"
+               "    return val * 2\n"
+               "}\n" +
+               input_name + " -> maybe_trap{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -1008,10 +1008,10 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         .name = make_unique_channel_name("multi_cycle_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func double(val f32) f32 { return val * 2 }\n" + input_name +
-        " -> double{} -> " + output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func double(val f32) f32 { return val * 2 }\n" + input_name +
+               " -> double{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -1120,10 +1120,10 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         .name = make_unique_channel_name("status_verify_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
-        output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
+               " -> pass{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -1236,10 +1236,10 @@ TEST(ArcEdgeCases, RapidStartStop) {
         .name = make_unique_channel_name("rapid_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
-        output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
+               " -> pass{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -1331,10 +1331,10 @@ TEST(ArcEdgeCases, StopWithoutStart) {
         .name = make_unique_channel_name("nostart_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
-        output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
+               " -> pass{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -1442,12 +1442,13 @@ TEST(ArcTests, testChannelConfigParam) {
         .name = make_unique_channel_name("cfg_ch_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func read_data{ch chan f32}(trigger u8) f32 {\n"
-        "    return ch + f32(0.0)\n"
-        "}\n" +
-        trigger_name + " -> read_data{ch=" + data_name + "} -> " + output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func read_data{ch chan f32}(trigger u8) f32 {\n"
+               "    return ch + f32(0.0)\n"
+               "}\n" +
+               trigger_name + " -> read_data{ch=" + data_name + "} -> " + output_name +
+               "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -1588,23 +1589,24 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
         .name = make_unique_channel_name("crw_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {\n"
-        "    prev u8 $= input\n"
-        "    counter f32 $= 0.0\n"
-        "    read_val := max_ch + f32(0.0)\n"
-        "    if counter < read_val {\n"
-        "        counter = read_val\n"
-        "    }\n"
-        "    if input and not prev {\n"
-        "        counter = counter + 1.0\n"
-        "    }\n"
-        "    counter_ch = counter\n"
-        "    prev = input\n"
-        "}\n" +
-        input_name + " -> count_rising_test{counter_ch=" + counter_name +
-        ", max_ch=" + max_name + "}\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw =
+            "func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {\n"
+            "    prev u8 $= input\n"
+            "    counter f32 $= 0.0\n"
+            "    read_val := max_ch + f32(0.0)\n"
+            "    if counter < read_val {\n"
+            "        counter = read_val\n"
+            "    }\n"
+            "    if input and not prev {\n"
+            "        counter = counter + 1.0\n"
+            "    }\n"
+            "    counter_ch = counter\n"
+            "    prev = input\n"
+            "}\n" +
+            input_name + " -> count_rising_test{counter_ch=" + counter_name +
+            ", max_ch=" + max_name + "}\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -1724,10 +1726,10 @@ TEST(ArcEdgeCases, DoubleStart) {
         .name = make_unique_channel_name("double_start_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func pass(val f32) f32 { return val }\n" + input_name + " -> pass{} -> " +
-        output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
+               " -> pass{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -1821,14 +1823,14 @@ TEST(ArcTests, testRestartResetsState) {
         .name = make_unique_channel_name("restart_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func counter(trigger i64) i64 {\n"
-        "    count $= 0\n"
-        "    count = count + trigger\n"
-        "    return count\n"
-        "}\n" +
-        input_name + " -> counter{} -> " + output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func counter(trigger i64) i64 {\n"
+               "    count $= 0\n"
+               "    count = count + trigger\n"
+               "    return count\n"
+               "}\n" +
+               input_name + " -> counter{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -1948,13 +1950,13 @@ TEST(ArcTests, testStaticAuthorityConfig) {
         .name = make_unique_channel_name("auth_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "authority 200\n"
-        "func calc(val f32) f32 {\n"
-        "    return val * 2\n"
-        "}\n" +
-        input_name + " -> calc{} -> " + output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "authority 200\n"
+               "func calc(val f32) f32 {\n"
+               "    return val * 2\n"
+               "}\n" +
+               input_name + " -> calc{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -2063,19 +2065,19 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
         .name = make_unique_channel_name("pca_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "authority (\n"
-        "    100\n"
-        "    " +
-        out_a_name +
-        " 200\n"
-        ")\n"
-        "func calc(val f32) f32 {\n"
-        "    return val * 2\n"
-        "}\n" +
-        input_name + " -> calc{} -> " + out_a_name + "\n" + input_name +
-        " -> calc{} -> " + out_b_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "authority (\n"
+               "    100\n"
+               "    " +
+               out_a_name +
+               " 200\n"
+               ")\n"
+               "func calc(val f32) f32 {\n"
+               "    return val * 2\n"
+               "}\n" +
+               input_name + " -> calc{} -> " + out_a_name + "\n" + input_name +
+               " -> calc{} -> " + out_b_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -2181,18 +2183,18 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
         .name = make_unique_channel_name("dyn_auth_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "sequence main {\n"
-        "    stage run {\n"
-        "        1 -> " +
-        valve_cmd_name +
-        "\n"
-        "        set_authority{value=150}\n"
-        "    }\n"
-        "}\n"
-        "\n" +
-        start_cmd_name + " => main\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "sequence main {\n"
+               "    stage run {\n"
+               "        1 -> " +
+               valve_cmd_name +
+               "\n"
+               "        set_authority{value=150}\n"
+               "    }\n"
+               "}\n"
+               "\n" +
+               start_cmd_name + " => main\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -2286,20 +2288,20 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
         .name = make_unique_channel_name("dpc_auth_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "sequence main {\n"
-        "    stage run {\n"
-        "        1 -> " +
-        valve_cmd_name +
-        "\n"
-        "        set_authority{value=200, channel=" +
-        valve_cmd_name +
-        "}\n"
-        "    }\n"
-        "}\n"
-        "\n" +
-        start_cmd_name + " => main\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "sequence main {\n"
+               "    stage run {\n"
+               "        1 -> " +
+               valve_cmd_name +
+               "\n"
+               "        set_authority{value=200, channel=" +
+               valve_cmd_name +
+               "}\n"
+               "    }\n"
+               "}\n"
+               "\n" +
+               start_cmd_name + " => main\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -2395,13 +2397,13 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
         .name = make_unique_channel_name("auth_calc_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func double(val u8) u8 {\n"
-        "    return val * 2\n"
-        "}\n" +
-        input_name + " -> double{} -> " + output_name + "\n" + input_name +
-        " -> set_authority{value=100}\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func double(val u8) u8 {\n"
+               "    return val * 2\n"
+               "}\n" +
+               input_name + " -> double{} -> " + output_name + "\n" + input_name +
+               " -> set_authority{value=100}\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -2508,12 +2510,12 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
         .name = make_unique_channel_name("eou_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func calc(val f32) f32 {\n"
-        "    return val * 2\n"
-        "}\n" +
-        input_name + " -> calc{} -> " + output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func calc(val f32) f32 {\n"
+               "    return val * 2\n"
+               "}\n" +
+               input_name + " -> calc{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -2603,10 +2605,10 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
         .name = make_unique_channel_name("writer_fail_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func double(val i32) i32 { return val * 2 }\n" + input_name +
-        " -> double{} -> " + output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func double(val i32) i32 { return val * 2 }\n" + input_name +
+               " -> double{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -2709,12 +2711,12 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
         .name = make_unique_channel_name("eager_open_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func calc(val f32) f32 {\n"
-        "    return val * 2\n"
-        "}\n" +
-        input_name + " -> calc{} -> " + output_name + "\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func calc(val f32) f32 {\n"
+               "    return val * 2\n"
+               "}\n" +
+               input_name + " -> calc{} -> " + output_name + "\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -2787,28 +2789,28 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
         .name = make_unique_channel_name("read_only_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "import status\n\n" + start_cmd_name +
-        " => main\n"
-        "sequence main {\n"
-        "    stage on {\n"
-        "        " +
-        input_name +
-        " > 305 => status.set{\n"
-        "            key_or_name = \"tstill_status\",\n"
-        "            message = \"TStill too warm\",\n"
-        "            variant = \"error\"\n"
-        "        }\n"
-        "        " +
-        input_name +
-        " < 305 => status.set{\n"
-        "            key_or_name = \"tstill_status\",\n"
-        "            message = \"TStill nominal\",\n"
-        "            variant = \"success\"\n"
-        "        }\n"
-        "    }\n"
-        "}\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "import status\n\n" + start_cmd_name +
+               " => main\n"
+               "sequence main {\n"
+               "    stage on {\n"
+               "        " +
+               input_name +
+               " > 305 => status.set{\n"
+               "            key_or_name = \"tstill_status\",\n"
+               "            message = \"TStill too warm\",\n"
+               "            variant = \"error\"\n"
+               "        }\n"
+               "        " +
+               input_name +
+               " < 305 => status.set{\n"
+               "            key_or_name = \"tstill_status\",\n"
+               "            message = \"TStill nominal\",\n"
+               "            variant = \"success\"\n"
+               "        }\n"
+               "    }\n"
+               "}\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(
@@ -2884,14 +2886,14 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
         .name = make_unique_channel_name("write_only_test"),
         .mode = synnax::arc::MODE_TEXT
     };
-    arc_prog.text = ::arc::text::Text(
-        "func write_valve() {\n"
-        "    " +
-        output_name +
-        " = 1\n"
-        "}\n"
-        "interval{period=100ms} -> write_valve{}\n"
-    );
+    arc_prog.text = ::arc::text::Text{
+        .raw = "func write_valve() {\n"
+               "    " +
+               output_name +
+               " = 1\n"
+               "}\n"
+               "interval{period=100ms} -> write_valve{}\n"
+    };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
     auto rack = ASSERT_NIL_P(

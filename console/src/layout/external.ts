@@ -19,5 +19,4 @@ export * from "@/layout/useFluxName";
 export * from "@/layout/useOpenInNewWindow";
 export * from "@/layout/usePlacer";
 export * from "@/layout/useRemover";
-export * from "@/layout/useThemeProvider";
 export * from "@/layout/Window";

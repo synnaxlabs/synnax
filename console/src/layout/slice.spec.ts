@@ -15,7 +15,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   select,
   selectActiveMosaicTabState,
-  selectActiveThemeKey,
   selectAltKey,
   selectArgs,
   selectColorContext,
@@ -33,7 +32,6 @@ import {
   rename,
   resizeMosaicTab,
   selectMosaicTab,
-  setActiveTheme,
   setAltKey,
   setArgs,
   setColorContext,
@@ -44,7 +42,6 @@ import {
   SLICE_NAME,
   splitMosaicNode,
   type State,
-  toggleActiveTheme,
   ZERO_SLICE_STATE,
 } from "@/layout/slice";
 
@@ -272,27 +269,6 @@ describe("Layout Slice", () => {
       };
       store.dispatch(setColorContext({ state: ctx }));
       expect(selectColorContext(state())).toEqual(ctx);
-    });
-  });
-
-  describe("setActiveTheme", () => {
-    it("should set the named theme", () => {
-      store.dispatch(setActiveTheme("synnaxLight"));
-      expect(selectActiveThemeKey(state())).toBe("synnaxLight");
-    });
-
-    it("should cycle to the next theme when payload is undefined", () => {
-      store.dispatch(setActiveTheme(undefined));
-      expect(selectActiveThemeKey(state())).toBe("synnaxLight");
-      store.dispatch(setActiveTheme(undefined));
-      expect(selectActiveThemeKey(state())).toBe("synnaxDark");
-    });
-  });
-
-  describe("toggleActiveTheme", () => {
-    it("should cycle to the next theme", () => {
-      store.dispatch(toggleActiveTheme());
-      expect(selectActiveThemeKey(state())).toBe("synnaxLight");
     });
   });
 

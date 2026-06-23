@@ -85,8 +85,8 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
 };
 
 const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
-  undo: [["Control", "Z"]],
-  redo: [["Control", "Shift", "Z"]],
+  undo: [Triggers.UNDO],
+  redo: [Triggers.REDO],
   default: [],
   defaultMode: "default",
 };

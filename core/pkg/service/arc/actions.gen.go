@@ -22,7 +22,6 @@ import (
 
 const (
 	ActionTypeRename          = "rename"
-	ActionTypeSetMode         = "set_mode"
 	ActionTypeSetNode         = "set_node"
 	ActionTypeSetNodePosition = "set_node_position"
 	ActionTypeSetNodeConfig   = "set_node_config"
@@ -38,11 +37,6 @@ const (
 // RenamePayload renames the Arc module.
 type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
-}
-
-// SetModePayload switches the module between text and graph representation.
-type SetModePayload struct {
-	Mode Mode `json:"mode" msgpack:"mode"`
 }
 
 // SetNodePayload inserts the node if no node with the same key exists, otherwise
@@ -124,7 +118,6 @@ type ForgetCharsPayload struct {
 type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
 	Rename          *RenamePayload          `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	SetMode         *SetModePayload         `json:"set_mode,omitempty" msgpack:"set_mode,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
 	SetNodeConfig   *SetNodeConfigPayload   `json:"set_node_config,omitempty" msgpack:"set_node_config,omitempty"`
@@ -151,11 +144,6 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
-		case ActionTypeSetMode:
-			if a.SetMode == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetMode.Handle(state)
 		case ActionTypeSetNode:
 			if a.SetNode == nil {
 				return state, union.MissingPayload(a.Type)
@@ -219,11 +207,6 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 // NewRenameAction wraps a RenamePayload in an Action envelope.
 func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
-}
-
-// NewSetModeAction wraps a SetModePayload in an Action envelope.
-func NewSetModeAction(p SetModePayload) Action {
-	return Action{Type: ActionTypeSetMode, SetMode: &p}
 }
 
 // NewSetNodeAction wraps a SetNodePayload in an Action envelope.

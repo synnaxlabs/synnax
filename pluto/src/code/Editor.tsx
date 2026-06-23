@@ -10,7 +10,7 @@
 import "@/code/Editor.css";
 
 import { type ILanguageFeaturesService } from "@codingame/monaco-vscode-api/services";
-import { debounce, TimeSpan } from "@synnaxlabs/x";
+import { debounce, TimeSpan, url } from "@synnaxlabs/x";
 import {
   type ReactNode,
   type Ref,
@@ -288,12 +288,9 @@ const use = ({
 
   const customURIRef = useRef<string | undefined>(undefined);
   if (customURIRef.current === undefined && isBlock) {
-    const metadata = { is_block: true };
-    const json = JSON.stringify(metadata);
-    const encoded = btoa(json);
+    const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
     const id = Math.random().toString(36).substring(7);
-    const uri = `arc://block/${id}#${encoded}`;
-    customURIRef.current = uri;
+    customURIRef.current = `arc://block/${id}#${encoded}`;
   }
   const customURI = customURIRef.current;
 

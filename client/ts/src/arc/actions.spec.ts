@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { crdt, type record, TimeStamp } from "@synnaxlabs/x";
+import { crdt, type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -53,16 +53,6 @@ describe("arc reducer", () => {
       const out = apply(state, arc.rename({ name: "new" }));
       expect(out.graph.nodes).toEqual(state.graph.nodes);
       expect(out.graph.edges).toEqual(state.graph.edges);
-    });
-  });
-
-  describe("setMode", () => {
-    it("should switch the representation mode", () => {
-      expect(apply(empty(), arc.setMode({ mode: "text" })).mode).toEqual("text");
-    });
-    it("should be a no-op when the mode is unchanged", () => {
-      const state = empty();
-      expect(apply(state, arc.setMode({ mode: "graph" }))).toBe(state);
     });
   });
 
@@ -447,17 +437,6 @@ describe("arc reducer inverses", () => {
     });
   });
 
-  describe("setMode", () => {
-    it("should invert to restore the prior mode", () => {
-      expectRoundTrip(empty(), [arc.setMode({ mode: "text" })]);
-    });
-    it("should produce an empty inverse for a no-op", () => {
-      expect(arc.reduceAll(empty(), [arc.setMode({ mode: "graph" })]).inverse).toEqual(
-        [],
-      );
-    });
-  });
-
   describe("setNode", () => {
     it("should invert an insert with a removeNode", () => {
       expectRoundTrip(empty({ nodes: [node("n1", 0, 0)] }), [
@@ -558,7 +537,6 @@ describe("arc reducer inverses", () => {
   describe("isUndoable", () => {
     it("should report every Arc action as undoable", () => {
       expect(arc.isUndoable(arc.rename({ name: "x" }))).toBe(true);
-      expect(arc.isUndoable(arc.setMode({ mode: "text" }))).toBe(true);
       expect(arc.isUndoable(arc.setNode({ node: node("n1", 0, 0) }))).toBe(true);
       expect(
         arc.isUndoable(arc.setNodePosition({ key: "n1", position: { x: 0, y: 0 } })),

@@ -33,6 +33,7 @@ import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
 import { Import } from "@/import";
+import { Schematic } from "@/layered/service/schematic";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
@@ -43,7 +44,6 @@ import { createUseRename } from "@/ontology/createUseRename";
 import { useExport } from "@/project/export";
 import { selectOptionalActiveKey } from "@/project/selectors";
 import { maybeRename, setActive } from "@/project/slice";
-import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 
 const useDelete = createUseDelete({

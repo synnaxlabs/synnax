@@ -17,6 +17,7 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
+import { Schematic } from "@/layered/service/schematic";
 import { App } from "@/layered/app";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
@@ -29,7 +30,6 @@ import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
 import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
-import { SchematicServices } from "@/schematic/services";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
 
@@ -40,7 +40,7 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
   lineplot: LinePlotServices.handleLink,
   log: LogServices.handleLink,
   range: RangeServices.handleLink,
-  schematic: SchematicServices.handleLink,
+  schematic: Schematic.handleLink,
   table: TableServices.handleLink,
   project: ProjectServices.handleLink,
 };

@@ -86,14 +86,6 @@ Arc struct {
         @doc value "renames the Arc module."
     }
 
-    action SetMode {
-        mode Mode
-
-        @doc value """
-            switches the module between text and graph representation.
-        """
-    }
-
     action SetNode {
         node graph.Node
 

@@ -19,7 +19,6 @@ import {
   removeEdge,
   removeNode,
   rename,
-  setMode,
   setNode,
   setNodeConfig,
   setNodePosition,
@@ -39,12 +38,6 @@ const handlers: Handlers = {
     const oldName = state.name;
     state.name = payload.name;
     return { inverse: [rename({ name: oldName })], targets: [state.key] };
-  },
-  setMode: (state, payload) => {
-    const oldMode = state.mode;
-    if (oldMode === payload.mode) return actions.NO_OP_RESULT;
-    state.mode = payload.mode;
-    return { inverse: [setMode({ mode: oldMode })], targets: [state.key] };
   },
   setNode: (state, payload) => {
     const idx = state.graph.nodes.findIndex((n) => n.key === payload.node.key);

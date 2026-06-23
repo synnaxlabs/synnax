@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc, createTestClient, status, task } from "@synnaxlabs/client";
-import { id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -623,7 +623,6 @@ describe("Arc queries", () => {
       expect(formData.text).toEqual({
         raw: "",
         doc: { inserts: [], deletes: [] },
-        lastEdit: new TimeStamp(0),
       });
     });
 

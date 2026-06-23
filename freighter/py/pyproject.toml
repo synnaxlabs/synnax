@@ -5,7 +5,7 @@ authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.12,<4"
 dependencies = [
     "alamos",
-    "msgpack>=1.1.2,<2",
+    "msgpack>=1.2.1,<2",
     "synnax-x",
     "pydantic>=2.13.4,<3",
     "urllib3>=2.7.0,<3",
@@ -15,9 +15,9 @@ dependencies = [
 [dependency-groups]
 dev = [
     "mypy>=2.1.0,<3",
-    "ruff>=0.15.13,<1",
-    "pytest>=9.0.3,<10",
-    "pytest-asyncio>=1.3.0,<2",
+    "ruff>=0.15.18,<1",
+    "pytest>=9.1.1,<10",
+    "pytest-asyncio>=1.4.0,<2",
     "pytest-cov>=7.1.0,<8",
 ]
 

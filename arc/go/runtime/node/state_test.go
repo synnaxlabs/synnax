@@ -1483,6 +1483,27 @@ var _ = Describe("ProgramState", func() {
 				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
+
+			It("Should treat a non-empty string as truthy and an empty string as falsy", func(ctx SpecContext) {
+				g := graph.Graph{
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.String()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := node.New(prog)
+				n := s.Node("test")
+				*n.Output(0) = telem.NewSeriesV[string]("")
+				Expect(n.IsOutputTruthy(0)).To(BeFalse())
+				*n.Output(0) = telem.NewSeriesV[string]("ox_alarm")
+				Expect(n.IsOutputTruthy(0)).To(BeTrue())
+			})
 		})
 	})
 

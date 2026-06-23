@@ -122,7 +122,11 @@ export const useRename = () => {
 const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   const { itemKey } = props;
   const entry = useSelect(itemKey);
-  const labels = Ranger.useLabels(itemKey)?.data ?? [];
+  const isLocal = entry != null && !entry.persisted;
+  const labels =
+    Ranger.useLabels(itemKey, {
+      beforeRetrieve: useCallback(() => (isLocal ? [] : true), [isLocal]),
+    })?.data ?? [];
   const onRename = useRename();
   const hasUpdatePermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;

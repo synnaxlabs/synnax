@@ -11,7 +11,7 @@ import "@/docs/Docs.css";
 
 import { Logo } from "@synnaxlabs/media";
 import { Button, Icon, Theming, Triggers } from "@synnaxlabs/pluto";
-import { buildQueryString, URL } from "@synnaxlabs/x";
+import { url } from "@synnaxlabs/x";
 import { memo, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -20,7 +20,7 @@ import { useSelectLocation } from "@/docs/selectors";
 import { setDocsLocation } from "@/docs/slice";
 import { Layout } from "@/layout";
 
-const HOST = new URL({
+const HOST = new url.URL({
   host: "docs.synnaxlabs.com",
   port: 443,
   protocol: "https",
@@ -53,7 +53,7 @@ export const Docs: Layout.Renderer = memo(() => {
   const { theme } = Theming.useContext();
 
   const { path } = useSelectLocation();
-  const [url, setURL] = useState<URL | null>(null);
+  const [frameURL, setFrameURL] = useState<url.URL | null>(null);
 
   const dispatch = useDispatch();
 
@@ -71,21 +71,21 @@ export const Docs: Layout.Renderer = memo(() => {
       noHeader: "true",
       theme: theme.key.includes("dark") ? "dark" : "light",
     };
-    setURL(
+    setFrameURL(
       HOST.child(path || "reference/console/get-started").child(
-        buildQueryString(queryParams),
+        url.buildQueryString(queryParams),
       ),
     );
     window.addEventListener("message", handleFrameMessage);
     return () => window.removeEventListener("message", handleFrameMessage);
   }, []);
 
-  if (url === null) return null;
+  if (frameURL === null) return null;
 
   return (
     <div className={CSS(CSS.B("docs"), hover.held && CSS.M("hover"))}>
       {!loaded && <Logo.Watermark variant="loader" />}
-      <iframe src={url.toString()} onLoad={() => setLoaded(true)} />
+      <iframe src={frameURL.toString()} onLoad={() => setLoaded(true)} />
     </div>
   );
 });

@@ -20,13 +20,6 @@
     "react-devtools": "npx react-devtools"
   },
   "dependencies": {
-    "@codingame/monaco-vscode-api": "^28.4.1",
-    "@codingame/monaco-vscode-editor-api": "^28.4.1",
-    "@codingame/monaco-vscode-extension-api": "^28.4.1",
-    "@codingame/monaco-vscode-languages-service-override": "^28.4.1",
-    "@codingame/monaco-vscode-textmate-service-override": "^28.4.1",
-    "@codingame/monaco-vscode-theme-defaults-default-extension": "^28.4.1",
-    "@codingame/monaco-vscode-theme-service-override": "^28.4.1",
     "@fontsource/inter": "catalog:",
     "@reduxjs/toolkit": "catalog:",
     "@synnaxlabs/arc": "workspace:^",
@@ -52,16 +45,13 @@
     "react-dom": "catalog:",
     "react-icons": "catalog:",
     "react-redux": "catalog:",
-    "vscode": "npm:@codingame/monaco-vscode-extension-api@^28.4.1",
-    "vscode-jsonrpc": "^8.2.1",
-    "vscode-languageclient": "^9.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
-    "@tauri-apps/cli": "^2.11.2",
+    "@tauri-apps/cli": "^2.11.3",
     "@testing-library/react": "catalog:",
     "@types/node": "catalog:",
     "@types/pluralize": "catalog:",

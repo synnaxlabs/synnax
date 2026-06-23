@@ -22,7 +22,7 @@ import (
 // The conformance vectors are authored once and shared with the TypeScript
 // implementation so that both runtimes materialize identically for the same edit
 // schedule. The wire encoding of the operations is owned and tested by oracle codegen.
-const vectorsPath = "testdata/vectors.json"
+const vectorsPath = "../../testdata/crdt/vectors.json"
 
 type vectorFile struct {
 	Behavior []behaviorVector `json:"behavior"`
