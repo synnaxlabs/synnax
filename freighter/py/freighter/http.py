@@ -35,8 +35,8 @@ class HTTPClient(MiddlewareCollector):
     - send: typed request, typed response, both via the configured encoder/decoders
       (UnaryClient).
     - upload: a file path as the request body, with a typed response. Bytes are streamed
-      from disk via chunked transfer; the Content-Type is inferred from the path's
-      extension (FileClient).
+      from disk in fixed-size blocks so the full body is never held in memory; the
+      Content-Type is inferred from the path's extension (FileClient).
     - download: a typed request, with the response streamed directly into a destination
       file path; the Accept header is derived from the destination extension
       (FileClient).
@@ -92,9 +92,10 @@ class HTTPClient(MiddlewareCollector):
     def upload(self, target: str, req: FilePath, res_t: type[RS]) -> RS:
         """
         Streams the file at req to target and decodes the response into res_t. urllib3
-        uses chunked transfer encoding so the body never has to fit in memory; the
-        Content-Type is inferred from the file extension via the client's registered
-        codecs.
+        reads the file in fixed-size blocks, so the full body never has to fit in
+        memory; because a file object's length isn't known up front, the request is
+        framed with Transfer-Encoding: chunked. The Content-Type is inferred from the
+        file extension via the client's registered codecs.
         """
         codec = self._codec_for_path(req)
         with open(req, "rb") as f:
