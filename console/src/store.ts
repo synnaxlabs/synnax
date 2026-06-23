@@ -21,6 +21,7 @@ import { type deep, type record } from "@synnaxlabs/x";
 import { Arc } from "@/arc";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -31,7 +32,6 @@ import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { Table } from "@/table";
-import { Theme } from "@/theme";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
@@ -52,7 +52,7 @@ const ZERO_STATE: RootState = {
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
-  [Theme.SLICE_NAME]: Theme.ZERO_SLICE_STATE,
+  [Session.Theme.SLICE_NAME]: Session.Theme.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
@@ -68,7 +68,7 @@ const reducer = combineReducers({
   [Schematic.SLICE_NAME]: Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
-  [Theme.SLICE_NAME]: Theme.reducer,
+  [Session.Theme.SLICE_NAME]: Session.Theme.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
@@ -84,7 +84,7 @@ export interface RootState {
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
-  [Theme.SLICE_NAME]: Theme.SliceState;
+  [Session.Theme.SLICE_NAME]: Session.Theme.SliceState;
 }
 
 export type RootAction =
@@ -100,7 +100,7 @@ export type RootAction =
   | Schematic.Action
   | Status.Action
   | Table.Action
-  | Theme.Action;
+  | Session.Theme.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -125,7 +125,6 @@ export const migrateState = (prev: RootState): RootState => {
   const schematic = Schematic.migrateSlice(prev.schematic);
   const status = Status.migrateSlice(prev.status);
   const table = Table.migrateSlice(prev.table);
-  const theme = Theme.migrateSlice(prev.theme);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -141,7 +140,6 @@ export const migrateState = (prev: RootState): RootState => {
     schematic,
     status,
     table,
-    theme,
   };
 };
 

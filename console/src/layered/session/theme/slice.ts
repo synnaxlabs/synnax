@@ -14,6 +14,7 @@ export const SLICE_NAME = "theme";
 
 const sliceStateZ = z
   .object({
+    version: z.literal(0).default(0),
     selected: z.string().default("synnaxLight"),
   })
   .prefault({});

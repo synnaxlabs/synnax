@@ -9,28 +9,23 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  reducer,
-  select,
-  toggle,
-  ZERO_SLICE_STATE,
-} from "@/layered/session/theme/slice";
+import { Theme } from "@/layered/session/theme";
 
 describe("Theme Slice", () => {
   it("should have the correct initial state", () => {
-    expect(ZERO_SLICE_STATE.selected).toBe("synnaxLight");
+    expect(Theme.ZERO_SLICE_STATE.selected).toBe("synnaxLight");
   });
 
   it("should select a theme", () => {
-    const state = reducer(ZERO_SLICE_STATE, select("synnaxDark"));
+    const state = Theme.reducer(Theme.ZERO_SLICE_STATE, Theme.select("synnaxDark"));
     expect(state.selected).toBe("synnaxDark");
   });
 
   it("should toggle between themes", () => {
-    let state = ZERO_SLICE_STATE;
-    state = reducer(state, toggle());
+    let state = Theme.ZERO_SLICE_STATE;
+    state = Theme.reducer(state, Theme.toggle());
     expect(state.selected).toBe("synnaxDark");
-    state = reducer(state, toggle());
+    state = Theme.reducer(state, Theme.toggle());
     expect(state.selected).toBe("synnaxLight");
   });
 });
