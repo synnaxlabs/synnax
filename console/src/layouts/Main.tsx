@@ -17,13 +17,13 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
+import { LinePlot } from "@/layered/service/lineplot";
 import { Schematic } from "@/layered/service/schematic";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { Nav } from "@/layouts/nav";
 import { Notifications } from "@/layouts/Notifications";
 import { useTriggers } from "@/layouts/useTriggers";
-import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { LogServices } from "@/log/services";
 import { Project } from "@/project";
@@ -37,7 +37,7 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
   arc: ArcServices.handleLink,
   channel: ChannelServices.handleLink,
   ...Hardware.LINK_HANDLERS,
-  lineplot: LinePlotServices.handleLink,
+  lineplot: LinePlot.handleLink,
   log: LogServices.handleLink,
   range: RangeServices.handleLink,
   schematic: Schematic.handleLink,

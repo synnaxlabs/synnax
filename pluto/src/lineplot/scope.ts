@@ -7,15 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Arc } from "@/arc";
-import { type LinePlot } from "@/layered/service/lineplot";
-import { type Schematic } from "@/layered/service/schematic";
-import { type Log } from "@/log";
-import { type Table } from "@/table";
+import { type lineplot } from "@synnaxlabs/client";
 
-export type LayoutType =
-  | LinePlot.LayoutType
-  | Log.LayoutType
-  | Schematic.LayoutType
-  | Table.LayoutType
-  | Arc.EditorLayoutType;
+import { Scope as ScopeFactory } from "@/scope";
+
+export const Scope = ScopeFactory.create<lineplot.Key>("LinePlot");

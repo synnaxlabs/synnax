@@ -9,7 +9,7 @@
 
 import { uuid } from "@synnaxlabs/x";
 
-import { LinePlot } from "@/lineplot";
+import { LinePlot } from "@/layered/service/lineplot";
 import { type Link } from "@/link";
 import { Project } from "@/project";
 import { Range } from "@/range";

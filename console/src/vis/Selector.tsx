@@ -9,9 +9,9 @@
 
 import { uuid } from "@synnaxlabs/x";
 
+import { LinePlot } from "@/layered/service/lineplot";
 import { Schematic } from "@/layered/service/schematic";
 import { type Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Selector as BaseSelector } from "@/selector";
 import { Table } from "@/table";

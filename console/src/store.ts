@@ -23,7 +23,6 @@ import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Persist } from "@/persist";
 import { Project } from "@/project";
@@ -34,8 +33,8 @@ import { Table } from "@/table";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
+  ...Session.LinePlot.PERSIST_EXCLUDE,
   ...Session.Schematic.PERSIST_EXCLUDE,
-  ...LinePlot.PERSIST_EXCLUDE,
 ];
 
 const ZERO_STATE: RootState = {
@@ -44,7 +43,7 @@ const ZERO_STATE: RootState = {
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
-  [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
+  [Session.LinePlot.SLICE_NAME]: Session.LinePlot.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
@@ -60,7 +59,7 @@ const reducer = combineReducers({
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
-  [LinePlot.SLICE_NAME]: LinePlot.reducer,
+  [Session.LinePlot.SLICE_NAME]: Session.LinePlot.reducer,
   [Log.SLICE_NAME]: Log.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Range.SLICE_NAME]: Range.reducer,
@@ -76,7 +75,7 @@ export interface RootState {
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
-  [LinePlot.SLICE_NAME]: LinePlot.SliceState;
+  [Session.LinePlot.SLICE_NAME]: Session.LinePlot.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
@@ -92,7 +91,7 @@ export type RootAction =
   | Docs.Action
   | Drift.Action
   | Layout.Action
-  | LinePlot.Action
+  | Session.LinePlot.Action
   | Log.Action
   | Project.Action
   | Range.Action
@@ -114,7 +113,6 @@ export const migrateState = (prev: RootState): RootState => {
   const cluster = Cluster.migrateSlice(prev.cluster);
   const docs = Docs.migrateSlice(prev.docs);
   const layout = Layout.migrateSlice(prev.layout);
-  const line = LinePlot.migrateSlice(prev.line);
   const log = Log.migrateSlice(prev.log);
   // The project slice was persisted under "workspace" before the rename;
   // migrateLegacySlice reads the legacy key so an upgrading user keeps their saved
@@ -131,7 +129,6 @@ export const migrateState = (prev: RootState): RootState => {
     cluster,
     docs,
     layout,
-    line,
     log,
     project,
     range,
@@ -164,7 +161,7 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 
 const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
-  ...LinePlot.MIDDLEWARE,
+  ...Session.LinePlot.MIDDLEWARE,
   ...Arc.MIDDLEWARE,
 ];
 
