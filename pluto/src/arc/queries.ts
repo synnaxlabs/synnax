@@ -187,10 +187,6 @@ export const useAddNode = (key: arc.Key) => {
   );
 };
 
-export interface FluxSubStore extends Flux.Store {
-  [FLUX_STORE_KEY]: FluxStore;
-}
-
 export type RetrieveQuery = {
   key: arc.Key;
   includeStatus?: boolean;
