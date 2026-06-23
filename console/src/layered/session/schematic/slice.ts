@@ -41,7 +41,7 @@ export const toolbarStateZ = z.object({
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
 export const controlStateZ = z.object({
-  authority: xcontrol.authorityZ.default(100),
+  authority: xcontrol.authorityZ.default(1),
   status: control.statusZ.default("released"),
 });
 
