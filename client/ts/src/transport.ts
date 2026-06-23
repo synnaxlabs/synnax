@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type FileClient,
   HTTPClient,
   type Middleware,
   type UnaryClient,
@@ -19,6 +20,7 @@ import { binary, type breaker, type url } from "@synnaxlabs/x";
 export class Transport {
   readonly url: url.URL;
   readonly unary: UnaryClient;
+  readonly file: FileClient;
   readonly stream: WebSocketClient;
   readonly secure: boolean;
 
@@ -26,10 +28,13 @@ export class Transport {
     this.secure = secure;
     this.url = url.child("/api/v1/");
     const codec = new binary.JSONCodec();
-    this.unary = unaryWithBreaker(
-      new HTTPClient(this.url, codec, this.secure),
-      breakerCfg,
-    );
+    // The streaming file client and the unary client share one HTTPClient, so
+    // middleware (e.g. auth) registered through unary applies to file too. Streaming
+    // bodies cannot be replayed, so the file client deliberately skips the breaker's
+    // retry wrapper.
+    const http = new HTTPClient(this.url, codec, this.secure);
+    this.unary = unaryWithBreaker(http, breakerCfg);
+    this.file = http;
     this.stream = new WebSocketClient(this.url, codec, this.secure);
   }
 

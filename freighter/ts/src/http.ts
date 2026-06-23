@@ -11,6 +11,7 @@ import { type binary, errors, type url } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
+import { type FileClient, type UploadBody } from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 
@@ -58,7 +59,7 @@ const HTTP_STATUS_BAD_REQUEST = 400;
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
  */
-export class HTTPClient extends MiddlewareCollector implements UnaryClient {
+export class HTTPClient extends MiddlewareCollector implements UnaryClient, FileClient {
   endpoint: url.URL;
   encoder: binary.Codec;
 
@@ -89,60 +90,130 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
   ): Promise<z.infer<RS>> {
     let res: z.infer<RS> | null = null;
     const url = this.endpoint.child(target);
-    const request: RequestInit = {};
-    request.method = "POST";
-    request.body = this.encoder.encode(req, reqSchema) as BodyInit;
     await this.executeMiddleware(
-      {
-        target: url.toString(),
-        protocol: this.endpoint.protocol,
-        params: {},
-        role: "client",
-      },
+      this.context(url),
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
-        request.headers = {
-          ...this.headers,
-          ...ctx.params,
-        };
-        let httpRes: Response;
-        try {
-          httpRes = await fetch(ctx.target, request);
-        } catch (e) {
-          const err = errors.fromUnknown(e);
-          throw shouldCastToUnreachable(err)
-            ? new Unreachable({ url, cause: err })
-            : err;
-        }
+        const httpRes = await this.fetch(url, ctx.target, {
+          method: "POST",
+          body: this.encoder.encode(req, reqSchema) as BodyInit,
+          headers: { ...this.headers, ...ctx.params },
+        });
         const data = await httpRes.arrayBuffer();
-        if (httpRes?.ok) {
+        if (httpRes.ok) {
           if (resSchema != null) res = this.encoder.decode<RS>(data, resSchema);
           return outCtx;
         }
-        if (httpRes.status !== HTTP_STATUS_BAD_REQUEST)
-          throw new Error(
-            `[freighter] HTTP ${httpRes.status} from ${ctx.target}: ${httpRes.statusText}`,
-          );
-        let decoded: Error | null;
-        try {
-          decoded = errors.decode(this.encoder.decode(data, errors.payloadZ));
-        } catch (e) {
-          const err = errors.fromUnknown(e);
-          throw new Error(
-            `[freighter] - failed to decode error: ${httpRes.statusText}: ${err.message}`,
-            { cause: e },
-          );
-        }
-        throw (
-          decoded ??
-          new Error(
-            `[freighter] HTTP ${httpRes.status} from ${ctx.target}: ${httpRes.statusText}`,
-          )
-        );
+        throw this.decodeError(data, httpRes, ctx.target);
       },
     );
-
     if (res == null) throw new Error("Response must be defined");
     return res;
+  }
+
+  async upload<RS extends z.ZodType>(
+    target: string,
+    body: UploadBody,
+    contentType: string,
+    resSchema: RS,
+  ): Promise<z.infer<RS>> {
+    let res: z.infer<RS> | null = null;
+    const url = this.endpoint.child(target);
+    await this.executeMiddleware(
+      this.context(url),
+      async (ctx: Context): Promise<Context> => {
+        const outCtx: Context = { ...ctx, params: {} };
+        const httpRes = await this.fetch(url, ctx.target, {
+          method: "POST",
+          body: body as BodyInit,
+          headers: { [CONTENT_TYPE_HEADER_KEY]: contentType, ...ctx.params },
+          // duplex is required by the Fetch standard whenever the body is a stream.
+          duplex: "half",
+        } as RequestInit);
+        const data = await httpRes.arrayBuffer();
+        if (httpRes.ok) {
+          res = this.encoder.decode<RS>(data, resSchema);
+          return outCtx;
+        }
+        throw this.decodeError(data, httpRes, ctx.target);
+      },
+    );
+    if (res == null) throw new Error("Response must be defined");
+    return res;
+  }
+
+  async download<RQ extends z.ZodType>(
+    target: string,
+    req: z.input<RQ> | z.infer<RQ>,
+    reqSchema: RQ,
+    accept: string,
+  ): Promise<ReadableStream<Uint8Array>> {
+    let stream: ReadableStream<Uint8Array> | null = null;
+    const url = this.endpoint.child(target);
+    await this.executeMiddleware(
+      this.context(url),
+      async (ctx: Context): Promise<Context> => {
+        const outCtx: Context = { ...ctx, params: {} };
+        const httpRes = await this.fetch(url, ctx.target, {
+          method: "POST",
+          body: this.encoder.encode(req, reqSchema) as BodyInit,
+          headers: { ...this.headers, Accept: accept, ...ctx.params },
+        });
+        if (httpRes.ok) {
+          if (httpRes.body == null)
+            throw new Error("[freighter] response body is empty");
+          stream = httpRes.body;
+          return outCtx;
+        }
+        throw this.decodeError(await httpRes.arrayBuffer(), httpRes, ctx.target);
+      },
+    );
+    if (stream == null) throw new Error("Response stream must be defined");
+    return stream;
+  }
+
+  private context(url: url.URL): Context {
+    return {
+      target: url.toString(),
+      protocol: this.endpoint.protocol,
+      params: {},
+      role: "client",
+    };
+  }
+
+  private async fetch(
+    url: url.URL,
+    target: string,
+    request: RequestInit,
+  ): Promise<Response> {
+    try {
+      return await fetch(target, request);
+    } catch (e) {
+      const err = errors.fromUnknown(e);
+      throw shouldCastToUnreachable(err) ? new Unreachable({ url, cause: err }) : err;
+    }
+  }
+
+  private decodeError(data: ArrayBuffer, httpRes: Response, target: string): Error {
+    if (httpRes.status !== HTTP_STATUS_BAD_REQUEST)
+      return new Error(
+        `[freighter] HTTP ${httpRes.status} from ${target}: ${httpRes.statusText}`,
+      );
+    let decoded: Error | null;
+    try {
+      decoded = errors.decode(this.encoder.decode(data, errors.payloadZ));
+    } catch (e) {
+      const err = errors.fromUnknown(e);
+      return new Error(
+        `[freighter] - failed to decode error: ${httpRes.statusText}: ${err.message}`,
+        { cause: e },
+      );
+    }
+    return (
+      decoded ??
+      new Error(
+        `[freighter] HTTP ${httpRes.status} from ${target}: ${httpRes.statusText}`,
+      )
+    );
   }
 }
