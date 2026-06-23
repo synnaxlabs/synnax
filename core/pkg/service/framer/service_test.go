@@ -83,19 +83,19 @@ var _ = Describe("Service", func() {
 		Describe("Override", func() {
 			It("Should retain base values when the override is empty", func() {
 				res := validCfg.Override(framer.ServiceConfig{})
-				Expect(res.Framer).To(Equal(dist.Framer))
+				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
-				Expect(res.DB).To(Equal(dist.DB))
+				Expect(res.DB).To(Equal(node.DB))
 				Expect(res.Status).To(Equal(statusSvc))
-				Expect(res.HostResolver).To(Equal(dist.Cluster))
+				Expect(res.HostResolver).To(Equal(node.Cluster))
 			})
 			It("Should replace base values with non-nil overrides", func() {
 				res := framer.ServiceConfig{}.Override(validCfg)
-				Expect(res.Framer).To(Equal(dist.Framer))
+				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
-				Expect(res.DB).To(Equal(dist.DB))
+				Expect(res.DB).To(Equal(node.DB))
 				Expect(res.Status).To(Equal(statusSvc))
-				Expect(res.HostResolver).To(Equal(dist.Cluster))
+				Expect(res.HostResolver).To(Equal(node.Cluster))
 			})
 			It("Should override zero-value instrumentation", func() {
 				res := framer.ServiceConfig{}.Override(framer.ServiceConfig{

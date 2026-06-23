@@ -36,7 +36,7 @@ const calculatedIndexNameSuffix = "_time"
 func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
 	channels := *_channels
 	if *s.cfg.ValidateNames {
-		skipExisting := opts.RetrieveIfNameExists || opts.OverwriteIfNameExistsAndDifferentProperties
+		skipExisting := opts.retrieveIfNameExists || opts.overwriteIfNameExistsAndDifferentProperties
 		if err := s.validateChannelNames(ctx, tx, KeysFromChannels(channels), Names(channels), skipExisting); err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, 
 		return err
 	}
 
-	if opts.OverwriteIfNameExistsAndDifferentProperties {
+	if opts.overwriteIfNameExistsAndDifferentProperties {
 		if err := s.deleteOverwritten(ctx, tx, &channels); err != nil {
 			return err
 		}
@@ -95,7 +95,7 @@ func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, 
 		return err
 	}
 
-	toCreate, err := s.resolveExistingAndAssignKeys(ctx, tx, &channels, opts.RetrieveIfNameExists)
+	toCreate, err := s.resolveExistingAndAssignKeys(ctx, tx, &channels, opts.retrieveIfNameExists)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (s *Service) updateExisting(ctx context.Context, tx gorp.Tx, channels *[]Ch
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
 			idx := lo.IndexOf(keys, c.Key())
 			ic := (*channels)[idx]
-			if opts.RetrieveIfNameExists {
+			if opts.retrieveIfNameExists {
 				(*channels)[idx] = c
 				return c, nil
 			}
@@ -395,7 +395,7 @@ func (s *Service) maybeSetResources(
 	if err := w.DefineResource(ctx, externalIDs...); err != nil {
 		return err
 	}
-	if opts.CreateWithoutGroupRelationship {
+	if opts.createWithoutGroupRelationship {
 		return nil
 	}
 	return w.DefineRelationship(

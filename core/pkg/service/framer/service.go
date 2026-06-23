@@ -50,6 +50,8 @@ type (
 	Streamer         = streamer.Streamer
 )
 
+// ServiceConfig is the configuration for opening a framer Service. All fields are
+// required except the embedded Instrumentation.
 type ServiceConfig struct {
 	// DB is the underlying database used by the calculation service.
 	//
@@ -103,6 +105,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
+// Service is the service-layer entry point for reading, writing, streaming, and deleting
+// telemetry against a Synnax cluster. It composes the writer, iterator, streamer, and
+// calculation services behind a single handle.
 type Service struct {
 	closer   io.MultiCloser
 	streamer *streamer.Service
@@ -111,28 +116,42 @@ type Service struct {
 	cfg      ServiceConfig
 }
 
+// OpenIterator opens a buffered Iterator that reads telemetry from the channels in cfg
+// over cfg.Bounds. The caller must Close the returned Iterator. It returns an error if
+// cfg is invalid or any channel in cfg.Keys cannot be resolved.
 func (s *Service) OpenIterator(
 	ctx context.Context, cfg IteratorConfig,
 ) (*Iterator, error) {
 	return s.iterator.Open(ctx, cfg)
 }
 
+// NewStreamIterator opens a StreamIterator over the channels in cfg, driven through
+// confluence inlet requests and outlet responses. It returns an error if cfg is invalid
+// or any channel in cfg.Keys cannot be resolved.
 func (s *Service) NewStreamIterator(
 	ctx context.Context, cfg IteratorConfig,
 ) (StreamIterator, error) {
 	return s.iterator.NewStream(ctx, cfg)
 }
 
+// NewStreamWriter opens a StreamWriter for the channels in cfg, driven through confluence
+// inlet requests and outlet responses. It returns an error if cfg is invalid or any
+// channel in cfg.Keys cannot be resolved.
 func (s *Service) NewStreamWriter(
 	ctx context.Context, cfg WriterConfig,
 ) (StreamWriter, error) {
 	return s.writer.NewStream(ctx, cfg)
 }
 
+// OpenWriter opens a buffered Writer for the channels in cfg starting at cfg.Start. The
+// caller must Close the returned Writer to release its control over the written region.
+// It returns an error if cfg is invalid or any channel in cfg.Keys cannot be resolved.
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	return s.writer.Open(ctx, cfg)
 }
 
+// DeleteTimeRange deletes all samples stored for the given channels within tr. It returns
+// an error if a channel is currently under the control of a writer over tr.
 func (s *Service) DeleteTimeRange(
 	ctx context.Context,
 	keys channel.Keys,
@@ -141,6 +160,9 @@ func (s *Service) DeleteTimeRange(
 	return s.cfg.Framer.DeleteTimeRange(ctx, keys, tr)
 }
 
+// NewStreamer opens a Streamer that delivers live writes to the channels in cfg as they
+// occur, driven through confluence inlet requests and outlet responses. It returns an
+// error if cfg is invalid or any channel in cfg.Keys cannot be resolved.
 func (s *Service) NewStreamer(
 	ctx context.Context,
 	cfg StreamerConfig,
@@ -148,6 +170,8 @@ func (s *Service) NewStreamer(
 	return s.streamer.New(ctx, cfg)
 }
 
+// Close releases the resources held by the Service and its underlying streaming,
+// iteration, and calculation sub-services.
 func (s *Service) Close() error { return s.closer.Close() }
 
 // OpenService opens a framer Service from the provided configuration. All fields are

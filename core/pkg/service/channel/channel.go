@@ -18,8 +18,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
@@ -60,15 +60,10 @@ func Names(channels []Channel) []string {
 	return lo.Map(channels, func(channel Channel, _ int) string { return channel.Name })
 }
 
+var _ gorp.Entry[Key] = Channel{}
+
 // IsCalculated returns true if the channel is a calculated channel, false otherwise.
 func (c Channel) IsCalculated() bool { return c.Expression != "" }
-
-// HasDerivativeOperation reports whether the channel's final aggregation operation is a
-// derivative, which forces the inferred data type to Float64.
-func (c Channel) HasDerivativeOperation() bool {
-	return len(c.Operations) > 0 &&
-		c.Operations[len(c.Operations)-1].Type == OperationTypeDerivative
-}
 
 // Key returns the key for the Channel.
 func (c Channel) Key() Key { return NewKey(c.Leaseholder, c.LocalKey) }
@@ -90,29 +85,12 @@ func (c Channel) SetOptions() []any {
 	if c.Free() {
 		return []any{node.KeyBootstrapper}
 	}
-	return []any{c.Lease()}
+	return []any{c.Leaseholder}
 }
-
-// Lease implements the proxy.UnaryServer interface.
-func (c Channel) Lease() node.Key { return c.Leaseholder }
 
 // Free returns true if the channel is not leased to a particular node i.e. it is a
 // non-leased virtual channel.
 func (c Channel) Free() bool { return c.Leaseholder == node.KeyFree }
-
-// Storage returns the storage layer representation of the channel for creation in the
-// storage ts.DB.
-func (c Channel) Storage() ts.Channel {
-	return ts.Channel{
-		Key:         c.Key().StorageKey(),
-		Name:        c.Name,
-		IsIndex:     c.IsIndex,
-		DataType:    c.DataType,
-		Index:       ts.ChannelKey(c.Index()),
-		Virtual:     c.Virtual,
-		Concurrency: c.Concurrency,
-	}
-}
 
 // Distribution returns the minimal distribution-layer representation of the channel,
 // carrying only the storage and routing metadata the distribution layer needs.

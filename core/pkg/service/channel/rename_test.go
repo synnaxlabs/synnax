@@ -11,11 +11,9 @@ package channel_test
 
 import (
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -124,46 +122,4 @@ var _ = Describe("Rename", Ordered, func() {
 		})
 	})
 
-	Context("Map Rename", func() {
-		It("Should rename channels using a map of old names to new names", func(ctx SpecContext) {
-			id := channel.NewRandomName()
-			ch1 := channel.Channel{
-				Name:     fmt.Sprintf("young_fermat_%s", id),
-				Virtual:  true,
-				DataType: telem.Int64T,
-			}
-			ch2 := channel.Channel{
-				Name:     fmt.Sprintf("young_laplace_%s", id),
-				Virtual:  true,
-				DataType: telem.Float32T,
-			}
-			ch3 := channel.Channel{
-				Name:        fmt.Sprintf("young_newton_%s", id),
-				DataType:    telem.StringT,
-				Leaseholder: node.KeyFree,
-				Virtual:     true,
-			}
-			channels := []channel.Channel{ch1, ch2, ch3}
-			Expect(services[1].CreateMany(ctx, &channels)).To(Succeed())
-			nameMap := map[string]string{
-				ch1.Name: fmt.Sprintf("old_fermat_%s", id),
-				ch2.Name: fmt.Sprintf("old_laplace_%s", id),
-				ch3.Name: fmt.Sprintf("old_newton_%s", id),
-			}
-			Expect(services[1].MapRename(ctx, nameMap, false)).To(Succeed())
-			var resChannels []channel.Channel
-			Expect(services[1].NewRetrieve().
-				Where(channel.MatchNames(lo.Keys(nameMap)...)).
-				Entries(&resChannels).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(resChannels).To(BeEmpty())
-			Expect(services[1].NewRetrieve().
-				Where(channel.MatchNames(lo.Values(nameMap)...)).
-				Entries(&resChannels).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(resChannels).To(HaveLen(3))
-		})
-	})
 })

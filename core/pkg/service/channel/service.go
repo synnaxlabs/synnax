@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
-	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -44,7 +44,7 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 	// Channel is the distribution-layer channel service the service drives to assign
 	// local keys and create, rename, and delete storage channels across the cluster.
-	Channel *dischannel.Service
+	Channel *channel.Service
 	// DB is the cluster-wide metadata database backing the channel table.
 	DB *gorp.DB
 	// HostResolver provides this node's key for default leaseholder assignment.
@@ -65,6 +65,7 @@ type ServiceConfig struct {
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
+// Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
 	validate.NotNil(v, "channel", c.Channel)
@@ -76,6 +77,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
+// Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -167,6 +169,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	return s, nil
 }
 
+// Group returns the ontology group under which the service's channels are created.
 func (s *Service) Group() group.Group { return s.group }
 
 // Observe returns an observable that notifies callers of changes to channel entries.
@@ -247,6 +250,7 @@ func (s *Service) CountExternalNonVirtual() uint32 {
 	return uint32(s.mu.externalNonVirtualSet.Size())
 }
 
+// Close releases the resources held by the Service.
 func (s *Service) Close() error { return s.closer.Close() }
 
 // validateChannels runs after every Retrieve.Exec (when called via NewRetrieve) and
@@ -256,7 +260,7 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, ch := range channels {
-		key := ch.GorpKey()
+		key := ch.Key()
 		if !s.mu.externalNonVirtualSet.Contains(key) {
 			continue
 		}

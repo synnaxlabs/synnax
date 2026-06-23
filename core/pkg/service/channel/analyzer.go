@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/synnaxlabs/arc"
@@ -51,7 +52,13 @@ func NewAnalyzer(symbolResolver arc.SymbolResolver) *Analyzer {
 	return &Analyzer{resolver: r}
 }
 
-func (r *analysisResolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
+// Resolve implements arc.SymbolResolver, resolving name (a channel key or name) first
+// against the resolver's temporary cache of channels in the current batch, then falling
+// back to the underlying SymbolResolver. Names that the fallback cannot resolve are
+// recorded as unresolved.
+func (r *analysisResolver) Resolve(
+	ctx context.Context, name string,
+) (*symbol.Symbol, error) {
 	i, err := strconv.Atoi(name)
 	if err == nil {
 		if s, ok := r.temp.keys[i]; ok {
@@ -97,7 +104,9 @@ func (a *Analyzer) Analyze(ctx context.Context, ch Channel) (AnalysisResult, err
 	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver))
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
-		return AnalysisResult{Unresolved: a.resolver.unresolved.Slice()}, aCtx.Diagnostics
+		return AnalysisResult{
+			Unresolved: a.resolver.unresolved.Slice(),
+		}, aCtx.Diagnostics
 	}
 	s := &symbol.Symbol{
 		Name: ch.Name,
@@ -118,7 +127,9 @@ func (a *Analyzer) Analyze(ctx context.Context, ch Channel) (AnalysisResult, err
 		}
 	}
 	inferredDataType := types.ToTelem(dataType)
-	if ch.HasDerivativeOperation() {
+	if slices.ContainsFunc(ch.Operations, func(o Operation) bool {
+		return o.Type == OperationTypeDerivative
+	}) {
 		inferredDataType = telem.Float64T
 	}
 	return AnalysisResult{

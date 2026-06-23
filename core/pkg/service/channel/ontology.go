@@ -64,6 +64,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"expression":  zyn.String(),
 })
 
+// ToPayload returns the ontology resource payload representation of c.
 func ToPayload(c Channel) map[string]any {
 	return map[string]any{
 		"key":         c.Key(),
@@ -90,6 +91,7 @@ var (
 
 type change = xchange.Change[Key, Channel]
 
+// Type implements ontology.Service.
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
 // Schema implements ontology.Service.

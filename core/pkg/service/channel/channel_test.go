@@ -28,3 +28,23 @@ var _ = Describe("ParseKey", func() {
 		))
 	})
 })
+
+var _ = Describe("String", func() {
+	DescribeTable("Should format the channel as a string",
+		func(ch channel.Channel, expected string) {
+			Expect(ch.String()).To(Equal(expected))
+		},
+		Entry("named channel",
+			channel.Channel{Name: "temp", Leaseholder: 1, LocalKey: 2},
+			"[temp]<1048578>",
+		),
+		Entry("unnamed channel",
+			channel.Channel{Leaseholder: 1, LocalKey: 2},
+			"<1048578>",
+		),
+		Entry("zero-value channel",
+			channel.Channel{},
+			"<0>",
+		),
+	)
+})

@@ -30,7 +30,7 @@ func TestFramer(t *testing.T) {
 }
 
 var (
-	dist       mock.Node
+	node       mock.Node
 	channelSvc *channel.Service
 	statusSvc  *status.Service
 	framerSvc  *framer.Service
@@ -75,8 +75,8 @@ func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = mock.MustOpenNode(ctx)
-	validCfg = newFramerConfig(ctx, dist)
+	node = mock.MustOpenNode(ctx)
+	validCfg = newFramerConfig(ctx, node)
 	channelSvc = validCfg.Channel
 	statusSvc = validCfg.Status
 	framerSvc = MustOpen(framer.OpenService(ctx, validCfg))

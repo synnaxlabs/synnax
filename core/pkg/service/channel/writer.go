@@ -12,7 +12,6 @@ package channel
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -35,24 +34,37 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
+// CreateOptions holds the resolved set of CreateOption values for a Create or CreateMany
+// call.
 type CreateOptions struct {
-	RetrieveIfNameExists                        bool
-	OverwriteIfNameExistsAndDifferentProperties bool
-	CreateWithoutGroupRelationship              bool
+	retrieveIfNameExists                        bool
+	overwriteIfNameExistsAndDifferentProperties bool
+	createWithoutGroupRelationship              bool
 }
 
+// CreateOption configures the behavior of a Create or CreateMany call.
 type CreateOption func(*CreateOptions)
 
+// RetrieveIfNameExists returns a CreateOption that, when a channel with the same name
+// already exists, populates the provided channel from the existing record instead of
+// returning an error.
 func RetrieveIfNameExists() CreateOption {
-	return func(o *CreateOptions) { o.RetrieveIfNameExists = true }
+	return func(o *CreateOptions) { o.retrieveIfNameExists = true }
 }
 
+// OverwriteIfNameExistsAndDifferentProperties returns a CreateOption that overwrites an
+// existing channel of the same name when its properties differ from the channel being
+// created.
 func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
-	return func(o *CreateOptions) { o.OverwriteIfNameExistsAndDifferentProperties = true }
+	return func(o *CreateOptions) {
+		o.overwriteIfNameExistsAndDifferentProperties = true
+	}
 }
 
+// CreateWithoutGroupRelationship returns a CreateOption that skips creating the ontology
+// relationship between the channel and its group.
 func CreateWithoutGroupRelationship() CreateOption {
-	return func(o *CreateOptions) { o.CreateWithoutGroupRelationship = true }
+	return func(o *CreateOptions) { o.createWithoutGroupRelationship = true }
 }
 
 // Create creates a single channel, inferring the DataType if it is calculated.
@@ -88,39 +100,34 @@ func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 	return w.svc.create(ctx, w.tx, channels, o)
 }
 
+// Delete deletes the channel with the given key, along with its storage and ontology
+// resources. Unless allowInternal is true, deleting an internal channel returns an error.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	return w.DeleteMany(ctx, []Key{key}, allowInternal)
 }
 
+// DeleteMany deletes the channels with the given keys, along with their storage and
+// ontology resources. Unless allowInternal is true, deleting any internal channel returns
+// an error and no channels are deleted.
 func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
 	return w.svc.delete(ctx, w.tx, keys, allowInternal)
 }
 
-func (w Writer) DeleteByName(ctx context.Context, name string, allowInternal bool) error {
-	return w.DeleteManyByNames(ctx, []string{name}, allowInternal)
-}
-
+// DeleteManyByNames deletes the channels matching the given names. Unless allowInternal is
+// true, deleting any internal channel returns an error and no channels are deleted.
 func (w Writer) DeleteManyByNames(ctx context.Context, names []string, allowInternal bool) error {
 	return w.svc.deleteByName(ctx, w.tx, names, allowInternal)
 }
 
-func (w Writer) MapRename(ctx context.Context, names map[string]string, allowInternal bool) error {
-	oldNames := lo.Keys(names)
-	oldChannels := make([]Channel, 0, len(oldNames))
-	if err := w.svc.NewRetrieve().Where(MatchNames(oldNames...)).Entries(&oldChannels).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	newNames := make([]string, 0, len(oldChannels))
-	for _, oldChannel := range oldChannels {
-		newNames = append(newNames, names[oldChannel.Name])
-	}
-	return w.RenameMany(ctx, KeysFromChannels(oldChannels), newNames, allowInternal)
-}
-
+// Rename renames the channel with the given key to newName. Unless allowInternal is true,
+// renaming an internal channel returns an error.
 func (w Writer) Rename(ctx context.Context, key Key, newName string, allowInternal bool) error {
 	return w.RenameMany(ctx, []Key{key}, []string{newName}, allowInternal)
 }
 
+// RenameMany renames the channels with the given keys to the corresponding entries in
+// newNames, which must be parallel to keys. Unless allowInternal is true, renaming any
+// internal channel returns an error.
 func (w Writer) RenameMany(ctx context.Context, keys []Key, newNames []string, allowInternal bool) error {
 	return w.svc.rename(ctx, w.tx, keys, newNames, allowInternal)
 }

@@ -189,18 +189,6 @@ var _ = Describe("Service Passthrough", func() {
 		})
 	})
 
-	Describe("DeleteByName", func() {
-		It("Should delete a channel by name", func(ctx SpecContext) {
-			ch := channel.Channel{
-				Name:     channel.NewRandomName(),
-				DataType: telem.Float64T,
-				Virtual:  true,
-			}
-			Expect(svc.Create(ctx, &ch)).To(Succeed())
-			Expect(svc.DeleteByName(ctx, ch.Name, false)).To(Succeed())
-		})
-	})
-
 	Describe("DeleteManyByNames", func() {
 		It("Should delete multiple channels by name", func(ctx SpecContext) {
 			channels := []channel.Channel{
@@ -245,19 +233,4 @@ var _ = Describe("Service Passthrough", func() {
 		})
 	})
 
-	Describe("MapRename", func() {
-		It("Should rename channels via old-to-new name map", func(ctx SpecContext) {
-			ch := channel.Channel{
-				Name:     channel.NewRandomName(),
-				DataType: telem.Float64T,
-				Virtual:  true,
-			}
-			Expect(svc.Create(ctx, &ch)).To(Succeed())
-			newName := channel.NewRandomName()
-			Expect(svc.MapRename(ctx, map[string]string{ch.Name: newName}, false)).To(Succeed())
-			var retrieved channel.Channel
-			Expect(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
-			Expect(retrieved.Name).To(Equal(newName))
-		})
-	})
 })

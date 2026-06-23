@@ -121,8 +121,6 @@ var _ = Describe("Compile", func() {
 			Virtual:    true,
 			Expression: "return invalid_syntax {{",
 		}
-		// Bypass analysis on create so the invalid expression reaches the compiler,
-		// which is the component under test here.
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
 		Expect(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
