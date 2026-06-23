@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, errors, type URL } from "@synnaxlabs/x";
+import { type binary, errors, type url } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
@@ -59,10 +59,10 @@ const HTTP_STATUS_BAD_REQUEST = 400;
  * @param encoder - The encoder/decoder to use for the request/response.
  */
 export class HTTPClient extends MiddlewareCollector implements UnaryClient {
-  endpoint: URL;
+  endpoint: url.URL;
   encoder: binary.Codec;
 
-  constructor(endpoint: URL, encoder: binary.Codec, secure: boolean = false) {
+  constructor(endpoint: url.URL, encoder: binary.Codec, secure: boolean = false) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;

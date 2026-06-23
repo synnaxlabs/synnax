@@ -9,6 +9,7 @@
 
 import "schemas/x/spatial"
 import "schemas/synnax/status"
+import "schemas/x/crdt"
 import "schemas/arc/graph"
 import "schemas/arc/text"
 import "schemas/arc/ir"
@@ -76,6 +77,22 @@ Arc struct {
     status  Status?          {
         @doc value  "is the current execution status of the module."
         @go marshal omit
+    }
+
+    action InsertChar extends crdt.Insert {
+        @doc value """
+            carries a single collaborative-edit character insertion against the
+            module's text. The payload is a sequence CRDT operation; the server relays
+            it to the other editors of the module without interpreting it.
+        """
+    }
+
+    action DeleteChar extends crdt.Delete {
+        @doc value """
+            carries a single collaborative-edit character deletion against the module's
+            text. The payload is a sequence CRDT operation; the server relays it to the
+            other editors of the module without interpreting it.
+        """
     }
 
     @doc value     """

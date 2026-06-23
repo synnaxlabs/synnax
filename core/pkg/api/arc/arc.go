@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -95,6 +96,31 @@ func (s *Service) Delete(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+}
+
+// DispatchRequest carries a sequence of collaborative-edit actions to relay to the
+// other clients editing a single arc. DispatchKey is the originating client's batch
+// identifier, echoed verbatim on the broadcast so the sender can recognize its own
+// edits.
+type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
+
+// Dispatch relays the action sequence to the other clients editing the arc, broadcasting
+// it on the arc collaborative-edit signals channel. The caller must hold update access
+// to the arc. The server does not interpret or persist the actions.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{arc.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (

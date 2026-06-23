@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,10 +26,26 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	task  task.Writer
-	table *gorp.Table[Key, Arc]
+	tx         gorp.Tx
+	otg        ontology.Writer
+	task       task.Writer
+	table      *gorp.Table[Key, Arc]
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// Dispatch broadcasts a sequence of collaborative-edit actions for the arc with the
+// given key to the other editors of that arc, via the cluster signals pipeline. The
+// actions are relayed verbatim; the server does not materialize them into the arc's
+// text (see SY-4393). dispatchKey is the originating client's batch identifier, echoed
+// on the broadcast so the sender can recognize its own edits.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	actions []Action,
+) error {
+	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
+	return nil
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
