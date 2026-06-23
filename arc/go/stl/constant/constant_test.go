@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -41,7 +42,10 @@ var _ = Describe("Constant", func() {
 		BeforeEach(func(ctx SpecContext) {
 			factory = constant.NewHost()
 			g := graph.Graph{
-				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
+				Nodes: []graph.Node{{Key: "const"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"const": {"type": "constant"},
+				},
 				Functions: []graph.Function{{
 					Key: "constant",
 					Outputs: types.Params{
@@ -118,7 +122,10 @@ var _ = Describe("Constant", func() {
 		BeforeEach(func(ctx SpecContext) {
 			factory = constant.NewHost()
 			g := graph.Graph{
-				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
+				Nodes: []graph.Node{{Key: "const"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"const": {"type": "constant"},
+				},
 				Functions: []graph.Function{{
 					Key: "constant",
 					Outputs: types.Params{
@@ -216,14 +223,18 @@ var _ = Describe("Constant", func() {
 		It("Should allow downstream nodes to read constant", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "const", Type: "constant"},
-					{Key: "sink", Type: "sink"},
+					{Key: "const"},
+					{Key: "sink"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"const": {"type": "constant"},
+					"sink":  {"type": "sink"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "const", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{

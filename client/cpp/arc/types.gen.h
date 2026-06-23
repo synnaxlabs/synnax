@@ -65,9 +65,9 @@ struct Arc {
     /// text-based Arc code or "graph" for visual dataflow.
     std::string mode;
     /// @brief graph is the visual dataflow graph representation of the module.
-    ::arc::graph::Graph graph;
+    ::arc::graph::Graph graph = {};
     /// @brief text is the text-based Arc source code.
-    ::arc::text::Text text;
+    ::arc::text::Text text = {};
     /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::program::Program> program;

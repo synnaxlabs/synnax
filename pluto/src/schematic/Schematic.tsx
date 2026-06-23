@@ -180,6 +180,7 @@ export const Schematic = ({
       onEdgesChange={handleEdgesChange}
       viewport={viewport}
       onSelectionChange={onSelectionChange}
+      edgesReconnectable={false}
       editable={editable}
       onDoubleClick={onDoubleClick}
       onContextMenu={contextMenu.open}

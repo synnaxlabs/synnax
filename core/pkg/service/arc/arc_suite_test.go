@@ -51,14 +51,6 @@ var (
 		node := mock.MustOpenNode(ctx)
 		db = node.DB
 		otg = node.Ontology
-		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostResolver: node.Cluster,
-			Ontology:     node.Ontology,
-			Group:        node.Group,
-			Search:       node.Search,
-		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -71,6 +63,15 @@ var (
 			Group:    node.Group,
 			Label:    labelSvc,
 			Search:   searchIdx,
+		}))
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostResolver: node.Cluster,
+			Ontology:     node.Ontology,
+			Group:        node.Group,
+			Search:       node.Search,
+			Status:       statSvc,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,

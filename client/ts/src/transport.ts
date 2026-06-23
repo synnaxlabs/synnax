@@ -14,15 +14,15 @@ import {
   unaryWithBreaker,
   WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { binary, type breaker, type URL } from "@synnaxlabs/x";
+import { binary, type breaker, type url } from "@synnaxlabs/x";
 
 export class Transport {
-  readonly url: URL;
+  readonly url: url.URL;
   readonly unary: UnaryClient;
   readonly stream: WebSocketClient;
   readonly secure: boolean;
 
-  constructor(url: URL, breakerCfg: breaker.Config = {}, secure: boolean = false) {
+  constructor(url: url.URL, breakerCfg: breaker.Config = {}, secure: boolean = false) {
     this.secure = secure;
     this.url = url.child("/api/v1/");
     const codec = new binary.JSONCodec();

@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/wasm"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero"
 )
@@ -85,24 +86,30 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 			},
 		},
 		Nodes: []graph.Node{
-			{Key: "x", Type: "x"},
-			{Key: "a", Type: "a"},
-			{Key: "b", Type: "b"},
-			{Key: "affine", Type: "affine"},
+			{Key: "x"},
+			{Key: "a"},
+			{Key: "b"},
+			{Key: "affine"},
 		},
-		Edges: []graph.Edge{
-			{
+		Configs: map[string]msgpack.EncodedJSON{
+			"x":      {"type": "x"},
+			"a":      {"type": "a"},
+			"b":      {"type": "b"},
+			"affine": {"type": "affine"},
+		},
+		Edges: graph.Edges{
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "x"},
-			},
-			{
+			}},
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "a"},
-			},
-			{
+			}},
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "b"},
-			},
+			}},
 		},
 	}
 
@@ -245,24 +252,30 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 			},
 		},
 		Nodes: []graph.Node{
-			{Key: "x", Type: "x"},
-			{Key: "a", Type: "a"},
-			{Key: "b", Type: "b"},
-			{Key: "affine", Type: "affine"},
+			{Key: "x"},
+			{Key: "a"},
+			{Key: "b"},
+			{Key: "affine"},
 		},
-		Edges: []graph.Edge{
-			{
+		Configs: map[string]msgpack.EncodedJSON{
+			"x":      {"type": "x"},
+			"a":      {"type": "a"},
+			"b":      {"type": "b"},
+			"affine": {"type": "affine"},
+		},
+		Edges: graph.Edges{
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "x"},
-			},
-			{
+			}},
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "a"},
-			},
-			{
+			}},
+			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "affine", Param: "b"},
-			},
+			}},
 		},
 	}
 

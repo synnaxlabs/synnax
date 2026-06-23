@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Context } from "@synnaxlabs/freighter";
-import { URL } from "@synnaxlabs/x";
+import { url } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
@@ -26,7 +26,7 @@ const DUMMY_CTX: Context = {
 describe("auth", () => {
   test("valid credentials", async () => {
     const transport = new Transport(
-      new URL({
+      new url.URL({
         host: TEST_CLIENT_PARAMS.host,
         port: Number(TEST_CLIENT_PARAMS.port),
       }),
@@ -39,7 +39,7 @@ describe("auth", () => {
 
   test("invalid credentials", async () => {
     const transport = new Transport(
-      new URL({
+      new url.URL({
         host: TEST_CLIENT_PARAMS.host,
         port: Number(TEST_CLIENT_PARAMS.port),
       }),
@@ -57,7 +57,7 @@ describe("auth", () => {
     ERROR_TYPES.forEach((ErrorType) => {
       it(`should re-authenticate and retry the request for ${ErrorType.name}`, async () => {
         const transport = new Transport(
-          new URL({
+          new url.URL({
             host: TEST_CLIENT_PARAMS.host,
             port: Number(TEST_CLIENT_PARAMS.port),
           }),
@@ -84,7 +84,7 @@ describe("auth", () => {
 
     it("should fail after MAX_RETRIES", async () => {
       const transport = new Transport(
-        new URL({
+        new url.URL({
           host: TEST_CLIENT_PARAMS.host,
           port: Number(TEST_CLIENT_PARAMS.port),
         }),
