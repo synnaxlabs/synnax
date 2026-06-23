@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { Access, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
+import { Access, LinePlot } from "@synnaxlabs/pluto";
 
 import { useCreate } from "@/layered/service/lineplot/useCreate";
 import { Palette } from "@/palette";
@@ -19,7 +19,7 @@ const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
     <Palette.CommandListItem
       {...listProps}
       name="Create a line plot"
-      icon={<PLinePlot.CreateIcon />}
+      icon={<LinePlot.CreateIcon />}
       onSelect={create}
     />
   );
