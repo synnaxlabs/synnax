@@ -11,8 +11,8 @@
 from typing import overload
 
 from freighter import FileClient, FilePath
+from synnax import ontology
 from synnax.imex.types import Envelope
-from synnax.ontology.payload import ID
 
 _EXPORT_PATH = "/imex/export"
 
@@ -30,20 +30,22 @@ class Client:
     def __init__(self, client: FileClient) -> None:
         self._client = client
 
-    def import_(self, source: FilePath | Envelope) -> ID:
+    def import_(self, source: FilePath | Envelope) -> ontology.ID:
         """Imports the resource described by source and returns its new ontology id.
 
         :param source: an ``Envelope`` sent as a typed payload, or a file path streamed
             from disk.
         :returns: the new resource's ontology id as stamped by the Core.
         """
-        return self._client.upload("/imex/import", source, ID)
+        return self._client.upload("/imex/import", source, ontology.ID)
 
     @overload
-    def export(self, id: ID) -> Envelope: ...
+    def export(self, id: ontology.ID) -> Envelope: ...
     @overload
-    def export(self, id: ID, *, dest: FilePath) -> None: ...
-    def export(self, id: ID, *, dest: FilePath | None = None) -> Envelope | None:
+    def export(self, id: ontology.ID, *, dest: FilePath) -> None: ...
+    def export(
+        self, id: ontology.ID, *, dest: FilePath | None = None
+    ) -> Envelope | None:
         """Exports the resource identified by id.
 
         When ``dest`` is provided, the response body is streamed straight into that file
