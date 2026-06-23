@@ -15,15 +15,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
 )
 
 var _ = Describe("Writer", func() {
@@ -1138,4 +1142,157 @@ var _ = Describe("Rename", Ordered, func() {
 		})
 	})
 
+})
+
+func fixedOverflowChecker(limit int) channel.IntOverflowChecker {
+	return func(count types.Uint20) error {
+		if count > types.Uint20(limit) {
+			return errors.New("channel limit exceeded")
+		}
+		return nil
+	}
+}
+
+var _ = Describe("Limit", Ordered, func() {
+	var (
+		limit    = 5
+		dist     mock.Node
+		limitSvc *channel.Service
+	)
+	BeforeEach(func(ctx SpecContext) {
+		dist = mock.MustOpenNode(ctx)
+		limitSvc = openService(ctx, dist, channel.ServiceConfig{IntOverflowCheck: fixedOverflowChecker(limit)})
+	})
+	It("Should not allow creating channels over the limit", func(ctx SpecContext) {
+		// Create channels up to the limit
+		for i := range limit {
+			ch := channel.Channel{
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
+				Name:        fmt.Sprintf("LimitTest%d", i),
+				Leaseholder: 1,
+			}
+			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
+		}
+
+		// Try to create one more channel over the limit
+		overLimitCh := channel.Channel{
+			IsIndex:     true,
+			DataType:    telem.TimeStampT,
+			Name:        "OverLimit",
+			Leaseholder: 1,
+		}
+		Expect(limitSvc.Create(ctx, &overLimitCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
+	})
+
+	It("Should allow creating channels after deleting some to stay under the limit", func(ctx SpecContext) {
+		// Create channels up to the limit
+		channels := make([]channel.Channel, int(limit))
+		for i := range limit {
+			ch := channel.Channel{
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
+				Name:        fmt.Sprintf("LimitTest%d", i),
+				Leaseholder: 1,
+			}
+			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
+			channels[i] = ch
+		}
+
+		// Try to create one more channel over the limit
+		overLimitCh := channel.Channel{
+			IsIndex:     true,
+			DataType:    telem.TimeStampT,
+			Name:        "OverLimit",
+			Leaseholder: 1,
+		}
+		Expect(limitSvc.Create(ctx, &overLimitCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
+
+		// Delete one channel
+		writer := limitSvc.NewWriter(nil)
+		Expect(writer.Delete(ctx, channels[0].Key(), false)).To(Succeed())
+
+		// Now we should be able to create a new channel
+		newCh := channel.Channel{
+			IsIndex:     true,
+			DataType:    telem.TimeStampT,
+			Name:        "NewAfterDelete",
+			Leaseholder: 1,
+		}
+		Expect(limitSvc.Create(ctx, &newCh)).To(Succeed())
+
+		// Try to create one more channel (should fail again)
+		anotherCh := channel.Channel{
+			IsIndex:     true,
+			DataType:    telem.TimeStampT,
+			Name:        "AnotherOverLimit",
+			Leaseholder: 1,
+		}
+		Expect(limitSvc.Create(ctx, &anotherCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
+	})
+
+	It("Should allow retrieving channels even at the limit", func(ctx SpecContext) {
+		// Create channels up to the limit
+		createdChannels := make([]channel.Channel, int(limit))
+		for i := range limit {
+			ch := channel.Channel{
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
+				Name:        fmt.Sprintf("LimitTest%d", i),
+				Leaseholder: 1,
+			}
+			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
+			createdChannels[i] = ch
+		}
+
+		// Try to create one more channel over the limit
+		overLimitCh := channel.Channel{
+			IsIndex:     true,
+			DataType:    telem.TimeStampT,
+			Name:        "OverLimit",
+			Leaseholder: 1,
+		}
+		Expect(limitSvc.Create(ctx, &overLimitCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
+
+		// Retrieve all channels - this should work fine even at the limit
+		var retrievedChannels []channel.Channel
+		retrieve := limitSvc.NewRetrieve()
+		Expect(retrieve.Entries(&retrievedChannels).Where(channel.MatchLeaseholders(1)).Exec(ctx, nil)).To(Succeed())
+		Expect(retrievedChannels).To(HaveLen(limit + internalChannelCount))
+
+		// Retrieve a specific channel by name
+		var singleChannel channel.Channel
+		Expect(retrieve.Where(channel.MatchKeys(createdChannels[0].Key())).Entry(&singleChannel).Exec(ctx, nil)).To(Succeed())
+		Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
+	})
+	It("Should not edit the channel limit if a deletion fails in TS", func(ctx SpecContext) {
+		createdChannels := make([]channel.Channel, int(limit))
+		for i := range limit {
+			ch := channel.Channel{
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
+				Name:        fmt.Sprintf("LimitTest%d", i),
+				Leaseholder: 1,
+			}
+			Expect(limitSvc.Create(ctx, &ch)).To(Succeed())
+			createdChannels[i] = ch
+		}
+		MustOpen(MustSucceed(writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: limitSvc})).Open(ctx, framer.WriterConfig{
+			Keys: []channel.Key{createdChannels[0].Key()},
+		}))
+		Expect(limitSvc.Delete(ctx, createdChannels[0].Key(), false)).
+			To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+		newCh := channel.Channel{
+			IsIndex:     true,
+			DataType:    telem.TimeStampT,
+			Name:        "NewAfterDelete",
+			Leaseholder: 1,
+		}
+		Expect(limitSvc.Create(ctx, &newCh)).
+			To(MatchError(ContainSubstring("channel limit exceeded")))
+	})
 })
