@@ -15,76 +15,82 @@ import { Items } from "@/layered/app/nav/items";
 import { Session } from "@/layered/session";
 import { View } from "@/layered/view";
 
-export const Left = (): ReactElement => {
+const BottomMenu = () => {
   const dispatch = useDispatch();
-  const { selected } = Session.Nav.useSelectLeft();
-  const { visible } = Session.Nav.useSelectBottom();
-  const onSelectLeft = useCallback(
-    (key: string) => dispatch(Session.Nav.selectLeft({ key })),
-    [dispatch],
-  );
-  const onToggleLeft = useCallback(
-    (key: string) => dispatch(Session.Nav.toggleLeft({ key })),
-    [dispatch],
-  );
-  const onPinLeft = useCallback(
-    (key: string) => dispatch(Session.Nav.pinLeft({ key })),
-    [dispatch],
-  );
-  const onStartLeftHover = useCallback(
-    (key: string) => dispatch(Session.Nav.startLeftHover({ key })),
-    [dispatch],
-  );
-  const onStopLeftHover = useCallback(
-    () => dispatch(Session.Nav.stopLeftHover({})),
-    [dispatch],
-  );
-
-  const onSelectBottom = useCallback(
+  const visible = Session.Nav.useSelectBottomVisible();
+  const handleSelect = useCallback(
     () => dispatch(Session.Nav.selectBottom({})),
     [dispatch],
   );
-  const onToggleBottom = useCallback(
+  const handleToggle = useCallback(
     () => dispatch(Session.Nav.toggleBottom({})),
     [dispatch],
   );
-  const onPinBottom = useCallback(
-    () => dispatch(Session.Nav.setBottomVisible({ visible: true })),
-    [dispatch],
-  );
-  const onStartBottomHover = useCallback(
+  const handlePin = useCallback(() => dispatch(Session.Nav.showBottom({})), [dispatch]);
+  const handleStartHover = useCallback(
     () => dispatch(Session.Nav.startBottomHover({})),
     [dispatch],
   );
-  const onStopBottomHover = useCallback(
+  const handlestopHover = useCallback(
     () => dispatch(Session.Nav.stopBottomHover({})),
     [dispatch],
   );
-
   return (
-    <View.Nav.Bar location="left" size="8rem">
-      <Nav.Bar.Content align="center">
-        <View.Nav.Menu
-          items={Items.LEFT}
-          activeKey={selected}
-          onSelect={onSelectLeft}
-          onToggle={onToggleLeft}
-          onPin={onPinLeft}
-          onStartHover={onStartLeftHover}
-          onStopHover={onStopLeftHover}
-        />
-      </Nav.Bar.Content>
-      <Nav.Bar.End bordered>
-        <View.Nav.Menu
-          items={Items.BOTTOM}
-          activeKey={visible ? Items.BOTTOM.key : undefined}
-          onSelect={onSelectBottom}
-          onToggle={onToggleBottom}
-          onPin={onPinBottom}
-          onStartHover={onStartBottomHover}
-          onStopHover={onStopBottomHover}
-        />
-      </Nav.Bar.End>
-    </View.Nav.Bar>
+    <View.Nav.Menu
+      items={Items.BOTTOM}
+      activeKey={visible ? Items.BOTTOM.key : undefined}
+      onSelect={handleSelect}
+      onToggle={handleToggle}
+      onPin={handlePin}
+      onStartHover={handleStartHover}
+      onStopHover={handlestopHover}
+    />
   );
 };
+
+const LeftMenu = () => {
+  const dispatch = useDispatch();
+  const selected = Session.Nav.useSelectLeftSelected();
+  const handleSelect = useCallback(
+    (key: string) => dispatch(Session.Nav.selectLeft({ key })),
+    [dispatch],
+  );
+  const handleToggle = useCallback(
+    (key: string) => dispatch(Session.Nav.toggleLeft({ key })),
+    [dispatch],
+  );
+  const handlePin = useCallback(
+    (key: string) => dispatch(Session.Nav.pinLeft({ key })),
+    [dispatch],
+  );
+  const handleStartover = useCallback(
+    (key: string) => dispatch(Session.Nav.startLeftHover({ key })),
+    [dispatch],
+  );
+  const handleStopHover = useCallback(
+    () => dispatch(Session.Nav.stopLeftHover({})),
+    [dispatch],
+  );
+  return (
+    <View.Nav.Menu
+      items={Items.LEFT}
+      activeKey={selected}
+      onSelect={handleSelect}
+      onToggle={handleToggle}
+      onPin={handlePin}
+      onStartHover={handleStartover}
+      onStopHover={handleStopHover}
+    />
+  );
+};
+
+export const Left = (): ReactElement => (
+  <View.Nav.Bar location="left" size="8rem">
+    <Nav.Bar.Content align="center">
+      <LeftMenu />
+    </Nav.Bar.Content>
+    <Nav.Bar.End bordered>
+      <BottomMenu />
+    </Nav.Bar.End>
+  </View.Nav.Bar>
+);

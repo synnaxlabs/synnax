@@ -13,6 +13,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
+import { Items } from "@/layered/app/nav/items";
 import { Session } from "@/layered/session";
 import { View } from "@/layered/view";
 import { Layout } from "@/layout";
@@ -20,9 +21,7 @@ import { Project } from "@/project";
 
 const BottomToggleButton = (): ReactElement => {
   const dispatch = useDispatch();
-  const toggle = useCallback(() => {
-    dispatch(Session.Nav.toggleBottom({}));
-  }, []);
+  const toggle = useCallback(() => dispatch(Session.Nav.toggleBottom({})), []);
   return (
     <Button.Button
       variant="outlined"
@@ -33,7 +32,7 @@ const BottomToggleButton = (): ReactElement => {
       contrast={2}
       color={9}
       weight={450}
-      triggerIndicator={["V"]}
+      triggerIndicator={Items.BOTTOM.trigger}
     >
       <Icon.Visualize />
       Controls
@@ -41,7 +40,7 @@ const BottomToggleButton = (): ReactElement => {
   );
 };
 
-export const AuxTop = (): ReactElement | null => {
+export const AuxTop = (): ReactElement => {
   const os = OS.use();
   const activeName = Layout.useSelectActiveMosaicTabName();
   const activeProjectName = Project.useSelectActiveName();

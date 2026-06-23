@@ -37,7 +37,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    dispatch(Session.Nav.setBottomVisible({ visible: true }));
+    dispatch(Session.Nav.showBottom({}));
   }, [dispatch]);
 
   const handleConfigureChannels = useCallback(() => {

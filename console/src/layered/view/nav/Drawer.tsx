@@ -12,7 +12,6 @@ import { box, direction, type location, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Item } from "@/layered/view/nav/item";
 
 const mouseLeaveBy =
   (threshold: xy.XY, onLeave: (e: MouseEvent) => void) => (e: React.MouseEvent) => {
@@ -39,12 +38,9 @@ const SHORT_AXIS_THRESHOLD = 24;
 
 const X_THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
 
-interface DrawerProps {
+interface DrawerProps extends Nav.DrawerProps {
   location: location.Location;
-  activeItem?: Item;
   hover: boolean;
-  onResize: (size: number) => void;
-  onCollapse: () => void;
   onStopHover: () => void;
 }
 
@@ -52,24 +48,22 @@ export const Drawer = ({
   location: loc,
   activeItem,
   hover,
-  onResize,
-  onCollapse,
   onStopHover,
+  ...rest
 }: DrawerProps): ReactElement => (
   <Nav.Drawer
     location={loc}
     className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
     activeItem={activeItem}
-    onResize={onResize}
     onMouseLeave={mouseLeaveBy(
       direction.construct(loc) === "y" ? xy.swap(X_THRESHOLD) : X_THRESHOLD,
       onStopHover,
     )}
     eraseEnabled={activeItem != null && !hover}
-    onCollapse={onCollapse}
     background={0}
     rounded={1}
     bordered
     borderColor={5}
+    {...rest}
   />
 );

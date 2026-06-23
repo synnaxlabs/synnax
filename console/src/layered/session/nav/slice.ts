@@ -48,16 +48,12 @@ export interface StoreState {
 
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({});
 
-export interface LeftKeyPayload extends Window.OptionalKeyPayload {
+export interface LeftKeyPayload extends Window.OptionalKeyParams {
   key: string;
 }
 
-export interface ResizePayload extends Window.OptionalKeyPayload {
+export interface ResizePayload extends Window.OptionalKeyParams {
   size: number;
-}
-
-export interface VisiblePayload extends Window.OptionalKeyPayload {
-  visible: boolean;
 }
 
 const withKey = Window.createWithKeyHandler(windowStateZ);
@@ -100,7 +96,7 @@ const { actions, reducer } = createSlice({
         left.hover = true;
       },
     ),
-    stopLeftHover: withKey(({ left }) => {
+    stopLeftHover: withKey<Window.OptionalKeyParams, SliceState>(({ left }) => {
       if (!left.hover) return;
       left.hover = false;
       left.selected = undefined;
@@ -110,20 +106,18 @@ const { actions, reducer } = createSlice({
         left.size = size;
       },
     ),
-    selectBottom: withKey(({ bottom }) => {
+    selectBottom: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
       if (bottom.visible && !bottom.hover) bottom.visible = false;
       else {
         bottom.visible = true;
         bottom.hover = false;
       }
     }),
-    setBottomVisible: withKey<VisiblePayload, SliceState>(
-      ({ bottom }, { payload: { visible } }) => {
-        bottom.visible = visible;
-        bottom.hover = false;
-      },
-    ),
-    toggleBottom: withKey(({ bottom }) => {
+    showBottom: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
+      bottom.visible = true;
+      bottom.hover = false;
+    }),
+    toggleBottom: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
       if (bottom.visible && !bottom.hover) bottom.visible = false;
       else if (bottom.visible && bottom.hover) bottom.hover = false;
       else {
@@ -131,12 +125,12 @@ const { actions, reducer } = createSlice({
         bottom.hover = true;
       }
     }),
-    startBottomHover: withKey(({ bottom }) => {
+    startBottomHover: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
       if (bottom.visible && !bottom.hover) return;
       bottom.visible = true;
       bottom.hover = true;
     }),
-    stopBottomHover: withKey(({ bottom }) => {
+    stopBottomHover: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
       if (!bottom.hover) return;
       bottom.hover = false;
       bottom.visible = false;
@@ -146,7 +140,7 @@ const { actions, reducer } = createSlice({
         bottom.size = size;
       },
     ),
-    hideAll: withKey(({ left, bottom }) => {
+    hideAll: withKey<Window.OptionalKeyParams, SliceState>(({ left, bottom }) => {
       left.selected = undefined;
       left.hover = false;
       bottom.visible = false;
@@ -163,7 +157,7 @@ export const {
   stopLeftHover,
   resizeLeft,
   selectBottom,
-  setBottomVisible,
+  showBottom,
   toggleBottom,
   startBottomHover,
   stopBottomHover,
@@ -177,17 +171,19 @@ export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
 export const MIDDLEWARE = [
-  Window.createInjectKeyMiddleware(selectLeft),
-  Window.createInjectKeyMiddleware(pinLeft),
-  Window.createInjectKeyMiddleware(toggleLeft),
-  Window.createInjectKeyMiddleware(startLeftHover),
-  Window.createInjectKeyMiddleware(stopLeftHover),
-  Window.createInjectKeyMiddleware(resizeLeft),
-  Window.createInjectKeyMiddleware(selectBottom),
-  Window.createInjectKeyMiddleware(setBottomVisible),
-  Window.createInjectKeyMiddleware(toggleBottom),
-  Window.createInjectKeyMiddleware(startBottomHover),
-  Window.createInjectKeyMiddleware(stopBottomHover),
-  Window.createInjectKeyMiddleware(resizeBottom),
-  Window.createInjectKeyMiddleware(hideAll),
+  Window.createInjectKeyMiddleware([
+    selectLeft,
+    pinLeft,
+    toggleLeft,
+    startLeftHover,
+    stopLeftHover,
+    resizeLeft,
+    selectBottom,
+    showBottom,
+    toggleBottom,
+    startBottomHover,
+    stopBottomHover,
+    resizeBottom,
+    hideAll,
+  ]),
 ];

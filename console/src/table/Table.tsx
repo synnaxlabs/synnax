@@ -63,7 +63,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    if (canEdit) dispatch(Session.Nav.setBottomVisible({ visible: true }));
+    if (canEdit) dispatch(Session.Nav.showBottom({}));
   }, [canEdit, dispatch]);
 
   // When editing, indicators always show; the hideIndicators setting only

@@ -22,6 +22,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu } from "@/components/context-menu";
 import { createEnsureState } from "@/hooks/useEnsureState";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
@@ -37,7 +38,6 @@ import {
   setViewportMode,
 } from "@/schematic/slice";
 import { type RootState } from "@/store";
-import { Session } from "@/layered/session";
 
 const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });
@@ -99,8 +99,7 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    if (editable)
-      dispatch(Session.Nav.setBottomVisible({ visible: true }));
+    if (editable) dispatch(Session.Nav.showBottom({}));
   }, [editable, dispatch]);
 
   const handleNodeClickAction = useHandleNodeClickAction(key);

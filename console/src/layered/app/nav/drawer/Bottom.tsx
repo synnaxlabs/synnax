@@ -18,10 +18,13 @@ import { View } from "@/layered/view";
 export const Bottom = (): ReactElement => {
   const { visible, hover, size } = Session.Nav.useSelectBottom();
   const dispatch = useDispatch();
-  const activeItem = useMemo(() => {
-    if (!visible) return undefined;
-    return size != null ? { ...Items.BOTTOM, initialSize: size } : Items.BOTTOM;
-  }, [visible, size]);
+  const activeItem = useMemo(
+    () =>
+      visible
+        ? { ...Items.BOTTOM, initialSize: size ?? Items.BOTTOM.initialSize }
+        : undefined,
+    [size],
+  );
   const onResize = useDebouncedCallback(
     (size: number) => dispatch(Session.Nav.resizeBottom({ size })),
     TimeSpan.milliseconds(100),

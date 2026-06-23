@@ -400,7 +400,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
     const dispatch = useDispatch();
     const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
-      dispatch(Session.Nav.setBottomVisible({ visible: true }));
+      dispatch(Session.Nav.showBottom({}));
     }, [layoutKey]);
     if (windowKey == null || mosaic == null) return null;
     return (

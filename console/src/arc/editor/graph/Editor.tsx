@@ -223,8 +223,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    if (!state.graph.editable) return;
-    dispatch(Session.Nav.setBottomVisible({ visible: true }));
+    if (state.graph.editable) dispatch(Session.Nav.showBottom({}));
   }, [state.graph.editable, dispatch]);
 
   const handleViewportModeChange = useCallback(

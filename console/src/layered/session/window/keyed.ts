@@ -17,11 +17,11 @@ import { Drift } from "@synnaxlabs/drift";
 import { type require } from "@synnaxlabs/x";
 import type z from "zod";
 
-export interface OptionalKeyPayload {
+export interface OptionalKeyParams {
   windowKey?: string;
 }
 
-type RequireWindowKey<Payload extends OptionalKeyPayload> = require.Require<
+type RequireWindowKey<Payload extends OptionalKeyParams> = require.Require<
   Payload,
   "windowKey"
 >;
@@ -29,7 +29,7 @@ type RequireWindowKey<Payload extends OptionalKeyPayload> = require.Require<
 export const createWithKeyHandler =
   <State extends z.ZodType>(schema: State) =>
   <
-    Payload extends OptionalKeyPayload,
+    Payload extends OptionalKeyParams,
     SliceState extends {
       windows: Record<string, z.output<State>>;
     },
@@ -53,17 +53,19 @@ export const createWithKeyHandler =
     handler(s, action as PayloadAction<RequireWindowKey<Payload>, Type>);
   };
 
-export const createInjectKeyMiddleware =
-  <StoreState, P extends { windowKey?: string }, T extends string = string>(
-    actionCreator: ActionCreatorWithPayload<P, T>,
-  ): Middleware<{}, Drift.StoreState & StoreState> =>
-  (store) =>
-  (next) =>
-  (action) => {
-    if (!actionCreator.match(action) || action.payload.windowKey != null)
+type KeyActionMatcher = Pick<ActionCreatorWithPayload<OptionalKeyParams>, "match">;
+
+export const createInjectKeyMiddleware = <StoreState>(
+  actionCreators: KeyActionMatcher | KeyActionMatcher[],
+): Middleware<{}, Drift.StoreState & StoreState> => {
+  const creators = Array.isArray(actionCreators) ? actionCreators : [actionCreators];
+  return (store) => (next) => (action) => {
+    const payload = (action as PayloadAction<OptionalKeyParams>).payload;
+    if (!creators.some((creator) => creator.match(action)) || payload.windowKey != null)
       return next(action);
     const windowKey = Drift.selectWindowKey(store.getState());
     if (windowKey == null) return;
-    action.payload.windowKey = windowKey;
+    payload.windowKey = windowKey;
     return next(action);
   };
+};
