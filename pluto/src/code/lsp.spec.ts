@@ -7,16 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type status, type Synnax } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type status } from "@synnaxlabs/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  type LSPMessage,
-  type LSPStream,
-  useLanguageServer,
-} from "@/code/lsp";
+import { type LSPMessage, type LSPStream, useLanguageServer } from "@/code/lsp";
 
 const { startMock, stopMock } = vi.hoisted(() => ({
   startMock: vi.fn(),
@@ -42,22 +37,44 @@ const MONACO = {} as unknown;
 
 // makeStream returns an LSPStream whose receive never settles, so a "connected" client
 // stays connected until the hook aborts it.
-const makeStream = (): LSPStream & { closeSend: ReturnType<typeof vi.fn> } => ({
+const makeStream = (): LSPStream & {
+  closeSend: ReturnType<typeof vi.fn<() => void>>;
+} => ({
   receive: () => new Promise<LSPMessage>(() => {}),
   send: vi.fn(),
-  closeSend: vi.fn(),
+  closeSend: vi.fn<() => void>(),
 });
 
-describe("useLanguageServer", () => {
-  let onStatus: ReturnType<typeof vi.fn>;
+type StatusFn = (s: status.Status) => void;
 
-  const statuses = (): status.Status[] =>
-    onStatus.mock.calls.map((c) => c[0] as status.Status);
+describe("useLanguageServer", () => {
+  let onStatus: ReturnType<typeof vi.fn<StatusFn>>;
+
+  const statuses = (): status.Status[] => onStatus.mock.calls.map((c) => c[0]);
   const variants = (): string[] => statuses().map((s) => s.variant);
   const last = (): status.Status => statuses().at(-1) as status.Status;
 
+  // The first client start cold-loads the monaco runtime, whose deep CSS imports cannot
+  // be evaluated under Node's ESM loader. That failure is a test-env artifact (CSS loads
+  // fine in the browser), so absorb it once here rather than letting it surface in the
+  // first connection assertion.
+  beforeAll(async () => {
+    startMock.mockResolvedValue(undefined);
+    const warmStatus = vi.fn<StatusFn>();
+    renderHook(() =>
+      useLanguageServer({
+        monaco: MONACO,
+        client: CLIENT,
+        languageID: "arc",
+        open: vi.fn().mockResolvedValue(makeStream()),
+        onStatus: warmStatus,
+      }),
+    );
+    await waitFor(() => expect(warmStatus.mock.calls.length).toBeGreaterThan(1));
+  });
+
   beforeEach(() => {
-    onStatus = vi.fn();
+    onStatus = vi.fn<StatusFn>();
     startMock.mockReset().mockResolvedValue(undefined);
     stopMock.mockReset().mockResolvedValue(undefined);
   });
