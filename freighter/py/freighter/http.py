@@ -232,7 +232,9 @@ class HTTPClient(MiddlewareCollector):
             raise ValueError(f"no decoder registered for response Content-Type {ct!r}")
         return decoder
 
-    def _raise_response_error(self, http_res: BaseHTTPResponse, data: bytes) -> NoReturn:
+    def _raise_response_error(
+        self, http_res: BaseHTTPResponse, data: bytes
+    ) -> NoReturn:
         decoder = self._resolve_decoder(http_res)
         try:
             payload = decoder.decode(data, ExceptionPayload)
