@@ -21,7 +21,7 @@ const KEY = "log-1";
 const customState = Log.stateZ.parse({ toolbar: { activeTab: "properties" } });
 
 const storeState: Log.StoreState = {
-  [Log.SLICE_NAME]: { logs: { [KEY]: customState } },
+  [Log.SLICE_NAME]: { version: 0, logs: { [KEY]: customState } },
 };
 
 const params = { state: storeState, key: KEY };
@@ -67,13 +67,6 @@ describe("log selectors", () => {
       expect(Log.selectActiveToolbarTab(params)).toBe("properties");
     });
   });
-
-  describe("selectVersion", () => {
-    it("should read the version, undefined when absent", () => {
-      expect(Log.selectVersion(params)).toBe(Log.ZERO_STATE.version);
-      expect(Log.selectVersion({ state: storeState, key: "absent" })).toBeUndefined();
-    });
-  });
 });
 
 const storeWith = (slice: Log.SliceState) =>
@@ -97,7 +90,7 @@ const wrapperFor = (
 
 describe("log selector hooks", () => {
   const store = (): ReturnType<typeof storeWith> =>
-    storeWith({ logs: { [KEY]: customState } });
+    storeWith({ version: 0, logs: { [KEY]: customState } });
 
   it("should resolve the key from the surrounding scope", () => {
     const { result } = renderHook(() => Log.useSelect(), {
@@ -125,12 +118,5 @@ describe("log selector hooks", () => {
       wrapper: wrapperFor(store(), KEY),
     });
     expect(result.current).toBe("properties");
-  });
-
-  it("should read the version", () => {
-    const { result } = renderHook(() => Log.useSelectVersion(), {
-      wrapper: wrapperFor(store(), KEY),
-    });
-    expect(result.current).toBe(Log.ZERO_STATE.version);
   });
 });

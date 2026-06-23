@@ -90,8 +90,10 @@ describe("Log Slice", () => {
       expect(Log.stateZ.parse(withoutToolbar).toolbar).toEqual(Log.ZERO_STATE.toolbar);
     });
 
-    it("should reject an incorrect version", () => {
-      expect(() => Log.stateZ.parse({ ...Log.ZERO_STATE, version: "1.0.0" })).toThrow();
+    it("should reject an incorrect slice version", () => {
+      expect(() =>
+        Log.sliceStateZ.parse({ ...Log.ZERO_SLICE_STATE, version: 1 }),
+      ).toThrow();
     });
   });
 });

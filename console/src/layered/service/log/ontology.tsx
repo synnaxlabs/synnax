@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log, ontology, type Synnax } from "@synnaxlabs/client";
-import { Access, Icon, Log as PLog, Menu, Mosaic } from "@synnaxlabs/pluto";
+import { Access, Icon, Log, Menu, Mosaic } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -26,7 +26,7 @@ import { createUseRename } from "@/ontology/createUseRename";
 
 const useDelete = createUseDelete({
   type: "Log",
-  query: PLog.useDelete,
+  query: Log.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, removeLayout, store }) => {
     removeLayout(...data);
@@ -36,7 +36,7 @@ const useDelete = createUseDelete({
 });
 
 const useRename = createUseRename({
-  query: PLog.useRename,
+  query: Log.useRename,
   ontologyID: log.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {

@@ -11,8 +11,6 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type log } from "@synnaxlabs/client";
 import z from "zod";
 
-export const VERSION = "2.0.0";
-
 export const toolbarTabZ = z.enum(["channels", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
@@ -22,7 +20,6 @@ export const toolbarStateZ = z.object({
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
 export const stateZ = z.object({
-  version: z.literal(VERSION).default(VERSION),
   toolbar: toolbarStateZ.prefault({}),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -31,6 +28,7 @@ export interface NewState extends z.input<typeof stateZ> {}
 export const ZERO_STATE = stateZ.parse({});
 
 export const sliceStateZ = z.object({
+  version: z.literal(0).default(0),
   logs: z.record(z.string(), stateZ).default({}),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}

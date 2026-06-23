@@ -54,8 +54,3 @@ export const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab 
   selectState(params).toolbar.activeTab;
 
 export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
-
-export const selectVersion = (params: KeyedSelectorParams): string | undefined =>
-  selectOptional(params)?.version;
-
-export const useSelectVersion = createSelector(selectVersion);

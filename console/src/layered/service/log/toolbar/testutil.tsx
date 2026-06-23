@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, type log } from "@synnaxlabs/client";
-import { Log as PLog } from "@synnaxlabs/pluto";
+import { Log } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
 import {
@@ -37,7 +37,7 @@ const project = async (): Promise<string> =>
 // a shape that trips a React 19 concurrent-replay error.
 const loadLog = async (Wrapper: FC<PropsWithChildren>, key: string): Promise<void> => {
   const Bootstrap = (): ReactElement => {
-    PLog.useEnsureRetrieved({ key });
+    Log.useEnsureRetrieved({ key });
     return <div data-testid="loaded" />;
   };
   let utils!: ReturnType<typeof render>;
