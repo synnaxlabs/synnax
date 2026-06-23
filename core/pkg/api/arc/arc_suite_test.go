@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	arc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -58,7 +58,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.Open())
-	dist := DeferClose(mock.NewCluster().Provision(ctx))
+	dist := mock.MustOpenNode(ctx)
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -77,11 +77,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      dist.Channel,
+		DB:           dist.DB,
+		HostResolver: dist.Cluster,
+		Ontology:     dist.Ontology,
+		Group:        dist.Group,
+		Status:       statSvc,
+		Search:       dist.Search,
+	}))
+
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,
 		Group:               groupSvc,
-		HostProvider:        mock.StaticHostKeyProvider(1),
+		HostProvider:        mock.NewStaticHostProvider(1),
 		Status:              statSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
 		Search:              searchIdx,
@@ -97,7 +107,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Channel:  channel.Wrap(dist.Channel),
+		Channel:  channelSvc,
 		Task:     taskSvc,
 		Search:   searchIdx,
 	}))

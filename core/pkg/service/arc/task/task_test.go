@@ -581,7 +581,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  []channel.Key{trig.Key()},
 				Start: telem.Now(),
 			}))
