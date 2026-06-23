@@ -65,6 +65,22 @@ type Text struct {
 	// order caches the in-order traversal of every element, rebuilt lazily when dirty.
 	order []*element
 	dirty bool
+	// visibleCache caches the live characters in document order. It is nil when stale and
+	// must be recomputed on the next read.
+	visibleCache []*element
+	// str caches the materialized string; strValid reports whether it is current.
+	str      string
+	strValid bool
+	// live is the number of non-deleted characters, maintained incrementally so Len is
+	// constant time.
+	live int
+}
+
+// markDirty invalidates the cached traversal and derived caches after a mutation.
+func (t *Text) markDirty() {
+	t.dirty = true
+	t.visibleCache = nil
+	t.strValid = false
 }
 
 // New creates an empty document owned by the given replica. The replica must be non-zero
@@ -120,26 +136,45 @@ func (t *Text) rebuild() {
 		return
 	}
 	t.order = t.order[:0]
-	t.walk(t.root)
+	t.walk()
 	t.dirty = false
 }
 
-// walk appends the in-order traversal of the subtree rooted at e to t.order, excluding
-// the root sentinel itself.
-func (t *Text) walk(e *element) {
-	for _, c := range e.left {
-		t.walk(c)
+// walk appends the in-order traversal of the tree to t.order, excluding the root
+// sentinel. The traversal is iterative with an explicit stack because a document built by
+// typing in a single direction forms a tree as deep as it is long, which would overflow
+// the call stack under recursion.
+func (t *Text) walk() {
+	type frame struct {
+		node *element
+		emit bool
 	}
-	if e != t.root {
-		t.order = append(t.order, e)
-	}
-	for _, c := range e.right {
-		t.walk(c)
+	stack := []frame{{node: t.root}}
+	for len(stack) > 0 {
+		f := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if f.emit {
+			t.order = append(t.order, f.node)
+			continue
+		}
+		for i := len(f.node.right) - 1; i >= 0; i-- {
+			stack = append(stack, frame{node: f.node.right[i]})
+		}
+		if f.node != t.root {
+			stack = append(stack, frame{node: f.node, emit: true})
+		}
+		for i := len(f.node.left) - 1; i >= 0; i-- {
+			stack = append(stack, frame{node: f.node.left[i]})
+		}
 	}
 }
 
-// visible returns the live characters in document order.
+// visible returns the live characters in document order. The result is cached and reused
+// until the next mutation.
 func (t *Text) visible() []*element {
+	if t.visibleCache != nil {
+		return t.visibleCache
+	}
 	t.rebuild()
 	out := make([]*element, 0, len(t.order))
 	for _, e := range t.order {
@@ -147,20 +182,27 @@ func (t *Text) visible() []*element {
 			out = append(out, e)
 		}
 	}
+	t.visibleCache = out
 	return out
 }
 
 // Len returns the number of live characters in the document.
-func (t *Text) Len() int { return len(t.visible()) }
+func (t *Text) Len() int { return t.live }
 
-// String materializes the document into its current string value.
+// String materializes the document into its current string value. The result is cached
+// and reused until the next mutation.
 func (t *Text) String() string {
+	if t.strValid {
+		return t.str
+	}
 	vis := t.visible()
 	runes := make([]rune, len(vis))
 	for i, e := range vis {
 		runes[i] = rune(e.char)
 	}
-	return string(runes)
+	t.str = string(runes)
+	t.strValid = true
+	return t.str
 }
 
 // IndexToID returns the id of the character at the given live index. The second return
@@ -256,7 +298,8 @@ func (t *Text) ApplyDelete(ops ...Delete) {
 		if e, ok := t.elements[op.ID]; ok {
 			if !e.deleted {
 				e.deleted = true
-				t.dirty = true
+				t.live--
+				t.markDirty()
 			}
 			continue
 		}
@@ -289,7 +332,10 @@ func (t *Text) place(op Insert) *element {
 		origin.right = sortedInsert(origin.right, e)
 	}
 	t.elements[op.ID] = e
-	t.dirty = true
+	if !e.deleted {
+		t.live++
+	}
+	t.markDirty()
 	return e
 }
 

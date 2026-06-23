@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Theming } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -19,7 +18,6 @@ export const VERSION = "5.0.0";
 
 export const sliceStateZ = v4.sliceStateZ.omit({ version: true }).extend({
   version: z.literal(VERSION),
-  themes: z.record(z.string(), Theming.themeZ),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;
@@ -58,14 +56,5 @@ export const sliceMigration: migrate.Migration<v4.SliceState, SliceState> =
       ...s,
       version: VERSION,
       nav: ZERO_NAV_STATE,
-      activeTheme: Theming.SYNNAX_DARK.key,
-      themes: {
-        [Theming.SYNNAX_DARK.key]: Theming.themeZ.parse(
-          Theming.SYNNAX_THEMES.synnaxDark,
-        ),
-        [Theming.SYNNAX_LIGHT.key]: Theming.themeZ.parse(
-          Theming.SYNNAX_THEMES.synnaxLight,
-        ),
-      },
     }),
   });

@@ -55,8 +55,8 @@ type TriggerMode = "clear" | "undo" | "redo" | "default";
 
 const TRIGGERS_CONFIG: Triggers.ModeConfig<TriggerMode> = {
   clear: [["Delete"], ["Backspace"]],
-  undo: [["Control", "Z"]],
-  redo: [["Control", "Shift", "Z"]],
+  undo: [Triggers.UNDO],
+  redo: [Triggers.REDO],
   default: [],
   defaultMode: "default",
 };

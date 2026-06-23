@@ -55,6 +55,13 @@ export class Text {
   private pending: Insert[] = [];
   private order: Element[] = [];
   private dirty = true;
+  // visibleCache caches the live characters in document order; null when stale.
+  private visibleCache: Element[] | null = null;
+  // stringCache caches the materialized string; null when stale.
+  private stringCache: string | null = null;
+  // live is the number of non-deleted characters, maintained incrementally so len is
+  // constant time.
+  private live = 0;
 
   constructor(replica: number) {
     this.replica = replica;
@@ -107,9 +114,16 @@ export class Text {
     this.applyDelete(...snapshot.deletes);
   }
 
+  // markDirty invalidates the cached traversal and derived caches after a mutation.
+  private markDirty(): void {
+    this.dirty = true;
+    this.visibleCache = null;
+    this.stringCache = null;
+  }
+
   private rebuild(): void {
     if (!this.dirty) return;
-    this.order = [];
+    this.order.length = 0;
     this.walk();
     this.dirty = false;
   }
@@ -140,23 +154,28 @@ export class Text {
   }
 
   private visible(): Element[] {
+    if (this.visibleCache != null) return this.visibleCache;
     this.rebuild();
-    return this.order.filter((e) => !e.deleted);
+    this.visibleCache = this.order.filter((e) => !e.deleted);
+    return this.visibleCache;
   }
 
   /** len returns the number of live characters in the document. */
   len(): number {
-    return this.visible().length;
+    return this.live;
   }
 
-  /** toString materializes the document into its current string value. */
+  /** toString materializes the document into its current string value. The result is
+   * cached and reused until the next mutation. */
   toString(): string {
+    if (this.stringCache != null) return this.stringCache;
     const vis = this.visible();
     let out = "";
     for (let i = 0; i < vis.length; i += TO_STRING_CHUNK) {
       const codes = vis.slice(i, i + TO_STRING_CHUNK).map((e) => e.char);
       out += String.fromCodePoint(...codes);
     }
+    this.stringCache = out;
     return out;
   }
 
@@ -238,7 +257,8 @@ export class Text {
       if (e != null) {
         if (!e.deleted) {
           e.deleted = true;
-          this.dirty = true;
+          this.live -= 1;
+          this.markDirty();
         }
         continue;
       }
@@ -266,7 +286,8 @@ export class Text {
     if (op.side === "left") sortedInsert(origin.left, e);
     else sortedInsert(origin.right, e);
     this.elements.set(key, e);
-    this.dirty = true;
+    if (!e.deleted) this.live += 1;
+    this.markDirty();
     return e;
   }
 
