@@ -10,8 +10,8 @@
 import { table } from "@synnaxlabs/client";
 import { Access, Table as PTable } from "@synnaxlabs/pluto";
 
+import { useCreate } from "@/layered/service/table/useCreate";
 import { Palette } from "@/palette";
-import { useCreate } from "@/table/useCreate";
 
 const CreateCommand: Palette.Command = (listProps) => {
   const create = useCreate({});

@@ -9,8 +9,8 @@
 
 import { Table as PTable } from "@synnaxlabs/pluto";
 
+import { create } from "@/layered/service/table/layout";
 import { Project } from "@/project";
-import { create } from "@/table/layout";
 
 export const useCreate = Project.createUseCreate({
   useCreate: PTable.useCreate,

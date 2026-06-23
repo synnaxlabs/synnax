@@ -8,21 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type Export } from "@/export";
+import { Table } from "@/layered/service/table/body/Table";
+import { extract } from "@/layered/service/table/imex/export";
+import { LAYOUT_TYPE } from "@/layered/service/table/layout";
+import { Selectable } from "@/layered/service/table/Selectable";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
-import { extract } from "@/table/export";
-import { LAYOUT_TYPE } from "@/table/layout";
-import { Selectable } from "@/table/Selectable";
-import { Table } from "@/table/Table";
 
-export * from "@/table/export";
-export * from "@/table/layout";
-export * from "@/table/Selectable";
-export * from "@/table/selectors";
-export * from "@/table/slice";
-export * from "@/table/Table";
-export * from "@/table/Toolbar";
-export * from "@/table/useCreate";
+export * from "@/layered/service/table/imex";
+export * from "@/layered/service/table/layout";
+export * from "@/layered/service/table/link";
+export * from "@/layered/service/table/ontology";
+export * from "@/layered/service/table/palette";
+export * from "@/layered/service/table/toolbar";
+export * from "@/layered/service/table/useCreate";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 
