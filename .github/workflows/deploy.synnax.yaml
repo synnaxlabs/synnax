@@ -85,7 +85,7 @@ jobs:
       VERSION: ${{ steps.version.outputs.VERSION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Get version
         id: version
@@ -109,7 +109,7 @@ jobs:
       CONSOLE_VERSION: ${{ steps.console-version.outputs.VERSION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Get Console Version
         id: console-version
@@ -195,7 +195,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download Core Binary
         uses: actions/download-artifact@v8
@@ -248,7 +248,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Create Driver Install Script for NI Linux Real-Time
         run: |
@@ -278,7 +278,7 @@ jobs:
       VERSION: ${{ needs.create-release.outputs.CONSOLE_VERSION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Get Console Version
         id: console-version
