@@ -17,6 +17,14 @@ cc_library(
         "@platforms//os:windows": ["/wd4191"],
         "//conditions:default": [],
     }),
+    # cpp-httplib's TLS system-cert loading calls Apple's Security framework on macOS.
+    linkopts = select({
+        "@platforms//os:macos": [
+            "-framework CoreFoundation",
+            "-framework Security",
+        ],
+        "//conditions:default": [],
+    }),
     defines = ["CPPHTTPLIB_OPENSSL_SUPPORT"],
     visibility = ["//visibility:public"],
     deps = [
