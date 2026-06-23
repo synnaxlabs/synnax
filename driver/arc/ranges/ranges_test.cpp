@@ -317,7 +317,10 @@ TEST(EndRangeTest, NextSetsEndToNow) {
     auto [updated, err] = client->ranges.retrieve_by_key(r.key);
     ASSERT_NIL(err);
     EXPECT_GE(updated.time_range.end.nanoseconds(), before.nanoseconds());
-    EXPECT_LE(updated.time_range.end.nanoseconds(), x::telem::TimeStamp::now().nanoseconds());
+    EXPECT_LE(
+        updated.time_range.end.nanoseconds(),
+        x::telem::TimeStamp::now().nanoseconds()
+    );
     EXPECT_NE(updated.time_range.end, x::telem::TimeStamp::max());
 }
 

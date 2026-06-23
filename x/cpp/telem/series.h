@@ -764,9 +764,8 @@ public:
         }
         std::visit(
             [this, index]<typename T>(const T &v) {
-                if constexpr (
-                    !std::is_same_v<T, std::string> && !std::is_same_v<T, TimeStamp>
-                ) {
+                if constexpr (!std::is_same_v<T, std::string> &&
+                              !std::is_same_v<T, TimeStamp>) {
                     this->set(index, v);
                 }
             },
@@ -865,10 +864,8 @@ public:
     template<typename T>
     size_t write(const T &d) {
         this->ensure_exclusive();
-        if constexpr (
-            std::is_same_v<T, std::string> || std::is_same_v<T, const char *> ||
-            std::is_same_v<T, char *>
-        ) {
+        if constexpr (std::is_same_v<T, std::string> ||
+                      std::is_same_v<T, const char *> || std::is_same_v<T, char *>) {
             if (!this->data_type().matches({STRING_T, JSON_T}))
                 throw std::runtime_error(
                     "cannot write string to non-string/JSON series"
