@@ -130,6 +130,7 @@ export const translateNodeChangeForward = (
 export type EdgeChange =
   | { type: "add"; edge: Edge }
   | { type: "remove"; key: string }
+  | { type: "reconnect"; key: string; source: Handle; target: Handle }
   | { type: "select"; key: string; selected: boolean };
 
 export const translateEdgeChangeForward = (
@@ -192,6 +193,18 @@ export const createEndpoint = (
 
 export const createEdgeFromConnection = (connection: rf.Connection): Edge => ({
   key: id.create(),
+  source: { node: connection.source, param: connection.sourceHandle ?? "" },
+  target: { node: connection.target, param: connection.targetHandle ?? "" },
+});
+
+// createReconnect builds a reconnect change repointing the edge with the given key
+// onto the new connection's endpoints, preserving the edge's identity.
+export const createReconnect = (
+  key: string,
+  connection: rf.Connection,
+): EdgeChange => ({
+  type: "reconnect",
+  key,
   source: { node: connection.source, param: connection.sourceHandle ?? "" },
   target: { node: connection.target, param: connection.targetHandle ?? "" },
 });

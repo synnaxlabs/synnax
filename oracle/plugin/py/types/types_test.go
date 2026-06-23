@@ -1292,6 +1292,10 @@ var _ = Describe("Python Types Plugin", func() {
 						code StatusCode
 						message string
 					}
+
+					Details struct {
+						running bool = false
+					}
 				`)
 			})
 
@@ -1330,6 +1334,25 @@ var _ = Describe("Python Types Plugin", func() {
 					ToContain(
 						`from synnax import status`,
 						`code: status.StatusCode`,
+					)
+			})
+
+			It("Should qualify cross-namespace struct default with its module alias", func(ctx SpecContext) {
+				source := `
+					import "schemas/status"
+
+					@py output "client/py/synnax/task"
+
+					Task struct {
+						key uuid
+						details status.Details = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from synnax import status`,
+						`details: status.Details = Field(default_factory=lambda: status.Details())`,
 					)
 			})
 
@@ -1860,6 +1883,22 @@ var _ = Describe("Collection type aliases and maps", func() {
 
 			Graph struct {
 				configs map<string, record>
+			}
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
+		)
+	})
+
+	It("Should render an explicitly empty map default as default_factory=dict", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Graph struct {
+				configs map<string, record> = {}
 			}
 		`
 		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)

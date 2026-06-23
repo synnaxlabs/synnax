@@ -12,15 +12,79 @@
 package arc
 
 import (
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
 
 const (
-	ActionTypeInsertChar = "insert_char"
-	ActionTypeDeleteChar = "delete_char"
+	ActionTypeRename          = "rename"
+	ActionTypeSetNode         = "set_node"
+	ActionTypeSetNodePosition = "set_node_position"
+	ActionTypeSetNodeConfig   = "set_node_config"
+	ActionTypeRemoveNode      = "remove_node"
+	ActionTypeAddEdge         = "add_edge"
+	ActionTypeRemoveEdge      = "remove_edge"
+	ActionTypeReconnectEdge   = "reconnect_edge"
+	ActionTypeInsertChar      = "insert_char"
+	ActionTypeDeleteChar      = "delete_char"
 )
+
+// RenamePayload renames the Arc module.
+type RenamePayload struct {
+	Name string `json:"name" msgpack:"name"`
+}
+
+// SetNodePayload inserts the node if no node with the same key exists, otherwise
+// replaces the existing node in place. Operates only on the node's position; the node's
+// function type and config are set separately via SetNodeConfig.
+type SetNodePayload struct {
+	Node graph.Node `json:"node" msgpack:"node"`
+}
+
+// SetNodePositionPayload moves a graph node to a new canvas position.
+type SetNodePositionPayload struct {
+	Key      string     `json:"key" msgpack:"key"`
+	Position spatial.XY `json:"position" msgpack:"position"`
+}
+
+// SetNodeConfigPayload merges the given config into the entry for the given key in the
+// graph configs map. Top-level fields present in the payload overwrite existing fields;
+// fields absent from the payload are preserved. The node's function type is held under
+// "type".
+type SetNodeConfigPayload struct {
+	Key    string              `json:"key" msgpack:"key"`
+	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
+}
+
+// RemoveNodePayload removes the node with the given key along with its config entry and
+// any edges connected to it.
+type RemoveNodePayload struct {
+	Key string `json:"key" msgpack:"key"`
+}
+
+// AddEdgePayload appends the edge to the graph. No-op when an edge with the same source
+// and target handles already exists, so concurrent additions of the same connection
+// converge regardless of differing keys.
+type AddEdgePayload struct {
+	Edge graph.Edge `json:"edge" msgpack:"edge"`
+}
+
+// RemoveEdgePayload removes the edge with the given key, if present.
+type RemoveEdgePayload struct {
+	Key string `json:"key" msgpack:"key"`
+}
+
+// ReconnectEdgePayload rewrites the endpoints of the edge with the given key,
+// preserving its key and kind. No-op when no edge with the key exists.
+type ReconnectEdgePayload struct {
+	Key    string    `json:"key" msgpack:"key"`
+	Source ir.Handle `json:"source" msgpack:"source"`
+	Target ir.Handle `json:"target" msgpack:"target"`
+}
 
 // InsertCharPayload carries a single collaborative-edit character insertion against the
 // module's text. The payload is a sequence CRDT operation; the server relays it to the
@@ -42,9 +106,17 @@ type DeleteCharPayload struct {
 // Action is a discriminated union for all Arc mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type       string             `json:"type" msgpack:"type"`
-	InsertChar *InsertCharPayload `json:"insert_char,omitempty" msgpack:"insert_char,omitempty"`
-	DeleteChar *DeleteCharPayload `json:"delete_char,omitempty" msgpack:"delete_char,omitempty"`
+	Type            string                  `json:"type" msgpack:"type"`
+	Rename          *RenamePayload          `json:"rename,omitempty" msgpack:"rename,omitempty"`
+	SetNode         *SetNodePayload         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
+	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
+	SetNodeConfig   *SetNodeConfigPayload   `json:"set_node_config,omitempty" msgpack:"set_node_config,omitempty"`
+	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
+	AddEdge         *AddEdgePayload         `json:"add_edge,omitempty" msgpack:"add_edge,omitempty"`
+	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
+	ReconnectEdge   *ReconnectEdgePayload   `json:"reconnect_edge,omitempty" msgpack:"reconnect_edge,omitempty"`
+	InsertChar      *InsertCharPayload      `json:"insert_char,omitempty" msgpack:"insert_char,omitempty"`
+	DeleteChar      *DeleteCharPayload      `json:"delete_char,omitempty" msgpack:"delete_char,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -56,6 +128,46 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
+		case ActionTypeRename:
+			if a.Rename == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Rename.Handle(state)
+		case ActionTypeSetNode:
+			if a.SetNode == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetNode.Handle(state)
+		case ActionTypeSetNodePosition:
+			if a.SetNodePosition == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetNodePosition.Handle(state)
+		case ActionTypeSetNodeConfig:
+			if a.SetNodeConfig == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetNodeConfig.Handle(state)
+		case ActionTypeRemoveNode:
+			if a.RemoveNode == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.RemoveNode.Handle(state)
+		case ActionTypeAddEdge:
+			if a.AddEdge == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.AddEdge.Handle(state)
+		case ActionTypeRemoveEdge:
+			if a.RemoveEdge == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.RemoveEdge.Handle(state)
+		case ActionTypeReconnectEdge:
+			if a.ReconnectEdge == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.ReconnectEdge.Handle(state)
 		case ActionTypeInsertChar:
 			if a.InsertChar == nil {
 				return state, union.MissingPayload(a.Type)
@@ -74,6 +186,46 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 		}
 	}
 	return state, nil
+}
+
+// NewRenameAction wraps a RenamePayload in an Action envelope.
+func NewRenameAction(p RenamePayload) Action {
+	return Action{Type: ActionTypeRename, Rename: &p}
+}
+
+// NewSetNodeAction wraps a SetNodePayload in an Action envelope.
+func NewSetNodeAction(p SetNodePayload) Action {
+	return Action{Type: ActionTypeSetNode, SetNode: &p}
+}
+
+// NewSetNodePositionAction wraps a SetNodePositionPayload in an Action envelope.
+func NewSetNodePositionAction(p SetNodePositionPayload) Action {
+	return Action{Type: ActionTypeSetNodePosition, SetNodePosition: &p}
+}
+
+// NewSetNodeConfigAction wraps a SetNodeConfigPayload in an Action envelope.
+func NewSetNodeConfigAction(p SetNodeConfigPayload) Action {
+	return Action{Type: ActionTypeSetNodeConfig, SetNodeConfig: &p}
+}
+
+// NewRemoveNodeAction wraps a RemoveNodePayload in an Action envelope.
+func NewRemoveNodeAction(p RemoveNodePayload) Action {
+	return Action{Type: ActionTypeRemoveNode, RemoveNode: &p}
+}
+
+// NewAddEdgeAction wraps a AddEdgePayload in an Action envelope.
+func NewAddEdgeAction(p AddEdgePayload) Action {
+	return Action{Type: ActionTypeAddEdge, AddEdge: &p}
+}
+
+// NewRemoveEdgeAction wraps a RemoveEdgePayload in an Action envelope.
+func NewRemoveEdgeAction(p RemoveEdgePayload) Action {
+	return Action{Type: ActionTypeRemoveEdge, RemoveEdge: &p}
+}
+
+// NewReconnectEdgeAction wraps a ReconnectEdgePayload in an Action envelope.
+func NewReconnectEdgeAction(p ReconnectEdgePayload) Action {
+	return Action{Type: ActionTypeReconnectEdge, ReconnectEdge: &p}
 }
 
 // NewInsertCharAction wraps a InsertCharPayload in an Action envelope.

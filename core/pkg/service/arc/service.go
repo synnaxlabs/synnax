@@ -221,8 +221,22 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		}); !ok(err, sig) {
 			return nil, err
 		}
+		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
+		deleteCfg.DisableSet = true
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
+			return nil, err
+		}
 	}
 	return s, nil
+}
+
+// OnAction subscribes the given handler to the action stream emitted by
+// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
+// underlying transaction commits. The returned Disconnect removes the handler.
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnAction(handler)
 }
 
 // Observe returns an observable that notifies callers of changes to Arc entries.

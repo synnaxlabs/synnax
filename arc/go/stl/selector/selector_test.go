@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -39,14 +40,18 @@ var _ = Describe("Select", func() {
 			factory = selector.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -95,14 +100,18 @@ var _ = Describe("Select", func() {
 			factory = selector.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -380,14 +389,18 @@ var _ = Describe("Select", func() {
 		It("Should create node for bare select via CompoundFactory", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -424,14 +437,18 @@ var _ = Describe("Select", func() {
 		It("Should propagate alignment and time range to both outputs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{

@@ -17,6 +17,7 @@ import "schemas/arc/compiler"
 import "schemas/arc/program"
 
 @ts output  "client/ts/src/arc"
+@py output  "client/py/synnax/arc"
 @go output  "core/pkg/service/arc"
 @cpp output "client/cpp/arc"
 @pb
@@ -62,10 +63,10 @@ Arc struct {
             Either "text" for text-based Arc code or "graph" for visual dataflow.
         """
     }
-    graph   graph.Graph      {
+    graph   graph.Graph = {} {
         @doc value "is the visual dataflow graph representation of the module."
     }
-    text    text.Text        {
+    text    text.Text = {} {
         @doc value "is the text-based Arc source code."
     }
     program program.Program? {
@@ -77,6 +78,82 @@ Arc struct {
     status  Status?          {
         @doc value  "is the current execution status of the module."
         @go marshal omit
+    }
+
+    action Rename {
+        name string
+
+        @doc value "renames the Arc module."
+    }
+
+    action SetNode {
+        node graph.Node
+
+        @doc value """
+            inserts the node if no node with the same key exists, otherwise
+            replaces the existing node in place. Operates only on the node's
+            position; the node's function type and config are set separately
+            via SetNodeConfig.
+        """
+    }
+
+    action SetNodePosition {
+        key      string
+        position spatial.XY
+
+        @doc value "moves a graph node to a new canvas position."
+    }
+
+    action SetNodeConfig {
+        key    string
+        config record {
+            @ts preserve_case
+        }
+
+        @doc value """
+            merges the given config into the entry for the given key in the
+            graph configs map. Top-level fields present in the payload overwrite
+            existing fields; fields absent from the payload are preserved. The
+            node's function type is held under "type".
+        """
+    }
+
+    action RemoveNode {
+        key string
+
+        @doc value """
+            removes the node with the given key along with its config entry and
+            any edges connected to it.
+        """
+    }
+
+    action AddEdge {
+        edge graph.Edge
+
+        @doc value """
+            appends the edge to the graph. No-op when an edge with the same
+            source and target handles already exists, so concurrent additions of
+            the same connection converge regardless of differing keys.
+        """
+    }
+
+    action RemoveEdge {
+        key string
+
+        @doc value """
+            removes the edge with the given key, if present.
+        """
+    }
+
+    action ReconnectEdge {
+        key    string
+        source ir.Handle
+        target ir.Handle
+
+        @doc value """
+            rewrites the endpoints of the edge with the given key, preserving its
+            key and kind. No-op when no edge with the key exists.
+        """
     }
 
     action InsertChar extends crdt.Insert {
@@ -103,6 +180,7 @@ Arc struct {
     @ontology type "arc"
     @go marshal
     @go migrate
+    @py name       "Payload"
     @retrieve
     @search
     @create

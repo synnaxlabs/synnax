@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/testutil"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -141,15 +142,20 @@ var _ = Describe("Channel", func() {
 			factory = MustSucceed(channels.NewHost(ctx, nil, nil, nil))
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "test", Type: "on"},
-					{Key: "producer", Type: "producer"},
-					{Key: "writer", Type: "write"},
+					{Key: "test"},
+					{Key: "producer"},
+					{Key: "writer"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"test":     {"type": "on"},
+					"producer": {"type": "producer"},
+					"writer":   {"type": "write"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "producer", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "writer", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{Key: "on"},
@@ -260,7 +266,10 @@ var _ = Describe("Channel", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes: []graph.Node{{Key: "source", Type: "on"}},
+				Nodes: []graph.Node{{Key: "source"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "on"},
+				},
 				Functions: []graph.Function{{
 					Key: "on",
 					Outputs: types.Params{
@@ -506,7 +515,10 @@ var _ = Describe("Channel", func() {
 
 			It("Should skip data when alignment mismatch", func(ctx SpecContext) {
 				g2 := graph.Graph{
-					Nodes: []graph.Node{{Key: "misaligned", Type: "on"}},
+					Nodes: []graph.Node{{Key: "misaligned"}},
+					Configs: map[string]msgpack.EncodedJSON{
+						"misaligned": {"type": "on"},
+					},
 					Functions: []graph.Function{{
 						Key:     "on",
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
@@ -550,14 +562,18 @@ var _ = Describe("Channel", func() {
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "upstream", Type: "producer"},
-					{Key: "sink", Type: "write"},
+					{Key: "upstream"},
+					{Key: "sink"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"upstream": {"type": "producer"},
+					"sink":     {"type": "write"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "upstream", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -683,14 +699,18 @@ var _ = Describe("Channel", func() {
 			It("Should flow data from source through sink", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{
-						{Key: "read", Type: "on"},
-						{Key: "write", Type: "write"},
+						{Key: "read"},
+						{Key: "write"},
 					},
-					Edges: []graph.Edge{
-						{
+					Configs: map[string]msgpack.EncodedJSON{
+						"read":  {"type": "on"},
+						"write": {"type": "write"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "read", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "write", Param: ir.DefaultInputParam},
-						},
+						}},
 					},
 					Functions: []graph.Function{
 						{
@@ -743,16 +763,22 @@ var _ = Describe("Channel", func() {
 			It("Should handle multiple independent source-sink pairs", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{
-						{Key: "read1", Type: "on"},
-						{Key: "read2", Type: "on2"},
-						{Key: "write1", Type: "write"},
-						{Key: "write2", Type: "write2"},
+						{Key: "read1"},
+						{Key: "read2"},
+						{Key: "write1"},
+						{Key: "write2"},
 					},
-					Edges: []graph.Edge{
-						{Source: ir.Handle{Node: "read1", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "write1", Param: ir.DefaultInputParam}},
-						{Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam}},
+					Configs: map[string]msgpack.EncodedJSON{
+						"read1":  {"type": "on"},
+						"read2":  {"type": "on2"},
+						"write1": {"type": "write"},
+						"write2": {"type": "write2"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{Source: ir.Handle{Node: "read1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "write1", Param: ir.DefaultInputParam}}},
+						{Edge: ir.Edge{Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam}}},
 					},
 					Functions: []graph.Function{
 						{Key: "on", Outputs: types.Params{

@@ -457,13 +457,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
-		ctx,
-		l.Signals,
-		signals.GorpPublisherConfigUUID(l.Arc.Observe()),
-	); !ok(err, closer) {
-		return nil, err
-	}
 	if closer, err := calcgraph.Open(ctx, calcgraph.Config{
 		Instrumentation: cfg.Child("channel.calculation.graph"),
 		Channel:         l.Channel,

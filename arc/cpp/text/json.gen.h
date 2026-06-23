@@ -21,7 +21,7 @@ namespace arc::text {
 
 inline Text Text::parse(x::json::Parser parser) {
     return Text{
-        .raw = parser.field<std::string>("raw"),
+        .raw = parser.field<std::string>("raw", ""),
     };
 }
 
