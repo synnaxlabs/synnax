@@ -56,7 +56,12 @@ describe("http", () => {
 
   test("unreachable", async () => {
     const c = new HTTPClient(
-      new url.URL({ host: "127.0.0.1", protocol: "http", port: 9999, pathPrefix: "unary" }),
+      new url.URL({
+        host: "127.0.0.1",
+        protocol: "http",
+        port: 9999,
+        pathPrefix: "unary",
+      }),
       new binary.JSONCodec(),
     );
     const send = c.send("/unreachable", {}, messageZ, messageZ);
