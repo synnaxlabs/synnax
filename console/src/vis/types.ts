@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Arc } from "@/arc";
+import { type Schematic } from "@/layered/service/schematic";
 import { type LinePlot } from "@/lineplot";
 import { type Log } from "@/log";
-import { type Schematic } from "@/schematic";
 import { type Table } from "@/table";
 
 export type LayoutType =

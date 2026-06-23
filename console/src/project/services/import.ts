@@ -49,18 +49,6 @@ const remapLayoutKeys = (
   return next;
 };
 
-// Swaps imported themes for the current defaults before validation. setProject
-// discards imported themes anyway, so a stale theme blob from an older export must not
-// fail anySliceStateZ and block the import.
-const stripThemes = (data: unknown): unknown => {
-  if (typeof data !== "object" || data == null) return data;
-  return {
-    ...data,
-    themes: Layout.ZERO_SLICE_STATE.themes,
-    activeTheme: Layout.ZERO_SLICE_STATE.activeTheme,
-  };
-};
-
 export const ingest: Import.DirectoryIngester = async (
   name,
   files,
@@ -71,9 +59,7 @@ export const ingest: Import.DirectoryIngester = async (
   if (client == null) throw new DisconnectedError();
   const layoutData = files.find((file) => file.name === Project.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Project.LAYOUT_FILE_NAME} not found`);
-  const layout = Layout.migrateSlice(
-    Layout.anySliceStateZ.parse(stripThemes(layoutData.data)),
-  );
+  const layout = Layout.migrateSlice(Layout.anySliceStateZ.parse(layoutData.data));
   const projectKey = uuid.create();
   const proj: project.Project = { key: projectKey, name, layout };
   // Create the project first so imported components can be parented to it; its layout

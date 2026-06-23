@@ -58,6 +58,7 @@ export { Rack } from "@/rack";
 export { Ranger } from "@/ranger";
 export { Resize } from "@/resize";
 export { Schematic } from "@/schematic";
+export { Scope } from "@/scope";
 export { Select } from "@/select";
 export { state } from "@/state";
 export { Status } from "@/status";

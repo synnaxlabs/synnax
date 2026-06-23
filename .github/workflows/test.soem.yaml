@@ -24,7 +24,7 @@ jobs:
     runs-on: macos-build-bot
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Update Submodules
         run: git submodule update --init --recursive
