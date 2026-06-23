@@ -139,7 +139,14 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 func (w Writer) DeleteManyByNames(
 	ctx context.Context, names []string, allowInternal bool,
 ) error {
-	return w.deleteByName(ctx, names, allowInternal)
+	var res []Channel
+	if err := w.svc.newRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&res).
+		Exec(ctx, w.tx); err != nil {
+		return errors.Skip(err, query.ErrNotFound)
+	}
+	return w.delete(ctx, KeysFromChannels(res), allowInternal)
 }
 
 // Rename renames the channel with the given key to newName. Unless allowInternal is
@@ -237,16 +244,73 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 		}
 	}
 
-	// Update existing channels passed in with a key (e.g. a calculated channel whose
-	// expression is being changed). Reset to the stored record when RetrieveIfNameExists
-	// so the caller does not mistake an update for a no-op create.
-	if err := w.updateExisting(ctx, &channels, opts); err != nil {
-		return err
+	// Update the stored records of channels passed in with a non-zero key, applying name
+	// and (for calculated channels) expression/operations/index/data-type changes. When
+	// RetrieveIfNameExists is set the in-memory channel is reset to the stored record so
+	// the caller does not mistake an update for a no-op create.
+	keys := KeysFromChannels(channels)
+	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k.LocalKey() != 0 })
+	if len(existingKeys) != 0 {
+		if err := w.svc.table.NewUpdate().
+			Where(gorp.MatchKeys[Key, Channel](existingKeys...)).
+			ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
+				idx := lo.IndexOf(keys, c.Key())
+				ic := channels[idx]
+				if opts.retrieveIfNameExists {
+					channels[idx] = c
+					return c, nil
+				}
+				c.Name = ic.Name
+				if c.IsCalculated() && ic.IsCalculated() {
+					c.Expression = ic.Expression
+					c.Operations = ic.Operations
+					c.LocalIndex = ic.LocalIndex
+					c.DataType = ic.DataType
+				}
+				return c, nil
+			}).
+			Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+			return err
+		}
 	}
 
 	if opts.overwriteIfNameExistsAndDifferentProperties {
-		if err := w.deleteOverwritten(ctx, &channels); err != nil {
-			return err
+		// Delete existing channels of the same name whose properties differ from the ones
+		// being created, so the create can replace them. Channels that match an existing
+		// record (ignoring allocated keys) are reset to that record instead.
+		names := Names(channels)
+		if len(names) != 0 {
+			var existing []Channel
+			if err := w.svc.newRetrieve().
+				Where(MatchNames(names...)).
+				Entries(&existing).
+				Exec(ctx, w.tx); err != nil {
+				return errors.Skip(err, query.ErrNotFound)
+			}
+			keysToDelete := make(Keys, 0, len(existing))
+			for _, ex := range existing {
+				ch, i, found := lo.FindIndexOf(channels, func(ch Channel) bool {
+					return ch.Name == ex.Name && ch.Key() != ex.Key()
+				})
+				if !found {
+					continue
+				}
+				if ch.Equals(ex, "LocalKey", "LocalIndex", "Leaseholder") {
+					channels[i] = ex
+					continue
+				}
+				keysToDelete = append(keysToDelete, ex.Key())
+			}
+			if len(keysToDelete) != 0 {
+				if err := w.svc.table.NewDelete().
+					Where(gorp.MatchKeys[Key, Channel](keysToDelete...)).
+					Exec(ctx, w.tx); err != nil {
+					return err
+				}
+				if err := w.svc.cfg.Channel.Delete(ctx, keysToDelete); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -269,129 +333,65 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 	}
 	channels = append(channels, indexChannels...)
 
-	if err := w.validateFreeVirtual(channels); err != nil {
-		return err
+	for _, ch := range channels {
+		if len(ch.Name) == 0 {
+			return validate.PathedError(validate.ErrRequired, "name")
+		}
 	}
 
-	toCreate, err := w.resolveExistingAndAssignKeys(ctx, &channels, opts.retrieveIfNameExists)
-	if err != nil {
-		return err
-	}
-
-	w.linkCalculatedIndexes(toCreate, channels)
-
-	if err := w.writeChannels(ctx, toCreate); err != nil {
-		return err
-	}
-
-	// Persist updated LocalIndex links for existing calculated channels whose index was
-	// just created.
-	if err := w.updateCalculatedIndexLinks(ctx, channels, calcNeedingIndex); err != nil {
-		return err
-	}
-
-	*_channels = channels
-	return w.maybeSetResources(ctx, channels, opts)
-}
-
-// updateExisting updates the stored records of channels passed in with a non-zero key,
-// applying name and (for calculated channels) expression/operations/index/data-type
-// changes. When RetrieveIfNameExists is set the in-memory channel is reset to the stored
-// record instead.
-func (w Writer) updateExisting(ctx context.Context, channels *[]Channel, opts createOptions) error {
-	keys := KeysFromChannels(*channels)
-	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k.LocalKey() != 0 })
-	if len(existingKeys) == 0 {
-		return nil
-	}
-	err := w.svc.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Channel](existingKeys...)).
-		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-			idx := lo.IndexOf(keys, c.Key())
-			ic := (*channels)[idx]
-			if opts.retrieveIfNameExists {
-				(*channels)[idx] = c
-				return c, nil
-			}
-			c.Name = ic.Name
-			if c.IsCalculated() && ic.IsCalculated() {
-				c.Expression = ic.Expression
-				c.Operations = ic.Operations
-				c.LocalIndex = ic.LocalIndex
-				c.DataType = ic.DataType
-			}
-			return c, nil
-		}).
-		Exec(ctx, w.tx)
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	return nil
-}
-
-// resolveExistingAndAssignKeys resolves channels that already exist by name (when
-// retrieveIfNameExists is set, reusing their stored records) and allocates local keys
-// plus storage for the remaining new channels through the distribution allocator. It
-// returns the set of channels that were newly created.
-func (w Writer) resolveExistingAndAssignKeys(
-	ctx context.Context,
-	channels *[]Channel,
-	retrieveIfNameExists bool,
-) (toCreate []Channel, err error) {
-	if retrieveIfNameExists {
-		names := Names(*channels)
+	// Resolve channels that already exist by name (when RetrieveIfNameExists is set,
+	// reusing their stored records), then allocate local keys and storage for the
+	// remaining new channels through the distribution allocator. toCreate collects the
+	// channels that were newly created.
+	if opts.retrieveIfNameExists {
+		names := Names(channels)
 		var existing []Channel
-		if err = w.svc.newRetrieve().
+		if err := w.svc.newRetrieve().
 			Where(MatchNames(names...)).
 			Entries(&existing).
 			Exec(ctx, w.tx); err != nil {
-			return nil, errors.Skip(err, query.ErrNotFound)
+			return errors.Skip(err, query.ErrNotFound)
 		}
 		for _, e := range existing {
 			idx := lo.IndexOf(names, e.Name)
 			if idx < 0 {
 				continue
 			}
-			(*channels)[idx] = e
+			channels[idx] = e
 		}
 	}
-
-	newIndices := make([]int, 0, len(*channels))
-	minimal := make([]channel.Channel, 0, len(*channels))
-	for i, ch := range *channels {
+	newIndices := make([]int, 0, len(channels))
+	minimal := make([]channel.Channel, 0, len(channels))
+	for i, ch := range channels {
 		if ch.LocalKey == 0 {
 			newIndices = append(newIndices, i)
 			minimal = append(minimal, ch.Distribution())
 		}
 	}
-	if len(minimal) == 0 {
-		return toCreate, nil
+	var toCreate []Channel
+	if len(minimal) != 0 {
+		allocated, err := w.svc.cfg.Channel.Create(ctx, minimal)
+		if err != nil {
+			return err
+		}
+		toCreate = make([]Channel, 0, len(newIndices))
+		for j, i := range newIndices {
+			channels[i].LocalKey = allocated[j].LocalKey
+			channels[i].LocalIndex = allocated[j].LocalIndex
+			toCreate = append(toCreate, channels[i])
+		}
 	}
-	allocated, allocErr := w.svc.cfg.Channel.Create(ctx, minimal)
-	if allocErr != nil {
-		return nil, allocErr
-	}
-	toCreate = make([]Channel, 0, len(newIndices))
-	for j, i := range newIndices {
-		(*channels)[i].LocalKey = allocated[j].LocalKey
-		(*channels)[i].LocalIndex = allocated[j].LocalIndex
-		toCreate = append(toCreate, (*channels)[i])
-	}
-	return toCreate, nil
-}
 
-// linkCalculatedIndexes links each calculated channel to its auto-created index channel
-// by setting the calculated channel's LocalIndex to the index channel's assigned
-// LocalKey. calcNeedingIndex holds the indices (into channels) of calculated channels
-// that had an index auto-created for them.
-func (w Writer) linkCalculatedIndexes(toCreate []Channel, channels []Channel) {
+	// Link each calculated channel to its auto-created index channel by setting the
+	// calculated channel's LocalIndex to the index channel's assigned LocalKey. Applied to
+	// both the newly created channels and the full set (which includes existing ones).
 	indexKeyByName := make(map[string]LocalKey, len(channels))
 	for _, ch := range channels {
 		if ch.IsIndex {
 			indexKeyByName[ch.Name] = ch.LocalKey
 		}
 	}
-	link := func(set []Channel) {
+	linkCalculatedIndexes := func(set []Channel) {
 		for i := range set {
 			if !set[i].IsCalculated() || set[i].LocalIndex != 0 {
 				continue
@@ -401,13 +401,32 @@ func (w Writer) linkCalculatedIndexes(toCreate []Channel, channels []Channel) {
 			}
 		}
 	}
-	link(toCreate)
-	link(channels)
-}
+	linkCalculatedIndexes(toCreate)
+	linkCalculatedIndexes(channels)
 
-// updateCalculatedIndexLinks persists the LocalIndex link for existing calculated
-// channels (those already in the table) whose index channel was just created.
-func (w Writer) updateCalculatedIndexLinks(ctx context.Context, channels []Channel, calcNeedingIndex []int) error {
+	// Enforce the external-channel overflow cap and write the newly created channels to
+	// the table, updating the external/non-virtual key set under the service lock.
+	externalCreatedKeys := make(Keys, 0, len(toCreate))
+	for _, ch := range toCreate {
+		if !ch.Internal && !ch.Virtual {
+			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
+		}
+	}
+	w.svc.mu.Lock()
+	count := w.svc.mu.externalNonVirtualSet.Size()
+	if err := w.svc.cfg.IntOverflowCheck(types.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
+		w.svc.mu.Unlock()
+		return err
+	}
+	if err := w.svc.table.NewCreate().Entries(&toCreate).Exec(ctx, w.tx); err != nil {
+		w.svc.mu.Unlock()
+		return err
+	}
+	w.svc.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+	w.svc.mu.Unlock()
+
+	// Persist updated LocalIndex links for existing calculated channels (those already in
+	// the table) whose index channel was just created.
 	for _, idx := range calcNeedingIndex {
 		ch := channels[idx]
 		if ch.LocalKey == 0 || ch.LocalIndex == 0 {
@@ -430,59 +449,39 @@ func (w Writer) updateCalculatedIndexLinks(ctx context.Context, channels []Chann
 			return err
 		}
 	}
-	return nil
-}
 
-// writeChannels enforces the external-channel overflow cap and writes the newly created
-// channels to the table, updating the external/non-virtual key set.
-func (w Writer) writeChannels(ctx context.Context, toCreate []Channel) error {
-	externalCreatedKeys := make(Keys, 0, len(toCreate))
-	for _, ch := range toCreate {
-		if !ch.Internal && !ch.Virtual {
-			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
-		}
+	*_channels = channels
+
+	// Register ontology resources and the group parent relationship for the created
+	// channels.
+	if w.svc.cfg.Ontology == nil || w.svc.cfg.Group == nil {
+		return nil
 	}
-	w.svc.mu.Lock()
-	defer w.svc.mu.Unlock()
-	count := w.svc.mu.externalNonVirtualSet.Size()
-	if err := w.svc.cfg.IntOverflowCheck(types.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
+	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
+		return OntologyID(ch.Key()), !ch.Internal
+	})
+	ow := w.svc.cfg.Ontology.NewWriter(w.tx)
+	if err := ow.DefineResource(ctx, externalIDs...); err != nil {
 		return err
 	}
-	if err := w.svc.table.NewCreate().Entries(&toCreate).Exec(ctx, w.tx); err != nil {
-		return err
+	if opts.createWithoutGroupRelationship {
+		return nil
 	}
-	w.svc.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
-	return nil
+	return ow.DefineRelationship(
+		ctx,
+		group.OntologyID(w.svc.group.Key),
+		ontology.RelationshipTypeParentOf,
+		externalIDs...,
+	)
 }
 
 // validNamePattern matches valid channel names: a leading letter or underscore
 // followed by letters, digits, and underscores.
 var validNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
-// validateName returns a pathed validation error if name is empty or contains
-// characters outside the set matched by validNamePattern.
-func validateName(name string) error {
-	if name == "" {
-		return validate.PathedError(
-			errors.Wrap(validate.ErrValidation, "name cannot be empty"),
-			"name",
-		)
-	}
-	if !validNamePattern.MatchString(name) {
-		return validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation,
-				"channel name '%s' contains invalid characters. Only letters, digits, and underscores are allowed, and it cannot start with a digit",
-				name,
-			),
-			"name",
-		)
-	}
-	return nil
-}
-
-// validateChannelNames rejects a create/rename request whose proposed names either
-// duplicate each other or collide with an existing channel under a different key.
+// validateChannelNames rejects a create/rename request whose proposed names are empty,
+// contain characters outside validNamePattern, duplicate each other, or collide with an
+// existing channel under a different key.
 func (w Writer) validateChannelNames(
 	ctx context.Context,
 	keys Keys,
@@ -490,8 +489,21 @@ func (w Writer) validateChannelNames(
 	skipExisting bool,
 ) error {
 	for i, name := range names {
-		if err := validateName(name); err != nil {
-			return validate.PathedError(err, fmt.Sprintf("[%d]", i))
+		if name == "" {
+			return validate.PathedError(
+				errors.Wrap(validate.ErrValidation, "name cannot be empty"),
+				fmt.Sprintf("[%d]", i), "name",
+			)
+		}
+		if !validNamePattern.MatchString(name) {
+			return validate.PathedError(
+				errors.Wrapf(
+					validate.ErrValidation,
+					"channel name '%s' contains invalid characters. Only letters, digits, and underscores are allowed, and it cannot start with a digit",
+					name,
+				),
+				fmt.Sprintf("[%d]", i), "name",
+			)
 		}
 	}
 	namesSeen := make(set.Set[string], len(names))
@@ -535,89 +547,6 @@ func (w Writer) validateChannelNames(
 	return nil
 }
 
-func (w Writer) validateFreeVirtual(channels []Channel) error {
-	for _, ch := range channels {
-		if len(ch.Name) == 0 {
-			return validate.PathedError(validate.ErrRequired, "name")
-		}
-	}
-	return nil
-}
-
-func (w Writer) deleteOverwritten(ctx context.Context, channels *[]Channel) error {
-	names := Names(*channels)
-	if len(names) == 0 {
-		return nil
-	}
-	var existing []Channel
-	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
-		Entries(&existing).
-		Exec(ctx, w.tx); err != nil {
-		return errors.Skip(err, query.ErrNotFound)
-	}
-	keysToDelete := make(Keys, 0, len(existing))
-	for _, ex := range existing {
-		ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
-			return ch.Name == ex.Name && ch.Key() != ex.Key()
-		})
-		if !found {
-			continue
-		}
-		if ch.Equals(ex, "LocalKey", "LocalIndex", "Leaseholder") {
-			(*channels)[i] = ex
-			continue
-		}
-		keysToDelete = append(keysToDelete, ex.Key())
-	}
-	if len(keysToDelete) == 0 {
-		return nil
-	}
-	if err := w.svc.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Channel](keysToDelete...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.svc.cfg.Channel.Delete(ctx, keysToDelete)
-}
-
-func (w Writer) maybeSetResources(
-	ctx context.Context,
-	channels []Channel,
-	opts createOptions,
-) error {
-	if w.svc.cfg.Ontology == nil || w.svc.cfg.Group == nil {
-		return nil
-	}
-	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
-		return OntologyID(ch.Key()), !ch.Internal
-	})
-	ow := w.svc.cfg.Ontology.NewWriter(w.tx)
-	if err := ow.DefineResource(ctx, externalIDs...); err != nil {
-		return err
-	}
-	if opts.createWithoutGroupRelationship {
-		return nil
-	}
-	return ow.DefineRelationship(
-		ctx,
-		group.OntologyID(w.svc.group.Key),
-		ontology.RelationshipTypeParentOf,
-		externalIDs...,
-	)
-}
-
-func (w Writer) deleteByName(ctx context.Context, names []string, allowInternal bool) error {
-	var res []Channel
-	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
-		Entries(&res).
-		Exec(ctx, w.tx); err != nil {
-		return errors.Skip(err, query.ErrNotFound)
-	}
-	return w.delete(ctx, KeysFromChannels(res), allowInternal)
-}
-
 func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
 	if !allowInternal {
 		internalChannels := make([]Channel, 0, len(keys))
@@ -639,8 +568,12 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 	if err := w.svc.table.NewDelete().Where(gorp.MatchKeys[Key, Channel](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.maybeDeleteResources(ctx, keys); err != nil {
-		return err
+	if w.svc.cfg.Ontology != nil {
+		ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+		ow := w.svc.cfg.Ontology.NewWriter(w.tx)
+		if err := ow.DeleteResource(ctx, ids...); err != nil {
+			return err
+		}
 	}
 	// Storage deletion goes last, as it is the only operation that can fail without an
 	// atomic guarantee.
@@ -651,25 +584,6 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 	w.svc.mu.externalNonVirtualSet.Remove(keys...)
 	w.svc.mu.Unlock()
 	return nil
-}
-
-func (w Writer) maybeDeleteResources(ctx context.Context, keys Keys) error {
-	if w.svc.cfg.Ontology == nil {
-		return nil
-	}
-	ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
-	ow := w.svc.cfg.Ontology.NewWriter(w.tx)
-	return ow.DeleteResource(ctx, ids...)
-}
-
-func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.ChangeFunc[Key, Channel] {
-	return func(_ gorp.Context, c Channel) (Channel, error) {
-		if c.Internal && !allowInternal {
-			return c, errors.Wrapf(validate.ErrValidation, "cannot rename internal channel %v", c)
-		}
-		c.Name = names[lo.IndexOf(keys, c.Key())]
-		return c, nil
-	}
 }
 
 func (w Writer) rename(
@@ -688,7 +602,13 @@ func (w Writer) rename(
 	}
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
-		ChangeErr(channelNameUpdater(allowInternal, keys, names)).
+		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
+			if c.Internal && !allowInternal {
+				return c, errors.Wrapf(validate.ErrValidation, "cannot rename internal channel %v", c)
+			}
+			c.Name = names[lo.IndexOf(keys, c.Key())]
+			return c, nil
+		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}

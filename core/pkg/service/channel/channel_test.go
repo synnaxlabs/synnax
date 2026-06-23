@@ -12,7 +12,7 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/control"
@@ -147,7 +147,7 @@ var _ = Describe("Distribution", func() {
 			Internal:    true,
 			Expression:  "a + b",
 		}
-		Expect(ch.Distribution()).To(Equal(dcore.Channel{
+		Expect(ch.Distribution()).To(Equal(distchannel.Channel{
 			Name:        "temp",
 			Leaseholder: 1,
 			DataType:    telem.Float32T,

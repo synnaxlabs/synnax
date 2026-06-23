@@ -35,7 +35,8 @@ func MatchCalculated() Filter {
 	})
 }
 
-// literalNamePattern matches the character set enforced by validateName. A
+// literalNamePattern matches the character set enforced by validNamePattern during
+// channel creation and renaming. A
 // channel's stored Name is always accepted by this regex, so any input that
 // passes this check is a literal exact-match target and can be routed through
 // the in-memory name index instead of a scan. Any input that fails the check

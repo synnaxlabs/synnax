@@ -26,13 +26,13 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// These type aliases re-export the distribution-layer key types so service-layer callers
-// can refer to them through this package without importing the distribution layer
-// directly.
+// These type aliases re-export the distribution-layer key types so service-layer
+// callers can refer to them through this package without importing the distribution
+// layer directly.
 type (
-	// Key is the cluster-unique identifier for a channel. It packs a leaseholder node key
-	// (first 12 bits) and a node-local LocalKey (last 20 bits) into a single uint32.
-	// Re-exported from [channel.Key].
+	// Key is the cluster-unique identifier for a channel. It packs a leaseholder node
+	// key (first 12 bits) and a node-local LocalKey (last 20 bits) into a single
+	// uint32. Re-exported from [channel.Key].
 	Key = channel.Key
 	// Keys is a slice of Key with convenience methods for deduplication, grouping by
 	// leaseholder, and conversion to storage keys. Re-exported from [channel.Keys].
