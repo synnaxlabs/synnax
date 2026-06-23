@@ -25,7 +25,6 @@ import { useDispatch } from "react-redux";
 import { Controls as Base } from "@/components";
 import { CSS } from "@/css";
 import { Session } from "@/layered/session";
-import { Layout } from "@/layout";
 
 export interface ControlsProps {
   hasAnnotations: boolean;
@@ -35,7 +34,6 @@ export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
   const layoutKey = LinePlot.useKey();
   const control = Session.LinePlot.useSelectControlState();
   const plot = Session.LinePlot.useSelect();
-  const { layoutKey: vis } = Layout.useSelectActiveMosaicTabState();
   const mode = Session.LinePlot.useSelectViewportMode();
   const measureMode = Session.LinePlot.useSelectMeasureMode();
   const dispatch = useDispatch();
@@ -62,7 +60,7 @@ export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
   };
 
   const handleZoomReset = (): void => {
-    if (vis != null) dispatch(Session.LinePlot.setViewport({ key: vis }));
+    dispatch(Session.LinePlot.setViewport({ key: layoutKey }));
   };
 
   const handleHoldChange = (hold: boolean): void => {
