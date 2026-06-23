@@ -67,18 +67,12 @@ namespace {
     return node;
 }
 
-// make_end_ir_node builds an `end` IR node with {key, time}. time is an i64 value
-// (the runtime treats NOW_SENTINEL as "now").
-::arc::ir::Node make_end_ir_node(const std::string &key, int64_t time) {
+// make_end_ir_node builds an `end` IR node with {key}.
+::arc::ir::Node make_end_ir_node(const std::string &key) {
     ::arc::ir::Node node;
     node.key = "ranges";
     node.type = "end";
-    ::arc::types::Param key_param = str_param("key", key);
-    ::arc::types::Param time_param;
-    time_param.name = "time";
-    time_param.type = ::arc::types::Type{.kind = ::arc::types::Kind::I64};
-    time_param.value = time;
-    node.inputs = ::arc::types::Params{key_param, time_param};
+    node.inputs = ::arc::types::Params{str_param("key", key)};
     ::arc::types::Param out;
     out.name = "output";
     out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
@@ -152,7 +146,7 @@ TEST(RangesModuleTest, CreatesCreateNodeFromBareType) {
 }
 
 TEST(RangesModuleTest, CreatesEndNodeFromBareType) {
-    auto node = make_end_ir_node(x::uuid::UUID().to_string(), NOW_SENTINEL);
+    auto node = make_end_ir_node(x::uuid::UUID().to_string());
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
         ::arc::runtime::state::Config{.ir = ir, .channels = {}},
@@ -233,9 +227,10 @@ TEST(CreateRangeTest, NextParsesColor) {
         ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s)))
     );
     ASSERT_NIL(err);
-    EXPECT_EQ(r.color.r, 0xdf);
-    EXPECT_EQ(r.color.g, 0x6d);
-    EXPECT_EQ(r.color.b, 0x38);
+    ASSERT_TRUE(r.color.has_value());
+    EXPECT_EQ(r.color->r, 0xdf);
+    EXPECT_EQ(r.color->g, 0x6d);
+    EXPECT_EQ(r.color->b, 0x38);
 }
 
 TEST(CreateRangeTest, NextWarnsOnInvalidColorButStillCreates) {
@@ -295,7 +290,7 @@ TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
     );
 }
 
-TEST(EndRangeTest, NextSetsExplicitEnd) {
+TEST(EndRangeTest, NextSetsEndToNow) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto start = x::telem::TimeStamp::now();
     synnax::ranger::Range r;
@@ -303,10 +298,8 @@ TEST(EndRangeTest, NextSetsExplicitEnd) {
     r.time_range = x::telem::TimeRange{start, x::telem::TimeStamp::max()};
     ASSERT_NIL(client->ranges.create(r));
 
-    const auto end = x::telem::TimeStamp(
-        start.nanoseconds() + 10 * x::telem::SECOND.nanoseconds()
-    );
-    auto node = make_end_ir_node(r.key.to_string(), end.nanoseconds());
+    const auto before = x::telem::TimeStamp::now();
+    auto node = make_end_ir_node(r.key.to_string());
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
         ::arc::runtime::state::Config{.ir = ir, .channels = {}},
@@ -323,13 +316,15 @@ TEST(EndRangeTest, NextSetsExplicitEnd) {
 
     auto [updated, err] = client->ranges.retrieve_by_key(r.key);
     ASSERT_NIL(err);
-    EXPECT_EQ(updated.time_range.end, end);
+    EXPECT_GE(updated.time_range.end.nanoseconds(), before.nanoseconds());
+    EXPECT_LE(updated.time_range.end.nanoseconds(), x::telem::TimeStamp::now().nanoseconds());
+    EXPECT_NE(updated.time_range.end, x::telem::TimeStamp::max());
 }
 
 TEST(EndRangeTest, NextWarnsWhenRangeDoesNotExist) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     std::vector<std::pair<std::string, std::string>> calls;
-    auto node = make_end_ir_node(x::uuid::create().to_string(), NOW_SENTINEL);
+    auto node = make_end_ir_node(x::uuid::create().to_string());
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
         ::arc::runtime::state::Config{.ir = ir, .channels = {}},
@@ -353,7 +348,7 @@ TEST(EndRangeTest, NextWarnsWhenRangeDoesNotExist) {
 TEST(EndRangeTest, NextWarnsOnInvalidKey) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     std::vector<std::pair<std::string, std::string>> calls;
-    auto node = make_end_ir_node("not-a-uuid", NOW_SENTINEL);
+    auto node = make_end_ir_node("not-a-uuid");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
         ::arc::runtime::state::Config{.ir = ir, .channels = {}},

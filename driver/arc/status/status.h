@@ -19,7 +19,6 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
-#include "arc/cpp/runtime/node/inputs.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
@@ -70,35 +69,39 @@ inline std::string dispatch_set(
     return res.key;
 }
 
-/// @brief Flow node for `status.set`. Resolves static or edge-fed inputs, calls
-/// dispatch_set on every trigger, and emits the resolved key on Output(0).
+/// @brief Flow node for `status.set`. Calls dispatch_set on every trigger and
+/// emits the resolved key on Output(0).
 class SetStatus : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
     std::shared_ptr<synnax::Synnax> client;
     Reporter report;
-    ::arc::runtime::node::ResolvedInputs inputs;
+    std::string key_or_name;
+    std::string message;
+    std::string variant;
 
 public:
     SetStatus(
         ::arc::runtime::state::Node &&state,
         std::shared_ptr<synnax::Synnax> client,
         Reporter report,
-        ::arc::runtime::node::ResolvedInputs inputs
+        std::string key_or_name,
+        std::string message,
+        std::string variant
     ):
         state(std::move(state)),
         client(std::move(client)),
         report(std::move(report)),
-        inputs(std::move(inputs)) {}
+        key_or_name(std::move(key_or_name)),
+        message(std::move(message)),
+        variant(std::move(variant)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
-        if (this->inputs.has_edges() && !this->state.refresh_inputs())
-            return x::errors::NIL;
         const std::string resolved_key = dispatch_set(
             this->client,
             this->report,
-            this->inputs.string_of(this->state, "key_or_name"),
-            this->inputs.string_of(this->state, "message"),
-            this->inputs.string_of(this->state, "variant")
+            this->key_or_name,
+            this->message,
+            this->variant
         );
         *this->state.output(0) = x::telem::Series(resolved_key);
         *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
@@ -158,13 +161,21 @@ public:
     std::pair<std::unique_ptr<::arc::runtime::node::Node>, x::errors::Error>
     create(::arc::runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        auto inputs = ::arc::runtime::node::ResolvedInputs::resolve(cfg.node);
+        const auto get_str = [&](const std::string &key) -> std::string {
+            const auto &p = cfg.node.inputs[key];
+            auto sv = ::arc::types::to_sample_value(p.value, p.type);
+            if (!sv.has_value()) return "";
+            const auto *s = std::get_if<std::string>(&*sv);
+            return s != nullptr ? *s : "";
+        };
         return {
             std::make_unique<SetStatus>(
                 std::move(cfg.state),
                 this->client,
                 this->report,
-                std::move(inputs)
+                get_str("key_or_name"),
+                get_str("message"),
+                get_str("variant")
             ),
             x::errors::NIL
         };

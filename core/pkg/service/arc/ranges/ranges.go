@@ -40,10 +40,6 @@ const (
 	moduleName       = "ranges"
 )
 
-// nowSentinel is the default for ranges.end's time input. The runtime substitutes
-// the current time at fire when the input equals it, so the default tracks "now".
-const nowSentinel = int64(-1)
-
 // createDoc is the LSP hover body for ranges.create. The renderer prepends the
 // title from the symbol name and kind, so it is omitted here.
 var createDoc = doc.New(
@@ -60,7 +56,7 @@ var endDoc = doc.New(
 	doc.Divider(),
 	doc.Code("arc", "trigger -> ranges.end{key=range_key}"),
 	doc.Divider(),
-	doc.Paragraph("time defaults to now. Outputs the range key."),
+	doc.Paragraph("Sets the end to now. Outputs the range key."),
 )
 
 // moduleDoc is the LSP hover body for the ranges module itself.
@@ -83,11 +79,10 @@ func newCreateSymbolType() types.Type {
 }
 
 // newEndSymbolType returns a fresh ranges.end function type per call so analysis
-// never mutates a shared symbol. time defaults to now.
+// never mutates a shared symbol.
 func newEndSymbolType() types.Type {
 	params := types.Params{
 		{Name: "key", Type: types.String()},
-		{Name: "time", Type: types.TimeStamp(), Value: nowSentinel},
 	}
 	return types.Function(types.FunctionProperties{
 		Inputs:  params,
@@ -154,14 +149,14 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 			return heap.Create(dispatchCreate(ctx, m.rng, m.report, name, colorHex, parent))
 		}).Export(createMemberName)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(ctx context.Context, keyH uint32, t uint64) uint32 {
+		WithFunc(func(ctx context.Context, keyH uint32) uint32 {
 			key, ok := heap.Get(keyH)
 			if !ok {
 				m.report(ctx, status.VariantWarning,
 					"ranges.end: invalid string handle from WASM runtime")
 				return 0
 			}
-			return heap.Create(dispatchEnd(ctx, m.rng, m.report, key, telem.TimeStamp(t)))
+			return heap.Create(dispatchEnd(ctx, m.rng, m.report, key))
 		}).Export(endMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -174,25 +169,29 @@ func (m *Module) ModuleName() string { return moduleName }
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case createMemberName:
-		inputs, err := node.ResolveInputs(cfg.State, cfg.Node)
-		if err != nil {
-			return nil, err
-		}
 		var in createInputs
-		if err := createInputsSchema.Parse(inputs.ValidationMap(), &in); err != nil {
+		if err := createInputsSchema.Parse(cfg.Node.Inputs.ValueMap(), &in); err != nil {
 			return nil, errors.Wrap(err, "ranges.create inputs")
 		}
-		return &createNode{State: cfg.State, rng: m.rng, report: m.report, inputs: inputs}, nil
+		return &createNode{
+			State:  cfg.State,
+			rng:    m.rng,
+			report: m.report,
+			name:   in.Name,
+			color:  in.Color,
+			parent: in.Parent,
+		}, nil
 	case endMemberName:
-		inputs, err := node.ResolveInputs(cfg.State, cfg.Node)
-		if err != nil {
-			return nil, err
-		}
 		var in endInputs
-		if err := endInputsSchema.Parse(inputs.ValidationMap(), &in); err != nil {
+		if err := endInputsSchema.Parse(cfg.Node.Inputs.ValueMap(), &in); err != nil {
 			return nil, errors.Wrap(err, "ranges.end inputs")
 		}
-		return &endNode{State: cfg.State, rng: m.rng, report: m.report, inputs: inputs}, nil
+		return &endNode{
+			State:  cfg.State,
+			rng:    m.rng,
+			report: m.report,
+			key:    in.Key,
+		}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
@@ -214,19 +213,13 @@ type createNode struct {
 	*node.State
 	rng    *ranger.Service
 	report taskreporter.Reporter
-	inputs node.ResolvedInputs
+	name   string
+	color  string
+	parent string
 }
 
 func (n *createNode) Next(ctx node.Context) {
-	if n.inputs.HasEdges() && !n.RefreshInputs() {
-		return
-	}
-	var in createInputs
-	if err := createInputsSchema.Parse(n.inputs.ValueMap(n.State), &in); err != nil {
-		n.report(ctx, status.VariantWarning, fmt.Sprintf("ranges.create inputs: %v", err))
-		return
-	}
-	key := dispatchCreate(ctx, n.rng, n.report, in.Name, in.Color, in.Parent)
+	key := dispatchCreate(ctx, n.rng, n.report, n.name, n.color, n.parent)
 	*n.Output(0) = telem.NewSeriesV[string](key)
 	*n.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)
@@ -240,13 +233,13 @@ func dispatchCreate(
 	report taskreporter.Reporter,
 	name, colorHex, parent string,
 ) string {
-	var c color.Color
+	var c *color.Color
 	if colorHex != "" {
 		if parsed, err := color.FromCSS(colorHex); err != nil {
 			report(ctx, status.VariantWarning,
 				fmt.Sprintf("ranges.create: invalid color %q: %v", colorHex, err))
 		} else {
-			c = parsed
+			c = &parsed
 		}
 	}
 	r := ranger.Range{
@@ -272,56 +265,42 @@ func dispatchCreate(
 
 // endInputs is the parsed brace-input set for a ranges.end node.
 type endInputs struct {
-	Key  string `json:"key"`
-	Time int64  `json:"time"`
+	Key string `json:"key"`
 }
 
 var endInputsSchema = zyn.Object(map[string]zyn.Schema{
-	"key":  zyn.String(),
-	"time": zyn.Int64().Coerce(),
+	"key": zyn.String(),
 })
 
 type endNode struct {
 	*node.State
 	rng    *ranger.Service
 	report taskreporter.Reporter
-	inputs node.ResolvedInputs
+	key    string
 }
 
 func (n *endNode) Next(ctx node.Context) {
-	if n.inputs.HasEdges() && !n.RefreshInputs() {
-		return
-	}
-	var in endInputs
-	if err := endInputsSchema.Parse(n.inputs.ValueMap(n.State), &in); err != nil {
-		n.report(ctx, status.VariantWarning, fmt.Sprintf("ranges.end inputs: %v", err))
-		return
-	}
-	key := dispatchEnd(ctx, n.rng, n.report, in.Key, telem.TimeStamp(in.Time))
+	key := dispatchEnd(ctx, n.rng, n.report, n.key)
 	*n.Output(0) = telem.NewSeriesV[string](key)
 	*n.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)
 }
 
-// dispatchEnd resolves the now sentinel, then sets the end bound on the range
-// identified by key, reporting failures as warnings so the task keeps running.
+// dispatchEnd sets the end bound on the range identified by key to now,
+// reporting failures as warnings so the task keeps running.
 func dispatchEnd(
 	ctx context.Context,
 	rng *ranger.Service,
 	report taskreporter.Reporter,
 	key string,
-	t telem.TimeStamp,
 ) string {
-	if t == telem.TimeStamp(nowSentinel) {
-		t = telem.Now()
-	}
 	uid, err := uuid.Parse(key)
 	if err != nil {
 		report(ctx, status.VariantWarning,
 			fmt.Sprintf("ranges.end: invalid range key %q", key))
 		return ""
 	}
-	if err := rng.SetEnd(ctx, uid, t); err != nil {
+	if err := rng.SetEnd(ctx, uid, telem.Now()); err != nil {
 		report(ctx, status.VariantWarning, fmt.Sprintf("ranges.end: %v", err))
 		return ""
 	}

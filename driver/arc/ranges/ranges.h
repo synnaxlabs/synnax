@@ -25,11 +25,11 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "arc/cpp/runtime/node/inputs.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
+#include "arc/cpp/types/types.h"
 
 namespace driver::arc::ranges {
 
@@ -37,10 +37,6 @@ namespace driver::arc::ranges {
 /// mirroring the Go-side taskreporter.Reporter so failures land as warnings.
 using Reporter = std::function<
     void(const std::string &variant, const std::string &message)>;
-
-/// @brief now_sentinel mirrors the Go ranges.nowSentinel: ranges.end substitutes the
-/// current time at fire when its time input equals it.
-constexpr int64_t NOW_SENTINEL = -1;
 
 /// @brief dispatch_create creates an open range that starts now, parsing the color
 /// and parent and reporting failures as warnings. Returns the new key or "".
@@ -89,15 +85,13 @@ inline std::string dispatch_create(
     return r.key.to_string();
 }
 
-/// @brief dispatch_end resolves the now sentinel, then sets the end bound on the
-/// range identified by key via retrieve-modify-upsert. Returns the key or "".
+/// @brief dispatch_end sets the end bound on the range identified by key to now
+/// via retrieve-modify-upsert. Returns the key or "".
 inline std::string dispatch_end(
     const std::shared_ptr<synnax::Synnax> &client,
     const Reporter &report,
-    const std::string &key,
-    x::telem::TimeStamp t
+    const std::string &key
 ) {
-    if (t == x::telem::TimeStamp(NOW_SENTINEL)) t = x::telem::TimeStamp::now();
     auto [uid, parse_err] = x::uuid::UUID::parse(key);
     if (parse_err) {
         report(
@@ -114,7 +108,7 @@ inline std::string dispatch_end(
         );
         return "";
     }
-    r.time_range.end = t;
+    r.time_range.end = x::telem::TimeStamp::now();
     if (const auto err = client->ranges.create(r)) {
         report(synnax::status::VARIANT_WARNING, "ranges.end: " + err.message());
         return "";
@@ -122,35 +116,39 @@ inline std::string dispatch_end(
     return uid.to_string();
 }
 
-/// @brief Flow node for `ranges.create`. Resolves static or edge-fed inputs, creates
-/// an open range on every trigger, and emits the new range key on Output(0).
+/// @brief Flow node for `ranges.create`. Creates an open range on every trigger
+/// and emits the new range key on Output(0).
 class CreateRange : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
     std::shared_ptr<synnax::Synnax> client;
     Reporter report;
-    ::arc::runtime::node::ResolvedInputs inputs;
+    std::string name;
+    std::string color;
+    std::string parent;
 
 public:
     CreateRange(
         ::arc::runtime::state::Node &&state,
         std::shared_ptr<synnax::Synnax> client,
         Reporter report,
-        ::arc::runtime::node::ResolvedInputs inputs
+        std::string name,
+        std::string color,
+        std::string parent
     ):
         state(std::move(state)),
         client(std::move(client)),
         report(std::move(report)),
-        inputs(std::move(inputs)) {}
+        name(std::move(name)),
+        color(std::move(color)),
+        parent(std::move(parent)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
-        if (this->inputs.has_edges() && !this->state.refresh_inputs())
-            return x::errors::NIL;
         const std::string key = dispatch_create(
             this->client,
             this->report,
-            this->inputs.string_of(this->state, "name"),
-            this->inputs.string_of(this->state, "color"),
-            this->inputs.string_of(this->state, "parent")
+            this->name,
+            this->color,
+            this->parent
         );
         *this->state.output(0) = x::telem::Series(key);
         *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
@@ -163,46 +161,29 @@ public:
     }
 };
 
-/// @brief Flow node for `ranges.end`. Resolves static or edge-fed inputs and sets the
-/// end bound on the keyed range on every trigger, emitting the key on Output(0).
+/// @brief Flow node for `ranges.end`. Sets the end bound on the keyed range to now
+/// on every trigger, emitting the key on Output(0).
 class EndRange : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
     std::shared_ptr<synnax::Synnax> client;
     Reporter report;
-    ::arc::runtime::node::ResolvedInputs inputs;
-
-    /// @brief time_value reads the time input as a TimeStamp, defaulting to the now
-    /// sentinel when absent or unfed.
-    [[nodiscard]] x::telem::TimeStamp time_value() const {
-        const auto sv = this->inputs.value_of(this->state, "time");
-        if (!sv.has_value()) return x::telem::TimeStamp(NOW_SENTINEL);
-        if (const auto *ts = std::get_if<x::telem::TimeStamp>(&*sv)) return *ts;
-        if (const auto *i = std::get_if<int64_t>(&*sv)) return x::telem::TimeStamp(*i);
-        return x::telem::TimeStamp(NOW_SENTINEL);
-    }
+    std::string key;
 
 public:
     EndRange(
         ::arc::runtime::state::Node &&state,
         std::shared_ptr<synnax::Synnax> client,
         Reporter report,
-        ::arc::runtime::node::ResolvedInputs inputs
+        std::string key
     ):
         state(std::move(state)),
         client(std::move(client)),
         report(std::move(report)),
-        inputs(std::move(inputs)) {}
+        key(std::move(key)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
-        if (this->inputs.has_edges() && !this->state.refresh_inputs())
-            return x::errors::NIL;
-        const std::string key = dispatch_end(
-            this->client,
-            this->report,
-            this->inputs.string_of(this->state, "key"),
-            this->time_value()
-        );
-        *this->state.output(0) = x::telem::Series(key);
+        const std::string out = dispatch_end(this->client, this->report, this->key);
+        *this->state.output(0) = x::telem::Series(out);
         *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
         ctx.mark_changed(0);
         return x::errors::NIL;
@@ -259,13 +240,10 @@ public:
             .func_wrap(
                 "ranges",
                 "end",
-                [client, report, str_state](uint32_t key_h, uint64_t t) -> uint32_t {
-                    return str_state->create(dispatch_end(
-                        client,
-                        report,
-                        str_state->get(key_h),
-                        x::telem::TimeStamp(static_cast<int64_t>(t))
-                    ));
+                [client, report, str_state](uint32_t key_h) -> uint32_t {
+                    return str_state->create(
+                        dispatch_end(client, report, str_state->get(key_h))
+                    );
                 }
             )
             .unwrap();
@@ -274,14 +252,22 @@ public:
     std::pair<std::unique_ptr<::arc::runtime::node::Node>, x::errors::Error>
     create(::arc::runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        auto inputs = ::arc::runtime::node::ResolvedInputs::resolve(cfg.node);
+        const auto get_str = [&](const std::string &key) -> std::string {
+            const auto &p = cfg.node.inputs[key];
+            auto sv = ::arc::types::to_sample_value(p.value, p.type);
+            if (!sv.has_value()) return "";
+            const auto *s = std::get_if<std::string>(&*sv);
+            return s != nullptr ? *s : "";
+        };
         if (cfg.node.type == "create")
             return {
                 std::make_unique<CreateRange>(
                     std::move(cfg.state),
                     this->client,
                     this->report,
-                    std::move(inputs)
+                    get_str("name"),
+                    get_str("color"),
+                    get_str("parent")
                 ),
                 x::errors::NIL
             };
@@ -290,7 +276,7 @@ public:
                 std::move(cfg.state),
                 this->client,
                 this->report,
-                std::move(inputs)
+                get_str("key")
             ),
             x::errors::NIL
         };

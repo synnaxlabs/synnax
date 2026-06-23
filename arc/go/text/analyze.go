@@ -208,8 +208,6 @@ type nodeResult struct {
 	node   ir.Node
 	input  ir.Handle
 	output ir.Handle
-	// synth is the IR produced by expression-valued brace inputs; empty otherwise.
-	synth inputExprArtifacts
 }
 
 func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
@@ -218,14 +216,6 @@ func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
 		input:  ir.Handle{Node: node.Key, Param: inputParam},
 		output: ir.Handle{Node: node.Key, Param: outputParam},
 	}
-}
-
-// inputExprArtifacts is the IR a non-literal brace input compiles into: a synthetic
-// function node, a data edge into the host input, and the synth node's trigger handle.
-type inputExprArtifacts struct {
-	nodes          []ir.Node
-	dataEdges      []ir.Edge
-	triggerTargets []ir.Handle
 }
 
 // transitionIntent is emitted by `=> next` and `=> scope_name` targets. The
@@ -574,11 +564,8 @@ func analyzeFunctionNode(
 		Inputs:   slices.Clone(freshType.Inputs),
 		Outputs:  slices.Clone(freshType.Outputs),
 	}
-	var (
-		ok        bool
-		artifacts inputExprArtifacts
-	)
-	n.Inputs, artifacts, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Inputs, n, sym, kg)
+	var ok bool
+	n.Inputs, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Inputs, n, sym)
 	if !ok {
 		return nodeResult{}, false
 	}
@@ -586,9 +573,7 @@ func analyzeFunctionNode(
 	if sym.Trigger.Target != "" {
 		inputParam = sym.Trigger.Target
 	}
-	r := newNodeResult(n, inputParam, firstOutputParam(n.Outputs))
-	r.synth = artifacts
-	return r, true
+	return newNodeResult(n, inputParam, firstOutputParam(n.Outputs)), true
 }
 
 // tryAnalyzeFmtStrLiteral handles the format-string-with-placeholders case by
@@ -1000,20 +985,6 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		p.additionalTriggers = nil
 	}
 
-	// Drive each synthetic input-expression node from the host's own trigger so it
-	// re-evaluates every fire instead of once as an edge-less entry node.
-	p.nodes = append(p.nodes, node.synth.nodes...)
-	p.edges = append(p.edges, node.synth.dataEdges...)
-	if p.prevNode != nil {
-		for _, tt := range node.synth.triggerTargets {
-			p.edges = append(p.edges, ir.Edge{
-				Source: p.prevOutput,
-				Target: tt,
-				Kind:   ir.EdgeKindContinuous,
-			})
-		}
-	}
-
 	if len(node.node.Outputs) > 0 {
 		p.prevOutput = node.output
 	}
@@ -1124,32 +1095,30 @@ func extractConfigValues(
 	config types.Params,
 	node ir.Node,
 	fnSym *symbol.Symbol,
-	kg *keyGenerator,
-) (types.Params, inputExprArtifacts, bool) {
-	var artifacts inputExprArtifacts
+) (types.Params, bool) {
 	if ctx.AST == nil {
-		return config, artifacts, true
+		return config, true
 	}
 
 	parseConfigExpr := func(
 		expr parser.IExpressionContext,
 		paramType types.Type,
 		paramName string,
-	) (value any, subgraph bool, ok bool) {
+	) (any, bool) {
 		if paramType.Kind == types.KindChan {
 			channelName := parser.GetExpressionText(expr)
 			sym, err := ctx.Scope.Resolve(ctx, channelName)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-				return nil, false, false
+				return nil, false
 			}
 			if err := paramType.ChanDirection.CheckCompatibility(sym.Type.ChanDirection); err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-				return nil, false, false
+				return nil, false
 			}
 			channelKey := uint32(sym.ID)
 			symbol.ResolveConfigChannel(&node.Channels, fnSym, paramName, channelKey, sym.Name)
-			return channelKey, false, true
+			return channelKey, true
 		}
 
 		if primary := parser.GetPrimaryExpression(expr); primary != nil {
@@ -1157,43 +1126,34 @@ func extractConfigValues(
 				sym, err := ctx.Scope.Resolve(ctx, id.GetText())
 				if err != nil {
 					ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-					return nil, false, false
+					return nil, false
 				}
 				if sym.Kind == symbol.KindGlobalConstant {
-					return sym.DefaultValue, false, true
+					return sym.DefaultValue, true
 				}
 			}
 		}
 
-		if parser.IsLiteral(expr) {
-			negated := parser.IsNegatedLiteral(expr)
-			literalCtx := parser.GetLiteral(expr)
-			parsedValue, err := literal.Parse(literalCtx, paramType)
-			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-				return nil, false, false
-			}
-			if negated {
-				parsedValue.Value = literal.Negate(parsedValue.Value)
-			}
-			return parsedValue.Value, false, true
+		if !parser.IsLiteral(expr) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				expr,
+				"config value for '%s' must be a literal or global constant",
+				paramName,
+			))
+			return nil, false
 		}
 
-		// A non-literal expression is wired in via a synthetic node; the analyzer
-		// pass already type-checked it against paramType.
-		addInputExprNode(ctx, &artifacts, node.Key, expr, paramType, paramName, kg)
-		return nil, true, true
-	}
-
-	apply := func(idx int, expr parser.IExpressionContext, paramName string) bool {
-		value, subgraph, ok := parseConfigExpr(expr, config[idx].Type, paramName)
-		if !ok {
-			return false
+		negated := parser.IsNegatedLiteral(expr)
+		literalCtx := parser.GetLiteral(expr)
+		parsedValue, err := literal.Parse(literalCtx, paramType)
+		if err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+			return nil, false
 		}
-		if !subgraph {
-			config[idx].Value = value
+		if negated {
+			parsedValue.Value = literal.Negate(parsedValue.Value)
 		}
-		return true
+		return parsedValue.Value, true
 	}
 
 	if named := ctx.AST.NamedConfigValues(); named != nil {
@@ -1201,9 +1161,11 @@ func extractConfigValues(
 			key := cv.IDENTIFIER().GetText()
 			idx := config.GetIndex(key)
 			if expr := cv.Expression(); expr != nil {
-				if !apply(idx, expr, key) {
-					return nil, artifacts, false
+				value, ok := parseConfigExpr(expr, config[idx].Type, key)
+				if !ok {
+					return nil, false
 				}
+				config[idx].Value = value
 			}
 		}
 	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
@@ -1216,78 +1178,16 @@ func extractConfigValues(
 			if pos >= len(exprs) {
 				break
 			}
-			if !apply(i, exprs[pos], config[i].Name) {
-				return nil, artifacts, false
+			value, ok := parseConfigExpr(exprs[pos], config[i].Type, fmt.Sprintf("position %d", pos))
+			if !ok {
+				return nil, false
 			}
+			config[i].Value = value
 			pos++
 		}
 	}
 
-	return config, artifacts, true
-}
-
-// addInputExprNode appends the synthetic function, node, and edges for a non-literal
-// brace input expression. Channels the expression reads are sampled at fire time.
-func addInputExprNode(
-	ctx acontext.Context[parser.IConfigValuesContext],
-	artifacts *inputExprArtifacts,
-	hostKey string,
-	expr parser.IExpressionContext,
-	paramType types.Type,
-	paramName string,
-	kg *keyGenerator,
-) {
-	chans := exprChannels(ctx, expr)
-	key := kg.generate("expr", "")
-	fnType := compiler.InputExprSyntheticPrefix + key
-	outputType := ctx.Constraints.ApplySubstitutions(paramType)
-	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
-		Key:      fnType,
-		Body:     ir.Body{Raw: expr.GetText(), AST: expr},
-		Inputs:   types.Params{},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-		Channels: chans,
-	})
-	artifacts.nodes = append(artifacts.nodes, ir.Node{
-		Key:      key,
-		Type:     fnType,
-		Channels: chans.Copy(),
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-	})
-	artifacts.dataEdges = append(artifacts.dataEdges, ir.Edge{
-		Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
-		Target: ir.Handle{Node: hostKey, Param: paramName},
-		Kind:   ir.EdgeKindContinuous,
-	})
-	artifacts.triggerTargets = append(
-		artifacts.triggerTargets,
-		ir.Handle{Node: key, Param: ir.DefaultInputParam},
-	)
-}
-
-// exprChannels returns the channels read by any identifier in expr, so the synthetic
-// node binds them and samples their current value when it fires.
-func exprChannels(ctx acontext.Context[parser.IConfigValuesContext], expr parser.IExpressionContext) types.Channels {
-	chans := types.NewChannels()
-	var walk func(t antlr.Tree)
-	walk = func(t antlr.Tree) {
-		if term, ok := t.(antlr.TerminalNode); ok {
-			if term.GetSymbol().GetTokenType() != parser.ArcLexerIDENTIFIER {
-				return
-			}
-			sym, err := ctx.Scope.Resolve(ctx, term.GetText())
-			if err != nil || (sym.Kind != symbol.KindChannel && sym.Type.Kind != types.KindChan) {
-				return
-			}
-			chans.Read[uint32(sym.ID)] = sym.Name
-			return
-		}
-		for i := range t.GetChildCount() {
-			walk(t.GetChild(i))
-		}
-	}
-	walk(expr)
-	return chans
+	return config, true
 }
 
 // collectSynthByAST returns a map from each inline-body declaration in the tree
@@ -1749,12 +1649,6 @@ func analyzeSingleInvocation(
 	if fn := ctx.AST.Function(); fn != nil {
 		result, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg)
 		if !ok {
-			return ir.Node{}, false
-		}
-		if len(result.synth.nodes) > 0 {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				fn, "expression inputs are not supported in this context",
-			))
 			return ir.Node{}, false
 		}
 		return result.node, true

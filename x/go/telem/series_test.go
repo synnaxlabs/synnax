@@ -266,20 +266,6 @@ var _ = Describe("Series", func() {
 		})
 	})
 
-	Describe("AtAny", func() {
-		DescribeTable("returns the sample as the type matching the DataType",
-			func(s telem.Series, i int, expected any) {
-				Expect(s.AtAny(i)).To(Equal(expected))
-			},
-			Entry("int64", telem.NewSeriesV[int64](7), 0, int64(7)),
-			Entry("uint8", telem.NewSeriesV[uint8](7), 0, uint8(7)),
-			Entry("float64", telem.NewSeriesV[float64](1.5), 0, float64(1.5)),
-			Entry("timestamp", telem.NewSeriesV[telem.TimeStamp](42), 0, telem.TimeStamp(42)),
-			Entry("string", telem.NewSeriesV[string]("hi"), 0, "hi"),
-			Entry("negative index", telem.NewSeriesV[int64](1, 2, 3), -1, int64(3)),
-		)
-	})
-
 	Describe("SetValueAt", func() {
 		Describe("Per Type", func() {
 			Specify("Uint8", func() {

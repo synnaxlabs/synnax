@@ -35,10 +35,6 @@ import (
 	"github.com/tetratelabs/wazero"
 )
 
-// nowSentinel mirrors the unexported ranges.nowSentinel: ranges.end substitutes the
-// current time at fire when the time input equals it.
-const nowSentinel = int64(-1)
-
 type reportCall struct {
 	variant status.Variant
 	message string
@@ -89,10 +85,9 @@ func createInputs(name, colorHex, parent string) types.Params {
 	}
 }
 
-func endInputs(key string, t int64) types.Params {
+func endInputs(key string) types.Params {
 	return types.Params{
 		{Name: "key", Type: types.String(), Value: key},
-		{Name: "time", Type: types.TimeStamp(), Value: t},
 	}
 }
 
@@ -195,14 +190,11 @@ var _ = Describe("Symbols", func() {
 			Expect(sym.Trigger).To(Equal(symbol.TriggerOnly))
 		})
 
-		It("Should have key (required string) and time (timestamp, default now)", func() {
-			Expect(sym.Type.Inputs).To(HaveLen(2))
+		It("Should have key (required string) as its only input", func() {
+			Expect(sym.Type.Inputs).To(HaveLen(1))
 			Expect(sym.Type.Inputs[0].Name).To(Equal("key"))
 			Expect(sym.Type.Inputs[0].Type).To(Equal(types.String()))
 			Expect(sym.Type.Inputs[0].Value).To(BeNil())
-			Expect(sym.Type.Inputs[1].Name).To(Equal("time"))
-			Expect(sym.Type.Inputs[1].Type).To(Equal(types.TimeStamp()))
-			Expect(sym.Type.Inputs[1].Value).To(Equal(nowSentinel))
 		})
 	})
 })
@@ -268,7 +260,7 @@ var _ = Describe("Module", func() {
 		})
 
 		It("Should construct an end node from valid inputs", func(ctx SpecContext) {
-			state, irNode := buildState("end", endInputs(uuid.NewString(), nowSentinel))
+			state, irNode := buildState("end", endInputs(uuid.NewString()))
 			n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: state.Node(irNode.Key)}))
 			Expect(n).ToNot(BeNil())
 		})
@@ -284,9 +276,7 @@ var _ = Describe("Module", func() {
 		})
 
 		It("Should return a clean error when end is missing key", func(ctx SpecContext) {
-			cfg := node.Config{Node: ir.Node{Type: "end", Inputs: types.Params{
-				{Name: "time", Type: types.TimeStamp(), Value: nowSentinel},
-			}, Outputs: rangesOutputs}}
+			cfg := node.Config{Node: ir.Node{Type: "end", Inputs: types.Params{}, Outputs: rangesOutputs}}
 			state := node.New(ir.IR{Nodes: ir.Nodes{cfg.Node}})
 			cfg.State = state.Node("")
 			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("ranges.end inputs")))
@@ -338,7 +328,7 @@ var _ = Describe("createNode.Next", func() {
 
 		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
 		r := MustSucceed(retrieveRange(ctx, newKey))
-		Expect(r.Color).To(Equal(MustSucceed(color.FromCSS("#DF6D38"))))
+		Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("#DF6D38"))))
 		Expect(rep.get()).To(BeEmpty())
 	})
 
@@ -348,7 +338,7 @@ var _ = Describe("createNode.Next", func() {
 		n.Next(nodeCtx(ctx))
 		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
 		r := MustSucceed(retrieveRange(ctx, newKey))
-		Expect(r.Color).To(Equal(MustSucceed(color.FromCSS("rgb(223, 109, 56)"))))
+		Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("rgb(223, 109, 56)"))))
 		Expect(rep.get()).To(BeEmpty())
 	})
 
@@ -360,7 +350,7 @@ var _ = Describe("createNode.Next", func() {
 		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
 		r := MustSucceed(retrieveRange(ctx, newKey))
 		Expect(r.Name).To(Equal(name))
-		Expect(r.Color.IsZero()).To(BeTrue())
+		Expect(r.Color).To(BeNil())
 
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
@@ -406,8 +396,8 @@ var _ = Describe("endNode.Next", func() {
 		mod = newModule(ctx, rep)
 	})
 
-	build := func(ctx context.Context, key string, t int64) (node.Node, *node.State) {
-		state, irNode := buildState("end", endInputs(key, t))
+	build := func(ctx context.Context, key string) (node.Node, *node.State) {
+		state, irNode := buildState("end", endInputs(key))
 		s := state.Node(irNode.Key)
 		return MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: s})), s
 	}
@@ -421,32 +411,22 @@ var _ = Describe("endNode.Next", func() {
 		return r
 	}
 
-	It("Should set the end bound to an explicit timestamp", func(ctx SpecContext) {
+	It("Should set the end bound to now", func(ctx SpecContext) {
 		r := openRange(ctx)
-		end := telem.Now()
-		n, state := build(ctx, r.Key.String(), int64(end))
+		before := telem.Now()
+		n, state := build(ctx, r.Key.String())
 		n.Next(nodeCtx(ctx))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{r.Key.String()}))
 		updated := MustSucceed(retrieveRange(ctx, r.Key.String()))
-		Expect(updated.TimeRange.End).To(Equal(end))
-		Expect(rep.get()).To(BeEmpty())
-	})
-
-	It("Should default the end bound to now when time is the sentinel", func(ctx SpecContext) {
-		r := openRange(ctx)
-		before := telem.Now()
-		n, _ := build(ctx, r.Key.String(), nowSentinel)
-		n.Next(nodeCtx(ctx))
-
-		updated := MustSucceed(retrieveRange(ctx, r.Key.String()))
 		Expect(updated.TimeRange.End).To(BeNumerically(">=", before))
 		Expect(updated.TimeRange.End).To(BeNumerically("<=", telem.Now()))
 		Expect(updated.TimeRange.End).ToNot(Equal(telem.TimeStampMax))
+		Expect(rep.get()).To(BeEmpty())
 	})
 
 	It("Should warn and emit an empty key when the key is not a UUID", func(ctx SpecContext) {
-		n, state := build(ctx, "not-a-uuid", nowSentinel)
+		n, state := build(ctx, "not-a-uuid")
 		n.Next(nodeCtx(ctx))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
@@ -457,7 +437,7 @@ var _ = Describe("endNode.Next", func() {
 	})
 
 	It("Should warn when the range does not exist", func(ctx SpecContext) {
-		n, state := build(ctx, uuid.NewString(), nowSentinel)
+		n, state := build(ctx, uuid.NewString())
 		n.Next(nodeCtx(ctx))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
@@ -478,11 +458,6 @@ var _ = Describe("Analyzer hooks", func() {
 			root.Parent.AddChild(s)
 		}
 		return root
-	}
-	analyze := func(ctx context.Context, src string) bool {
-		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
-		_, diags := text.Analyze(ctx, parsed, buildRoot())
-		return diags.Ok()
 	}
 	hasColorError := func(ctx context.Context, src string) bool {
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
@@ -513,11 +488,6 @@ var _ = Describe("Analyzer hooks", func() {
 	It("Should not flag a missing color argument", func(ctx SpecContext) {
 		Expect(hasColorError(ctx,
 			"import ranges\nsensor -> ranges.create{name=\"r\"}")).To(BeFalse())
-	})
-
-	It("Should not flag a non-literal color expression", func(ctx SpecContext) {
-		Expect(analyze(ctx,
-			"import ranges\nsensor -> ranges.create{name=\"r\", color=\"#00\"+\"0000\"}")).To(BeTrue())
 	})
 })
 
@@ -575,24 +545,26 @@ var _ = Describe("WASM host functions", func() {
 	})
 
 	Describe("end", func() {
-		It("Should set the end bound and return a handle resolving to the key", func(ctx SpecContext) {
+		It("Should set the end bound to now and return a handle resolving to the key", func(ctx SpecContext) {
 			r := ranger.Range{
 				Name:      "wasm_end_" + uuid.NewString(),
 				TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 			}
 			Expect(rangeSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			keyH := strs.Create(r.Key.String())
-			end := telem.Now()
+			before := telem.Now()
 
-			res := rt.Call(ctx, "ranges", "end", arctest.U32(keyH), arctest.U64(uint64(end)))
+			res := rt.Call(ctx, "ranges", "end", arctest.U32(keyH))
 			out := arctest.AsU32(res[0])
 			Expect(MustBeOk(strs.Get(out))).To(Equal(r.Key.String()))
 			updated := MustSucceed(retrieveRange(ctx, r.Key.String()))
-			Expect(updated.TimeRange.End).To(Equal(end))
+			Expect(updated.TimeRange.End).To(BeNumerically(">=", before))
+			Expect(updated.TimeRange.End).To(BeNumerically("<=", telem.Now()))
+			Expect(updated.TimeRange.End).ToNot(Equal(telem.TimeStampMax))
 		})
 
 		It("Should warn and return 0 on an invalid key handle", func(ctx SpecContext) {
-			res := rt.Call(ctx, "ranges", "end", arctest.U32(9999), arctest.U64(0))
+			res := rt.Call(ctx, "ranges", "end", arctest.U32(9999))
 			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))

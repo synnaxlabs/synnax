@@ -8,6 +8,7 @@ cc_library(
     deps = [
         "//arc/cpp/runtime/node",
         "//arc/cpp/stl",
+        "//arc/cpp/types",
         "//client/cpp:synnax",
         "//client/cpp/status",
         "//x/cpp/color",
