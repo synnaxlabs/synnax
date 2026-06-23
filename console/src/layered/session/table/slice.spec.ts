@@ -59,59 +59,6 @@ describe("Table Slice", () => {
     });
   });
 
-  describe("selectCells", () => {
-    it("should replace the selection", () => {
-      store.dispatch(Table.internalCreate({ key: KEY }));
-      store.dispatch(
-        Table.selectCells({ key: KEY, mode: "replace", cells: ["a", "b"] }),
-      );
-      expect(select(Table.selectSelectedCellKeys)).toEqual(["a", "b"]);
-      expect(select(Table.selectLastSelected)).toBe("b");
-    });
-
-    it("should add to the existing selection without duplicates", () => {
-      store.dispatch(Table.internalCreate({ key: KEY }));
-      store.dispatch(Table.selectCells({ key: KEY, mode: "replace", cells: ["a"] }));
-      store.dispatch(Table.selectCells({ key: KEY, mode: "add", cells: ["a", "b"] }));
-      expect(select(Table.selectSelectedCellKeys)).toEqual(["a", "b"]);
-    });
-
-    it("should set cells directly for region mode", () => {
-      store.dispatch(Table.internalCreate({ key: KEY }));
-      store.dispatch(
-        Table.selectCells({ key: KEY, mode: "region", cells: ["a", "b", "c"] }),
-      );
-      expect(select(Table.selectSelectedCellKeys)).toEqual(["a", "b", "c"]);
-    });
-
-    it("should honor an explicit anchor", () => {
-      store.dispatch(Table.internalCreate({ key: KEY }));
-      store.dispatch(
-        Table.selectCells({
-          key: KEY,
-          mode: "replace",
-          cells: ["a", "b"],
-          anchor: "a",
-        }),
-      );
-      expect(select(Table.selectLastSelected)).toBe("a");
-    });
-
-    it("should clear the selection on an empty replace", () => {
-      store.dispatch(Table.internalCreate({ key: KEY }));
-      store.dispatch(Table.selectCells({ key: KEY, mode: "replace", cells: ["a"] }));
-      store.dispatch(Table.selectCells({ key: KEY, mode: "replace", cells: [] }));
-      expect(select(Table.selectSelectedCellKeys)).toEqual([]);
-      expect(select(Table.selectLastSelected)).toBeNull();
-    });
-
-    it("should ignore selection when the table is not editable", () => {
-      store.dispatch(Table.internalCreate({ key: KEY, editable: false }));
-      store.dispatch(Table.selectCells({ key: KEY, mode: "replace", cells: ["a"] }));
-      expect(select(Table.selectSelectedCellKeys)).toEqual([]);
-    });
-  });
-
   describe("setSelectedCells", () => {
     it("should set the selected cells", () => {
       store.dispatch(Table.internalCreate({ key: KEY }));

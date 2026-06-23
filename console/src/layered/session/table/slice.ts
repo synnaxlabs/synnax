@@ -45,21 +45,6 @@ export interface KeyedPayload {
 
 export interface CreatePayload extends KeyedPayload, NewState {}
 
-export type SelectionMode = "replace" | "add" | "region";
-
-export interface SelectCellsPayload extends KeyedPayload {
-  mode: SelectionMode;
-  // cells is the set of cell keys to apply the mode against. The caller
-  // resolves shift-click ranges into the full set before dispatching; the
-  // rectangular-region geometry lives in the consumer (which has access to the
-  // Pluto-owned rows/columns), not here.
-  cells: string[];
-  // anchor records the most-recently-clicked cell so subsequent shift-clicks
-  // can build the range relative to it. Defaults to the last entry in cells
-  // when omitted.
-  anchor?: string;
-}
-
 export interface SetSelectedCellsPayload extends KeyedPayload {
   cells: string[];
   anchor?: string | null;
@@ -101,27 +86,6 @@ export const { actions, reducer } = createSlice({
       if (payload.key in state.tables) return;
       state.tables[payload.key] = stateZ.parse(payload);
     },
-    selectCells: withSelectedState(
-      (
-        state,
-        { payload: { mode, cells, anchor } }: PayloadAction<SelectCellsPayload>,
-      ) => {
-        if (!state.editable) return;
-        if (cells.length === 0) {
-          if (mode === "replace") {
-            state.selectedCells = [];
-            state.lastSelected = null;
-          }
-          return;
-        }
-        if (mode === "add") {
-          const next = new Set(state.selectedCells);
-          for (const c of cells) next.add(c);
-          state.selectedCells = Array.from(next);
-        } else state.selectedCells = cells;
-        state.lastSelected = anchor ?? cells[cells.length - 1];
-      },
-    ),
     setSelectedCells: withSelectedState(
       (state, { payload }: PayloadAction<SetSelectedCellsPayload>) => {
         state.selectedCells = payload.cells;
@@ -153,7 +117,6 @@ export const { actions, reducer } = createSlice({
 
 export const {
   create: internalCreate,
-  selectCells,
   setSelectedCells,
   setEditable,
   setHideIndicators,
