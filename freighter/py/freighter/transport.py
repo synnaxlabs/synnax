@@ -9,19 +9,12 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Awaitable, Callable
-from typing import Protocol, TypeAlias, TypeVar
+from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
 
 from freighter.context import Context
-
-FilePath: TypeAlias = str | os.PathLike[str]
-"""A filesystem path accepted by the streaming-body transport Protocols.
-
-Equivalent to ``str | os.PathLike[str]`` — the same shape ``open()`` accepts for paths.
-"""
 
 
 class Empty(BaseModel):

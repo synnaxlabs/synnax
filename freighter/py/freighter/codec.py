@@ -56,7 +56,7 @@ class MessagePackCodec(Codec):
         packed = msgpack.packb(payload.model_dump(by_alias=True))
         if not isinstance(packed, bytes):
             raise ValueError(
-                f"msgpack failed to encode payload of type {type(payload).__name__}"
+                f"MessagePack failed to encode payload of type {type(payload).__name__}"
             )
         return packed
 

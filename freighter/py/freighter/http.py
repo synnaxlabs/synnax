@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import pathlib
 from collections.abc import Iterable, Sequence
-from typing import IO, Any, Protocol
+from typing import IO, Any, Protocol, overload
 
 import urllib3
 from pydantic import BaseModel
@@ -23,7 +23,8 @@ from urllib3.response import BaseHTTPResponse
 from freighter.codec import Codec
 from freighter.context import Context
 from freighter.exceptions import Unreachable
-from freighter.transport import RQ, RS, FilePath, MiddlewareCollector
+from freighter.file import FilePath
+from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.url import URL
 from x.exceptions import ExceptionPayload, decode_exception
 
@@ -106,13 +107,16 @@ class HTTPClient(MiddlewareCollector):
             res_t=res_t,
         )
 
-    def upload(self, target: str, req: FilePath, res_t: type[RS]) -> RS:
+    def upload(self, target: str, req: FilePath | RQ, res_t: type[RS]) -> RS:
         """
-        Streams the file at req to target and decodes the response into res_t. urllib3
-        uses chunked transfer encoding so the body never has to fit in memory; the
+        Sends req to target and decodes the response into res_t. When req is a typed
+        payload it is encoded and sent inline. When req is a file path, urllib3 uses
+        chunked transfer encoding so the body never has to fit in memory; the
         Content-Type is inferred from the file extension via the client's registered
         codecs.
         """
+        if isinstance(req, BaseModel):
+            return self.send(target, req, res_t)
         codec = self._codec_for_path(req)
         if isinstance(codec, Exception):
             raise codec
@@ -124,14 +128,30 @@ class HTTPClient(MiddlewareCollector):
                 res_t=res_t,
             )
 
-    def download(self, target: str, req: BaseModel, dest: FilePath) -> None:
+    @overload
+    def download(self, target: str, req: BaseModel, res_t: type[RS]) -> RS: ...
+    @overload
+    def download(self, target: str, req: BaseModel, *, dest: FilePath) -> None: ...
+    def download(
+        self,
+        target: str,
+        req: BaseModel,
+        res_t: type[RS] | None = None,
+        *,
+        dest: FilePath | None = None,
+    ) -> RS | None:
         """
-        Sends req to target and streams the response body directly into dest, without
-        buffering the full body in memory. The Accept header is derived from the dest
-        extension via the client's registered codecs (e.g., a .json destination requests
-        application/json), so the on-disk format and the negotiated wire format are
-        guaranteed to match.
+        Sends req to target and returns the response. When res_t is given the response is
+        decoded into an in-memory payload of that type. When dest is given the response
+        body is streamed directly into dest, without buffering the full body in memory;
+        the Accept header is derived from the dest extension via the client's registered
+        codecs (e.g., a .json destination requests application/json), so the on-disk
+        format and the negotiated wire format are guaranteed to match.
         """
+        if dest is None:
+            if res_t is None:
+                raise ValueError("download requires either res_t or dest")
+            return self.send(target, req, res_t)
         dest_codec = self._codec_for_path(dest)
         if isinstance(dest_codec, Exception):
             raise dest_codec
@@ -170,6 +190,7 @@ class HTTPClient(MiddlewareCollector):
 
         in_ctx = Context(url, self._endpoint.protocol, "client")
         self.exec(in_ctx, finalizer)
+        return None
 
     def _build_url(self, target: str) -> str:
         return self._endpoint.child(target).stringify()
