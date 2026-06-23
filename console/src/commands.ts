@@ -15,7 +15,7 @@ import { Framer } from "@/framer";
 import { Hardware } from "@/hardware";
 import { Import } from "@/import";
 import { LabelServices } from "@/label/services";
-import { Schematic } from "@/layered/service/schematic";
+import { Service } from "@/layered/service";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { type Palette } from "@/palette";
@@ -24,7 +24,6 @@ import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
-import { Theme } from "@/theme";
 import { UserServices } from "@/user/services";
 
 export const COMMANDS: Palette.Command[] = [
@@ -39,11 +38,11 @@ export const COMMANDS: Palette.Command[] = [
   ...LogServices.COMMANDS,
   ...Persist.COMMANDS,
   ...RangeServices.COMMANDS,
-  ...Schematic.COMMANDS,
+  ...Service.Schematic.COMMANDS,
   ...TableServices.COMMANDS,
   ...UserServices.COMMANDS,
   ...ProjectServices.COMMANDS,
   ...ArcServices.COMMANDS,
   ...Status.COMMANDS,
-  ...Theme.COMMANDS,
+  ...Service.Theme.COMMANDS,
 ];

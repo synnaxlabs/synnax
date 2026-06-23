@@ -7,5 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/layered/session/schematic";
-export * from "@/layered/session/theme";
+import { ToggleCommand } from "@/layered/service/theme/ToggleCommand";
+import { type Palette } from "@/palette";
+
+export const COMMANDS: Palette.Command[] = [ToggleCommand];

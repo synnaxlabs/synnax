@@ -39,63 +39,67 @@ const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootSta
 ];
 
 const ZERO_STATE: RootState = {
+  [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+  [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Session.Schematic.SLICE_NAME]: Session.Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
-  [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
-  [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
+  [Session.Theme.SLICE_NAME]: Session.Theme.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
+  [Arc.SLICE_NAME]: Arc.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Log.SLICE_NAME]: Log.reducer,
+  [Project.SLICE_NAME]: Project.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
-  [Project.SLICE_NAME]: Project.reducer,
-  [Arc.SLICE_NAME]: Arc.reducer,
+  [Session.Theme.SLICE_NAME]: Session.Theme.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
+  [Arc.SLICE_NAME]: Arc.SliceState;
   [Cluster.SLICE_NAME]: Cluster.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
+  [Project.SLICE_NAME]: Project.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Session.Schematic.SLICE_NAME]: Session.Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
-  [Project.SLICE_NAME]: Project.SliceState;
-  [Arc.SLICE_NAME]: Arc.SliceState;
+  [Session.Theme.SLICE_NAME]: Session.Theme.SliceState;
 }
 
 export type RootAction =
+  | Arc.Action
   | Cluster.Action
   | Docs.Action
   | Drift.Action
   | Layout.Action
   | LinePlot.Action
   | Log.Action
+  | Project.Action
   | Range.Action
   | Session.Schematic.Action
   | Status.Action
   | Table.Action
-  | Project.Action
-  | Arc.Action;
+  | Session.Theme.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -106,6 +110,9 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
 
 export const migrateState = (prev: RootState): RootState => {
   console.group("Migrating State");
+  const arc = Arc.migrateSlice(prev.arc);
+  const cluster = Cluster.migrateSlice(prev.cluster);
+  const docs = Docs.migrateSlice(prev.docs);
   const layout = Layout.migrateSlice(prev.layout);
   const line = LinePlot.migrateSlice(prev.line);
   const log = Log.migrateSlice(prev.log);
@@ -114,23 +121,20 @@ export const migrateState = (prev: RootState): RootState => {
   // active project.
   const project = Project.migrateLegacySlice(prev);
   const range = Range.migrateSlice(prev.range);
-  const docs = Docs.migrateSlice(prev.docs);
-  const cluster = Cluster.migrateSlice(prev.cluster);
-  const arc = Arc.migrateSlice(prev.arc);
   const status = Status.migrateSlice(prev.status);
   const table = Table.migrateSlice(prev.table);
   console.log("Migrated State");
   console.groupEnd();
   return {
     ...prev,
+    arc,
+    cluster,
+    docs,
     layout,
     line,
     log,
     project,
     range,
-    docs,
-    cluster,
-    arc,
     status,
     table,
   };

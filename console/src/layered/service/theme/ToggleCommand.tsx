@@ -7,24 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
-import { MdDarkMode } from "react-icons/md";
+import { Icon, Theming } from "@synnaxlabs/pluto";
 
-import { setActiveTheme } from "@/layout/slice";
 import { Palette } from "@/palette";
 
-export const ToggleCommand: Palette.Command = ({ store, ...listProps }) => {
-  const handleSelect = useCallback(() => store.dispatch(setActiveTheme()), [store]);
+const COMMAND_NAME = "Toggle color theme";
+
+export interface ToggleCommandProps extends Omit<
+  Palette.CommandListItemProps,
+  "name" | "onSelect" | "icon"
+> {}
+
+export const ToggleCommand = (props: ToggleCommandProps) => {
+  const { toggleTheme } = Theming.useContext();
   return (
     <Palette.CommandListItem
-      {...listProps}
-      name="Toggle color theme"
-      icon={<MdDarkMode />}
-      onSelect={handleSelect}
+      {...props}
+      name={COMMAND_NAME}
+      icon={<Icon.DarkMode />}
+      onSelect={toggleTheme}
     />
   );
 };
 ToggleCommand.key = "toggle-theme";
-ToggleCommand.commandName = "Toggle color theme";
-
-export const COMMANDS = [ToggleCommand];
+ToggleCommand.commandName = COMMAND_NAME;
