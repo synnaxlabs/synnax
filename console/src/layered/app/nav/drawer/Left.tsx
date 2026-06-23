@@ -34,9 +34,8 @@ export const Left = (): ReactElement => {
     <Drawer
       location="left"
       open={item != null}
-      size={size ?? item?.initialSize}
-      minSize={item?.minSize}
-      maxSize={item?.maxSize}
+      size={size ?? item?.initialSize ?? Items.DEFAULT_SIZE}
+      sizeBounds={{ lower: item?.minSize, upper: item?.maxSize }}
       hover={hover}
       onResize={onResize}
       onCollapse={onCollapse}

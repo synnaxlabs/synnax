@@ -33,9 +33,8 @@ export const Bottom = (): ReactElement => {
     <View.Nav.Drawer
       location="bottom"
       open={visible}
-      size={size ?? Items.BOTTOM.initialSize}
-      minSize={Items.BOTTOM.minSize}
-      maxSize={Items.BOTTOM.maxSize}
+      size={size ?? Items.BOTTOM.initialSize ?? Items.DEFAULT_SIZE}
+      sizeBounds={{ lower: Items.BOTTOM.minSize, upper: Items.BOTTOM.maxSize }}
       hover={hover}
       onResize={onResize}
       onCollapse={onCollapse}

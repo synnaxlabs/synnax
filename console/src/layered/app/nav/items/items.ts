@@ -17,6 +17,8 @@ import { Status } from "@/status";
 import { UserServices } from "@/user/services";
 import { Vis } from "@/vis";
 
+export const DEFAULT_SIZE = 200;
+
 export const LEFT: View.Nav.Item[] = [
   ...Hardware.NAV_DRAWER_ITEMS,
   Arc.TOOLBAR,

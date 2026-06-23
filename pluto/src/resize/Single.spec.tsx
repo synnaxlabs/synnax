@@ -21,7 +21,12 @@ describe("Resize", () => {
     it("should render a resize div", async () => {
       const sizeBounds: bounds.Bounds = { lower: 20, upper: 500 };
       const c = render(
-        <Resize.Single location="left" size={50} sizeBounds={sizeBounds}>
+        <Resize.Single
+          location="left"
+          size={50}
+          sizeBounds={sizeBounds}
+          onResize={() => {}}
+        >
           <p>Hello</p>
         </Resize.Single>,
       );

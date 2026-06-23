@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
 import { Flex } from "@/flex";
@@ -17,12 +17,25 @@ import { Text } from "@/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 
-const useShowcaseDrawer = (items: Nav.DrawerItem[]) => {
+interface ShowcaseDrawerItem {
+  key: string;
+  content: ReactElement;
+  initialSize: number;
+  minSize: number;
+  maxSize: number;
+}
+
+const useShowcaseDrawer = (items: ShowcaseDrawerItem[]) => {
   const [activeKey, setActiveKey] = useState<string>();
+  const [size, setSize] = useState(0);
   const activeItem = items.find((i) => i.key === activeKey);
   const onSelect = (key: string) =>
-    setActiveKey((prev) => (prev === key ? undefined : key));
-  return { activeItem, onSelect };
+    setActiveKey((prev) => {
+      const next = prev === key ? undefined : key;
+      setSize(items.find((i) => i.key === next)?.initialSize ?? 0);
+      return next;
+    });
+  return { activeItem, onSelect, size, setSize };
 };
 
 export const NavShowcase = () => {
@@ -346,7 +359,12 @@ export const NavShowcase = () => {
                 </Nav.Bar>
                 <Nav.Drawer
                   open={topDrawer.activeItem != null}
-                  size={topDrawer.activeItem?.initialSize}
+                  size={topDrawer.size}
+                  sizeBounds={{
+                    lower: topDrawer.activeItem?.minSize,
+                    upper: topDrawer.activeItem?.maxSize,
+                  }}
+                  onResize={topDrawer.setSize}
                   location="top"
                 >
                   {topDrawer.activeItem?.content}
@@ -355,14 +373,10 @@ export const NavShowcase = () => {
                   style={{
                     padding: "2rem",
                     height: `calc(100% - 3rem - ${
-                      topDrawer.activeItem
-                        ? `${topDrawer.activeItem.initialSize}px`
-                        : "0px"
+                      topDrawer.activeItem ? `${topDrawer.size}px` : "0px"
                     })`,
                     marginTop: `calc(3rem + ${
-                      topDrawer.activeItem
-                        ? `${topDrawer.activeItem.initialSize}px`
-                        : "0px"
+                      topDrawer.activeItem ? `${topDrawer.size}px` : "0px"
                     })`,
                   }}
                   align="center"
@@ -415,7 +429,12 @@ export const NavShowcase = () => {
                 </Nav.Bar>
                 <Nav.Drawer
                   open={leftDrawer.activeItem != null}
-                  size={leftDrawer.activeItem?.initialSize}
+                  size={leftDrawer.size}
+                  sizeBounds={{
+                    lower: leftDrawer.activeItem?.minSize,
+                    upper: leftDrawer.activeItem?.maxSize,
+                  }}
+                  onResize={leftDrawer.setSize}
                   location="left"
                 >
                   {leftDrawer.activeItem?.content}
@@ -424,14 +443,10 @@ export const NavShowcase = () => {
                   style={{
                     padding: "2rem",
                     width: `calc(100% - 3rem - ${
-                      leftDrawer.activeItem
-                        ? `${leftDrawer.activeItem.initialSize}px`
-                        : "0px"
+                      leftDrawer.activeItem ? `${leftDrawer.size}px` : "0px"
                     })`,
                     marginLeft: `calc(3rem + ${
-                      leftDrawer.activeItem
-                        ? `${leftDrawer.activeItem.initialSize}px`
-                        : "0px"
+                      leftDrawer.activeItem ? `${leftDrawer.size}px` : "0px"
                     })`,
                     height: "100%",
                   }}
