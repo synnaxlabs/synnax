@@ -51,7 +51,7 @@ func AutoMigrateArc(ctx context.Context, old arcv56.Arc) (Arc, error) {
 		Name:    old.Name,
 		Mode:    Mode(old.Mode),
 		Graph:   graph,
-		Text:    text.Text(old.Text),
+		Text:    text.Text{Raw: old.Text.Raw},
 		Program: program,
 		Status:  status,
 	}, nil

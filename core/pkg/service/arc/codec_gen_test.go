@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -46,60 +47,68 @@ var _ = Describe("Codec", func() {
 				Name: "test_2",
 				Mode: arc.Mode("text"),
 				Graph: graph.Graph{
-					Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
 					Functions: []ir.Function{
 						{
-							Key:  "test_11",
-							Body: ir.Body{Raw: "test_13"},
+							Key:  "test_6",
+							Body: ir.Body{Raw: "test_8"},
 							Inputs: []types.Param{
 								{
-									Name:  "test_15",
+									Name:  "test_10",
 									Type:  types.Type{},
-									Value: map[string]interface{}{"key_17": "value_17"},
+									Value: map[string]interface{}{"key_12": "value_12"},
 								},
 							},
 							Outputs: []types.Param{
 								{
-									Name:  "test_19",
+									Name:  "test_14",
 									Type:  types.Type{},
-									Value: map[string]interface{}{"key_21": "value_21"},
+									Value: map[string]interface{}{"key_16": "value_16"},
 								},
 							},
 							Channels: types.Channels{
-								Read:  map[uint32]string{24: "test_23"},
-								Write: map[uint32]string{25: "test_24"},
+								Read:  map[uint32]string{19: "test_18"},
+								Write: map[uint32]string{20: "test_19"},
 							},
 						},
 					},
-					Edges: []ir.Edge{
+					Edges: []graph.Edge{
 						{
-							Source: ir.Handle{Node: "test_27", Param: "test_28"},
-							Target: ir.Handle{Node: "test_30", Param: "test_31"},
-							Kind:   ir.EdgeKind(0),
+							Edge: ir.Edge{
+								Source: ir.Handle{Node: "test_22", Param: "test_23"},
+								Target: ir.Handle{Node: "test_25", Param: "test_26"},
+								Kind:   ir.EdgeKind(0),
+							},
+							Key: "test_28",
 						},
 					},
-					Nodes: []graph.Node{
-						{
-							Key:      "test_34",
-							Type:     "test_35",
-							Config:   msgpack.EncodedJSON{"key_36": "value_36"},
-							Position: spatial.XY{X: 38.5, Y: 39.5},
+					Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+					Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
+				},
+				Text: text.Text{
+					Doc: text.Document{
+						Inserts: []crdt.Insert{
+							{
+								ID:     crdt.ID{},
+								Origin: crdt.ID{},
+								Side:   spatial.XLocation("left"),
+								Char:   42,
+							},
 						},
+						Deletes: []crdt.Delete{{ID: crdt.ID{}}},
 					},
 				},
-				Text: text.Text{Raw: "test_41"},
 			}),
 			Entry("zero values", arc.Arc{
 				Key:  uuid.Nil,
 				Name: "",
 				Mode: arc.Mode(""),
 				Graph: graph.Graph{
-					Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
 					Functions: nil,
 					Edges:     nil,
 					Nodes:     nil,
+					Configs:   nil,
 				},
-				Text: text.Text{Raw: ""},
+				Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
 			}),
 		)
 	})
@@ -126,48 +135,56 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 		Name: "test_2",
 		Mode: arc.Mode("text"),
 		Graph: graph.Graph{
-			Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
 			Functions: []ir.Function{
 				{
-					Key:  "test_11",
-					Body: ir.Body{Raw: "test_13"},
+					Key:  "test_6",
+					Body: ir.Body{Raw: "test_8"},
 					Inputs: []types.Param{
 						{
-							Name:  "test_15",
+							Name:  "test_10",
 							Type:  types.Type{},
-							Value: map[string]interface{}{"key_17": "value_17"},
+							Value: map[string]interface{}{"key_12": "value_12"},
 						},
 					},
 					Outputs: []types.Param{
 						{
-							Name:  "test_19",
+							Name:  "test_14",
 							Type:  types.Type{},
-							Value: map[string]interface{}{"key_21": "value_21"},
+							Value: map[string]interface{}{"key_16": "value_16"},
 						},
 					},
 					Channels: types.Channels{
-						Read:  map[uint32]string{24: "test_23"},
-						Write: map[uint32]string{25: "test_24"},
+						Read:  map[uint32]string{19: "test_18"},
+						Write: map[uint32]string{20: "test_19"},
 					},
 				},
 			},
-			Edges: []ir.Edge{
+			Edges: []graph.Edge{
 				{
-					Source: ir.Handle{Node: "test_27", Param: "test_28"},
-					Target: ir.Handle{Node: "test_30", Param: "test_31"},
-					Kind:   ir.EdgeKind(0),
+					Edge: ir.Edge{
+						Source: ir.Handle{Node: "test_22", Param: "test_23"},
+						Target: ir.Handle{Node: "test_25", Param: "test_26"},
+						Kind:   ir.EdgeKind(0),
+					},
+					Key: "test_28",
 				},
 			},
-			Nodes: []graph.Node{
-				{
-					Key:      "test_34",
-					Type:     "test_35",
-					Config:   msgpack.EncodedJSON{"key_36": "value_36"},
-					Position: spatial.XY{X: 38.5, Y: 39.5},
+			Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+			Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
+		},
+		Text: text.Text{
+			Doc: text.Document{
+				Inserts: []crdt.Insert{
+					{
+						ID:     crdt.ID{},
+						Origin: crdt.ID{},
+						Side:   spatial.XLocation("left"),
+						Char:   42,
+					},
 				},
+				Deletes: []crdt.Delete{{ID: crdt.ID{}}},
 			},
 		},
-		Text: text.Text{Raw: "test_41"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -208,48 +225,56 @@ func FuzzDecodeArc(f *testing.F) {
 			Name: "test_2",
 			Mode: arc.Mode("text"),
 			Graph: graph.Graph{
-				Viewport: graph.Viewport{Position: spatial.XY{X: 7.5, Y: 8.5}, Zoom: 9.5},
 				Functions: []ir.Function{
 					{
-						Key:  "test_11",
-						Body: ir.Body{Raw: "test_13"},
+						Key:  "test_6",
+						Body: ir.Body{Raw: "test_8"},
 						Inputs: []types.Param{
 							{
-								Name:  "test_15",
+								Name:  "test_10",
 								Type:  types.Type{},
-								Value: map[string]interface{}{"key_17": "value_17"},
+								Value: map[string]interface{}{"key_12": "value_12"},
 							},
 						},
 						Outputs: []types.Param{
 							{
-								Name:  "test_19",
+								Name:  "test_14",
 								Type:  types.Type{},
-								Value: map[string]interface{}{"key_21": "value_21"},
+								Value: map[string]interface{}{"key_16": "value_16"},
 							},
 						},
 						Channels: types.Channels{
-							Read:  map[uint32]string{24: "test_23"},
-							Write: map[uint32]string{25: "test_24"},
+							Read:  map[uint32]string{19: "test_18"},
+							Write: map[uint32]string{20: "test_19"},
 						},
 					},
 				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
-						Source: ir.Handle{Node: "test_27", Param: "test_28"},
-						Target: ir.Handle{Node: "test_30", Param: "test_31"},
-						Kind:   ir.EdgeKind(0),
+						Edge: ir.Edge{
+							Source: ir.Handle{Node: "test_22", Param: "test_23"},
+							Target: ir.Handle{Node: "test_25", Param: "test_26"},
+							Kind:   ir.EdgeKind(0),
+						},
+						Key: "test_28",
 					},
 				},
-				Nodes: []graph.Node{
-					{
-						Key:      "test_34",
-						Type:     "test_35",
-						Config:   msgpack.EncodedJSON{"key_36": "value_36"},
-						Position: spatial.XY{X: 38.5, Y: 39.5},
+				Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+				Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
+			},
+			Text: text.Text{
+				Doc: text.Document{
+					Inserts: []crdt.Insert{
+						{
+							ID:     crdt.ID{},
+							Origin: crdt.ID{},
+							Side:   spatial.XLocation("left"),
+							Char:   42,
+						},
 					},
+					Deletes: []crdt.Delete{{ID: crdt.ID{}}},
 				},
 			},
-			Text: text.Text{Raw: "test_41"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -263,12 +288,12 @@ func FuzzDecodeArc(f *testing.F) {
 			Name: "",
 			Mode: arc.Mode(""),
 			Graph: graph.Graph{
-				Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
 				Functions: nil,
 				Edges:     nil,
 				Nodes:     nil,
+				Configs:   nil,
 			},
-			Text: text.Text{Raw: ""},
+			Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

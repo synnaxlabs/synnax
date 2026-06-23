@@ -13,17 +13,15 @@ package v56
 
 import (
 	"context"
+	uuid "github.com/google/uuid"
 	graph "github.com/synnaxlabs/arc/graph"
 	ir "github.com/synnaxlabs/arc/ir"
 	irv56 "github.com/synnaxlabs/arc/ir/migrations/v56"
+	msgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	spatial "github.com/synnaxlabs/x/spatial"
 )
 
 func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
-	viewport, err := AutoMigrateViewport(ctx, old.Viewport)
-	if err != nil {
-		return graph.Graph{}, err
-	}
 	functions := make(ir.Functions, len(old.Functions))
 	for i, v := range old.Functions {
 		var err error
@@ -31,7 +29,7 @@ func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
 			return graph.Graph{}, err
 		}
 	}
-	edges := make(ir.Edges, len(old.Edges))
+	edges := make(graph.Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
 		if edges[i], err = AutoMigrateEdge(ctx, v); err != nil {
@@ -45,34 +43,37 @@ func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
 			return graph.Graph{}, err
 		}
 	}
+	configs := make(map[string]msgpack.EncodedJSON, len(old.Nodes))
+	for _, v := range old.Nodes {
+		cfg := msgpack.EncodedJSON{}
+		for k, val := range v.Config {
+			cfg[k] = val
+		}
+		cfg["type"] = v.Type
+		configs[v.Key] = cfg
+	}
 	return graph.Graph{
-		Viewport:  viewport,
 		Functions: functions,
 		Edges:     edges,
 		Nodes:     nodes,
+		Configs:   configs,
 	}, nil
 }
 
-func AutoMigrateViewport(_ context.Context, old Viewport) (graph.Viewport, error) {
-	return graph.Viewport{
-		Position: spatial.XY(old.Position),
-		Zoom:     old.Zoom,
-	}, nil
-}
-
-func AutoMigrateEdge(_ context.Context, old irv56.Edge) (ir.Edge, error) {
-	return ir.Edge{
-		Source: ir.Handle(old.Source),
-		Target: ir.Handle(old.Target),
-		Kind:   ir.EdgeKind(old.Kind),
+func AutoMigrateEdge(_ context.Context, old irv56.Edge) (graph.Edge, error) {
+	return graph.Edge{
+		Edge: ir.Edge{
+			Source: ir.Handle(old.Source),
+			Target: ir.Handle(old.Target),
+			Kind:   ir.EdgeKind(old.Kind),
+		},
+		Key: uuid.NewString(),
 	}, nil
 }
 
 func AutoMigrateNode(_ context.Context, old Node) (graph.Node, error) {
 	return graph.Node{
 		Key:      old.Key,
-		Type:     old.Type,
-		Config:   old.Config,
 		Position: spatial.XY(old.Position),
 	}, nil
 }

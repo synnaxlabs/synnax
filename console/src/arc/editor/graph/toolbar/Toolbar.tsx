@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/arc/editor/graph/toolbar/Toolbar.css";
+
 import { arc } from "@synnaxlabs/client";
-import { Access, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
+import { Access, Arc, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { PropertiesControls } from "@/arc/editor/graph/toolbar/Properties";
-import { Stages } from "@/arc/editor/graph/toolbar/Stages";
+import { Stages } from "@/arc/editor/graph/toolbar/Nodes";
+import { Properties } from "@/arc/editor/graph/toolbar/Properties";
 import { useExport } from "@/arc/export";
 import {
   useSelectEditable,
-  useSelectSelectedElementNames,
+  useSelectSelected,
   useSelectToolbar,
 } from "@/arc/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/arc/slice";
@@ -75,7 +77,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const toolbar = useSelectToolbar();
   const editMode = useSelectEditable(layoutKey);
   const handleExport = useExport();
-  const selectedNames = useSelectSelectedElementNames(layoutKey);
+  const selected = useSelectSelected(layoutKey);
+  const singleNodeKey = selected.length === 1 ? selected[0] : "";
+  const singleConfig = Arc.useSelectNodeConfig({
+    key: layoutKey,
+    nodeKey: singleNodeKey,
+  });
+  const selectedName =
+    singleConfig != null
+      ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
+      : null;
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
   const canEdit = hasUpdatePermission && editMode;
   const content = useCallback(
@@ -85,7 +96,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         case "stages":
           return <Stages layoutKey={layoutKey} />;
         default:
-          return <PropertiesControls layoutKey={layoutKey} />;
+          return <Properties layoutKey={layoutKey} />;
       }
     },
     [layoutKey, canEdit, name],
@@ -113,9 +124,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
             <Icon.Arc />
             {name}
           </Breadcrumb.Segment>
-          {selectedNames.length === 1 && selectedNames[0] !== null && (
+          {selectedName != null && (
             <Breadcrumb.Segment weight={400} color={9} level="p">
-              {selectedNames[0]}
+              {selectedName}
             </Breadcrumb.Segment>
           )}
         </Breadcrumb.Breadcrumb>

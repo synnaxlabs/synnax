@@ -1,0 +1,646 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { crdt, type record, TimeStamp } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
+
+import { arc } from "@/arc";
+
+const node = (key: string, x: number, y: number): arc.graph.Node => ({
+  key,
+  position: { x, y },
+});
+
+const cfg = (type: string, params: record.Unknown = {}): record.Unknown => ({
+  type,
+  ...params,
+});
+
+const empty = (graph: Partial<arc.graph.Graph> = {}, name = "Test Arc"): arc.Arc =>
+  arc.arcZ.parse({
+    name,
+    mode: "graph",
+    graph: arc.graph.graphZ.parse(graph),
+  });
+
+const apply = (state: arc.Arc, ...actions: arc.Action[]): arc.Arc =>
+  arc.reduceAll(state, actions).next;
+
+describe("arc reducer", () => {
+  describe("rename", () => {
+    it("should set the module name to the payload name", () => {
+      expect(apply(empty({}, "old"), arc.rename({ name: "new" })).name).toEqual("new");
+    });
+    it("should leave the graph untouched", () => {
+      const state = empty({
+        nodes: [node("n1", 0, 0)],
+        edges: [
+          {
+            key: "n1n2",
+            source: { node: "n1", param: "out" },
+            target: { node: "n2", param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      const out = apply(state, arc.rename({ name: "new" }));
+      expect(out.graph.nodes).toEqual(state.graph.nodes);
+      expect(out.graph.edges).toEqual(state.graph.edges);
+    });
+  });
+
+  describe("setMode", () => {
+    it("should switch the representation mode", () => {
+      expect(apply(empty(), arc.setMode({ mode: "text" })).mode).toEqual("text");
+    });
+    it("should be a no-op when the mode is unchanged", () => {
+      const state = empty();
+      expect(apply(state, arc.setMode({ mode: "graph" }))).toBe(state);
+    });
+  });
+
+  describe("setNode", () => {
+    it("should append the node when no node has the same key", () => {
+      const state = empty({ nodes: [node("n1", 0, 0)] });
+      const out = apply(state, arc.setNode({ node: node("n2", 1, 2) }));
+      expect(out.graph.nodes).toEqual([node("n1", 0, 0), node("n2", 1, 2)]);
+    });
+    it("should replace an existing node in place, preserving slice index", () => {
+      const state = empty({
+        nodes: [node("n1", 0, 0), node("n2", 1, 1), node("n3", 2, 2)],
+      });
+      const out = apply(state, arc.setNode({ node: node("n2", 9, 9) }));
+      expect(out.graph.nodes).toHaveLength(3);
+      expect(out.graph.nodes[1]).toEqual(node("n2", 9, 9));
+    });
+  });
+
+  describe("setNodePosition", () => {
+    it("should move the matching node to the new position", () => {
+      const state = empty({ nodes: [node("n1", 0, 0), node("n2", 5, 5)] });
+      const out = apply(
+        state,
+        arc.setNodePosition({ key: "n1", position: { x: 100, y: 200 } }),
+      );
+      expect(out.graph.nodes[0].position).toEqual({ x: 100, y: 200 });
+      expect(out.graph.nodes[1].position).toEqual({ x: 5, y: 5 });
+    });
+    it("should be a no-op when the key does not match any node", () => {
+      const state = empty({ nodes: [node("n1", 0, 0)] });
+      expect(
+        apply(state, arc.setNodePosition({ key: "ghost", position: { x: 9, y: 9 } })),
+      ).toBe(state);
+    });
+  });
+
+  describe("setNodeConfig", () => {
+    it("should overwrite fields present in both the existing and payload configs", () => {
+      const state = empty({
+        nodes: [node("n1", 0, 0)],
+        configs: { n1: cfg("constant", { value: 1 }) },
+      });
+      const out = apply(
+        state,
+        arc.setNodeConfig({ key: "n1", config: cfg("constant", { value: 2 }) }),
+      );
+      expect(out.graph.configs.n1).toEqual(cfg("constant", { value: 2 }));
+    });
+    it("should merge the config into the existing entry, preserving absent fields", () => {
+      const state = empty({
+        nodes: [node("n1", 0, 0)],
+        configs: { n1: cfg("constant", { value: 1 }) },
+      });
+      const out = apply(state, arc.setNodeConfig({ key: "n1", config: { value: 2 } }));
+      expect(out.graph.configs.n1).toEqual(cfg("constant", { value: 2 }));
+    });
+    it("should write the config even when no entry exists yet", () => {
+      const out = apply(empty(), arc.setNodeConfig({ key: "n1", config: cfg("add") }));
+      expect(out.graph.configs.n1).toEqual(cfg("add"));
+    });
+  });
+
+  describe("removeNode", () => {
+    it("should remove the node, its config, and every connected edge", () => {
+      const state = empty({
+        nodes: [node("n1", 0, 0), node("n2", 1, 1), node("n3", 2, 2)],
+        edges: [
+          {
+            key: "n1n2",
+            source: { node: "n1", param: "out" },
+            target: { node: "n2", param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+          {
+            key: "n2n3",
+            source: { node: "n2", param: "out" },
+            target: { node: "n3", param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+        configs: { n2: cfg("add") },
+      });
+      const out = apply(state, arc.removeNode({ key: "n2" }));
+      expect(out.graph.nodes).toEqual([node("n1", 0, 0), node("n3", 2, 2)]);
+      expect(out.graph.edges).toEqual([]);
+      expect(out.graph.configs.n2).toBeUndefined();
+    });
+    it("should keep unrelated edges intact", () => {
+      const state = empty({
+        nodes: [node("n1", 0, 0), node("n2", 1, 1), node("n3", 2, 2)],
+        edges: [
+          {
+            key: "n1n3",
+            source: { node: "n1", param: "out" },
+            target: { node: "n3", param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      const out = apply(state, arc.removeNode({ key: "n2" }));
+      expect(out.graph.edges).toEqual([
+        {
+          key: "n1n3",
+          source: { node: "n1", param: "out" },
+          target: { node: "n3", param: "in" },
+          kind: arc.ir.EdgeKind.continuous,
+        },
+      ]);
+    });
+    it("should be a no-op when the key does not match any node", () => {
+      const state = empty({ nodes: [node("n1", 0, 0)] });
+      expect(apply(state, arc.removeNode({ key: "ghost" }))).toBe(state);
+    });
+  });
+
+  describe("addEdge", () => {
+    it("should append an edge with new source and target handles", () => {
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      const out = apply(
+        state,
+        arc.addEdge({
+          edge: {
+            key: "bc",
+            source: { node: "b", param: "o" },
+            target: { node: "c", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        }),
+      );
+      expect(out.graph.edges).toEqual([
+        {
+          key: "ab",
+          source: { node: "a", param: "o" },
+          target: { node: "b", param: "i" },
+          kind: arc.ir.EdgeKind.continuous,
+        },
+        {
+          key: "bc",
+          source: { node: "b", param: "o" },
+          target: { node: "c", param: "i" },
+          kind: arc.ir.EdgeKind.continuous,
+        },
+      ]);
+    });
+    it("should be a no-op when an edge with the same source and target exists", () => {
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      expect(
+        apply(
+          state,
+          arc.addEdge({
+            edge: {
+              key: "ab",
+              source: { node: "a", param: "o" },
+              target: { node: "b", param: "i" },
+              kind: arc.ir.EdgeKind.continuous,
+            },
+          }),
+        ),
+      ).toBe(state);
+    });
+  });
+
+  describe("removeEdge", () => {
+    it("should remove the edge matching the key", () => {
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+          {
+            key: "bc",
+            source: { node: "b", param: "o" },
+            target: { node: "c", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      const out = apply(state, arc.removeEdge({ key: "ab" }));
+      expect(out.graph.edges).toEqual([
+        {
+          key: "bc",
+          source: { node: "b", param: "o" },
+          target: { node: "c", param: "i" },
+          kind: arc.ir.EdgeKind.continuous,
+        },
+      ]);
+    });
+    it("should be a no-op when no edge matches the key", () => {
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      expect(apply(state, arc.removeEdge({ key: "missing" }))).toBe(state);
+    });
+  });
+
+  describe("reconnectEdge", () => {
+    it("should rewrite the endpoints of the edge with the key, preserving key and kind", () => {
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      const out = apply(
+        state,
+        arc.reconnectEdge({
+          key: "ab",
+          source: { node: "a", param: "o" },
+          target: { node: "c", param: "i" },
+        }),
+      );
+      expect(out.graph.edges).toEqual([
+        {
+          key: "ab",
+          source: { node: "a", param: "o" },
+          target: { node: "c", param: "i" },
+          kind: arc.ir.EdgeKind.continuous,
+        },
+      ]);
+    });
+    it("should be a no-op when no edge matches the key", () => {
+      const state = empty({
+        edges: [
+          {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        ],
+      });
+      expect(
+        apply(
+          state,
+          arc.reconnectEdge({
+            key: "missing",
+            source: { node: "a", param: "o" },
+            target: { node: "c", param: "i" },
+          }),
+        ),
+      ).toBe(state);
+    });
+  });
+
+  describe("immutability", () => {
+    it("should leave the input state object unmodified", () => {
+      const state = empty({ nodes: [node("n1", 0, 0)] });
+      const before = structuredClone(state);
+      arc.reduceAll(state, [
+        arc.setNodePosition({ key: "n1", position: { x: 9, y: 9 } }),
+      ]);
+      expect(state).toEqual(before);
+    });
+    it("should return a new state object when an action mutates", () => {
+      const state = empty({ nodes: [node("n1", 0, 0)] });
+      const { next } = arc.reduceAll(state, [
+        arc.setNodePosition({ key: "n1", position: { x: 9, y: 9 } }),
+      ]);
+      expect(next).not.toBe(state);
+    });
+    it("should return the same state object when an action is a no-op", () => {
+      const state = empty({ nodes: [node("n1", 0, 0)] });
+      expect(
+        arc.reduceAll(state, [
+          arc.setNodePosition({ key: "ghost", position: { x: 9, y: 9 } }),
+        ]).next,
+      ).toBe(state);
+    });
+  });
+
+  describe("real-world scenarios", () => {
+    it("should converge to the final position after a 30-action drag storm", () => {
+      const state = empty({ nodes: [node("n", 0, 0)] });
+      const actions: arc.Action[] = [];
+      for (let i = 0; i < 30; i++)
+        actions.push(arc.setNodePosition({ key: "n", position: { x: i, y: i * 2 } }));
+      expect(arc.reduceAll(state, actions).next.graph.nodes[0].position).toEqual({
+        x: 29,
+        y: 58,
+      });
+    });
+    it("should build a complete graph from an empty module", () => {
+      const out = apply(
+        empty(),
+        arc.setNode({ node: node("src", 0, 0) }),
+        arc.setNodeConfig({ key: "src", config: cfg("on", { channel: 1 }) }),
+        arc.setNode({ node: node("sink", 200, 0) }),
+        arc.setNodeConfig({ key: "sink", config: cfg("write", { channel: 2 }) }),
+        arc.addEdge({
+          edge: {
+            key: "srcsink",
+            source: { node: "src", param: "out" },
+            target: { node: "sink", param: "in" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        }),
+      );
+      expect(out.graph.nodes).toHaveLength(2);
+      expect(out.graph.edges).toHaveLength(1);
+      expect(out.graph.configs.src).toEqual(cfg("on", { channel: 1 }));
+    });
+    it("should leave state untouched when given an empty action list", () => {
+      const state = empty({ nodes: [node("n1", 0, 0)] });
+      expect(arc.reduceAll(state, []).next).toBe(state);
+    });
+  });
+
+  describe("zod parsing", () => {
+    it("should reject an action with an unknown discriminator with a ZodError", () => {
+      expect(() => arc.actionZ.parse({ type: "unknown", payload: {} })).toThrow(
+        z.ZodError,
+      );
+    });
+    it("should accept a fully populated setNodePosition action", () => {
+      const a = arc.setNodePosition({ key: "n1", position: { x: 1, y: 2 } });
+      expect(arc.actionZ.parse(a)).toEqual(a);
+    });
+  });
+});
+
+describe("arc reducer inverses", () => {
+  const expectRoundTrip = (state: arc.Arc, actions: arc.Action[]) => {
+    const { next, inverse } = arc.reduceAll(state, actions);
+    expect(arc.reduceAll(next, inverse).next).toEqual(state);
+  };
+
+  // Node removal cascades to its config and connected edges; the inverse
+  // re-inserts the node via setNode (which appends) plus setNodeConfig and
+  // addEdge. Slice order is not preserved, so compare nodes by key.
+  const expectGraphRoundTrip = (state: arc.Arc, actions: arc.Action[]) => {
+    const { next, inverse } = arc.reduceAll(state, actions);
+    const restored = arc.reduceAll(next, inverse).next;
+    const byKey = (ns: arc.graph.Node[]) =>
+      Object.fromEntries(ns.map((n) => [n.key, n]));
+    expect(byKey(restored.graph.nodes)).toEqual(byKey(state.graph.nodes));
+    expect(restored.graph.edges).toEqual(state.graph.edges);
+    expect(restored.graph.configs).toEqual(state.graph.configs);
+  };
+
+  describe("rename", () => {
+    it("should invert to restore the prior name", () => {
+      expectRoundTrip(empty({}, "old"), [arc.rename({ name: "new" })]);
+    });
+    it("should report the arc key as a target", () => {
+      const state = empty({}, "a");
+      expect(arc.reduceAll(state, [arc.rename({ name: "b" })]).targets).toEqual([
+        state.key,
+      ]);
+    });
+  });
+
+  describe("setMode", () => {
+    it("should invert to restore the prior mode", () => {
+      expectRoundTrip(empty(), [arc.setMode({ mode: "text" })]);
+    });
+    it("should produce an empty inverse for a no-op", () => {
+      expect(arc.reduceAll(empty(), [arc.setMode({ mode: "graph" })]).inverse).toEqual(
+        [],
+      );
+    });
+  });
+
+  describe("setNode", () => {
+    it("should invert an insert with a removeNode", () => {
+      expectRoundTrip(empty({ nodes: [node("n1", 0, 0)] }), [
+        arc.setNode({ node: node("n2", 5, 5) }),
+      ]);
+    });
+    it("should invert a replace by restoring the prior node", () => {
+      expectRoundTrip(empty({ nodes: [node("n1", 1, 1)] }), [
+        arc.setNode({ node: node("n1", 9, 9) }),
+      ]);
+    });
+  });
+
+  describe("setNodePosition", () => {
+    it("should invert to restore the prior position", () => {
+      expectRoundTrip(empty({ nodes: [node("n1", 1, 2)] }), [
+        arc.setNodePosition({ key: "n1", position: { x: 99, y: 100 } }),
+      ]);
+    });
+    it("should produce an empty inverse for a no-op", () => {
+      expect(
+        arc.reduceAll(empty({ nodes: [node("n1", 1, 2)] }), [
+          arc.setNodePosition({ key: "ghost", position: { x: 9, y: 9 } }),
+        ]).inverse,
+      ).toEqual([]);
+    });
+  });
+
+  describe("setNodeConfig", () => {
+    it("should invert by restoring the prior config", () => {
+      expectGraphRoundTrip(
+        empty({
+          nodes: [node("n1", 0, 0)],
+          configs: { n1: cfg("constant", { value: 1 }) },
+        }),
+        [arc.setNodeConfig({ key: "n1", config: cfg("constant", { value: 2 }) })],
+      );
+    });
+  });
+
+  describe("removeNode", () => {
+    it("should invert by re-inserting the node, its config, and connected edges", () => {
+      expectGraphRoundTrip(
+        empty({
+          nodes: [node("n1", 0, 0), node("n2", 1, 1)],
+          edges: [
+            {
+              key: "n1n2",
+              source: { node: "n1", param: "out" },
+              target: { node: "n2", param: "in" },
+              kind: arc.ir.EdgeKind.continuous,
+            },
+          ],
+          configs: { n1: cfg("on", { channel: 1 }) },
+        }),
+        [arc.removeNode({ key: "n1" })],
+      );
+    });
+    it("should produce an empty inverse for a no-op removal", () => {
+      expect(
+        arc.reduceAll(empty({ nodes: [node("n1", 0, 0)] }), [
+          arc.removeNode({ key: "ghost" }),
+        ]).inverse,
+      ).toEqual([]);
+    });
+  });
+
+  describe("addEdge / removeEdge", () => {
+    it("should invert addEdge with removeEdge", () => {
+      expectRoundTrip(empty(), [
+        arc.addEdge({
+          edge: {
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "b", param: "i" },
+            kind: arc.ir.EdgeKind.continuous,
+          },
+        }),
+      ]);
+    });
+    it("should invert removeEdge with addEdge", () => {
+      expectRoundTrip(
+        empty({
+          edges: [
+            {
+              key: "ab",
+              source: { node: "a", param: "o" },
+              target: { node: "b", param: "i" },
+              kind: arc.ir.EdgeKind.continuous,
+            },
+          ],
+        }),
+        [arc.removeEdge({ key: "ab" })],
+      );
+    });
+  });
+
+  describe("isUndoable", () => {
+    it("should report every Arc action as undoable", () => {
+      expect(arc.isUndoable(arc.rename({ name: "x" }))).toBe(true);
+      expect(arc.isUndoable(arc.setMode({ mode: "text" }))).toBe(true);
+      expect(arc.isUndoable(arc.setNode({ node: node("n1", 0, 0) }))).toBe(true);
+      expect(
+        arc.isUndoable(arc.setNodePosition({ key: "n1", position: { x: 0, y: 0 } })),
+      ).toBe(true);
+      expect(arc.isUndoable(arc.setNodeConfig({ key: "n1", config: cfg("add") }))).toBe(
+        true,
+      );
+      expect(arc.isUndoable(arc.removeNode({ key: "n1" }))).toBe(true);
+      expect(
+        arc.isUndoable(
+          arc.addEdge({
+            edge: {
+              key: "ab",
+              source: { node: "a", param: "o" },
+              target: { node: "b", param: "i" },
+              kind: arc.ir.EdgeKind.continuous,
+            },
+          }),
+        ),
+      ).toBe(true);
+      expect(arc.isUndoable(arc.removeEdge({ key: "ab" }))).toBe(true);
+      expect(
+        arc.isUndoable(
+          arc.reconnectEdge({
+            key: "ab",
+            source: { node: "a", param: "o" },
+            target: { node: "c", param: "i" },
+          }),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  describe("text", () => {
+    it("appends insert_char ops so the document materializes to the typed text", () => {
+      const gen = new crdt.Text(2);
+      const ops = gen.insert(0, "hi").map((op) => arc.insertChar(op));
+      const { next } = arc.reduceAll(empty(), ops);
+      const doc = new crdt.Text(3);
+      doc.load(next.text.doc);
+      expect(doc.toString()).toEqual("hi");
+    });
+
+    it("appends delete_char ops so deleted characters drop from the materialized text", () => {
+      const gen = new crdt.Text(2);
+      const insertOps = gen.insert(0, "hi").map((op) => arc.insertChar(op));
+      const deleteOps = gen.delete(0, 1).map((op) => arc.deleteChar(op));
+      const { next } = arc.reduceAll(empty(), [...insertOps, ...deleteOps]);
+      const doc = new crdt.Text(3);
+      doc.load(next.text.doc);
+      expect(doc.toString()).toEqual("i");
+    });
+
+    it("is not undoable", () => {
+      expect(arc.isUndoable(arc.insertChar(new crdt.Text(2).insert(0, "x")[0]))).toBe(
+        false,
+      );
+    });
+
+    it("forgets tombstoned characters without changing the materialized text", () => {
+      const gen = new crdt.Text(2);
+      const insertOps = gen.insert(0, "hi");
+      const deleteOps = gen.delete(1, 1);
+      let state = arc.reduceAll(empty(), [
+        ...insertOps.map((op) => arc.insertChar(op)),
+        ...deleteOps.map((op) => arc.deleteChar(op)),
+      ]).next;
+      expect(state.text.doc.inserts).toHaveLength(2);
+      expect(state.text.doc.deletes).toHaveLength(1);
+
+      state = arc.reduceAll(state, [
+        arc.forgetChars({ ids: deleteOps.map((op) => op.id) }),
+      ]).next;
+      expect(state.text.doc.inserts).toHaveLength(1);
+      expect(state.text.doc.deletes).toHaveLength(0);
+      const doc = new crdt.Text(3);
+      doc.load(state.text.doc);
+      expect(doc.toString()).toEqual("h");
+    });
+
+    it("forget_chars is not undoable", () => {
+      expect(arc.isUndoable(arc.forgetChars({ ids: [] }))).toBe(false);
+    });
+  });
+});

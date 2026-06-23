@@ -10,6 +10,7 @@
 import "schemas/arc/types"
 
 @ts output  "client/ts/src/arc/ir"
+@py output  "client/py/synnax/arc/ir"
 @go output  "arc/go/ir"
 @cpp output "arc/cpp/ir"
 @pb

@@ -718,6 +718,27 @@ importers:
 
   pluto:
     dependencies:
+      '@codingame/monaco-vscode-api':
+        specifier: ^28.4.1
+        version: 28.4.1
+      '@codingame/monaco-vscode-editor-api':
+        specifier: ^28.4.1
+        version: 28.4.1
+      '@codingame/monaco-vscode-extension-api':
+        specifier: ^28.4.1
+        version: 28.4.1
+      '@codingame/monaco-vscode-languages-service-override':
+        specifier: ^28.4.1
+        version: 28.4.1
+      '@codingame/monaco-vscode-textmate-service-override':
+        specifier: ^28.4.1
+        version: 28.4.1
+      '@codingame/monaco-vscode-theme-defaults-default-extension':
+        specifier: ^28.4.1
+        version: 28.4.1
+      '@codingame/monaco-vscode-theme-service-override':
+        specifier: ^28.4.1
+        version: 28.4.1
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8
@@ -730,6 +751,9 @@ importers:
       '@synnaxlabs/alamos':
         specifier: workspace:^
         version: link:../alamos/ts
+      '@synnaxlabs/arc':
+        specifier: workspace:^
+        version: link:../arc/ts
       '@synnaxlabs/client':
         specifier: workspace:^
         version: link:../client/ts
@@ -787,6 +811,15 @@ importers:
       use-sync-external-store:
         specifier: ^1.6.0
         version: 1.6.0(react@19.2.6)
+      vscode:
+        specifier: npm:@codingame/monaco-vscode-extension-api@^28.4.1
+        version: '@codingame/monaco-vscode-extension-api@28.4.1'
+      vscode-jsonrpc:
+        specifier: ^8.2.1
+        version: 8.2.1
+      vscode-languageclient:
+        specifier: ^9.0.1
+        version: 9.0.1
       zod:
         specifier: 'catalog:'
         version: 4.4.3

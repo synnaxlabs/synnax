@@ -9,14 +9,13 @@
 
 import "@/arc/editor/Controls.css";
 
-import { type rack, task } from "@synnaxlabs/client";
+import { type arc, type rack, task } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
 import { useTask } from "@/arc/hooks";
 import { type State } from "@/arc/slice";
-import { translateGraphToServer } from "@/arc/types/translate";
 import { CSS } from "@/css";
 import { Controls as Base } from "@/hardware/common/task/controls";
 import { Layout } from "@/layout";
@@ -36,17 +35,20 @@ export const Controls = ({ state }: ControlsProps) => {
     if (taskKeyDefined) setSelectedRack(task.rackKey(taskKey));
   }, [taskKey, taskKeyDefined]);
   const { update } = Arc.useCreate();
+  const { data: remote } = Arc.useRetrieve(
+    { key: state.key },
+    { addStatusOnFailure: false },
+  );
 
   const handleConfigure = useCallback(() => {
+    if (remote == null) return;
     update({
+      ...remote,
       name,
       key: state.key,
-      text: state.text,
-      graph: translateGraphToServer(state.graph),
-      mode: state.mode,
       rack: selectedRack,
     });
-  }, [state, update, name, selectedRack]);
+  }, [state.key, update, name, selectedRack, remote]);
 
   const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
   const handleContract = useCallback(() => setExpanded(false), []);

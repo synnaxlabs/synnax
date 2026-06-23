@@ -28,7 +28,6 @@ import { ContextMenu } from "@/arc/ContextMenu";
 import { Editor } from "@/arc/editor";
 import { EXPLORER_LAYOUT } from "@/arc/Explorer";
 import { useRename, useTask } from "@/arc/hooks";
-import { translateGraphToConsole } from "@/arc/types/translate";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { type View } from "@/layered/view";
@@ -54,7 +53,6 @@ const Content = () => {
   const addStatus = Status.useAdder();
   const menuProps = Menu.useContextMenu();
   const placeLayout = Layout.usePlacer();
-  const handleError = Status.useErrorHandler();
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
@@ -70,22 +68,13 @@ const Content = () => {
           message: "Failed to open Arc editor",
           description: `Arc with key ${key} not found`,
         });
-      const { name, text, mode } = retrieved;
-      const graph = translateGraphToConsole(retrieved.graph);
-      placeLayout(Editor.create({ key, name, graph, text, mode }));
+      const { name } = retrieved;
+      placeLayout(Editor.create({ key, name }));
     },
     [getItem, addStatus, placeLayout],
   );
 
-  const createArc = Editor.useCreateModal();
-
-  const handleCreate = useCallback(() => {
-    handleError(async () => {
-      const result = await createArc({});
-      if (result == null) return;
-      placeLayout(Editor.create({ name: result.name, mode: result.mode }));
-    }, "Failed to create Arc program");
-  }, [createArc, handleError, placeLayout]);
+  const create = Editor.useCreate();
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} getItem={getItem} />,
@@ -97,7 +86,7 @@ const Content = () => {
       <Toolbar.Content className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
-          <Actions handleCreate={handleCreate} />
+          <Actions handleCreate={create} />
         </Toolbar.Header>
         <Select.Frame
           multiple
@@ -111,7 +100,7 @@ const Content = () => {
         >
           <List.Items<arc.Key, arc.Arc>
             full="y"
-            emptyContent={<EmptyContent onCreate={handleCreate} />}
+            emptyContent={<EmptyContent onCreate={create} />}
             onContextMenu={menuProps.open}
           >
             {({ key, ...p }) => (
