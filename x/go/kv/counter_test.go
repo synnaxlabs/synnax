@@ -20,6 +20,7 @@ import (
 var _ = Describe("Counter", Ordered, func() {
 	var db kv.DB
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		db = memkv.New()
 	})
 	AfterAll(func() {
@@ -29,6 +30,7 @@ var _ = Describe("Counter", Ordered, func() {
 		Context("Name Counter", Ordered, func() {
 			var c *kv.AtomicInt64Counter
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				c = MustSucceed(kv.NewCounter(ctx, db, []byte("test")))
 			})
 			It("Should create a counter with a starting value of 0", func() {

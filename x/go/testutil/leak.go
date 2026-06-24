@@ -26,51 +26,46 @@ type leakConfig struct {
 	filters []any
 }
 
-// LeakWithin sets the maximum time to wait for goroutines to drain before
-// failing the leak assertion. The default matches Gomega's Eventually default
-// (1 second). Bump this for suites with intentionally slow shutdown paths.
+// LeakWithin sets the maximum time to wait for goroutines to drain before failing the
+// leak assertion. The default matches Gomega's Eventually default (1 second). Bump this
+// for suites with intentionally slow shutdown paths.
 func LeakWithin(d time.Duration) LeakOption {
 	return func(c *leakConfig) { c.timeout = d }
 }
 
-// LeakPolling sets the interval at which the leak assertion re-checks for
-// stragglers. The default matches Gomega's Eventually default (10ms).
+// LeakPolling sets the interval at which the leak assertion re-checks for stragglers.
+// The default matches Gomega's Eventually default (10ms).
 func LeakPolling(d time.Duration) LeakOption {
 	return func(c *leakConfig) { c.polling = d }
 }
 
 // LeakIgnoring adds gleak filter matchers (e.g. gleak.IgnoringTopFunction,
-// gleak.IgnoringCreator, gleak.IgnoringInBacktrace) for goroutines that are
-// expected to outlive the spec. Use sparingly. A leak that needs filtering
-// is almost always a bug in the production code or test cleanup, not a
-// reason to suppress the check. These are applied on top of defaultLeakFilters.
+// gleak.IgnoringCreator, gleak.IgnoringInBacktrace) for goroutines that are expected to
+// outlive the spec. Use sparingly. A leak that needs filtering is almost always a bug
+// in the production code or test cleanup, not a reason to suppress the check. These are
+// applied on top of defaultLeakFilters.
 func LeakIgnoring(matchers ...any) LeakOption {
 	return func(c *leakConfig) { c.filters = append(c.filters, matchers...) }
 }
 
-// defaultLeakFilters lists goroutines that every leak check ignores because they
-// are process-global daemons owned by third-party libraries with no shutdown API.
-// They are started lazily, live for the whole process, and cannot be torn down per
-// spec, so flagging them is always a false positive. Matchers are plain stack-frame
-// strings, so listing one here does not add a build dependency on the library.
 func defaultLeakFilters() []any {
 	return []any{
 		// fasthttp lazily starts a single process-global goroutine (guarded by
-		// serverDateOnce) the first time any server writes a response; it refreshes
-		// the cached HTTP Date header every second and loops forever with no way to
-		// stop it. Upstream closed the request to add a shutdown mechanism as
-		// not-planned: https://github.com/valyala/fasthttp/issues/2257
+		// serverDateOnce) the first time any server writes a response; it refreshes the
+		// cached HTTP Date header every second and loops forever with no way to stop
+		// it. Upstream closed the request to add a shutdown mechanism as not-planned:
+		// https://github.com/valyala/fasthttp/issues/2257
 		gleak.IgnoringCreator("github.com/valyala/fasthttp.updateServerDate"),
 	}
 }
 
-// ShouldNotLeakGoroutines snapshots the currently running goroutines and
-// registers a Ginkgo DeferCleanup that asserts no new goroutines remain
-// when the enclosing node finishes.
+// ShouldNotLeakGoroutines snapshots the currently running goroutines and registers a
+// Ginkgo DeferCleanup that asserts no new goroutines remain when the enclosing node
+// finishes.
 //
 // Place this inside a lifecycle hook (BeforeSuite, BeforeAll, BeforeEach,
-// JustBeforeEach). Do not call it from inside an It block unless you
-// specifically want a mid-test baseline.
+// JustBeforeEach). Do not call it from inside an It block unless you specifically want
+// a mid-test baseline.
 //
 // For the common case of "check every spec in this Describe", prefer
 // ShouldNotLeakGoroutinesPerSpec.
@@ -88,9 +83,9 @@ func buildLeakConfig(opts []LeakOption) leakConfig {
 	return cfg
 }
 
-// assertNoLeakedGoroutines runs the leak assertion synchronously against the
-// supplied baseline. Exposed at package scope so tests can drive the check
-// without going through Ginkgo's DeferCleanup machinery.
+// assertNoLeakedGoroutines runs the leak assertion synchronously against the supplied
+// baseline. Exposed at package scope so tests can drive the check without going through
+// Ginkgo's DeferCleanup machinery.
 func assertNoLeakedGoroutines(snapshot []gleak.Goroutine, cfg leakConfig) {
 	args := make([]any, 0, len(cfg.filters)+1)
 	args = append(args, snapshot)
@@ -105,23 +100,24 @@ func assertNoLeakedGoroutines(snapshot []gleak.Goroutine, cfg leakConfig) {
 	assertion.ShouldNot(gleak.HaveLeaked(args...))
 }
 
-// ShouldNotLeakGoroutinesPerSpec wires per-spec leak checking into the
-// current container. Every spec inside it gets a fresh snapshot taken just
-// before the spec body runs and a cleanup assertion that fires after every
-// AfterEach and DeferCleanup the user registered.
+// ShouldNotLeakGoroutinesPerSpec wires per-spec leak checking into the current
+// container. Every spec inside it gets a fresh snapshot taken just before the spec body
+// runs and a cleanup assertion that fires after every AfterEach and DeferCleanup the
+// user registered.
 //
 // Two hooks split the work to satisfy contradictory ordering constraints:
 //
-//   - The DeferCleanup that runs the assertion is registered from a
-//     BeforeEach (early in spec setup) so that Ginkgo's LIFO cleanup chain
-//     runs every user-registered DeferCleanup BEFORE the leak check fires.
-//   - The snapshot itself is captured in a JustBeforeEach (the last hook
-//     before the spec body) so that goroutines spawned by BeforeEach AND
-//     BeforeAll setup are part of the steady-state baseline.
+// 1. The DeferCleanup that runs the assertion is registered from a BeforeEach (early in
+// spec setup) so that Ginkgo's LIFO cleanup chain runs every user-registered
+// DeferCleanup BEFORE the leak check fires.
 //
-// The snapshot is stashed in a holder allocated fresh for every spec, so the
-// assertion DeferCleanup closes over a stable per-spec value even though
-// snapshot capture happens later in the lifecycle.
+// 2. The snapshot itself is captured in a JustBeforeEach (the last hook before the spec
+// body) so that goroutines spawned by BeforeEach AND BeforeAll setup are part of the
+// steady-state baseline.
+//
+// The snapshot is stashed in a holder allocated fresh for every spec, so the assertion
+// DeferCleanup closes over a stable per-spec value even though snapshot capture happens
+// later in the lifecycle.
 //
 // Returns a bool so it can be invoked at file scope for suite-wide coverage:
 //
@@ -134,11 +130,10 @@ func ShouldNotLeakGoroutinesPerSpec(opts ...LeakOption) bool {
 		h := &snapshotHolder{}
 		current = h
 		ginkgo.DeferCleanup(func() {
-			// If a BeforeEach panicked or skipped before JustBeforeEach
-			// captured the snapshot, h.snapshot is nil. Running the
-			// assertion in that state would treat every currently running
-			// goroutine as a leak, stacking a noisy second failure on top
-			// of the real one. Bail out instead.
+			// If a BeforeEach panicked or skipped before JustBeforeEach captured the
+			// snapshot, h.snapshot is nil. Running the assertion in that state would
+			// treat every currently running goroutine as a leak, stacking a noisy
+			// second failure on top of the real one. Bail out instead.
 			if h.snapshot == nil {
 				return
 			}
