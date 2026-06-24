@@ -410,6 +410,58 @@ var _ = Describe("Task", Ordered, func() {
 
 	})
 
+	Describe("FactoryConfig", func() {
+		full := func() arctask.FactoryConfig {
+			return arctask.FactoryConfig{
+				Channel:    channel.Wrap(dist.Channel),
+				Framer:     dist.Framer,
+				Status:     statusSvc,
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Ranger:     rangerSvc,
+			}
+		}
+
+		Describe("Validate", func() {
+			It("Should succeed when all required fields are set", func() {
+				Expect(full().Validate()).To(Succeed())
+			})
+
+			DescribeTable("Should fail when a required field is missing",
+				func(clear func(*arctask.FactoryConfig), field string) {
+					cfg := full()
+					clear(&cfg)
+					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
+				},
+				Entry("channel", func(c *arctask.FactoryConfig) { c.Channel = nil }, "channel"),
+				Entry("framer", func(c *arctask.FactoryConfig) { c.Framer = nil }, "framer"),
+				Entry("status", func(c *arctask.FactoryConfig) { c.Status = nil }, "status"),
+				Entry("get_program", func(c *arctask.FactoryConfig) { c.GetProgram = nil }, "get_program"),
+				Entry("ranger", func(c *arctask.FactoryConfig) { c.Ranger = nil }, "ranger"),
+			)
+		})
+
+		Describe("Override", func() {
+			It("Should prefer the other config's fields when set", func() {
+				src := full()
+				merged := arctask.FactoryConfig{}.Override(src)
+				Expect(merged.Channel).To(BeIdenticalTo(src.Channel))
+				Expect(merged.Framer).To(BeIdenticalTo(src.Framer))
+				Expect(merged.Status).To(BeIdenticalTo(src.Status))
+				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
+				Expect(merged.GetProgram).ToNot(BeNil())
+			})
+
+			It("Should preserve the receiver's fields when other's are nil", func() {
+				src := full()
+				merged := src.Override(arctask.FactoryConfig{})
+				Expect(merged.Channel).To(BeIdenticalTo(src.Channel))
+				Expect(merged.Framer).To(BeIdenticalTo(src.Framer))
+				Expect(merged.Status).To(BeIdenticalTo(src.Status))
+				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
+			})
+		})
+	})
+
 	Describe("Task Lifecycle", func() {
 		var arcTask driver.Task
 

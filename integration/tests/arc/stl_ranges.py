@@ -13,7 +13,6 @@ import synnax as sy
 from framework.utils import create_virtual_channel
 from tests.arc.arc import ArcCase
 
-START_CMD = "start_stl_ranges_cmd"
 DONE = "ranges_done"
 PARENT_NAME = "STL_Range_Parent"
 PARENT_KEY_TOKEN = "__PARENT_KEY__"
@@ -78,6 +77,8 @@ start_stl_ranges_cmd -> ranges.create("RangeFlow_Hex_3", "#ddeeff")
 
 // Parent (key injected by the test)
 start_stl_ranges_cmd -> ranges.create("RangeFlow_Child", "rgb(10, 20, 30)", "__PARENT_KEY__")
+// Parent without a color (named args require the brace form)
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Child_NoColor", parent="__PARENT_KEY__"}
 
 // ────────────────────────── End Signal ───────────────────────────
 time.wait{100ms} -> 1 -> ranges_done
@@ -87,43 +88,44 @@ time.wait{100ms} -> 1 -> ranges_done
 class Case(NamedTuple):
     """One created range and what it should look like afterward.
 
-    color is the expected (r, g, b, a) or None when the range has no color.
+    color is the expected sy.Color or None when the range has no color.
     ends_now is True when ranges.end closed the range (end ~= start), False when
     the range is left open (end == TimeStampMax).
     """
 
     name: str
-    color: tuple[int, int, int, float] | None
+    color: sy.Color | None
     ends_now: bool
 
 
 CASES: list[Case] = [
     Case("RangeFunc_Create_End", None, True),
     Case("RangeFunc_Create", None, False),
-    Case("RangeFunc_RGB_1", (255, 0, 0, 1.0), False),
-    Case("RangeFunc_RGB_2", (0, 255, 0, 1.0), False),
-    Case("RangeFunc_RGB_3", (0, 0, 255, 1.0), False),
-    Case("RangeFunc_RGBA_1", (255, 0, 0, 0.5), False),
-    Case("RangeFunc_RGBA_2", (0, 255, 0, 0.25), False),
-    Case("RangeFunc_RGBA_3", (0, 0, 255, 0.75), False),
-    Case("RangeFunc_Hex_1", (0x11, 0x22, 0x33, 1.0), False),
-    Case("RangeFunc_Hex_2", (0x44, 0xAA, 0x66, 1.0), False),
-    Case("RangeFunc_Hex_3", (0xDD, 0xEE, 0xFF, 1.0), False),
-    Case("RangeFunc_Child", (10, 20, 30, 1.0), False),
+    Case("RangeFunc_RGB_1", sy.Color("rgb(255, 0, 0)"), False),
+    Case("RangeFunc_RGB_2", sy.Color("rgb(0, 255, 0)"), False),
+    Case("RangeFunc_RGB_3", sy.Color("rgb(0, 0, 255)"), False),
+    Case("RangeFunc_RGBA_1", sy.Color("rgba(255, 0, 0, 0.5)"), False),
+    Case("RangeFunc_RGBA_2", sy.Color("rgba(0, 255, 0, 0.25)"), False),
+    Case("RangeFunc_RGBA_3", sy.Color("rgba(0, 0, 255, 0.75)"), False),
+    Case("RangeFunc_Hex_1", sy.Color("#112233"), False),
+    Case("RangeFunc_Hex_2", sy.Color("#44aa66"), False),
+    Case("RangeFunc_Hex_3", sy.Color("#ddeeff"), False),
+    Case("RangeFunc_Child", sy.Color("rgb(10, 20, 30)"), False),
     Case("RangeFlow_Create", None, False),
-    Case("RangeFlow_RGB_1", (255, 0, 0, 1.0), False),
-    Case("RangeFlow_RGB_2", (0, 255, 0, 1.0), False),
-    Case("RangeFlow_RGB_3", (0, 0, 255, 1.0), False),
-    Case("RangeFlow_RGBA_1", (255, 0, 0, 0.5), False),
-    Case("RangeFlow_RGBA_2", (0, 255, 0, 0.25), False),
-    Case("RangeFlow_RGBA_3", (0, 0, 255, 0.75), False),
-    Case("RangeFlow_Hex_1", (0x11, 0x22, 0x33, 1.0), False),
-    Case("RangeFlow_Hex_2", (0x44, 0xAA, 0x66, 1.0), False),
-    Case("RangeFlow_Hex_3", (0xDD, 0xEE, 0xFF, 1.0), False),
-    Case("RangeFlow_Child", (10, 20, 30, 1.0), False),
+    Case("RangeFlow_RGB_1", sy.Color("rgb(255, 0, 0)"), False),
+    Case("RangeFlow_RGB_2", sy.Color("rgb(0, 255, 0)"), False),
+    Case("RangeFlow_RGB_3", sy.Color("rgb(0, 0, 255)"), False),
+    Case("RangeFlow_RGBA_1", sy.Color("rgba(255, 0, 0, 0.5)"), False),
+    Case("RangeFlow_RGBA_2", sy.Color("rgba(0, 255, 0, 0.25)"), False),
+    Case("RangeFlow_RGBA_3", sy.Color("rgba(0, 0, 255, 0.75)"), False),
+    Case("RangeFlow_Hex_1", sy.Color("#112233"), False),
+    Case("RangeFlow_Hex_2", sy.Color("#44aa66"), False),
+    Case("RangeFlow_Hex_3", sy.Color("#ddeeff"), False),
+    Case("RangeFlow_Child", sy.Color("rgb(10, 20, 30)"), False),
+    Case("RangeFlow_Child_NoColor", None, False),
 ]
 
-CHILD_NAMES = ["RangeFunc_Child", "RangeFlow_Child"]
+CHILD_NAMES = ["RangeFunc_Child", "RangeFlow_Child", "RangeFlow_Child_NoColor"]
 
 NAMES = [c.name for c in CASES]
 
@@ -138,7 +140,7 @@ class StlRanges(ArcCase):
 
     arc_source = ARC_STL_RANGES_SOURCE
     arc_name_prefix = "ArcStlRanges"
-    start_cmd_channel = START_CMD
+    start_cmd_channel = "start_stl_ranges_cmd"
     subscribe_channels = [DONE]
 
     def setup(self) -> None:
@@ -223,10 +225,10 @@ class StlRanges(ArcCase):
             return
         if rng.color is None:
             self.fail(f"{case.name}: expected color {case.color}, got none")
-        r, g, b, a = case.color
-        got = (rng.color.r, rng.color.g, rng.color.b)
-        if got != (r, g, b) or abs(rng.color.a - a) > 1e-6:
-            self.fail(
-                f"{case.name}: expected color {case.color}, got "
-                f"({rng.color.r}, {rng.color.g}, {rng.color.b}, {rng.color.a})"
-            )
+        same_rgb = (rng.color.r, rng.color.g, rng.color.b) == (
+            case.color.r,
+            case.color.g,
+            case.color.b,
+        )
+        if not same_rgb or abs(rng.color.a - case.color.a) > 1e-6:
+            self.fail(f"{case.name}: expected color {case.color}, got {rng.color}")
