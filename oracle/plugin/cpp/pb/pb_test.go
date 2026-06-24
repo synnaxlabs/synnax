@@ -980,6 +980,40 @@ var _ = Describe("C++ PB Plugin", func() {
 			})
 		})
 
+		Context("cross-namespace string enum reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/geo", `
+					@cpp output "x/cpp/geo"
+					@pb output "x/go/geo/pb"
+
+					Side enum {
+						left = "left"
+						right = "right"
+					}
+				`)
+			})
+
+			It("Should qualify the enum translator with the owning namespace", func(ctx SpecContext) {
+				source := `
+					import "schemas/geo"
+
+					@cpp output "x/cpp/marker"
+					@pb output "x/go/marker/pb"
+
+					Marker struct {
+						side geo.Side
+					}
+				`
+				resp := MustGenerate(ctx, source, "marker", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"::x::geo::side_to_pb(this->side)",
+						"::x::geo::side_from_pb(pb.side())",
+					)
+			})
+		})
+
 		Context("map field conversion", func() {
 			It("Should handle map fields with mutable accessor", func(ctx SpecContext) {
 				source := `

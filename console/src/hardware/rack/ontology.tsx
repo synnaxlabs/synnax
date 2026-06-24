@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { arc, rack } from "@synnaxlabs/client";
-import { Access, Icon, Menu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
-import { useMemo } from "react";
+import { Access, Icon, Menu, Rack, Text, Tree } from "@synnaxlabs/pluto";
+import { useCallback, useMemo } from "react";
 
 import { Arc } from "@/arc";
 import { ContextMenu } from "@/components";
 import { Group } from "@/group";
-import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -71,19 +70,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const handleDelete = useDelete(props);
-  const placeLayout = Layout.usePlacer();
   const rename = useRename(props);
-  const handleError = Status.useErrorHandler();
   const group = Group.useCreateFromSelection();
-  const createArcModal = Arc.Editor.useCreateModal();
-  const createArc = () => {
-    handleError(async () => {
-      const result = await createArcModal({});
-      if (result == null) return;
-      placeLayout(Arc.Editor.create({ name: result.name, mode: result.mode }));
-    }, "Failed to create Arc automation");
-  };
+  const create = Arc.Editor.useCreate();
   const isSingle = ids.length === 1;
+  const handleCreate = useCallback(() => create(), [create]);
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && (
@@ -99,7 +90,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         <>
           <ContextMenu.RenameItem onClick={rename} />
           {hasArcCreatePermission && (
-            <Menu.Item itemKey="createArc" onClick={createArc}>
+            <Menu.Item itemKey="createArc" onClick={handleCreate}>
               <CreateArcIcon />
               Create Arc automation
             </Menu.Item>

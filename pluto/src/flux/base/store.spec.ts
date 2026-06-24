@@ -205,6 +205,78 @@ describe("Base Store", () => {
         });
       });
 
+      describe("Set If Absent", () => {
+        interface KeyedValue extends record.Keyed<string> {
+          key: string;
+          value: string;
+        }
+
+        it("should insert a single value when the key is absent", () => {
+          const store = new ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          ).scope("scope");
+          store.setIfAbsent({ key: "key1", value: "value1" });
+          expect(store.get("key1")).toEqual({ key: "key1", value: "value1" });
+        });
+
+        it("should leave an existing value untouched", () => {
+          const store = new ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          ).scope("scope");
+          store.set({ key: "key1", value: "original" });
+          store.setIfAbsent({ key: "key1", value: "replacement" });
+          expect(store.get("key1")).toEqual({ key: "key1", value: "original" });
+        });
+
+        it("should insert only the absent keys from an array", () => {
+          const store = new ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          ).scope("scope");
+          store.set({ key: "key1", value: "original" });
+          store.setIfAbsent([
+            { key: "key1", value: "replacement" },
+            { key: "key2", value: "value2" },
+          ]);
+          expect(store.get("key1")).toEqual({ key: "key1", value: "original" });
+          expect(store.get("key2")).toEqual({ key: "key2", value: "value2" });
+        });
+
+        it("should not notify set listeners for keys that already exist", () => {
+          const baseStore = new ScopedUnaryStore<string, KeyedValue>(basicHandleError);
+          const scope1 = baseStore.scope("scope1");
+          const scope2 = baseStore.scope("scope2");
+          const setListener = vi.fn();
+
+          scope1.set({ key: "key1", value: "original" });
+          scope2.onSet(setListener);
+          scope1.setIfAbsent([
+            { key: "key1", value: "replacement" },
+            { key: "key2", value: "value2" },
+          ]);
+
+          expect(setListener).toHaveBeenCalledTimes(1);
+          expect(setListener).toHaveBeenCalledWith(
+            { key: "key2", value: "value2" },
+            undefined,
+          );
+        });
+
+        it("should only roll back the keys it inserted", () => {
+          const store = new ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          ).scope("scope");
+          store.set({ key: "key1", value: "original" });
+          const rollback = store.setIfAbsent([
+            { key: "key1", value: "replacement" },
+            { key: "key2", value: "value2" },
+          ]);
+
+          rollback();
+          expect(store.get("key1")).toEqual({ key: "key1", value: "original" });
+          expect(store.get("key2")).toBeUndefined();
+        });
+      });
+
       describe("Rollback Functionality", () => {
         describe("Set Rollback", () => {
           it("should rollback a set operation for new entry", () => {

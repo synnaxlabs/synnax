@@ -1,0 +1,17 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "crdt",
+    hdrs = [
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/pb",
+        "//x/go/crdt:crdt_grpc",
+    ],
+)

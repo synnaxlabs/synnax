@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/set"
 )
 
 var _ = Describe("CRDT", func() {
@@ -192,6 +193,52 @@ var _ = Describe("CRDT", func() {
 			a.ApplyInsert(opsB...)
 			Expect(a.String()).To(Equal(b.String()))
 			Expect(a.String()).To(Equal("AsharedB"))
+		})
+	})
+
+	Describe("Collectable", func() {
+		It("Should return nothing when there are no tombstones", func() {
+			t := crdt.New(1)
+			t.Insert(0, "hello")
+			Expect(t.Collectable()).To(BeEmpty())
+		})
+
+		It("Should collect a tombstoned run with no surviving anchors", func() {
+			t := crdt.New(1)
+			t.Insert(0, "hello world")
+			t.Delete(6, 5)
+			Expect(t.Collectable()).To(HaveLen(5))
+		})
+
+		It("Should not collect a tombstone a live character anchors to", func() {
+			t := crdt.New(1)
+			t.Insert(0, "hi")
+			t.Delete(0, 1)
+			Expect(t.Collectable()).To(BeEmpty())
+		})
+
+		It("Should leave the value unchanged after dropping collectable operations", func() {
+			t := crdt.New(1)
+			t.Insert(0, "hello world")
+			t.Delete(6, 5)
+			collectable := set.New(t.Collectable()...)
+			inserts, deletes := t.Snapshot()
+			keptInserts := make([]crdt.Insert, 0, len(inserts))
+			for _, in := range inserts {
+				if !collectable.Contains(in.ID) {
+					keptInserts = append(keptInserts, in)
+				}
+			}
+			keptDeletes := make([]crdt.Delete, 0, len(deletes))
+			for _, del := range deletes {
+				if !collectable.Contains(del.ID) {
+					keptDeletes = append(keptDeletes, del)
+				}
+			}
+			reloaded := crdt.New(2)
+			reloaded.Load(keptInserts, keptDeletes)
+			Expect(reloaded.String()).To(Equal("hello "))
+			Expect(keptDeletes).To(BeEmpty())
 		})
 	})
 })
