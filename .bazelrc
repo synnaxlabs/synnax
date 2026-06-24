@@ -1,10 +1,10 @@
-# Disable Bzlmod (Bazel Modules)
-# We need the last flag to avoid issues with rules_proto_grpc
-# See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390 for info
+# Disable Bzlmod (Bazel Modules) We need the last flag to avoid issues with
+# rules_proto_grpc See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390
+# for info
 common --define=protobuf_allow_msvc=true
 
-# Bazel 9 enables --incompatible_strict_action_env by default, which restricts PATH
-# to /bin:/usr/bin:/usr/local/bin. Pass through the host PATH so tools like cmake
+# Bazel 9 enables --incompatible_strict_action_env by default, which restricts PATH to
+# /bin:/usr/bin:/usr/local/bin. Pass through the host PATH so tools like cmake
 # (installed via Homebrew at /opt/homebrew/bin) are available in genrules.
 build --action_env=PATH
 
@@ -32,8 +32,9 @@ build:macos --cxxopt=-fvisibility-inlines-hidden
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:macos --copt=-Wno-error=deprecated-declarations
-# GoogleTest 1.17 headers trigger char8_t → char32_t conversion warning in gtest-printers.h
-# -Wno-unknown-warning-option prevents older Clang from erroring on unrecognized -W flags
+# GoogleTest 1.17 headers trigger char8_t → char32_t conversion warning in
+# gtest-printers.h -Wno-unknown-warning-option prevents older Clang from erroring on
+# unrecognized -W flags
 build:macos --copt=-Wno-unknown-warning-option
 build:macos --copt=-Wno-error=character-conversion
 
@@ -51,8 +52,8 @@ build:linux --copt=-Wno-error=deprecated-declarations
 # GoogleTest 1.17 headers trigger sign-compare in test compilation units
 build:linux --copt=-Wno-sign-compare
 
-# Allow sequence-point warnings without treating them as errors
-# (wasmtime headers use storage++ in pack expansion which triggers this)
+# Allow sequence-point warnings without treating them as errors (wasmtime headers use
+# storage++ in pack expansion which triggers this)
 build:linux --copt=-Wno-error=sequence-point
 
 # Windows (MSVC)
@@ -115,8 +116,8 @@ build:windows --per_file_copt=vendor/.*@/WX-,/w
 # Allow protobuf deprecation warnings without treating them as errors
 build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations) for MSVC
 
-# Static CRT linking — eliminates dependency on VC++ Redistributable DLLs
-# (MSVCP140.dll, VCRUNTIME140.dll) which cause 0xc0000005 crashes when outdated
+# Static CRT linking — eliminates dependency on VC++ Redistributable DLLs (MSVCP140.dll,
+# VCRUNTIME140.dll) which cause 0xc0000005 crashes when outdated
 build:windows --copt=/MT
 build:windows --cxxopt=/MT
 
@@ -130,7 +131,8 @@ build --per_file_copt=external/.*@-w
 build --per_file_copt=.*\\.cache/bazel/.*@-w
 build --per_file_copt=vendor/.*@-w
 
-# Keep strict warnings for workspace code (but not on Windows where -Wall is too verbose)
+# Keep strict warnings for workspace code (but not on Windows where -Wall is too
+# verbose)
 build --copt=-Wall
 build --cxxopt=-Wall
 

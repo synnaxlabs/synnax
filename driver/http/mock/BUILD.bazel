@@ -32,8 +32,6 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/telem",
         "@cpp-httplib//:cpp-httplib",
-        "@openssl//:crypto",
-        "@openssl//:ssl",
     ],
 )
 
