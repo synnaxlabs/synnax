@@ -9,8 +9,8 @@
 
 import { uuid } from "@synnaxlabs/x";
 
-import { Log } from "@/layered/service/log";
 import { LinePlot } from "@/layered/service/lineplot";
+import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
 import { type Layout } from "@/layout";
