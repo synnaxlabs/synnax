@@ -88,7 +88,7 @@ func NewSymbols() []*symbol.Symbol {
 	return []*symbol.Symbol{mod}
 }
 
-type Module struct {
+type module struct {
 	stat   *status.Service
 	report taskreporter.Reporter
 }
@@ -101,8 +101,8 @@ type ModuleConfig struct {
 	Reporter taskreporter.Reporter
 }
 
-func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
-	m := &Module{stat: cfg.Status, report: cfg.Reporter}
+func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
+	m := &module{stat: cfg.Status, report: cfg.Reporter}
 	if cfg.Runtime == nil {
 		return m, nil
 	}
@@ -126,9 +126,9 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 	return m, nil
 }
 
-func (m *Module) ModuleName() string { return moduleName }
+func (m *module) ModuleName() string { return moduleName }
 
-func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
+func (m *module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case setMemberName:
 		var sc setConfig

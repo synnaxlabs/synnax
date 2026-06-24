@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/runtime/node"
-	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
@@ -116,7 +116,7 @@ func NewSymbols() []*symbol.Symbol {
 	return []*symbol.Symbol{mod}
 }
 
-type Module struct {
+type module struct {
 	rng    *ranger.Service
 	report taskreporter.Reporter
 }
@@ -124,13 +124,13 @@ type Module struct {
 // ModuleConfig wires the Arc ranges module into a wazero runtime.
 type ModuleConfig struct {
 	Ranger   *ranger.Service
-	Strings  *stlstrings.ProgramState
+	Strings  *strings.ProgramState
 	Runtime  wazero.Runtime
 	Reporter taskreporter.Reporter
 }
 
-func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
-	m := &Module{rng: cfg.Ranger, report: cfg.Reporter}
+func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
+	m := &module{rng: cfg.Ranger, report: cfg.Reporter}
 	if cfg.Runtime == nil {
 		return m, nil
 	}
@@ -164,9 +164,9 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 	return m, nil
 }
 
-func (m *Module) ModuleName() string { return moduleName }
+func (m *module) ModuleName() string { return moduleName }
 
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (m *module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case createMemberName:
 		var in createInputs

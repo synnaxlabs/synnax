@@ -60,7 +60,7 @@ func (r *recordingReporter) get() []reportCall {
 }
 
 // newModule builds a Module without WASM wiring (WASM is covered separately).
-func newModule(ctx context.Context, reporter *recordingReporter) *arcranges.Module {
+func newModule(ctx context.Context, reporter *recordingReporter) node.Factory {
 	return MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
 		Ranger:   rangeSvc,
 		Reporter: reporter.report,
@@ -201,7 +201,7 @@ var _ = Describe("Symbols", func() {
 
 var _ = Describe("Module", func() {
 	var (
-		mod *arcranges.Module
+		mod node.Factory
 		rep *recordingReporter
 	)
 	BeforeEach(func(ctx SpecContext) {
@@ -212,7 +212,7 @@ var _ = Describe("Module", func() {
 	Describe("Construction", func() {
 		It("Should construct without WASM wiring when the runtime is nil", func() {
 			Expect(mod).ToNot(BeNil())
-			Expect(mod.ModuleName()).To(Equal("ranges"))
+			Expect(mod.(node.ModuleNamer).ModuleName()).To(Equal("ranges"))
 		})
 
 		It("Should wire host functions when a wazero runtime is provided", func(ctx SpecContext) {
@@ -224,7 +224,7 @@ var _ = Describe("Module", func() {
 				Runtime:  rt,
 				Reporter: rep.report,
 			}))
-			Expect(wired.ModuleName()).To(Equal("ranges"))
+			Expect(wired.(node.ModuleNamer).ModuleName()).To(Equal("ranges"))
 		})
 
 		It("Should error when the runtime can't re-instantiate the host module", func(ctx SpecContext) {
@@ -286,7 +286,7 @@ var _ = Describe("Module", func() {
 
 var _ = Describe("createNode.Next", func() {
 	var (
-		mod *arcranges.Module
+		mod node.Factory
 		rep *recordingReporter
 	)
 	BeforeEach(func(ctx SpecContext) {
@@ -388,7 +388,7 @@ var _ = Describe("createNode.Next", func() {
 
 var _ = Describe("endNode.Next", func() {
 	var (
-		mod *arcranges.Module
+		mod node.Factory
 		rep *recordingReporter
 	)
 	BeforeEach(func(ctx SpecContext) {
