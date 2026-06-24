@@ -7,16 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import uuid
 from pathlib import Path
 
 import pytest
+from urllib3 import Retry
 
 from freighter import URL, JSONCodec, MessagePackCodec
 from freighter.context import Context
 from freighter.http import HTTPClient
 from freighter.transport import Next
 
-from .interface import Message
+from .interface import Error, Message
 
 
 @pytest.fixture
@@ -93,6 +95,47 @@ class TestUpload:
         path.write_bytes(JSONCodec().encode(Message(id=1, message=big)))
         res = client.upload("/echo", path, Message)
         assert res.message == big
+
+
+@pytest.mark.http
+class TestRetries:
+    """Exercises retry behavior against the server's /flakyUnavailable endpoint, which
+    responds 503 to the first request for a given message and succeeds on every retry. An
+    in-memory send replays its body and recovers; an upload streams an unreplayable file
+    body and so must opt out of retries, surfacing the failure instead.
+
+    The client is configured to retry on 503, the conventional transient-failure status.
+    The production client (synnax.transport) retries no status codes — only connection
+    errors — so a not-found or validation response is never retried.
+    """
+
+    @staticmethod
+    def _retrying_client(endpoint: URL) -> HTTPClient:
+        json_codec = JSONCodec()
+        return HTTPClient(
+            endpoint.child("unary"),
+            json_codec,
+            [json_codec],
+            retries=Retry(total=2, status_forcelist=[503], allowed_methods=None),
+        )
+
+    def test_send_recovers_via_retry(self, endpoint: URL) -> None:
+        """A unary send replays its in-memory body and recovers from a transient 503."""
+        client = self._retrying_client(endpoint)
+        key = f"retry-send-{uuid.uuid4()}"
+        res = client.send("/flakyUnavailable", Message(id=1, message=key), Message)
+        assert res.id == 2
+        assert res.message == key
+
+    def test_upload_surfaces_first_failure(self, endpoint: URL, tmp_path: Path) -> None:
+        """An upload disables retries, so the transient 503 surfaces rather than
+        replaying the already-consumed file body."""
+        client = self._retrying_client(endpoint)
+        key = f"retry-upload-{uuid.uuid4()}"
+        path = tmp_path / "in.json"
+        path.write_bytes(JSONCodec().encode(Message(id=1, message=key)))
+        with pytest.raises(Error):
+            client.upload("/flakyUnavailable", path, Message)
 
 
 @pytest.mark.http

@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"go/types"
 	"sync"
 	"time"
@@ -69,6 +70,13 @@ func BindTo(f *fiber.App) error {
 	streamEventuallyResponseWithMessageServer.BindHandler(streamEventuallyResponseWithMessage)
 
 	router.BindTo(f)
+
+	// Bound as a raw fiber route rather than a freighter unary server because freighter
+	// maps every handler error to 400, and this endpoint needs to return 503 to model a
+	// transient, retryable transport failure (a 400 validation error would not, and must
+	// not, be retried).
+	f.Post("/unary/flakyUnavailable", flakyUnavailable)
+
 	return nil
 }
 
@@ -85,6 +93,38 @@ func checkMiddleware(
 func unaryEcho(_ context.Context, req Message) (Message, error) {
 	req.ID++
 	return req, nil
+}
+
+var (
+	flakyMu   sync.Mutex
+	flakySeen = make(map[string]types.Nil)
+)
+
+// flakyUnavailable responds with 503 Service Unavailable the first time it sees a given
+// message, then echoes nominally on every subsequent request for that message. A 503
+// models a transient transport failure that a retry policy is meant to recover from
+// (unlike a validation error), so it lets clients exercise retry behavior
+// deterministically: a caller that retries recovers on the second attempt, while a
+// caller that does not retry surfaces the 503.
+func flakyUnavailable(c fiber.Ctx) error {
+	var req Message
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return err
+	}
+	c.Set(fiber.HeaderContentType, "application/json")
+	flakyMu.Lock()
+	defer flakyMu.Unlock()
+	if _, ok := flakySeen[req.Message]; !ok {
+		flakySeen[req.Message] = types.Nil{}
+		c.Status(fiber.StatusServiceUnavailable)
+		return c.SendString(`{"type":"integration.error","data":"1,transient unavailable"}`)
+	}
+	req.ID++
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	return c.Send(body)
 }
 
 func streamEcho(_ context.Context, stream ServerStream) error {

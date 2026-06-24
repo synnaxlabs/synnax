@@ -28,8 +28,9 @@ def stream_to_file(chunks: Iterable[bytes], dest: FilePath) -> None:
     The chunks are streamed into a temporary file alongside dest and the temp file is
     renamed into place only once the full stream is consumed, so dest is observed to
     hold either its previous contents or the complete new contents — never a partial
-    write. A failure partway through removes the temp file and leaves any existing dest
-    untouched.
+    write. The temp file is flushed and fsynced before the rename so its contents are
+    durable on disk before they become visible at dest. A failure partway through
+    removes the temp file and leaves any existing dest untouched.
 
     :param chunks: an iterable of byte chunks to write in order.
     :param dest: the destination file path.
@@ -40,6 +41,8 @@ def stream_to_file(chunks: Iterable[bytes], dest: FilePath) -> None:
         with os.fdopen(fd, "wb") as out:
             for chunk in chunks:
                 out.write(chunk)
+            out.flush()
+            os.fsync(out.fileno())
         os.replace(tmp_name, dest_path)
     except BaseException:
         os.unlink(tmp_name)

@@ -10,10 +10,10 @@
 import os
 import pathlib
 from collections.abc import Iterable, Sequence
-from typing import IO, Any, NoReturn
+from typing import IO, Any
 
 import urllib3
-from urllib3 import PoolManager
+from urllib3 import PoolManager, Retry
 from urllib3.exceptions import MaxRetryError
 from urllib3.response import BaseHTTPResponse
 
@@ -72,7 +72,9 @@ class HTTPClient(MiddlewareCollector):
         self._endpoint.protocol = "https" if secure else "http"
         self._encoder = encoder
         self._decoders = tuple(decoders)
-        self._decoders_by_content_type = {d.content_type(): d for d in self._decoders}
+        self._decoders_by_content_type = {
+            c.content_type(): c for c in (encoder, *self._decoders)
+        }
         self._codecs_by_extension = {
             c.file_extension(): c for c in (encoder, *self._decoders)
         }
@@ -95,6 +97,10 @@ class HTTPClient(MiddlewareCollector):
         object is handed to urllib3 as the request body and read in fixed-size blocks,
         so the full body never has to fit in memory. The Content-Type is inferred from
         the file extension via the client's registered codecs.
+
+        Retries are disabled for uploads: urllib3 does not rewind the file body between
+        attempts, so a transparent retry would replay a partially-consumed stream and
+        send a truncated request. A failed upload surfaces to the caller instead.
         """
         codec = self._codec_for_path(req)
         with open(req, "rb") as f:
@@ -103,6 +109,7 @@ class HTTPClient(MiddlewareCollector):
                 body=f,
                 content_type=codec.content_type(),
                 res_t=res_t,
+                retries=False,
             )
 
     def download(self, target: str, req: RQ, dest: FilePath) -> None:
@@ -137,7 +144,6 @@ class HTTPClient(MiddlewareCollector):
 
         in_ctx = Context(url, self._endpoint.protocol, "client")
         self.exec(in_ctx, finalizer)
-        return None
 
     def _build_url(self, target: str) -> str:
         return self._endpoint.child(target).stringify()
@@ -163,6 +169,7 @@ class HTTPClient(MiddlewareCollector):
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         content_type: str,
         res_t: type[RS],
+        retries: Retry | bool | None = None,
     ) -> RS:
         url = self._build_url(target)
         in_ctx = Context(url, self._endpoint.protocol, "client")
@@ -176,6 +183,7 @@ class HTTPClient(MiddlewareCollector):
                 accept=self._accept_header,
                 body=body,
                 preload_content=True,
+                retries=retries,
             )
             if http_res.data is None or len(http_res.data) == 0:
                 raise ValueError(f"expected a non-empty response body from {url!r}")
@@ -196,12 +204,15 @@ class HTTPClient(MiddlewareCollector):
         accept: str,
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         preload_content: bool,
+        retries: Retry | bool | None = None,
     ) -> tuple[BaseHTTPResponse, Context]:
         """Issues a POST to url and returns the response alongside an outgoing context.
 
         Raises Unreachable on a transport failure and the decoded server error on a
         non-2xx status. On success the response body has not been consumed; when
-        preload_content is False the caller owns release_conn.
+        preload_content is False the caller owns release_conn. A retries value of None
+        defers to the pool default; pass False to disable retries (e.g. for an
+        unreplayable streaming body).
         """
         out_ctx = Context(url, self._endpoint.protocol, "client")
         headers = {**self._headers(content_type, accept), **ctx.params}
@@ -212,6 +223,7 @@ class HTTPClient(MiddlewareCollector):
                 headers=headers,
                 body=body,
                 preload_content=preload_content,
+                retries=retries,
             )
         except MaxRetryError as e:
             raise Unreachable(url, e.url or "Unreachable") from e
