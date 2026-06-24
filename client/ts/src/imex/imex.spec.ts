@@ -39,10 +39,12 @@ describe("Imex", () => {
 
   it("should import from a Blob and export to a byte stream", async () => {
     const name = `imex-${id.create()}`;
-    const oid = await client.imex.import(toBlob(logEnvelope(name)));
+    const oid = await client.imex.import(toBlob(logEnvelope(name)), {
+      contentType: "json",
+    });
     expect(oid.type).toEqual("log");
     expect(oid.key).not.toHaveLength(0);
-    const stream = await client.imex.export(oid);
+    const stream = await client.imex.export(oid, { contentType: "json" });
     const parsed = await new Response(stream).json();
     expect(parsed.type).toEqual("log");
     expect(parsed.name).toEqual(name);
@@ -51,9 +53,11 @@ describe("Imex", () => {
   it("should import from raw bytes", async () => {
     const name = `imex-bytes-${id.create()}`;
     const bytes = new TextEncoder().encode(JSON.stringify(logEnvelope(name)));
-    const oid = await client.imex.import(bytes);
+    const oid = await client.imex.import(bytes, { contentType: "json" });
     expect(oid.type).toEqual("log");
-    const exported = await new Response(await client.imex.export(oid)).json();
+    const exported = await new Response(
+      await client.imex.export(oid, { contentType: "json" }),
+    ).json();
     expect(exported.name).toEqual(name);
   });
 });

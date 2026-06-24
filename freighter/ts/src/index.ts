@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 export { EOF, StreamClosed, Unreachable } from "@/errors";
-export { type FileClient, type UploadBody } from "@/file";
+export {
+  type DownloadOptions,
+  type FileClient,
+  type UploadBody,
+  type UploadOptions,
+} from "@/file";
 export { HTTPClient } from "@/http";
 export { type Context, type Middleware, type Next } from "@/middleware";
 export { type Stream, type StreamClient } from "@/stream";

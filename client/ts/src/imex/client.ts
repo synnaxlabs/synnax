@@ -14,7 +14,24 @@ import { ontology } from "@/ontology";
 const IMPORT_ENDPOINT = "/imex/import";
 const EXPORT_ENDPOINT = "/imex/export";
 
-const DEFAULT_CONTENT_TYPE = "application/json";
+/**
+ * The serialized wire formats a resource can be imported from or exported to. Today only
+ * "json" is supported; "yaml" and "toml" are planned.
+ */
+export type ContentType = "json";
+
+const CONTENT_TYPE_MIME: Record<ContentType, string> = {
+  json: "application/json",
+};
+
+/**
+ * Options shared by import and export. Carries the wire format of the resource and is the
+ * extension point for any future per-call settings.
+ */
+export interface Options {
+  /** The serialized format of the resource. */
+  contentType: ContentType;
+}
 
 /**
  * Imports and exports resources to and from a Synnax cluster as serialized bytes — the
@@ -47,14 +64,16 @@ export class Client {
    * @param source - the serialized resource (e.g. a file's contents). A ReadableStream or
    * Blob is streamed to the Core without being buffered into memory; an ArrayBufferView
    * or string is sent as-is.
-   * @param contentType - the wire format of source. Defaults to "application/json".
+   * @param options - the import options, including the wire format of source.
    * @returns the new resource's ontology id as stamped by the Core.
    */
-  async import(
-    source: UploadBody,
-    contentType: string = DEFAULT_CONTENT_TYPE,
-  ): Promise<ontology.ID> {
-    return await this.file.upload(IMPORT_ENDPOINT, source, contentType, ontology.idZ);
+  async import(source: UploadBody, options: Options): Promise<ontology.ID> {
+    return await this.file.upload(
+      IMPORT_ENDPOINT,
+      source,
+      { contentType: CONTENT_TYPE_MIME[options.contentType] },
+      ontology.idZ,
+    );
   }
 
   /**
@@ -63,14 +82,15 @@ export class Client {
    * `new Response(stream).json()` — without the client ever buffering the whole payload.
    *
    * @param id - the ontology id of the resource to export.
+   * @param options - the export options, including the desired wire format.
    * @returns the serialized resource as a stream of bytes.
    */
-  async export(id: ontology.ID): Promise<ReadableStream<Uint8Array>> {
-    return await this.file.download(
-      EXPORT_ENDPOINT,
-      id,
-      ontology.idZ,
-      DEFAULT_CONTENT_TYPE,
-    );
+  async export(
+    id: ontology.ID,
+    options: Options,
+  ): Promise<ReadableStream<Uint8Array>> {
+    return await this.file.download(EXPORT_ENDPOINT, id, ontology.idZ, {
+      accept: CONTENT_TYPE_MIME[options.contentType],
+    });
   }
 }

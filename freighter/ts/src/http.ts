@@ -11,7 +11,12 @@ import { type binary, errors, type url } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
-import { type FileClient, type UploadBody } from "@/file";
+import {
+  type DownloadOptions,
+  type FileClient,
+  type UploadBody,
+  type UploadOptions,
+} from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 
@@ -114,7 +119,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
   async upload<RS extends z.ZodType>(
     target: string,
     body: UploadBody,
-    contentType: string,
+    { contentType }: UploadOptions,
     resSchema: RS,
   ): Promise<z.infer<RS>> {
     let res: z.infer<RS> | null = null;
@@ -146,7 +151,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
-    accept: string,
+    { accept }: DownloadOptions,
   ): Promise<ReadableStream<Uint8Array>> {
     let stream: ReadableStream<Uint8Array> | null = null;
     const url = this.endpoint.child(target);

@@ -19,6 +19,24 @@ import { type Transport } from "@/transport";
 export type UploadBody = ReadableStream<Uint8Array> | Blob | ArrayBufferView | string;
 
 /**
+ * Options for FileClient.upload. Carries the wire format of the uploaded body and is the
+ * extension point for any future per-upload settings.
+ */
+export interface UploadOptions {
+  /** The Content-Type header to send, describing the wire format of the body. */
+  contentType: string;
+}
+
+/**
+ * Options for FileClient.download. Carries the desired response format and is the
+ * extension point for any future per-download settings.
+ */
+export interface DownloadOptions {
+  /** The Accept header to send, describing the desired response format. */
+  accept: string;
+}
+
+/**
  * FileClient streams request and response bodies to and from a server when a payload
  * could be too large to buffer in memory. Unlike UnaryClient, which encodes and decodes
  * a typed payload on each side, FileClient leaves one side of the exchange as a raw byte
@@ -33,8 +51,7 @@ export interface FileClient extends Transport {
    * @param target - The target route to send the request to.
    * @param body - The request body, streamed to the server without buffering when it is
    * a ReadableStream or Blob.
-   * @param contentType - The Content-Type header to send with the request, describing
-   * the wire format of body.
+   * @param options - The upload options, including the Content-Type of body.
    * @param resSchema - The schema to validate the decoded response against.
    * @returns the decoded response.
    * @throws Unreachable: if the target cannot be reached.
@@ -43,7 +60,7 @@ export interface FileClient extends Transport {
   upload: <RS extends z.ZodType>(
     target: string,
     body: UploadBody,
-    contentType: string,
+    options: UploadOptions,
     resSchema: RS,
   ) => Promise<z.infer<RS>>;
 
@@ -55,7 +72,7 @@ export interface FileClient extends Transport {
    * @param target - The target route to send the request to.
    * @param req - The typed request payload.
    * @param reqSchema - The schema to validate and encode the request with.
-   * @param accept - The Accept header to send, describing the desired response format.
+   * @param options - The download options, including the desired response format.
    * @returns the response body as a ReadableStream of bytes.
    * @throws Unreachable: if the target cannot be reached.
    * @throws Error: if the server returns an error.
@@ -64,6 +81,6 @@ export interface FileClient extends Transport {
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
-    accept: string,
+    options: DownloadOptions,
   ) => Promise<ReadableStream<Uint8Array>>;
 }
