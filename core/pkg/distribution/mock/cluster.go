@@ -16,11 +16,6 @@ import (
 	"github.com/synnaxlabs/aspen"
 	aspentransmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -36,16 +31,12 @@ type Node struct {
 }
 
 type Cluster struct {
-	storage     *mock.Cluster
-	Nodes       map[node.Key]Node
-	writerNet   *tmock.FramerWriterNetwork
-	iterNet     *tmock.FramerIteratorNetwork
-	channelNet  *tmock.ChannelNetwork
-	relayNet    *tmock.FramerRelayNetwork
-	deleteNet   *tmock.FramerDeleterNetwork
-	aspenNet    *aspentransmock.Network
-	addrFactory *address.Factory
-	cfg         distribution.LayerConfig
+	storage      *mock.Cluster
+	Nodes        map[node.Key]Node
+	transportNet *tmock.Network
+	aspenNet     *aspentransmock.Network
+	addrFactory  *address.Factory
+	cfg          distribution.LayerConfig
 }
 
 func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.LayerConfig) *Cluster {
@@ -66,16 +57,12 @@ func NewCluster(cfgs ...distribution.LayerConfig) *Cluster {
 		cfg = cfg.Override(c)
 	}
 	return &Cluster{
-		cfg:         cfg,
-		storage:     mock.NewCluster(),
-		writerNet:   tmock.NewWriterNetwork(),
-		iterNet:     tmock.NewIteratorNetwork(),
-		channelNet:  tmock.NewChannelNetwork(),
-		relayNet:    tmock.NewRelayNetwork(),
-		deleteNet:   tmock.NewDeleterNetwork(),
-		aspenNet:    aspentransmock.NewNetwork(),
-		addrFactory: address.NewLocalFactory(0),
-		Nodes:       make(map[node.Key]Node),
+		cfg:          cfg,
+		storage:      mock.NewCluster(),
+		transportNet: tmock.NewNetwork(),
+		aspenNet:     aspentransmock.NewNetwork(),
+		addrFactory:  address.NewLocalFactory(0),
+		Nodes:        make(map[node.Key]Node),
 	}
 }
 
@@ -88,14 +75,8 @@ func (c *Cluster) Provision(
 		addr              = c.addrFactory.Next()
 		storageLayer      = c.storage.Provision(ctx)
 		distributionLayer = testutil.MustSucceed(distribution.OpenLayer(ctx, append([]distribution.LayerConfig{{
-			Storage: storageLayer,
-			FrameTransport: mockFramerTransport{
-				iter:    c.iterNet.New(addr, 1),
-				writer:  c.writerNet.New(addr, 1),
-				relay:   c.relayNet.New(addr, 1),
-				deleter: c.deleteNet.New(addr),
-			},
-			ChannelTransport: c.channelNet.New(addr),
+			Storage:          storageLayer,
+			Transport:        c.transportNet.New(addr, 1),
 			AspenTransport:   c.aspenNet.NewTransport(),
 			AdvertiseAddress: addr,
 			PeerAddresses:    peers,
@@ -126,31 +107,6 @@ func (b *Cluster) Close() error {
 		err = errors.Join(err, node.Close())
 	}
 	return errors.Join(err, b.storage.Close())
-}
-
-type mockFramerTransport struct {
-	iter    iterator.Transport
-	writer  writer.Transport
-	relay   relay.Transport
-	deleter deleter.Transport
-}
-
-var _ framer.Transport = (*mockFramerTransport)(nil)
-
-func (m mockFramerTransport) Iterator() iterator.Transport {
-	return m.iter
-}
-
-func (m mockFramerTransport) Writer() writer.Transport {
-	return m.writer
-}
-
-func (m mockFramerTransport) Relay() relay.Transport {
-	return m.relay
-}
-
-func (m mockFramerTransport) Deleter() deleter.Transport {
-	return m.deleter
 }
 
 type StaticHostProvider struct {

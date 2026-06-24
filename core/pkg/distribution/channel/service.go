@@ -128,9 +128,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		db:           cfg.ClusterDB,
 		otg:          cfg.Ontology,
 		indexes:      newIndexes(),
-		createRouter: proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		keyRouter:    proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
-		renameRouter: proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
+		createRouter: proxy.NewBatchFactory[Channel](cfg.HostResolver.HostKey()),
+		keyRouter:    proxy.NewBatchFactory[Key](cfg.HostResolver.HostKey()),
+		renameRouter: proxy.NewBatchFactory[renameBatchEntry](cfg.HostResolver.HostKey()),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()

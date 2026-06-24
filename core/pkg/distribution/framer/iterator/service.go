@@ -157,7 +157,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	cfg.Keys = cfg.Keys.Unique()
 	var (
 		hostID             = s.cfg.HostResolver.HostKey()
-		batch              = proxy.BatchFactory[channel.Key]{Host: hostID}.Batch(cfg.Keys)
+		batch              = proxy.NewBatchFactory[channel.Key](hostID).Batch(cfg.Keys)
 		pipe               = plumber.New()
 		needPeerRouting    = len(batch.Peers) > 0
 		needGatewayRouting = len(batch.Gateway) > 0
