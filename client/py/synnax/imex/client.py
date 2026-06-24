@@ -16,7 +16,7 @@ _EXPORT_PATH = "/imex/export"
 
 
 class Client:
-    """Imports and exports metadata resources to and from the Core.
+    """Imports and exports resources from and to the Core.
 
     Each call moves exactly one envelope, streamed to or from disk: ``import_`` streams
     a file from disk, and ``export`` streams the response straight into a destination
@@ -29,10 +29,10 @@ class Client:
         self._file_client = file_client
 
     def import_(self, source: FilePath) -> ontology.ID:
-        """Imports the resource at source and returns its new ontology id.
+        """Imports the resource at source and returns its new ontology ID.
 
         :param source: a file path streamed from disk.
-        :returns: the new resource's ontology id as stamped by the Core.
+        :returns: the new resource's ontology ID.
         """
         return self._file_client.upload(_IMPORT_PATH, source, ontology.ID)
 
@@ -42,7 +42,7 @@ class Client:
         The response body is streamed straight into dest — the on-disk format is driven
         by the destination's extension.
 
-        :param id: the ontology id of the resource to export.
-        :param dest: the file path to stream into.
+        :param id: the ontology ID of the resource to export.
+        :param dest: a file path to stream the response body into.
         """
         self._file_client.download(_EXPORT_PATH, id, dest)

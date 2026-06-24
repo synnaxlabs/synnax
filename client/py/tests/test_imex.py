@@ -48,7 +48,7 @@ class TestImex:
     Uses the ``log`` resource type.
     """
 
-    def test_import_from_path(self, client: sy.Synnax, tmp_path: Path) -> None:
+    def test_import_valid(self, client: sy.Synnax, tmp_path: Path) -> None:
         """Path source → streamed upload."""
         name = f"imex-path-{uuid.uuid4()}"
         path = tmp_path / "in.json"
@@ -57,13 +57,29 @@ class TestImex:
         assert id.type == "log"
         assert uuid.UUID(id.key)
 
-    def test_export_to_path(self, client: sy.Synnax, tmp_path: Path) -> None:
+    def test_import_invalid(self, client: sy.Synnax, tmp_path: Path) -> None:
+        """An envelope with an unrecognized type is rejected."""
+        path = tmp_path / "in.json"
+        path.write_text(
+            json.dumps({"version": 1, "type": "not_a_real_type", "name": "bad"})
+        )
+        with pytest.raises(sy.ValidationError):
+            client.imex.import_(path)
+
+    def test_export(self, client: sy.Synnax, tmp_path: Path) -> None:
         """Path dest → streamed download; on-disk content parses back."""
         name = f"imex-export-path-{uuid.uuid4()}"
         src = tmp_path / "in.json"
         src.write_text(_log_envelope_json(name))
         id = client.imex.import_(src)
         out = tmp_path / "log.json"
-        assert client.imex.export(id, out) is None
+        client.imex.export(id, out)
         parsed = json.loads(out.read_bytes())
         assert parsed["name"] == name and parsed["type"] == "log"
+
+    def test_export_nonexistent(self, client: sy.Synnax, tmp_path: Path) -> None:
+        """Exporting a resource that does not exist raises NotFoundError."""
+        id = sy.ontology.ID(type="log", key=str(uuid.uuid4()))
+        out = tmp_path / "log.json"
+        with pytest.raises(sy.NotFoundError):
+            client.imex.export(id, out)
