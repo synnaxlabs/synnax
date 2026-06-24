@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -134,6 +135,21 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		Where(gorp.MatchKeys[Key, Range](key)).
 		Change(func(_ gorp.Context, r Range) Range { r.Name = name; return r }).
 		Exec(ctx, w.tx)
+}
+
+// SetEnd sets the end bound of the range with the given key, preserving all other
+// fields. Returns query.ErrNotFound if no range with the key exists.
+func (w Writer) SetEnd(ctx context.Context, key Key, end telem.TimeStamp) error {
+	var r Range
+	if err := w.table.
+		NewRetrieve().
+		Where(gorp.MatchKeys[Key, Range](key)).
+		Entry(&r).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	r.TimeRange.End = end
+	return w.table.NewCreate().Entry(&r).Exec(ctx, w.tx)
 }
 
 // Delete deletes the ranges with the given keys. Delete also recursively removes every

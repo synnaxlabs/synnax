@@ -300,7 +300,7 @@ func dispatchEnd(
 			fmt.Sprintf("ranges.end: invalid range key %q", key))
 		return ""
 	}
-	if err := rng.SetEnd(ctx, uid, telem.Now()); err != nil {
+	if err := rng.NewWriter(nil).SetEnd(ctx, uid, telem.Now()); err != nil {
 		report(ctx, status.VariantWarning, fmt.Sprintf("ranges.end: %v", err))
 		return ""
 	}

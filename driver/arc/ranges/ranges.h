@@ -85,8 +85,8 @@ inline std::string dispatch_create(
     return r.key.to_string();
 }
 
-/// @brief dispatch_end sets the end bound on the range identified by key to now
-/// via retrieve-modify-upsert. Returns the key or "".
+/// @brief dispatch_end sets the end bound on the range identified by key to now in a
+/// single request. Returns the key or "".
 inline std::string dispatch_end(
     const std::shared_ptr<synnax::Synnax> &client,
     const Reporter &report,
@@ -100,16 +100,7 @@ inline std::string dispatch_end(
         );
         return "";
     }
-    auto [r, retrieve_err] = client->ranges.retrieve_by_key(uid);
-    if (retrieve_err) {
-        report(
-            synnax::status::VARIANT_WARNING,
-            "ranges.end: " + retrieve_err.message()
-        );
-        return "";
-    }
-    r.time_range.end = x::telem::TimeStamp::now();
-    if (const auto err = client->ranges.create(r)) {
+    if (const auto err = client->ranges.set_end(uid, x::telem::TimeStamp::now())) {
         report(synnax::status::VARIANT_WARNING, "ranges.end: " + err.message());
         return "";
     }

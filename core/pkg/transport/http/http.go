@@ -92,6 +92,7 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		RangeCreate:   http.NewUnaryServer[ranger.CreateRequest, ranger.CreateResponse](router, "/api/v1/range/create"),
 		RangeDelete:   http.NewUnaryServer[ranger.DeleteRequest, types.Nil](router, "/api/v1/range/delete"),
 		RangeRename:   http.NewUnaryServer[ranger.RenameRequest, types.Nil](router, "/api/v1/range/rename"),
+		RangeSetEnd:   http.NewUnaryServer[ranger.SetEndRequest, types.Nil](router, "/api/v1/range/set-end"),
 
 		// KV
 		KVGet:    http.NewUnaryServer[kv.GetRequest, kv.GetResponse](router, "/api/v1/range/kv/get"),
