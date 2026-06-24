@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Arc } from "@/arc";
+import { type Log } from "@/layered/service/log";
 import { type LinePlot } from "@/layered/service/lineplot";
 import { type Schematic } from "@/layered/service/schematic";
 import { type Table } from "@/layered/service/table";
-import { type Log } from "@/log";
 
 export type LayoutType =
   | LinePlot.LayoutType

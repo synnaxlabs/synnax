@@ -13,10 +13,10 @@ import { type FC, type ReactElement } from "react";
 import { Arc } from "@/arc";
 import { EmptyAction, Toolbar } from "@/components";
 import { LinePlot } from "@/layered/service/lineplot";
+import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
-import { Log } from "@/log";
 import { createSelectorLayout, useSelectorVisible } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
 

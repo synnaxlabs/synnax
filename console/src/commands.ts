@@ -16,7 +16,6 @@ import { Hardware } from "@/hardware";
 import { Import } from "@/import";
 import { LabelServices } from "@/label/services";
 import { Service } from "@/layered/service";
-import { LogServices } from "@/log/services";
 import { type Palette } from "@/palette";
 import { Persist } from "@/persist";
 import { ProjectServices } from "@/project/services";
@@ -33,7 +32,7 @@ export const COMMANDS: Palette.Command[] = [
   ...Import.COMMANDS,
   ...LabelServices.COMMANDS,
   ...Service.LinePlot.COMMANDS,
-  ...LogServices.COMMANDS,
+  ...Service.LinePlot.COMMANDS,
   ...Persist.COMMANDS,
   ...RangeServices.COMMANDS,
   ...Service.Schematic.COMMANDS,

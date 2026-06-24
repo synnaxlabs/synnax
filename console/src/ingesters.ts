@@ -11,15 +11,15 @@ import { ArcServices } from "@/arc/services";
 import { Hardware } from "@/hardware";
 import { type Import } from "@/import";
 import { LinePlot } from "@/layered/service/lineplot";
+import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
-import { LogServices } from "@/log/services";
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   ...ArcServices.FILE_INGESTERS,
   ...Hardware.FILE_INGESTERS,
+  ...Log.ImEx.FILE_INGESTERS,
   ...LinePlot.ImEx.FILE_INGESTERS,
-  ...LogServices.FILE_INGESTERS,
   ...Schematic.ImEx.FILE_INGESTERS,
   ...Table.ImEx.FILE_INGESTERS,
 };
