@@ -9,6 +9,7 @@
 
 import os
 import pathlib
+import tempfile
 from collections.abc import Iterable, Sequence
 from typing import IO, Any, NoReturn
 
@@ -25,6 +26,30 @@ from freighter.url import URL
 from x.exceptions import ExceptionPayload, decode_exception
 
 _CONTENT_TYPE_HEADER_KEY = "Content-Type"
+
+
+def stream_to_file(chunks: Iterable[bytes], dest: FilePath) -> None:
+    """Writes a stream of byte chunks into dest atomically.
+
+    The chunks are streamed into a temporary file alongside dest and the temp file is
+    renamed into place only once the full stream is consumed, so dest is observed to
+    hold either its previous contents or the complete new contents — never a partial
+    write. A failure partway through removes the temp file and leaves any existing dest
+    untouched.
+
+    :param chunks: an iterable of byte chunks to write in order.
+    :param dest: the destination file path.
+    """
+    dest_path = pathlib.Path(os.fspath(dest))
+    fd, tmp_name = tempfile.mkstemp(dir=dest_path.parent, suffix=".part")
+    try:
+        with os.fdopen(fd, "wb") as out:
+            for chunk in chunks:
+                out.write(chunk)
+        os.replace(tmp_name, dest_path)
+    except BaseException:
+        os.unlink(tmp_name)
+        raise
 
 
 class HTTPClient(MiddlewareCollector):
@@ -111,6 +136,10 @@ class HTTPClient(MiddlewareCollector):
         extension via the client's registered codecs (e.g., a .json destination requests
         application/json), so the on-disk format and the negotiated wire format are
         guaranteed to match.
+
+        The body is streamed into a temporary file alongside dest and atomically renamed
+        into place on success, so dest only ever holds the previous contents or the
+        complete new contents — a mid-stream failure leaves any existing dest untouched.
         """
         dest_codec = self._codec_for_path(dest)
         url = self._build_url(target)
@@ -125,9 +154,7 @@ class HTTPClient(MiddlewareCollector):
                 preload_content=False,
             )
             try:
-                with open(dest, "wb") as out:
-                    for chunk in http_res.stream():
-                        out.write(chunk)
+                stream_to_file(http_res.stream(), dest)
                 return out_ctx
             finally:
                 http_res.release_conn()
