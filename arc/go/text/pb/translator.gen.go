@@ -13,12 +13,79 @@ package pb
 
 import (
 	"github.com/synnaxlabs/arc/text"
+	crdtpb "github.com/synnaxlabs/x/crdt/pb"
 )
+
+// DocumentToPB converts Document to Document.
+func DocumentToPB(r text.Document) (*Document, error) {
+	insertsVal, err := crdtpb.InsertsToPB(r.Inserts)
+	if err != nil {
+		return nil, err
+	}
+	deletesVal, err := crdtpb.DeletesToPB(r.Deletes)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Document{
+		Inserts: insertsVal,
+		Deletes: deletesVal,
+	}
+	return pb, nil
+}
+
+// DocumentFromPB converts Document to Document.
+func DocumentFromPB(pb *Document) (text.Document, error) {
+	var r text.Document
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Inserts, err = crdtpb.InsertsFromPB(pb.Inserts)
+	if err != nil {
+		return text.Document{}, err
+	}
+	r.Deletes, err = crdtpb.DeletesFromPB(pb.Deletes)
+	if err != nil {
+		return text.Document{}, err
+	}
+	return r, nil
+}
+
+// DocumentsToPB converts a slice of Document to Document.
+func DocumentsToPB(rs []text.Document) ([]*Document, error) {
+	result := make([]*Document, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = DocumentToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// DocumentsFromPB converts a slice of Document to Document.
+func DocumentsFromPB(pbs []*Document) ([]text.Document, error) {
+	result := make([]text.Document, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = DocumentFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // TextToPB converts Text to Text.
 func TextToPB(r text.Text) (*Text, error) {
+	docVal, err := DocumentToPB(r.Doc)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Text{
 		Raw: r.Raw,
+		Doc: docVal,
 	}
 	return pb, nil
 }
@@ -28,6 +95,11 @@ func TextFromPB(pb *Text) (text.Text, error) {
 	var r text.Text
 	if pb == nil {
 		return r, nil
+	}
+	var err error
+	r.Doc, err = DocumentFromPB(pb.Doc)
+	if err != nil {
+		return text.Text{}, err
 	}
 	r.Raw = pb.Raw
 	return r, nil

@@ -52,6 +52,7 @@ var (
 	taskSvc  *task.Service
 	testRack *rack.Rack
 	sigs     *signals.Provider
+	arcClock = telem.Now
 )
 
 var (
@@ -102,12 +103,15 @@ var (
 			Framer:  framer.Wrap(dist.Framer),
 		}))
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Channel:  channel.Wrap(dist.Channel),
-			Task:     taskSvc,
-			Search:   searchIdx,
-			Signals:  sigs,
+			DB:                  db,
+			Ontology:            otg,
+			Channel:             channel.Wrap(dist.Channel),
+			Task:                taskSvc,
+			Search:              searchIdx,
+			Signals:             sigs,
+			TextSweepQuiescence: 5 * telem.Second,
+			TextSweepThreshold:  1,
+			Now:                 func() telem.TimeStamp { return arcClock() },
 		}))
 	})
 	_ = BeforeEach(func() { tx = db.OpenTx() })

@@ -155,6 +155,18 @@ export const useSelectMode = Flux.createSelector<FluxSubStore, SelectKeyArgs, ar
   },
 );
 
+// useSelectHasText reports whether the Arc with the given key has loaded into the store.
+// It returns a stable boolean, so an editor that drives its document imperatively re-renders
+// only when the document first becomes available, not on every subsequent edit.
+export const useSelectHasText = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  boolean
+>({
+  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+  select: (store, { key }) => store.arcs.get(key)?.text.doc != null,
+});
+
 export interface AddNodeProps {
   key: string;
   type: string;
@@ -197,12 +209,11 @@ const retrieveSingle = async ({
   query,
   store,
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  const a = await client.arcs.retrieve({
-    ...query,
-    includeStatus: query.includeStatus ?? true,
-  });
-  store.arcs.set(query.key, a);
-  return a;
+  const cached = store.arcs.get(query.key);
+  if (cached != null) return cached;
+  const arc = await client.arcs.retrieve(query);
+  store.arcs.set(arc);
+  return arc;
 };
 
 export type ListQuery = List.PagerParams & {
@@ -216,20 +227,15 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore
       if (primitive.isNonZero(query.keys)) return query.keys.includes(a.key);
       return true;
     }),
-  retrieve: async ({ client, query }) =>
-    await client.arcs.retrieve({
-      ...query,
-      includeStatus: true,
-    }),
-  retrieveByKey: async ({ client, key, store }) => {
-    const cached = store.arcs.get(key);
-    if (cached != null) return cached;
-    const arc = await client.arcs.retrieve({ key });
-    store.arcs.set(key, arc);
-    return arc;
+  retrieve: async ({ client, query, store }) => {
+    const arcs = await client.arcs.retrieve({ ...query, includeStatus: true });
+    store.arcs.setIfAbsent(arcs);
+    return arcs;
   },
+  retrieveByKey: async ({ client, key, store }) =>
+    await retrieveSingle({ client, query: { key }, store }),
   mountListeners: ({ store, onChange, onDelete }) => [
-    store.arcs.onSet((arc) => onChange(arc.key, arc)),
+    store.arcs.onSet(onChange),
     store.arcs.onDelete(onDelete),
   ],
 });

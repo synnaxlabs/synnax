@@ -38,13 +38,13 @@ import {
   findCellPosition,
   nextCellPosition,
   useDispatch,
-  useEnsureRetrieved,
   useRedo,
   useSelectColumns,
   useSelectRows,
   useUndo,
 } from "@/table/queries";
 import { Row } from "@/table/Row";
+import { useKey } from "@/table/Suspended";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
@@ -84,10 +84,6 @@ export interface TableProps
   extends
     Omit<ComponentPropsWithRef<"div">, "onCopy" | "onPaste" | "onContextMenu">,
     Pick<z.infer<typeof aetherTable.Table.stateZ>, "visible"> {
-  // resourceKey is the table key the component reads from the Pluto flux
-  // store. The table data must be loaded into flux before the component
-  // mounts; useEnsureRetrieved kicks off the fetch.
-  resourceKey: table.Key;
   // selected is the set of cell keys currently selected. The component
   // never owns selection state itself; it only reflects this prop visually
   // and emits onSelectionChange in response to user gestures.
@@ -122,7 +118,6 @@ export interface TableProps
 }
 
 export const Table = ({
-  resourceKey: key,
   selected = [],
   onSelectionChange,
   editable = false,
@@ -135,7 +130,7 @@ export const Table = ({
   className,
   ...rest
 }: TableProps): ReactElement => {
-  useEnsureRetrieved({ key });
+  const key = useKey();
   const rows = useSelectRows({ key });
   const columns = useSelectColumns({ key });
   const { dispatch } = useDispatch();

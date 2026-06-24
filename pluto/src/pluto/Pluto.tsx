@@ -14,6 +14,7 @@ import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
 import { Channel } from "@/channel";
+import { Code } from "@/code";
 import { Color } from "@/color";
 import { Device } from "@/device";
 import { Flux } from "@/flux";
@@ -46,6 +47,8 @@ import { View } from "@/view";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
+
+const ARC_LANGUAGES = [Arc.LANGUAGE];
 
 export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   theming?: Theming.ProviderProps;
@@ -139,9 +142,11 @@ export const Provider = ({
                 <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
                   <Color.Provider {...color}>
                     <Theming.Provider {...theming}>
-                      <CanDisableTelem {...telem}>
-                        <Control.StateProvider>{children}</Control.StateProvider>
-                      </CanDisableTelem>
+                      <Code.Provider languages={ARC_LANGUAGES}>
+                        <CanDisableTelem {...telem}>
+                          <Control.StateProvider>{children}</Control.StateProvider>
+                        </CanDisableTelem>
+                      </Code.Provider>
                     </Theming.Provider>
                   </Color.Provider>
                 </Flux.Provider>

@@ -20,9 +20,37 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Document", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original text.Document) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded text.Document
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", text.Document{
+				Inserts: []crdt.Insert{
+					{
+						ID:     crdt.ID{Replica: 4, Counter: 5},
+						Origin: crdt.ID{Replica: 7, Counter: 8},
+						Side:   spatial.XLocation("left"),
+						Char:   10,
+					},
+				},
+				Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 13, Counter: 14}}},
+			}),
+			Entry("zero values", text.Document{Inserts: nil, Deletes: nil}),
+			Entry("empty collections", text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}),
+		)
+	})
 	Describe("Text", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original text.Text) {
@@ -34,14 +62,65 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", text.Text{Raw: "test_1"}),
-			Entry("zero values", text.Text{Raw: ""}),
+			Entry("fully populated", text.Text{
+				Doc: text.Document{
+					Inserts: []crdt.Insert{
+						{
+							ID:     crdt.ID{Replica: 5, Counter: 6},
+							Origin: crdt.ID{Replica: 8, Counter: 9},
+							Side:   spatial.XLocation("left"),
+							Char:   11,
+						},
+					},
+					Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 14, Counter: 15}}},
+				},
+			}),
+			Entry("zero values", text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}}),
 		)
 	})
 })
 
+func BenchmarkEncodeDecodeDocument(b *testing.B) {
+	d := text.Document{
+		Inserts: []crdt.Insert{
+			{
+				ID:     crdt.ID{Replica: 4, Counter: 5},
+				Origin: crdt.ID{Replica: 7, Counter: 8},
+				Side:   spatial.XLocation("left"),
+				Char:   10,
+			},
+		},
+		Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 13, Counter: 14}}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := d.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded text.Document
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeText(b *testing.B) {
-	t := text.Text{Raw: "test_1"}
+	t := text.Text{
+		Doc: text.Document{
+			Inserts: []crdt.Insert{
+				{
+					ID:     crdt.ID{Replica: 5, Counter: 6},
+					Origin: crdt.ID{Replica: 8, Counter: 9},
+					Side:   spatial.XLocation("left"),
+					Char:   11,
+				},
+			},
+			Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 14, Counter: 15}}},
+		},
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -57,9 +136,19 @@ func BenchmarkEncodeDecodeText(b *testing.B) {
 	}
 }
 
-func FuzzDecodeText(f *testing.F) {
+func FuzzDecodeDocument(f *testing.F) {
 	{
-		seed := text.Text{Raw: "test_1"}
+		seed := text.Document{
+			Inserts: []crdt.Insert{
+				{
+					ID:     crdt.ID{Replica: 4, Counter: 5},
+					Origin: crdt.ID{Replica: 7, Counter: 8},
+					Side:   spatial.XLocation("left"),
+					Char:   10,
+				},
+			},
+			Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 13, Counter: 14}}},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -67,7 +156,73 @@ func FuzzDecodeText(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := text.Text{Raw: ""}
+		seed := text.Document{Inserts: nil, Deletes: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded text.Document
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded text.Document
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeText(f *testing.F) {
+	{
+		seed := text.Text{
+			Doc: text.Document{
+				Inserts: []crdt.Insert{
+					{
+						ID:     crdt.ID{Replica: 5, Counter: 6},
+						Origin: crdt.ID{Replica: 8, Counter: 9},
+						Side:   spatial.XLocation("left"),
+						Char:   11,
+					},
+				},
+				Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 14, Counter: 15}}},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
