@@ -202,7 +202,7 @@ TEST(CreateRangeTest, NextCreatesOpenRange) {
     auto [r, err] = client->ranges.retrieve_by_key(uid);
     ASSERT_NIL(err);
     EXPECT_EQ(r.name, name);
-    EXPECT_EQ(r.time_range.end, x::telem::TimeStamp::max());
+    EXPECT_EQ(r.time_range.end, x::telem::TIME_STAMP_MAX);
 }
 
 TEST(CreateRangeTest, NextParsesColor) {
@@ -295,7 +295,7 @@ TEST(EndRangeTest, NextSetsEndToNow) {
     const auto start = x::telem::TimeStamp::now();
     synnax::ranger::Range r;
     r.name = unique_name("cpp_end_");
-    r.time_range = x::telem::TimeRange{start, x::telem::TimeStamp::max()};
+    r.time_range = x::telem::TimeRange{start, x::telem::TIME_STAMP_MAX};
     ASSERT_NIL(client->ranges.create(r));
 
     const auto before = x::telem::TimeStamp::now();
@@ -321,7 +321,7 @@ TEST(EndRangeTest, NextSetsEndToNow) {
         updated.time_range.end.nanoseconds(),
         x::telem::TimeStamp::now().nanoseconds()
     );
-    EXPECT_NE(updated.time_range.end, x::telem::TimeStamp::max());
+    EXPECT_NE(updated.time_range.end, x::telem::TIME_STAMP_MAX);
 }
 
 TEST(EndRangeTest, NextWarnsWhenRangeDoesNotExist) {

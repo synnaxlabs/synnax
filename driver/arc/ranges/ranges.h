@@ -62,7 +62,7 @@ inline std::string dispatch_create(
     r.name = name;
     r.time_range = x::telem::TimeRange{
         x::telem::TimeStamp::now(),
-        x::telem::TimeStamp::max()
+        x::telem::TIME_STAMP_MAX
     };
     r.color = c;
     if (!parent.empty()) {
