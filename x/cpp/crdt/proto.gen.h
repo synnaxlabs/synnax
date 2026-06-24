@@ -49,7 +49,7 @@ inline std::pair<::x::crdt::pb::Insert, x::errors::Error> Insert::to_proto() con
         *pb.mutable_origin() = v;
     }
     {
-        auto [v, err] = x_location_to_pb(this->side);
+        auto [v, err] = ::x::spatial::x_location_to_pb(this->side);
         if (err) return {{}, err};
         pb.set_side(v);
     }
@@ -71,7 +71,7 @@ Insert::from_proto(const ::x::crdt::pb::Insert &pb) {
         cpp.origin = v;
     }
     {
-        auto [v, err] = x_location_from_pb(pb.side());
+        auto [v, err] = ::x::spatial::x_location_from_pb(pb.side());
         if (err) return {{}, err};
         cpp.side = v;
     }

@@ -25,12 +25,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Import } from "@/import";
 import { Schematic } from "@/layered/service/schematic";
+import { Table } from "@/layered/service/table";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
-import { Table } from "@/table";
-import { TableServices } from "@/table/services";
 
 const client: Synnax = createTestClient();
 
@@ -44,7 +43,7 @@ const THERMO_KEY = "cdb27884-a73f-4696-bcee-a71c1f6625bd";
 // the Arc/Monaco editor, which Vitest can't load.
 const FILE_INGESTERS: Import.FileIngesters = {
   ...Schematic.ImEx.FILE_INGESTERS,
-  ...TableServices.FILE_INGESTERS,
+  ...Table.ImEx.FILE_INGESTERS,
 };
 
 const SCHEMATIC_DATA = {
@@ -71,7 +70,7 @@ const TABLE_DATA = {
 const rootReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
   [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
-  [Table.SLICE_NAME]: Table.reducer,
+  [Session.Table.SLICE_NAME]: Session.Table.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   drift: Drift.reducer,
 }) as unknown as Reducer<Record<string, unknown>, UnknownAction>;

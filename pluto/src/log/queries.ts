@@ -13,6 +13,7 @@ import { useCallback } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
+import { Scope } from "@/log/scope";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "logs";
@@ -84,33 +85,31 @@ const requireLog = (store: FluxSubStore, key: log.Key): log.Log => {
   return l;
 };
 
-export const useSelectName = Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).name,
-});
+export const useSelectName = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).name,
+  }),
+);
 
-export const useSelectChannels = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  log.ChannelEntry[]
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).channels,
-});
+export const useSelectChannels = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, log.ChannelEntry[]>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).channels,
+  }),
+);
 
 // useSelectChannelKeys returns the ordered channel keys, re-rendering only when the
 // set or order of channels changes — not when an individual entry's display config
 // is edited. Iterate the toolbar list off this and read each row via
 // useSelectChannelEntry.
-export const useSelectChannelKeys = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  channel.Key[]
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).channels.map((e) => e.channel),
-  equal: compare.arraysEqual,
-});
+export const useSelectChannelKeys = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, channel.Key[]>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).channels.map((e) => e.channel),
+    equal: compare.arraysEqual,
+  }),
+);
 
 export interface SelectChannelEntryArgs extends SelectKeyArgs {
   channel: channel.Key;
@@ -120,42 +119,34 @@ export interface SelectChannelEntryArgs extends SelectKeyArgs {
 // channel has no entry. reduceAll's structural sharing keeps the entry reference
 // stable across dispatches that don't touch it, so editing one channel does not
 // re-render the rows of the others.
-export const useSelectChannelEntry = Flux.createSelector<
-  FluxSubStore,
-  SelectChannelEntryArgs,
-  log.ChannelEntry | null
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key, channel }) =>
-    requireLog(store, key).channels.find((e) => e.channel === channel) ?? null,
-});
+export const useSelectChannelEntry = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectChannelEntryArgs, log.ChannelEntry | null>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key, channel }) =>
+      requireLog(store, key).channels.find((e) => e.channel === channel) ?? null,
+  }),
+);
 
-export const useSelectTimestampPrecision = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  number
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).timestampPrecision,
-});
+export const useSelectTimestampPrecision = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, number>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).timestampPrecision,
+  }),
+);
 
-export const useSelectHideChannelNames = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  boolean
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).hideChannelNames,
-});
+export const useSelectHideChannelNames = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, boolean>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).hideChannelNames,
+  }),
+);
 
-export const useSelectHideReceiptTimestamp = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  boolean
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).hideReceiptTimestamp,
-});
+export const useSelectHideReceiptTimestamp = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, boolean>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).hideReceiptTimestamp,
+  }),
+);
 
 // kindOfTransaction keys single-channel edits by channel so rapid edits to one
 // channel's config coalesce into a single undoable, while edits to distinct
@@ -172,6 +163,18 @@ const kindOfTransaction = (actions: log.Action[]): string => {
       return `channel:${a.removeChannel.channel}`;
     case "set_channel_entry":
       return `channel:${a.setChannelEntry.entry.channel}`;
+    case "set_channel_color":
+      return `channel:${a.setChannelColor.channel}`;
+    case "set_channel_notation":
+      return `channel:${a.setChannelNotation.channel}`;
+    case "set_channel_precision":
+      return `channel:${a.setChannelPrecision.channel}`;
+    case "set_channel_alias":
+      return `channel:${a.setChannelAlias.channel}`;
+    case "set_channel_timestamp_format":
+      return `channel:${a.setChannelTimestampFormat.channel}`;
+    case "set_channel_timestamp_tz":
+      return `channel:${a.setChannelTimestampTz.channel}`;
     default:
       return a.type;
   }
@@ -191,7 +194,12 @@ export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
   kindOf: kindOfTransaction,
 });
 
-export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+export const {
+  useDispatch,
+  useUndo: useUndoBase,
+  useRedo: useRedoBase,
+  useSingleDispatch: useSingleDispatchBase,
+} = Flux.createDispatch<
   log.Key,
   log.Log,
   log.Action,
@@ -202,6 +210,10 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   send: ({ client, key, actions, dispatchKey }) =>
     client.logs.dispatch(key, dispatchKey, actions),
 });
+
+export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
+export const useUndo = Scope.bindHook(useUndoBase);
+export const useRedo = Scope.bindHook(useRedoBase);
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: RESOURCE_NAME,

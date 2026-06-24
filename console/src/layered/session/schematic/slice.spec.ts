@@ -240,7 +240,7 @@ describe("Schematic Slice", () => {
 
     it("should apply prefaulted defaults when nested objects are missing", () => {
       const parsed = Schematic.stateZ.parse({});
-      expect(parsed.control.authority).toBe(100);
+      expect(parsed.control.authority).toBe(1);
       expect(parsed.control.status).toBe("released");
       expect(parsed.legend.visible).toBe(true);
       expect(parsed.toolbar.selectedTab).toBe("symbols");

@@ -11,14 +11,15 @@ import { Arc } from "@synnaxlabs/pluto";
 
 import { Graph } from "@/arc/editor/graph";
 import { Text } from "@/arc/editor/text";
-import { useSelectExists, useSelectMode } from "@/arc/selectors";
+import { useSelectExists } from "@/arc/selectors";
 import { internalCreate } from "@/arc/slice";
 import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
 
 const Loaded: Layout.Renderer = (props) => {
   const { layoutKey } = props;
-  const mode = useSelectMode(layoutKey) ?? "graph";
+  Arc.useEnsureRetrieved({ key: layoutKey });
+  const mode = Arc.useSelectMode({ key: layoutKey });
   if (mode === "graph") return <Graph.Editor {...props} />;
   return <Text.Editor {...props} />;
 };

@@ -80,7 +80,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Mode).To(Equal(arc.Mode(seed.Mode)))
-		Expect(got.Text.Raw).To(Equal(seed.Text.Raw))
+		Expect(got.Text.Materialize().Raw).To(Equal(seed.Text.Raw))
 		Expect(got.Graph.Functions).To(HaveLen(1))
 		Expect(got.Graph.Functions[0].Key).To(Equal("scale"))
 		Expect(got.Graph.Functions[0].Body.Raw).To(Equal("x * 2"))

@@ -25,8 +25,8 @@ import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/components";
+import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/layered/service/lineplot/layout";
 import { Layout } from "@/layout";
-import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/lineplot/layout";
 import { Link } from "@/link";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { createCreateLayout } from "@/range/Create";

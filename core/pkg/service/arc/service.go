@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -66,11 +67,34 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// TextSweepQuiescence is how long an arc's text must go unedited before its
+	// tombstoned characters become eligible to be reclaimed.
+	//
+	// [OPTIONAL] - Defaults to defaultTextSweepQuiescence.
+	TextSweepQuiescence telem.TimeSpan
+	// TextSweepThreshold is the number of tombstoned characters that must accumulate
+	// before a sweep is broadcast.
+	//
+	// [OPTIONAL] - Defaults to defaultTextSweepThreshold.
+	TextSweepThreshold int
+	// Now returns the current cluster time. It gates the text sweeper's quiescence
+	// check and is injectable for testing.
+	//
+	// [OPTIONAL] - Defaults to telem.Now.
+	Now func() telem.TimeStamp
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
 
-var _ config.Config[ServiceConfig] = ServiceConfig{}
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig holds the default values for a ServiceConfig.
+	DefaultServiceConfig = ServiceConfig{
+		TextSweepQuiescence: defaultTextSweepQuiescence,
+		TextSweepThreshold:  defaultTextSweepThreshold,
+		Now:                 telem.Now,
+	}
+)
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -81,6 +105,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.TextSweepQuiescence = override.Numeric(c.TextSweepQuiescence, other.TextSweepQuiescence)
+	c.TextSweepThreshold = override.Numeric(c.TextSweepThreshold, other.TextSweepThreshold)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 
@@ -97,10 +124,11 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	table  *gorp.Table[Key, Arc]
-	closer xio.MultiCloser
-	cfg    ServiceConfig
-	state  *actions.State[Key, Action]
+	table   *gorp.Table[Key, Arc]
+	closer  xio.MultiCloser
+	cfg     ServiceConfig
+	state   *actions.State[Key, Action]
+	sweeper textSweeper
 }
 
 // NewChannelResolver returns the dynamic resolver that the analyzer consults for
@@ -168,7 +196,7 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 	}
 	var prog arc.Program
 	if entry.Mode == ModeText {
-		prog, err = arc.CompileText(ctx, entry.Text, s.NewRoot(nil))
+		prog, err = arc.CompileText(ctx, entry.Text.Materialize(), s.NewRoot(nil))
 	} else {
 		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil))
 	}
@@ -183,11 +211,15 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(ServiceConfig{}, configs...)
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
+	s = &Service{
+		cfg:     cfg,
+		state:   actions.NewState[Key, Action](),
+		sweeper: newTextSweeper(cfg.Now, cfg.TextSweepQuiescence, cfg.TextSweepThreshold),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
@@ -255,6 +287,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		task:       s.cfg.Task.NewWriter(tx),
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
+		sweeper:    s.sweeper,
 	}
 }
 
