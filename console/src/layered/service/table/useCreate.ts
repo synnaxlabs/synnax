@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Table as PTable } from "@synnaxlabs/pluto";
+import { Table } from "@synnaxlabs/pluto";
 
+import { create } from "@/layered/service/table/layout";
 import { Project } from "@/project";
-import { create } from "@/table/layout";
 
 export const useCreate = Project.createUseCreate({
-  useCreate: PTable.useCreate,
+  useCreate: Table.useCreate,
   toCreateParams: ({ overrides, project }) => ({
     name: "Table",
     ...overrides,

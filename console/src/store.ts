@@ -29,12 +29,12 @@ import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Status } from "@/status";
-import { Table } from "@/table";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
   ...Session.Log.PERSIST_EXCLUDE,
   ...Session.Schematic.PERSIST_EXCLUDE,
+  ...Session.Table.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
 ];
 
@@ -50,7 +50,7 @@ const ZERO_STATE: RootState = {
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Session.Schematic.SLICE_NAME]: Session.Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
-  [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
+  [Session.Table.SLICE_NAME]: Session.Table.ZERO_SLICE_STATE,
   [Session.Theme.SLICE_NAME]: Session.Theme.ZERO_SLICE_STATE,
 };
 
@@ -66,7 +66,7 @@ const reducer = combineReducers({
   [Range.SLICE_NAME]: Range.reducer,
   [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
-  [Table.SLICE_NAME]: Table.reducer,
+  [Session.Table.SLICE_NAME]: Session.Table.reducer,
   [Session.Theme.SLICE_NAME]: Session.Theme.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
@@ -82,7 +82,7 @@ export interface RootState {
   [Range.SLICE_NAME]: Range.SliceState;
   [Session.Schematic.SLICE_NAME]: Session.Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
-  [Table.SLICE_NAME]: Table.SliceState;
+  [Session.Table.SLICE_NAME]: Session.Table.SliceState;
   [Session.Theme.SLICE_NAME]: Session.Theme.SliceState;
 }
 
@@ -98,7 +98,7 @@ export type RootAction =
   | Range.Action
   | Session.Schematic.Action
   | Status.Action
-  | Table.Action
+  | Session.Table.Action
   | Session.Theme.Action;
 
 export type RootStore = Store<RootState, RootAction>;
@@ -121,7 +121,6 @@ export const migrateState = (prev: RootState): RootState => {
   const project = Project.migrateLegacySlice(prev);
   const range = Range.migrateSlice(prev.range);
   const status = Status.migrateSlice(prev.status);
-  const table = Table.migrateSlice(prev.table);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -134,7 +133,6 @@ export const migrateState = (prev: RootState): RootState => {
     project,
     range,
     status,
-    table,
   };
 };
 

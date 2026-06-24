@@ -22,26 +22,25 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { LAYOUT_TYPE } from "@/layered/service/table/layout";
+import { useCreate } from "@/layered/service/table/useCreate";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
-import { Table } from "@/table";
-import { LAYOUT_TYPE } from "@/table/layout";
-import { selectEditable } from "@/table/selectors";
-import { useCreate } from "@/table/useCreate";
 
 const client: Synnax = createTestClient();
 
 interface RootState {
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
-  [Table.SLICE_NAME]: Table.SliceState;
+  [Session.Table.SLICE_NAME]: Session.Table.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
 }
 
 const rootReducer = combineReducers({
   [Drift.SLICE_NAME]: Drift.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
-  [Table.SLICE_NAME]: Table.reducer,
+  [Session.Table.SLICE_NAME]: Session.Table.reducer,
   [Project.SLICE_NAME]: Project.reducer,
 }) as unknown as Reducer<RootState, UnknownAction>;
 
@@ -74,7 +73,7 @@ const buildHarness = async ({
   const preloadedState: RootState = {
     [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
     [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
-    [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
+    [Session.Table.SLICE_NAME]: Session.Table.ZERO_SLICE_STATE,
     [Project.SLICE_NAME]: {
       ...Project.ZERO_SLICE_STATE,
       active: activeProject != null ? stripLayout(activeProject) : null,
@@ -155,7 +154,7 @@ describe("useCreate", () => {
       });
       const placedKey = await waitForPlacedLayout(store);
       const state = store.getState();
-      expect(selectEditable(state, placedKey)).toBe(true);
+      expect(Session.Table.selectEditable({ state, key: placedKey })).toBe(true);
       expect(Layout.select(state, placedKey)?.name).toEqual("Editable");
       expect(Layout.selectType(state, placedKey)).toEqual(LAYOUT_TYPE);
     });

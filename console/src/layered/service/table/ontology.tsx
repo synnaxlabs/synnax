@@ -15,12 +15,14 @@ import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
+import { ImEx } from "@/layered/service/table/imex";
+import { create } from "@/layered/service/table/layout";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
-import { Table } from "@/table";
 
 const useDelete = createUseDelete({
   type: "Table",
@@ -28,7 +30,7 @@ const useDelete = createUseDelete({
   convertKey: String,
   beforeUpdate: async ({ data, removeLayout, store }) => {
     removeLayout(...data);
-    store.dispatch(Table.remove({ keys: array.toArray(data) }));
+    store.dispatch(Session.Table.remove({ keys: array.toArray(data) }));
     return data;
   },
 });
@@ -52,7 +54,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = Table.useExport();
+  const handleExport = ImEx.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -96,7 +98,7 @@ const loadTable = async (
   placeLayout: Layout.Placer,
 ) => {
   const t = await client.tables.retrieve({ key });
-  placeLayout(Table.create({ key: t.key, name: t.name }));
+  placeLayout(create({ key: t.key, name: t.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -125,7 +127,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError(async () => {
     const t = await client.tables.retrieve({ key });
     placeLayout(
-      Table.create({
+      create({
         key: t.key,
         name: t.name,
         location: "mosaic",

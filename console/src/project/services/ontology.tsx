@@ -35,6 +35,7 @@ import { Group } from "@/group";
 import { Import } from "@/import";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
+import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
@@ -44,7 +45,6 @@ import { createUseRename } from "@/ontology/createUseRename";
 import { useExport } from "@/project/export";
 import { selectOptionalActiveKey } from "@/project/selectors";
 import { maybeRename, setActive } from "@/project/slice";
-import { Table } from "@/table";
 
 const useDelete = createUseDelete({
   type: "Project",

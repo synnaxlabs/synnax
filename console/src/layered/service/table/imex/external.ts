@@ -7,4 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as TableServices from "@/table/services/external";
+export * from "@/layered/service/table/imex/export";
+export * from "@/layered/service/table/imex/import";

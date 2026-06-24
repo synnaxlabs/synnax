@@ -12,8 +12,8 @@ import { type Export } from "@/export";
 import { Hardware } from "@/hardware";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
+import { Table } from "@/layered/service/table";
 import { LinePlot } from "@/lineplot";
-import { Table } from "@/table";
 
 export const EXTRACTORS: Export.Extractors = {
   ...Arc.EXTRACTORS,
