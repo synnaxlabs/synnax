@@ -74,7 +74,7 @@ describe("http", () => {
       const response = await client.upload(
         "/echo",
         JSON.stringify({ id: 1, message: "hello" }),
-        { encoding: "application/json" },
+        { encoding: "JSON" },
         messageZ,
       );
       expect(response).toEqual({ id: 2, message: "hello" });
@@ -87,7 +87,7 @@ describe("http", () => {
       const response = await client.upload(
         "/echo",
         body,
-        { encoding: "application/json" },
+        { encoding: "JSON" },
         messageZ,
       );
       expect(response).toEqual({ id: 2, message: "hello" });
@@ -95,12 +95,7 @@ describe("http", () => {
 
     test("not found", async () => {
       await expect(
-        client.upload(
-          "/not-found",
-          JSON.stringify({}),
-          { encoding: "application/json" },
-          messageZ,
-        ),
+        client.upload("/not-found", JSON.stringify({}), { encoding: "JSON" }, messageZ),
       ).rejects.toThrow("Not Found");
     });
 
@@ -115,12 +110,7 @@ describe("http", () => {
         new binary.JSONCodec(),
       );
       await expect(
-        c.upload(
-          "/echo",
-          JSON.stringify({}),
-          { encoding: "application/json" },
-          messageZ,
-        ),
+        c.upload("/echo", JSON.stringify({}), { encoding: "JSON" }, messageZ),
       ).rejects.toThrow(Unreachable);
     });
   });
@@ -131,7 +121,7 @@ describe("http", () => {
         "/echo",
         { id: 1, message: "hello" },
         messageZ,
-        { encoding: "application/json" },
+        { encoding: "JSON" },
       );
       expect(stream).toBeInstanceOf(ReadableStream);
       const decoded = await new Response(stream).json();
@@ -140,7 +130,7 @@ describe("http", () => {
 
     test("not found", async () => {
       await expect(
-        client.download("/not-found", {}, messageZ, { encoding: "application/json" }),
+        client.download("/not-found", {}, messageZ, { encoding: "JSON" }),
       ).rejects.toThrow("Not Found");
     });
 
@@ -155,7 +145,7 @@ describe("http", () => {
         new binary.JSONCodec(),
       );
       await expect(
-        c.download("/echo", {}, messageZ, { encoding: "application/json" }),
+        c.download("/echo", {}, messageZ, { encoding: "JSON" }),
       ).rejects.toThrow(Unreachable);
     });
   });

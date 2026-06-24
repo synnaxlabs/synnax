@@ -19,17 +19,22 @@ import { type Transport } from "@/transport";
 export type UploadBody = ReadableStream<Uint8Array> | Blob | ArrayBufferView | string;
 
 /**
- * Options shared by FileClient.upload and FileClient.download. Carries the wire encoding
- * of the transferred bytes and is the extension point for any future per-transfer
- * settings.
+ * The wire encodings a FileClient can transfer. Extend this union (and the transport's
+ * content-type mapping) to support additional encodings.
+ */
+export type FileEncoding = "JSON" | "MessagePack";
+
+/**
+ * Options shared by FileClient.upload and FileClient.download. Carries the wire
+ * encoding of the transferred bytes and is the extension point for any future
+ * per-transfer settings.
  */
 export interface FileOptions {
   /**
-   * The wire encoding of the transferred bytes — sent as the Content-Type header on
-   * upload (describing the request body) and as the Accept header on download
-   * (describing the desired response body).
+   * The wire encoding of the transferred bytes — describes the request body on upload
+   * (sent as Content-Type) and the desired response body on download (sent as Accept).
    */
-  encoding: string;
+  encoding: FileEncoding;
 }
 
 /**

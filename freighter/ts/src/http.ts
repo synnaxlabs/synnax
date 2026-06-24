@@ -11,11 +11,21 @@ import { type binary, errors, type url } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
-import { type FileClient, type FileOptions, type UploadBody } from "@/file";
+import {
+  type FileClient,
+  type FileEncoding,
+  type FileOptions,
+  type UploadBody,
+} from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
+
+const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
+  JSON: "application/json",
+  MessagePack: "application/msgpack",
+};
 
 const UNREACHABLE_CODES = new Set([
   "ECONNREFUSED",
@@ -126,7 +136,10 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
         const httpRes = await this.fetch(url, ctx.target, {
           method: "POST",
           body: body as BodyInit,
-          headers: { [CONTENT_TYPE_HEADER_KEY]: encoding, ...ctx.params },
+          headers: {
+            [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
+            ...ctx.params,
+          },
           // duplex is required by the Fetch standard whenever the body is a stream.
           duplex: "half",
         } as RequestInit);
@@ -157,7 +170,11 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
         const httpRes = await this.fetch(url, ctx.target, {
           method: "POST",
           body: this.encoder.encode(req, reqSchema) as BodyInit,
-          headers: { ...this.headers, Accept: encoding, ...ctx.params },
+          headers: {
+            ...this.headers,
+            Accept: ENCODING_CONTENT_TYPES[encoding],
+            ...ctx.params,
+          },
         });
         if (httpRes.ok) {
           if (httpRes.body == null)
