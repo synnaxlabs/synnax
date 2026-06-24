@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Export } from "@/export";
-import { Table } from "@/layered/service/table/body/Table";
 import { extract } from "@/layered/service/table/imex/export";
 import { LAYOUT_TYPE } from "@/layered/service/table/layout";
 import { Selectable } from "@/layered/service/table/Selectable";
+import { Table } from "@/layered/service/table/Table";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 

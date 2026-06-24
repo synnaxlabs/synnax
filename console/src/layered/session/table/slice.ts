@@ -15,9 +15,6 @@ export const stateZ = z.object({
   editable: z.boolean().default(true),
   selectedCells: z.array(z.string()).default([]),
   lastSelected: z.string().nullable().default(null),
-  // hideIndicators hides the row/column indicator strips when editable is
-  // false. The setting only takes effect outside edit mode; entering edit mode
-  // always shows them.
   hideIndicators: z.boolean().default(false),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -126,8 +123,6 @@ export const {
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
-// purgeState resets transient cell selection so a restored table opens without
-// stale highlights pointing at cells that may no longer exist.
 export const purgeState = (state: State): State => {
   state.selectedCells = [];
   state.lastSelected = null;
