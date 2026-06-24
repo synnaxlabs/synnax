@@ -29,9 +29,9 @@ export class Transport {
     this.url = url.child("/api/v1/");
     const codec = new binary.JSONCodec();
     // The streaming file client and the unary client share one HTTPClient, so
-    // middleware (e.g. auth) registered through unary applies to file too. Streaming
-    // bodies cannot be replayed, so the file client deliberately skips the breaker's
-    // retry wrapper.
+    // middleware (e.g. auth) registered through unary applies to file too. The file
+    // client deliberately skips the breaker's retry wrapper: an upload body may be a
+    // one-shot ReadableStream that cannot be re-sent on a retry.
     const http = new HTTPClient(this.url, codec, this.secure);
     this.unary = unaryWithBreaker(http, breakerCfg);
     this.file = http;

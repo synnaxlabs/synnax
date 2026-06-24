@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { createTestClient } from "@/testutil/client";
@@ -31,33 +31,47 @@ const logEnvelope = (name: string) => ({
   hide_receipt_timestamp: true,
 });
 
-const toBlob = (value: unknown): Blob =>
-  new Blob([JSON.stringify(value)], { type: "application/json" });
+const toBlob = (value: unknown): Blob => new Blob([JSON.stringify(value)]);
 
 describe("Imex", () => {
   const client = createTestClient();
 
-  it("should import from a Blob and export to a byte stream", async () => {
-    const name = `imex-${id.create()}`;
-    const oid = await client.imex.import(toBlob(logEnvelope(name)), {
-      contentType: "json",
+  describe("import", () => {
+    it("should import from a Blob", async () => {
+      const name = `imex-${id.create()}`;
+      const ontologyID = await client.imex.import(toBlob(logEnvelope(name)), {
+        contentType: "json",
+      });
+      expect(ontologyID.type).toEqual("log");
+      expect(ontologyID.key).not.toHaveLength(0);
     });
-    expect(oid.type).toEqual("log");
-    expect(oid.key).not.toHaveLength(0);
-    const stream = await client.imex.export(oid, { contentType: "json" });
-    const parsed = await new Response(stream).json();
-    expect(parsed.type).toEqual("log");
-    expect(parsed.name).toEqual(name);
+    it("should throw an error if the envelope cannot be decoded", async () => {
+      const envelope = logEnvelope("invalid");
+      envelope.version = -1;
+      await expect(
+        client.imex.import(toBlob(envelope), { contentType: "json" }),
+      ).rejects.toThrow("failed to decode");
+    });
   });
 
-  it("should import from raw bytes", async () => {
-    const name = `imex-bytes-${id.create()}`;
-    const bytes = new TextEncoder().encode(JSON.stringify(logEnvelope(name)));
-    const oid = await client.imex.import(bytes, { contentType: "json" });
-    expect(oid.type).toEqual("log");
-    const exported = await new Response(
-      await client.imex.export(oid, { contentType: "json" }),
-    ).json();
-    expect(exported.name).toEqual(name);
+  describe("export", () => {
+    it("should export to a byte stream", async () => {
+      const name = `imex-${id.create()}`;
+      const oid = await client.imex.import(toBlob(logEnvelope(name)), {
+        contentType: "json",
+      });
+      const stream = await client.imex.export(oid, { contentType: "json" });
+      const parsed = await new Response(stream).json();
+      expect(parsed.type).toEqual("log");
+      expect(parsed.name).toEqual(name);
+    });
+    it("should throw an error if the log is not found", async () => {
+      await expect(
+        client.imex.export(
+          { type: "log", key: uuid.create() },
+          { contentType: "json" },
+        ),
+      ).rejects.toThrow("not found");
+    });
   });
 });

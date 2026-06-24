@@ -19,8 +19,8 @@ import { type Transport } from "@/transport";
 export type UploadBody = ReadableStream<Uint8Array> | Blob | ArrayBufferView | string;
 
 /**
- * Options for FileClient.upload. Carries the wire format of the uploaded body and is the
- * extension point for any future per-upload settings.
+ * Options for FileClient.upload. Carries the wire format of the uploaded body and is
+ * the extension point for any future per-upload settings.
  */
 export interface UploadOptions {
   /** The Content-Type header to send, describing the wire format of the body. */
