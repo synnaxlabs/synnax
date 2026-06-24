@@ -25,11 +25,11 @@ shown as "In Progress"), and outputs the new range key.
 <Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
 
-| Parameter | Type  | Required | Description                                                                               |
-| --------- | ----- | -------- | ----------------------------------------------------------------------------------------- |
-| `name`    | `str` | Yes      | A human-readable name for the range.                                                      |
-| `color`   | `str` | No       | A display color: hex (`#3bc454`), `rgb(r, g, b)`, or `rgba(r, g, b, a)`.                  |
-| `parent`  | `str` | No       | The key of an existing range to nest the new range under. Defaults to the program's rack. |
+| Parameter | Type  | Required | Description                                                                     |
+| --------- | ----- | -------- | ------------------------------------------------------------------------------- |
+| `name`    | `str` | Yes      | A human-readable name for the range.                                            |
+| `color`   | `str` | No       | A display color: hex (`#3bc454`), `rgb(r, g, b)`, or `rgba(r, g, b, a)`.        |
+| `parent`  | `str` | No       | The key of an existing range to nest the new range under. No parent if omitted. |
 
 **Output** `str`: the new range key.
 
