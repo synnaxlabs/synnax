@@ -9,7 +9,6 @@
 
 import os
 import pathlib
-import tempfile
 from collections.abc import Iterable, Sequence
 from typing import IO, Any, NoReturn
 
@@ -20,36 +19,13 @@ from urllib3.response import BaseHTTPResponse
 
 from freighter.context import Context
 from freighter.exceptions import Unreachable
-from freighter.file import FileCodec, FilePath
+from freighter.file import FileCodec
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.url import URL
 from x.exceptions import ExceptionPayload, decode_exception
+from x.file import FilePath, stream_to_file
 
 _CONTENT_TYPE_HEADER_KEY = "Content-Type"
-
-
-def stream_to_file(chunks: Iterable[bytes], dest: FilePath) -> None:
-    """Writes a stream of byte chunks into dest atomically.
-
-    The chunks are streamed into a temporary file alongside dest and the temp file is
-    renamed into place only once the full stream is consumed, so dest is observed to
-    hold either its previous contents or the complete new contents — never a partial
-    write. A failure partway through removes the temp file and leaves any existing dest
-    untouched.
-
-    :param chunks: an iterable of byte chunks to write in order.
-    :param dest: the destination file path.
-    """
-    dest_path = pathlib.Path(os.fspath(dest))
-    fd, tmp_name = tempfile.mkstemp(dir=dest_path.parent, suffix=".part")
-    try:
-        with os.fdopen(fd, "wb") as out:
-            for chunk in chunks:
-                out.write(chunk)
-        os.replace(tmp_name, dest_path)
-    except BaseException:
-        os.unlink(tmp_name)
-        raise
 
 
 class HTTPClient(MiddlewareCollector):

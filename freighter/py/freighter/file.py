@@ -9,17 +9,13 @@
 
 from __future__ import annotations
 
-import os
-from typing import Protocol, TypeAlias
+from typing import Protocol
 
 from freighter.codec import Codec
 from freighter.transport import RQ, RS, Transport
+from x.file import FilePath
 
-FilePath: TypeAlias = str | os.PathLike[str]
-"""A filesystem path accepted by the streaming-body transport Protocols.
-
-Equivalent to ``str | os.PathLike[str]`` — the same shape ``open()`` accepts for paths.
-"""
+__all__ = ["FileClient", "FileCodec"]
 
 
 class FileCodec(Codec, Protocol):

@@ -8,8 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 
-from freighter import FileClient, FilePath
+from freighter import FileClient
 from synnax import ontology
+from x.file import FilePath
 
 
 class Client:
