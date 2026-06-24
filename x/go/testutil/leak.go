@@ -43,9 +43,25 @@ func LeakPolling(d time.Duration) LeakOption {
 // gleak.IgnoringCreator, gleak.IgnoringInBacktrace) for goroutines that are
 // expected to outlive the spec. Use sparingly. A leak that needs filtering
 // is almost always a bug in the production code or test cleanup, not a
-// reason to suppress the check.
+// reason to suppress the check. These are applied on top of defaultLeakFilters.
 func LeakIgnoring(matchers ...any) LeakOption {
 	return func(c *leakConfig) { c.filters = append(c.filters, matchers...) }
+}
+
+// defaultLeakFilters lists goroutines that every leak check ignores because they
+// are process-global daemons owned by third-party libraries with no shutdown API.
+// They are started lazily, live for the whole process, and cannot be torn down per
+// spec, so flagging them is always a false positive. Matchers are plain stack-frame
+// strings, so listing one here does not add a build dependency on the library.
+func defaultLeakFilters() []any {
+	return []any{
+		// fasthttp lazily starts a single process-global goroutine (guarded by
+		// serverDateOnce) the first time any server writes a response; it refreshes
+		// the cached HTTP Date header every second and loops forever with no way to
+		// stop it. Upstream closed the request to add a shutdown mechanism as
+		// not-planned: https://github.com/valyala/fasthttp/issues/2257
+		gleak.IgnoringCreator("github.com/valyala/fasthttp.updateServerDate"),
+	}
 }
 
 // ShouldNotLeakGoroutines snapshots the currently running goroutines and
@@ -65,7 +81,7 @@ func ShouldNotLeakGoroutines(opts ...LeakOption) {
 }
 
 func buildLeakConfig(opts []LeakOption) leakConfig {
-	cfg := leakConfig{}
+	cfg := leakConfig{filters: defaultLeakFilters()}
 	for _, opt := range opts {
 		opt(&cfg)
 	}

@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gleak"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -52,9 +51,4 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-// fasthttp.updateServerDate starts a process-global, lazily-initialized
-// (sync.Once) daemon goroutine the first time the HTTP server serves a response.
-// It loops forever with no shutdown API, so it cannot be torn down per spec.
-var _ = ShouldNotLeakGoroutinesPerSpec(
-	LeakIgnoring(gleak.IgnoringCreator("github.com/valyala/fasthttp.updateServerDate")),
-)
+var _ = ShouldNotLeakGoroutinesPerSpec()
