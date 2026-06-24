@@ -28,7 +28,6 @@ import { Access } from "@/access";
 import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
-import { Code } from "@/code";
 import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
@@ -40,11 +39,12 @@ import { Hardware } from "@/hardware";
 import { Import } from "@/import";
 import { FILE_INGESTERS } from "@/ingesters";
 import { Label } from "@/label";
+import { LinePlot } from "@/layered/service/lineplot";
+import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
+import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
-import { LinePlot } from "@/lineplot";
-import { Log } from "@/log";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
@@ -54,7 +54,6 @@ import { Runtime } from "@/runtime";
 import { SERVICES } from "@/services";
 import { Status } from "@/status";
 import { store } from "@/store";
-import { Table } from "@/table";
 import { User } from "@/user";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
@@ -134,8 +133,6 @@ const useBlockDefaultDropBehavior = (): void =>
     };
   }, []);
 
-const MONACO_SERVICES = Arc.LSP.SERVICES;
-
 const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
 
 const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
@@ -158,13 +155,9 @@ const MainUnderContext = (): ReactElement => {
       alamos={ALAMOS_PROPS}
       theming={themingProps}
     >
-      <Code.Provider initServices={MONACO_SERVICES}>
-        <Arc.LSP.Provider>
-          <Vis.Canvas>
-            <Layout.Window />
-          </Vis.Canvas>
-        </Arc.LSP.Provider>
-      </Code.Provider>
+      <Vis.Canvas>
+        <Layout.Window />
+      </Vis.Canvas>
     </Pluto.Provider>
   );
 };

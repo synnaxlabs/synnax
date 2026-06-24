@@ -18,7 +18,6 @@ import { type Selector } from "@/selector";
 export * from "@/arc/editor";
 export * from "@/arc/Explorer";
 export * from "@/arc/export";
-export * from "@/arc/lsp";
 export * from "@/arc/middleware";
 export * from "@/arc/selectors";
 export * from "@/arc/slice";

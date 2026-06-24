@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { crdt, type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -567,6 +567,58 @@ describe("arc reducer inverses", () => {
           }),
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("text", () => {
+    it("appends insert_char ops so the document materializes to the typed text", () => {
+      const gen = new crdt.Text(2);
+      const ops = gen.insert(0, "hi").map((op) => arc.insertChar(op));
+      const { next } = arc.reduceAll(empty(), ops);
+      const doc = new crdt.Text(3);
+      doc.load(next.text.doc);
+      expect(doc.toString()).toEqual("hi");
+    });
+
+    it("appends delete_char ops so deleted characters drop from the materialized text", () => {
+      const gen = new crdt.Text(2);
+      const insertOps = gen.insert(0, "hi").map((op) => arc.insertChar(op));
+      const deleteOps = gen.delete(0, 1).map((op) => arc.deleteChar(op));
+      const { next } = arc.reduceAll(empty(), [...insertOps, ...deleteOps]);
+      const doc = new crdt.Text(3);
+      doc.load(next.text.doc);
+      expect(doc.toString()).toEqual("i");
+    });
+
+    it("is not undoable", () => {
+      expect(arc.isUndoable(arc.insertChar(new crdt.Text(2).insert(0, "x")[0]))).toBe(
+        false,
+      );
+    });
+
+    it("forgets tombstoned characters without changing the materialized text", () => {
+      const gen = new crdt.Text(2);
+      const insertOps = gen.insert(0, "hi");
+      const deleteOps = gen.delete(1, 1);
+      let state = arc.reduceAll(empty(), [
+        ...insertOps.map((op) => arc.insertChar(op)),
+        ...deleteOps.map((op) => arc.deleteChar(op)),
+      ]).next;
+      expect(state.text.doc.inserts).toHaveLength(2);
+      expect(state.text.doc.deletes).toHaveLength(1);
+
+      state = arc.reduceAll(state, [
+        arc.forgetChars({ ids: deleteOps.map((op) => op.id) }),
+      ]).next;
+      expect(state.text.doc.inserts).toHaveLength(1);
+      expect(state.text.doc.deletes).toHaveLength(0);
+      const doc = new crdt.Text(3);
+      doc.load(state.text.doc);
+      expect(doc.toString()).toEqual("h");
+    });
+
+    it("forget_chars is not undoable", () => {
+      expect(arc.isUndoable(arc.forgetChars({ ids: [] }))).toBe(false);
     });
   });
 });

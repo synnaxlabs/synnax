@@ -5,7 +5,10 @@ proto_library(
     name = "text_proto",
     srcs = ["pb/text.proto"],
     visibility = ["//visibility:public"],
-    deps = ["//arc/go/types:types_proto"],
+    deps = [
+        "//arc/go/types:types_proto",
+        "//x/go/crdt:crdt_proto",
+    ],
 )
 
 cpp_grpc_library(
@@ -13,5 +16,8 @@ cpp_grpc_library(
     output_mode = "NO_PREFIX",
     protos = [":text_proto"],
     visibility = ["//visibility:public"],
-    deps = ["//arc/go/types:types_grpc"],
+    deps = [
+        "//arc/go/types:types_grpc",
+        "//x/go/crdt:crdt_grpc",
+    ],
 )

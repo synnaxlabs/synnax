@@ -14,6 +14,7 @@ import { type ReactElement, useCallback } from "react";
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
 import { useRedo, useRetrieveSuspended, useUndo } from "@/log/queries";
+import { useKey } from "@/log/Suspended";
 import { Triggers } from "@/triggers";
 
 const DEFAULT_RETENTION = TimeSpan.days(1);
@@ -59,20 +60,15 @@ export interface LogProps extends Omit<
   | "hideChannelNames"
   | "hideReceiptTimestamp"
   | "timestampPrecision"
-> {
-  resourceKey: log.Key;
-}
+> {}
 
 // Log is the connected log visualization. It reads the full log document from the
-// Pluto flux store keyed by resourceKey, builds the streaming telemetry source
-// internally, and renders the Base primitive. Cmd+Z / Cmd+Shift+Z are wired to undo
-// and redo, gated by enableTriggers. The component suspends until the record is in
-// cache, so callers must ensure it is loadable (e.g. created on the server).
-export const Log = ({
-  resourceKey: key,
-  enableTriggers,
-  ...rest
-}: LogProps): ReactElement | null => {
+// Pluto flux store keyed by the surrounding Log scope, builds the streaming telemetry
+// source internally, and renders the Base primitive. Cmd+Z / Cmd+Shift+Z are wired to
+// undo and redo, gated by enableTriggers. The component suspends until the record is in
+// cache, so callers must render it within a Log.Suspended boundary.
+export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null => {
+  const key = useKey();
   const { channels, hideChannelNames, hideReceiptTimestamp, timestampPrecision } =
     useRetrieveSuspended({ key });
   useUndoRedoTriggers(key, enableTriggers);

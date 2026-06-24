@@ -253,6 +253,77 @@ describe("Arc queries", () => {
       const retrievedArc2 = result.current.getItem(arc2.key);
       expect(retrievedArc2?.name).toBe("filter-arc-2");
     });
+
+    it("hydrates the store for a list-only arc so its doc selectors resolve", async () => {
+      const a = await client.arcs.create({
+        name: `hydrate-${id.create()}`,
+        mode: "text",
+      });
+      const { result } = renderHook(
+        () => ({
+          list: Arc.useList({}),
+          hasText: Arc.useSelectHasText({ key: a.key }),
+        }),
+        { wrapper },
+      );
+
+      expect(result.current.hasText).toBe(false);
+
+      act(() => {
+        result.current.list.retrieve({});
+      });
+
+      await waitFor(() => {
+        expect(result.current.list.variant).toEqual("success");
+        expect(result.current.hasText).toBe(true);
+      });
+    });
+
+    it("reflects a live rename on an arc only loaded via the list", async () => {
+      const originalName = `list-only-${id.create()}`;
+      const a = await client.arcs.create({ name: originalName, mode: "text" });
+      const { result } = renderHook(
+        () => ({ list: Arc.useList({}), rename: Arc.useRename() }),
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.list.retrieve({});
+      });
+      await waitFor(() => {
+        expect(result.current.list.variant).toEqual("success");
+        expect(result.current.list.getItem(a.key)?.name).toEqual(originalName);
+      });
+
+      const newName = `list-only-renamed-${id.create()}`;
+      await act(async () => {
+        await result.current.rename.updateAsync({ key: a.key, name: newName });
+      });
+
+      await waitFor(() => {
+        expect(result.current.list.getItem(a.key)?.name).toEqual(newName);
+      });
+    });
+
+    it("does not replace a loaded arc's store entry when the list refetches", async () => {
+      const a = await createAndLoadArc();
+      const { result } = renderHook(
+        () => ({ list: Arc.useList({}), nodes: Arc.useSelectNodes({ key: a.key }) }),
+        { wrapper },
+      );
+      const initialNodes = result.current.nodes;
+      expect(initialNodes.map((n) => n.key)).toEqual(["n1", "n2"]);
+
+      act(() => {
+        result.current.list.retrieve({});
+      });
+      await waitFor(() => {
+        expect(result.current.list.variant).toEqual("success");
+        expect(result.current.list.getItem(a.key)).toBeDefined();
+      });
+
+      expect(result.current.nodes).toBe(initialNodes);
+    });
   });
 
   describe("useDelete", () => {
@@ -620,7 +691,10 @@ describe("Arc queries", () => {
         configs: {},
         functions: [],
       });
-      expect(formData.text).toEqual({ raw: "" });
+      expect(formData.text).toEqual({
+        raw: "",
+        doc: { inserts: [], deletes: [] },
+      });
     });
 
     it("should create a new arc on save", async () => {

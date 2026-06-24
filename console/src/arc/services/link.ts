@@ -12,15 +12,13 @@ import { type Link } from "@/link";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
   const retrieved = await client.arcs.retrieve({ key });
-  const { name, text, mode } = retrieved;
+  const { name } = retrieved;
   placeLayout(
     Arc.Editor.create({
       name,
       version: Arc.ZERO_STATE.version,
       key,
       type: "arc",
-      text,
-      mode,
     }),
   );
 };
