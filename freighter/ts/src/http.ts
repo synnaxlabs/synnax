@@ -11,12 +11,7 @@ import { type binary, errors, type url } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
-import {
-  type DownloadOptions,
-  type FileClient,
-  type UploadBody,
-  type UploadOptions,
-} from "@/file";
+import { type FileClient, type FileOptions, type UploadBody } from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 
@@ -119,7 +114,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
   async upload<RS extends z.ZodType>(
     target: string,
     body: UploadBody,
-    { contentType }: UploadOptions,
+    { encoding }: FileOptions,
     resSchema: RS,
   ): Promise<z.infer<RS>> {
     let res: z.infer<RS> | null = null;
@@ -131,7 +126,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
         const httpRes = await this.fetch(url, ctx.target, {
           method: "POST",
           body: body as BodyInit,
-          headers: { [CONTENT_TYPE_HEADER_KEY]: contentType, ...ctx.params },
+          headers: { [CONTENT_TYPE_HEADER_KEY]: encoding, ...ctx.params },
           // duplex is required by the Fetch standard whenever the body is a stream.
           duplex: "half",
         } as RequestInit);
@@ -151,7 +146,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
-    { accept }: DownloadOptions,
+    { encoding }: FileOptions,
   ): Promise<ReadableStream<Uint8Array>> {
     let stream: ReadableStream<Uint8Array> | null = null;
     const url = this.endpoint.child(target);
@@ -162,7 +157,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
         const httpRes = await this.fetch(url, ctx.target, {
           method: "POST",
           body: this.encoder.encode(req, reqSchema) as BodyInit,
-          headers: { ...this.headers, Accept: accept, ...ctx.params },
+          headers: { ...this.headers, Accept: encoding, ...ctx.params },
         });
         if (httpRes.ok) {
           if (httpRes.body == null)

@@ -74,7 +74,7 @@ describe("http", () => {
       const response = await client.upload(
         "/echo",
         JSON.stringify({ id: 1, message: "hello" }),
-        { contentType: "application/json" },
+        { encoding: "application/json" },
         messageZ,
       );
       expect(response).toEqual({ id: 2, message: "hello" });
@@ -87,7 +87,7 @@ describe("http", () => {
       const response = await client.upload(
         "/echo",
         body,
-        { contentType: "application/json" },
+        { encoding: "application/json" },
         messageZ,
       );
       expect(response).toEqual({ id: 2, message: "hello" });
@@ -98,7 +98,7 @@ describe("http", () => {
         client.upload(
           "/not-found",
           JSON.stringify({}),
-          { contentType: "application/json" },
+          { encoding: "application/json" },
           messageZ,
         ),
       ).rejects.toThrow("Not Found");
@@ -118,7 +118,7 @@ describe("http", () => {
         c.upload(
           "/echo",
           JSON.stringify({}),
-          { contentType: "application/json" },
+          { encoding: "application/json" },
           messageZ,
         ),
       ).rejects.toThrow(Unreachable);
@@ -131,7 +131,7 @@ describe("http", () => {
         "/echo",
         { id: 1, message: "hello" },
         messageZ,
-        { accept: "application/json" },
+        { encoding: "application/json" },
       );
       expect(stream).toBeInstanceOf(ReadableStream);
       const decoded = await new Response(stream).json();
@@ -140,7 +140,7 @@ describe("http", () => {
 
     test("not found", async () => {
       await expect(
-        client.download("/not-found", {}, messageZ, { accept: "application/json" }),
+        client.download("/not-found", {}, messageZ, { encoding: "application/json" }),
       ).rejects.toThrow("Not Found");
     });
 
@@ -155,7 +155,7 @@ describe("http", () => {
         new binary.JSONCodec(),
       );
       await expect(
-        c.download("/echo", {}, messageZ, { accept: "application/json" }),
+        c.download("/echo", {}, messageZ, { encoding: "application/json" }),
       ).rejects.toThrow(Unreachable);
     });
   });

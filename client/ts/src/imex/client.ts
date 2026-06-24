@@ -72,7 +72,7 @@ export class Client {
     return await this.file.upload(
       "/imex/import",
       source,
-      { contentType: CONTENT_TYPE_MIME[options.contentType] },
+      { encoding: CONTENT_TYPE_MIME[options.contentType] },
       ontology.idZ,
     );
   }
@@ -89,7 +89,7 @@ export class Client {
    */
   async export(id: ontology.ID, options: Options): Promise<ReadableStream<Uint8Array>> {
     return await this.file.download("/imex/export", id, ontology.idZ, {
-      accept: CONTENT_TYPE_MIME[options.contentType],
+      encoding: CONTENT_TYPE_MIME[options.contentType],
     });
   }
 }
