@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/layered/service/lineplot";
+export * from "@/layered/service/log";
 export * from "@/layered/service/schematic";
 export * from "@/layered/service/table";
 export * from "@/layered/service/theme";
