@@ -9,6 +9,7 @@
 
 // Raw JSON string for Monaco/VSCode extension registration
 import arcGrammarRaw from "./arc.tmLanguage.json?raw";
+import arcLanguageConfigurationRaw from "./language-configuration.json?raw";
 
 /**
  * TextMate grammar for the Arc language.
@@ -62,5 +63,19 @@ export const grammar: Grammar = {
  * ```
  */
 export const grammarRaw: string = arcGrammarRaw;
+
+/**
+ * Raw JSON string of the Arc language configuration (comments, brackets, folding, and
+ * indentation rules). Use for Monaco/VSCode extension registration that requires string
+ * input.
+ *
+ * @example
+ * ```typescript
+ * import { languageConfigurationRaw } from '@synnaxlabs/arc';
+ *
+ * const dataUrl = `data:application/json;base64,${btoa(languageConfigurationRaw)}`;
+ * ```
+ */
+export const languageConfigurationRaw: string = arcLanguageConfigurationRaw;
 
 export default grammar;

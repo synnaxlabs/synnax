@@ -43,7 +43,7 @@
     color: var(--pluto-gray-l9) !important;
 }
 
-.console-editor {
+.pluto-editor {
     height: 100%;
     background: var(--pluto-gray-l1);
     padding: 2rem 1px;
@@ -361,7 +361,7 @@
     }
 }
 
-.console-editor__context-menu {
+.pluto-editor__context-menu {
     min-width: 25rem;
 }
 

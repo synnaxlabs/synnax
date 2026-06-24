@@ -75,7 +75,7 @@ export const stateZ = z.object({
   version: z.literal(VERSION),
   remoteCreated: z.boolean(),
   graph: graphStateZ,
-  text: arc.text.textZ.default({ raw: "" }),
+  text: z.object({ raw: z.string() }),
   mode: arc.modeZ.default("graph"),
 });
 
@@ -133,8 +133,8 @@ export const ZERO_STATE: State = {
   key: "",
   version: VERSION,
   graph: ZERO_GRAPH_STATE,
-  remoteCreated: false,
   text: { raw: "" },
+  remoteCreated: false,
   mode: "graph",
 };
 

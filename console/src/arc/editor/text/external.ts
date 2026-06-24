@@ -8,5 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/arc/editor/text/Editor";
-export * from "@/arc/editor/text/placeholderSuggest";
 export * from "@/arc/editor/text/Toolbar";
