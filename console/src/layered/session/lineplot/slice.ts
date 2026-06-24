@@ -101,8 +101,16 @@ export interface SetActiveToolbarTabPayload extends KeyedPayload {
   tab: ToolbarTab;
 }
 
-export interface SetControlStatePayload extends KeyedPayload {
-  state: Partial<ControlState>;
+export interface SetControlHoldPayload extends KeyedPayload {
+  hold?: boolean;
+}
+
+export interface ToggleControlClickModePayload extends KeyedPayload {
+  mode: ClickMode;
+}
+
+export interface SetControlEnableTooltipPayload extends KeyedPayload {
+  enabled?: boolean;
 }
 
 export interface SetViewportModePayload extends KeyedPayload {
@@ -116,6 +124,7 @@ export interface SetSelectedRulePayload extends KeyedPayload {
 export interface SetMeasureModePayload extends KeyedPayload {
   mode: etherLineplot.measure.Mode;
 }
+
 
 export interface SetRangeAnnotationsVisiblePayload extends KeyedPayload {
   visible: boolean;
@@ -183,12 +192,26 @@ export const { actions, reducer } = createSlice({
         state.toolbar.activeTab = tab;
       },
     ),
-    setControlState: withSelectedState(
+    setControlHold: withSelectedState(
+      (state, { payload: { hold } }: PayloadAction<SetControlHoldPayload>) => {
+        state.control.hold = hold !== undefined ? hold : !state.control.hold;
+      },
+    ),
+    toggleControlClickMode: withSelectedState(
       (
         state,
-        { payload: { state: control } }: PayloadAction<SetControlStatePayload>,
+        { payload: { mode } }: PayloadAction<ToggleControlClickModePayload>,
       ) => {
-        state.control = { ...state.control, ...control };
+        state.control.clickMode = state.control.clickMode === mode ? null : mode;
+      },
+    ),
+    setControlEnableTooltip: withSelectedState(
+      (
+        state,
+        { payload: { enabled } }: PayloadAction<SetControlEnableTooltipPayload>,
+      ) => {
+        state.control.enableTooltip =
+          enabled !== undefined ? enabled : !state.control.enableTooltip;
       },
     ),
     setViewportMode: withSelectedState(
@@ -238,7 +261,9 @@ export const {
   storeViewport,
   setSelection,
   setActiveToolbarTab,
-  setControlState,
+  setControlHold,
+  toggleControlClickMode,
+  setControlEnableTooltip,
   setViewportMode,
   setSelectedRule,
   setMeasureMode,

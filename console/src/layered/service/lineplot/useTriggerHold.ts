@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Triggers, useSyncedRef } from "@synnaxlabs/pluto";
+import { Triggers } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -16,28 +16,26 @@ import { Layout } from "@/layout";
 
 export type Config = Triggers.ModeConfig<"toggle">;
 
-export const useTriggerHold = (triggers: Config): void => {
+const CONFIG: Triggers.ModeConfig<"toggle"> = {
+  defaultMode: "toggle",
+  toggle: [["H"]],
+};
+
+export const HOLD_TRIGGER: Triggers.Trigger = ["H"];
+
+export const useTriggerHold = (): void => {
   const { layoutKey: activeTab } = Layout.useSelectActiveMosaicTabState();
-  const controlState = Session.LinePlot.useSelectControlStateOptional({
-    key: activeTab ?? "",
-  });
-  const ref = useSyncedRef(controlState?.hold);
   const dispatch = useDispatch();
-  const flat = Triggers.useFlattenedMemoConfig(triggers);
+  const flat = Triggers.useFlattenedMemoConfig(CONFIG);
   Triggers.use({
     triggers: flat,
     loose: true,
     callback: useCallback(
       (e: Triggers.UseEvent) => {
-        if (e.stage !== "start" || activeTab == null || ref.current == null) return;
-        dispatch(
-          Session.LinePlot.setControlState({
-            key: activeTab,
-            state: { hold: !ref.current },
-          }),
-        );
+        if (e.stage === "start" && activeTab != null)
+          dispatch(Session.LinePlot.setControlHold({ key: activeTab }));
       },
-      [dispatch, activeTab, flat, ref],
+      [dispatch, activeTab, flat],
     ),
   });
 };

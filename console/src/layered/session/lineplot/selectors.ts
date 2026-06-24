@@ -37,13 +37,8 @@ const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
       useMemoSelect((state: StoreState) => selector({ state, key }), [key]),
   );
 
-export const selectOptional = ({
-  state,
-  key,
-}: KeyedSelectorParams): State | undefined => selectSliceState(state).plots[key];
-
-export const selectState = (params: KeyedSelectorParams): State =>
-  selectOptional(params) ?? ZERO_STATE;
+export const selectState = ({ state, key }: KeyedSelectorParams): State =>
+  selectSliceState(state).plots[key] ?? ZERO_STATE;
 
 export const useSelect = createSelector(selectState);
 
@@ -61,12 +56,6 @@ export const selectControlState = (params: KeyedSelectorParams): ControlState =>
   selectState(params).control;
 
 export const useSelectControlState = createSelector(selectControlState);
-
-export const selectControlStateOptional = (
-  params: KeyedSelectorParams,
-): ControlState | undefined => selectOptional(params)?.control;
-
-export const useSelectControlStateOptional = createSelector(selectControlStateOptional);
 
 export const selectViewportMode = (params: KeyedSelectorParams): Viewport.Mode =>
   selectState(params).mode;
@@ -92,3 +81,8 @@ export const selectSelectedRules = (params: KeyedSelectorParams): string[] =>
   selectState(params).selectedRules;
 
 export const useSelectSelectedRules = createSelector(selectSelectedRules);
+
+export const selectAnnotationsVisible = (params: KeyedSelectorParams): boolean =>
+  selectState(params).annotations.visible;
+
+export const useSelectAnnotationsVisible = createSelector(selectAnnotationsVisible);

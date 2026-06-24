@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layered/service/lineplot/body/Controls.css";
-
 import {
   Button,
   Flex,
@@ -19,56 +17,56 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { memo, type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Controls as Base } from "@/components";
 import { CSS } from "@/css";
+import { HOLD_TRIGGER } from "@/layered/service/lineplot/useTriggerHold";
 import { Session } from "@/layered/session";
 
 export interface ControlsProps {
   hasAnnotations: boolean;
 }
 
-export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
-  const layoutKey = LinePlot.useKey();
-  const control = Session.LinePlot.useSelectControlState();
-  const plot = Session.LinePlot.useSelect();
+export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement => {
+  const key = LinePlot.useKey();
+  const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
+  const annotationsVisible = Session.LinePlot.useSelectAnnotationsVisible();
   const mode = Session.LinePlot.useSelectViewportMode();
   const measureMode = Session.LinePlot.useSelectMeasureMode();
   const dispatch = useDispatch();
 
   const handleModeChange = (mode: Viewport.Mode): void => {
-    dispatch(Session.LinePlot.setViewportMode({ key: layoutKey, mode }));
+    dispatch(Session.LinePlot.setViewportMode({ key, mode }));
   };
 
-  const handleClickModeChange = (
-    clickMode: Session.LinePlot.ClickMode | null,
-  ): void => {
-    dispatch(
-      Session.LinePlot.setControlState({ key: layoutKey, state: { clickMode } }),
-    );
-  };
-
-  const handleTooltipChange = (tooltip: boolean): void => {
-    dispatch(
-      Session.LinePlot.setControlState({
-        key: layoutKey,
-        state: { enableTooltip: tooltip },
-      }),
-    );
+  const handleTooltipChange = (enabled: boolean): void => {
+    dispatch(Session.LinePlot.setControlEnableTooltip({ key, enabled }));
   };
 
   const handleZoomReset = (): void => {
-    dispatch(Session.LinePlot.setViewport({ key: layoutKey }));
+    dispatch(Session.LinePlot.setViewport({ key }));
   };
 
   const handleHoldChange = (hold: boolean): void => {
-    dispatch(Session.LinePlot.setControlState({ key: layoutKey, state: { hold } }));
+    dispatch(Session.LinePlot.setControlHold({ key, hold }));
   };
 
   const handleAnnotationsVisibilityChange = (visible: boolean): void => {
-    dispatch(Session.LinePlot.setRangeAnnotationsVisible({ key: layoutKey, visible }));
+    dispatch(Session.LinePlot.setRangeAnnotationsVisible({ key, visible }));
+  };
+
+  const handleToggleMeasure = (): void => {
+    dispatch(Session.LinePlot.toggleControlClickMode({ key, mode: "measure" }));
+  };
+
+  const handleSelectFirstPoint = (): void => {
+    dispatch(Session.LinePlot.setMeasureMode({ key, mode: "one" }));
+  };
+
+  const handleSelectSecondPoint = (): void => {
+    dispatch(Session.LinePlot.setMeasureMode({ key, mode: "two" }));
   };
 
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
@@ -76,7 +74,7 @@ export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
   return (
     <Base
       className={CSS(
-        plot.annotations.visible &&
+        annotationsVisible &&
           hasAnnotations &&
           CSS.BM("controls", "annotations-visible"),
       )}
@@ -102,7 +100,7 @@ export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
           <Icon.Expand />
         </Button.Button>
         <Button.Toggle
-          value={control.enableTooltip}
+          value={enableTooltip}
           onChange={handleTooltipChange}
           size="small"
           tooltip="Show tooltip on hover"
@@ -112,51 +110,47 @@ export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
         </Button.Toggle>
         {hasAnnotations && (
           <Button.Toggle
-            value={plot.annotations.visible}
+            value={annotationsVisible}
             onChange={handleAnnotationsVisibilityChange}
             size="small"
-            tooltip={`${plot.annotations.visible ? "Hide" : "Show"} range annotations`}
+            tooltip={`${annotationsVisible ? "Hide" : "Show"} range annotations`}
             tooltipLocation={location.BOTTOM_LEFT}
           >
             <Icon.Range />
           </Button.Toggle>
         )}
         <Button.Toggle
-          value={control.clickMode != null}
-          tooltip={`${control.clickMode != null ? "Close" : "Open"} measure tool`}
+          value={clickMode != null}
+          tooltip={`${clickMode != null ? "Close" : "Open"} measure tool`}
           tooltipLocation={location.BOTTOM_LEFT}
-          onChange={() =>
-            handleClickModeChange(control.clickMode != null ? null : "measure")
-          }
+          onChange={handleToggleMeasure}
           size="small"
         >
           <Icon.Rule />
         </Button.Toggle>
         <Button.Toggle
-          value={control.hold}
+          value={hold}
           onChange={handleHoldChange}
           tooltipLocation={location.BOTTOM_LEFT}
           size="small"
           tooltip={
             <Text.Text level="small" color={11}>
-              {`${control.hold ? "Resume" : "Pause"} live plotting`}
-              <Triggers.Text trigger={["H"]} level="small"></Triggers.Text>
+              {`${hold ? "Resume" : "Pause"} live plotting`}
+              <Triggers.Text trigger={HOLD_TRIGGER} level="small"></Triggers.Text>
             </Text.Text>
           }
         >
-          {control.hold ? <Icon.Play /> : <Icon.Pause />}
+          {hold ? <Icon.Play /> : <Icon.Pause />}
         </Button.Toggle>
       </Flex.Box>
-      {control.clickMode === "measure" && (
+      {clickMode === "measure" && (
         <Flex.Box x pack className={CSS.BE("control", "measure")}>
           <Button.Toggle
             size="small"
             value={measureMode === "one"}
             tooltip="Select first point"
             tooltipLocation={location.BOTTOM_LEFT}
-            onChange={() =>
-              dispatch(Session.LinePlot.setMeasureMode({ key: layoutKey, mode: "one" }))
-            }
+            onChange={handleSelectFirstPoint}
           >
             1
           </Button.Toggle>
@@ -165,9 +159,7 @@ export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
             tooltipLocation={location.BOTTOM_LEFT}
             value={measureMode === "two"}
             tooltip="Select second point"
-            onChange={() =>
-              dispatch(Session.LinePlot.setMeasureMode({ key: layoutKey, mode: "two" }))
-            }
+            onChange={handleSelectSecondPoint}
           >
             2
           </Button.Toggle>
@@ -175,4 +167,5 @@ export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
       )}
     </Base>
   );
-};
+});
+Controls.displayName = "Controls";

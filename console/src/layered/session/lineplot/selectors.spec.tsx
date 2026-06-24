@@ -46,19 +46,12 @@ describe("lineplot selectors", () => {
   describe("selectState / selectOptional", () => {
     it("should return the state for the given key", () => {
       expect(LinePlot.selectState(params)).toEqual(customState);
-      expect(LinePlot.selectOptional(params)).toBe(customState);
     });
 
     it("should fall back to ZERO_STATE for an unknown key", () => {
       expect(LinePlot.selectState({ state: storeState, key: "absent" })).toEqual(
         LinePlot.ZERO_STATE,
       );
-    });
-
-    it("should return undefined from selectOptional when absent", () => {
-      expect(
-        LinePlot.selectOptional({ state: storeState, key: "absent" }),
-      ).toBeUndefined();
     });
   });
 
@@ -75,13 +68,6 @@ describe("lineplot selectors", () => {
   describe("control selectors", () => {
     it("should return the control state", () => {
       expect(LinePlot.selectControlState(params)).toEqual(customState.control);
-    });
-
-    it("should return the control state optionally, undefined when absent", () => {
-      expect(LinePlot.selectControlStateOptional(params)).toEqual(customState.control);
-      expect(
-        LinePlot.selectControlStateOptional({ state: storeState, key: "absent" }),
-      ).toBeUndefined();
     });
   });
 
@@ -100,6 +86,10 @@ describe("lineplot selectors", () => {
 
     it("should read the hidden lines", () => {
       expect(LinePlot.selectHiddenLines(params)).toEqual(["l1"]);
+    });
+
+    it("should read the annotations visibility", () => {
+      expect(LinePlot.selectAnnotationsVisible(params)).toBe(false);
     });
 
     it("should read the selected rules", () => {

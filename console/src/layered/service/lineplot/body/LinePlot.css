@@ -13,3 +13,13 @@
     justify-content: flex-end;
     margin-right: 3rem;
 }
+
+.console-controls--annotations-visible {
+    top: 0rem;
+}
+
+.console-line-plot__container {
+    height: 100%;
+    width: 100%;
+    padding: 2rem;
+}

@@ -284,7 +284,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [placeLayout, store, client, addStatus, handleError, removeLayout, services],
   );
 
-  LinePlot.useTriggerHold({ defaultMode: "toggle", toggle: [["H"]] });
+  LinePlot.useTriggerHold();
 
   const handleClose = Layout.useRemover();
 

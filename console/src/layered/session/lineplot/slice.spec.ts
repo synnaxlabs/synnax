@@ -74,13 +74,72 @@ describe("LinePlot Slice", () => {
     });
   });
 
-  describe("setControlState", () => {
-    it("should merge over the existing control state", () => {
+  describe("setControlHold", () => {
+    it("should set the hold state to true", () => {
       store.dispatch(LinePlot.internalCreate({ key: KEY }));
-      store.dispatch(LinePlot.setControlState({ key: KEY, state: { hold: true } }));
+      store.dispatch(LinePlot.setControlHold({ key: KEY, hold: true }));
       const control = select(LinePlot.selectControlState);
       expect(control.hold).toBe(true);
-      expect(control.enableTooltip).toBe(true);
+    });
+
+    it("should set the hold state to false", () => {
+      store.dispatch(LinePlot.internalCreate({ key: KEY }));
+      store.dispatch(LinePlot.setControlHold({ key: KEY, hold: false }));
+      expect(select(LinePlot.selectControlState).hold).toBe(false);
+    });
+
+    it("should toggle the hold state when value is undefined", () => {
+      store.dispatch(LinePlot.internalCreate({ key: KEY }));
+      expect(select(LinePlot.selectControlState).hold).toBe(false);
+      store.dispatch(LinePlot.setControlHold({ key: KEY }));
+      expect(select(LinePlot.selectControlState).hold).toBe(true);
+      store.dispatch(LinePlot.setControlHold({ key: KEY }));
+      expect(select(LinePlot.selectControlState).hold).toBe(false);
+    });
+  });
+
+  describe("toggleControlClickMode", () => {
+    it("should set the click mode when it is currently null", () => {
+      store.dispatch(LinePlot.internalCreate({ key: KEY }));
+      store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
+      expect(select(LinePlot.selectControlState).clickMode).toBe("measure");
+    });
+
+    it("should clear the click mode when it already matches the mode", () => {
+      store.dispatch(LinePlot.internalCreate({ key: KEY }));
+      store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
+      store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
+      expect(select(LinePlot.selectControlState).clickMode).toBeNull();
+    });
+
+    it("should switch to the new mode when a different mode is active", () => {
+      store.dispatch(LinePlot.internalCreate({ key: KEY }));
+      store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
+      store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "annotate" }));
+      expect(select(LinePlot.selectControlState).clickMode).toBe("annotate");
+    });
+  });
+
+  describe("setControlEnableTooltip", () => {
+    it("should set the tooltip state to true", () => {
+      store.dispatch(LinePlot.internalCreate({ key: KEY }));
+      store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY, enabled: true }));
+      expect(select(LinePlot.selectControlState).enableTooltip).toBe(true);
+    });
+
+    it("should set the tooltip state to false", () => {
+      store.dispatch(LinePlot.internalCreate({ key: KEY }));
+      store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY, enabled: false }));
+      expect(select(LinePlot.selectControlState).enableTooltip).toBe(false);
+    });
+
+    it("should toggle the tooltip state when value is undefined", () => {
+      store.dispatch(LinePlot.internalCreate({ key: KEY }));
+      const initial = select(LinePlot.selectControlState).enableTooltip;
+      store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY }));
+      expect(select(LinePlot.selectControlState).enableTooltip).toBe(!initial);
+      store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY }));
+      expect(select(LinePlot.selectControlState).enableTooltip).toBe(initial);
     });
   });
 
