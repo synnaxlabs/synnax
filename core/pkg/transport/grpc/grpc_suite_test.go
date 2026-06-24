@@ -34,7 +34,7 @@ func TestGRPC(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	cluster := DeferClose(distmock.ProvisionCluster(ctx, 1))
+	cluster := distmock.MustOpenCluster(ctx, 1)
 	dist = DeferClose(cluster.Nodes[1].Layer)
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),

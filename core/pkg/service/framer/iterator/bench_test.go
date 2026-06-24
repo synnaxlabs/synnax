@@ -33,7 +33,7 @@ type benchIterEnv struct {
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
 	ctx := context.Background()
-	builder := mock.NewCluster()
+	builder := mock.OpenCluster(ctx, 0)
 	dist := builder.Provision(ctx)
 
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{

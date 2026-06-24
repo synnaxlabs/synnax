@@ -30,8 +30,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		iteratorSvc *iterator.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		builder := DeferClose(mock.NewCluster())
-		dist = DeferClose(builder.Provision(ctx))
+		dist = mock.MustOpenNode(ctx)
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,
 			Channel:    channel.Wrap(dist.Channel),

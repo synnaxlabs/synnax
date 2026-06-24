@@ -43,7 +43,7 @@ var _ = Describe("Limit", Ordered, func() {
 	// context.Background() is used because Provision creates resources stored in
 	// shared vars that are used by It blocks, so the context must outlive BeforeEach.
 	BeforeEach(func() {
-		mockCluster = mock.NewCluster()
+		mockCluster = mock.OpenCluster(context.Background(), 0)
 		dist = mockCluster.Provision(context.Background(), distribution.LayerConfig{
 			TestingIntOverflowCheck: fixedOverflowChecker(limit),
 		})

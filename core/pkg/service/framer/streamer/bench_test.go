@@ -40,7 +40,7 @@ type benchStreamerEnv struct {
 func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	RegisterTestingT(b)
 	ctx := context.Background()
-	builder := mock.NewCluster()
+	builder := mock.OpenCluster(ctx, 0)
 	dist := builder.Provision(ctx)
 
 	searchIdx, err := search.Open()

@@ -148,7 +148,7 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 1)
+	builder := mock.OpenCluster(ctx, 1)
 	dist := builder.Nodes[1]
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
@@ -157,7 +157,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 4)
+	builder := mock.OpenCluster(ctx, 4)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
@@ -179,7 +179,7 @@ func mixedScenario(ctx context.Context) scenario {
 		{Name: "mixed_gateway", IsIndex: true, DataType: telem.TimeStampT, Leaseholder: 1},
 		{Name: "mixed_peer", IsIndex: true, DataType: telem.TimeStampT, Leaseholder: 2},
 	}
-	builder := mock.ProvisionCluster(ctx, 2)
+	builder := mock.OpenCluster(ctx, 2)
 	dist := builder.Nodes[1]
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)

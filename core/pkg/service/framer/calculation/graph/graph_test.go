@@ -22,8 +22,7 @@ import (
 var dist mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	distB := DeferClose(mock.NewCluster())
-	dist = DeferClose(distB.Provision(ctx))
+	dist = mock.MustOpenNode(ctx)
 })
 
 var _ = Describe("Graph", func() {

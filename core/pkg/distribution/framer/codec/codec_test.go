@@ -337,7 +337,7 @@ var _ = Describe("Codec", func() {
 			dataCh     channel.Channel
 		)
 		BeforeAll(func(ctx SpecContext) {
-			builder = mock.NewCluster()
+			builder = mock.OpenCluster(context.Background(), 0)
 			dist := builder.Provision(context.Background())
 			channelSvc = dist.Channel
 			w := dist.Channel.NewWriter(nil)

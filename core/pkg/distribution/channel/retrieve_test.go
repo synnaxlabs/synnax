@@ -26,7 +26,7 @@ const internalChannelCount = 1
 var _ = Describe("Retrieve", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.ProvisionCluster(context.Background(), 2)
+		mockCluster = mock.OpenCluster(context.Background(), 2)
 		for _, n := range mockCluster.Nodes {
 			Expect(n.Search.Initialize(ctx)).To(Succeed())
 		}
@@ -212,7 +212,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 
 		It("Should return empty when no calculated channels exist in a fresh cluster", func(ctx SpecContext) {
-			freshCluster := mock.ProvisionCluster(context.Background(), 1)
+			freshCluster := mock.OpenCluster(context.Background(), 1)
 			defer func() { Expect(freshCluster.Close()).To(Succeed()) }()
 			base := channel.Channel{
 				Virtual:  true,

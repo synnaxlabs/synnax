@@ -118,8 +118,7 @@ var _ = Describe("OpenService", func() {
 	})
 
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
-		builder := DeferClose(mock.NewCluster())
-		dist := DeferClose(builder.Provision(ctx))
+		dist := mock.MustOpenNode(ctx)
 		sigs := MustSucceed(signals.New(signals.Config{
 			Channel: channel.Wrap(dist.Channel),
 			Framer:  framer.Wrap(dist.Framer),

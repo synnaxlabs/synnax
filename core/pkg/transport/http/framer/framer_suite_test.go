@@ -29,7 +29,7 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	mockCluster = mock.ProvisionCluster(ctx, 1)
+	mockCluster = mock.OpenCluster(ctx, 1)
 	dist = mockCluster.Nodes[1].Layer
 	DeferCleanup(func() {
 		Expect(dist.Close()).To(Succeed())

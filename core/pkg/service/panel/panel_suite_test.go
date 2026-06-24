@@ -40,8 +40,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder := DeferClose(mock.NewCluster())
-	dist = DeferClose(builder.Provision(ctx))
+	dist = mock.MustOpenNode(ctx)
 	db = dist.DB
 	otg = dist.Ontology
 	sigs := MustSucceed(signals.New(signals.Config{

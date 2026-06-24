@@ -38,7 +38,7 @@ func TestMetrics(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder = DeferClose(mock.NewCluster())
+	builder = mock.MustOpenCluster(ctx, 0)
 	dist = builder.Provision(ctx)
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{

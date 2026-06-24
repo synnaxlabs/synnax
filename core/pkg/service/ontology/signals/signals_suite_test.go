@@ -36,8 +36,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder := DeferClose(mock.NewCluster())
-	dist = DeferClose(builder.Provision(ctx))
+	dist = mock.MustOpenNode(ctx)
 	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
 	dist.Ontology.RegisterService(svc)
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{

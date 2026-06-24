@@ -36,7 +36,7 @@ var (
 	channelSvc   *channel.Service
 	framerSvc    *framer.Service
 	statusSvc    *status.Service
-	hostProvider = mock.StaticHostKeyProvider(1)
+	hostProvider = mock.NewStaticHostProvider(1)
 )
 
 func TestDriver(t *testing.T) {
@@ -48,7 +48,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	dist = DeferClose(mock.NewCluster()).Provision(ctx)
+	dist = mock.MustOpenNode(ctx)
 	db = dist.DB
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
