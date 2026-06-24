@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/vmihailenco/msgpack/v5/msgpcode"
@@ -52,17 +53,17 @@ func FromHex(s string) (Color, error) {
 	case 6:
 		_, err := fmt.Sscanf(s, "%02x%02x%02x", &r, &g, &b)
 		if err != nil {
-			return Color{}, errors.Newf("invalid hex color: %q", s)
+			return Color{}, errors.Wrapf(validate.ErrValidation, "invalid hex color: %q", s)
 		}
 		return Color{R: r, G: g, B: b, A: 1}, nil
 	case 8:
 		_, err := fmt.Sscanf(s, "%02x%02x%02x%02x", &r, &g, &b, &a)
 		if err != nil {
-			return Color{}, errors.Newf("invalid hex color: %q", s)
+			return Color{}, errors.Wrapf(validate.ErrValidation, "invalid hex color: %q", s)
 		}
 		return Color{R: r, G: g, B: b, A: float64(a) / 255}, nil
 	default:
-		return Color{}, errors.Newf("invalid hex color length: %q", s)
+		return Color{}, errors.Wrapf(validate.ErrValidation, "invalid hex color length: %q", s)
 	}
 }
 
@@ -91,7 +92,8 @@ func FromCSS(s string) (Color, error) {
 	if m := rgbPattern.FindStringSubmatch(s); m != nil {
 		return fromRGBMatch(m, s)
 	}
-	return Color{}, errors.Newf(
+	return Color{}, errors.Wrapf(
+		validate.ErrValidation,
 		"color must be a hex value (e.g. \"#3bc454\") or rgb(r,g,b): %q", s,
 	)
 }
@@ -99,30 +101,30 @@ func FromCSS(s string) (Color, error) {
 func fromRGBMatch(m []string, s string) (Color, error) {
 	hasAlpha := m[5] != ""
 	if m[1] == "rgb" && hasAlpha {
-		return Color{}, errors.Newf("rgb() takes 3 channels; use rgba() for alpha: %q", s)
+		return Color{}, errors.Wrapf(validate.ErrValidation, "rgb() takes 3 channels; use rgba() for alpha: %q", s)
 	}
 	if m[1] == "rgba" && !hasAlpha {
-		return Color{}, errors.Newf("rgba() requires a 4th alpha channel: %q", s)
+		return Color{}, errors.Wrapf(validate.ErrValidation, "rgba() requires a 4th alpha channel: %q", s)
 	}
-	r, err := strconv.Atoi(m[2])
-	if err != nil || r > 255 {
-		return Color{}, errors.Newf("rgb channels must be 0-255: %q", s)
+	r, err := strconv.ParseUint(m[2], 10, 8)
+	if err != nil {
+		return Color{}, errors.Wrapf(validate.ErrValidation, "rgb channels must be 0-255: %q", s)
 	}
-	g, err := strconv.Atoi(m[3])
-	if err != nil || g > 255 {
-		return Color{}, errors.Newf("rgb channels must be 0-255: %q", s)
+	g, err := strconv.ParseUint(m[3], 10, 8)
+	if err != nil {
+		return Color{}, errors.Wrapf(validate.ErrValidation, "rgb channels must be 0-255: %q", s)
 	}
-	b, err := strconv.Atoi(m[4])
-	if err != nil || b > 255 {
-		return Color{}, errors.Newf("rgb channels must be 0-255: %q", s)
+	b, err := strconv.ParseUint(m[4], 10, 8)
+	if err != nil {
+		return Color{}, errors.Wrapf(validate.ErrValidation, "rgb channels must be 0-255: %q", s)
 	}
 	a := 1.0
 	if hasAlpha {
 		if a, err = strconv.ParseFloat(m[5], 64); err != nil {
-			return Color{}, errors.Wrapf(err, "invalid rgb alpha: %q", s)
+			return Color{}, errors.Wrapf(validate.ErrValidation, "invalid rgb alpha: %q", s)
 		}
 		if a < 0 || a > 1 {
-			return Color{}, errors.Newf("rgba alpha must be 0-1: %q", s)
+			return Color{}, errors.Wrapf(validate.ErrValidation, "rgba alpha must be 0-1: %q", s)
 		}
 	}
 	return Color{R: uint8(r), G: uint8(g), B: uint8(b), A: a}, nil

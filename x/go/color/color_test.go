@@ -18,6 +18,7 @@ import (
 
 	"github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Color", func() {
@@ -38,10 +39,10 @@ var _ = Describe("Color", func() {
 			Expect(c.A).To(BeNumerically("~", 128.0/255.0, 0.01))
 		})
 		It("Should return an error for an invalid hex string", func() {
-			Expect(color.FromHex("#xyz")).Error().To(HaveOccurred())
+			Expect(color.FromHex("#xyz")).Error().To(MatchError(validate.ErrValidation))
 		})
 		It("Should return an error for wrong length", func() {
-			Expect(color.FromHex("#12345")).Error().To(HaveOccurred())
+			Expect(color.FromHex("#12345")).Error().To(MatchError(validate.ErrValidation))
 		})
 	})
 
@@ -70,7 +71,10 @@ var _ = Describe("Color", func() {
 
 		DescribeTable("Should reject invalid color strings",
 			func(input, msg string) {
-				Expect(color.FromCSS(input)).Error().To(MatchError(ContainSubstring(msg)))
+				Expect(color.FromCSS(input)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
 			},
 			Entry("rgb with a 4th alpha channel", "rgb(1,2,3,0.5)", "rgb() takes 3 channels"),
 			Entry("rgba missing alpha", "rgba(1,2,3)", "rgba() requires"),
