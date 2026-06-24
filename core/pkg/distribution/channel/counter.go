@@ -22,7 +22,7 @@ type counter struct {
 }
 
 func openCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
-	wrap, err := kv.OpenCounter(ctx, db, key)
+	wrap, err := kv.NewCounter(ctx, db, key)
 	return &counter{wrap: wrap}, err
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type dataStruct struct {
@@ -27,7 +28,7 @@ type dataStruct struct {
 var _ = Describe("Flush", func() {
 	It("Should flush the observable contents", func(ctx SpecContext) {
 		o := observe.New[dataStruct]()
-		db := memkv.New()
+		db := DeferClose(memkv.New())
 		codec := gob.Codec
 		flush := &kv.Subscriber[dataStruct]{
 			Key:         []byte("key"),

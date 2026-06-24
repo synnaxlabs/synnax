@@ -43,7 +43,7 @@ type versionAssigner struct {
 }
 
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
-	c, err := xkv.OpenCounter(ctx, cfg.Engine, []byte(versionCounterKey))
+	c, err := xkv.NewCounter(ctx, cfg.Engine, []byte(versionCounterKey))
 	v := &versionAssigner{Config: cfg, counter: c}
 	v.Transform = v.assign
 	return v, err
