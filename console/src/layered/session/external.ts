@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/layered/session/schematic";
+export * from "@/layered/session/table";
 export * from "@/layered/session/theme";

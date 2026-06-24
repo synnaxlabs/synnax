@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { Access, Table as PTable } from "@synnaxlabs/pluto";
+import { Access, Table } from "@synnaxlabs/pluto";
 
+import { useCreate } from "@/layered/service/table/useCreate";
 import { Palette } from "@/palette";
-import { useCreate } from "@/table/useCreate";
 
 const CreateCommand: Palette.Command = (listProps) => {
   const create = useCreate({});
@@ -19,7 +19,7 @@ const CreateCommand: Palette.Command = (listProps) => {
     <Palette.CommandListItem
       {...listProps}
       name="Create a table"
-      icon={<PTable.CreateIcon />}
+      icon={<Table.CreateIcon />}
       onSelect={create}
     />
   );

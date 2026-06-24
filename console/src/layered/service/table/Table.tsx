@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/table/Table.css";
+import "@/layered/service/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
 import { Access, Button, Icon, Table as Base } from "@synnaxlabs/pluto";
@@ -17,48 +17,35 @@ import { useDispatch } from "react-redux";
 
 import { ContextMenu, Controls } from "@/components";
 import { CSS } from "@/css";
-import { createEnsureState } from "@/hooks/useEnsureState";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import {
-  useSelectEditable,
-  useSelectExists,
-  useSelectHideIndicators,
-  useSelectSelectedCellKeys,
-} from "@/table/selectors";
-import {
-  internalCreate,
-  setEditable,
-  setHideIndicators,
-  setSelectedCells,
-} from "@/table/slice";
 
-export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
-
-const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const editable = useSelectEditable(layoutKey);
-  const hideIndicators = useSelectHideIndicators(layoutKey);
-  const selected = useSelectSelectedCellKeys(layoutKey);
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
+const Internal: Layout.Renderer = ({ visible }) => {
+  const key = Base.useKey();
+  const editable = Session.Table.useSelectEditable();
+  const hideIndicators = Session.Table.useSelectHideIndicators();
+  const selected = Session.Table.useSelectSelectedCellKeys();
+  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const canEdit = hasUpdatePermission && editable;
   const dispatch = useDispatch();
 
   const handleSelectionChange = useCallback(
     (cells: string[]) =>
       dispatch(
-        setSelectedCells({ key: layoutKey, cells, anchor: cells.at(-1) ?? null }),
+        Session.Table.setSelectedCells({ key, cells, anchor: cells.at(-1) ?? null }),
       ),
-    [dispatch, layoutKey],
+    [dispatch, key],
   );
 
   const handleEditableChange = useCallback(
-    (next: boolean) => dispatch(setEditable({ key: layoutKey, editable: next })),
-    [dispatch, layoutKey],
+    (next: boolean) => dispatch(Session.Table.setEditable({ key, editable: next })),
+    [dispatch, key],
   );
 
   const handleShowIndicatorsChange = useCallback(
     (next: boolean) =>
-      dispatch(setHideIndicators({ key: layoutKey, hideIndicators: !next })),
-    [dispatch, layoutKey],
+      dispatch(Session.Table.setHideIndicators({ key, hideIndicators: !next })),
+    [dispatch, key],
   );
 
   const handleDoubleClick = useCallback(() => {
@@ -73,7 +60,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   return (
     <div className={CSS.B("table")}>
       <Base.Table
-        resourceKey={layoutKey}
         selected={selected}
         onSelectionChange={handleSelectionChange}
         editable={canEdit}
@@ -84,27 +70,24 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         onDoubleClick={handleDoubleClick}
         extraMenuItems={<ContextMenu.ReloadConsoleItem />}
       />
-      <TableControls tableKey={layoutKey} />
+      <TableControls />
     </div>
   );
 };
 
-interface TableControlsProps {
-  tableKey: string;
-}
-
-const TableControls = ({ tableKey }: TableControlsProps): ReactElement | null => {
-  const editable = useSelectEditable(tableKey);
-  const hideIndicators = useSelectHideIndicators(tableKey);
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(tableKey));
+const TableControls = (): ReactElement | null => {
+  const key = Base.useKey();
+  const editable = Session.Table.useSelectEditable();
+  const hideIndicators = Session.Table.useSelectHideIndicators();
+  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const dispatch = useDispatch();
   const handleEdit = useCallback(
-    () => dispatch(setEditable({ key: tableKey })),
-    [dispatch, tableKey],
+    () => dispatch(Session.Table.setEditable({ key })),
+    [dispatch, key],
   );
   const handleToggleHideIndicators = useCallback(
-    () => dispatch(setHideIndicators({ key: tableKey })),
-    [dispatch, tableKey],
+    () => dispatch(Session.Table.setHideIndicators({ key })),
+    [dispatch, key],
   );
   const canEdit = hasUpdatePermission && editable;
   // Hide-indicators only matters outside edit mode; the toggle is irrelevant
@@ -139,17 +122,11 @@ const TableControls = ({ tableKey }: TableControlsProps): ReactElement | null =>
   );
 };
 
-const useEnsureState = createEnsureState({
-  useExists: useSelectExists,
-  create: (key) => internalCreate({ key }),
-});
-
-export const Table: Layout.Renderer = (props) => {
-  const exists = useEnsureState(props.layoutKey);
-  if (!exists) return null;
-  return <Loaded {...props} />;
-};
-
+export const Table: Layout.Renderer = (props) => (
+  <Base.Suspended tableKey={props.layoutKey}>
+    <Internal {...props} />
+  </Base.Suspended>
+);
 Table.useName = Layout.createUseFluxName(
   Base.useRename,
   Base.useRetrieveObservableName,
