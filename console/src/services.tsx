@@ -15,13 +15,13 @@ import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
+import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
+import { Table } from "@/layered/service/table";
 import { LinePlotServices } from "@/lineplot/services";
-import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
 import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
-import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
 
 const createEmptyService = (
@@ -51,8 +51,8 @@ export const SERVICES: Ontology.Services = {
   channel: ChannelServices.ONTOLOGY_SERVICE,
   framer: createEmptyService("framer"),
   policy: Access.Policy.ONTOLOGY_SERVICE,
-  log: LogServices.ONTOLOGY_SERVICE,
-  table: TableServices.ONTOLOGY_SERVICE,
+  log: Log.ONTOLOGY_SERVICE,
+  table: Table.ONTOLOGY_SERVICE,
   panel: createEmptyService("panel"),
   status: createEmptyService("status", <Icon.Status />),
   arc: ArcServices.ONTOLOGY_SERVICE,

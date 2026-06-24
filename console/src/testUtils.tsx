@@ -19,13 +19,12 @@ import { Provider } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import { Log } from "@/log";
 import { Project } from "@/project";
 
 const consoleReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
-  [Log.SLICE_NAME]: Log.reducer,
+  [Session.Log.SLICE_NAME]: Session.Log.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
   [Session.Nav.SLICE_NAME]: Session.Nav.reducer,
@@ -33,7 +32,7 @@ const consoleReducer = combineReducers({
 
 export type ConsolePreloadedState = {
   [Layout.SLICE_NAME]?: Layout.SliceState;
-  [Log.SLICE_NAME]?: Log.SliceState;
+  [Session.Log.SLICE_NAME]?: Session.Log.SliceState;
   [Project.SLICE_NAME]?: Project.SliceState;
   [Cluster.SLICE_NAME]?: Cluster.SliceState;
   [Session.Nav.SLICE_NAME]?: Session.Nav.SliceState;

@@ -24,17 +24,17 @@ import { Docs } from "@/docs";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { Log } from "@/log";
 import { Persist } from "@/persist";
 import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Status } from "@/status";
-import { Table } from "@/table";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
+  ...Session.Log.PERSIST_EXCLUDE,
   ...Session.Schematic.PERSIST_EXCLUDE,
+  ...Session.Table.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
 ];
 
@@ -45,13 +45,13 @@ const ZERO_STATE: RootState = {
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
-  [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Session.Nav.SLICE_NAME]: Session.Nav.ZERO_SLICE_STATE,
+  [Session.Log.SLICE_NAME]: Session.Log.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Session.Schematic.SLICE_NAME]: Session.Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
-  [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
+  [Session.Table.SLICE_NAME]: Session.Table.ZERO_SLICE_STATE,
   [Session.Theme.SLICE_NAME]: Session.Theme.ZERO_SLICE_STATE,
 };
 
@@ -62,13 +62,13 @@ const reducer = combineReducers({
   [Drift.SLICE_NAME]: Drift.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
-  [Log.SLICE_NAME]: Log.reducer,
   [Session.Nav.SLICE_NAME]: Session.Nav.reducer,
+  [Session.Log.SLICE_NAME]: Session.Log.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
-  [Table.SLICE_NAME]: Table.reducer,
+  [Session.Table.SLICE_NAME]: Session.Table.reducer,
   [Session.Theme.SLICE_NAME]: Session.Theme.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
@@ -79,13 +79,13 @@ export interface RootState {
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
-  [Log.SLICE_NAME]: Log.SliceState;
+  [Session.Log.SLICE_NAME]: Session.Log.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Session.Nav.SLICE_NAME]: Session.Nav.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Session.Schematic.SLICE_NAME]: Session.Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
-  [Table.SLICE_NAME]: Table.SliceState;
+  [Session.Table.SLICE_NAME]: Session.Table.SliceState;
   [Session.Theme.SLICE_NAME]: Session.Theme.SliceState;
 }
 
@@ -96,13 +96,13 @@ export type RootAction =
   | Drift.Action
   | Layout.Action
   | LinePlot.Action
-  | Log.Action
+  | Session.Log.Action
   | Session.Nav.Action
   | Project.Action
   | Range.Action
   | Session.Schematic.Action
   | Status.Action
-  | Table.Action
+  | Session.Table.Action
   | Session.Theme.Action;
 
 export type RootStore = Store<RootState, RootAction>;
@@ -119,14 +119,12 @@ export const migrateState = (prev: RootState): RootState => {
   const docs = Docs.migrateSlice(prev.docs);
   const layout = Layout.migrateSlice(prev.layout);
   const line = LinePlot.migrateSlice(prev.line);
-  const log = Log.migrateSlice(prev.log);
   // The project slice was persisted under "workspace" before the rename;
   // migrateLegacySlice reads the legacy key so an upgrading user keeps their saved
   // active project.
   const project = Project.migrateLegacySlice(prev);
   const range = Range.migrateSlice(prev.range);
   const status = Status.migrateSlice(prev.status);
-  const table = Table.migrateSlice(prev.table);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -136,11 +134,9 @@ export const migrateState = (prev: RootState): RootState => {
     docs,
     layout,
     line,
-    log,
     project,
     range,
     status,
-    table,
   };
 };
 

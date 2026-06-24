@@ -17,13 +17,11 @@ import { Import } from "@/import";
 import { LabelServices } from "@/label/services";
 import { Service } from "@/layered/service";
 import { LinePlotServices } from "@/lineplot/services";
-import { LogServices } from "@/log/services";
 import { type Palette } from "@/palette";
 import { Persist } from "@/persist";
 import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
 import { Status } from "@/status";
-import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
 
 export const COMMANDS: Palette.Command[] = [
@@ -35,11 +33,11 @@ export const COMMANDS: Palette.Command[] = [
   ...Import.COMMANDS,
   ...LabelServices.COMMANDS,
   ...LinePlotServices.COMMANDS,
-  ...LogServices.COMMANDS,
+  ...Service.Log.COMMANDS,
   ...Persist.COMMANDS,
   ...RangeServices.COMMANDS,
   ...Service.Schematic.COMMANDS,
-  ...TableServices.COMMANDS,
+  ...Service.Table.COMMANDS,
   ...UserServices.COMMANDS,
   ...ProjectServices.COMMANDS,
   ...ArcServices.COMMANDS,
