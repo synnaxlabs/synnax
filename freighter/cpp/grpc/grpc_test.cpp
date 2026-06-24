@@ -301,12 +301,14 @@ TEST(testGRPC, testPoolChannelReuse) {
     // Send to first endpoint
     auto mes1 = test::Message();
     mes1.set_payload("First endpoint");
-    ASSERT_NIL_P(client.send(target + "/endpoint1", mes1));
+    const auto res1 = ASSERT_NIL_P(client.send(target + "/endpoint1", mes1));
+    ASSERT_EQ(res1.payload(), "Read request: First endpoint");
 
     // Send to second endpoint with same host:port
     auto mes2 = test::Message();
     mes2.set_payload("Second endpoint");
-    ASSERT_NIL_P(client.send(target + "/endpoint2", mes2));
+    const auto res2 = ASSERT_NIL_P(client.send(target + "/endpoint2", mes2));
+    ASSERT_EQ(res2.payload(), "Read request: Second endpoint");
 
     // Get the channel count from the pool's internal map
     size_t channel_count = pool->size();
