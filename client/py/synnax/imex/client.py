@@ -11,9 +11,6 @@
 from freighter import FileClient, FilePath
 from synnax import ontology
 
-_IMPORT_PATH = "/imex/import"
-_EXPORT_PATH = "/imex/export"
-
 
 class Client:
     """Imports and exports resources from and to the Core.
@@ -34,7 +31,7 @@ class Client:
         :param source: a file path streamed from disk.
         :returns: the new resource's ontology ID.
         """
-        return self._file_client.upload(_IMPORT_PATH, source, ontology.ID)
+        return self._file_client.upload("/imex/import", source, ontology.ID)
 
     def export(self, id: ontology.ID, dest: FilePath) -> None:
         """Exports the resource identified by id, streaming it into dest.
@@ -45,4 +42,4 @@ class Client:
         :param id: the ontology ID of the resource to export.
         :param dest: a file path to stream the response body into.
         """
-        self._file_client.download(_EXPORT_PATH, id, dest)
+        self._file_client.download("/imex/export", id, dest)
