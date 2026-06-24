@@ -68,4 +68,95 @@ describe("http", () => {
     await expect(send).rejects.toThrow(Unreachable);
     await expect(send).rejects.toThrow("Unreachable");
   });
+
+  describe("upload", () => {
+    test("string body", async () => {
+      const response = await client.upload(
+        "/echo",
+        JSON.stringify({ id: 1, message: "hello" }),
+        { contentType: "application/json" },
+        messageZ,
+      );
+      expect(response).toEqual({ id: 2, message: "hello" });
+    });
+
+    test("blob body", async () => {
+      const body = new Blob([JSON.stringify({ id: 1, message: "hello" })], {
+        type: "application/json",
+      });
+      const response = await client.upload(
+        "/echo",
+        body,
+        { contentType: "application/json" },
+        messageZ,
+      );
+      expect(response).toEqual({ id: 2, message: "hello" });
+    });
+
+    test("not found", async () => {
+      await expect(
+        client.upload(
+          "/not-found",
+          JSON.stringify({}),
+          { contentType: "application/json" },
+          messageZ,
+        ),
+      ).rejects.toThrow("Not Found");
+    });
+
+    test("unreachable", async () => {
+      const c = new HTTPClient(
+        new url.URL({
+          host: "127.0.0.1",
+          protocol: "http",
+          port: 9999,
+          pathPrefix: "unary",
+        }),
+        new binary.JSONCodec(),
+      );
+      await expect(
+        c.upload(
+          "/echo",
+          JSON.stringify({}),
+          { contentType: "application/json" },
+          messageZ,
+        ),
+      ).rejects.toThrow(Unreachable);
+    });
+  });
+
+  describe("download", () => {
+    test("returns the response body as a byte stream", async () => {
+      const stream = await client.download(
+        "/echo",
+        { id: 1, message: "hello" },
+        messageZ,
+        { accept: "application/json" },
+      );
+      expect(stream).toBeInstanceOf(ReadableStream);
+      const decoded = await new Response(stream).json();
+      expect(decoded).toEqual({ id: 2, message: "hello" });
+    });
+
+    test("not found", async () => {
+      await expect(
+        client.download("/not-found", {}, messageZ, { accept: "application/json" }),
+      ).rejects.toThrow("Not Found");
+    });
+
+    test("unreachable", async () => {
+      const c = new HTTPClient(
+        new url.URL({
+          host: "127.0.0.1",
+          protocol: "http",
+          port: 9999,
+          pathPrefix: "unary",
+        }),
+        new binary.JSONCodec(),
+      );
+      await expect(
+        c.download("/echo", {}, messageZ, { accept: "application/json" }),
+      ).rejects.toThrow(Unreachable);
+    });
+  });
 });
