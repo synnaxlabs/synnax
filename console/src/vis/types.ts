@@ -10,8 +10,8 @@
 import { type Arc } from "@/arc";
 import { type LinePlot } from "@/layered/service/lineplot";
 import { type Schematic } from "@/layered/service/schematic";
+import { type Table } from "@/layered/service/table";
 import { type Log } from "@/log";
-import { type Table } from "@/table";
 
 export type LayoutType =
   | LinePlot.LayoutType

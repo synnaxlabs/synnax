@@ -17,11 +17,11 @@ import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
 import { LinePlot } from "@/layered/service/lineplot";
 import { Schematic } from "@/layered/service/schematic";
+import { Table } from "@/layered/service/table";
 import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
 import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
-import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
 
 const createEmptyService = (
@@ -52,7 +52,7 @@ export const SERVICES: Ontology.Services = {
   framer: createEmptyService("framer"),
   policy: Access.Policy.ONTOLOGY_SERVICE,
   log: LogServices.ONTOLOGY_SERVICE,
-  table: TableServices.ONTOLOGY_SERVICE,
+  table: Table.ONTOLOGY_SERVICE,
   panel: createEmptyService("panel"),
   status: createEmptyService("status", <Icon.Status />),
   arc: ArcServices.ONTOLOGY_SERVICE,

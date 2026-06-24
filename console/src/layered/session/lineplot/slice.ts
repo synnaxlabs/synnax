@@ -125,7 +125,6 @@ export interface SetMeasureModePayload extends KeyedPayload {
   mode: etherLineplot.measure.Mode;
 }
 
-
 export interface SetRangeAnnotationsVisiblePayload extends KeyedPayload {
   visible: boolean;
 }
@@ -198,10 +197,7 @@ export const { actions, reducer } = createSlice({
       },
     ),
     toggleControlClickMode: withSelectedState(
-      (
-        state,
-        { payload: { mode } }: PayloadAction<ToggleControlClickModePayload>,
-      ) => {
+      (state, { payload: { mode } }: PayloadAction<ToggleControlClickModePayload>) => {
         state.control.clickMode = state.control.clickMode === mode ? null : mode;
       },
     ),

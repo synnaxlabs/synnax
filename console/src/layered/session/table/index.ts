@@ -7,10 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/table/cells";
-export * from "@/table/clipboard";
-export * from "@/table/Icons";
-export * from "@/table/queries";
-export { Scope } from "@/table/scope";
-export * from "@/table/Suspended";
-export * from "@/table/Table";
+export * as Table from "@/layered/session/table/external";

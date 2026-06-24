@@ -7,10 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Link } from "@/link";
-import { Table } from "@/table";
-
-export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const t = await client.tables.retrieve({ key });
-  placeLayout(Table.create({ key: t.key, name: t.name }));
-};
+export * as ImEx from "@/layered/service/table/imex/external";

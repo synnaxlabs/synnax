@@ -9,4 +9,5 @@
 
 export * from "@/layered/service/lineplot";
 export * from "@/layered/service/schematic";
+export * from "@/layered/service/table";
 export * from "@/layered/service/theme";
