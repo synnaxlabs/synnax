@@ -75,7 +75,7 @@ describe("arc type migrations", () => {
         }),
       });
       const migrated = migrateState(v1State);
-      expect(migrated.pendingUpload?.configs.n1).toEqual({
+      expect(migrated.pendingUpload?.graph.configs.n1).toEqual({
         type: "status.set",
         key_or_name: "alarm",
         variant: "warning",
@@ -86,7 +86,7 @@ describe("arc type migrations", () => {
     it("should default missing legacy fields when rewriting set_status", () => {
       const v1State = buildV1StateWithProps({ n1: legacySetStatus() });
       const migrated = migrateState(v1State);
-      expect(migrated.pendingUpload?.configs.n1).toEqual({
+      expect(migrated.pendingUpload?.graph.configs.n1).toEqual({
         type: "status.set",
         key_or_name: "",
         variant: "success",
@@ -104,13 +104,13 @@ describe("arc type migrations", () => {
         n2: node("channel.read", { channel: 42 }),
       });
       const migrated = migrateState(v1State);
-      expect(migrated.pendingUpload?.configs.n1).toEqual({
+      expect(migrated.pendingUpload?.graph.configs.n1).toEqual({
         type: "status.set",
         key_or_name: "x",
         variant: "info",
         message: "m",
       });
-      expect(migrated.pendingUpload?.configs.n2).toEqual({
+      expect(migrated.pendingUpload?.graph.configs.n2).toEqual({
         type: "channel.read",
         channel: 42,
       });
@@ -127,13 +127,13 @@ describe("arc type migrations", () => {
         },
       };
       const migrated = migrateSlice(v1Slice);
-      expect(migrated.arcs.a.pendingUpload?.configs.n).toMatchObject({
+      expect(migrated.arcs.a.pendingUpload?.graph.configs.n).toMatchObject({
         type: "status.set",
         key_or_name: "a",
         variant: "error",
         message: "boom",
       });
-      expect(migrated.arcs.b.pendingUpload?.configs.n).toMatchObject({
+      expect(migrated.arcs.b.pendingUpload?.graph.configs.n).toMatchObject({
         type: "status.set",
         key_or_name: "b",
         variant: "success",

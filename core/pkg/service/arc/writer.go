@@ -13,9 +13,11 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -31,6 +33,7 @@ type Writer struct {
 	task       task.Writer
 	table      *gorp.Table[Key, Arc]
 	dispatcher actions.Dispatcher[Key, Action]
+	sweeper    textSweeper
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -47,6 +50,9 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		if err != nil {
 			return err
 		}
+	}
+	if len(a.Text.Doc.Inserts) == 0 && a.Text.Raw != "" {
+		a.Text.Doc = text.Seed(a.Text.Raw)
 	}
 	if err = a.Validate(); err != nil {
 		return err
@@ -80,19 +86,46 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 // a client-generated identifier carried verbatim onto the broadcast so the
 // originating client can match its own echo against the set of outstanding
 // local replays and skip a redundant reduce when no foreign action interleaved.
+//
+// When the arc's text has gone quiet, Dispatch also reclaims the space held by
+// tombstoned characters: it forgets the characters that were already dead before this
+// dispatch and broadcasts that sweep as a separate frame with an empty dispatchKey, so
+// every editor (including the originator, which skips its own echo) applies it.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,
 	dispatchKey string,
 	actions []Action,
 ) error {
+	var sweep []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
 		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
-			return Reduce(a, actions...)
+			sweep = nil
+			var dead []crdt.ID
+			if w.sweeper.quiet(key) {
+				dead = w.sweeper.forgettable(a.Text.Doc)
+			}
+			a, err := Reduce(a, actions...)
+			if err != nil {
+				return a, err
+			}
+			if len(dead) > 0 {
+				sweep = []Action{NewForgetCharsAction(ForgetCharsPayload{IDs: dead})}
+				if a, err = Reduce(a, sweep...); err != nil {
+					return a, err
+				}
+			}
+			if containsTextEdit(actions) {
+				w.sweeper.recordEdit(key)
+			}
+			return a, nil
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
+	if len(sweep) > 0 {
+		w.dispatcher.Notify(ctx, key, "", sweep)
+	}
 	return nil
 }
 
@@ -111,6 +144,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err
 		}
+		w.sweeper.forget(key)
 	}
 	return nil
 }

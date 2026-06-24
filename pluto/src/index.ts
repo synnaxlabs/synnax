@@ -16,6 +16,7 @@ export { Button } from "@/button";
 export { Caret } from "@/caret";
 export { Channel } from "@/channel";
 export { Cluster } from "@/cluster";
+export { Code } from "@/code";
 export { Color } from "@/color";
 export { Component } from "@/component";
 export { context } from "@/context";

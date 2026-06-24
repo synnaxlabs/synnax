@@ -13,7 +13,9 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "x/cpp/crdt/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 
@@ -21,11 +23,36 @@
 
 namespace arc::text {
 
+struct Document;
 struct Text;
+
+/// @brief Document is the conflict-free replicated representation of the text: the
+/// operations that reconstruct it when applied to an empty replica. It is the durable
+/// source of truth from which raw is materialized.
+struct Document {
+    /// @brief inserts are the operations that reconstruct the document's characters.
+    std::vector<::x::crdt::Insert> inserts;
+    /// @brief deletes are the operations that tombstone deleted characters.
+    std::vector<::x::crdt::Delete> deletes;
+
+    static Document parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::text::pb::Document;
+    [[nodiscard]] std::pair<::arc::text::pb::Document, x::errors::Error>
+    to_proto() const;
+    static std::pair<Document, x::errors::Error>
+    from_proto(const ::arc::text::pb::Document &pb);
+};
 
 /// @brief Text is text-based Arc source code with optional parsed AST for compilation.
 struct Text {
-    /// @brief raw is the raw Arc source code in text form.
+    /// @brief doc is the replicated source of truth for the text. It defaults to empty
+    /// on
+    /// create, in which case the server seeds it from raw.
+    Document doc = {};
+    /// @brief raw is the materialized Arc source code, derived from doc and not
+    /// persisted.
     std::string raw = "";
 
     static Text parse(x::json::Parser parser);
