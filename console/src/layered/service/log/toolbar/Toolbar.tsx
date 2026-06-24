@@ -36,7 +36,7 @@ const Internal = (): ReactElement => {
   const handleTabSelect = useCallback(
     (tab: string) =>
       dispatch(
-        Session.Log.setActiveToolbarTab({
+        Session.Log.setSelectedToolbarTab({
           key,
           tab: tab as Session.Log.ToolbarTab,
         }),

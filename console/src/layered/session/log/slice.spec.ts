@@ -46,7 +46,7 @@ describe("Log Slice", () => {
 
     it("should not overwrite an existing entry", () => {
       store.dispatch(Log.internalCreate({ key: KEY }));
-      store.dispatch(Log.setActiveToolbarTab({ key: KEY, tab: "properties" }));
+      store.dispatch(Log.setSelectedToolbarTab({ key: KEY, tab: "properties" }));
       store.dispatch(Log.internalCreate({ key: KEY }));
       expect(select(Log.selectSelectedToolbarTab)).toBe("properties");
     });
@@ -55,12 +55,12 @@ describe("Log Slice", () => {
   describe("setActiveToolbarTab", () => {
     it("should set the active toolbar tab", () => {
       store.dispatch(Log.internalCreate({ key: KEY }));
-      store.dispatch(Log.setActiveToolbarTab({ key: KEY, tab: "properties" }));
+      store.dispatch(Log.setSelectedToolbarTab({ key: KEY, tab: "properties" }));
       expect(select(Log.selectSelectedToolbarTab)).toBe("properties");
     });
 
     it("should provision state on first action for an unknown key", () => {
-      store.dispatch(Log.setActiveToolbarTab({ key: "absent", tab: "properties" }));
+      store.dispatch(Log.setSelectedToolbarTab({ key: "absent", tab: "properties" }));
       expect(select(Log.selectSelectedToolbarTab, "absent")).toBe("properties");
     });
   });

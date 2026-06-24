@@ -79,7 +79,7 @@ export const { actions, reducer } = createSlice({
       if (payload.key in state.logs) return;
       state.logs[payload.key] = stateZ.parse(payload);
     },
-    setActiveToolbarTab: withSelectedState(
+    setSelectedToolbarTab: withSelectedState(
       (state, { payload: { tab } }: PayloadAction<SetActiveToolbarTabPayload>) => {
         state.toolbar.selectedTab = tab;
       },
@@ -90,7 +90,7 @@ export const { actions, reducer } = createSlice({
   },
 });
 
-export const { create: internalCreate, setActiveToolbarTab, remove } = actions;
+export const { create: internalCreate, setSelectedToolbarTab, remove } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 

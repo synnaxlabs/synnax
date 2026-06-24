@@ -72,6 +72,11 @@ export const renderLog = async (
     preloadedState: preloadedState?.(created.key),
   });
   await loadLog(Wrapper, created.key);
-  const result = render(<Component layoutKey={created.key} />, { wrapper: Wrapper });
+  const result = render(
+    <Log.Scope.Provider value={created.key}>
+      <Component layoutKey={created.key} />
+    </Log.Scope.Provider>,
+    { wrapper: Wrapper },
+  );
   return { key: created.key, result, store };
 };

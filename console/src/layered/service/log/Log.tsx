@@ -36,7 +36,7 @@ const Internal: Layout.Renderer = ({ visible }) => {
   }, [dispatch]);
 
   const handleConfigureChannels = useCallback(() => {
-    dispatch(Session.Log.setActiveToolbarTab({ key, tab: "channels" }));
+    dispatch(Session.Log.setSelectedToolbarTab({ key, tab: "channels" }));
     handleDoubleClick();
   }, [dispatch, key, handleDoubleClick]);
 

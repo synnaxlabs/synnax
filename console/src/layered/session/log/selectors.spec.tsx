@@ -18,7 +18,7 @@ import { Log } from "@/layered/session/log";
 
 const KEY = "log-1";
 
-const customState = Log.stateZ.parse({ toolbar: { activeTab: "properties" } });
+const customState = Log.stateZ.parse({ toolbar: { selectedTab: "properties" } });
 
 const storeState: Log.StoreState = {
   [Log.SLICE_NAME]: { version: 0, logs: { [KEY]: customState } },
