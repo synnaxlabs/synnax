@@ -14,8 +14,8 @@ import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { Log } from "@/layered/service/log";
 import { Layout } from "@/layout";
-import { Log } from "@/log";
 import { Project } from "@/project";
 import { createConsoleWrapper } from "@/testUtils";
 

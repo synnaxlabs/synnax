@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -83,7 +84,19 @@ var _ = Describe("Codec", func() {
 					Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
 					Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 				},
-				Text: text.Text{Raw: "test_36"},
+				Text: text.Text{
+					Doc: text.Document{
+						Inserts: []crdt.Insert{
+							{
+								ID:     crdt.ID{},
+								Origin: crdt.ID{},
+								Side:   spatial.XLocation("left"),
+								Char:   42,
+							},
+						},
+						Deletes: []crdt.Delete{{ID: crdt.ID{}}},
+					},
+				},
 			}),
 			Entry("zero values", arc.Arc{
 				Key:  uuid.Nil,
@@ -95,7 +108,7 @@ var _ = Describe("Codec", func() {
 					Nodes:     nil,
 					Configs:   nil,
 				},
-				Text: text.Text{Raw: ""},
+				Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
 			}),
 		)
 	})
@@ -159,7 +172,19 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 			Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
 			Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 		},
-		Text: text.Text{Raw: "test_36"},
+		Text: text.Text{
+			Doc: text.Document{
+				Inserts: []crdt.Insert{
+					{
+						ID:     crdt.ID{},
+						Origin: crdt.ID{},
+						Side:   spatial.XLocation("left"),
+						Char:   42,
+					},
+				},
+				Deletes: []crdt.Delete{{ID: crdt.ID{}}},
+			},
+		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -237,7 +262,19 @@ func FuzzDecodeArc(f *testing.F) {
 				Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
 				Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 			},
-			Text: text.Text{Raw: "test_36"},
+			Text: text.Text{
+				Doc: text.Document{
+					Inserts: []crdt.Insert{
+						{
+							ID:     crdt.ID{},
+							Origin: crdt.ID{},
+							Side:   spatial.XLocation("left"),
+							Char:   42,
+						},
+					},
+					Deletes: []crdt.Delete{{ID: crdt.ID{}}},
+				},
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -256,7 +293,7 @@ func FuzzDecodeArc(f *testing.F) {
 				Nodes:     nil,
 				Configs:   nil,
 			},
-			Text: text.Text{Raw: ""},
+			Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

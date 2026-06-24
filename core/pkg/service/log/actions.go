@@ -38,6 +38,14 @@ const (
 	maxTimestampPrecision int32 = 3
 )
 
+// minChannelPrecision and maxChannelPrecision bound a channel entry's display
+// precision. They mirror the @validate constraints on ChannelEntry.precision in
+// schemas/synnax/log.oracle.
+const (
+	minChannelPrecision int32 = -1
+	maxChannelPrecision int32 = 17
+)
+
 // Handle replaces the log's name.
 func (p RenamePayload) Handle(state Log) (Log, error) {
 	state.Name = p.Name
@@ -73,6 +81,70 @@ func (p SetChannelEntryPayload) Handle(state Log) (Log, error) {
 		return state, nil
 	}
 	state.Channels = append(state.Channels, p.Entry)
+	return state, nil
+}
+
+// Handle sets the display color of the entry referencing the channel. No-op when
+// no entry references it.
+func (p SetChannelColorPayload) Handle(state Log) (Log, error) {
+	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
+		state.Channels[i].Color = p.Color
+	}
+	return state, nil
+}
+
+// Handle sets the numeric notation of the entry referencing the channel. No-op
+// when no entry references it.
+func (p SetChannelNotationPayload) Handle(state Log) (Log, error) {
+	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
+		state.Channels[i].Notation = p.Notation
+	}
+	return state, nil
+}
+
+// Handle sets the display precision of the entry referencing the channel. It
+// returns validate.ErrValidation when the precision is outside the inclusive
+// range [-1, 17], and is a no-op when no entry references the channel.
+func (p SetChannelPrecisionPayload) Handle(state Log) (Log, error) {
+	if p.Precision < minChannelPrecision || p.Precision > maxChannelPrecision {
+		return Log{}, errors.Wrapf(
+			validate.ErrValidation,
+			"channel precision %d out of range [%d, %d]",
+			p.Precision,
+			minChannelPrecision,
+			maxChannelPrecision,
+		)
+	}
+	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
+		state.Channels[i].Precision = p.Precision
+	}
+	return state, nil
+}
+
+// Handle sets the human-readable alias of the entry referencing the channel.
+// No-op when no entry references it.
+func (p SetChannelAliasPayload) Handle(state Log) (Log, error) {
+	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
+		state.Channels[i].Alias = p.Alias
+	}
+	return state, nil
+}
+
+// Handle sets the timestamp render format of the entry referencing the channel.
+// No-op when no entry references it.
+func (p SetChannelTimestampFormatPayload) Handle(state Log) (Log, error) {
+	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
+		state.Channels[i].Timestamp.Format = p.Format
+	}
+	return state, nil
+}
+
+// Handle sets the timestamp time zone of the entry referencing the channel.
+// No-op when no entry references it.
+func (p SetChannelTimestampTzPayload) Handle(state Log) (Log, error) {
+	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
+		state.Channels[i].Timestamp.Tz = p.Tz
+	}
 	return state, nil
 }
 

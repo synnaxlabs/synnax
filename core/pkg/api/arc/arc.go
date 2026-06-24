@@ -170,6 +170,13 @@ func (s *Service) Retrieve(
 
 	res := RetrieveResponse{Arcs: arcs}
 
+	// Raw is derived from the replicated document and not stored, so materialize it before
+	// compilation and for clients that read the source text directly rather than
+	// reconstructing the document.
+	for i := range res.Arcs {
+		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()
+	}
+
 	// Compile Arcs to modules if requested
 	if req.Compile {
 		for i := range res.Arcs {
@@ -191,6 +198,7 @@ func (s *Service) Retrieve(
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
+
 	return res, nil
 }
 

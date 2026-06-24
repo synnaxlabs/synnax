@@ -43,6 +43,7 @@ var (
 	tx         gorp.Tx
 	taskSvc    *task.Service
 	testRack   *rack.Rack
+	arcClock   = telem.Now
 )
 
 var (
@@ -93,11 +94,14 @@ var (
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Channel:  channelSvc,
-			Task:     taskSvc,
-			Search:   searchIdx,
+			DB:                  db,
+			Ontology:            otg,
+			Channel:             channelSvc,
+			Task:                taskSvc,
+			Search:              searchIdx,
+			TextSweepQuiescence: 5 * telem.Second,
+			TextSweepThreshold:  1,
+			Now:                 func() telem.TimeStamp { return arcClock() },
 		}))
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

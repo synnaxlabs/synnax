@@ -12,8 +12,8 @@ import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 
+import { create as createLinePlot } from "@/layered/service/lineplot/layout";
 import { Layout } from "@/layout";
-import { create as createLinePlot } from "@/lineplot/layout";
 import { Project } from "@/project";
 import { add } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";

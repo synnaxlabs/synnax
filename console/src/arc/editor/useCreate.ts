@@ -30,8 +30,8 @@ export const useCreate = (): ((args?: CreateArgs) => void) => {
       [openModal],
     ),
     afterSuccess: useCallback(
-      ({ data: { key, name, mode } }: Flux.AfterSuccessParams<arc.Arc>) => {
-        placeLayout(create({ key, name, mode }));
+      ({ data: { key, name } }: Flux.AfterSuccessParams<arc.Arc>) => {
+        placeLayout(create({ key, name }));
       },
       [placeLayout],
     ),

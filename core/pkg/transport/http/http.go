@@ -202,7 +202,7 @@ func Bind(layer *api.Layer, router *http.Router, channelSvc *svcchannel.Service)
 		ViewDelete:   http.NewUnaryServer[view.DeleteRequest, types.Nil](router, "/api/v1/view/delete"),
 
 		// IMPORT/EXPORT
-		ImExImport: http.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](router, "/api/v1/import", http.WithRequestDecoders(json.Codec)),
-		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](router, "/api/v1/export", http.WithResponseEncoders(json.Codec)),
+		ImExImport: http.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](router, "/api/v1/imex/import", http.WithRequestDecoders(json.Codec)),
+		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](router, "/api/v1/imex/export", http.WithResponseEncoders(json.Codec)),
 	})
 }
