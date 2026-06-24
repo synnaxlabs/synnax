@@ -33,24 +33,12 @@ const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
       useMemoSelect((state: StoreState) => selector({ state, key }), [key]),
   );
 
-export const selectOptional = ({
-  state,
-  key,
-}: KeyedSelectorParams): State | undefined => selectSliceState(state).logs[key];
+export const selectState = ({ state, key }: KeyedSelectorParams): State =>
+  selectSliceState(state).logs[key] ?? ZERO_STATE;
 
-export const useSelectOptional = createSelector(selectOptional);
+export const useSelectState = createSelector(selectState);
 
-export const selectState = (params: KeyedSelectorParams): State =>
-  selectOptional(params) ?? ZERO_STATE;
+export const selectSelectedToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
+  selectState(params).toolbar.selectedTab;
 
-export const useSelect = createSelector(selectState);
-
-export const selectExists = (params: KeyedSelectorParams): boolean =>
-  selectOptional(params) != null;
-
-export const useSelectExists = createSelector(selectExists);
-
-export const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
-  selectState(params).toolbar.activeTab;
-
-export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
+export const useSelectSelectedToolbarTab = createSelector(selectSelectedToolbarTab);

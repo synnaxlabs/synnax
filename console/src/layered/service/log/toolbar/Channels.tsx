@@ -19,6 +19,7 @@ import {
   List,
   Log,
   Notation,
+  type Select,
   Telem,
   Theming,
 } from "@synnaxlabs/pluto";
@@ -44,38 +45,59 @@ const isTimestamp = (dt: DataType | undefined): boolean =>
 
 interface ChannelRowProps {
   index: number;
-  channelKey: channel.Key;
   ch: channel.Channel | undefined;
   config: log.ChannelEntry;
-  onChange: (prevKey: channel.Key, nextKey: channel.Key) => void;
-  onConfigChange: (
-    channelKey: channel.Key,
-    config: Partial<Omit<log.ChannelEntry, "channel">>,
-  ) => void;
-  onRemove: (index: number) => void;
   disabled: boolean;
 }
 
-const ChannelRow = ({
-  index,
-  channelKey,
-  ch,
-  config,
-  onChange,
-  onConfigChange,
-  onRemove,
-  disabled,
-}: ChannelRowProps): ReactElement => {
+const ChannelRow = ({ index, ch, config, disabled }: ChannelRowProps): ReactElement => {
+  const dispatch = Log.useSingleDispatch();
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
   const hasCustomColor = !color.isZero(config.color);
   const showNumeric = showsNumericFields(ch?.dataType);
   const showTimestamp = isTimestamp(ch?.dataType);
+  const { channel, alias, timestamp, precision, notation } = config;
 
+  const handleAliasChange = useCallback(
+    (alias: string) => dispatch(log.setChannelAlias({ channel, alias })),
+    [channel, dispatch],
+  );
+  const handleNotationChange = useCallback(
+    (notation: notation.Notation) =>
+      dispatch(log.setChannelNotation({ channel, notation })),
+    [channel, dispatch],
+  );
+  const handlePrecisionChange = useCallback(
+    (precision: number) => dispatch(log.setChannelPrecision({ channel, precision })),
+    [channel, dispatch],
+  );
+  const handleFormatChange = useCallback(
+    (format: TimestampFormat) =>
+      dispatch(log.setChannelTimestampFormat({ channel, format })),
+    [channel, dispatch],
+  );
+  const handleTzChange = useCallback(
+    (tz: TimeZone) => dispatch(log.setChannelTimestampTz({ channel, tz })),
+    [channel, dispatch],
+  );
+  const handleColorChange = useCallback(
+    (color: color.Color) => dispatch(log.setChannelColor({ channel, color })),
+    [channel, dispatch],
+  );
+  const handleChannelChange = useCallback(
+    (to: channel.Key) => dispatch(log.swapChannel({ from: channel, to })),
+    [dispatch],
+  );
+
+  const handleRemove = useCallback(
+    () => dispatch(log.removeChannel({ channel })),
+    [dispatch],
+  );
   return (
     <List.Item
-      itemKey={channelKey}
-      key={channelKey}
+      itemKey={channel}
+      key={channel}
       index={index}
       selected={false}
       align="center"
@@ -85,15 +107,15 @@ const ChannelRow = ({
     >
       <Flex.Box x align="center" grow>
         <Channel.SelectSingle
-          value={channelKey}
-          onChange={(v: channel.Key) => onChange(channelKey, v)}
-          initialQuery={{ internal: IS_DEV ? undefined : false }}
+          value={channel}
+          onChange={handleChannelChange}
+          initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
           disabled={disabled}
           className={CSS.BE("log", "channel-select")}
         />
         <Input.Text
-          value={config.alias ?? ""}
-          onChange={(v) => onConfigChange(channelKey, { alias: v })}
+          value={alias}
+          onChange={handleAliasChange}
           disabled={disabled}
           placeholder={ch?.name ?? "Alias"}
           variant="shadow"
@@ -106,15 +128,10 @@ const ChannelRow = ({
       <Flex.Box x align="center">
         {showNumeric && (
           <>
-            <Notation.Select
-              value={config.notation ?? "standard"}
-              onChange={(v: notation.Notation) =>
-                onConfigChange(channelKey, { notation: v })
-              }
-            />
+            <Notation.Select value={notation} onChange={handleNotationChange} />
             <Input.Numeric
-              value={config.precision}
-              onChange={(v) => onConfigChange(channelKey, { precision: v })}
+              value={precision}
+              onChange={handlePrecisionChange}
               resetValue={-1}
               emptyValue={-1}
               placeholder="Auto"
@@ -129,8 +146,8 @@ const ChannelRow = ({
             >
               <Button.Button
                 variant="outlined"
-                disabled={disabled || config.precision === -1}
-                onClick={() => onConfigChange(channelKey, { precision: -1 })}
+                disabled={disabled || precision === -1}
+                onClick={() => handlePrecisionChange(-1)}
                 tooltip={
                   config.precision === -1
                     ? "Type a number to disable auto precision"
@@ -145,36 +162,24 @@ const ChannelRow = ({
         {showTimestamp && (
           <>
             <Telem.SelectTimestampFormat
-              value={config.timestamp.format}
-              onChange={(f: TimestampFormat) =>
-                onConfigChange(channelKey, {
-                  timestamp: { ...config.timestamp, format: f },
-                })
-              }
+              value={timestamp.format}
+              onChange={handleFormatChange}
             />
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
-              value={config.timestamp.tz}
-              onChange={(v: TimeZone) =>
-                onConfigChange(channelKey, {
-                  timestamp: { ...config.timestamp, tz: v },
-                })
-              }
+              value={timestamp.tz}
+              onChange={handleTzChange}
             />
           </>
         )}
         <Color.Swatch
           value={hasCustomColor ? config.color : defaultColor}
-          onChange={(c) => onConfigChange(channelKey, { color: c })}
-          onDelete={
-            hasCustomColor
-              ? () => onConfigChange(channelKey, { color: color.ZERO })
-              : undefined
-          }
+          onChange={handleColorChange}
+          onDelete={hasCustomColor ? () => handleColorChange(color.ZERO) : undefined}
           size="small"
         />
         <Button.Button
-          onClick={() => onRemove(index)}
+          onClick={handleRemove}
           size="small"
           variant="text"
           ghost
@@ -188,93 +193,61 @@ const ChannelRow = ({
   );
 };
 
+const SELECT_CHANNEL_INITIAL_QUERY: Channel.ListQuery = {
+  internal: IS_DEV ? undefined : false,
+};
+
+const ADD_CHANNEL_TRIGGER_PROPS: Select.SingleTriggerProps = {
+  placeholder: "Add a channel...",
+};
+
 interface AddChannelRowProps {
-  onAdd: (channelKey: channel.Key) => void;
   disabled: boolean;
 }
 
-const AddChannelRow = ({ onAdd, disabled }: AddChannelRowProps): ReactElement => (
-  <Flex.Box x align="center" gap="large" className={CSS.BE("log", "channel-row")}>
-    <Channel.SelectSingle
-      value={0}
-      onChange={onAdd}
-      initialQuery={{ internal: IS_DEV ? undefined : false }}
-      disabled={disabled}
-      triggerProps={{ placeholder: "Add a channel..." }}
-      className={CSS.BE("log", "channel-select")}
-    />
-  </Flex.Box>
-);
-
-export interface ChannelsProps {
-  layoutKey: string;
-}
-
-export const Channels = ({ layoutKey }: ChannelsProps): ReactElement => {
-  const { dispatch } = Log.useDispatch();
-  const channels = Log.useSelectChannels({ key: layoutKey });
-  const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
-
-  const apply = useCallback(
-    (action: log.Action) => dispatch({ key: layoutKey, actions: [action] }),
-    [dispatch, layoutKey],
-  );
-
-  const channelKeys = useMemo(
-    () => channels.map((c) => c.channel).filter((k) => !primitive.isZero(k)),
-    [channels],
-  );
-  const { data: retrieved } = Channel.useRetrieveMultiple({ keys: channelKeys });
-
-  const handleChannelChange = useCallback(
-    (prevKey: channel.Key, nextKey: channel.Key) =>
-      apply(log.swapChannel({ from: prevKey, to: nextKey })),
-    [apply],
-  );
-
-  const handleConfigChange = useCallback(
-    (
-      channelKey: channel.Key,
-      config: Partial<Omit<log.ChannelEntry, "channel">>,
-    ): void => {
-      const current = channels.find((e) => e.channel === channelKey);
-      if (current == null) return;
-      apply(log.setChannelEntry({ entry: { ...current, ...config } }));
-    },
-    [apply, channels],
-  );
-
-  const handleRemove = useCallback(
-    (index: number) => {
-      const entry = channels[index];
-      if (entry != null) apply(log.removeChannel({ channel: entry.channel }));
-    },
-    [apply, channels],
-  );
-
+const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
+  const dispatch = Log.useSingleDispatch();
   const handleAdd = useCallback(
-    (channelKey: channel.Key) => apply(log.addChannel({ channel: channelKey })),
-    [apply],
+    (channel: channel.Key) => dispatch(log.addChannel({ channel })),
+    [dispatch],
   );
+  return (
+    <Flex.Box x align="center" gap="large" className={CSS.BE("log", "channel-row")}>
+      <Channel.SelectSingle
+        allowNone
+        onChange={handleAdd}
+        initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
+        disabled={disabled}
+        triggerProps={ADD_CHANNEL_TRIGGER_PROPS}
+        className={CSS.BE("log", "channel-select")}
+      />
+    </Flex.Box>
+  );
+};
 
+export const Channels = (): ReactElement => {
+  const entries = Log.useSelectChannels();
+  const key = Log.useKey();
+  const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
+  const keys = useMemo(
+    () => entries.map((c) => c.channel).filter((k) => !primitive.isZero(k)),
+    [entries],
+  );
+  const { data: channels } = Channel.useRetrieveMultiple({ keys });
   return (
     <Flex.Box y full="y" className={CSS.BE("log", "toolbar", "channels")}>
-      {channels.map((entry, i) =>
+      {entries.map((entry, i) =>
         primitive.isZero(entry.channel) ? null : (
           <ChannelRow
-            key={`${entry.channel}-${i}`}
+            key={entry.channel}
             index={i}
-            channelKey={entry.channel}
-            ch={retrieved?.find((c) => c.key === entry.channel)}
+            ch={channels?.find((c) => c.key === entry.channel)}
             config={entry}
-            onChange={handleChannelChange}
-            onConfigChange={handleConfigChange}
-            onRemove={handleRemove}
             disabled={!hasUpdatePermission}
           />
         ),
       )}
-      <AddChannelRow onAdd={handleAdd} disabled={!hasUpdatePermission} />
+      <AddChannelRow disabled={!hasUpdatePermission} />
     </Flex.Box>
   );
 };

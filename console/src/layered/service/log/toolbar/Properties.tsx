@@ -16,40 +16,30 @@ import { CSS } from "@/css";
 
 const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 4 };
 
-export interface PropertiesProps {
-  layoutKey: string;
-}
-
-export const Properties = ({ layoutKey: key }: PropertiesProps): ReactElement => {
-  const { dispatch } = Log.useDispatch();
-  const hideChannelNames = Log.useSelectHideChannelNames({ key });
-  const hideReceiptTimestamp = Log.useSelectHideReceiptTimestamp({ key });
-  const timestampPrecision = Log.useSelectTimestampPrecision({ key });
+export const Properties = (): ReactElement => {
+  const key = Log.useKey();
+  const dispatch = Log.useSingleDispatch();
+  const hideChannelNames = Log.useSelectHideChannelNames();
+  const hideReceiptTimestamp = Log.useSelectHideReceiptTimestamp();
+  const timestampPrecision = Log.useSelectTimestampPrecision();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
-
-  const apply = useCallback(
-    (action: log.Action) => dispatch({ key, actions: [action] }),
-    [dispatch, key],
-  );
 
   const handlePrecisionChange = useCallback(
     (timestampPrecision: number) =>
-      apply(log.setTimestampPrecision({ timestampPrecision })),
-    [apply],
+      dispatch(log.setTimestampPrecision({ timestampPrecision })),
+    [],
   );
 
   const handleShowChannelNamesChange = useCallback(
-    (showChannelNames: boolean) =>
-      apply(log.setHideChannelNames({ hideChannelNames: !showChannelNames })),
-    [apply],
+    (visible: boolean) =>
+      dispatch(log.setHideChannelNames({ hideChannelNames: !visible })),
+    [dispatch],
   );
 
   const handleShowReceiptTimestampChange = useCallback(
-    (showReceiptTimestamp: boolean) =>
-      apply(
-        log.setHideReceiptTimestamp({ hideReceiptTimestamp: !showReceiptTimestamp }),
-      ),
-    [apply],
+    (visible: boolean) =>
+      dispatch(log.setHideReceiptTimestamp({ hideReceiptTimestamp: !visible })),
+    [dispatch],
   );
 
   return (

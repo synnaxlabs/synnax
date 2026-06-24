@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Log as PLog } from "@synnaxlabs/pluto";
+import { Log as Base } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -20,10 +20,10 @@ import { type RootState } from "@/store";
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 const Internal: Layout.Renderer = ({ visible }) => {
-  const key = PLog.useKey();
+  const key = Base.useKey();
   const dispatch = useDispatch();
   const store = useStore<RootState>();
-  const channelKeys = PLog.useSelectChannelKeys();
+  const channelKeys = Base.useSelectChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
 
   const enableTriggers = useCallback(
@@ -41,7 +41,7 @@ const Internal: Layout.Renderer = ({ visible }) => {
   }, [dispatch, key, handleDoubleClick]);
 
   return (
-    <PLog.Log
+    <Base.Log
       onDoubleClick={handleDoubleClick}
       enableTriggers={enableTriggers}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
@@ -62,8 +62,8 @@ const Internal: Layout.Renderer = ({ visible }) => {
 };
 
 export const Log: Layout.Renderer = (props) => (
-  <PLog.Suspended logKey={props.layoutKey}>
+  <Base.Suspended logKey={props.layoutKey}>
     <Internal {...props} />
-  </PLog.Suspended>
+  </Base.Suspended>
 );
-Log.useName = Layout.createUseFluxName(PLog.useRename, PLog.useRetrieveObservableName);
+Log.useName = Layout.createUseFluxName(Base.useRename, Base.useRetrieveObservableName);

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Export } from "@/export";
-import { Log } from "@/layered/service/log/body/Log";
 import { extract } from "@/layered/service/log/imex/export";
 import { LAYOUT_TYPE } from "@/layered/service/log/layout";
+import { Log } from "@/layered/service/log/Log";
 import { Selectable } from "@/layered/service/log/Selectable";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";

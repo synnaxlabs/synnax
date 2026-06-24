@@ -163,6 +163,18 @@ const kindOfTransaction = (actions: log.Action[]): string => {
       return `channel:${a.removeChannel.channel}`;
     case "set_channel_entry":
       return `channel:${a.setChannelEntry.entry.channel}`;
+    case "set_channel_color":
+      return `channel:${a.setChannelColor.channel}`;
+    case "set_channel_notation":
+      return `channel:${a.setChannelNotation.channel}`;
+    case "set_channel_precision":
+      return `channel:${a.setChannelPrecision.channel}`;
+    case "set_channel_alias":
+      return `channel:${a.setChannelAlias.channel}`;
+    case "set_channel_timestamp_format":
+      return `channel:${a.setChannelTimestampFormat.channel}`;
+    case "set_channel_timestamp_tz":
+      return `channel:${a.setChannelTimestampTz.channel}`;
     default:
       return a.type;
   }

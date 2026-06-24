@@ -33,16 +33,6 @@ describe("log selectors", () => {
     });
   });
 
-  describe("selectOptional", () => {
-    it("should return the entry when present", () => {
-      expect(Log.selectOptional(params)).toBe(customState);
-    });
-
-    it("should return undefined for an unknown key", () => {
-      expect(Log.selectOptional({ state: storeState, key: "absent" })).toBeUndefined();
-    });
-  });
-
   describe("selectState", () => {
     it("should return the state for the given key", () => {
       expect(Log.selectState(params)).toEqual(customState);
@@ -55,16 +45,9 @@ describe("log selectors", () => {
     });
   });
 
-  describe("selectExists", () => {
-    it("should report whether the entry is present", () => {
-      expect(Log.selectExists(params)).toBe(true);
-      expect(Log.selectExists({ state: storeState, key: "absent" })).toBe(false);
-    });
-  });
-
   describe("selectActiveToolbarTab", () => {
     it("should read the active toolbar tab", () => {
-      expect(Log.selectActiveToolbarTab(params)).toBe("properties");
+      expect(Log.selectSelectedToolbarTab(params)).toBe("properties");
     });
   });
 });
@@ -93,28 +76,21 @@ describe("log selector hooks", () => {
     storeWith({ version: 0, logs: { [KEY]: customState } });
 
   it("should resolve the key from the surrounding scope", () => {
-    const { result } = renderHook(() => Log.useSelect(), {
+    const { result } = renderHook(() => Log.useSelectState(), {
       wrapper: wrapperFor(store(), KEY),
     });
     expect(result.current).toEqual(customState);
   });
 
   it("should let an explicit key override the scope", () => {
-    const { result } = renderHook(() => Log.useSelect({ key: "absent" }), {
+    const { result } = renderHook(() => Log.useSelectState({ key: "absent" }), {
       wrapper: wrapperFor(store(), KEY),
     });
     expect(result.current).toEqual(Log.ZERO_STATE);
   });
 
-  it("should report whether the entry exists", () => {
-    const { result } = renderHook(() => Log.useSelectExists(), {
-      wrapper: wrapperFor(store(), KEY),
-    });
-    expect(result.current).toBe(true);
-  });
-
   it("should read the active toolbar tab", () => {
-    const { result } = renderHook(() => Log.useSelectActiveToolbarTab(), {
+    const { result } = renderHook(() => Log.useSelectSelectedToolbarTab(), {
       wrapper: wrapperFor(store(), KEY),
     });
     expect(result.current).toBe("properties");

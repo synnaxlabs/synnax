@@ -15,7 +15,7 @@ export const toolbarTabZ = z.enum(["channels", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
 export const toolbarStateZ = z.object({
-  activeTab: toolbarTabZ.default("channels"),
+  selectedTab: toolbarTabZ.default("channels"),
 });
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
@@ -81,7 +81,7 @@ export const { actions, reducer } = createSlice({
     },
     setActiveToolbarTab: withSelectedState(
       (state, { payload: { tab } }: PayloadAction<SetActiveToolbarTabPayload>) => {
-        state.toolbar.activeTab = tab;
+        state.toolbar.selectedTab = tab;
       },
     ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {

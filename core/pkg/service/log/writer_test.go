@@ -214,6 +214,53 @@ var _ = Describe("Writer", func() {
 				Expect(res.Channels[0].Alias).To(Equal("second"))
 			})
 
+			It("Should set per-field config via the fine-grained channel setters", func(ctx SpecContext) {
+				l := log.Log{Name: "test", Channels: []log.ChannelEntry{{Channel: 5}}}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+				red := color.Color{R: 255, G: 0, B: 0, A: 1}
+				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetChannelColorAction(log.SetChannelColorPayload{Channel: 5, Color: red}),
+					log.NewSetChannelNotationAction(log.SetChannelNotationPayload{Channel: 5, Notation: notation.NotationScientific}),
+					log.NewSetChannelPrecisionAction(log.SetChannelPrecisionPayload{Channel: 5, Precision: 4}),
+					log.NewSetChannelAliasAction(log.SetChannelAliasPayload{Channel: 5, Alias: "volts"}),
+					log.NewSetChannelTimestampFormatAction(log.SetChannelTimestampFormatPayload{Channel: 5, Format: telem.TimestampFormatTime}),
+					log.NewSetChannelTimestampTzAction(log.SetChannelTimestampTzPayload{Channel: 5, Tz: telem.TimeZoneUTC}),
+				})).To(Succeed())
+				entry := retrieve(ctx, l.Key).Channels[0]
+				Expect(entry.Color).To(Equal(red))
+				Expect(entry.Notation).To(Equal(notation.NotationScientific))
+				Expect(entry.Precision).To(Equal(int32(4)))
+				Expect(entry.Alias).To(Equal("volts"))
+				Expect(entry.Timestamp.Format).To(Equal(telem.TimestampFormatTime))
+				Expect(entry.Timestamp.Tz).To(Equal(telem.TimeZoneUTC))
+			})
+
+			It("Should treat a fine-grained channel setter as a no-op when the channel is absent", func(ctx SpecContext) {
+				l := log.Log{Name: "test", Channels: []log.ChannelEntry{{Channel: 1}}}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetChannelAliasAction(log.SetChannelAliasPayload{Channel: 99, Alias: "ignored"}),
+				})).To(Succeed())
+				res := retrieve(ctx, l.Key)
+				Expect(res.Channels).To(HaveLen(1))
+				Expect(res.Channels[0].Alias).To(BeEmpty())
+			})
+
+			DescribeTable("Should reject an out-of-range channel precision",
+				func(ctx SpecContext, precision int32) {
+					l := log.Log{Name: "test", Channels: []log.ChannelEntry{{Channel: 5}}}
+					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+						log.NewSetChannelPrecisionAction(log.SetChannelPrecisionPayload{
+							Channel:   5,
+							Precision: precision,
+						}),
+					})).Error().To(MatchError(validate.ErrValidation))
+				},
+				Entry("below minimum", int32(-2)),
+				Entry("above maximum", int32(18)),
+			)
+
 			It("Should replace the whole list via SetChannels", func(ctx SpecContext) {
 				l := log.Log{Name: "test", Channels: []log.ChannelEntry{{Channel: 1}}}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
