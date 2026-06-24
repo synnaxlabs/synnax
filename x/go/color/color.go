@@ -105,18 +105,15 @@ func fromRGBMatch(m []string, s string) (Color, error) {
 		return Color{}, errors.Newf("rgba() requires a 4th alpha channel: %q", s)
 	}
 	r, err := strconv.Atoi(m[2])
-	if err != nil {
-		return Color{}, errors.Wrapf(err, "invalid rgb color: %q", s)
+	if err != nil || r > 255 {
+		return Color{}, errors.Newf("rgb channels must be 0-255: %q", s)
 	}
 	g, err := strconv.Atoi(m[3])
-	if err != nil {
-		return Color{}, errors.Wrapf(err, "invalid rgb color: %q", s)
+	if err != nil || g > 255 {
+		return Color{}, errors.Newf("rgb channels must be 0-255: %q", s)
 	}
 	b, err := strconv.Atoi(m[4])
-	if err != nil {
-		return Color{}, errors.Wrapf(err, "invalid rgb color: %q", s)
-	}
-	if r > 255 || g > 255 || b > 255 {
+	if err != nil || b > 255 {
 		return Color{}, errors.Newf("rgb channels must be 0-255: %q", s)
 	}
 	a := 1.0
