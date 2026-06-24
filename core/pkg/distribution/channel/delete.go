@@ -12,8 +12,6 @@ package channel
 import (
 	"context"
 	"go/types"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 )
 
 // Delete deletes the storage channels for the provided keys, routing each key to its
@@ -22,25 +20,21 @@ import (
 func (s *Service) Delete(ctx context.Context, keys Keys) error {
 	batch := s.deleteRouter.Batch(keys)
 	for nodeKey, entries := range batch.Peers {
-		if err := s.deleteRemote(ctx, nodeKey, entries); err != nil {
+		addr, err := s.cfg.HostResolver.Resolve(nodeKey)
+		if err != nil {
 			return err
 		}
-	}
-	if len(batch.Gateway) == 0 {
-		return nil
+		if _, err := s.cfg.Transport.DeleteClient().Send(
+			ctx, addr, DeleteRequest{Keys: entries},
+		); err != nil {
+			return err
+		}
 	}
 	return s.cfg.TS.DeleteChannels(Keys(batch.Gateway).Storage())
 }
 
-func (s *Service) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.cfg.TS.DeleteChannels(msg.Keys.Storage())
-}
-
-func (s *Service) deleteRemote(ctx context.Context, target node.Key, keys Keys) error {
-	addr, err := s.cfg.HostResolver.Resolve(target)
-	if err != nil {
-		return err
-	}
-	_, err = s.cfg.Transport.DeleteClient().Send(ctx, addr, DeleteRequest{Keys: keys})
-	return err
+func (s *Service) deleteHandler(
+	ctx context.Context, req DeleteRequest,
+) (types.Nil, error) {
+	return types.Nil{}, s.cfg.TS.DeleteChannels(req.Keys.Storage())
 }

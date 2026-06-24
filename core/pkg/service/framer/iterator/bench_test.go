@@ -21,6 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -36,6 +38,27 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
 	dist := mock.OpenNode(b.Context())
 
+	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Search:   dist.Search,
+	})
+	if err != nil {
+		b.Fatalf("failed to open label service: %v", err)
+	}
+
+	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Label:    labelSvc,
+		Search:   dist.Search,
+	})
+	if err != nil {
+		b.Fatalf("failed to open status service: %v", err)
+	}
+
 	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel:      dist.Channel,
 		DB:           dist.DB,
@@ -43,6 +66,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		Search:       dist.Search,
+		Status:       statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)

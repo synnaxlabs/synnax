@@ -110,6 +110,7 @@ var _ = Describe("Transport", func() {
 				Expect(grpcServer.Serve(lis)).To(Succeed())
 			}()
 			DeferCleanup(grpcServer.GracefulStop)
+			DeferCleanup(func() { Expect(pool.Close()).To(Succeed()) })
 
 			var clientCalls, serverCalls atomic.Int32
 			t.Use(freighter.MiddlewareFunc(func(

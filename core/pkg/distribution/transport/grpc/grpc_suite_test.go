@@ -33,7 +33,9 @@ var (
 	addr      address.Address
 )
 
-var _ = BeforeSuite(func() {
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var _ = BeforeEach(func() {
 	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 	addr = address.Address(lis.Addr().String())
 	pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -47,4 +49,5 @@ var _ = BeforeSuite(func() {
 		Expect(grpcServer.Serve(lis)).To(Succeed())
 	}()
 	DeferCleanup(grpcServer.GracefulStop)
+	DeferCleanup(func() { Expect(pool.Close()).To(Succeed()) })
 })

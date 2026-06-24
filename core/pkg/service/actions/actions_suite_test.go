@@ -38,14 +38,6 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	node = mock.MustOpenNode(ctx)
-	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostResolver: node.Cluster,
-		Ontology:     node.Ontology,
-		Group:        node.Group,
-		Search:       node.Search,
-	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: node.Ontology,
@@ -58,6 +50,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    node.Group,
 		Label:    labelSvc,
 		Search:   node.Search,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
+		Status:       statusSvc,
 	}))
 	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:       node.Framer,

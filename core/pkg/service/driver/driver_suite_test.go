@@ -79,6 +79,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		Search:       searchIdx,
+		Status:       statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:       dist.Framer,

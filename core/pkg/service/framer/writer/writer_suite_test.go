@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,6 +35,19 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.MustOpenNode(ctx)
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Search:   dist.Search,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Label:    labelSvc,
+		Search:   dist.Search,
+	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      dist.Channel,
 		DB:           dist.DB,
@@ -40,9 +55,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		Search:       dist.Search,
+		Status:       statusSvc,
 	}))
 	writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
 		Framer:  dist.Framer,
 		Channel: channelSvc,
 	}))
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

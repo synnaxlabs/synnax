@@ -45,3 +45,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Distribution: node.Layer,
 	}))
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

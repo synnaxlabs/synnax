@@ -36,12 +36,11 @@ func MatchCalculated() Filter {
 }
 
 // literalNamePattern matches the character set enforced by validNamePattern during
-// channel creation and renaming. A
-// channel's stored Name is always accepted by this regex, so any input that
-// passes this check is a literal exact-match target and can be routed through
-// the in-memory name index instead of a scan. Any input that fails the check
-// contains regex metacharacters (., *, ?, brackets, anchors) and must fall
-// back to the regex matcher to preserve the historical contract.
+// channel creation and renaming. A channel's stored Name is always accepted by this
+// regex, so any input that passes this check is a literal exact-match target and can be
+// routed through the in-memory name index instead of a scan. Any input that fails the
+// check contains regex metacharacters (., *, ?, brackets, anchors) and must fall back
+// to the regex matcher to preserve the historical contract.
 var literalNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 // MatchNames returns a filter for channels whose Name matches any of the

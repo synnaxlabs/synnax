@@ -44,16 +44,6 @@ type Writer struct {
 	analyzer *Analyzer
 }
 
-// NewWriter returns a Writer scoped to the provided transaction (nil writes directly to
-// the service DB).
-func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{
-		svc:      s,
-		tx:       s.db.OverrideTx(tx),
-		analyzer: NewAnalyzer(s.NewArcSymbolResolver(tx)),
-	}
-}
-
 type createOptions struct {
 	retrieveIfNameExists                        bool
 	overwriteIfNameExistsAndDifferentProperties bool
@@ -96,28 +86,59 @@ func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 }
 
 // CreateMany creates multiple channels, inferring DataTypes for any calculated channels
-// in the batch. Channels within the batch may reference each other by name.
+// in the batch whose expressions analyze successfully. Channels within the batch may
+// reference each other by name. Calculated channels whose expressions fail to analyze
+// (invalid syntax or unresolved dependencies) are still persisted with their
+// caller-provided DataType; the calculation runtime surfaces the failure as a status
+// later. Callers that want expressions validated up front should use the Service-level
+// Create or CreateMany, which fail fast on analysis errors.
 func (w Writer) CreateMany(
 	ctx context.Context, channels *[]Channel, opts ...CreateOption,
 ) error {
 	if len(*channels) == 0 {
 		return nil
 	}
-	for i, ch := range *channels {
-		if !ch.IsCalculated() {
-			continue
-		}
-		result, err := w.analyzer.Analyze(ctx, ch)
-		if err != nil {
-			return err
-		}
-		(*channels)[i].DataType = result.ChanDataType
+	if err := w.analyzeCalculated(ctx, *channels, false); err != nil {
+		return err
 	}
 	var o createOptions
 	for _, opt := range opts {
 		opt(&o)
 	}
 	return w.create(ctx, channels, o)
+}
+
+// analyzeCalculated infers and assigns DataTypes for the calculated channels in the
+// batch by analyzing their expressions; channels may reference earlier ones in the
+// batch by name.
+//
+// When strict, every calculated channel is analyzed, its DataType is overwritten with
+// the inferred type, and the first analysis error is returned (remaining channels are
+// left unprocessed). When not strict, analysis is best-effort: a channel that already
+// carries a caller-provided DataType is left untouched (the calculation graph repairs a
+// stale type during hydration), inference fills in a channel whose DataType is unset,
+// and an analysis error is tolerated so the channel is still persisted (the calculation
+// runtime surfaces the failure as a status).
+func (w Writer) analyzeCalculated(
+	ctx context.Context, channels []Channel, strict bool,
+) error {
+	for i := range channels {
+		if !channels[i].IsCalculated() {
+			continue
+		}
+		if !strict && channels[i].DataType != telem.UnknownT {
+			continue
+		}
+		result, err := w.analyzer.Analyze(ctx, channels[i])
+		if err != nil {
+			if strict {
+				return err
+			}
+			continue
+		}
+		channels[i].DataType = result.ChanDataType
+	}
+	return nil
 }
 
 // Delete deletes the channel with the given key, along with its storage and ontology
@@ -134,8 +155,8 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 	return w.delete(ctx, keys, allowInternal)
 }
 
-// DeleteManyByNames deletes the channels matching the given names. Unless allowInternal is
-// true, deleting any internal channel returns an error and no channels are deleted.
+// DeleteManyByNames deletes the channels matching the given names. Unless allowInternal
+// is true, deleting any internal channel returns an error and no channels are deleted.
 func (w Writer) DeleteManyByNames(
 	ctx context.Context, names []string, allowInternal bool,
 ) error {
@@ -164,54 +185,6 @@ func (w Writer) RenameMany(
 	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
 ) error {
 	return w.rename(ctx, keys, newNames, allowInternal)
-}
-
-// The methods below are convenience shortcuts that run a single operation through a
-// fresh, transaction-less Writer. Callers that need to batch writes into a transaction
-// should use NewWriter directly.
-
-// Create creates a single channel outside of any transaction. See Writer.Create.
-func (s *Service) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
-	return s.NewWriter(nil).Create(ctx, c, opts...)
-}
-
-// CreateMany creates multiple channels outside of any transaction. See Writer.CreateMany.
-func (s *Service) CreateMany(
-	ctx context.Context, channels *[]Channel, opts ...CreateOption,
-) error {
-	return s.NewWriter(nil).CreateMany(ctx, channels, opts...)
-}
-
-// Delete deletes a channel outside of any transaction. See Writer.Delete.
-func (s *Service) Delete(ctx context.Context, key Key, allowInternal bool) error {
-	return s.NewWriter(nil).Delete(ctx, key, allowInternal)
-}
-
-// DeleteMany deletes channels outside of any transaction. See Writer.DeleteMany.
-func (s *Service) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
-	return s.NewWriter(nil).DeleteMany(ctx, keys, allowInternal)
-}
-
-// DeleteManyByNames deletes channels by name outside of any transaction. See
-// Writer.DeleteManyByNames.
-func (s *Service) DeleteManyByNames(
-	ctx context.Context, names []string, allowInternal bool,
-) error {
-	return s.NewWriter(nil).DeleteManyByNames(ctx, names, allowInternal)
-}
-
-// Rename renames a channel outside of any transaction. See Writer.Rename.
-func (s *Service) Rename(
-	ctx context.Context, key Key, newName string, allowInternal bool,
-) error {
-	return s.NewWriter(nil).Rename(ctx, key, newName, allowInternal)
-}
-
-// RenameMany renames channels outside of any transaction. See Writer.RenameMany.
-func (s *Service) RenameMany(
-	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
-) error {
-	return s.NewWriter(nil).RenameMany(ctx, keys, newNames, allowInternal)
 }
 
 // create orchestrates channel creation: it validates names, preprocesses calculated

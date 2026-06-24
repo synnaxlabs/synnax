@@ -54,9 +54,6 @@ func (s *Service) Rename(ctx context.Context, keys Keys, names []string) error {
 			return err
 		}
 	}
-	if len(batch.Gateway) == 0 {
-		return nil
-	}
 	keys, names = unzipRenameBatch(batch.Gateway)
 	return s.cfg.TS.RenameChannels(ctx, keys.Storage(), names)
 }

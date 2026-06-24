@@ -76,6 +76,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		Search:       dist.Search,
+		Status:       statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)

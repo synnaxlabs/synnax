@@ -36,14 +36,6 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.MustOpenNode(ctx)
-	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostResolver: dist.Cluster,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		Search:       dist.Search,
-	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
@@ -57,6 +49,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   dist.Search,
 	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      dist.Channel,
+		DB:           dist.DB,
+		HostResolver: dist.Cluster,
+		Ontology:     dist.Ontology,
+		Group:        dist.Group,
+		Search:       dist.Search,
+		Status:       statusSvc,
+	}))
 	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:       dist.Framer,
 		Channel:      channelSvc,
@@ -69,3 +70,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:  framerSvc,
 	}))
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

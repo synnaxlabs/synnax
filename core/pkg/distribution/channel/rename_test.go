@@ -20,13 +20,10 @@ import (
 )
 
 var _ = Describe("Rename", Ordered, func() {
-	var (
-		builder *mock.Cluster
-		n       mock.Node
-	)
+	var n mock.Node
+
 	BeforeAll(func(ctx SpecContext) {
-		builder = mock.MustOpenCluster(ctx, 1)
-		n = builder.Nodes[node.KeyBootstrapper]
+		n = mock.MustOpenNode(ctx)
 	})
 
 	It("Should rename the storage channel for a gateway key", func(ctx SpecContext) {
@@ -47,14 +44,13 @@ var _ = Describe("Rename", Ordered, func() {
 
 	Context("Multi Node", Ordered, func() {
 		var (
-			multiBuilder *mock.Cluster
-			gateway      mock.Node
-			peer         mock.Node
+			gateway mock.Node
+			peer    mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
-			multiBuilder = mock.MustOpenCluster(ctx, 2)
-			gateway = multiBuilder.Nodes[node.KeyBootstrapper]
-			peer = multiBuilder.Nodes[node.Key(2)]
+			cluster := mock.MustOpenCluster(ctx, 2)
+			gateway = cluster.Nodes[node.KeyBootstrapper]
+			peer = cluster.Nodes[node.Key(2)]
 		})
 
 		It("Should route the rename to the leaseholder", func(ctx SpecContext) {
@@ -65,6 +61,20 @@ var _ = Describe("Rename", Ordered, func() {
 			Expect(gateway.Channel.Rename(ctx, channel.Keys{key}, []string{"remote-new"})).To(Succeed())
 			stored := MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
 			Expect(stored.Name).To(Equal("remote-new"))
+		})
+		It("Should rename both gateway and peer channels", func(ctx SpecContext) {
+			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "gateway-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
+				{Name: "peer-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+			}))
+			gatewayKey := out[0].Key()
+			peerKey := out[1].Key()
+			Expect(gateway.Channel.Rename(ctx, channel.Keys{gatewayKey}, []string{"gateway-new"})).To(Succeed())
+			Expect(peer.Channel.Rename(ctx, channel.Keys{peerKey}, []string{"peer-new"})).To(Succeed())
+			stored := MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey()))
+			Expect(stored.Name).To(Equal("gateway-new"))
+			stored = MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey()))
+			Expect(stored.Name).To(Equal("peer-new"))
 		})
 	})
 })

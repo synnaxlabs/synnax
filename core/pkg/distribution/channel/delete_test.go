@@ -21,13 +21,10 @@ import (
 )
 
 var _ = Describe("Delete", Ordered, func() {
-	var (
-		builder *mock.Cluster
-		n       mock.Node
-	)
+	var n mock.Node
+
 	BeforeAll(func(ctx SpecContext) {
-		builder = mock.MustOpenCluster(ctx, 1)
-		n = builder.Nodes[node.KeyBootstrapper]
+		n = mock.MustOpenNode(ctx)
 	})
 
 	It("Should delete the storage channel for a gateway key", func(ctx SpecContext) {
@@ -49,14 +46,13 @@ var _ = Describe("Delete", Ordered, func() {
 
 	Context("Multi Node", Ordered, func() {
 		var (
-			multiBuilder *mock.Cluster
-			gateway      mock.Node
-			peer         mock.Node
+			gateway mock.Node
+			peer    mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
-			multiBuilder = mock.MustOpenCluster(ctx, 2)
-			gateway = multiBuilder.Nodes[node.KeyBootstrapper]
-			peer = multiBuilder.Nodes[node.Key(2)]
+			cluster := mock.MustOpenCluster(ctx, 2)
+			gateway = cluster.Nodes[node.KeyBootstrapper]
+			peer = cluster.Nodes[node.Key(2)]
 		})
 
 		It("Should route deletion to the leaseholder", func(ctx SpecContext) {
@@ -69,6 +65,15 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(peer.Storage.TS.RetrieveChannel(ctx, key.StorageKey())).Error().To(
 				MatchError(query.ErrNotFound),
 			)
+		})
+		It("Should delete both gateway and peer channels", func(ctx SpecContext) {
+			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "gateway-delete", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
+				{Name: "peer-delete", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+			}))
+			key := out[0].Key()
+			Expect(gateway.Channel.Delete(ctx, channel.Keys{key})).To(Succeed())
+			Expect(peer.Channel.Delete(ctx, channel.Keys{key})).To(Succeed())
 		})
 	})
 })

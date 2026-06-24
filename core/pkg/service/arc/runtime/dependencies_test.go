@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,6 +32,19 @@ var _ = Describe("Dependencies", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		dist := mock.MustOpenNode(ctx)
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Search:   dist.Search,
+		}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Label:    labelSvc,
+			Search:   dist.Search,
+		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      dist.Channel,
 			DB:           dist.DB,
@@ -37,6 +52,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
 			Search:       dist.Search,
+			Status:       statusSvc,
 		}))
 	})
 

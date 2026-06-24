@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,6 +37,19 @@ type benchEnv struct {
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
 	dist := mock.OpenNode(b.Context())
+	labelSvc := MustSucceed(label.OpenService(b.Context(), label.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Search:   dist.Search,
+	}))
+	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Label:    labelSvc,
+		Search:   dist.Search,
+	}))
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel:      dist.Channel,
 		DB:           dist.DB,
@@ -42,10 +57,13 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		Search:       dist.Search,
+		Status:       statusSvc,
 	}))
 	var closer io.MultiCloser
 	closer = append(closer, dist)
 	closer = append(closer, channelSvc)
+	closer = append(closer, statusSvc)
+	closer = append(closer, labelSvc)
 	return &benchEnv{
 		ctx:        b.Context(),
 		dist:       dist,

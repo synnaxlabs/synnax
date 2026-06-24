@@ -285,3 +285,76 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
 }
+
+// NewWriter returns a Writer scoped to the provided transaction (nil writes directly to
+// the service DB).
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{
+		svc:      s,
+		tx:       s.db.OverrideTx(tx),
+		analyzer: NewAnalyzer(s.NewArcSymbolResolver(tx)),
+	}
+}
+
+// The methods below are convenience shortcuts that run a single operation through a
+// fresh, transaction-less Writer. Callers that need to batch writes into a transaction
+// should use NewWriter directly.
+
+// Create creates a single channel outside of any transaction. Unlike the Writer, it
+// validates a calculated channel's expression up front, returning an analysis error
+// (invalid syntax or unresolved dependencies) instead of persisting the channel. See
+// Writer.Create.
+func (s *Service) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
+	channels := []Channel{*c}
+	if err := s.CreateMany(ctx, &channels, opts...); err != nil {
+		return err
+	}
+	*c = channels[0]
+	return nil
+}
+
+// CreateMany creates multiple channels outside of any transaction. Unlike the Writer,
+// it validates calculated channel expressions up front, returning an analysis error if
+// any channel's expression fails to analyze (invalid syntax or unresolved
+// dependencies). See Writer.CreateMany.
+func (s *Service) CreateMany(
+	ctx context.Context, channels *[]Channel, opts ...CreateOption,
+) error {
+	w := s.NewWriter(nil)
+	if err := w.analyzeCalculated(ctx, *channels, true); err != nil {
+		return err
+	}
+	return w.CreateMany(ctx, channels, opts...)
+}
+
+// Delete deletes a channel outside of any transaction. See Writer.Delete.
+func (s *Service) Delete(ctx context.Context, key Key, allowInternal bool) error {
+	return s.NewWriter(nil).Delete(ctx, key, allowInternal)
+}
+
+// DeleteMany deletes channels outside of any transaction. See Writer.DeleteMany.
+func (s *Service) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
+	return s.NewWriter(nil).DeleteMany(ctx, keys, allowInternal)
+}
+
+// DeleteManyByNames deletes channels by name outside of any transaction. See
+// Writer.DeleteManyByNames.
+func (s *Service) DeleteManyByNames(
+	ctx context.Context, names []string, allowInternal bool,
+) error {
+	return s.NewWriter(nil).DeleteManyByNames(ctx, names, allowInternal)
+}
+
+// Rename renames a channel outside of any transaction. See Writer.Rename.
+func (s *Service) Rename(
+	ctx context.Context, key Key, newName string, allowInternal bool,
+) error {
+	return s.NewWriter(nil).Rename(ctx, key, newName, allowInternal)
+}
+
+// RenameMany renames channels outside of any transaction. See Writer.RenameMany.
+func (s *Service) RenameMany(
+	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
+) error {
+	return s.NewWriter(nil).RenameMany(ctx, keys, newNames, allowInternal)
+}

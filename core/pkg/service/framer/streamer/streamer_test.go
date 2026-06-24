@@ -61,6 +61,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
 			Search:       dist.Search,
+			Status:       statusSvc,
 		}))
 		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
 			Framer:  dist.Framer,

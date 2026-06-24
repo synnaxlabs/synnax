@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,6 +31,19 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		node := mock.MustOpenNode(ctx)
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Search:   node.Search,
+		}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Label:    labelSvc,
+			Search:   node.Search,
+		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
 			DB:           node.DB,
@@ -36,6 +51,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Ontology:     node.Ontology,
 			Group:        node.Group,
 			Search:       node.Search,
+			Status:       statusSvc,
 		}))
 	})
 

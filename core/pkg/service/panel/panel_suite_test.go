@@ -46,14 +46,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = mock.MustOpenNode(ctx)
 	db = dist.DB
 	otg = dist.Ontology
-	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostResolver: dist.Cluster,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		Search:       dist.Search,
-	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
@@ -66,6 +58,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    dist.Group,
 		Label:    labelSvc,
 		Search:   dist.Search,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      dist.Channel,
+		DB:           dist.DB,
+		HostResolver: dist.Cluster,
+		Ontology:     dist.Ontology,
+		Group:        dist.Group,
+		Search:       dist.Search,
+		Status:       statusSvc,
 	}))
 	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:       dist.Framer,
@@ -95,3 +96,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

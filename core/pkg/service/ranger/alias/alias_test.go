@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -39,6 +40,19 @@ var _ = Describe("Alias", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		node = mock.MustOpenNode(ctx)
+		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Search:   node.Search,
+		}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Label:    labelSvc,
+			Search:   node.Search,
+		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
 			DB:           node.DB,
@@ -46,12 +60,7 @@ var _ = Describe("Alias", Ordered, func() {
 			Ontology:     node.Ontology,
 			Group:        node.Group,
 			Search:       node.Search,
-		}))
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: node.Ontology,
-			Group:    node.Group,
-			Search:   node.Search,
+			Status:       statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
