@@ -11,14 +11,33 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from x import crdt
+
+
+class Document(BaseModel):
+    """Is the conflict-free replicated representation of the text: the operations that
+    reconstruct it when applied to an empty replica. It is the durable source of
+    truth from which raw is materialized.
+
+    Attributes:
+        inserts: Are the operations that reconstruct the document's characters.
+        deletes: Are the operations that tombstone deleted characters.
+    """
+
+    inserts: list[crdt.Insert] = Field(default_factory=list)
+    deletes: list[crdt.Delete] = Field(default_factory=list)
 
 
 class Text(BaseModel):
     """Is text-based Arc source code with optional parsed AST for compilation.
 
     Attributes:
-        raw: Is the raw Arc source code in text form.
+        doc: Is the replicated source of truth for the text. It defaults to empty on create,
+            in which case the server seeds it from raw.
+        raw: Is the materialized Arc source code, derived from doc and not persisted.
     """
 
+    doc: Document = Field(default_factory=lambda: Document())
     raw: str = ""

@@ -15,6 +15,7 @@ import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { Cell } from "@/table/cells";
+import { Scope } from "@/table/scope";
 import { Theming } from "@/theming";
 
 const BASE_ROW_SIZE = 36;
@@ -83,43 +84,39 @@ const requireTable = (store: FluxSubStore, key: table.Key): table.Table => {
   return t;
 };
 
-export const useSelectName = Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key }) => requireTable(store, key).name,
-});
+export const useSelectName = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key }) => requireTable(store, key).name,
+  }),
+);
 
-export const useSelectRows = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  table.Row[]
->({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key }) => requireTable(store, key).rows,
-});
+export const useSelectRows = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, table.Row[]>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key }) => requireTable(store, key).rows,
+  }),
+);
 
-export const useSelectColumns = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  table.Column[]
->({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key }) => requireTable(store, key).columns,
-});
+export const useSelectColumns = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, table.Column[]>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key }) => requireTable(store, key).columns,
+  }),
+);
 
 export interface SelectCellArgs {
   key: table.Key;
   cellKey: string;
 }
 
-export const useSelectCell = Flux.createSelector<
-  FluxSubStore,
-  SelectCellArgs,
-  Cell.Config | undefined
->({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key, cellKey }) =>
-    store.tables.get(key)?.cells?.[cellKey] as Cell.Config | undefined,
-});
+export const useSelectCell = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectCellArgs, Cell.Config | undefined>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key, cellKey }) =>
+      store.tables.get(key)?.cells?.[cellKey] as Cell.Config | undefined,
+  }),
+);
 
 export interface SelectCellsArgs {
   key: table.Key;
@@ -130,25 +127,23 @@ export interface SelectCellsArgs {
 // omitting keys that don't resolve to a cell. The map preserves
 // caller-provided key order; consumers that need positional iteration should
 // iterate cellKeys and look up via the map.
-export const useSelectCells = Flux.createSelector<
-  FluxSubStore,
-  SelectCellsArgs,
-  Map<string, Cell.Config>
->({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key, cellKeys }) => {
-    const result = new Map<string, Cell.Config>();
-    if (cellKeys.length === 0) return result;
-    const t = store.tables.get(key);
-    if (t == null) return result;
-    for (const cellKey of cellKeys) {
-      const cell = t.cells?.[cellKey] as Cell.Config | undefined;
-      if (cell != null) result.set(cellKey, cell);
-    }
-    return result;
-  },
-  equal: compare.mapsEqual,
-});
+export const useSelectCells = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectCellsArgs, Map<string, Cell.Config>>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key, cellKeys }) => {
+      const result = new Map<string, Cell.Config>();
+      if (cellKeys.length === 0) return result;
+      const t = store.tables.get(key);
+      if (t == null) return result;
+      for (const cellKey of cellKeys) {
+        const cell = t.cells?.[cellKey] as Cell.Config | undefined;
+        if (cell != null) result.set(cellKey, cell);
+      }
+      return result;
+    },
+    equal: compare.mapsEqual,
+  }),
+);
 
 export type DeleteParams = table.Key | table.Key[];
 
@@ -277,7 +272,12 @@ export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
   kindOf: kindOfTransaction,
 });
 
-export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+export const {
+  useDispatch,
+  useUndo: useUndoBase,
+  useRedo: useRedoBase,
+  useSingleDispatch: useSingleDispatchBase,
+} = Flux.createDispatch<
   table.Key,
   table.Table,
   table.Action,
@@ -288,6 +288,10 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   send: ({ client, key, actions, dispatchKey }) =>
     client.tables.dispatch(key, dispatchKey, actions),
 });
+
+export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
+export const useUndo = Scope.bindHook(useUndoBase);
+export const useRedo = Scope.bindHook(useRedoBase);
 
 // findCellPosition returns the (x, y) grid coordinates of the cell with the
 // given key in the given rows, or null if the cell isn't referenced by any
@@ -343,7 +347,9 @@ export const cellsInRegion = (
   return out;
 };
 
-export const useCellPosition = ({ key, cellKey }: SelectCellArgs): xy.XY | null => {
-  const rows = useSelectRows({ key });
-  return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
-};
+export const useCellPosition = Scope.bindHook(
+  ({ key, cellKey }: SelectCellArgs): xy.XY | null => {
+    const rows = useSelectRows({ key });
+    return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
+  },
+);

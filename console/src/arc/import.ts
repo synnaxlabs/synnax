@@ -25,9 +25,9 @@ export const parseImport = (data: unknown, fallbackName?: string): arc.New => {
         throw new Error("Imported Arc has no graph data");
       return {
         name: fallbackName ?? "Arc",
-        mode: legacy.data.mode ?? "graph",
-        graph: legacy.data.pendingUpload,
-        text: legacy.data.text,
+        mode: legacy.data.pendingUpload.mode ?? "graph",
+        graph: legacy.data.pendingUpload.graph,
+        text: legacy.data.pendingUpload.text,
       };
     }
   }
@@ -45,13 +45,6 @@ export const ingest: Import.FileIngester = async (
   const newPayload = parseImport(data, layout?.name);
   const created = await client.arcs.create(newPayload);
   store.arcs.set(created.key, created);
-  placeLayout(
-    Editor.create({
-      ...layout,
-      key: created.key,
-      name: created.name,
-      mode: created.mode,
-    }),
-  );
+  placeLayout(Editor.create({ ...layout, key: created.key, name: created.name }));
   return arc.ontologyID(created.key);
 };

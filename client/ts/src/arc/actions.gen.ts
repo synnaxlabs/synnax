@@ -122,6 +122,19 @@ export const deleteCharPayloadZ = z.object({
 
 export type DeleteCharPayload = z.infer<typeof deleteCharPayloadZ>;
 
+/**
+ * ForgetChars removes the given already-deleted characters from the module's text document,
+ * dropping both their insert and delete operations from the replicated op-log.
+ * The server emits it after a quiet editing period to reclaim the space held by
+ * tombstoned characters. Because the characters are already deleted, and thus
+ * invisible, applying it never changes the materialized text.
+ */
+export const forgetCharsPayloadZ = z.object({
+  ids: crdt.idZ.array().default(() => []),
+});
+
+export type ForgetCharsPayload = z.infer<typeof forgetCharsPayloadZ>;
+
 export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("set_node"), setNode: setNodePayloadZ }),
@@ -139,6 +152,7 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("reconnect_edge"), reconnectEdge: reconnectEdgePayloadZ }),
   z.object({ type: z.literal("insert_char"), insertChar: insertCharPayloadZ }),
   z.object({ type: z.literal("delete_char"), deleteChar: deleteCharPayloadZ }),
+  z.object({ type: z.literal("forget_chars"), forgetChars: forgetCharsPayloadZ }),
 ]);
 
 export type Action = z.infer<typeof actionZ>;
@@ -199,6 +213,11 @@ export const deleteChar = (payload: z.input<typeof deleteCharPayloadZ>): Action 
   deleteChar: deleteCharPayloadZ.parse(payload),
 });
 
+export const forgetChars = (payload: z.input<typeof forgetCharsPayloadZ>): Action => ({
+  type: "forget_chars",
+  forgetChars: forgetCharsPayloadZ.parse(payload),
+});
+
 export type HandlerResult = actions.HandlerResult<Action>;
 
 export type ReduceAllResult = actions.ReduceAllResult<Arc, Action>;
@@ -217,6 +236,7 @@ export interface Handlers {
   reconnectEdge: (state: Draft<Arc>, payload: ReconnectEdgePayload) => HandlerResult;
   insertChar: (state: Draft<Arc>, payload: InsertCharPayload) => HandlerResult;
   deleteChar: (state: Draft<Arc>, payload: DeleteCharPayload) => HandlerResult;
+  forgetChars: (state: Draft<Arc>, payload: ForgetCharsPayload) => HandlerResult;
 }
 
 export const createReduceAll = (handlers: Handlers) =>
@@ -242,6 +262,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.insertChar(state, action.insertChar);
       case "delete_char":
         return handlers.deleteChar(state, action.deleteChar);
+      case "forget_chars":
+        return handlers.forgetChars(state, action.forgetChars);
     }
   });
 

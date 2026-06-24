@@ -116,9 +116,72 @@ Log struct {
 
         @doc value """
             inserts the channel entry if no entry with the same channel exists,
-            otherwise replaces the existing entry in place. Used both when a
-            channel is added and when the user edits an existing channel's
-            display configuration.
+            otherwise replaces the existing entry in place. The fine-grained
+            setChannel* actions cover per-field edits; this full-object form
+            inserts new entries and restores an entry dropped by reconciliation.
+        """
+    }
+
+    action SetChannelColor {
+        channel channel.Key
+        color   color.Color
+
+        @doc value """
+            sets the display color of the entry identified by channel. The zero
+            color resets it to a palette color assigned at render time. No-op
+            when no entry references the channel.
+        """
+    }
+
+    action SetChannelNotation {
+        channel  channel.Key
+        notation notation.Notation
+
+        @doc value """
+            sets the numeric notation of the entry identified by channel. No-op
+            when no entry references the channel.
+        """
+    }
+
+    action SetChannelPrecision {
+        channel   channel.Key
+        precision int32
+
+        @doc value """
+            sets the number of decimal digits displayed for the entry identified
+            by channel. -1 means "use the log-level precision". No-op when no
+            entry references the channel.
+        """
+    }
+
+    action SetChannelAlias {
+        channel channel.Key
+        alias   string
+
+        @doc value """
+            sets the human-readable alias of the entry identified by channel. An
+            empty alias falls back to the channel name. No-op when no entry
+            references the channel.
+        """
+    }
+
+    action SetChannelTimestampFormat {
+        channel channel.Key
+        format  telem.TimestampFormat
+
+        @doc value """
+            sets the timestamp render format of the entry identified by channel.
+            No-op when no entry references the channel.
+        """
+    }
+
+    action SetChannelTimestampTz {
+        channel channel.Key
+        tz      telem.TimeZone
+
+        @doc value """
+            sets the timestamp time zone of the entry identified by channel.
+            No-op when no entry references the channel.
         """
     }
 
