@@ -74,5 +74,6 @@ func (a Arc) Validate() error {
 	v := validate.New("Arc")
 	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
 	validate.NotEmptyString(v, "name", a.Name)
+	v.Exec(func() error { return validate.PathedError(a.Text.Validate(), "text") })
 	return v.Error()
 }

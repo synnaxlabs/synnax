@@ -74,6 +74,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
   const config = Schematic.useSelectElementConfig({ elKey });
   // A true invariant that should never occur.
   if (config == null) throw new Error(`Element with key ${elKey} not found`);
+  const schematicKey = Schematic.useKey();
   const dispatch = Schematic.useSingleDispatch();
   const initialValues = useMemo(() => deep.copy(config), [config]);
   const formMethods = Form.use<typeof Schematic.elementConfigZ>({
@@ -82,7 +83,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     sync: true,
     onChange: useCallback(
       ({ values }: Form.OnChangeArgs<typeof Schematic.elementConfigZ>) =>
-        dispatch(schematic.setConfig({ key: elKey, config: values })),
+        dispatch(schematic.setConfig({ key: elKey, config: deep.copy(values) })),
       [dispatch, elKey],
     ),
   });
@@ -118,7 +119,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
             VariantForm={C.Form}
           />
         ) : (
-          <C.Form key={elKey} actions={actions} />
+          <C.Form key={elKey} actions={actions} schematicKey={schematicKey} />
         )}
       </Form.Form>
     </Flex.Box>

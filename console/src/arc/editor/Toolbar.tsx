@@ -7,19 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Arc } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Graph } from "@/arc/editor/graph";
 import { Text } from "@/arc/editor/text";
-import { useSelectOptionalMode } from "@/arc/selectors";
+import { useSelectExists } from "@/arc/selectors";
 
 export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
-  const mode = useSelectOptionalMode(layoutKey);
-  if (mode == null) return null;
+const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  Arc.useEnsureRetrieved({ key: layoutKey });
+  const mode = Arc.useSelectMode({ key: layoutKey });
   if (mode === "text") return <Text.Toolbar layoutKey={layoutKey} />;
   return <Graph.Toolbar layoutKey={layoutKey} />;
+};
+
+export const Toolbar = (props: ToolbarProps): ReactElement | null => {
+  const exists = useSelectExists(props.layoutKey);
+  if (!exists) return null;
+  return <Internal {...props} />;
 };

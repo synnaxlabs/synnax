@@ -41,15 +41,14 @@ export const Controls = ({ state }: ControlsProps) => {
   );
 
   const handleConfigure = useCallback(() => {
+    if (remote == null) return;
     update({
+      ...remote,
       name,
       key: state.key,
-      text: state.text,
-      graph: remote?.graph,
-      mode: state.mode,
       rack: selectedRack,
     });
-  }, [state, update, name, selectedRack, remote]);
+  }, [state.key, update, name, selectedRack, remote]);
 
   const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
   const handleContract = useCallback(() => setExpanded(false), []);
