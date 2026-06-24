@@ -36,10 +36,10 @@ shown as "In Progress"), and outputs the new range key.
 </Details>
 
 ```arc
-range_key := trigger -> ranges.create{name="Terminal Count", color="#3bc454"}
+ranges.create{name="Terminal Count", color="#3bc454"} -> key_ch
 
 func ranges_create() {
-    range_key = ranges.create("Terminal Count", "#3bc454")
+  range_key := ranges.create("Terminal Count", "#3bc454")
 }
 ```
 
