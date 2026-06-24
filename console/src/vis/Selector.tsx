@@ -9,11 +9,11 @@
 
 import { uuid } from "@synnaxlabs/x";
 
+import { LinePlot } from "@/layered/service/lineplot";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
 import { type Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
 import { Selector as BaseSelector } from "@/selector";
 
 export const SELECTABLES: BaseSelector.Selectable[] = [

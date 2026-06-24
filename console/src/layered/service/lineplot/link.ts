@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/layered/session/lineplot";
-export * from "@/layered/session/log";
-export * from "@/layered/session/schematic";
-export * from "@/layered/session/table";
-export * from "@/layered/session/theme";
+import { create } from "@/layered/service/lineplot/layout";
+import { type Link } from "@/link";
+
+export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
+  const linePlot = await client.lineplots.retrieve({ key });
+  placeLayout(create({ key: linePlot.key, name: linePlot.name }));
+};
