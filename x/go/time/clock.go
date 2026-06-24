@@ -69,35 +69,45 @@ func (f *Fake) Now() time.Time {
 }
 
 // After returns a channel that will receive the current time after the duration elapses.
+// The channel is buffered so that Advance's send never blocks, even if an AfterFunc
+// goroutine reading it has already exited via Stop.
 func (f *Fake) After(d time.Duration) <-chan time.Time {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	ch := make(chan time.Time)
+	ch := make(chan time.Time, 1)
 	t := &fakeTimer{at: f.now.Add(d), ch: ch}
 	f.timers = append(f.timers, t)
 	return ch
 }
 
-// AfterFunc waits on a channel registered with After in a goroutine, calling fn unless
-// the returned Timer's Stop method wins the race first. The goroutine always drains the
-// channel, so Advance can still complete its send when a timer is stopped.
+// AfterFunc schedules fn to run from a goroutine after the duration elapses, calling it
+// unless the returned Timer's Stop method wins the race first. Stop also releases the
+// goroutine when the timer is cancelled before Advance crosses its deadline; otherwise a
+// never-fired timer would leak its goroutine.
 func (f *Fake) AfterFunc(d time.Duration, fn func()) Timer {
-	t := &fakeFuncTimer{}
+	t := &fakeFuncTimer{stop: make(chan struct{})}
 	ch := f.After(d)
 	go func() {
-		<-ch
-		if t.claim() {
-			fn()
+		select {
+		case <-ch:
+			if t.claim() {
+				fn()
+			}
+		case <-t.stop:
 		}
 	}()
 	return t
 }
 
 // fakeFuncTimer coordinates the race between Stop and the AfterFunc goroutine: whoever
-// calls claim first wins. Stop winning suppresses fn; the goroutine winning runs fn.
+// calls claim first wins. Stop winning suppresses fn and releases the goroutine; the
+// goroutine winning runs fn.
 type fakeFuncTimer struct {
 	mu      sync.Mutex
 	claimed bool
+	// stop is closed by the winning Stop call to release the AfterFunc goroutine when
+	// the timer is cancelled before its deadline is crossed.
+	stop chan struct{}
 }
 
 func (t *fakeFuncTimer) claim() bool {
@@ -110,7 +120,15 @@ func (t *fakeFuncTimer) claim() bool {
 	return true
 }
 
-func (t *fakeFuncTimer) Stop() bool { return t.claim() }
+// Stop cancels the timer, returning true if it had not already fired or been stopped. On
+// the winning call it releases the AfterFunc goroutine.
+func (t *fakeFuncTimer) Stop() bool {
+	if !t.claim() {
+		return false
+	}
+	close(t.stop)
+	return true
+}
 
 // Advance advances the clock by the given duration. It fires any timers whose deadline
 // has been crossed and removes them from the list of pending timers. Channel sends

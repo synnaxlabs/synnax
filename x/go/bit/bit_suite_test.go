@@ -14,9 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestBit(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Bit Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
