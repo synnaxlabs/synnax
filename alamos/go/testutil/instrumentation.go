@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -83,10 +84,10 @@ func newLogger() *alamos.Logger {
 func newReports() *alamos.Reporter { return testutil.MustSucceed(alamos.NewReporter()) }
 
 // Instrumentation builds Instrumentation from the given config. When tracing is enabled
-// it configures the process-global OpenTelemetry SDK and registers a Ginkgo DeferCleanup
-// that shuts the SDK back down when the enclosing node finishes, releasing the SDK's
-// background goroutines so they do not leak. It must therefore be called from within a
-// Ginkgo node (a spec, BeforeEach, BeforeAll, BeforeSuite, etc.).
+// it configures the process-global OpenTelemetry SDK and registers a Ginkgo
+// DeferCleanup that shuts the SDK back down when the enclosing node finishes, releasing
+// the SDK's background goroutines so they do not leak. It must therefore be called from
+// within a Ginkgo node (a spec, BeforeEach, BeforeAll, BeforeSuite, etc.).
 func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
 	cfg, err := config.New(DefaultInstrumentationConfig, cfgs...)
 	if err != nil {
@@ -95,12 +96,9 @@ func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumen
 	var options []alamos.Option
 	if *cfg.Trace {
 		options = append(options, alamos.WithTracer(newTracer(serviceName())))
-		// uptrace.Shutdown flushes buffered spans and metrics to the dev collector
-		// (devDSN), which is not running during tests, so the flush fails with a
-		// connection error. Stopping the SDK's background goroutines does not depend on
-		// the flush succeeding, so the upload error is expected and dropped — the goal
-		// here is only to release the goroutines.
-		ginkgo.DeferCleanup(func() { _ = uptrace.Shutdown(context.Background()) })
+		ginkgo.DeferCleanup(func(ctx context.Context) {
+			gomega.Expect(uptrace.Shutdown(ctx)).To(gomega.Succeed())
+		})
 	}
 	if *cfg.Log {
 		options = append(options, alamos.WithLogger(newLogger()))
