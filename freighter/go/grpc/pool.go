@@ -46,12 +46,12 @@ type Pool struct {
 	pool.Pool[address.Address, *ClientConn]
 }
 
-// OpenPool returns a Pool that dials connections with the given dial options. targetPrefix
-// is prepended to every acquired address, allowing callers to scope all connections to a
-// common host or namespace.
+// OpenPool returns a Pool that dials connections with the given dial options.
+// targetPrefix is prepended to every acquired address, allowing callers to scope all
+// connections to a common host or namespace.
 func OpenPool(targetPrefix address.Address, dialOpts ...grpc.DialOption) *Pool {
 	return &Pool{
-		Pool: pool.New(&factory{dialOpts: dialOpts, targetPrefix: targetPrefix}),
+		Pool: pool.Open(&factory{dialOpts: dialOpts, targetPrefix: targetPrefix}),
 	}
 }
 

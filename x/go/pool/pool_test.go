@@ -77,7 +77,7 @@ var _ = Describe("Pool", func() {
 	Describe("Acquire", func() {
 		It("returns the same adapter for the same key when it stays healthy", func() {
 			f := newFactory()
-			p := pool.New(f)
+			p := pool.Open(f)
 			defer func() { Expect(p.Close()).To(Succeed()) }()
 
 			a1 := MustSucceed(p.Acquire("k"))
@@ -88,7 +88,7 @@ var _ = Describe("Pool", func() {
 
 		It("creates a new adapter when the cached one is unhealthy", func() {
 			f := newFactory()
-			p := pool.New(f)
+			p := pool.Open(f)
 			defer func() { Expect(p.Close()).To(Succeed()) }()
 
 			a1 := MustSucceed(p.Acquire("k"))
@@ -102,7 +102,7 @@ var _ = Describe("Pool", func() {
 		It("propagates factory errors", func() {
 			f := newFactory()
 			f.failNext = true
-			p := pool.New(f)
+			p := pool.Open(f)
 			defer func() { Expect(p.Close()).To(Succeed()) }()
 
 			_, err := p.Acquire("k")
@@ -111,7 +111,7 @@ var _ = Describe("Pool", func() {
 
 		It("serializes concurrent Acquire calls so the factory only runs once per key", func() {
 			f := newFactory()
-			p := pool.New(f)
+			p := pool.Open(f)
 			defer func() { Expect(p.Close()).To(Succeed()) }()
 
 			const goroutines = 32
@@ -147,7 +147,7 @@ var _ = Describe("Pool", func() {
 	Describe("Close", func() {
 		It("closes every cached adapter", func() {
 			f := newFactory()
-			p := pool.New(f)
+			p := pool.Open(f)
 			MustSucceed(p.Acquire("a"))
 			MustSucceed(p.Acquire("b"))
 
@@ -160,7 +160,7 @@ var _ = Describe("Pool", func() {
 		It("aggregates errors from adapter closes", func() {
 			f := newFactory()
 			f.closeErr = errors.New("adapter: boom")
-			p := pool.New(f)
+			p := pool.Open(f)
 			MustSucceed(p.Acquire("a"))
 			MustSucceed(p.Acquire("b"))
 
@@ -170,7 +170,7 @@ var _ = Describe("Pool", func() {
 
 		It("is idempotent", func() {
 			f := newFactory()
-			p := pool.New(f)
+			p := pool.Open(f)
 			MustSucceed(p.Acquire("a"))
 
 			Expect(p.Close()).To(Succeed())
@@ -184,7 +184,7 @@ var _ = Describe("Pool", func() {
 			// the lock instead of immediately returning ErrClosed.
 			f := newFactory()
 			f.closeBlock = make(chan struct{})
-			p := pool.New(f)
+			p := pool.Open(f)
 			MustSucceed(p.Acquire("a"))
 
 			closeReturned := make(chan error, 1)
@@ -208,7 +208,7 @@ var _ = Describe("Pool", func() {
 	Describe("Acquire after Close", func() {
 		It("returns ErrClosed", func() {
 			f := newFactory()
-			p := pool.New(f)
+			p := pool.Open(f)
 			Expect(p.Close()).To(Succeed())
 
 			_, err := p.Acquire("a")

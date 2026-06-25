@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/types"
 )
 
 // ErrClosed is returned by Acquire after Close has been called.
@@ -62,45 +63,48 @@ type Pool[K comparable, A Adapter] interface {
 	io.Closer
 }
 
-// New returns a Pool that opens adapters on demand via factory.
-func New[K comparable, A Adapter](factory Factory[K, A]) Pool[K, A] {
-	return &core[K, A]{pool: make(map[K][]A), factory: factory}
+// Open returns a Pool that opens adapters on demand via factory.
+func Open[K comparable, A Adapter](factory Factory[K, A]) Pool[K, A] {
+	return &pool[K, A]{pool: make(map[K][]A), factory: factory}
 }
 
-type core[K comparable, A Adapter] struct {
+type pool[K comparable, A Adapter] struct {
 	factory Factory[K, A]
 	pool    map[K][]A
 	mu      sync.Mutex
 }
 
 // Acquire implements the Pool interface.
-func (p *core[K, A]) Acquire(key K) (a A, err error) {
+func (p *pool[K, A]) Acquire(key K) (A, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.pool == nil {
-		return a, ErrClosed
+		return types.Zero[A](), ErrClosed
 	}
 	if adapters, ok := p.pool[key]; ok {
 		for _, adapter := range adapters {
 			if adapter.Healthy() {
-				return adapter, adapter.Acquire()
+				if err := adapter.Acquire(); err != nil {
+					return types.Zero[A](), err
+				}
+				return adapter, nil
 			}
 		}
 	}
-	return p.new(key)
+	return p.open(key)
 }
 
 // Close implements the Pool interface.
-func (p *core[K, A]) Close() error {
+func (p *pool[K, A]) Close() error {
 	p.mu.Lock()
 	adapters := p.pool
 	p.pool = nil
 	p.mu.Unlock()
 
-	// Adapter teardowns happen outside the lock so a slow Close (e.g. grpc
-	// client connection shutdown waiting on its internal WaitGroup) does not
-	// block concurrent callers and cannot deadlock if an adapter's Close
-	// path ever calls back into the pool.
+	// Adapter teardowns happen outside the lock so a slow Close (e.g. gRPC client
+	// connection shutdown waiting on its internal WaitGroup) does not block concurrent
+	// callers and cannot deadlock if an adapter's Close path ever calls back into the
+	// pool.
 	var err error
 	for _, group := range adapters {
 		for _, adapter := range group {
@@ -110,10 +114,10 @@ func (p *core[K, A]) Close() error {
 	return err
 }
 
-func (p *core[K, A]) new(key K) (a A, err error) {
-	a, err = p.factory.Open(key)
+func (p *pool[K, A]) open(key K) (A, error) {
+	a, err := p.factory.Open(key)
 	if err != nil {
-		return a, err
+		return types.Zero[A](), err
 	}
 	p.pool[key] = append(p.pool[key], a)
 	return a, nil
