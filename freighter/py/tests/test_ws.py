@@ -60,9 +60,7 @@ def sync_client(endpoint: URL) -> WebsocketClient:
 
 @pytest.fixture
 def unary_client(endpoint: URL) -> HTTPClient:
-    http_endpoint = endpoint.child("unary")
-    json_codec = JSONCodec()
-    return HTTPClient(http_endpoint, json_codec, [json_codec])
+    return HTTPClient(endpoint.child("unary"), JSONCodec())
 
 
 @pytest.mark.ws

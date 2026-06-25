@@ -23,18 +23,7 @@ from .interface import Error, Message
 
 @pytest.fixture
 def client(endpoint: URL) -> HTTPClient:
-    http_endpoint = endpoint.child("unary")
-    json_codec = JSONCodec()
-    msgpack_codec = MessagePackCodec()
-    return HTTPClient(http_endpoint, json_codec, [json_codec, msgpack_codec])
-
-
-@pytest.mark.http
-class TestConstructor:
-    def test_empty_decoders_raises_value_error(self, endpoint: URL) -> None:
-        """Should reject construction when no decoders are provided."""
-        with pytest.raises(ValueError, match="at least one response decoder"):
-            HTTPClient(endpoint.child("unary"), JSONCodec(), [])
+    return HTTPClient(endpoint.child("unary"), JSONCodec())
 
 
 @pytest.mark.http
@@ -98,6 +87,38 @@ class TestUpload:
 
 
 @pytest.mark.http
+class TestFileContentTypeNegotiation:
+    """The file body's Content-Type (upload) and Accept (download) are derived from the
+    file path's extension at call time, independently of the codec used for the typed
+    request/response. The two need not agree: the codec here is JSON, while the file
+    body is MessagePack."""
+
+    def test_upload_content_type_derived_from_extension(
+        self, endpoint: URL, tmp_path: Path
+    ) -> None:
+        """An upload streams a MessagePack file body (Content-Type from the .msgpack
+        extension) while the typed response is decoded via the JSON codec."""
+        client = HTTPClient(endpoint.child("unary"), JSONCodec())
+        path = tmp_path / "in.msgpack"
+        path.write_bytes(MessagePackCodec().encode(Message(id=1, message="hello")))
+        res = client.upload("/echo", path, Message)
+        assert res.id == 2
+        assert res.message == "hello"
+
+    def test_download_accept_derived_from_extension(
+        self, endpoint: URL, tmp_path: Path
+    ) -> None:
+        """A download requests application/msgpack (Accept from the .msgpack
+        destination) while the typed request is encoded via the JSON codec."""
+        client = HTTPClient(endpoint.child("unary"), JSONCodec())
+        out = tmp_path / "out.msgpack"
+        client.download("/echo", Message(id=1, message="hi"), out)
+        parsed = MessagePackCodec().decode(out.read_bytes(), Message)
+        assert parsed.message == "hi"
+        assert parsed.id == 2
+
+
+@pytest.mark.http
 class TestRetries:
     """Exercises retry behavior against the server's /flakyUnavailable endpoint, which
     responds 503 to the first request for a given message and succeeds on every retry. A
@@ -113,11 +134,9 @@ class TestRetries:
 
     @staticmethod
     def _retrying_client(endpoint: URL) -> HTTPClient:
-        json_codec = JSONCodec()
         return HTTPClient(
             endpoint.child("unary"),
-            json_codec,
-            [json_codec],
+            JSONCodec(),
             retries=Retry(total=2, status_forcelist=[503], allowed_methods=None),
         )
 

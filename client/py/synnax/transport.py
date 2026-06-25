@@ -62,8 +62,7 @@ class Transport:
         self.stream_async = AsyncWebsocketClient(**ws_args)
         http = HTTPClient(
             url=self.url,
-            encoder=codec,
-            decoders=[codec],
+            codec=codec,
             secure=secure,
             timeout=Timeout(connect=open_timeout.seconds, read=read_timeout.seconds),
             retries=Retry(total=max_retries),

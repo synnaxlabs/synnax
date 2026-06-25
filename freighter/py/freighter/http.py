@@ -9,7 +9,7 @@
 
 import os
 import pathlib
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from typing import IO, Any
 
 import urllib3
@@ -17,9 +17,9 @@ from urllib3 import PoolManager, Retry
 from urllib3.exceptions import MaxRetryError
 from urllib3.response import BaseHTTPResponse
 
+from freighter.codec import Codec
 from freighter.context import Context
 from freighter.exceptions import Unreachable
-from freighter.file import FileCodec
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.url import URL
 from x.exceptions import ExceptionPayload, decode_exception
@@ -27,58 +27,71 @@ from x.file import FilePath, stream_to_file
 
 _CONTENT_TYPE_HEADER_KEY = "Content-Type"
 
+# Wire content types negotiated for streamed file bodies, keyed by file extension. A
+# file body is streamed verbatim and never parsed by the client, so only an extension
+# to content-type mapping is required; add an entry to negotiate a new on-disk format
+# (e.g. "yaml": "application/yaml").
+_FILE_CONTENT_TYPES: dict[str, str] = {
+    "json": "application/json",
+    "msgpack": "application/msgpack",
+}
+
+
+def _file_content_type(path: FilePath) -> str:
+    """:returns: the wire content type negotiated for path's extension.
+
+    :raises ValueError: if the extension has no registered content type.
+    """
+    ext = pathlib.Path(os.fspath(path)).suffix.lstrip(".").lower()
+    content_type = _FILE_CONTENT_TYPES.get(ext)
+    if content_type is None:
+        raise ValueError(
+            f"no content type registered for file extension {ext!r} "
+            f"(path: {os.fspath(path)!r})"
+        )
+    return content_type
+
 
 class HTTPClient(MiddlewareCollector):
     """
-    HTTPClient is a urllib3-backed transport implementing UnaryClient and FileClient:
+    HTTPClient is a urllib3-backed transport implementing UnaryClient and FileClient.
 
-    - send: typed request, typed response, both via the configured encoder/decoders
-      (UnaryClient).
-    - upload: a file path as the request body, with a typed response. Bytes are streamed
-      from disk in fixed-size blocks so the full body is never held in memory; the
-      Content-Type is inferred from the path's extension (FileClient).
-    - download: a typed request, with the response streamed directly into a destination
-      file path; the Accept header is derived from the destination extension
+    A single codec encodes and decodes the typed request and response payloads. The
+    Content-Type and Accept headers for a streamed file body are derived from the file
+    path's extension at call time — the body is streamed verbatim, so the client never
+    (de)serializes the file and supports any on-disk format the server understands.
+
+    - send: typed request, typed response, both via the codec (UnaryClient).
+    - upload: a file path as the request body — the Content-Type is derived from the
+      path extension — with a typed response decoded via the codec. Bytes are streamed
+      from disk in fixed-size blocks so the full body is never held in memory
+      (FileClient).
+    - download: a typed request encoded via the codec, with the response streamed
+      directly into a destination file path whose extension drives the Accept header
       (FileClient).
     """
 
     _pool: PoolManager
     _endpoint: URL
-    _encoder: FileCodec
-    _decoders: tuple[FileCodec, ...]
-    _decoders_by_content_type: dict[str, FileCodec]
-    _codecs_by_extension: dict[str, FileCodec]
-    _accept_header: str
+    _codec: Codec
 
     def __init__(
         self,
         url: URL,
-        encoder: FileCodec,
-        decoders: Sequence[FileCodec],
+        codec: Codec,
         secure: bool = False,
         **kwargs: Any,
     ) -> None:
         """
         :param url: The base URL for the client.
-        :param encoder: The codec used to encode outgoing typed requests.
-        :param decoders: The codecs the client is willing to decode responses from. Sent
-            as the Accept header. Must not be empty.
+        :param codec: The codec used to encode and decode typed request and response
+            payloads.
         :param secure: Whether to use HTTPS.
         """
-        if len(decoders) == 0:
-            raise ValueError("HTTPClient requires at least one response decoder")
         super().__init__()
         self._endpoint = url
         self._endpoint.protocol = "https" if secure else "http"
-        self._encoder = encoder
-        self._decoders = tuple(decoders)
-        self._decoders_by_content_type = {
-            c.content_type(): c for c in (encoder, *self._decoders)
-        }
-        self._codecs_by_extension = {
-            c.file_extension(): c for c in (encoder, *self._decoders)
-        }
-        self._accept_header = ", ".join(d.content_type() for d in self._decoders)
+        self._codec = codec
         self._pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
         urllib3.disable_warnings()
 
@@ -86,8 +99,8 @@ class HTTPClient(MiddlewareCollector):
         """Implements the UnaryClient protocol — typed request, typed response."""
         return self._typed_response_request(
             target=target,
-            body=self._encoder.encode(req),
-            content_type=self._encoder.content_type(),
+            body=self._codec.encode(req),
+            content_type=self._codec.content_type(),
             res_t=res_t,
         )
 
@@ -95,8 +108,9 @@ class HTTPClient(MiddlewareCollector):
         """
         Streams the file at req to target and decodes the response into res_t. The file
         object is handed to urllib3 as the request body and read in fixed-size blocks,
-        so the full body never has to fit in memory. The Content-Type is inferred from
-        the file extension via the client's registered codecs.
+        so the full body never has to fit in memory. The Content-Type is derived from the
+        file path's extension, while the typed response is decoded via the codec — the
+        two need not agree.
 
         Retries are disabled for uploads because an upload mutates server state and is
         not assumed to be idempotent: a transient failure that occurs after the server
@@ -106,12 +120,11 @@ class HTTPClient(MiddlewareCollector):
         the concern is request semantics, not the body.) A failed upload surfaces to the
         caller instead, leaving the retry decision to the caller.
         """
-        codec = self._codec_for_path(req)
         with open(req, "rb") as f:
             return self._typed_response_request(
                 target=target,
                 body=f,
-                content_type=codec.content_type(),
+                content_type=_file_content_type(req),
                 res_t=res_t,
                 retries=False,
             )
@@ -120,24 +133,23 @@ class HTTPClient(MiddlewareCollector):
         """
         Sends req to target and streams the response body directly into dest, without
         buffering the full body in memory; the Accept header is derived from the dest
-        extension via the client's registered codecs (e.g., a .json destination requests
-        application/json), so the on-disk format and the negotiated wire format are
-        guaranteed to match.
+        path's extension (e.g. a .json destination requests application/json), while the
+        typed request is encoded via the codec.
 
         The body is streamed into a temporary file alongside dest and atomically renamed
         into place on success, so dest only ever holds the previous contents or the
         complete new contents — a mid-stream failure leaves any existing dest untouched.
         """
-        dest_codec = self._codec_for_path(dest)
+        accept = _file_content_type(dest)
         url = self._build_url(target)
 
         def finalizer(ctx: Context) -> Context:
             http_res, out_ctx = self._request(
                 ctx,
                 url=url,
-                content_type=self._encoder.content_type(),
-                accept=dest_codec.content_type(),
-                body=self._encoder.encode(req),
+                content_type=self._codec.content_type(),
+                accept=accept,
+                body=self._codec.encode(req),
                 preload_content=False,
             )
             try:
@@ -151,15 +163,6 @@ class HTTPClient(MiddlewareCollector):
 
     def _build_url(self, target: str) -> str:
         return self._endpoint.child(target).stringify()
-
-    def _codec_for_path(self, path: FilePath) -> FileCodec:
-        ext = pathlib.Path(os.fspath(path)).suffix.lstrip(".").lower()
-        codec = self._codecs_by_extension.get(ext)
-        if codec is None:
-            raise ValueError(
-                f"no codec registered for file extension {ext!r} (path: {os.fspath(path)!r})"
-            )
-        return codec
 
     def _headers(self, content_type: str, accept: str) -> dict[str, str]:
         return {
@@ -184,15 +187,14 @@ class HTTPClient(MiddlewareCollector):
                 ctx,
                 url=url,
                 content_type=content_type,
-                accept=self._accept_header,
+                accept=self._codec.content_type(),
                 body=body,
                 preload_content=True,
                 retries=retries,
             )
             if http_res.data is None or len(http_res.data) == 0:
                 raise ValueError(f"expected a non-empty response body from {url!r}")
-            decoder = self._resolve_decoder(http_res)
-            res_container[0] = decoder.decode(http_res.data, res_t)
+            res_container[0] = self._codec.decode(http_res.data, res_t)
             return out_ctx
 
         self.exec(in_ctx, finalizer)
@@ -234,9 +236,8 @@ class HTTPClient(MiddlewareCollector):
         out_ctx.params = http_res.headers
         if not 200 <= http_res.status < 300:
             try:
-                decoder = self._resolve_decoder(http_res)
                 try:
-                    payload = decoder.decode(http_res.data, ExceptionPayload)
+                    payload = self._codec.decode(http_res.data, ExceptionPayload)
                 except Exception as e:
                     raise ValueError(
                         f"undecodable error response: {http_res.data!r}"
@@ -249,10 +250,3 @@ class HTTPClient(MiddlewareCollector):
                 if not preload_content:
                     http_res.release_conn()
         return http_res, out_ctx
-
-    def _resolve_decoder(self, http_res: BaseHTTPResponse) -> FileCodec:
-        ct = http_res.headers.get(_CONTENT_TYPE_HEADER_KEY, "")
-        decoder = self._decoders_by_content_type.get(ct.split(";", 1)[0].strip())
-        if decoder is None:
-            raise ValueError(f"no decoder registered for response Content-Type {ct!r}")
-        return decoder
