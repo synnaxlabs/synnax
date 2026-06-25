@@ -35,14 +35,14 @@ func (n *Network) New(addr address.Address, buffers ...int) iterator.Transport {
 }
 
 type transport struct {
-	client iterator.StreamClient
-	server iterator.StreamServer
+	client iterator.Client
+	server iterator.Server
 }
 
 var _ iterator.Transport = transport{}
 
 // Client implements the iterator.Transport interface.
-func (t transport) Client() iterator.StreamClient { return t.client }
+func (t transport) Client() iterator.Client { return t.client }
 
 // Server implements the iterator.Transport interface.
-func (t transport) Server() iterator.StreamServer { return t.server }
+func (t transport) Server() iterator.Server { return t.server }

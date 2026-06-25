@@ -28,7 +28,8 @@ type Command uint8
 const AutoSpan = ts.AutoSpan
 
 const (
-	// CommandNext advances the iterator forward by a span and returns the data in range.
+	// CommandNext advances the iterator forward by a span and returns the data in
+	// range.
 	CommandNext Command = iota + 1
 	// CommandPrev moves the iterator backward by a span and returns the data in range.
 	CommandPrev
@@ -63,8 +64,8 @@ type Request struct {
 	// DownsampleFactor should only be set when opening the Iterator.
 	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
 	// SeqNum is the sequence number of the request (starting at 0). This is used to
-	// match responses to requests. Each request should increment the sequence number
-	// by 1.
+	// match responses to requests. Each request should increment the sequence number by
+	// 1.
 	SeqNum int
 	// Command is the command to execute on the Iterator.
 	Command Command `json:"command" msgpack:"command"`
@@ -112,18 +113,18 @@ type (
 	// ServerStream is the server-side of an iterator stream, receiving Requests from
 	// and sending Responses to a remote Core.
 	ServerStream = freighter.ServerStream[Request, Response]
-	// StreamClient is the client-side interface for opening an iterator stream to a
+	// Client is the client-side interface for opening an iterator stream to a
 	// remote Core.
-	StreamClient = freighter.StreamClient[Request, Response]
-	// StreamServer is the server-side interface for handling iterator streams from a
+	Client = freighter.StreamClient[Request, Response]
+	// Server is the server-side interface for handling iterator streams from a
 	// remote Core.
-	StreamServer = freighter.StreamServer[Request, Response]
+	Server = freighter.StreamServer[Request, Response]
 )
 
 // Transport is the interface for the iterator transport.
 type Transport interface {
 	// Client returns the client-side interface for opening iterator streams.
-	Client() StreamClient
+	Client() Client
 	// Server returns the server-side interface for handling iterator streams.
-	Server() StreamServer
+	Server() Server
 }

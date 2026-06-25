@@ -35,8 +35,8 @@ type (
 )
 
 var (
-	_ iterator.StreamServer          = (*server)(nil)
-	_ iterator.StreamClient          = (*client)(nil)
+	_ iterator.Server                = (*server)(nil)
+	_ iterator.Client                = (*client)(nil)
 	_ framerpb.IteratorServiceServer = (*server)(nil)
 	_ iterator.Transport             = Transport{}
 )
@@ -80,10 +80,10 @@ func New(pool *fgrpc.Pool) Transport {
 }
 
 // Client implements the iterator.Transport interface.
-func (t Transport) Client() iterator.StreamClient { return t.client }
+func (t Transport) Client() iterator.Client { return t.client }
 
 // Server implements the iterator.Transport interface.
-func (t Transport) Server() iterator.StreamServer { return t.server }
+func (t Transport) Server() iterator.Server { return t.server }
 
 // BindTo registers the transport's server with the given gRPC service registrar.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) {

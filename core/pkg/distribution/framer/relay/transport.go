@@ -47,18 +47,18 @@ type (
 	// ServerStream is the server-side of a relay stream, receiving Requests from and
 	// sending Responses to a remote Core.
 	ServerStream = freighter.ServerStream[Request, Response]
-	// StreamClient is the client-side interface for opening a relay stream to a remote
+	// Client is the client-side interface for opening a relay stream to a remote
 	// Core.
-	StreamClient = freighter.StreamClient[Request, Response]
-	// StreamServer is the server-side interface for handling relay streams from a remote
+	Client = freighter.StreamClient[Request, Response]
+	// Server is the server-side interface for handling relay streams from a remote
 	// Core.
-	StreamServer = freighter.StreamServer[Request, Response]
+	Server = freighter.StreamServer[Request, Response]
 )
 
 // Transport is the interface for the relay transport.
 type Transport interface {
 	// Client returns the client-side interface for opening relay streams.
-	Client() StreamClient
+	Client() Client
 	// Server returns the server-side interface for handling relay streams.
-	Server() StreamServer
+	Server() Server
 }

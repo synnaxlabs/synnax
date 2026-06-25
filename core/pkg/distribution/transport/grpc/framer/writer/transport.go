@@ -35,8 +35,8 @@ type (
 )
 
 var (
-	_ writer.StreamServer          = (*server)(nil)
-	_ writer.StreamClient          = (*client)(nil)
+	_ writer.Server                = (*server)(nil)
+	_ writer.Client                = (*client)(nil)
 	_ framerpb.WriterServiceServer = (*server)(nil)
 	_ writer.Transport             = Transport{}
 )
@@ -80,10 +80,10 @@ func New(pool *fgrpc.Pool) Transport {
 }
 
 // Client implements the writer.Transport interface.
-func (t Transport) Client() writer.StreamClient { return t.client }
+func (t Transport) Client() writer.Client { return t.client }
 
 // Server implements the writer.Transport interface.
-func (t Transport) Server() writer.StreamServer { return t.server }
+func (t Transport) Server() writer.Server { return t.server }
 
 // BindTo registers the transport's server with the given gRPC service registrar.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) {

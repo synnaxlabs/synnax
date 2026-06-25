@@ -35,14 +35,14 @@ func (n *Network) New(addr address.Address, buffers ...int) relay.Transport {
 }
 
 type transport struct {
-	client relay.StreamClient
-	server relay.StreamServer
+	client relay.Client
+	server relay.Server
 }
 
 var _ relay.Transport = transport{}
 
 // Client implements the relay.Transport interface.
-func (t transport) Client() relay.StreamClient { return t.client }
+func (t transport) Client() relay.Client { return t.client }
 
 // Server implements the relay.Transport interface.
-func (t transport) Server() relay.StreamServer { return t.server }
+func (t transport) Server() relay.Server { return t.server }

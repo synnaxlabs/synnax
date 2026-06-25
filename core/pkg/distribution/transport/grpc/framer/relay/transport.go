@@ -35,8 +35,8 @@ type (
 )
 
 var (
-	_ relay.StreamServer          = (*server)(nil)
-	_ relay.StreamClient          = (*client)(nil)
+	_ relay.Server                = (*server)(nil)
+	_ relay.Client                = (*client)(nil)
 	_ framerpb.RelayServiceServer = (*server)(nil)
 	_ relay.Transport             = Transport{}
 )
@@ -80,10 +80,10 @@ func New(pool *fgrpc.Pool) Transport {
 }
 
 // Client implements the relay.Transport interface.
-func (t Transport) Client() relay.StreamClient { return t.client }
+func (t Transport) Client() relay.Client { return t.client }
 
 // Server implements the relay.Transport interface.
-func (t Transport) Server() relay.StreamServer { return t.server }
+func (t Transport) Server() relay.Server { return t.server }
 
 // BindTo registers the transport's server with the given gRPC service registrar.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
