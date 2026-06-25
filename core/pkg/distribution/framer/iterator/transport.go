@@ -113,11 +113,11 @@ type (
 	// ServerStream is the server-side of an iterator stream, receiving Requests from
 	// and sending Responses to a remote Core.
 	ServerStream = freighter.ServerStream[Request, Response]
-	// Client is the client-side interface for opening an iterator stream to a
-	// remote Core.
+	// Client is the client-side interface for opening an iterator stream to a remote
+	// Core.
 	Client = freighter.StreamClient[Request, Response]
-	// Server is the server-side interface for handling iterator streams from a
-	// remote Core.
+	// Server is the server-side interface for handling iterator streams from a remote
+	// Core.
 	Server = freighter.StreamServer[Request, Response]
 )
 

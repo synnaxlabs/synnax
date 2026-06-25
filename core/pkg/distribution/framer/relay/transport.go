@@ -27,8 +27,8 @@ type Request struct {
 type Response struct {
 	// Frame holds the live samples for the subscribed channels.
 	Frame frame.Frame `json:"frame" msgpack:"frame"`
-	// Group identifies the control group that produced the frame, used to filter relayed
-	// frames (see relay ExcludeGroups).
+	// Group identifies the control group that produced the frame, used to filter
+	// relayed frames (see relay ExcludeGroups).
 	Group uint32 `json:"group" msgpack:"group"`
 }
 
@@ -47,8 +47,7 @@ type (
 	// ServerStream is the server-side of a relay stream, receiving Requests from and
 	// sending Responses to a remote Core.
 	ServerStream = freighter.ServerStream[Request, Response]
-	// Client is the client-side interface for opening a relay stream to a remote
-	// Core.
+	// Client is the client-side interface for opening a relay stream to a remote Core.
 	Client = freighter.StreamClient[Request, Response]
 	// Server is the server-side interface for handling relay streams from a remote
 	// Core.

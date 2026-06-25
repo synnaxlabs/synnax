@@ -20,7 +20,7 @@ import (
 
 //go:generate stringer -type=Command
 
-// Command is an operation that can be executed on a remote Writer.
+// Command is an operation that can be executed on a Writer.
 type Command uint8
 
 const (
@@ -41,10 +41,11 @@ type Mode = ts.WriterMode
 
 // Request represents a streaming call to a Writer.
 type Request struct {
-	// Config sets the configuration to use when opening the writer. Only used internally
-	// when an open command is sent.
+	// Config sets the configuration to use when opening the writer. Only used
+	// internally when an open command is sent.
 	Config Config `json:"config" msgpack:"config"`
-	// Frame is the telemetry frame. This field is only acknowledged during Write commands.
+	// Frame is the telemetry frame. This field is only acknowledged during Write
+	// commands.
 	Frame frame.Frame `json:"frame" msgpack:"keys"`
 	// SeqNum is used to match the request with the response.
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
@@ -54,21 +55,21 @@ type Request struct {
 
 // Response represents a response to a streaming call to a Writer.
 type Response struct {
-	// Err contains an error that occurred when attempting to execute a request on
-	// a writer.
+	// Err contains an error that occurred when attempting to execute a request on a
+	// writer.
 	Err error `json:"err" msgpack:"err"`
-	// SeqNum is the current sequence number of the command. This value will
-	// correspond to the Request.SeqNum that executed the command.
+	// SeqNum is the current sequence number of the command. This value will correspond
+	// to the Request.SeqNum that executed the command.
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
-	// End is the end timestamp of the domain on commit. This value is only
-	// validate during calls to WriterCommit.
+	// End is the end timestamp of the domain on commit. This value is only validate
+	// during calls to WriterCommit.
 	End telem.TimeStamp `json:"end" msgpack:"end"`
-	// The NodeKey of the node that sent the response.
+	// NodeKey is the NodeKey of the node that sent the response.
 	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// Command is the command that was executed on the writer.
 	Command Command `json:"command" msgpack:"command"`
-	// Authorized flags whether the writer or commit operation was authorized. It is only
-	// valid during calls to WriterWrite and WriterCommit.
+	// Authorized flags whether the writer or commit operation was authorized. It is
+	// only valid during calls to WriterWrite and WriterCommit.
 	Authorized bool `json:"authorized" msgpack:"authorized"`
 }
 
@@ -79,8 +80,7 @@ type (
 	// ServerStream is the server-side of a writer stream, receiving Requests from and
 	// sending Responses to a remote Core.
 	ServerStream = freighter.ServerStream[Request, Response]
-	// Client is the client-side interface for opening a writer stream to a remote
-	// Core.
+	// Client is the client-side interface for opening a writer stream to a remote Core.
 	Client = freighter.StreamClient[Request, Response]
 	// Server is the server-side interface for handling writer streams from a remote
 	// Core.

@@ -17,8 +17,8 @@ import (
 )
 
 // Transport bundles the node-to-node transports for the framer's operations: streaming
-// writes, streaming historical reads (iterator), streaming live reads (relay), and unary
-// deletes.
+// writes, streaming historical reads (iterator), streaming live reads (relay), and
+// unary deletes.
 type Transport interface {
 	// Deleter returns the transport for deleting data from channels.
 	Deleter() deleter.Transport
