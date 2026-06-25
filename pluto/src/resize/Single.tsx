@@ -19,33 +19,11 @@ export interface SingleProps extends Omit<
   BaseProps,
   "hideHandle" | "size" | "onResize" | "onDragStart" | "ref"
 > {
-  /**
-   * The size of the pane, in pixels. Acts as the source of truth whenever the handle is
-   * not being actively dragged; while a drag is in progress the pane renders its
-   * transient drag size instead. Defaults to 200.
-   */
   size?: number;
-  /**
-   * Whether the pane is collapsed. A collapsed pane renders at its collapsed size
-   * regardless of `size`, so the consumer can drive the collapsed state in response to
-   * onCollapse without the pane springing back to its expanded size. Collapse is a
-   * distinct axis from `size`, which is clamped to `sizeBounds`. Defaults to false.
-   */
-  collapsed?: boolean;
   sizeBounds?: Partial<bounds.Bounds>;
-  /**
-   * Called continuously while the handle is being dragged with the live size and the
-   * pane's box. Use for transient, per-frame side effects (e.g. repainting an overlay);
-   * do not persist from here, as it fires once per pointer move.
-   */
   onResize?: (size: number, box: box.Box) => void;
-  /**
-   * Called once when a drag gesture ends with the committed size and the pane's box.
-   * This is the callback to persist the new size to the source of truth.
-   */
   onResizeEnd?: (size: number, box: box.Box) => void;
-  collapseThreshold?: number;
-  onCollapse?: () => void;
+  onDrag?: (region: box.Box) => void;
 }
 
 const COLLAPSED_SIZE = 2;
@@ -53,14 +31,11 @@ const DEFAULT_SIZE = 200;
 const DEFAULT_SIZE_BOUNDS = { lower: 100 };
 
 export const Single = ({
-  onCollapse,
   onResize,
   onResizeEnd,
   location: propsLoc = "left",
   sizeBounds,
   size = DEFAULT_SIZE,
-  collapsed = false,
-  collapseThreshold = Infinity,
   className,
   ...rest
 }: SingleProps): ReactElement => {
