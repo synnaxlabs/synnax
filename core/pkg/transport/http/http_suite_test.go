@@ -35,7 +35,7 @@ func TestHTTP(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	node := distmock.MustOpenNode(ctx)
-	dist = DeferClose(node.Layer)
+	dist = node.Layer
 	insecure := true
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: &insecure,
