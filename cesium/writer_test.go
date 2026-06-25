@@ -39,13 +39,15 @@ var _ = Describe("Writer Behavior", func() {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				db *cesium.DB
-				fs fs.FS
+				db         *cesium.DB
+				fs         fs.FS
+				controlKey = GenerateChannelKey()
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = openDBOnFS(ctx, fs)
+				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "sy_cesium_control")).To(Succeed())
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -1570,18 +1572,10 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Error On ErrUnauthorized Open", func() {
 				var (
-					key        cesium.ChannelKey
-					controlKey = GenerateChannelKey()
-					w1         *cesium.Writer
-					w2         *cesium.Writer
+					key cesium.ChannelKey
+					w1  *cesium.Writer
+					w2  *cesium.Writer
 				)
-				// ConfigureControlUpdateChannel attaches a persistent control-digest
-				// streamWriter (cesium.(*streamWriter).Flow) to the shared db, which
-				// lives until the db is closed in an outer scope.
-				//nolint:leaklint
-				BeforeAll(func(ctx SpecContext) {
-					Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "sy_cesium_control")).To(Succeed())
-				})
 				BeforeEach(func(ctx SpecContext) {
 					key = GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Name: "We", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
