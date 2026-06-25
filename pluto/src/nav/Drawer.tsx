@@ -37,9 +37,14 @@ export interface UseDrawerReturn {
 
 export interface DrawerProps
   extends
-    Omit<BarProps, "onSelect" | "onResize">,
+    Omit<BarProps, "onSelect" | "onResize" | "size">,
     UseDrawerReturn,
-    Partial<Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">> {
+    Partial<
+      Pick<
+        Resize.SingleProps,
+        "onResize" | "onResizeEnd" | "collapseThreshold" | "onCollapse"
+      >
+    > {
   eraseEnabled?: boolean;
 }
 
@@ -59,6 +64,7 @@ export const Drawer = ({
   collapseThreshold = 0.65,
   className,
   onResize,
+  onResizeEnd,
   onCollapse,
   eraseEnabled,
   ...rest
@@ -72,12 +78,19 @@ export const Drawer = ({
   const { erase } = Eraser.use({ enabled: eraseEnabled });
   const handleResize = useCallback(
     (size: number, box: box.Box) => {
-      onResize?.(size, box);
       erase(box);
+      onResize?.(size, box);
     },
-    [onResize, erase],
+    [erase, onResize],
   );
-  const { content, sizeBounds, initialSize = 0 } = activeItem ?? {};
+  const handleResizeEnd = useCallback(
+    (size: number, box: box.Box) => {
+      erase(box);
+      onResizeEnd?.(size, box);
+    },
+    [erase, onResizeEnd],
+  );
+  const { content, sizeBounds, initialSize: size = 0 } = activeItem ?? {};
   return (
     <Resize.Single
       className={CSS(
@@ -90,8 +103,9 @@ export const Drawer = ({
       onCollapse={handleCollapse}
       location={loc_}
       onResize={handleResize}
+      onResizeEnd={handleResizeEnd}
       sizeBounds={sizeBounds}
-      initialSize={initialSize}
+      size={size}
       {...rest}
     >
       <Errors.Boundary>{content}</Errors.Boundary>

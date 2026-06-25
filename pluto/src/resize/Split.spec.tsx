@@ -74,37 +74,54 @@ describe("Resize.Split", () => {
 
   it("should grow the first pane when the handle is dragged forward", () => {
     const onResize = vi.fn();
-    const c = renderSplit({ initialSize: 0.5, onResize });
+    const c = renderSplit({ size: 0.5, onResize });
     drag(c, { from: 500, to: 600 });
     expect(lastSize(onResize)).toBeCloseTo(0.6);
   });
 
   it("should shrink the first pane when the handle is dragged backward", () => {
     const onResize = vi.fn();
-    const c = renderSplit({ initialSize: 0.5, onResize });
+    const c = renderSplit({ size: 0.5, onResize });
     drag(c, { from: 500, to: 350 });
     expect(lastSize(onResize)).toBeCloseTo(0.35);
   });
 
   it("should clamp the first pane to the minimum size", () => {
     const onResize = vi.fn();
-    const c = renderSplit({ initialSize: 0.5, minSize: 100, onResize });
+    const c = renderSplit({ size: 0.5, minSize: 100, onResize });
     drag(c, { from: 500, to: -10000 });
     expect(lastSize(onResize)).toBeCloseTo(100 / PARENT_SIZE);
   });
 
   it("should clamp so the second pane keeps the minimum size", () => {
     const onResize = vi.fn();
-    const c = renderSplit({ initialSize: 0.5, minSize: 100, onResize });
+    const c = renderSplit({ size: 0.5, minSize: 100, onResize });
     drag(c, { from: 500, to: 10000 });
     expect(lastSize(onResize)).toBeCloseTo(1 - 100 / PARENT_SIZE);
   });
 
-  it("should report the clean ratio while offsetting an even split for re-render", () => {
+  it("should commit the final ratio once on drag end", () => {
+    const onResizeEnd = vi.fn();
+    const c = renderSplit({ size: 0.5, onResizeEnd });
+    drag(c, { from: 500, to: 600 });
+    expect(onResizeEnd).toHaveBeenCalledTimes(1);
+    expect(lastSize(onResizeEnd)).toBeCloseTo(0.6);
+  });
+
+  it("should not report a resize on mount", () => {
     const onResize = vi.fn();
-    const c = renderSplit({ initialSize: 0.5, onResize });
-    expect(lastSize(onResize)).toBeCloseTo(0.5);
+    const onResizeEnd = vi.fn();
+    renderSplit({ size: 0.5, onResize, onResizeEnd });
+    expect(onResize).not.toHaveBeenCalled();
+    expect(onResizeEnd).not.toHaveBeenCalled();
+  });
+
+  it("should offset an even split for re-render without reporting the offset", () => {
+    const onResize = vi.fn();
+    const c = renderSplit({ size: 0.5, onResize });
     const [first, last] = panesOf(c);
     expect(first.style.width).not.toEqual(last.style.width);
+    drag(c, { from: 500, to: 500 });
+    expect(lastSize(onResize)).toBeCloseTo(0.5);
   });
 });

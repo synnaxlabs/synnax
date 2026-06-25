@@ -13,7 +13,6 @@ import {
   type ReactElement,
   type ReactNode,
   useCallback,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -32,14 +31,24 @@ export interface SplitProps extends Omit<
    * right/bottom. Exactly two children are required. */
   children: [ReactNode, ReactNode];
   /**
-   * The fraction of the container occupied by the first pane on mount, as a decimal
-   * between 0 and 1. Defaults to 0.5.
+   * The fraction of the container occupied by the first pane, as a decimal between 0 and
+   * 1. Acts as the source of truth whenever the handle is not being actively dragged;
+   * while a drag is in progress the panes render their transient drag ratio instead.
+   * Defaults to 0.5.
    */
-  initialSize?: number;
+  size?: number;
   /** The smallest size, in pixels, either pane can be resized to. Defaults to 100. */
   minSize?: number;
-  /** Called with the first pane's fraction (0..1) whenever the panes are resized. */
+  /**
+   * Called continuously while the handle is being dragged with the first pane's live
+   * fraction (0..1). Use for transient, per-frame side effects; do not persist from here.
+   */
   onResize?: (size: number) => void;
+  /**
+   * Called once when a drag gesture ends with the committed fraction (0..1). This is the
+   * callback to persist the new ratio to the source of truth.
+   */
+  onResizeEnd?: (size: number) => void;
 }
 
 /**
@@ -63,9 +72,10 @@ const HALF_SPLIT = 0.5;
  */
 export const Split = ({
   onResize,
+  onResizeEnd,
   children,
   className,
-  initialSize = HALF_SPLIT,
+  size = HALF_SPLIT,
   minSize = 100,
   align = "stretch",
   direction: propsDirection,
@@ -77,36 +87,53 @@ export const Split = ({
   const dir = Flex.parseDirection(propsDirection, x, y, pack) ?? "x";
   const loc = direction.location(dir);
   const ref = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState(initialSize);
-  const start = useRef(initialSize);
+  const [dragSize, setDragSize] = useState<number | null>(null);
+  const rendered = dragSize ?? size;
+  const start = useRef(size);
   const [first, last] = Children.toArray(children);
 
-  useEffect(() => onResize?.(size), [size, onResize]);
+  const handleStart = useCallback(() => {
+    start.current = size;
+  }, [size]);
 
-  const handleStart = useCallback(
-    () =>
-      setSize((prev) => {
-        start.current = prev;
-        return prev;
-      }),
-    [],
-  );
-
-  const handleMove = useCallback(
-    (region: box.Box) => {
-      if (ref.current == null) return;
+  const calcNextSize = useCallback(
+    (region: box.Box): number | null => {
+      if (ref.current == null) return null;
       const parentSize = box.dim(box.construct(ref.current), dir);
-      if (parentSize === 0) return;
+      if (parentSize === 0) return null;
       const min = Math.min(minSize / parentSize, 0.5);
       const diff = box.dim(region, dir, true) / parentSize;
-      setSize(bounds.clamp({ lower: min, upper: 1 - min }, start.current + diff));
+      return bounds.clamp({ lower: min, upper: 1 - min }, start.current + diff);
     },
     [dir, minSize],
   );
 
-  const handleDragStart = useCursorDrag({ onStart: handleStart, onMove: handleMove });
+  const handleMove = useCallback(
+    (region: box.Box) => {
+      const next = calcNextSize(region);
+      if (next == null) return;
+      setDragSize(next);
+      onResize?.(next);
+    },
+    [calcNextSize, onResize],
+  );
 
-  const offset = math.closeTo(size, HALF_SPLIT, DELTA) ? DELTA : 0;
+  const handleEnd = useCallback(
+    (region: box.Box) => {
+      const next = calcNextSize(region);
+      setDragSize(null);
+      if (next != null) onResizeEnd?.(next);
+    },
+    [calcNextSize, onResizeEnd],
+  );
+
+  const handleDragStart = useCursorDrag({
+    onStart: handleStart,
+    onMove: handleMove,
+    onEnd: handleEnd,
+  });
+
+  const offset = math.closeTo(rendered, HALF_SPLIT, DELTA) ? DELTA : 0;
   return (
     <Flex.Box
       {...rest}
@@ -117,10 +144,15 @@ export const Split = ({
       empty
       grow
     >
-      <Base location={loc} size={size + offset} decimal onDragStart={handleDragStart}>
+      <Base
+        location={loc}
+        size={rendered + offset}
+        decimal
+        onDragStart={handleDragStart}
+      >
         {first}
       </Base>
-      <Base location={loc} size={1 - size - offset} decimal hideHandle>
+      <Base location={loc} size={1 - rendered - offset} decimal hideHandle>
         {last}
       </Base>
     </Flex.Box>

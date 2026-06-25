@@ -7,18 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type xy } from "@synnaxlabs/x";
+import { type box, type xy } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
+import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Resize } from "@/resize";
 
-const renderSingle = (props: Resize.SingleProps): ReturnType<typeof render> =>
-  render(
-    <Resize.Single {...props}>
+// Single is controlled: it renders the committed size when idle and a transient drag
+// size while dragging. This harness mirrors a real consumer by committing onResizeEnd
+// back into the controlled size, so the pane reflects a completed drag.
+const ControlledSingle = ({
+  size: initial = 200,
+  onResizeEnd,
+  ...props
+}: Resize.SingleProps): ReactElement => {
+  const [size, setSize] = useState(initial);
+  return (
+    <Resize.Single
+      size={size}
+      onResizeEnd={(s: number, b: box.Box) => {
+        setSize(s);
+        onResizeEnd?.(s, b);
+      }}
+      {...props}
+    >
       <p>Hello</p>
-    </Resize.Single>,
+    </Resize.Single>
   );
+};
+
+const renderSingle = (props: Resize.SingleProps): ReturnType<typeof render> =>
+  render(<ControlledSingle {...props} />);
 
 const paneOf = (c: ReturnType<typeof render>): HTMLElement => {
   const pane = c.container.querySelector<HTMLElement>(".pluto-resize");
@@ -48,7 +68,7 @@ const lastSize = (onResize: ReturnType<typeof vi.fn>): number =>
 
 describe("Resize.Single", () => {
   it("should render its children", () => {
-    const c = renderSingle({ location: "left", initialSize: 50 });
+    const c = renderSingle({ location: "left", size: 50 });
     expect(c.getByText("Hello")).toBeTruthy();
   });
 
@@ -59,24 +79,24 @@ describe("Resize.Single", () => {
 
   describe("initial size", () => {
     it("should apply the initial size as width for a horizontal location", () => {
-      const c = renderSingle({ location: "left", initialSize: 240 });
+      const c = renderSingle({ location: "left", size: 240 });
       expect(paneOf(c).style.width).toEqual("240px");
     });
 
     it("should apply the initial size as height for a vertical location", () => {
-      const c = renderSingle({ location: "top", initialSize: 180 });
+      const c = renderSingle({ location: "top", size: 180 });
       expect(paneOf(c).style.height).toEqual("180px");
     });
 
     it("should clamp an initial size below the lower bound", () => {
-      const c = renderSingle({ location: "left", initialSize: 40 });
+      const c = renderSingle({ location: "left", size: 40 });
       expect(paneOf(c).style.width).toEqual("100px");
     });
 
     it("should clamp an initial size above the upper bound", () => {
       const c = renderSingle({
         location: "left",
-        initialSize: 800,
+        size: 800,
         sizeBounds: { lower: 100, upper: 300 },
       });
       expect(paneOf(c).style.width).toEqual("300px");
@@ -124,7 +144,7 @@ describe("Resize.Single", () => {
       "should resize to $expected when dragged from a $location location",
       ({ location, from, to, dimension, expected }) => {
         const onResize = vi.fn();
-        const c = renderSingle({ location, initialSize: 200, onResize });
+        const c = renderSingle({ location, size: 200, onResize });
         drag(c, from, to);
         expect(lastSize(onResize)).toEqual(expected);
         expect(paneOf(c).style[dimension]).toEqual(`${expected}px`);
@@ -133,7 +153,7 @@ describe("Resize.Single", () => {
 
     it("should pass the panel box as the second argument to onResize", () => {
       const onResize = vi.fn();
-      const c = renderSingle({ location: "left", initialSize: 200, onResize });
+      const c = renderSingle({ location: "left", size: 200, onResize });
       drag(c, { x: 500, y: 0 }, { x: 540, y: 0 });
       expect(onResize).toHaveBeenCalledWith(expect.any(Number), expect.anything());
     });
@@ -143,7 +163,7 @@ describe("Resize.Single", () => {
       const onCollapse = vi.fn();
       const c = renderSingle({
         location: "left",
-        initialSize: 200,
+        size: 200,
         sizeBounds: { lower: 100 },
         onResize,
         onCollapse,
@@ -158,21 +178,32 @@ describe("Resize.Single", () => {
   describe("collapse", () => {
     it("should collapse and fire onCollapse when dragged past the threshold", () => {
       const onCollapse = vi.fn();
+      const onResizeEnd = vi.fn();
       const c = renderSingle({
         location: "left",
-        initialSize: 200,
+        size: 200,
         sizeBounds: { lower: 100 },
         collapseThreshold: 0.5,
         onCollapse,
+        onResizeEnd,
       });
-      drag(c, { x: 500, y: 0 }, { x: 300, y: 0 });
+      // The collapsed size renders only during the drag; releasing past the threshold
+      // fires onCollapse and hands rendering back to the controlled size, so assert the
+      // collapsed pane mid-gesture before releasing.
+      fireEvent(
+        handleOf(c),
+        new MouseEvent("dragstart", { clientX: 500, clientY: 0, bubbles: true }),
+      );
+      fireEvent.mouseMove(window, { clientX: 300, clientY: 0, buttons: 1 });
       expect(paneOf(c).style.width).toEqual("2px");
       expect(paneOf(c).className).toContain("pluto--collapsed");
+      fireEvent.mouseUp(window, { clientX: 300, clientY: 0 });
       expect(onCollapse).toHaveBeenCalledTimes(1);
+      expect(onResizeEnd).not.toHaveBeenCalled();
     });
 
     it("should mark the pane expanded while above the collapsed size", () => {
-      const c = renderSingle({ location: "left", initialSize: 200 });
+      const c = renderSingle({ location: "left", size: 200 });
       expect(paneOf(c).className).toContain("pluto--expanded");
     });
   });
