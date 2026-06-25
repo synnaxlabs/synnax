@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Nav } from "@synnaxlabs/pluto";
+import { Eraser, Nav } from "@synnaxlabs/pluto";
 import { box, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -20,9 +20,9 @@ import { CSS } from "@/css";
 const LONG_AXIS_THRESHOLD = 36;
 const SHORT_AXIS_THRESHOLD = 24;
 
-const X_THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
+const THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
 
-interface DrawerProps extends Nav.DrawerProps {
+interface DrawerProps extends Omit<Nav.DrawerProps, "onResize"> {
   location: location.Location;
   hover: boolean;
   onStopHover: () => void;
@@ -34,10 +34,10 @@ export const Drawer = ({
   onStopHover,
   ...rest
 }: DrawerProps): ReactElement => {
-  const threshold =
-    direction.construct(loc) === "y" ? xy.swap(X_THRESHOLD) : X_THRESHOLD;
-  const onLeave = onStopHover;
+  const { erase } = Eraser.use({ enabled: !hover });
+  const handleResize = useCallback((_: number, b: box.Box) => erase(b), [erase]);
   const onMouseLeave = useCallback((e: ReactMouseEvent) => {
+    const threshold = direction.construct(loc) === "y" ? xy.swap(THRESHOLD) : THRESHOLD;
     const content = (e.target as HTMLElement).closest(".pluto-nav-drawer");
     if (content == null) return;
     let b = box.construct(content);
@@ -50,7 +50,7 @@ export const Drawer = ({
       const pos = xy.construct(e);
       if (!box.contains(b, pos)) {
         window.removeEventListener("mousemove", lis);
-        onLeave(e);
+        onStopHover();
       } else if (e.buttons != 0) window.removeEventListener("mousemove", lis);
     };
     window.addEventListener("mousemove", lis);
@@ -58,10 +58,9 @@ export const Drawer = ({
   return (
     <Nav.Drawer
       location={loc}
-      open={open}
       className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
       onMouseLeave={onMouseLeave}
-      eraseEnabled={open && !hover}
+      onResize={handleResize}
       background={0}
       rounded={1}
       bordered

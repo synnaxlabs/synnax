@@ -42,7 +42,7 @@ export const Drawer = ({
     (size: number, box: box.Box) => {
       erase(box);
       onResizeEnd?.(size, box);
-    }
+    },
     [erase, onResizeEnd],
   );
   return (
