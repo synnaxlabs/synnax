@@ -11,7 +11,11 @@ package mock
 
 import "github.com/synnaxlabs/synnax/pkg/distribution/node"
 
+// staticHostProvider is a node.HostProvider whose host never changes. It is useful for
+// services under test that need a host identity without a real cluster.
 type staticHostProvider struct{ node node.Node }
+
+var _ node.HostProvider = staticHostProvider{}
 
 // NewStaticHostProvider returns a node.HostProvider that always reports the node
 // identified by key as the host.
@@ -19,6 +23,8 @@ func NewStaticHostProvider(key node.Key) node.HostProvider {
 	return staticHostProvider{node: node.Node{Key: key}}
 }
 
+// Host returns the static host node.
 func (s staticHostProvider) Host() node.Node { return s.node }
 
+// HostKey returns the key of the static host node.
 func (s staticHostProvider) HostKey() node.Key { return s.node.Key }

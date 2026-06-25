@@ -351,7 +351,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 
 	var (
 		hostKey           = s.cfg.HostResolver.HostKey()
-		batch             = proxy.NewBatchFactory[keyAuthority](hostKey).Batch(cfg.keyAuthorities())
+		batch             = proxy.BatchFactory[keyAuthority]{Host: hostKey}.Batch(cfg.keyAuthorities())
 		pipe              = plumber.New()
 		hasPeer           = len(batch.Peers) > 0
 		hasGateway        = len(batch.Gateway) > 0
