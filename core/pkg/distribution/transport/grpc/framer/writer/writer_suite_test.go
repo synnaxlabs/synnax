@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	writergrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/writer"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -29,7 +29,7 @@ func TestWriter(t *testing.T) {
 }
 
 var (
-	transport writergrpc.Transport
+	transport writer.Transport
 	addr      address.Address
 )
 
@@ -43,7 +43,7 @@ var _ = BeforeEach(func() {
 		"",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	))
-	transport = writergrpc.New(pool)
+	transport = writer.New(pool)
 	transport.BindTo(grpcServer)
 	go func() {
 		defer GinkgoRecover()

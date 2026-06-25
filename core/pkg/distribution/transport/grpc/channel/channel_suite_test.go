@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	channelgrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -29,7 +29,7 @@ func TestChannel(t *testing.T) {
 }
 
 var (
-	transport channelgrpc.Transport
+	transport channel.Transport
 	addr      address.Address
 )
 
@@ -43,7 +43,7 @@ var _ = BeforeEach(func() {
 		"",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	))
-	transport = channelgrpc.New(pool)
+	transport = channel.New(pool)
 	transport.BindTo(grpcServer)
 	go func() {
 		defer GinkgoRecover()
