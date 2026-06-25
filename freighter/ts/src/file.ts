@@ -22,7 +22,7 @@ export type UploadBody = ReadableStream<Uint8Array> | Blob | ArrayBufferView | s
  * The wire encodings a FileClient can transfer. Extend this union (and the transport's
  * content-type mapping) to support additional encodings.
  */
-export type FileEncoding = "JSON" | "MessagePack";
+export type FileEncoding = "JSON" | "MessagePack" | "YAML" | "TOML";
 
 /**
  * Options shared by FileClient.upload and FileClient.download. Carries the wire
@@ -31,10 +31,16 @@ export type FileEncoding = "JSON" | "MessagePack";
  */
 export interface FileOptions {
   /**
-   * The wire encoding of the transferred bytes — describes the request body on upload
-   * (sent as Content-Type) and the desired response body on download (sent as Accept).
+   * The wire encoding of the transferred bytes.
+   *
+   * On upload it describes the request body and is sent as Content-Type; the body has a
+   * single representation, so pass a single encoding.
+   *
+   * On download it describes the response bodies the caller will accept and is sent as
+   * Accept. Pass a list to let the server negotiate which one it returns — the server
+   * picks the response encoding, which need not match how the request was encoded.
    */
-  encoding: FileEncoding;
+  encoding: FileEncoding | FileEncoding[];
 }
 
 /**

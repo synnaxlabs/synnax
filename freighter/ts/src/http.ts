@@ -25,7 +25,19 @@ export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   JSON: "application/json",
   MessagePack: "application/msgpack",
+  YAML: "application/yaml",
+  TOML: "application/toml",
 };
+
+/**
+ * Builds the Content-Type / Accept header value for one or more encodings. A list is
+ * joined into a comma-separated header so the server can negotiate which encoding to
+ * use.
+ */
+const encodingHeader = (encoding: FileEncoding | FileEncoding[]): string =>
+  (Array.isArray(encoding) ? encoding : [encoding])
+    .map((e) => ENCODING_CONTENT_TYPES[e])
+    .join(", ");
 
 const UNREACHABLE_CODES = new Set([
   "ECONNREFUSED",
@@ -87,9 +99,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
   }
 
   get headers(): Record<string, string> {
-    return {
-      [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-    };
+    return { [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType };
   }
 
   async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
@@ -137,7 +147,8 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
           method: "POST",
           body: body as BodyInit,
           headers: {
-            [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
+            [CONTENT_TYPE_HEADER_KEY]: encodingHeader(encoding),
+            Accept: this.encoder.contentType,
             ...ctx.params,
           },
           // duplex is required by the Fetch standard whenever the body is a stream.
@@ -172,7 +183,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
           body: this.encoder.encode(req, reqSchema) as BodyInit,
           headers: {
             ...this.headers,
-            Accept: ENCODING_CONTENT_TYPES[encoding],
+            Accept: encodingHeader(encoding),
             ...ctx.params,
           },
         });
