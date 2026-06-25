@@ -9,7 +9,7 @@
 
 import "@/nav/Drawer.css";
 
-import { type box, location } from "@synnaxlabs/x";
+import { type bounds, type box, location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
@@ -21,8 +21,7 @@ import { Eraser } from "@/vis/eraser";
 export interface DrawerItem {
   key: string;
   content: ReactElement;
-  minSize?: number;
-  maxSize?: number;
+  sizeBounds?: Partial<bounds.Bounds>;
   initialSize?: number;
 }
 
@@ -78,7 +77,7 @@ export const Drawer = ({
     },
     [onResize, erase],
   );
-  const { content, minSize, maxSize, initialSize = 0 } = activeItem ?? {};
+  const { content, sizeBounds, initialSize = 0 } = activeItem ?? {};
   return (
     <Resize.Single
       className={CSS(
@@ -91,8 +90,7 @@ export const Drawer = ({
       onCollapse={handleCollapse}
       location={loc_}
       onResize={handleResize}
-      minSize={minSize}
-      maxSize={maxSize}
+      sizeBounds={sizeBounds}
       initialSize={initialSize}
       {...rest}
     >

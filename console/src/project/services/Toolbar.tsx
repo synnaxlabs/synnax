@@ -65,6 +65,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   tooltip: "Projects",
   trigger: ["W"],
   initialSize: 300,
-  minSize: 175,
-  maxSize: 400,
+  sizeBounds: { lower: 175, upper: 400 },
 };

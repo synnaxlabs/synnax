@@ -7,9 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, clamp, location } from "@synnaxlabs/x";
+import { bounds, box, location } from "@synnaxlabs/x";
 import { clsx } from "clsx";
-import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
@@ -21,38 +28,30 @@ export interface SingleProps extends Omit<
   "showHandle" | "size" | "onResize" | "onDragStart" | "ref"
 > {
   initialSize?: number;
-  minSize?: number;
-  maxSize?: number;
+  sizeBounds?: Partial<bounds.Bounds>;
   onResize?: (size: number, box: box.Box) => void;
   collapseThreshold?: number;
   onCollapse?: () => void;
 }
 
 const COLLAPSED_SIZE = 2;
-const DEFAULT_MIN_SIZE = 100;
+const DEFAULT_SIZE_BOUNDS = { lower: 100 };
 
-/**
- * A panel that can be resized in one direction by dragging its handle.
- *
- * @param props - The component props. All unused props will be passed to the div
- * containing the content.
- * @param props.location - The the location of the panel. The drag handle will be on the opposite side.
- * @param props.minSize - The smallest size the panel can be resized to.
- * @param props.maxSize - The largest size the panel can be resized to.
- * @param props.onResize - A callback executed when the panel is resized.
- */
 export const Single = ({
   onCollapse,
   onResize,
   location: location_ = "left",
-  minSize,
-  maxSize,
+  sizeBounds = DEFAULT_SIZE_BOUNDS,
   initialSize = 200,
   collapseThreshold = Infinity,
   className,
   ...rest
 }: SingleProps): ReactElement => {
-  const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));
+  const fullSizeBounds = useMemo(() => {
+    sizeBounds.lower ??= DEFAULT_SIZE_BOUNDS.lower;
+    return bounds.construct(sizeBounds);
+  }, [sizeBounds.lower, sizeBounds.upper]);
+  const [size, setSize] = useState(bounds.clamp(fullSizeBounds, initialSize));
   const marker = useRef<number | null>(null);
   const loc = location.construct(location_);
 
@@ -63,12 +62,12 @@ export const Single = ({
         box.dim(b, location.direction(loc), true) *
         (1 - 2 * Number(["bottom", "right"].includes(loc)));
       const rawNextSize = marker.current + dim;
-      const nextSize = clamp(rawNextSize, minSize, maxSize);
-      if ((nextSize - rawNextSize) / (minSize ?? DEFAULT_MIN_SIZE) > collapseThreshold)
+      const nextSize = bounds.clamp(fullSizeBounds, rawNextSize);
+      if ((nextSize - rawNextSize) / fullSizeBounds.lower > collapseThreshold)
         return COLLAPSED_SIZE;
       return nextSize;
     },
-    [loc, minSize, maxSize, collapseThreshold],
+    [loc, fullSizeBounds, collapseThreshold],
   );
 
   const ref = useRef<HTMLDivElement>(null);
@@ -77,8 +76,7 @@ export const Single = ({
     (dragRegion: box.Box) => {
       const nextSize = calcNextSize(dragRegion);
       setSize(nextSize);
-      if (ref.current == null) return;
-      onResize?.(nextSize, box.construct(ref.current));
+      if (ref.current != null) onResize?.(nextSize, box.construct(ref.current));
     },
     [onResize, calcNextSize],
   );
@@ -98,13 +96,12 @@ export const Single = ({
   );
 
   useEffect(() => {
-    if (minSize == null || maxSize == null) return;
     setSize((prev) => {
-      const nextSize = clamp(prev, minSize, maxSize);
+      const nextSize = bounds.clamp(fullSizeBounds, prev);
       marker.current = nextSize;
       return nextSize;
     });
-  }, [minSize, maxSize]);
+  }, [fullSizeBounds]);
 
   const handleDragStart = useCursorDrag({
     onMove: handleMove,

@@ -12,14 +12,11 @@ import { describe, expect, it } from "vitest";
 
 import { Resize } from "@/resize";
 
-// Testing the Resize is extremely difficult on a unit level
-// using jsdom, so we're just going to test that it renders
-// for now.
 describe("Resize", () => {
   describe("Resize", () => {
     it("should render a resize div", async () => {
       const c = render(
-        <Resize.Single location="left" initialSize={50} minSize={20} maxSize={500}>
+        <Resize.Single location="left" initialSize={50}>
           <p>Hello</p>
         </Resize.Single>,
       );

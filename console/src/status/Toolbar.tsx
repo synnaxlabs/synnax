@@ -169,7 +169,6 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   tooltip: "Statuses",
   trigger: ["S"],
   initialSize: 300,
-  minSize: 175,
-  maxSize: 400,
+  sizeBounds: { lower: 175, upper: 400 },
   useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
 };

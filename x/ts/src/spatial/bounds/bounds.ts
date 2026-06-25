@@ -15,6 +15,13 @@ export { type Bounds, boundsZ };
 
 export type Crude<T extends numeric.Value = number> = Bounds<T> | NumberCouple<T>;
 
+/**
+ * A bounds object with either or both of lower and upper omitted. Only valid for
+ * number bounds: `construct` fills a missing lower with -Infinity and a missing upper
+ * with Infinity, neither of which has a bigint representation.
+ */
+export type PartialCrude = Partial<Bounds<number>>;
+
 /** Options for the `construct` function. */
 interface ConstructOptions {
   /**
@@ -55,8 +62,17 @@ export interface Construct {
    * Options:
    * - makeValid: If true (default), swaps lower and upper bounds if lower > upper
    *
+   * 3. From a partial bounds object. A missing lower defaults to -Infinity and a
+   * missing upper defaults to Infinity:
+   * ```typescript
+   * construct({ lower: 0 }) // => { lower: 0, upper: Infinity }
+   * construct({ upper: 10 }) // => { lower: -Infinity, upper: 10 }
+   * ```
+   *
    * @param bounds - The input bounds to construct from. Can be:
    *   - A bounds object with lower and upper properties
+   *   - A partial bounds object with only lower or only upper. The missing bound
+   *     defaults to -Infinity (lower) or Infinity (upper)
    *   - An array of length 2 [lower, upper]
    *   - A single number/bigint (treated as upper bound, with lower = 0)
    *   - Two numbers/bigints (lower and upper bounds)
@@ -93,6 +109,13 @@ export interface Construct {
    * construct(10, 0)
    * // => { lower: 0, upper: 10 } (bounds are swapped)
    */
+  /**
+   * Constructs a bounds object from a partial bounds object. A missing lower defaults
+   * to -Infinity and a missing upper defaults to Infinity. Only valid for number
+   * bounds; bigint partials are rejected because there is no bigint infinity.
+   */
+  (bounds: PartialCrude, options?: ConstructOptions): Bounds<number>;
+
   <T extends numeric.Value = number>(
     bounds: Crude<T>,
     options?: ConstructOptions,
@@ -109,14 +132,14 @@ export interface Construct {
   <T extends numeric.Value = number>(lower: T, upper?: T | ConstructOptions): Bounds<T>;
 
   <T extends numeric.Value = number>(
-    lower: T | Crude,
+    lower: T | Crude<T>,
     upper?: T | ConstructOptions,
     options?: ConstructOptions,
   ): Bounds<T>;
 }
 
-export const construct = <T extends numeric.Value>(
-  lower: T | Crude<T>,
+export const construct: Construct = <T extends numeric.Value>(
+  lower: T | Crude<T> | PartialCrude,
   upper?: T | ConstructOptions,
   options?: ConstructOptions,
 ): Bounds<T> => {
@@ -138,8 +161,8 @@ export const construct = <T extends numeric.Value>(
     if (lower.length !== 2) throw new Error("bounds: expected array of length 2");
     [b.lower, b.upper] = lower;
   } else {
-    b.lower = lower.lower;
-    b.upper = lower.upper;
+    b.lower = (lower.lower ?? -Infinity) as T;
+    b.upper = (lower.upper ?? Infinity) as T;
   }
   return options?.makeValid ? makeValid<T>(b) : b;
 };
@@ -184,9 +207,13 @@ export const makeValid = <T extends numeric.Value = number>(
 };
 
 /**
- * Clamps the given target value to the given bounds. If the target is less than the lower
- * bound, the lower bound is returned. If the target is greater than or equal to the upper
- * bound, the upper bound minus 1 is returned. Otherwise, the target is returned.
+ * Projects the target onto the closed interval [lower, upper]. Returns lower if the
+ * target is below it, upper if the target is above it, and the target otherwise.
+ *
+ * The returned value may equal upper, which is intentionally not contained by the
+ * half-open bounds (see contains). clamp answers "nearest valid magnitude", not "which
+ * half-open bucket"; those are different operations. To clamp an integer index into the
+ * half-open range [lower, upper), clamp against upper - 1.
  *
  * @param bounds - The bounds to clamp the target to.
  * @param target - The target value to clamp.
@@ -195,8 +222,7 @@ export const makeValid = <T extends numeric.Value = number>(
 export const clamp = <T extends numeric.Value>(bounds: Crude<T>, target: T): T => {
   const _bounds = construct<T>(bounds);
   if (target < _bounds.lower) return _bounds.lower;
-  if (target >= _bounds.upper)
-    return (_bounds.upper - ((typeof _bounds.upper === "number" ? 1 : 1n) as T)) as T;
+  if (target > _bounds.upper) return _bounds.upper;
   return target;
 };
 
