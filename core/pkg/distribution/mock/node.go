@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,14 +34,15 @@ type Node struct {
 }
 
 // Close closes the node's distribution layer. For a Node returned by OpenNode it also
-// closes the underlying single-node cluster, including its storage. This intentionally
-// shadows the embedded Layer.Close so that OpenNode's caller can tear everything down
-// through the returned node.
+// closes the underlying single-node cluster's storage. This intentionally shadows the
+// embedded Layer.Close so that OpenNode's caller can tear everything down through the
+// returned node.
 func (n Node) Close() error {
+	err := n.Layer.Close()
 	if n.owner != nil {
-		return n.owner.Close()
+		err = errors.Join(err, n.owner.storage.Close())
 	}
-	return n.Layer.Close()
+	return err
 }
 
 // MustOpenNode opens a single-node in-memory cluster and registers its teardown via
