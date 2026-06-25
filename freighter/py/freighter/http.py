@@ -26,10 +26,6 @@ from x.exceptions import ExceptionPayload, decode_exception
 from x.file import FilePath, stream_to_file
 
 
-# Wire content types negotiated for streamed file bodies, keyed by file extension. A
-# file body is streamed verbatim and never parsed by the client, so only an extension to
-# content-type mapping is required; add an entry to negotiate a new on-disk format (e.g.
-# "yaml": "application/yaml").
 _FILE_CONTENT_TYPES: dict[str, str] = {
     "json": "application/json",
     "msgpack": "application/msgpack",
