@@ -21,7 +21,7 @@ import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
-export const ACCEPT_HEADER_KEY = "Accept";
+const ACCEPT_HEADER_KEY = "Accept";
 
 const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   JSON: "application/json",
@@ -39,14 +39,10 @@ const UNREACHABLE_CODES = new Set([
   "UND_ERR_SOCKET",
 ]);
 
-/** The non-standard fields Node/Undici attach to network errors. */
-interface NodeErrorLike {
-  code?: unknown;
-  errno?: unknown;
-}
-
-const shouldCastToUnreachable = (err: Error & NodeErrorLike): boolean => {
-  // First try Node/Undici codes. cause is typed unknown on Error, so narrow it.
+const shouldCastToUnreachable = (
+  err: Error & { code?: unknown; errno?: unknown },
+): boolean => {
+  // First try Node/Undici codes.
   const causeCode =
     typeof err.cause === "object" && err.cause !== null && "code" in err.cause
       ? err.cause.code
@@ -60,8 +56,8 @@ const shouldCastToUnreachable = (err: Error & NodeErrorLike): boolean => {
     if (/load failed|failed to fetch|networkerror|network error/.test(msg)) {
       // Optionally gate on being online:
       if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
-      // If you want to be conservative, return false here and treat generically.
-      // If you want parity with Node for user messaging, you can return true.
+      // If you want to be conservative, return false here and treat generically. If you
+      // want parity with Node for user messaging, you can return true.
       return true;
     }
   }
@@ -145,9 +141,10 @@ export class HTTPClient
       this.context(url),
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
-        // duplex is required by the Fetch standard whenever the body is a stream, but is
-        // not yet in the lib's RequestInit type; body is cast because UploadBody's
-        // ArrayBufferView is not narrowed to the ArrayBuffer-backed view BodyInit wants.
+        // duplex is required by the Fetch standard whenever the body is a stream, but
+        // is not yet in the lib's RequestInit type; body is cast because UploadBody's
+        // ArrayBufferView is not narrowed to the ArrayBuffer-backed view BodyInit
+        // wants.
         const init: RequestInit & { duplex: "half" } = {
           method: "POST",
           body: body as BodyInit,
