@@ -14,7 +14,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/css";
 
-const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 4 };
+const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 };
 
 export const Properties = (): ReactElement => {
   const key = Log.useKey();

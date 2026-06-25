@@ -30,9 +30,8 @@ import {
   Tabs,
   Text,
   Triggers,
-  useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { caseconv, type location, TimeSpan } from "@synnaxlabs/x";
+import { caseconv, type location } from "@synnaxlabs/x";
 import {
   type ComponentType,
   memo,
@@ -220,8 +219,6 @@ interface MosaicProps {
   windowKey: string;
   mosaic: Base.Node;
 }
-
-const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
