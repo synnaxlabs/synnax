@@ -58,7 +58,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.Open())
-	dist := mock.MustOpenNode(ctx)
+	node := mock.MustOpenNode(ctx)
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -97,7 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Channel:  channel.Wrap(dist.Channel),
+		Channel:  channel.Wrap(node.Channel),
 		Task:     taskSvc,
 		Search:   searchIdx,
 	}))

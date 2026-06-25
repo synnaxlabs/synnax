@@ -27,14 +27,14 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	dist mock.Node
+	node mock.Node
 	sigs *signals.Provider
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = mock.MustOpenNode(ctx)
+	node = mock.MustOpenNode(ctx)
 	sigs = MustSucceed(signals.New(signals.Config{
-		Channel: channel.Wrap(dist.Channel),
-		Framer:  framer.Wrap(dist.Framer),
+		Channel: channel.Wrap(node.Channel),
+		Framer:  framer.Wrap(node.Framer),
 	}))
 })
