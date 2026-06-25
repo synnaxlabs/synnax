@@ -21,9 +21,12 @@ type counter struct {
 	wrap *kv.AtomicInt64Counter
 }
 
-func openCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
-	wrap, err := kv.OpenCounter(ctx, db, key)
-	return &counter{wrap: wrap}, err
+func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
+	wrap, err := kv.NewCounter(ctx, db, key)
+	if err != nil {
+		return nil, err
+	}
+	return &counter{wrap: wrap}, nil
 }
 
 func (c *counter) add(ctx context.Context, delta LocalKey) (LocalKey, error) {
