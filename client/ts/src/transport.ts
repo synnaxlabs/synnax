@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type FileClient,
+  type FileTransport,
   HTTPClient,
   type Middleware,
   type UnaryClient,
@@ -20,7 +20,7 @@ import { binary, type breaker, type url } from "@synnaxlabs/x";
 export class Transport {
   readonly url: url.URL;
   readonly unary: UnaryClient;
-  readonly file: FileClient;
+  readonly file: FileTransport;
   readonly stream: WebSocketClient;
   readonly secure: boolean;
 

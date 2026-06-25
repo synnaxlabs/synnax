@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FileClient, type UploadBody } from "@synnaxlabs/freighter";
+import { type FileTransport, type UploadBody } from "@synnaxlabs/freighter";
 
 import { ontology } from "@/ontology";
 
@@ -50,9 +50,9 @@ export interface Options {
  *   stream to the Console's downloadStream helper.
  */
 export class Client {
-  private readonly file: FileClient;
+  private readonly file: FileTransport;
 
-  constructor(file: FileClient) {
+  constructor(file: FileTransport) {
     this.file = file;
   }
 

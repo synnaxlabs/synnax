@@ -12,19 +12,19 @@ import { type z } from "zod";
 import { type Transport } from "@/transport";
 
 /**
- * The set of body types accepted by FileClient.upload. A ReadableStream or Blob is
+ * The set of body types accepted by FileTransport.upload. A ReadableStream or Blob is
  * streamed to the server without being buffered into memory; ArrayBufferView and string
  * bodies are sent as-is.
  */
 export type UploadBody = ReadableStream<Uint8Array> | Blob | ArrayBufferView | string;
 
 /**
- * The wire encodings a FileClient can transfer.
+ * The wire encodings a FileTransport can transfer.
  */
 export type FileEncoding = "JSON" | "MessagePack" | "YAML" | "TOML";
 
 /**
- * Options shared by FileClient.upload and FileClient.download. Carries the wire
+ * Options shared by FileTransport.upload and FileTransport.download. Carries the wire
  * encoding of the transferred bytes and is the extension point for any future
  * per-transfer settings.
  */
@@ -39,14 +39,14 @@ export interface FileOptions {
 }
 
 /**
- * FileClient streams request and response bodies to and from a server when a payload
+ * FileTransport streams request and response bodies to and from a server when a payload
  * could be too large to buffer in memory. Unlike UnaryClient, which encodes and decodes
- * a typed payload on each side, FileClient leaves one side of the exchange as a raw
+ * a typed payload on each side, FileTransport leaves one side of the exchange as a raw
  * byte stream: upload streams the request body up, and download streams the response
  * body back. It is environment-agnostic — the byte stream is a standard Web
  * ReadableStream, which exists in browsers, Node 18+, and Tauri webviews alike.
  */
-export interface FileClient extends Transport {
+export interface FileTransport extends Transport {
   /**
    * Streams body to target as the request body and decodes the typed response.
    *

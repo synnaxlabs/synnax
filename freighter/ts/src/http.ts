@@ -12,9 +12,9 @@ import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
 import {
-  type FileClient,
   type FileEncoding,
   type FileOptions,
+  type FileTransport,
   type UploadBody,
 } from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
@@ -77,7 +77,7 @@ const HTTP_STATUS_BAD_REQUEST = 400;
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
  */
-export class HTTPClient extends MiddlewareCollector implements UnaryClient, FileClient {
+export class HTTPClient extends MiddlewareCollector implements UnaryClient, FileTransport {
   endpoint: url.URL;
   encoder: binary.Codec;
 

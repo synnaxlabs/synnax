@@ -9,9 +9,9 @@
 
 export { EOF, StreamClosed, Unreachable } from "@/errors";
 export {
-  type FileClient,
   type FileEncoding,
   type FileOptions,
+  type FileTransport,
   type UploadBody,
 } from "@/file";
 export { HTTPClient } from "@/http";
