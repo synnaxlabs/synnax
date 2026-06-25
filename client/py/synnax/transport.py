@@ -14,7 +14,7 @@ from freighter import (
     URL,
     AsyncMiddleware,
     AsyncWebsocketClient,
-    FileClient,
+    FileTransport,
     HTTPClient,
     JSONCodec,
     Middleware,
@@ -31,7 +31,7 @@ class Transport:
     stream: WebsocketClient
     stream_async: AsyncWebsocketClient
     unary: UnaryClient
-    file_client: FileClient
+    file_client: FileTransport
     secure: bool
 
     def __init__(

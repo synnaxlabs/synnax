@@ -15,15 +15,15 @@ from freighter.codec import Codec
 from freighter.transport import RQ, RS, Transport
 from x.file import FilePath
 
-__all__ = ["FileClient", "FileCodec"]
+__all__ = ["FileCodec", "FileTransport"]
 
 
 class FileCodec(Codec, Protocol):
     """A Codec that also has an on-disk file representation.
 
-    A FileClient uses file_extension to negotiate a content type from a file path during
-    upload and download. Codecs that only exist on a wire (e.g., a WebSocket framer
-    codec) need only satisfy Codec.
+    A FileTransport uses file_extension to negotiate a content type from a file path
+    during upload and download. Codecs that only exist on a wire (e.g., a WebSocket
+    framer codec) need only satisfy Codec.
     """
 
     def file_extension(self) -> str:
@@ -33,7 +33,7 @@ class FileCodec(Codec, Protocol):
         ...
 
 
-class FileClient(Transport, Protocol):
+class FileTransport(Transport, Protocol):
     """Protocol for streaming files to and from a server when a payload could be too
     large to buffer in memory.
 

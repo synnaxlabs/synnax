@@ -54,7 +54,7 @@ def _file_content_type(path: FilePath) -> str:
 
 class HTTPClient(MiddlewareCollector):
     """
-    HTTPClient is a urllib3-backed transport implementing UnaryClient and FileClient.
+    HTTPClient is a urllib3-backed transport implementing UnaryClient and FileTransport.
 
     A single codec encodes and decodes the typed request and response payloads. The
     Content-Type and Accept headers for a streamed file body are derived from the file
@@ -65,10 +65,10 @@ class HTTPClient(MiddlewareCollector):
     - upload: a file path as the request body — the Content-Type is derived from the
       path extension — with a typed response decoded via the codec. Bytes are streamed
       from disk in fixed-size blocks so the full body is never held in memory
-      (FileClient).
+      (FileTransport).
     - download: a typed request encoded via the codec, with the response streamed
       directly into a destination file path whose extension drives the Accept header
-      (FileClient).
+      (FileTransport).
     """
 
     _pool: PoolManager

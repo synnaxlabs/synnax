@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 
-from freighter import FileClient
+from freighter import FileTransport
 from synnax import ontology
 from x.file import FilePath
 
@@ -21,9 +21,9 @@ class Client:
     file.
     """
 
-    _file_client: FileClient
+    _file_client: FileTransport
 
-    def __init__(self, file_client: FileClient) -> None:
+    def __init__(self, file_client: FileTransport) -> None:
         self._file_client = file_client
 
     def import_(self, source: FilePath) -> ontology.ID:
