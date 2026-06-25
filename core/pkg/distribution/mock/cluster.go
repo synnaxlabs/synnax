@@ -14,7 +14,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
-	aspentransmock "github.com/synnaxlabs/aspen/transport/mock"
+	aspentransportmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
@@ -22,8 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
-	"github.com/synnaxlabs/synnax/pkg/storage/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
+	storagemock "github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
@@ -33,24 +33,15 @@ import (
 // benchmarks. Every node shares the same in-process transport and storage backing, so
 // no real network or disk is involved. Cluster is not safe for concurrent use.
 type Cluster struct {
-	// storage is the shared in-memory storage cluster that backs every node's storage
-	// layer.
-	storage *mock.Cluster
+	storage *storagemock.Cluster
 	// Nodes maps each provisioned node's host key to its Node.
-	Nodes map[node.Key]Node
-	// writerNet is the in-process frame writer transport network shared by all nodes.
-	writerNet *tmock.FramerWriterNetwork
-	// iterNet is the in-process frame iterator transport network shared by all nodes.
-	iterNet *tmock.FramerIteratorNetwork
-	// channelNet is the in-process channel transport network shared by all nodes.
-	channelNet *tmock.ChannelNetwork
-	// relayNet is the in-process frame relay transport network shared by all nodes.
-	relayNet *tmock.FramerRelayNetwork
-	// deleteNet is the in-process frame deleter transport network shared by all nodes.
-	deleteNet *tmock.FramerDeleterNetwork
-	// aspenNet is the in-process aspen gossip transport network shared by all nodes.
-	aspenNet *aspentransmock.Network
-	// addrFactory hands out sequential local addresses as nodes are provisioned.
+	Nodes       map[node.Key]Node
+	writerNet   *mock.FramerWriterNetwork
+	iterNet     *mock.FramerIteratorNetwork
+	channelNet  *mock.ChannelNetwork
+	relayNet    *mock.FramerRelayNetwork
+	deleteNet   *mock.FramerDeleterNetwork
+	aspenNet    *aspentransportmock.Network
 	addrFactory *address.Factory
 }
 
@@ -70,33 +61,29 @@ func MustOpenCluster(ctx context.Context, n int) *Cluster {
 // OpenCluster opens an n-node in-memory cluster. The caller owns teardown: close the
 // returned Cluster to tear down all nodes and their storage.
 func OpenCluster(ctx context.Context, n int) *Cluster {
-	c := newCluster()
+	c := &Cluster{
+		storage:     storagemock.NewCluster(),
+		writerNet:   mock.NewWriterNetwork(),
+		iterNet:     mock.NewIteratorNetwork(),
+		channelNet:  mock.NewChannelNetwork(),
+		relayNet:    mock.NewRelayNetwork(),
+		deleteNet:   mock.NewDeleterNetwork(),
+		aspenNet:    aspentransportmock.NewNetwork(),
+		addrFactory: address.NewLocalFactory(0),
+		Nodes:       make(map[node.Key]Node),
+	}
 	for range n {
 		c.Provision(ctx)
 	}
 	return c
 }
 
-// newCluster returns an empty Cluster with its shared transport and storage networks
-// initialized but no nodes provisioned.
-func newCluster() *Cluster {
-	return &Cluster{
-		storage:     mock.NewCluster(),
-		writerNet:   tmock.NewWriterNetwork(),
-		iterNet:     tmock.NewIteratorNetwork(),
-		channelNet:  tmock.NewChannelNetwork(),
-		relayNet:    tmock.NewRelayNetwork(),
-		deleteNet:   tmock.NewDeleterNetwork(),
-		aspenNet:    aspentransmock.NewNetwork(),
-		addrFactory: address.NewLocalFactory(0),
-		Nodes:       make(map[node.Key]Node),
-	}
-}
-
-// Provision provisions a new Node in the cluster and returns it. The optional
-// overrides are layered on top of the base distribution.LayerConfig, allowing a caller
-// to tweak distribution-layer behavior (e.g. name validation) for a single node.
-func (c *Cluster) Provision(ctx context.Context, overrides ...distribution.LayerConfig) Node {
+// Provision provisions a new Node in the cluster and returns it. The optional overrides
+// are layered on top of the base distribution.LayerConfig, allowing a caller to tweak
+// distribution-layer behavior (e.g. name validation) for a single node.
+func (c *Cluster) Provision(
+	ctx context.Context, overrides ...distribution.LayerConfig,
+) Node {
 	var (
 		peers        = c.addrFactory.Generated()
 		addr         = c.addrFactory.Next()
@@ -139,29 +126,19 @@ func (c *Cluster) Close() error {
 	return errors.Join(err, c.storage.Close())
 }
 
-// mockFramerTransport bundles the four in-process framer transports into a single
-// framer.Transport for a node.
 type mockFramerTransport struct {
-	// iter is the frame iterator transport.
-	iter iterator.Transport
-	// writer is the frame writer transport.
-	writer writer.Transport
-	// relay is the frame relay transport.
-	relay relay.Transport
-	// deleter is the frame deleter transport.
+	iter    iterator.Transport
+	writer  writer.Transport
+	relay   relay.Transport
 	deleter deleter.Transport
 }
 
 var _ framer.Transport = (*mockFramerTransport)(nil)
 
-// Iterator returns the frame iterator transport.
 func (m mockFramerTransport) Iterator() iterator.Transport { return m.iter }
 
-// Writer returns the frame writer transport.
 func (m mockFramerTransport) Writer() writer.Transport { return m.writer }
 
-// Relay returns the frame relay transport.
 func (m mockFramerTransport) Relay() relay.Transport { return m.relay }
 
-// Deleter returns the frame deleter transport.
 func (m mockFramerTransport) Deleter() deleter.Transport { return m.deleter }

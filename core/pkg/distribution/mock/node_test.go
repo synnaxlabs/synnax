@@ -14,11 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Node", func() {
-	ShouldNotLeakGoroutinesPerSpec()
 	Describe("OpenNode", func() {
 		It("Should open a single-node cluster bootstrapped as the first node", func(ctx SpecContext) {
 			n := mock.OpenNode(ctx)

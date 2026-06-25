@@ -495,14 +495,14 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	svc := mock.OpenNode(ctx)
-	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	node := mock.OpenNode(ctx)
+	Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	return scenario{
 		resCount: 1,
 		name:     "Gateway Only",
 		channels: channels,
-		dist:     svc,
-		close:    svc,
+		dist:     node,
+		close:    node,
 	}
 }
 

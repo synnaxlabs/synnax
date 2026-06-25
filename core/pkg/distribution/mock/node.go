@@ -27,10 +27,7 @@ type Node struct {
 	*distribution.Layer
 	// Storage is the storage layer for the node. It persists frame data to this node.
 	Storage *storage.Layer
-	// owner is non-nil only for the Node returned by OpenNode, where the node owns its
-	// single-node cluster. When set, Close tears down the whole cluster (including
-	// storage) rather than just this node's layer.
-	owner *Cluster
+	owner   *Cluster
 }
 
 // Close closes the node's distribution layer. For a Node returned by OpenNode it also

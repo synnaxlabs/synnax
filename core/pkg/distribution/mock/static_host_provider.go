@@ -11,8 +11,6 @@ package mock
 
 import "github.com/synnaxlabs/synnax/pkg/distribution/node"
 
-// staticHostProvider is a node.HostProvider whose host never changes. It is useful for
-// services under test that need a host identity without a real cluster.
 type staticHostProvider struct{ node node.Node }
 
 var _ node.HostProvider = staticHostProvider{}

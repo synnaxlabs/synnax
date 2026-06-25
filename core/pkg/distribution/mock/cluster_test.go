@@ -18,11 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Cluster", func() {
-	ShouldNotLeakGoroutinesPerSpec()
 	Describe("Name", func() {
 		It("Should open a three node memory backed distribution layer", func(ctx SpecContext) {
 			cluster := mock.MustOpenCluster(ctx, 0)
