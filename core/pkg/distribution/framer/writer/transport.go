@@ -73,24 +73,24 @@ type Response struct {
 }
 
 type (
-	// ServerStream is the server side of a writer stream, receiving Requests from and
-	// sending Responses to a remote Core.
-	ServerStream = freighter.ServerStream[Request, Response]
-	// ClientStream is the client side of a writer stream, sending Requests to and
+	// ClientStream is the client-side of a writer stream, sending Requests to and
 	// receiving Responses from a remote Core.
 	ClientStream = freighter.ClientStream[Request, Response]
-	// TransportServer is the server side interface for handling writer streams from a
-	// remote Core.
-	TransportServer = freighter.StreamServer[Request, Response]
-	// TransportClient is the client side interface for opening a writer stream to a
-	// remote Core.
-	TransportClient = freighter.StreamClient[Request, Response]
+	// ServerStream is the server-side of a writer stream, receiving Requests from and
+	// sending Responses to a remote Core.
+	ServerStream = freighter.ServerStream[Request, Response]
+	// StreamClient is the client-side interface for opening a writer stream to a remote
+	// Core.
+	StreamClient = freighter.StreamClient[Request, Response]
+	// StreamServer is the server-side interface for handling writer streams from a remote
+	// Core.
+	StreamServer = freighter.StreamServer[Request, Response]
 )
 
 // Transport is the interface for the writer transport.
 type Transport interface {
-	// Server returns the server side interface for handling writer streams.
-	Server() TransportServer
-	// Client returns the client side interface for opening writer streams.
-	Client() TransportClient
+	// Client returns the client-side interface for opening writer streams.
+	Client() StreamClient
+	// Server returns the server-side interface for handling writer streams.
+	Server() StreamServer
 }

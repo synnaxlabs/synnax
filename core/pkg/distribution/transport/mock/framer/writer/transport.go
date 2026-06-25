@@ -35,14 +35,14 @@ func (n *Network) New(addr address.Address, buffers ...int) writer.Transport {
 }
 
 type transport struct {
-	client writer.TransportClient
-	server writer.TransportServer
+	client writer.StreamClient
+	server writer.StreamServer
 }
 
 var _ writer.Transport = transport{}
 
 // Client implements the writer.Transport interface.
-func (t transport) Client() writer.TransportClient { return t.client }
+func (t transport) Client() writer.StreamClient { return t.client }
 
 // Server implements the writer.Transport interface.
-func (t transport) Server() writer.TransportServer { return t.server }
+func (t transport) Server() writer.StreamServer { return t.server }

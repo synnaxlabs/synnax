@@ -86,8 +86,8 @@ const (
 
 // Response is a response from a remote Iterator.
 type Response struct {
-	// Error is only relevant for variant AckResponse. It is an error returned during a call to
-	// Iterator.Error
+	// Error is only relevant for variant AckResponse. It is an error returned during a
+	// call to Iterator.Error
 	Error error `json:"error" msgpack:"error"`
 	// Frame is only relevant for DataResponse. It is the data returned by the Iterator.
 	Frame frame.Frame `json:"frame" msgpack:"frame"`
@@ -100,30 +100,30 @@ type Response struct {
 	// Command is the command that produced this response. It is non-zero only for
 	// acknowledgement responses.
 	Command Command `json:"command" msgpack:"command"`
-	// Ack is only relevant for variant AckResponse. Is true if the Iterator successfully
-	// executed the request.
+	// Ack is only relevant for variant AckResponse. Is true if the Iterator
+	// successfully executed the request.
 	Ack bool `json:"ack" msgpack:"ack"`
 }
 
 type (
-	// ServerStream is the server side of an iterator stream, receiving Requests from and
-	// sending Responses to a remote Core.
-	ServerStream = freighter.ServerStream[Request, Response]
-	// ClientStream is the client side of an iterator stream, sending Requests to and
+	// ClientStream is the client-side of an iterator stream, sending Requests to and
 	// receiving Responses from a remote Core.
 	ClientStream = freighter.ClientStream[Request, Response]
-	// TransportServer is the server side interface for handling iterator streams from a
+	// ServerStream is the server-side of an iterator stream, receiving Requests from
+	// and sending Responses to a remote Core.
+	ServerStream = freighter.ServerStream[Request, Response]
+	// StreamClient is the client-side interface for opening an iterator stream to a
 	// remote Core.
-	TransportServer = freighter.StreamServer[Request, Response]
-	// TransportClient is the client side interface for opening an iterator stream to a
+	StreamClient = freighter.StreamClient[Request, Response]
+	// StreamServer is the server-side interface for handling iterator streams from a
 	// remote Core.
-	TransportClient = freighter.StreamClient[Request, Response]
+	StreamServer = freighter.StreamServer[Request, Response]
 )
 
 // Transport is the interface for the iterator transport.
 type Transport interface {
-	// Server returns the server side interface for handling iterator streams.
-	Server() TransportServer
-	// Client returns the client side interface for opening iterator streams.
-	Client() TransportClient
+	// Client returns the client-side interface for opening iterator streams.
+	Client() StreamClient
+	// Server returns the server-side interface for handling iterator streams.
+	Server() StreamServer
 }
