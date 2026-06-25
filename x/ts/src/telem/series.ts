@@ -1170,9 +1170,9 @@ class SubIterator<T> implements Iterator<T> {
 
   constructor(series: Series, start: number, end: number) {
     this.series = series;
-    const bounds = bounds.construct(0, series.length);
-    this.end = bounds.clamp(bounds, end);
-    this.index = bounds.clamp(bounds, start);
+    const bound = bounds.construct(0, series.length);
+    this.end = bounds.clamp(bound, end);
+    this.index = bounds.clamp(bound, start);
   }
 
   next(): IteratorResult<T> {
