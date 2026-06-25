@@ -109,6 +109,7 @@ func New(pool *fgrpc.Pool) Transport {
 			},
 			server: &writerServer{
 				writerServerCore: writerServerCore{
+					Internal:           true,
 					RequestTranslator:  framerpb.WriterRequestTranslator{},
 					ResponseTranslator: framerpb.WriterResponseTranslator{},
 					ServiceDesc:        &framerpb.WriterService_ServiceDesc,
@@ -116,6 +117,7 @@ func New(pool *fgrpc.Pool) Transport {
 		},
 		iterator: iteratorTransport{
 			server: &iteratorServer{iteratorServerCore: iteratorServerCore{
+				Internal:           true,
 				RequestTranslator:  framerpb.IteratorRequestTranslator{},
 				ResponseTranslator: framerpb.IteratorResponseTranslator{},
 				ServiceDesc:        &framerpb.IteratorService_ServiceDesc,
@@ -135,6 +137,7 @@ func New(pool *fgrpc.Pool) Transport {
 		},
 		relay: relayTransport{
 			server: &relayServer{relayServerCore: relayServerCore{
+				Internal:           true,
 				RequestTranslator:  framerpb.RelayRequestTranslator{},
 				ResponseTranslator: framerpb.RelayResponseTranslator{},
 				ServiceDesc:        &framerpb.RelayService_ServiceDesc,
@@ -154,6 +157,7 @@ func New(pool *fgrpc.Pool) Transport {
 		},
 		deleter: deleteTransport{
 			server: &deleteServer{
+				Internal:           true,
 				RequestTranslator:  framerpb.DeleteRequestTranslator{},
 				ResponseTranslator: fgrpc.EmptyTranslator{},
 				ServiceDesc:        &framerpb.DeleteService_ServiceDesc,
@@ -162,7 +166,14 @@ func New(pool *fgrpc.Pool) Transport {
 				Pool:               pool,
 				RequestTranslator:  framerpb.DeleteRequestTranslator{},
 				ResponseTranslator: fgrpc.EmptyTranslator{},
-				ServiceDesc:        &framerpb.DeleteService_ServiceDesc,
+				Exec: func(
+					ctx context.Context,
+					conn grpc.ClientConnInterface,
+					req *framerpb.DeleteRequest,
+				) (*emptypb.Empty, error) {
+					return framerpb.NewDeleteServiceClient(conn).Exec(ctx, req)
+				},
+				ServiceDesc: &framerpb.DeleteService_ServiceDesc,
 			},
 		},
 	}
@@ -180,7 +191,7 @@ func (t *iteratorServer) Iterate(server framerpb.IteratorService_IterateServer) 
 	return t.Handler(server.Context(), server)
 }
 
-// Transport is a grpc backed implementation of the framer.Transport interface.
+// Transport is a gRPC-backed implementation of the framer.Transport interface.
 type Transport struct {
 	alamos.ReportProvider
 	writer   writerTransport
@@ -206,12 +217,19 @@ func (t Transport) BindTo(server grpc.ServiceRegistrar) {
 	framerpb.RegisterWriterServiceServer(server, t.writer.server)
 	framerpb.RegisterIteratorServiceServer(server, t.iterator.server)
 	framerpb.RegisterRelayServiceServer(server, t.relay.server)
+	t.deleter.server.BindTo(server)
 }
 
+// Use implements the freighter.Transport interface.
 func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.writer.client.Use(middleware...)
+	t.writer.server.Use(middleware...)
 	t.iterator.client.Use(middleware...)
+	t.iterator.server.Use(middleware...)
 	t.relay.client.Use(middleware...)
+	t.relay.server.Use(middleware...)
+	t.deleter.client.Use(middleware...)
+	t.deleter.server.Use(middleware...)
 }
 
 type writerTransport struct {

@@ -16,15 +16,15 @@ import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb";
 
-service ChannelCreateService {
+service CreateService {
   rpc Exec(CreateMessage) returns (CreateMessage) {}
 }
 
-service ChannelDeleteService {
+service DeleteService {
   rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
 }
 
-service ChannelRenameService {
+service RenameService {
   rpc Exec(RenameRequest) returns (google.protobuf.Empty) {}
 }
 
