@@ -23,19 +23,19 @@ import (
 )
 
 var _ = Describe("Service", Ordered, func() {
-	var cluster *mock.Cluster
+	var dist mock.Node
 	BeforeAll(func(ctx SpecContext) {
-		cluster = mock.MustOpenCluster(ctx, 1)
+		dist = mock.MustOpenNode(ctx)
 	})
 
 	Describe("CountExternalNonVirtual", func() {
 		It("Should return zero for empty database", func(ctx SpecContext) {
-			count := cluster.Nodes[1].Channel.CountExternalNonVirtual()
+			count := dist.Channel.CountExternalNonVirtual()
 			Expect(count).To(BeEquivalentTo(0))
 		})
 
 		It("Should count external non-virtual channels", func(ctx SpecContext) {
-			initialCount := cluster.Nodes[1].Channel.CountExternalNonVirtual()
+			initialCount := dist.Channel.CountExternalNonVirtual()
 
 			// Create an index channel (external, non-virtual)
 			indexCh := channel.Channel{
@@ -44,7 +44,7 @@ var _ = Describe("Service", Ordered, func() {
 				IsIndex:     true,
 				Leaseholder: 1,
 			}
-			Expect(cluster.Nodes[1].Channel.Create(ctx, &indexCh)).To(Succeed())
+			Expect(dist.Channel.Create(ctx, &indexCh)).To(Succeed())
 
 			// Create a data channel (external, non-virtual)
 			dataCh := channel.Channel{
@@ -53,14 +53,14 @@ var _ = Describe("Service", Ordered, func() {
 				LocalIndex:  indexCh.LocalKey,
 				Leaseholder: 1,
 			}
-			Expect(cluster.Nodes[1].Channel.Create(ctx, &dataCh)).To(Succeed())
+			Expect(dist.Channel.Create(ctx, &dataCh)).To(Succeed())
 
 			// Count should increase by 2
-			Expect(cluster.Nodes[1].Channel.CountExternalNonVirtual()).To(Equal(initialCount + 2))
+			Expect(dist.Channel.CountExternalNonVirtual()).To(Equal(initialCount + 2))
 		})
 
 		It("Should not count virtual channels", func(ctx SpecContext) {
-			initialCount := cluster.Nodes[1].Channel.CountExternalNonVirtual()
+			initialCount := dist.Channel.CountExternalNonVirtual()
 
 			// Create a virtual channel (external, but virtual)
 			virtualCh := channel.Channel{
@@ -69,14 +69,14 @@ var _ = Describe("Service", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Virtual:     true,
 			}
-			Expect(cluster.Nodes[1].Channel.Create(ctx, &virtualCh)).To(Succeed())
+			Expect(dist.Channel.Create(ctx, &virtualCh)).To(Succeed())
 
 			// Count should NOT increase
-			Expect(cluster.Nodes[1].Channel.CountExternalNonVirtual()).To(Equal(initialCount))
+			Expect(dist.Channel.CountExternalNonVirtual()).To(Equal(initialCount))
 		})
 
 		It("Should not count internal channels", func(ctx SpecContext) {
-			initialCount := cluster.Nodes[1].Channel.CountExternalNonVirtual()
+			initialCount := dist.Channel.CountExternalNonVirtual()
 
 			// Create an internal index channel
 			internalIndexCh := channel.Channel{
@@ -86,7 +86,7 @@ var _ = Describe("Service", Ordered, func() {
 				Leaseholder: 1,
 				Internal:    true,
 			}
-			Expect(cluster.Nodes[1].Channel.Create(ctx, &internalIndexCh)).To(Succeed())
+			Expect(dist.Channel.Create(ctx, &internalIndexCh)).To(Succeed())
 
 			// Create an internal data channel
 			internalDataCh := channel.Channel{
@@ -96,17 +96,17 @@ var _ = Describe("Service", Ordered, func() {
 				Leaseholder: 1,
 				Internal:    true,
 			}
-			Expect(cluster.Nodes[1].Channel.Create(ctx, &internalDataCh)).To(Succeed())
+			Expect(dist.Channel.Create(ctx, &internalDataCh)).To(Succeed())
 
 			// Count should NOT increase
-			Expect(cluster.Nodes[1].Channel.CountExternalNonVirtual()).To(Equal(initialCount))
+			Expect(dist.Channel.CountExternalNonVirtual()).To(Equal(initialCount))
 		})
 	})
 
 	Describe("Observe", func() {
 		It("Should notify when a channel is created", func(ctx SpecContext) {
 			var called atomic.Bool
-			cluster.Nodes[1].Channel.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
+			dist.Channel.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
 				called.Store(true)
 			})
 			ch := channel.Channel{
@@ -115,7 +115,7 @@ var _ = Describe("Service", Ordered, func() {
 				IsIndex:     true,
 				Leaseholder: 1,
 			}
-			Expect(cluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
 			Eventually(called.Load).Should(BeTrue())
 		})
 	})

@@ -207,16 +207,16 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 
 		It("Should return empty when no calculated channels exist in a fresh cluster", func(ctx SpecContext) {
-			freshCluster := mock.MustOpenCluster(ctx, 1)
+			freshNode := mock.MustOpenNode(ctx)
 			base := channel.Channel{
 				Virtual:  true,
 				DataType: telem.Float32T,
 				Name:     "wc_only_base",
 			}
-			Expect(freshCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
+			Expect(freshNode.Channel.NewWriter(nil).CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
 
 			var results []channel.Channel
-			Expect(freshCluster.Nodes[1].Channel.
+			Expect(freshNode.Channel.
 				NewRetrieve().
 				Where(channel.MatchCalculated()).
 				Entries(&results).

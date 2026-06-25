@@ -148,11 +148,10 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 1)
-	dist := cluster.Nodes[1]
+	dist := mock.OpenNode(ctx)
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: cluster}
+	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: dist}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {

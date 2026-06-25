@@ -206,8 +206,7 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 1)
-	dist := cluster.Nodes[1]
+	dist := mock.OpenNode(ctx)
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
@@ -216,7 +215,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 		keys:   keys,
 		names:  names,
 		dist:   dist,
-		closer: cluster,
+		closer: dist,
 	}
 }
 

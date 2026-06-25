@@ -34,8 +34,8 @@ func TestGRPC(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	cluster := distmock.MustOpenCluster(ctx, 1)
-	dist = DeferClose(cluster.Nodes[1].Layer)
+	node := distmock.MustOpenNode(ctx)
+	dist = DeferClose(node.Layer)
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),
 		KeySize:  secmock.SmallKeySize,
@@ -43,7 +43,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 		Distribution: dist,
 		Security:     sec,
-		Storage:      cluster.Nodes[1].Storage,
+		Storage:      node.Storage,
 	}))
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,

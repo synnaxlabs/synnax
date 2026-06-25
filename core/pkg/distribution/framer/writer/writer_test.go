@@ -79,8 +79,7 @@ var _ = Describe("Writer", func() {
 			strCh channel.Channel
 		)
 		BeforeAll(func(ctx SpecContext) {
-			cluster := mock.OpenCluster(ctx, 1)
-			dist := cluster.Nodes[1]
+			dist := mock.OpenNode(ctx)
 			idxCh = channel.Channel{
 				Name:     channel.NewRandomName(),
 				IsIndex:  true,
@@ -95,7 +94,7 @@ var _ = Describe("Writer", func() {
 			Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
 			s = DeferClose(scenario{
 				dist:   dist,
-				closer: cluster,
+				closer: dist,
 				name:   "Variable",
 				keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 			})
@@ -243,8 +242,7 @@ var _ = Describe("Writer", func() {
 		Describe("Invalid JSON", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
-				cluster := mock.OpenCluster(ctx, 1)
-				dist := cluster.Nodes[1]
+				dist := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     channel.NewRandomName(),
 					IsIndex:  true,
@@ -259,7 +257,7 @@ var _ = Describe("Writer", func() {
 				Expect(dist.Channel.Create(ctx, &jsonCh)).To(Succeed())
 				s = DeferClose(scenario{
 					dist:   dist,
-					closer: cluster,
+					closer: dist,
 					keys:   []channel.Key{idxCh.Key(), jsonCh.Key()},
 				})
 			})
@@ -284,8 +282,7 @@ var _ = Describe("Writer", func() {
 		Describe("Invalid UTF-8", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
-				cluster := mock.OpenCluster(ctx, 1)
-				dist := cluster.Nodes[1]
+				dist := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     channel.NewRandomName(),
 					IsIndex:  true,
@@ -300,7 +297,7 @@ var _ = Describe("Writer", func() {
 				Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
 				s = DeferClose(scenario{
 					dist:   dist,
-					closer: cluster,
+					closer: dist,
 					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 				})
 			})
@@ -325,8 +322,7 @@ var _ = Describe("Writer", func() {
 		Describe("Malformed Variable Prefix", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
-				cluster := mock.OpenCluster(ctx, 1)
-				dist := cluster.Nodes[1]
+				dist := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     channel.NewRandomName(),
 					IsIndex:  true,
@@ -341,7 +337,7 @@ var _ = Describe("Writer", func() {
 				Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
 				s = DeferClose(scenario{
 					dist:   dist,
-					closer: cluster,
+					closer: dist,
 					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 				})
 			})
@@ -639,11 +635,10 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 1)
-	dist := cluster.Nodes[1]
+	dist := mock.OpenNode(ctx)
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Gateway Only", keys: keys, dist: dist, closer: cluster}
+	return scenario{name: "Gateway Only", keys: keys, dist: dist, closer: dist}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {

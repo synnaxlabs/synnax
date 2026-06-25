@@ -18,10 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 )
 
-var (
-	cluster *mock.Cluster
-	dist    *distribution.Layer
-)
+var dist *distribution.Layer
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -29,6 +26,5 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	cluster = mock.MustOpenCluster(ctx, 1)
-	dist = cluster.Nodes[1].Layer
+	dist = mock.MustOpenNode(ctx).Layer
 })

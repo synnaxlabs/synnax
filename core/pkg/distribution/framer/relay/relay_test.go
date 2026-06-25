@@ -108,11 +108,10 @@ var _ = Describe("Relay", func() {
 	Describe("ExcludeGroups", Ordered, func() {
 		It("Should filter out frames from a matching group on gateway writes", func(ctx SpecContext) {
 			channels := newChannelSet()
-			cluster := mock.OpenCluster(ctx, 1)
+			svc := mock.OpenNode(ctx)
 			defer func() {
-				Expect(cluster.Close()).To(Succeed())
+				Expect(svc.Close()).To(Succeed())
 			}()
-			svc := cluster.Nodes[1]
 			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
@@ -147,11 +146,10 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			cluster := mock.OpenCluster(ctx, 1)
+			svc := mock.OpenNode(ctx)
 			defer func() {
-				Expect(cluster.Close()).To(Succeed())
+				Expect(svc.Close()).To(Succeed())
 			}()
-			svc := cluster.Nodes[1]
 			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
@@ -189,11 +187,10 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames with no group even when ExcludeGroups is set", func(ctx SpecContext) {
 			channels := newChannelSet()
-			cluster := mock.OpenCluster(ctx, 1)
+			svc := mock.OpenNode(ctx)
 			defer func() {
-				Expect(cluster.Close()).To(Succeed())
+				Expect(svc.Close()).To(Succeed())
 			}()
-			svc := cluster.Nodes[1]
 			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
@@ -229,11 +226,10 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should filter out free channel frames from a matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			cluster := mock.OpenCluster(ctx, 1)
+			svc := mock.OpenNode(ctx)
 			defer func() {
-				Expect(cluster.Close()).To(Succeed())
+				Expect(svc.Close()).To(Succeed())
 			}()
-			svc := cluster.Nodes[1]
 			for i, ch := range channels {
 				ch.Leaseholder = node.KeyFree
 				ch.Virtual = true
@@ -274,11 +270,10 @@ var _ = Describe("Relay", func() {
 	})
 	Describe("Errors", func() {
 		It("Should raise an error if a channel is not found", func(ctx SpecContext) {
-			cluster := mock.OpenCluster(ctx, 1)
+			svc := mock.OpenNode(ctx)
 			defer func() {
-				Expect(cluster.Close()).To(Succeed())
+				Expect(svc.Close()).To(Succeed())
 			}()
-			svc := cluster.Nodes[1]
 			_, err := svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
@@ -293,13 +288,9 @@ var _ = Describe("Relay", func() {
 	// edge cases that could deadlock the synchronous wait — empty initial keys,
 	// non-free leases, context cancellation mid-wait, and concurrent streamers.
 	Describe("SendOpenAck", Ordered, func() {
-		var (
-			cluster *mock.Cluster
-			svc     mock.Node
-		)
+		var svc mock.Node
 		BeforeAll(func(ctx SpecContext) {
-			cluster = mock.MustOpenCluster(ctx, 1)
-			svc = cluster.Nodes[1]
+			svc = mock.MustOpenNode(ctx)
 		})
 
 		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
@@ -519,15 +510,14 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 1)
-	svc := cluster.Nodes[1]
+	svc := mock.OpenNode(ctx)
 	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	return scenario{
 		resCount: 1,
 		name:     "Gateway Only",
 		channels: channels,
 		dist:     svc,
-		close:    cluster,
+		close:    svc,
 	}
 }
 
@@ -580,8 +570,7 @@ func mixedScenario(ctx context.Context) scenario {
 
 func freeScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 1)
-	dist := cluster.Nodes[1]
+	dist := mock.OpenNode(ctx)
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true
@@ -600,6 +589,6 @@ func freeScenario(ctx context.Context) scenario {
 		resCount: 1,
 		channels: channels,
 		dist:     dist,
-		close:    cluster,
+		close:    dist,
 	}
 }
