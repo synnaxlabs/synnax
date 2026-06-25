@@ -74,7 +74,6 @@ type pool[K comparable, A Adapter] struct {
 	mu      sync.Mutex
 }
 
-// Acquire implements the Pool interface.
 func (p *pool[K, A]) Acquire(key K) (A, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -94,7 +93,6 @@ func (p *pool[K, A]) Acquire(key K) (A, error) {
 	return p.open(key)
 }
 
-// Close implements the Pool interface.
 func (p *pool[K, A]) Close() error {
 	p.mu.Lock()
 	adapters := p.pool

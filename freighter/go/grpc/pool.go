@@ -18,35 +18,36 @@ import (
 	"google.golang.org/grpc/connectivity"
 )
 
-// ClientConn is a wrapper around grpc.ClientConn that implements the
-// pool.Adapter interface.
+// ClientConn is a wrapper around [grpc.ClientConn] that implements the [pool.Adapter]
+// interface.
 type ClientConn struct {
+	// ClientConn is the underlying gRPC client connection.
 	*grpc.ClientConn
 	demand *pool.Demand
 }
 
-// Acquire implements pool.Adapter.
+// Acquire implements [pool.Adapter].
 func (c *ClientConn) Acquire() error { c.demand.Increase(1); return nil }
 
-// Release implements pool.Adapter.
+// Release implements [pool.Adapter].
 func (c *ClientConn) Release() { c.demand.Decrease(1) }
 
-// Close implements pool.Adapter.
+// Close implements [pool.Adapter].
 func (c *ClientConn) Close() error { return c.ClientConn.Close() }
 
-// Healthy implements pool.Adapter.
+// Healthy implements [pool.Adapter].
 func (c *ClientConn) Healthy() bool {
 	state := c.GetState()
 	return state != connectivity.TransientFailure && state != connectivity.Shutdown
 }
 
 // Pool is a pool of reusable gRPC client connections keyed by target address. Open one
-// with OpenPool and acquire connections through the embedded pool.Pool interface.
+// with [OpenPool] and acquire connections through the embedded [pool.Pool] interface.
 type Pool struct {
 	pool.Pool[address.Address, *ClientConn]
 }
 
-// OpenPool returns a Pool that dials connections with the given dial options.
+// OpenPool returns a [Pool] that dials connections with the given dial options.
 // targetPrefix is prepended to every acquired address, allowing callers to scope all
 // connections to a common host or namespace.
 func OpenPool(targetPrefix address.Address, dialOpts ...grpc.DialOption) *Pool {
@@ -60,8 +61,6 @@ type factory struct {
 	dialOpts     []grpc.DialOption
 }
 
-// Open implements the pool.Factory interface, dialing a new gRPC client connection to
-// targetPrefix joined with addr.
 func (f *factory) Open(addr address.Address) (*ClientConn, error) {
 	c, err := grpc.NewClient(
 		path.Join(f.targetPrefix.String(), addr.String()),
