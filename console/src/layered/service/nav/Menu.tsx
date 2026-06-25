@@ -31,7 +31,7 @@ interface MenuItemProps {
 
 const MenuItem = ({
   item,
-  selected: isActive,
+  selected,
   onStartHover,
   onStopHover,
   onToggle,
@@ -96,7 +96,7 @@ const MenuItem = ({
 
   return (
     <PMenu.Item
-      className={CSS(CSS.BE("main-nav", "item"), PCSS.selected(isActive))}
+      className={CSS(CSS.BE("main-nav", "item"), PCSS.selected(selected))}
       onClick={resetTimeout}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={resetTimeout}

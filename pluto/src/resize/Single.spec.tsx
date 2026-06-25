@@ -206,5 +206,17 @@ describe("Resize.Single", () => {
       const c = renderSingle({ location: "left", size: 200 });
       expect(paneOf(c).className).toContain("pluto--expanded");
     });
+
+    it("should render at the collapsed size when controlled collapsed", () => {
+      const c = renderSingle({ location: "left", size: 200, collapsed: true });
+      expect(paneOf(c).style.width).toEqual("2px");
+      expect(paneOf(c).className).toContain("pluto--collapsed");
+    });
+
+    it("should render the expanded size when not collapsed", () => {
+      const c = renderSingle({ location: "left", size: 200, collapsed: false });
+      expect(paneOf(c).style.width).toEqual("200px");
+      expect(paneOf(c).className).toContain("pluto--expanded");
+    });
   });
 });

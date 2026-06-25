@@ -25,6 +25,13 @@ export interface SingleProps extends Omit<
    * transient drag size instead. Defaults to 200.
    */
   size?: number;
+  /**
+   * Whether the pane is collapsed. A collapsed pane renders at its collapsed size
+   * regardless of `size`, so the consumer can drive the collapsed state in response to
+   * onCollapse without the pane springing back to its expanded size. Collapse is a
+   * distinct axis from `size`, which is clamped to `sizeBounds`. Defaults to false.
+   */
+  collapsed?: boolean;
   sizeBounds?: Partial<bounds.Bounds>;
   /**
    * Called continuously while the handle is being dragged with the live size and the
@@ -52,6 +59,7 @@ export const Single = ({
   location: propsLoc = "left",
   sizeBounds,
   size = DEFAULT_SIZE,
+  collapsed = false,
   collapseThreshold = Infinity,
   className,
   ...rest
@@ -66,7 +74,7 @@ export const Single = ({
   );
   const clamped = bounds.clamp(fullSizeBounds, size);
   const [dragSize, setDragSize] = useState<number | null>(null);
-  const rendered = dragSize ?? clamped;
+  const rendered = dragSize ?? (collapsed ? COLLAPSED_SIZE : clamped);
   const marker = useRef<number>(clamped);
   const loc = location.construct(propsLoc);
   const ref = useRef<HTMLDivElement>(null);

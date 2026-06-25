@@ -15,6 +15,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactElement,
   useCallback,
+  useState,
 } from "react";
 
 import { CSS } from "@/css";
@@ -68,6 +69,7 @@ export const Drawer = ({
     <Resize.Single
       location={loc}
       className={CSS(CLASS, PCSS.visible(visible), hover && CSS.M("hover"))}
+      collapsed={!visible}
       onMouseLeave={handleMouseLeave}
       onResize={handleResize}
       collapseThreshold={collapseThreshold}
