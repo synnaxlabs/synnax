@@ -63,6 +63,12 @@ type CreateMessage struct {
 	Opts CreateOptions
 }
 
+// DeleteRequest is the payload for a channel delete operation.
+type DeleteRequest struct {
+	// Keys identifies the channels to delete.
+	Keys Keys
+}
+
 // RenameRequest is the payload for a channel rename operation. Keys and Names are
 // positional: the channel at Keys[i] is renamed to Names[i], so both slices must have
 // the same length.
@@ -71,10 +77,4 @@ type RenameRequest struct {
 	Keys Keys
 	// Names holds the new name for each channel in Keys, by position.
 	Names []string
-}
-
-// DeleteRequest is the payload for a channel delete operation.
-type DeleteRequest struct {
-	// Keys identifies the channels to delete.
-	Keys Keys
 }

@@ -70,7 +70,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		sServer.BindTo(grpcServer)
 		server = &sServer.StreamServerCore
 
-		pool := fgrpc.NewPool(
+		pool := fgrpc.OpenPool(
 			"",
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)

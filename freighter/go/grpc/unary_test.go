@@ -51,7 +51,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		uServer.BindTo(grpcServer)
 		server = uServer
 
-		pool := fgrpc.NewPool(
+		pool := fgrpc.OpenPool(
 			"",
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)

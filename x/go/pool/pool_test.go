@@ -53,7 +53,7 @@ type fakeFactory struct {
 	failNext   bool
 }
 
-func (f *fakeFactory) New(_ string) (*fakeAdapter, error) {
+func (f *fakeFactory) Open(_ string) (*fakeAdapter, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.failNext {

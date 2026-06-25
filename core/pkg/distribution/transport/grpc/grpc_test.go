@@ -25,7 +25,7 @@ import (
 var _ = Describe("Transport", func() {
 	Describe("Construction", func() {
 		It("Should bundle the channel and framer transports", func() {
-			pool := fgrpc.NewPool(
+			pool := fgrpc.OpenPool(
 				"",
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
 			)

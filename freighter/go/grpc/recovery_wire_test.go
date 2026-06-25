@@ -92,7 +92,7 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 		})
 		sServer.BindTo(grpcServer)
 
-		pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+		pool := fgrpc.OpenPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
 		unaryClient = &fgrpc.UnaryClient[
 			test.Request, *v1.Request,
 			test.Response, *v1.Response,

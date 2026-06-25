@@ -26,41 +26,50 @@ type ClientConn struct {
 }
 
 // Acquire implements pool.Adapter.
-func (c *ClientConn) Acquire() error {
-	c.demand.Increase(1)
-	return nil
-}
+func (c *ClientConn) Acquire() error { c.demand.Increase(1); return nil }
 
 // Release implements pool.Adapter.
-func (c *ClientConn) Release() {
-	c.demand.Decrease(1)
-}
+func (c *ClientConn) Release() { c.demand.Decrease(1) }
 
 // Close implements pool.Adapter.
 func (c *ClientConn) Close() error { return c.ClientConn.Close() }
 
-// Healthy implements pool.Adapter
+// Healthy implements pool.Adapter.
 func (c *ClientConn) Healthy() bool {
 	state := c.GetState()
 	return state != connectivity.TransientFailure && state != connectivity.Shutdown
 }
 
+// Pool is a pool of reusable gRPC client connections keyed by target address. Open one
+// with OpenPool and acquire connections through the embedded pool.Pool interface.
 type Pool struct {
 	pool.Pool[address.Address, *ClientConn]
 }
 
-func NewPool(targetPrefix address.Address, dialOpts ...grpc.DialOption) *Pool {
-	return &Pool{Pool: pool.New[address.Address, *ClientConn](&factory{dialOpts: dialOpts, targetPrefix: targetPrefix})}
+// OpenPool returns a Pool that dials connections with the given dial options. targetPrefix
+// is prepended to every acquired address, allowing callers to scope all connections to a
+// common host or namespace.
+func OpenPool(targetPrefix address.Address, dialOpts ...grpc.DialOption) *Pool {
+	return &Pool{
+		Pool: pool.New(&factory{dialOpts: dialOpts, targetPrefix: targetPrefix}),
+	}
 }
 
-// factory implements the pool.Factory interface.
 type factory struct {
 	targetPrefix address.Address
 	dialOpts     []grpc.DialOption
 }
 
-func (f *factory) New(addr address.Address) (*ClientConn, error) {
-	c, err := grpc.NewClient(path.Join(f.targetPrefix.String(), addr.String()), f.dialOpts...)
+// Open implements the pool.Factory interface, dialing a new gRPC client connection to
+// targetPrefix joined with addr.
+func (f *factory) Open(addr address.Address) (*ClientConn, error) {
+	c, err := grpc.NewClient(
+		path.Join(f.targetPrefix.String(), addr.String()),
+		f.dialOpts...,
+	)
+	if err != nil {
+		return nil, err
+	}
 	d := pool.Demand(1)
-	return &ClientConn{ClientConn: c, demand: &d}, err
+	return &ClientConn{ClientConn: c, demand: &d}, nil
 }
