@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -25,37 +25,37 @@ import (
 type (
 	createClient = fgrpc.UnaryClient[
 		channel.CreateMessage,
-		*channelpb.CreateMessage,
+		*pb.CreateMessage,
 		channel.CreateMessage,
-		*channelpb.CreateMessage,
+		*pb.CreateMessage,
 	]
 	createServer = fgrpc.UnaryServer[
 		channel.CreateMessage,
-		*channelpb.CreateMessage,
+		*pb.CreateMessage,
 		channel.CreateMessage,
-		*channelpb.CreateMessage,
+		*pb.CreateMessage,
 	]
 	deleteClient = fgrpc.UnaryClient[
 		channel.DeleteRequest,
-		*channelpb.DeleteRequest,
+		*pb.DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	deleteServer = fgrpc.UnaryServer[
 		channel.DeleteRequest,
-		*channelpb.DeleteRequest,
+		*pb.DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	renameClient = fgrpc.UnaryClient[
 		channel.RenameRequest,
-		*channelpb.RenameRequest,
+		*pb.RenameRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	renameServer = fgrpc.UnaryServer[
 		channel.RenameRequest,
-		*channelpb.RenameRequest,
+		*pb.RenameRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
@@ -84,60 +84,60 @@ func New(pool *fgrpc.Pool) Transport {
 		ReportProvider: fgrpc.Reporter,
 		createClient: &createClient{
 			Pool:               pool,
-			RequestTranslator:  channelpb.CreateMessageTranslator{},
-			ResponseTranslator: channelpb.CreateMessageTranslator{},
+			RequestTranslator:  pb.CreateMessageTranslator{},
+			ResponseTranslator: pb.CreateMessageTranslator{},
 			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
-				req *channelpb.CreateMessage,
-			) (*channelpb.CreateMessage, error) {
-				return channelpb.NewCreateServiceClient(conn).Exec(ctx, req)
+				req *pb.CreateMessage,
+			) (*pb.CreateMessage, error) {
+				return pb.NewCreateServiceClient(conn).Exec(ctx, req)
 			},
-			ServiceDesc: &channelpb.CreateService_ServiceDesc,
+			ServiceDesc: &pb.CreateService_ServiceDesc,
 		},
 		createServer: &createServer{
 			Internal:           true,
-			RequestTranslator:  channelpb.CreateMessageTranslator{},
-			ResponseTranslator: channelpb.CreateMessageTranslator{},
-			ServiceDesc:        &channelpb.CreateService_ServiceDesc,
+			RequestTranslator:  pb.CreateMessageTranslator{},
+			ResponseTranslator: pb.CreateMessageTranslator{},
+			ServiceDesc:        &pb.CreateService_ServiceDesc,
 		},
 		deleteClient: &deleteClient{
 			Pool:               pool,
-			RequestTranslator:  channelpb.DeleteRequestTranslator{},
+			RequestTranslator:  pb.DeleteRequestTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
 			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
-				req *channelpb.DeleteRequest,
+				req *pb.DeleteRequest,
 			) (*emptypb.Empty, error) {
-				return channelpb.NewDeleteServiceClient(conn).Exec(ctx, req)
+				return pb.NewDeleteServiceClient(conn).Exec(ctx, req)
 			},
-			ServiceDesc: &channelpb.DeleteService_ServiceDesc,
+			ServiceDesc: &pb.DeleteService_ServiceDesc,
 		},
 		deleteServer: &deleteServer{
 			Internal:           true,
-			RequestTranslator:  channelpb.DeleteRequestTranslator{},
+			RequestTranslator:  pb.DeleteRequestTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
-			ServiceDesc:        &channelpb.DeleteService_ServiceDesc,
+			ServiceDesc:        &pb.DeleteService_ServiceDesc,
 		},
 		renameClient: &renameClient{
 			Pool:               pool,
-			RequestTranslator:  channelpb.RenameMessageTranslator{},
+			RequestTranslator:  pb.RenameMessageTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
 			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
-				req *channelpb.RenameRequest,
+				req *pb.RenameRequest,
 			) (*emptypb.Empty, error) {
-				return channelpb.NewRenameServiceClient(conn).Exec(ctx, req)
+				return pb.NewRenameServiceClient(conn).Exec(ctx, req)
 			},
-			ServiceDesc: &channelpb.RenameService_ServiceDesc,
+			ServiceDesc: &pb.RenameService_ServiceDesc,
 		},
 		renameServer: &renameServer{
 			Internal:           true,
-			RequestTranslator:  channelpb.RenameMessageTranslator{},
+			RequestTranslator:  pb.RenameMessageTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
-			ServiceDesc:        &channelpb.RenameService_ServiceDesc,
+			ServiceDesc:        &pb.RenameService_ServiceDesc,
 		},
 	}
 }
