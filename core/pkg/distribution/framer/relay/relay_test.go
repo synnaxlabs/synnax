@@ -108,14 +108,11 @@ var _ = Describe("Relay", func() {
 	Describe("ExcludeGroups", Ordered, func() {
 		It("Should filter out frames from a matching group on gateway writes", func(ctx SpecContext) {
 			channels := newChannelSet()
-			svc := mock.OpenNode(ctx)
-			defer func() {
-				Expect(svc.Close()).To(Succeed())
-			}()
-			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			node := mock.MustOpenNode(ctx)
+			Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(node.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -125,7 +122,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "grouped", Key: "grouped", Group: 99},
@@ -146,14 +143,11 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			svc := mock.OpenNode(ctx)
-			defer func() {
-				Expect(svc.Close()).To(Succeed())
-			}()
-			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			node := mock.MustOpenNode(ctx)
+			Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(node.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -163,7 +157,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "other", Key: "other", Group: 200},
@@ -187,14 +181,11 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames with no group even when ExcludeGroups is set", func(ctx SpecContext) {
 			channels := newChannelSet()
-			svc := mock.OpenNode(ctx)
-			defer func() {
-				Expect(svc.Close()).To(Succeed())
-			}()
-			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			node := mock.MustOpenNode(ctx)
+			Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(node.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -204,7 +195,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -226,10 +217,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should filter out free channel frames from a matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			svc := mock.OpenNode(ctx)
-			defer func() {
-				Expect(svc.Close()).To(Succeed())
-			}()
+			svc := mock.MustOpenNode(ctx)
 			for i, ch := range channels {
 				ch.Leaseholder = node.KeyFree
 				ch.Virtual = true
@@ -270,10 +258,7 @@ var _ = Describe("Relay", func() {
 	})
 	Describe("Errors", func() {
 		It("Should raise an error if a channel is not found", func(ctx SpecContext) {
-			svc := mock.OpenNode(ctx)
-			defer func() {
-				Expect(svc.Close()).To(Succeed())
-			}()
+			svc := mock.MustOpenNode(ctx)
 			_, err := svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
