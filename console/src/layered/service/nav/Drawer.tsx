@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Eraser, Nav } from "@synnaxlabs/pluto";
+import { Eraser, Errors, Resize } from "@synnaxlabs/pluto";
 import { box, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -17,28 +17,29 @@ import {
 
 import { CSS } from "@/css";
 
-const LONG_AXIS_THRESHOLD = 36;
-const SHORT_AXIS_THRESHOLD = 24;
+const X_THRESHOLD = { x: 36, y: 24 };
+const Y_THRESHOLD = xy.swap(X_THRESHOLD);
 
-const THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
-
-interface DrawerProps extends Omit<Nav.DrawerProps, "onResize"> {
+interface DrawerProps extends Omit<Resize.SingleProps, "onResize"> {
   location: location.Location;
   hover: boolean;
   onStopHover: () => void;
 }
 
+const CLASS = CSS.BE("nav", "drawer");
+
 export const Drawer = ({
   location: loc,
   hover,
   onStopHover,
+  children,
   ...rest
 }: DrawerProps): ReactElement => {
   const { erase } = Eraser.use({ enabled: !hover });
   const handleResize = useCallback((_: number, b: box.Box) => erase(b), [erase]);
-  const onMouseLeave = useCallback((e: ReactMouseEvent) => {
-    const threshold = direction.construct(loc) === "y" ? xy.swap(THRESHOLD) : THRESHOLD;
-    const content = (e.target as HTMLElement).closest(".pluto-nav-drawer");
+  const handleMouseLeave = useCallback((e: ReactMouseEvent) => {
+    const threshold = direction.isY(loc) ? Y_THRESHOLD : X_THRESHOLD;
+    const content = (e.target as HTMLElement).closest(CLASS);
     if (content == null) return;
     let b = box.construct(content);
     b = box.translate(b, xy.scale(threshold, -1));
@@ -56,16 +57,18 @@ export const Drawer = ({
     window.addEventListener("mousemove", lis);
   }, []);
   return (
-    <Nav.Drawer
+    <Resize.Single
       location={loc}
-      className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
-      onMouseLeave={onMouseLeave}
+      className={CSS(CLASS, hover && CSS.M("hover"))}
+      onMouseLeave={handleMouseLeave}
       onResize={handleResize}
       background={0}
       rounded={1}
       bordered
       borderColor={5}
       {...rest}
-    />
+    >
+      <Errors.Boundary>{children}</Errors.Boundary>
+    </Resize.Single>
   );
 };

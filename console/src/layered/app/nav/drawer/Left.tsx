@@ -14,34 +14,35 @@ import { Items } from "@/layered/app/nav/items";
 import { Drawer } from "@/layered/service/nav/Drawer";
 import { Session } from "@/layered/session";
 
-export const Left = (): ReactElement => {
+export const Left = (): ReactElement | null => {
   const { selected, hover, size } = Session.Nav.useSelectLeft();
   const dispatch = useDispatch();
   const item = Items.LEFT.find((i) => i.key === selected);
-  const onResize = useCallback(
+  const handleResizeEnd = useCallback(
     (size: number) => dispatch(Session.Nav.resizeLeft({ size })),
     [dispatch],
   );
-  const onCollapse = useCallback(() => {
+  const handleCollapse = useCallback(() => {
     if (hover) dispatch(Session.Nav.stopLeftHover({}));
     else if (selected != null) dispatch(Session.Nav.selectLeft({ key: selected }));
   }, [dispatch, hover, selected]);
-  const onStopHover = useCallback(
+  const handleStopHover = useCallback(
     () => dispatch(Session.Nav.stopLeftHover({})),
     [dispatch],
   );
+  if (item == null) return null;
+  const { initialSize, sizeBounds, content } = item;
   return (
     <Drawer
       location="left"
-      open={item != null}
-      size={size ?? item?.initialSize ?? Items.DEFAULT_SIZE}
-      sizeBounds={{ lower: item?.minSize, upper: item?.maxSize }}
+      size={size ?? initialSize ?? Items.DEFAULT_SIZE}
+      sizeBounds={sizeBounds}
       hover={hover}
-      onResize={onResize}
-      onCollapse={onCollapse}
-      onStopHover={onStopHover}
+      onResizeEnd={handleResizeEnd}
+      onCollapse={handleCollapse}
+      onStopHover={handleStopHover}
     >
-      {item?.content}
+      {content}
     </Drawer>
   );
 };

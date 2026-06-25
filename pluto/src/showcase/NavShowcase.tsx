@@ -357,18 +357,6 @@ export const NavShowcase = () => {
                     </Button.Button>
                   </Nav.Bar.End>
                 </Nav.Bar>
-                <Nav.Drawer
-                  open={topDrawer.activeItem != null}
-                  initialSize={topDrawer.size}
-                  sizeBounds={{
-                    lower: topDrawer.activeItem?.minSize,
-                    upper: topDrawer.activeItem?.maxSize,
-                  }}
-                  onResize={topDrawer.setSize}
-                  location="top"
-                >
-                  {topDrawer.activeItem?.content}
-                </Nav.Drawer>
                 <Flex.Box
                   style={{
                     padding: "2rem",
@@ -427,18 +415,6 @@ export const NavShowcase = () => {
                     </Button.Button>
                   </Nav.Bar.End>
                 </Nav.Bar>
-                <Nav.Drawer
-                  open={leftDrawer.activeItem != null}
-                  size={leftDrawer.size}
-                  sizeBounds={{
-                    lower: leftDrawer.activeItem?.minSize,
-                    upper: leftDrawer.activeItem?.maxSize,
-                  }}
-                  onResize={leftDrawer.setSize}
-                  location="left"
-                >
-                  {leftDrawer.activeItem?.content}
-                </Nav.Drawer>
                 <Flex.Box
                   style={{
                     padding: "2rem",

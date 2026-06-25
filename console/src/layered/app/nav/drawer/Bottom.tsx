@@ -14,10 +14,10 @@ import { Items } from "@/layered/app/nav/items";
 import { Service } from "@/layered/service";
 import { Session } from "@/layered/session";
 
-export const Bottom = (): ReactElement => {
+export const Bottom = (): ReactElement | null => {
   const { visible, hover, size } = Session.Nav.useSelectBottom();
   const dispatch = useDispatch();
-  const onResize = useCallback(
+  const onResizeEnd = useCallback(
     (size: number) => dispatch(Session.Nav.resizeBottom({ size })),
     [dispatch],
   );
@@ -29,18 +29,19 @@ export const Bottom = (): ReactElement => {
     () => dispatch(Session.Nav.stopBottomHover({})),
     [dispatch],
   );
+  if (!visible) return null;
+  const { initialSize, sizeBounds, content } = Items.BOTTOM;
   return (
     <Service.Nav.Drawer
       location="bottom"
-      open={visible}
-      size={size ?? Items.BOTTOM.initialSize ?? Items.DEFAULT_SIZE}
-      sizeBounds={{ lower: Items.BOTTOM.minSize, upper: Items.BOTTOM.maxSize }}
+      size={size ?? initialSize ?? Items.DEFAULT_SIZE}
+      sizeBounds={sizeBounds}
       hover={hover}
-      onResize={onResize}
+      onResizeEnd={onResizeEnd}
       onCollapse={onCollapse}
       onStopHover={onStopHover}
     >
-      {Items.BOTTOM.content}
+      {content}
     </Service.Nav.Drawer>
   );
 };

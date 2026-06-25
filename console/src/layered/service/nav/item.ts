@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Icon, type Triggers } from "@synnaxlabs/pluto";
+import { type Icon, type Resize, type Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-export interface Item {
+export interface Item extends Pick<Resize.SingleProps, "sizeBounds"> {
   key: string;
   content: ReactElement;
-  minSize?: number;
-  maxSize?: number;
   initialSize?: number;
   icon: Icon.ReactElement;
   tooltip: string;

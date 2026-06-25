@@ -47,7 +47,8 @@ export const Base = ({
   }, [decimal, size, dir, propsStyle]);
   return (
     <Flex.Box
-      className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), className)}
+      className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), CSS.dir(dir), className)}
+      full={direction.swap(dir)}
       style={style}
       ref={ref}
       direction={dir}
