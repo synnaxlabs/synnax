@@ -93,6 +93,38 @@ describe("http", () => {
       expect(response).toEqual({ id: 2, message: "hello" });
     });
 
+    test("array buffer view body", async () => {
+      const body = new TextEncoder().encode(
+        JSON.stringify({ id: 1, message: "hello" }),
+      );
+      const response = await client.upload(
+        "/echo",
+        body,
+        { encoding: "JSON" },
+        messageZ,
+      );
+      expect(response).toEqual({ id: 2, message: "hello" });
+    });
+
+    test("readable stream body", async () => {
+      const bytes = new TextEncoder().encode(
+        JSON.stringify({ id: 1, message: "hello" }),
+      );
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes);
+          controller.close();
+        },
+      });
+      const response = await client.upload(
+        "/echo",
+        body,
+        { encoding: "JSON" },
+        messageZ,
+      );
+      expect(response).toEqual({ id: 2, message: "hello" });
+    });
+
     test("not found", async () => {
       await expect(
         client.upload("/not-found", JSON.stringify({}), { encoding: "JSON" }, messageZ),
