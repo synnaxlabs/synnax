@@ -40,7 +40,7 @@ describe("Imex", () => {
     it("should import from a Blob", async () => {
       const name = `imex-${id.create()}`;
       const ontologyID = await client.imex.import(toBlob(logEnvelope(name)), {
-        contentType: "json",
+        contentType: "JSON",
       });
       expect(ontologyID.type).toEqual("log");
       expect(ontologyID.key).not.toHaveLength(0);
@@ -49,7 +49,7 @@ describe("Imex", () => {
       const envelope = logEnvelope("invalid");
       envelope.version = -1;
       await expect(
-        client.imex.import(toBlob(envelope), { contentType: "json" }),
+        client.imex.import(toBlob(envelope), { contentType: "JSON" }),
       ).rejects.toThrow("failed to decode");
     });
   });
@@ -58,9 +58,9 @@ describe("Imex", () => {
     it("should export to a byte stream", async () => {
       const name = `imex-${id.create()}`;
       const oid = await client.imex.import(toBlob(logEnvelope(name)), {
-        contentType: "json",
+        contentType: "JSON",
       });
-      const stream = await client.imex.export(oid, { contentType: "json" });
+      const stream = await client.imex.export(oid, { contentType: "JSON" });
       const parsed = await new Response(stream).json();
       expect(parsed.type).toEqual("log");
       expect(parsed.name).toEqual(name);
@@ -69,7 +69,7 @@ describe("Imex", () => {
       await expect(
         client.imex.export(
           { type: "log", key: uuid.create() },
-          { contentType: "json" },
+          { contentType: "JSON" },
         ),
       ).rejects.toThrow("not found");
     });

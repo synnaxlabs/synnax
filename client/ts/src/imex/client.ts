@@ -7,21 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type FileClient,
-  type FileEncoding,
-  type UploadBody,
-} from "@synnaxlabs/freighter";
+import { type FileClient, type UploadBody } from "@synnaxlabs/freighter";
 
 import { ontology } from "@/ontology";
 
 /**
  * The serialized wire formats a resource can be imported from or exported to. Today
- * only "json" is supported.
+ * only "JSON" is supported.
  */
-export type ContentType = "json";
-
-const CONTENT_TYPE_ENCODINGS: Record<ContentType, FileEncoding> = { json: "JSON" };
+export type ContentType = "JSON";
 
 /**
  * Options shared by import and export. Carries the wire format of the resource and is
@@ -76,7 +70,7 @@ export class Client {
     return await this.file.upload(
       "/imex/import",
       source,
-      { encoding: CONTENT_TYPE_ENCODINGS[options.contentType] },
+      { encoding: options.contentType },
       ontology.idZ,
     );
   }
@@ -93,7 +87,7 @@ export class Client {
    */
   async export(id: ontology.ID, options: Options): Promise<ReadableStream<Uint8Array>> {
     return await this.file.download("/imex/export", id, ontology.idZ, {
-      encoding: CONTENT_TYPE_ENCODINGS[options.contentType],
+      encoding: options.contentType,
     });
   }
 }
