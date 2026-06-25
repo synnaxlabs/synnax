@@ -300,11 +300,10 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [dispatch],
   );
 
-  const handleResize = useDebouncedCallback(
+  const handleResize = useCallback(
     (key: number, size: number) => {
       dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
     },
-    RESIZE_DEBOUNCE,
     [dispatch, windowKey],
   );
 

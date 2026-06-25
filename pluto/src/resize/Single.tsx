@@ -8,15 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds, box, location } from "@synnaxlabs/x";
-import { clsx } from "clsx";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
@@ -25,24 +17,41 @@ import { Base, type BaseProps } from "@/resize/Base";
 /** Props for the {@link Single} component. */
 export interface SingleProps extends Omit<
   BaseProps,
-  "showHandle" | "size" | "onResize" | "onDragStart" | "ref"
+  "hideHandle" | "size" | "onResize" | "onDragStart" | "ref"
 > {
-  initialSize?: number;
+  /**
+   * The size of the pane, in pixels. Acts as the source of truth whenever the handle is
+   * not being actively dragged; while a drag is in progress the pane renders its
+   * transient drag size instead. Defaults to 200.
+   */
+  size?: number;
   sizeBounds?: Partial<bounds.Bounds>;
+  /**
+   * Called continuously while the handle is being dragged with the live size and the
+   * pane's box. Use for transient, per-frame side effects (e.g. repainting an overlay);
+   * do not persist from here, as it fires once per pointer move.
+   */
   onResize?: (size: number, box: box.Box) => void;
+  /**
+   * Called once when a drag gesture ends with the committed size and the pane's box.
+   * This is the callback to persist the new size to the source of truth.
+   */
+  onResizeEnd?: (size: number, box: box.Box) => void;
   collapseThreshold?: number;
   onCollapse?: () => void;
 }
 
 const COLLAPSED_SIZE = 2;
+const DEFAULT_SIZE = 200;
 const DEFAULT_SIZE_BOUNDS = { lower: 100 };
 
 export const Single = ({
   onCollapse,
   onResize,
-  location: location_ = "left",
-  sizeBounds = DEFAULT_SIZE_BOUNDS,
-  initialSize = 200,
+  onResizeEnd,
+  location: propsLoc = "left",
+  sizeBounds,
+  size = DEFAULT_SIZE,
   collapseThreshold = Infinity,
   className,
   ...rest
@@ -50,21 +59,23 @@ export const Single = ({
   const fullSizeBounds = useMemo(
     () =>
       bounds.construct({
-        lower: sizeBounds.lower ?? DEFAULT_SIZE_BOUNDS.lower,
-        upper: sizeBounds.upper,
+        ...sizeBounds,
+        lower: sizeBounds?.lower ?? DEFAULT_SIZE_BOUNDS.lower,
       }),
-    [sizeBounds.lower, sizeBounds.upper],
+    [sizeBounds?.lower, sizeBounds?.upper],
   );
-  const [size, setSize] = useState(bounds.clamp(fullSizeBounds, initialSize));
-  const marker = useRef<number | null>(null);
-  const loc = location.construct(location_);
+  const clamped = bounds.clamp(fullSizeBounds, size);
+  const [dragSize, setDragSize] = useState<number | null>(null);
+  const rendered = dragSize ?? clamped;
+  const marker = useRef<number>(clamped);
+  const loc = location.construct(propsLoc);
+  const ref = useRef<HTMLDivElement>(null);
 
   const calcNextSize = useCallback(
     (b: box.Box) => {
-      if (marker.current === null) return 0;
-      const dim =
-        box.dim(b, location.direction(loc), true) *
-        (1 - 2 * Number(["bottom", "right"].includes(loc)));
+      const signedDim = box.dim(b, location.direction(loc), true);
+      const isInverted = loc === "bottom" || loc === "right";
+      const dim = isInverted ? -signedDim : signedDim;
       const rawNextSize = marker.current + dim;
       const nextSize = bounds.clamp(fullSizeBounds, rawNextSize);
       if ((nextSize - rawNextSize) / fullSizeBounds.lower > collapseThreshold)
@@ -74,38 +85,28 @@ export const Single = ({
     [loc, fullSizeBounds, collapseThreshold],
   );
 
-  const ref = useRef<HTMLDivElement>(null);
+  const handleStart = useCallback(() => {
+    marker.current = clamped;
+  }, [clamped]);
 
   const handleMove = useCallback(
     (dragRegion: box.Box) => {
       const nextSize = calcNextSize(dragRegion);
-      setSize(nextSize);
+      setDragSize(nextSize);
       if (ref.current != null) onResize?.(nextSize, box.construct(ref.current));
     },
     [onResize, calcNextSize],
   );
 
-  const handleStart = useCallback(
-    () =>
-      setSize((prev) => {
-        marker.current = prev;
-        return prev;
-      }),
-    [setSize],
-  );
-
   const handleEnd = useCallback(
-    (box: box.Box) => calcNextSize(box) === COLLAPSED_SIZE && onCollapse?.(),
-    [onCollapse, calcNextSize],
+    (dragRegion: box.Box) => {
+      const nextSize = calcNextSize(dragRegion);
+      setDragSize(null);
+      if (nextSize === COLLAPSED_SIZE) return onCollapse?.();
+      if (ref.current != null) onResizeEnd?.(nextSize, box.construct(ref.current));
+    },
+    [onResizeEnd, onCollapse, calcNextSize],
   );
-
-  useEffect(() => {
-    setSize((prev) => {
-      const nextSize = bounds.clamp(fullSizeBounds, prev);
-      marker.current = nextSize;
-      return nextSize;
-    });
-  }, [fullSizeBounds]);
 
   const handleDragStart = useCursorDrag({
     onMove: handleMove,
@@ -117,9 +118,9 @@ export const Single = ({
     <Base
       ref={ref}
       location={loc}
-      size={size}
+      size={rendered}
       onDragStart={handleDragStart}
-      className={clsx(className, CSS.expanded(size !== COLLAPSED_SIZE))}
+      className={CSS(className, CSS.expanded(rendered !== COLLAPSED_SIZE))}
       {...rest}
     />
   );

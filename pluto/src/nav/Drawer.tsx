@@ -17,29 +17,33 @@ import { Errors } from "@/errors";
 import { Resize } from "@/resize";
 import { Eraser } from "@/vis/eraser";
 
-export interface DrawerProps extends Resize.SingleProps {
-  open?: boolean;
-  eraseEnabled?: boolean;
-}
+export interface DrawerProps extends Resize.SingleProps {}
 
 export const Drawer = ({
-  open = false,
   children,
   location: loc,
   collapseThreshold = 0.65,
   className,
   onResize,
-  eraseEnabled,
+  onResizeEnd,
+  onCollapse,
   ...rest
 }: DrawerProps): ReactElement => {
   eraseEnabled ??= open;
   const { erase } = Eraser.use({ enabled: eraseEnabled });
   const handleResize = useCallback(
-    (size: number, b: box.Box) => {
-      onResize?.(size, b);
-      erase(b);
+    (size: number, box: box.Box) => {
+      erase(box);
+      onResize?.(size, box);
     },
-    [onResize, erase],
+    [erase, onResize],
+  );
+  const handleResizeEnd = useCallback(
+    (size: number, box: box.Box) => {
+      erase(box);
+      onResizeEnd?.(size, box);
+    }
+    [erase, onResizeEnd],
   );
   return (
     <Resize.Single
@@ -52,6 +56,7 @@ export const Drawer = ({
       collapseThreshold={collapseThreshold}
       location={loc}
       onResize={handleResize}
+      onResizeEnd={handleResizeEnd}
       {...rest}
     >
       <Errors.Boundary>{children}</Errors.Boundary>

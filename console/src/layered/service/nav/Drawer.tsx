@@ -9,12 +9,35 @@
 
 import { Nav } from "@synnaxlabs/pluto";
 import { box, direction, type location, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  type ReactElement,
+  useCallback,
+} from "react";
 
 import { CSS } from "@/css";
 
-const mouseLeaveBy =
-  (threshold: xy.XY, onLeave: (e: MouseEvent) => void) => (e: React.MouseEvent) => {
+const LONG_AXIS_THRESHOLD = 36;
+const SHORT_AXIS_THRESHOLD = 24;
+
+const X_THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
+
+interface DrawerProps extends Nav.DrawerProps {
+  location: location.Location;
+  hover: boolean;
+  onStopHover: () => void;
+}
+
+export const Drawer = ({
+  location: loc,
+  hover,
+  onStopHover,
+  ...rest
+}: DrawerProps): ReactElement => {
+  const threshold =
+    direction.construct(loc) === "y" ? xy.swap(X_THRESHOLD) : X_THRESHOLD;
+  const onLeave = onStopHover;
+  const onMouseLeave = useCallback((e: ReactMouseEvent) => {
     const content = (e.target as HTMLElement).closest(".pluto-nav-drawer");
     if (content == null) return;
     let b = box.construct(content);
@@ -31,39 +54,19 @@ const mouseLeaveBy =
       } else if (e.buttons != 0) window.removeEventListener("mousemove", lis);
     };
     window.addEventListener("mousemove", lis);
-  };
-
-const LONG_AXIS_THRESHOLD = 36;
-const SHORT_AXIS_THRESHOLD = 24;
-
-const X_THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
-
-interface DrawerProps extends Nav.DrawerProps {
-  location: location.Location;
-  hover: boolean;
-  onStopHover: () => void;
-}
-
-export const Drawer = ({
-  location: loc,
-  open = false,
-  hover,
-  onStopHover,
-  ...rest
-}: DrawerProps): ReactElement => (
-  <Nav.Drawer
-    location={loc}
-    open={open}
-    className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
-    onMouseLeave={mouseLeaveBy(
-      direction.construct(loc) === "y" ? xy.swap(X_THRESHOLD) : X_THRESHOLD,
-      onStopHover,
-    )}
-    eraseEnabled={open && !hover}
-    background={0}
-    rounded={1}
-    bordered
-    borderColor={5}
-    {...rest}
-  />
-);
+  }, []);
+  return (
+    <Nav.Drawer
+      location={loc}
+      open={open}
+      className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
+      onMouseLeave={onMouseLeave}
+      eraseEnabled={open && !hover}
+      background={0}
+      rounded={1}
+      bordered
+      borderColor={5}
+      {...rest}
+    />
+  );
+};

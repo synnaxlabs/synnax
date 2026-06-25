@@ -38,7 +38,7 @@ const BottomMenu = () => {
   return (
     <Service.Nav.Menu
       items={Items.BOTTOM}
-      activeKey={visible ? Items.BOTTOM.key : undefined}
+      selected={visible ? Items.BOTTOM.key : undefined}
       onSelect={handleSelect}
       onToggle={handleToggle}
       onPin={handlePin}
@@ -74,7 +74,7 @@ const LeftMenu = () => {
   return (
     <Service.Nav.Menu
       items={Items.LEFT}
-      activeKey={selected}
+      selected={selected}
       onSelect={handleSelect}
       onToggle={handleToggle}
       onPin={handlePin}
