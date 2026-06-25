@@ -25,7 +25,6 @@ from freighter.url import URL
 from x.exceptions import ExceptionPayload, decode_exception
 from x.file import FilePath, stream_to_file
 
-_CONTENT_TYPE_HEADER_KEY = "Content-Type"
 
 # Wire content types negotiated for streamed file bodies, keyed by file extension. A
 # file body is streamed verbatim and never parsed by the client, so only an extension to
@@ -34,6 +33,8 @@ _CONTENT_TYPE_HEADER_KEY = "Content-Type"
 _FILE_CONTENT_TYPES: dict[str, str] = {
     "json": "application/json",
     "msgpack": "application/msgpack",
+    "toml": "application/toml",
+    "yaml": "application/yaml",
 }
 
 
@@ -108,9 +109,9 @@ class HTTPClient(MiddlewareCollector):
         """
         Streams the file at req to target and decodes the response into res_t. The file
         object is handed to urllib3 as the request body and read in fixed-size blocks,
-        so the full body never has to fit in memory. The Content-Type is derived from the
-        file path's extension, while the typed response is decoded via the codec — the
-        two need not agree.
+        so the full body never has to fit in memory. The Content-Type is derived from
+        the file path's extension, while the typed response is decoded via the codec —
+        the two need not agree.
 
         Retries are disabled for uploads because an upload mutates server state and is
         not assumed to be idempotent: a transient failure that occurs after the server
@@ -140,7 +141,6 @@ class HTTPClient(MiddlewareCollector):
         into place on success, so dest only ever holds the previous contents or the
         complete new contents — a mid-stream failure leaves any existing dest untouched.
         """
-        accept = _file_content_type(dest)
         url = self._build_url(target)
 
         def finalizer(ctx: Context) -> Context:
@@ -148,7 +148,7 @@ class HTTPClient(MiddlewareCollector):
                 ctx,
                 url=url,
                 content_type=self._codec.content_type(),
-                accept=accept,
+                accept=_file_content_type(dest),
                 body=self._codec.encode(req),
                 preload_content=False,
             )
@@ -163,12 +163,6 @@ class HTTPClient(MiddlewareCollector):
 
     def _build_url(self, target: str) -> str:
         return self._endpoint.child(target).stringify()
-
-    def _headers(self, content_type: str, accept: str) -> dict[str, str]:
-        return {
-            _CONTENT_TYPE_HEADER_KEY: content_type,
-            "Accept": accept,
-        }
 
     def _typed_response_request(
         self,
@@ -221,7 +215,7 @@ class HTTPClient(MiddlewareCollector):
         unreplayable streaming body).
         """
         out_ctx = Context(url, self._endpoint.protocol, "client")
-        headers = {**self._headers(content_type, accept), **ctx.params}
+        headers = {"Content-Type": content_type, "Accept": accept, **ctx.params}
         try:
             http_res = self._pool.request(
                 method="POST",
