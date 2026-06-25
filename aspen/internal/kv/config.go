@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -47,7 +47,7 @@ type Config struct {
 	RecoveryTransportServer RecoveryTransportServer
 	// Engine is the underlying key-value engine that DB writes its key-value pairs to.
 	// [Required]
-	Engine xkv.DB
+	Engine kv.DB
 	// Cluster is the cluster that the DB will use to communicate with other databases.
 	// [Required]
 	Cluster *cluster.Cluster
@@ -81,7 +81,7 @@ func (cfg Config) Override(other Config) Config {
 
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
-	v := validate.New("cesium")
+	v := validate.New("aspen.kv.db")
 	validate.NotNil(v, "cluster", cfg.Cluster)
 	validate.NotNil(v, "tx_transport_client", cfg.BatchTransportClient)
 	validate.NotNil(v, "tx_transport_server", cfg.BatchTransportServer)
