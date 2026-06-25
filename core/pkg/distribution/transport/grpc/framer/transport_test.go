@@ -102,11 +102,11 @@ var _ = Describe("Transport", func() {
 					return types.Nil{}, nil
 				},
 			)
-			MustSucceed(transport.Deleter().Client().Send(
+			Expect(transport.Deleter().Client().Send(
 				ctx,
 				addr,
 				deleter.Request{Keys: channel.Keys{1, 2, 3}},
-			))
+			)).To(Equal(types.Nil{}))
 			Expect(received.Keys).To(Equal(channel.Keys{1, 2, 3}))
 		})
 	})

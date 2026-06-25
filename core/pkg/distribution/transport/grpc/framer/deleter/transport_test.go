@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Transport", func() {
@@ -31,11 +30,11 @@ var _ = Describe("Transport", func() {
 				return types.Nil{}, nil
 			},
 		)
-		MustSucceed(transport.Client().Send(
+		Expect(transport.Client().Send(
 			ctx,
 			addr,
 			deleter.Request{Keys: channel.Keys{1, 2, 3}},
-		))
+		)).To(Equal(types.Nil{}))
 		Expect(received.Keys).To(Equal(channel.Keys{1, 2, 3}))
 	})
 
@@ -64,11 +63,11 @@ var _ = Describe("Transport", func() {
 					return types.Nil{}, nil
 				},
 			)
-			MustSucceed(transport.Client().Send(
+			Expect(transport.Client().Send(
 				ctx,
 				addr,
 				deleter.Request{Keys: channel.Keys{1}},
-			))
+			)).To(Equal(types.Nil{}))
 			Expect(clientCalls.Load()).To(Equal(int32(1)))
 			Expect(serverCalls.Load()).To(Equal(int32(1)))
 		})

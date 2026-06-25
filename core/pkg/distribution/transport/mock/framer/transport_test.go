@@ -117,9 +117,9 @@ var _ = Describe("Transport", func() {
 				return types.Nil{}, nil
 			},
 		)
-		MustSucceed(client.Deleter().Client().Send(ctx, leaseholder, deleter.Request{
+		Expect(client.Deleter().Client().Send(ctx, leaseholder, deleter.Request{
 			Keys: channel.Keys{4, 5},
-		}))
+		})).To(Equal(types.Nil{}))
 		Expect(received).To(Equal(channel.Keys{4, 5}))
 	})
 })

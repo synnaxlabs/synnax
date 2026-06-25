@@ -60,11 +60,11 @@ var _ = Describe("Transport", func() {
 					return types.Nil{}, nil
 				},
 			)
-			MustSucceed(transport.DeleteClient().Send(
+			Expect(transport.DeleteClient().Send(
 				ctx,
 				addr,
 				distchannel.DeleteRequest{Keys: distchannel.Keys{1, 2, 3}},
-			))
+			)).To(Equal(types.Nil{}))
 			Expect(received.Keys).To(Equal(distchannel.Keys{1, 2, 3}))
 		})
 	})
@@ -80,14 +80,14 @@ var _ = Describe("Transport", func() {
 					return types.Nil{}, nil
 				},
 			)
-			MustSucceed(transport.RenameClient().Send(
+			Expect(transport.RenameClient().Send(
 				ctx,
 				addr,
 				distchannel.RenameRequest{
 					Keys:  distchannel.Keys{1, 2},
 					Names: []string{"beta", "gamma"},
 				},
-			))
+			)).To(Equal(types.Nil{}))
 			Expect(received.Keys).To(Equal(distchannel.Keys{1, 2}))
 			Expect(received.Names).To(Equal([]string{"beta", "gamma"}))
 		})

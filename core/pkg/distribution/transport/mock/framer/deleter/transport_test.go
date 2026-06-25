@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	deletermock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/deleter"
 	"github.com/synnaxlabs/x/address"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 const (
@@ -47,9 +46,9 @@ var _ = Describe("Transport", func() {
 				return types.Nil{}, nil
 			},
 		)
-		MustSucceed(client.Client().Send(ctx, leaseholder, deleter.Request{
+		Expect(client.Client().Send(ctx, leaseholder, deleter.Request{
 			Keys: channel.Keys{4, 5},
-		}))
+		})).To(Equal(types.Nil{}))
 		Expect(received).To(Equal(channel.Keys{4, 5}))
 	})
 })
