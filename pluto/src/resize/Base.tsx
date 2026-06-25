@@ -16,16 +16,15 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { preventDefault } from "@/util/event";
 
-export type BaseProps = Omit<
-  Flex.BoxProps<"div">,
+export interface BaseProps extends Omit<
+  Flex.BoxProps,
   "gap" | "size" | "direction" | "x" | "y"
-> & {
+> {
   location: location.Crude;
   size: number;
-  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
   sizeUnits?: "px" | "%";
   showHandle?: boolean;
-};
+}
 
 export const Base = ({
   ref,

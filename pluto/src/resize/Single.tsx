@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { bounds, box, location } from "@synnaxlabs/x";
-import { clsx } from "clsx";
 import {
   type ReactElement,
   useCallback,
@@ -58,9 +57,9 @@ export const Single = ({
   const calcNextSize = useCallback(
     (b: box.Box) => {
       if (marker.current === null) return 0;
-      const dim =
-        box.dim(b, location.direction(loc), true) *
-        (1 - 2 * Number(["bottom", "right"].includes(loc)));
+      const signedDim = box.dim(b, location.direction(loc), true);
+      const isInverted = loc === "bottom" || loc === "right";
+      const dim = isInverted ? -signedDim : signedDim;
       const rawNextSize = marker.current + dim;
       const nextSize = bounds.clamp(fullSizeBounds, rawNextSize);
       if ((nextSize - rawNextSize) / fullSizeBounds.lower > collapseThreshold)
@@ -115,7 +114,7 @@ export const Single = ({
       location={loc}
       size={size}
       onDragStart={handleDragStart}
-      className={clsx(className, CSS.expanded(size !== COLLAPSED_SIZE))}
+      className={CSS(className, CSS.expanded(size !== COLLAPSED_SIZE))}
       {...rest}
     />
   );
