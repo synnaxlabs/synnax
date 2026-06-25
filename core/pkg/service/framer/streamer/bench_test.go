@@ -32,7 +32,6 @@ import (
 
 type benchStreamerEnv struct {
 	ctx         context.Context
-	builder     *mock.Cluster
 	dist        mock.Node
 	streamerSvc *streamer.Service
 }
@@ -40,8 +39,7 @@ type benchStreamerEnv struct {
 func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	RegisterTestingT(b)
 	ctx := context.Background()
-	builder := mock.OpenCluster(ctx, 0)
-	dist := builder.Provision(ctx)
+	dist := mock.OpenNode(ctx)
 
 	searchIdx, err := search.Open()
 	if err != nil {
@@ -92,14 +90,13 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 
 	return &benchStreamerEnv{
 		ctx:         ctx,
-		builder:     builder,
 		dist:        dist,
 		streamerSvc: streamerSvc,
 	}
 }
 
 func (e *benchStreamerEnv) close(b *testing.B) {
-	if err := e.builder.Close(); err != nil {
+	if err := e.dist.Close(); err != nil {
 		b.Errorf("failed to close cluster: %v", err)
 	}
 }

@@ -10,7 +10,6 @@
 package channel_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,11 +39,9 @@ var _ = Describe("Limit", Ordered, func() {
 		mockCluster *mock.Cluster
 		dist        mock.Node
 	)
-	// context.Background() is used because Provision creates resources stored in
-	// shared vars that are used by It blocks, so the context must outlive BeforeEach.
-	BeforeEach(func() {
-		mockCluster = mock.OpenCluster(context.Background(), 0)
-		dist = mockCluster.Provision(context.Background(), distribution.LayerConfig{
+	BeforeEach(func(ctx SpecContext) {
+		mockCluster = mock.OpenCluster(ctx, 0)
+		dist = mockCluster.Provision(ctx, distribution.LayerConfig{
 			TestingIntOverflowCheck: fixedOverflowChecker(limit),
 		})
 	})

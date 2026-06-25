@@ -10,8 +10,6 @@
 package channel_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -26,7 +24,7 @@ const internalChannelCount = 1
 var _ = Describe("Retrieve", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.OpenCluster(context.Background(), 2)
+		mockCluster = mock.OpenCluster(ctx, 2)
 		for _, n := range mockCluster.Nodes {
 			Expect(n.Search.Initialize(ctx)).To(Succeed())
 		}
@@ -212,7 +210,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 
 		It("Should return empty when no calculated channels exist in a fresh cluster", func(ctx SpecContext) {
-			freshCluster := mock.OpenCluster(context.Background(), 1)
+			freshCluster := mock.OpenCluster(ctx, 1)
 			defer func() { Expect(freshCluster.Close()).To(Succeed()) }()
 			base := channel.Channel{
 				Virtual:  true,

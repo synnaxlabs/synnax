@@ -10,7 +10,6 @@
 package channel_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,7 +23,7 @@ import (
 
 var _ = Describe("Rename", Ordered, func() {
 	var mockCluster *mock.Cluster
-	BeforeAll(func(ctx SpecContext) { mockCluster = mock.OpenCluster(context.Background(), 3) })
+	BeforeAll(func(ctx SpecContext) { mockCluster = mock.OpenCluster(ctx, 3) })
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
 	})

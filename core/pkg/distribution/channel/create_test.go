@@ -10,7 +10,6 @@
 package channel_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +28,7 @@ import (
 var _ = Describe("Create", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.OpenCluster(context.Background(), 2)
+		mockCluster = mock.OpenCluster(ctx, 2)
 	})
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
@@ -581,8 +580,8 @@ var _ = Context("Name Validation Disabled", func() {
 	Describe("Channel Creation", Ordered, func() {
 		var mockCluster *mock.Cluster
 		BeforeAll(func(ctx SpecContext) {
-			mockCluster = mock.OpenCluster(context.Background(), 0)
-			mockCluster.Provision(context.Background(), distribution.LayerConfig{
+			mockCluster = mock.OpenCluster(ctx, 0)
+			mockCluster.Provision(ctx, distribution.LayerConfig{
 				ValidateChannelNames: new(false),
 			})
 		})

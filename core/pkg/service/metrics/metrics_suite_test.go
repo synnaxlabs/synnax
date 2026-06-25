@@ -24,7 +24,6 @@ import (
 )
 
 var (
-	builder    *mock.Cluster
 	dist       mock.Node
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
@@ -38,8 +37,7 @@ func TestMetrics(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder = mock.MustOpenCluster(ctx, 0)
-	dist = builder.Provision(ctx)
+	dist = mock.MustOpenNode(ctx)
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,

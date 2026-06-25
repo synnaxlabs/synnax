@@ -10,8 +10,6 @@
 package channel_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -24,7 +22,7 @@ import (
 var _ = Describe("Delete", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.OpenCluster(context.Background(), 2)
+		mockCluster = mock.OpenCluster(ctx, 2)
 	})
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())

@@ -25,7 +25,7 @@ import (
 var _ = Describe("Service", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.OpenCluster(context.Background(), 1)
+		mockCluster = mock.OpenCluster(ctx, 1)
 	})
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
