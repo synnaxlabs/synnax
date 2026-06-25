@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { renderHook } from "@testing-library/react";
 import { act, type PropsWithChildren } from "react";
 import { Provider, useStore } from "react-redux";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Layout } from "@/layout";
 import { select } from "@/layout/selectors";
