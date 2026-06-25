@@ -68,9 +68,9 @@ func (f *Fake) Now() time.Time {
 	return f.now
 }
 
-// After returns a channel that will receive the current time after the duration elapses.
-// The channel is buffered so that Advance's send never blocks, even if an AfterFunc
-// goroutine reading it has already exited via Stop.
+// After returns a channel that will receive the current time after the duration
+// elapses. The channel is buffered so that Advance's send never blocks, even if an
+// AfterFunc goroutine reading it has already exited via Stop.
 func (f *Fake) After(d time.Duration) <-chan time.Time {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -82,8 +82,8 @@ func (f *Fake) After(d time.Duration) <-chan time.Time {
 
 // AfterFunc schedules fn to run from a goroutine after the duration elapses, calling it
 // unless the returned Timer's Stop method wins the race first. Stop also releases the
-// goroutine when the timer is cancelled before Advance crosses its deadline; otherwise a
-// never-fired timer would leak its goroutine.
+// goroutine when the timer is cancelled before Advance crosses its deadline; otherwise
+// a never-fired timer would leak its goroutine.
 func (f *Fake) AfterFunc(d time.Duration, fn func()) Timer {
 	t := &fakeFuncTimer{stop: make(chan struct{})}
 	ch := f.After(d)
@@ -105,9 +105,7 @@ func (f *Fake) AfterFunc(d time.Duration, fn func()) Timer {
 type fakeFuncTimer struct {
 	mu      sync.Mutex
 	claimed bool
-	// stop is closed by the winning Stop call to release the AfterFunc goroutine when
-	// the timer is cancelled before its deadline is crossed.
-	stop chan struct{}
+	stop    chan struct{}
 }
 
 func (t *fakeFuncTimer) claim() bool {
@@ -120,8 +118,8 @@ func (t *fakeFuncTimer) claim() bool {
 	return true
 }
 
-// Stop cancels the timer, returning true if it had not already fired or been stopped. On
-// the winning call it releases the AfterFunc goroutine.
+// Stop cancels the timer, returning true if it had not already fired or been stopped.
+// On the winning call it releases the AfterFunc goroutine.
 func (t *fakeFuncTimer) Stop() bool {
 	if !t.claim() {
 		return false
