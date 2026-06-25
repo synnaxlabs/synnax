@@ -28,10 +28,7 @@ import (
 var _ = Describe("Create", Ordered, func() {
 	var cluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		cluster = mock.OpenCluster(ctx, 2)
-	})
-	AfterAll(func() {
-		Expect(cluster.Close()).To(Succeed())
+		cluster = mock.MustOpenCluster(ctx, 2)
 	})
 	Context("Single channel", func() {
 		var ch channel.Channel
@@ -580,13 +577,10 @@ var _ = Context("Name Validation Disabled", func() {
 	Describe("Channel Creation", Ordered, func() {
 		var cluster *mock.Cluster
 		BeforeAll(func(ctx SpecContext) {
-			cluster = mock.OpenCluster(ctx, 0)
+			cluster = mock.MustOpenCluster(ctx, 0)
 			cluster.Provision(ctx, distribution.LayerConfig{
 				ValidateChannelNames: new(false),
 			})
-		})
-		AfterAll(func() {
-			Expect(cluster.Close()).To(Succeed())
 		})
 		It("Should create a channel with spaces in the name", func(ctx SpecContext) {
 			ch := channel.Channel{

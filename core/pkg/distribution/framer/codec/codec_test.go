@@ -336,7 +336,7 @@ var _ = Describe("Codec", func() {
 			dataCh     channel.Channel
 		)
 		BeforeAll(func(ctx SpecContext) {
-			node = mock.OpenNode(ctx)
+			node = mock.MustOpenNode(ctx)
 			channelSvc = node.Channel
 			w := node.Channel.NewWriter(nil)
 			idxCh = channel.Channel{
@@ -351,9 +351,6 @@ var _ = Describe("Codec", func() {
 				LocalIndex: idxCh.Key().LocalKey(),
 			}
 			Expect(w.Create(ctx, &dataCh)).To(Succeed())
-		})
-		AfterAll(func() {
-			Expect(node.Close()).To(Succeed())
 		})
 
 		It("Should allow the caller to update the list of channels", func(ctx SpecContext) {

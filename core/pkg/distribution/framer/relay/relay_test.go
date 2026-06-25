@@ -298,10 +298,9 @@ var _ = Describe("Relay", func() {
 			svc     mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
-			cluster = mock.OpenCluster(ctx, 1)
+			cluster = mock.MustOpenCluster(ctx, 1)
 			svc = cluster.Nodes[1]
 		})
-		AfterAll(func() { Expect(cluster.Close()).To(Succeed()) })
 
 		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
 			chs := make([]channel.Channel, n)

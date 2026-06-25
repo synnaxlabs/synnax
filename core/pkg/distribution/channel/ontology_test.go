@@ -27,10 +27,7 @@ import (
 
 var _ = Describe("Ontology", Ordered, func() {
 	var cluster *mock.Cluster
-	BeforeAll(func(ctx SpecContext) { cluster = mock.OpenCluster(ctx, 1) })
-	AfterAll(func() {
-		Expect(cluster.Close()).To(Succeed())
-	})
+	BeforeAll(func(ctx SpecContext) { cluster = mock.MustOpenCluster(ctx, 1) })
 	Describe("OntologyID", func() {
 		It("Should correctly return the ontology.ID for the specified channel", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}

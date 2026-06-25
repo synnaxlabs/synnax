@@ -25,10 +25,7 @@ import (
 var _ = Describe("Service", Ordered, func() {
 	var cluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		cluster = mock.OpenCluster(ctx, 1)
-	})
-	AfterAll(func() {
-		Expect(cluster.Close()).To(Succeed())
+		cluster = mock.MustOpenCluster(ctx, 1)
 	})
 
 	Describe("CountExternalNonVirtual", func() {

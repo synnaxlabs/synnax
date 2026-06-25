@@ -22,10 +22,7 @@ import (
 var _ = Describe("Delete", Ordered, func() {
 	var cluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		cluster = mock.OpenCluster(ctx, 2)
-	})
-	AfterAll(func() {
-		Expect(cluster.Close()).To(Succeed())
+		cluster = mock.MustOpenCluster(ctx, 2)
 	})
 	Describe("Channel Deletion", func() {
 		Context("Single Channel", func() {

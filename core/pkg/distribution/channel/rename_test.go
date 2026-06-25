@@ -23,10 +23,7 @@ import (
 
 var _ = Describe("Rename", Ordered, func() {
 	var cluster *mock.Cluster
-	BeforeAll(func(ctx SpecContext) { cluster = mock.OpenCluster(ctx, 3) })
-	AfterAll(func() {
-		Expect(cluster.Close()).To(Succeed())
-	})
+	BeforeAll(func(ctx SpecContext) { cluster = mock.MustOpenCluster(ctx, 3) })
 	Context("Single channel", func() {
 		var ch channel.Channel
 		JustBeforeEach(func(ctx SpecContext) {

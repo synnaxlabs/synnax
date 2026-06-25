@@ -40,13 +40,10 @@ var _ = Describe("Limit", Ordered, func() {
 		dist    mock.Node
 	)
 	BeforeEach(func(ctx SpecContext) {
-		cluster = mock.OpenCluster(ctx, 0)
+		cluster = mock.MustOpenCluster(ctx, 0)
 		dist = cluster.Provision(ctx, distribution.LayerConfig{
 			TestingIntOverflowCheck: fixedOverflowChecker(limit),
 		})
-	})
-	AfterEach(func() {
-		Expect(cluster.Close()).To(Succeed())
 	})
 	It("Should not allow creating channels over the limit", func(ctx SpecContext) {
 		// Create channels up to the limit

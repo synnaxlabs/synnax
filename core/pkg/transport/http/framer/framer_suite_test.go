@@ -29,10 +29,6 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	cluster = mock.OpenCluster(ctx, 1)
+	cluster = mock.MustOpenCluster(ctx, 1)
 	dist = cluster.Nodes[1].Layer
-	DeferCleanup(func() {
-		Expect(dist.Close()).To(Succeed())
-		Expect(cluster.Close()).To(Succeed())
-	})
 })
