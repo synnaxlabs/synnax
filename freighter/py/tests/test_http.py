@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from urllib3 import Retry
 
-from freighter import URL, JSONCodec, MessagePackCodec
+from freighter import URL, JSONCodec
 from freighter.context import Context
 from freighter.http import HTTPClient
 from freighter.transport import Next
@@ -60,14 +60,15 @@ class TestUpload:
         assert res.message == "hello"
         assert res.id == 2
 
-    def test_msgpack_path_negotiates_application_msgpack(
+    def test_non_json_extension_raises_value_error(
         self, client: HTTPClient, tmp_path: Path
     ) -> None:
+        """Only JSON is supported right now, so a non-JSON extension (e.g. .msgpack) is
+        rejected before any request is sent."""
         path = tmp_path / "in.msgpack"
-        path.write_bytes(MessagePackCodec().encode(Message(id=1, message="msg")))
-        res = client.upload("/echo", path, Message)
-        assert res.message == "msg"
-        assert res.id == 2
+        path.write_bytes(b"anything")
+        with pytest.raises(ValueError, match="msgpack"):
+            client.upload("/echo", path, Message)
 
     def test_unsupported_extension_raises_value_error(
         self, client: HTTPClient, tmp_path: Path
@@ -84,38 +85,6 @@ class TestUpload:
         path.write_bytes(JSONCodec().encode(Message(id=1, message=big)))
         res = client.upload("/echo", path, Message)
         assert res.message == big
-
-
-@pytest.mark.http
-class TestFileContentTypeNegotiation:
-    """The file body's Content-Type (upload) and Accept (download) are derived from the
-    file path's extension at call time, independently of the codec used for the typed
-    request/response. The two need not agree: the codec here is JSON, while the file
-    body is MessagePack."""
-
-    def test_upload_content_type_derived_from_extension(
-        self, endpoint: URL, tmp_path: Path
-    ) -> None:
-        """An upload streams a MessagePack file body (Content-Type from the .msgpack
-        extension) while the typed response is decoded via the JSON codec."""
-        client = HTTPClient(endpoint.child("unary"), JSONCodec())
-        path = tmp_path / "in.msgpack"
-        path.write_bytes(MessagePackCodec().encode(Message(id=1, message="hello")))
-        res = client.upload("/echo", path, Message)
-        assert res.id == 2
-        assert res.message == "hello"
-
-    def test_download_accept_derived_from_extension(
-        self, endpoint: URL, tmp_path: Path
-    ) -> None:
-        """A download requests application/msgpack (Accept from the .msgpack
-        destination) while the typed request is encoded via the JSON codec."""
-        client = HTTPClient(endpoint.child("unary"), JSONCodec())
-        out = tmp_path / "out.msgpack"
-        client.download("/echo", Message(id=1, message="hi"), out)
-        parsed = MessagePackCodec().decode(out.read_bytes(), Message)
-        assert parsed.message == "hi"
-        assert parsed.id == 2
 
 
 @pytest.mark.http
@@ -170,14 +139,14 @@ class TestDownload:
         assert parsed.message == "hello"
         assert parsed.id == 2
 
-    def test_msgpack_dest_negotiates_application_msgpack(
+    def test_non_json_dest_extension_raises_value_error(
         self, client: HTTPClient, tmp_path: Path
     ) -> None:
+        """Only JSON is supported right now, so a non-JSON destination (e.g. .msgpack)
+        is rejected before any request is sent."""
         out = tmp_path / "out.msgpack"
-        client.download("/echo", Message(id=1, message="hi"), out)
-        parsed = MessagePackCodec().decode(out.read_bytes(), Message)
-        assert parsed.message == "hi"
-        assert parsed.id == 2
+        with pytest.raises(ValueError, match="msgpack"):
+            client.download("/echo", Message(id=1, message="x"), out)
 
     def test_unsupported_dest_extension_raises_value_error(
         self, client: HTTPClient, tmp_path: Path

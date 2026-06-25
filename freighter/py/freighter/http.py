@@ -25,12 +25,7 @@ from freighter.url import URL
 from x.exceptions import ExceptionPayload, decode_exception
 from x.file import FilePath, stream_to_file
 
-_FILE_CONTENT_TYPES: dict[str, str] = {
-    "json": "application/json",
-    "msgpack": "application/msgpack",
-    "toml": "application/toml",
-    "yaml": "application/yaml",
-}
+_FILE_CONTENT_TYPES: dict[str, str] = {"json": "application/json"}
 
 
 def _file_content_type(path: FilePath) -> str:
