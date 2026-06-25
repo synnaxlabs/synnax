@@ -11,26 +11,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from freighter.codec import Codec
 from freighter.transport import RQ, RS, Transport
 from x.file import FilePath
 
-__all__ = ["FileCodec", "FileTransport"]
-
-
-class FileCodec(Codec, Protocol):
-    """A Codec that also has an on-disk file representation.
-
-    A FileTransport uses file_extension to negotiate a content type from a file path
-    during upload and download. Codecs that only exist on a wire (e.g., a WebSocket
-    framer codec) need only satisfy Codec.
-    """
-
-    def file_extension(self) -> str:
-        """:returns: the file extension (without leading dot) associated with the
-        Codec's on-disk format, e.g. "json" or "msgpack".
-        """
-        ...
+__all__ = ["FileTransport"]
 
 
 class FileTransport(Transport, Protocol):
