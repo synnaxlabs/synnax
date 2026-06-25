@@ -63,6 +63,7 @@ type (
 
 // Transport is a gRPC-backed implementation of the channel.Transport interface.
 type Transport struct {
+	// ReportProvider provides a report for the transport.
 	alamos.ReportProvider
 	createClient *createClient
 	createServer *createServer
@@ -77,7 +78,7 @@ var (
 	_ fgrpc.BindableTransport = (*Transport)(nil)
 )
 
-// New creates a new grpc Transport that opens connections from the given pool.
+// New creates a new gRPC Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
 	createClient := &createClient{
 		Pool:               pool,
