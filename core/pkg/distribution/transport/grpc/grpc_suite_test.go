@@ -38,7 +38,10 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var _ = BeforeEach(func() {
 	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 	addr = address.Address(lis.Addr().String())
-	pool := DeferClose(fgrpc.OpenPool("", grpc.WithTransportCredentials(insecure.NewCredentials())))
+	pool := DeferClose(fgrpc.OpenPool(
+		"",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	))
 	transport = transportgrpc.New(pool)
 	grpcServer := grpc.NewServer()
 	for _, bt := range transport.BindableTransports() {
