@@ -101,9 +101,10 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
         const outCtx: Context = { ...ctx, params: {} };
         const httpRes = await this.fetch(url, ctx.target, {
           method: "POST",
-          body: this.encoder.encode(req, reqSchema) as BodyInit,
+          body: this.encoder.encode(req, reqSchema),
           headers: {
-            [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
+            "Content-Type": this.encoder.contentType,
+            Accept: this.encoder.contentType,
             ...ctx.params,
           },
         });
@@ -131,17 +132,20 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
       this.context(url),
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
-        const httpRes = await this.fetch(url, ctx.target, {
+        // duplex is required by the Fetch standard whenever the body is a stream, but is
+        // not yet in the lib's RequestInit type; body is cast because UploadBody's
+        // ArrayBufferView is not narrowed to the ArrayBuffer-backed view BodyInit wants.
+        const init: RequestInit & { duplex: "half" } = {
           method: "POST",
           body: body as BodyInit,
           headers: {
-            [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
+            "Content-Type": ENCODING_CONTENT_TYPES[encoding],
             Accept: this.encoder.contentType,
             ...ctx.params,
           },
-          // duplex is required by the Fetch standard whenever the body is a stream.
           duplex: "half",
-        } as RequestInit);
+        };
+        const httpRes = await this.fetch(url, ctx.target, init);
         const data = await httpRes.arrayBuffer();
         if (httpRes.ok) {
           res = this.encoder.decode<RS>(data, resSchema);
@@ -168,7 +172,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
         const outCtx: Context = { ...ctx, params: {} };
         const httpRes = await this.fetch(url, ctx.target, {
           method: "POST",
-          body: this.encoder.encode(req, reqSchema) as BodyInit,
+          body: this.encoder.encode(req, reqSchema),
           headers: {
             [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
             Accept: ENCODING_CONTENT_TYPES[encoding],
