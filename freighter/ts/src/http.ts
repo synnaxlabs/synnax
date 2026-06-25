@@ -38,9 +38,17 @@ const UNREACHABLE_CODES = new Set([
   "UND_ERR_SOCKET",
 ]);
 
-export const shouldCastToUnreachable = (err: Error): boolean => {
+/** The non-standard fields Node/Undici attach to network errors. */
+interface NodeErrorLike {
+  code?: unknown;
+  errno?: unknown;
+  cause?: { code?: unknown };
+}
+
+const shouldCastToUnreachable = (err: Error): boolean => {
+  const e = err as Error & NodeErrorLike;
   // First try Node/Undici codes
-  const code = (err as any)?.cause?.code ?? (err as any)?.code ?? (err as any)?.errno;
+  const code = e.cause?.code ?? e.code ?? e.errno;
   if (typeof code === "string" && UNREACHABLE_CODES.has(code)) return true;
 
   // Browser/Safari fallback: detect canonical network-failure TypeError messages
@@ -56,8 +64,7 @@ export const shouldCastToUnreachable = (err: Error): boolean => {
   }
 
   // Abort should not be "unreachable"
-  if ((err as any)?.name === "AbortError" || (err as any)?.code === "ABORT_ERR")
-    return false;
+  if (err.name === "AbortError" || e.code === "ABORT_ERR") return false;
 
   return false;
 };
