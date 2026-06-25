@@ -30,6 +30,7 @@ func TestSignals(t *testing.T) {
 var dist mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	builder := DeferClose(mock.NewCluster())
 	dist = DeferClose(builder.Provision(ctx))
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
@@ -38,3 +39,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	MustOpen(signals.Publish(ctx, sigs, dist.Channel.Observe()))
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

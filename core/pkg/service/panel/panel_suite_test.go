@@ -40,6 +40,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	builder := DeferClose(mock.NewCluster())
 	dist = DeferClose(builder.Provision(ctx))
 	db = dist.DB
@@ -65,3 +66,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

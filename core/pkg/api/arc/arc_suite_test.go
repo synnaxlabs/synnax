@@ -54,6 +54,11 @@ var (
 	author  user.User
 )
 
+// The mock distribution cluster's pebble-backed cesium storage and signal/cesium
+// stream daemons spawn background goroutines that do not fully drain within the
+// leak-check window after Close.
+//
+//nolint:leaklint
 var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))

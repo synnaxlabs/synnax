@@ -55,65 +55,70 @@ var (
 	arcClock = telem.Now
 )
 
-var (
-	_ = BeforeSuite(func(ctx SpecContext) {
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
-		dist = DeferClose(mock.NewCluster().Provision(ctx))
-		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-		}))
-		statSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}))
-		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Group:               groupSvc,
-			HostProvider:        mock.StaticHostKeyProvider(1),
-			Status:              statSvc,
-			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
-		}))
-		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Rack:     rackSvc,
-			Status:   statSvc,
-			Search:   searchIdx,
-		}))
-		testRack = &rack.Rack{Name: "Test Rack"}
-		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
-		sigs = MustSucceed(signals.New(signals.Config{
-			Channel: channel.Wrap(dist.Channel),
-			Framer:  framer.Wrap(dist.Framer),
-		}))
-		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Channel:             channel.Wrap(dist.Channel),
-			Task:                taskSvc,
-			Search:              searchIdx,
-			Signals:             sigs,
-			TextSweepQuiescence: 5 * telem.Second,
-			TextSweepThreshold:  1,
-			Now:                 func() telem.TimeStamp { return arcClock() },
-		}))
-	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
-)
+// The mock distribution cluster's pebble-backed cesium storage and the signals
+// provider spawn background goroutines that do not fully drain within the
+// leak-check window after Close.
+//
+//nolint:leaklint
+var _ = BeforeSuite(func(ctx SpecContext) {
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.Open())
+	dist = DeferClose(mock.NewCluster().Provision(ctx))
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	statSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	}))
+	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:                  db,
+		Ontology:            otg,
+		Group:               groupSvc,
+		HostProvider:        mock.StaticHostKeyProvider(1),
+		Status:              statSvc,
+		HealthCheckInterval: 10 * telem.Millisecond,
+		Search:              searchIdx,
+	}))
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Rack:     rackSvc,
+		Status:   statSvc,
+		Search:   searchIdx,
+	}))
+	testRack = &rack.Rack{Name: "Test Rack"}
+	Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+	sigs = MustSucceed(signals.New(signals.Config{
+		Channel: channel.Wrap(dist.Channel),
+		Framer:  framer.Wrap(dist.Framer),
+	}))
+	svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
+		DB:                  db,
+		Ontology:            otg,
+		Channel:             channel.Wrap(dist.Channel),
+		Task:                taskSvc,
+		Search:              searchIdx,
+		Signals:             sigs,
+		TextSweepQuiescence: 5 * telem.Second,
+		TextSweepThreshold:  1,
+		Now:                 func() telem.TimeStamp { return arcClock() },
+	}))
+})
+
+var _ = BeforeEach(func() { tx = db.OpenTx() })
+
+var _ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })

@@ -42,6 +42,7 @@ func parseCppStringConstants(src []byte) map[string]string {
 var _ = Describe("Cross-runtime IR contract", Ordered, func() {
 	var cppConstants map[string]string
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		cppConstants = parseCppStringConstants(MustSucceed(os.ReadFile(cppIRHeaderPath)))
 		Expect(cppConstants).ToNot(BeEmpty(), "no string constants parsed from %s", cppIRHeaderPath)
 	})

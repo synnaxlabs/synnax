@@ -18,5 +18,10 @@ import (
 
 func TestFalamos(t *testing.T) {
 	RegisterFailHandler(Fail)
+	// This suite exercises alamos instrumentation, which starts process-global
+	// OpenTelemetry SDK daemons (batch span/log processors, periodic metric reader)
+	// that alamos exposes no teardown for, so per-spec goroutine-leak checking is not
+	// applicable here.
+	//nolint:leaklint
 	RunSpecs(t, "Alamos Suite")
 }

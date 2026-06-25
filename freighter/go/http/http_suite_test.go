@@ -18,5 +18,10 @@ import (
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
+	// freighter's HTTP transport keeps net/http idle keep-alive connections and
+	// fasthttp server-worker goroutines alive past a spec's end; they are not
+	// guaranteed to drain within the per-spec window, so per-spec goroutine-leak
+	// checking is not applicable to this suite.
+	//nolint:leaklint
 	RunSpecs(t, "HTTP Suite")
 }

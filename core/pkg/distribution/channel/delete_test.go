@@ -24,6 +24,7 @@ import (
 var _ = Describe("Delete", Ordered, func() {
 	var mockCluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		mockCluster = mock.ProvisionCluster(context.Background(), 2)
 	})
 	AfterAll(func() {

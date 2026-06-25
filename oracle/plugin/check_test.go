@@ -206,3 +206,5 @@ var _ = Describe("Check Utilities", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

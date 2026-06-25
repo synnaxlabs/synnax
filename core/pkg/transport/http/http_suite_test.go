@@ -34,6 +34,7 @@ func TestHTTP(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	cluster := DeferClose(distmock.ProvisionCluster(ctx, 1))
 	dist = DeferClose(cluster.Nodes[1].Layer)
 	insecure := true
@@ -51,3 +52,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Distribution: dist,
 	}))
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

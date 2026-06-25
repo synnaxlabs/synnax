@@ -34,6 +34,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	cluster := DeferClose(mock.NewCluster())
 	dist = DeferClose(cluster.Provision(ctx))
 	sigs = MustSucceed(signals.New(signals.Config{

@@ -77,6 +77,7 @@ var _ = Describe("Task", Ordered, func() {
 	)
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		distB := DeferClose(mock.NewCluster())
 		dist = DeferClose(distB.Provision(ctx))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{

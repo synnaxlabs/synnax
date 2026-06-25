@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package testutil provides alamos instrumentation helpers for tests. It lives in the
+// alamos module (rather than x/testutil) so that x/testutil stays free of the alamos +
+// OpenTelemetry dependency tree, which keeps the lightweight x test helpers importable
+// from low-level packages and from the golangci-lint custom plugin build.
 package testutil
 
 import (
@@ -19,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/git"
 	"github.com/synnaxlabs/x/override"
+	xtest "github.com/synnaxlabs/x/testutil"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
@@ -64,19 +69,19 @@ func newTracer(serviceName string) *alamos.Tracer {
 		uptrace.WithServiceName(serviceName),
 		uptrace.WithServiceVersion(lo.Must(git.CurrentCommit())),
 	)
-	return MustSucceed(alamos.NewTracer(alamos.TracingConfig{
+	return xtest.MustSucceed(alamos.NewTracer(alamos.TracingConfig{
 		OtelProvider:   otel.GetTracerProvider(),
 		OtelPropagator: otel.GetTextMapPropagator(),
 	}))
 }
 
 func newLogger() *alamos.Logger {
-	return MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+	return xtest.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 		ZapConfig: zap.NewDevelopmentConfig(),
 	}))
 }
 
-func newReports() *alamos.Reporter { return MustSucceed(alamos.NewReporter()) }
+func newReports() *alamos.Reporter { return xtest.MustSucceed(alamos.NewReporter()) }
 
 func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
 	cfg, err := config.New(DefaultInstrumentationConfig, cfgs...)
@@ -103,7 +108,7 @@ func ObservedInstrumentation(
 	level zapcore.Level,
 ) (alamos.Instrumentation, *observer.ObservedLogs) {
 	core, logs := observer.New(level)
-	l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+	l := xtest.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 		ZapLogger: zap.New(core),
 	}))
 	return alamos.New("test", alamos.WithLogger(l)), logs
@@ -114,7 +119,7 @@ func ObservedInstrumentation(
 func PanicLogger() alamos.Instrumentation {
 	cfg := zap.NewDevelopmentConfig()
 	cfg.Level.SetLevel(zap.PanicLevel)
-	l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg}))
+	l := xtest.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg}))
 	return alamos.New(
 		fmt.Sprintf("synnax-testing-%s", uuid.New().String()),
 		alamos.WithLogger(l),

@@ -13,6 +13,7 @@ import (
 	"context"
 	"time"
 
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/mock"

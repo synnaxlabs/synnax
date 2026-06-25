@@ -28,6 +28,7 @@ import (
 var _ = Describe("Calculator", Ordered, func() {
 	var dist mock.Node
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		distB := DeferClose(mock.NewCluster())
 		dist = DeferClose(distB.Provision(ctx))
 	})

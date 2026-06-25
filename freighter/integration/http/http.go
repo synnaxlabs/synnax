@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 )
 

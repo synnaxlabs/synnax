@@ -29,6 +29,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 	var dist mock.Node
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		dist = DeferClose(mock.NewCluster()).Provision(ctx)
 	})
 

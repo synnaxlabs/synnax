@@ -36,6 +36,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	builder := DeferClose(mock.NewCluster())
 	dist = DeferClose(builder.Provision(ctx))
 	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
@@ -46,3 +47,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	MustOpen(signals.Publish(ctx, sigs, dist.Ontology))
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

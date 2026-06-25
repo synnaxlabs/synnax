@@ -13,6 +13,7 @@ import (
 	"go/ast"
 	"go/token"
 
+	"github.com/synnaxlabs/x/set"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -30,10 +31,7 @@ const (
 // setupNodes are the Ginkgo lifecycle nodes whose fixtures persist across specs and so
 // must verify their own teardown with leakCheck. Per-spec nodes (BeforeEach,
 // JustBeforeEach) are intentionally excluded: they are covered by perSpecCheck.
-var setupNodes = map[string]struct{}{
-	"BeforeSuite": {},
-	"BeforeAll":   {},
-}
+var setupNodes = set.New("BeforeSuite", "BeforeAll")
 
 var Analyzer = &analysis.Analyzer{
 	Name: "leaklint",
@@ -60,7 +58,7 @@ func run(pass *analysis.Pass) (any, error) {
 			if !ok {
 				return true
 			}
-			if _, isSetup := setupNodes[calleeName(call)]; !isSetup {
+			if !setupNodes.Contains(calleeName(call)) {
 				return true
 			}
 			body := setupBody(call)

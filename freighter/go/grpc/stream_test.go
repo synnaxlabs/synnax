@@ -50,6 +50,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		grpcServer *grpc.Server
 	)
 
+	// gRPC's internal transport goroutines do not drain within this container's
+	// lifetime, so a leak check here is not applicable.
+	//nolint:leaklint
 	BeforeAll(func() {
 		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 		addr = address.Address(lis.Addr().String())

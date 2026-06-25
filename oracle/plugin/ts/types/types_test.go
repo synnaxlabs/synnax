@@ -3027,3 +3027,5 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 		ExpectContent(resp, "types.gen.ts").ToContain(`scales.scaleZ`)
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

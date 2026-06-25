@@ -20,11 +20,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Rename", Ordered, func() {
 	var mockCluster *mock.Cluster
-	BeforeAll(func(ctx SpecContext) { mockCluster = mock.ProvisionCluster(context.Background(), 3) })
+	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		mockCluster = mock.ProvisionCluster(context.Background(), 3)
+	})
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
 	})

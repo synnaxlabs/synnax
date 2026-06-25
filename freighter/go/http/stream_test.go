@@ -35,6 +35,10 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		app    *fiber.App
 	)
 
+	// freighter's HTTP transport keeps net/http idle keep-alive connections and
+	// fasthttp server-worker goroutines alive past this container's lifetime, so a
+	// leak check here is not applicable.
+	//nolint:leaklint
 	BeforeAll(func() {
 		addr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 		app = fiber.New(fiber.Config{})

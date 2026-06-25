@@ -1869,3 +1869,5 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 		commonContent.ToNotContain("struct Task {")
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

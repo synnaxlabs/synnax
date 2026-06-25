@@ -53,7 +53,7 @@ var _ = Describe("Relay", func() {
 		for i, sF := range scenarios {
 			_sF := sF
 			var s scenario
-			BeforeAll(func(ctx SpecContext) { s = _sF(ctx) })
+			BeforeAll(func(ctx SpecContext) { ShouldNotLeakGoroutines(); s = _sF(ctx) })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				keys := channel.KeysFromChannels(s.channels)
@@ -298,6 +298,7 @@ var _ = Describe("Relay", func() {
 			svc     mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			builder = mock.ProvisionCluster(ctx, 1)
 			svc = builder.Nodes[1]
 		})

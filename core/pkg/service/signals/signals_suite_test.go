@@ -32,6 +32,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	mockCluster := DeferClose(mock.NewCluster())
 	dist = DeferClose(mockCluster.Provision(ctx))
 	sigs = MustSucceed(signals.New(signals.Config{
@@ -39,3 +40,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:  framer.Wrap(dist.Framer),
 	}))
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

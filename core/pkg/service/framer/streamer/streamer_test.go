@@ -36,6 +36,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		builder := DeferClose(mock.NewCluster())
 		dist = DeferClose(builder.Provision(ctx))
 		searchIdx := MustOpen(search.Open())

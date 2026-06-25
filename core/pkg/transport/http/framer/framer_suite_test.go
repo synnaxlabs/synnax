@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
@@ -29,6 +30,7 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	mockCluster = mock.ProvisionCluster(ctx, 1)
 	dist = mockCluster.Nodes[1].Layer
 	DeferCleanup(func() {
@@ -36,3 +38,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Expect(mockCluster.Close()).To(Succeed())
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

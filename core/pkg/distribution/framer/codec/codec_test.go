@@ -337,6 +337,7 @@ var _ = Describe("Codec", func() {
 			dataCh     channel.Channel
 		)
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			builder = mock.NewCluster()
 			dist := builder.Provision(context.Background())
 			channelSvc = dist.Channel

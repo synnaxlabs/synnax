@@ -22,6 +22,7 @@ import (
 var dist mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	distB := DeferClose(mock.NewCluster())
 	dist = DeferClose(distB.Provision(ctx))
 })

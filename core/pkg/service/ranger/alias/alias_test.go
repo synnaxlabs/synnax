@@ -37,6 +37,7 @@ var _ = Describe("Alias", Ordered, func() {
 		tx        gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		distB := DeferClose(mock.NewCluster())
 		dist = DeferClose(distB.Provision(ctx))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
