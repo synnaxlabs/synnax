@@ -17,6 +17,15 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Request is the request for deleting data from a Synnax cluster through deleting
+// certain time ranges from channels.
+type Request struct {
+	// Keys is the list of keys to delete data from.
+	Keys channel.Keys
+	// Bounds is the time range to delete data from.
+	Bounds telem.TimeRange
+}
+
 type (
 	// Client is the client-side interface for sending a delete request to a remote
 	// Core.
@@ -32,13 +41,4 @@ type Transport interface {
 	Client() Client
 	// Server returns the server-side interface for handling delete requests.
 	Server() Server
-}
-
-// Request is the request for deleting data from a Synnax cluster through deleting
-// certain time ranges from channels.
-type Request struct {
-	// Keys is the list of keys to delete data from.
-	Keys channel.Keys
-	// Bounds is the time range to delete data from.
-	Bounds telem.TimeRange
 }
