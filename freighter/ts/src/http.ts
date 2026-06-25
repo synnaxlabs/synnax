@@ -77,7 +77,10 @@ const HTTP_STATUS_BAD_REQUEST = 400;
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
  */
-export class HTTPClient extends MiddlewareCollector implements UnaryClient, FileTransport {
+export class HTTPClient
+  extends MiddlewareCollector
+  implements UnaryClient, FileTransport
+{
   endpoint: url.URL;
   encoder: binary.Codec;
 
