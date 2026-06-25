@@ -72,6 +72,11 @@ type Transport struct {
 	renameServer *renameServer
 }
 
+var (
+	_ channel.Transport       = (*Transport)(nil)
+	_ fgrpc.BindableTransport = (*Transport)(nil)
+)
+
 // New creates a new grpc Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
 	createClient := &createClient{
@@ -176,11 +181,3 @@ func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.renameClient.Use(middleware...)
 	t.renameServer.Use(middleware...)
 }
-
-var (
-	_ channel.CreateClient          = (*createClient)(nil)
-	_ channel.CreateServer          = (*createServer)(nil)
-	_ channelpb.CreateServiceServer = (*createServer)(nil)
-	_ channel.Transport             = (*Transport)(nil)
-	_ fgrpc.BindableTransport       = (*Transport)(nil)
-)
