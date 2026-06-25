@@ -142,12 +142,10 @@ export class HTTPClient
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
         // duplex is required by the Fetch standard whenever the body is a stream, but
-        // is not yet in the lib's RequestInit type; body is cast because UploadBody's
-        // ArrayBufferView is not narrowed to the ArrayBuffer-backed view BodyInit
-        // wants.
+        // is not yet in the lib's RequestInit type.
         const init: RequestInit & { duplex: "half" } = {
           method: "POST",
-          body: body as BodyInit,
+          body,
           headers: {
             [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
             [ACCEPT_HEADER_KEY]: this.encoder.contentType,
