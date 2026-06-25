@@ -11,7 +11,7 @@ import { type Export } from "@/export";
 import { Device } from "@/hardware/device";
 import { Task } from "@/hardware/task";
 import { type Import } from "@/import";
-import { type View } from "@/layered/view";
+import { type Service } from "@/layered/service";
 import { type Layout } from "@/layout";
 import { type Link } from "@/link";
 import { type Notifications } from "@/notifications";
@@ -38,7 +38,7 @@ export const LINK_HANDLERS: Record<string, Link.Handler> = {
   task: Task.handleLink,
 };
 
-export const NAV_DRAWER_ITEMS: View.Nav.Item[] = [
+export const NAV_DRAWER_ITEMS: Service.Nav.Item[] = [
   ...Device.NAV_DRAWER_ITEMS,
   ...Task.NAV_DRAWER_ITEMS,
 ];

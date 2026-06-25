@@ -15,10 +15,10 @@ import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
+import { LinePlot } from "@/layered/service/lineplot";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
-import { LinePlotServices } from "@/lineplot/services";
 import { Ontology } from "@/ontology";
 import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
@@ -42,7 +42,7 @@ export const SERVICES: Ontology.Services = {
   group: GroupServices.ONTOLOGY_SERVICE,
   range: RangeServices.ONTOLOGY_SERVICE,
   project: ProjectServices.ONTOLOGY_SERVICE,
-  lineplot: LinePlotServices.ONTOLOGY_SERVICE,
+  lineplot: LinePlot.ONTOLOGY_SERVICE,
   "range-alias": createEmptyService("range-alias"),
   label: createEmptyService("label", <Icon.Label />),
   rack: Hardware.Rack.ONTOLOGY_SERVICE,

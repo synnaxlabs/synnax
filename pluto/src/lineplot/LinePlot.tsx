@@ -41,7 +41,6 @@ import { Measure } from "@/lineplot/measure";
 import { type measure } from "@/lineplot/measure/aether";
 import {
   useDispatch,
-  useEnsureRetrieved,
   useRedo,
   useRename,
   useSelectAxisRuleKeys,
@@ -59,6 +58,7 @@ import {
 } from "@/lineplot/queries";
 import { Range } from "@/lineplot/range";
 import { Rule as BaseRule } from "@/lineplot/rule";
+import { useKey } from "@/lineplot/Suspended";
 import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
@@ -483,7 +483,6 @@ const useViewportReset = ({
 };
 
 export interface LinePlotProps extends FrameProps {
-  resourceKey: lineplot.Key;
   editable?: boolean;
   enableTriggers?: boolean | (() => boolean);
   resolvedRanges?: Map<string, ResolvedRange>;
@@ -502,7 +501,6 @@ export interface LinePlotProps extends FrameProps {
 }
 
 export const LinePlot = ({
-  resourceKey: key,
   editable = true,
   enableTriggers = true,
   resolvedRanges,
@@ -522,7 +520,7 @@ export const LinePlot = ({
   ref,
   ...rest
 }: LinePlotProps): ReactElement => {
-  useEnsureRetrieved({ key });
+  const key = useKey();
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useSelectXAxisKeys({ key });
   const viewportRef = useViewportReset({ key, hold: rest.hold });

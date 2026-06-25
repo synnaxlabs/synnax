@@ -18,7 +18,7 @@ import { PagerDuty } from "@/hardware/pagerduty";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
 import { TOOLBAR } from "@/hardware/task/Toolbar";
 import { type Import } from "@/import";
-import { type View } from "@/layered/view";
+import { type Service } from "@/layered/service";
 import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
@@ -69,4 +69,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [SELECTOR_LAYOUT_TYPE]: Selector,
 };
 
-export const NAV_DRAWER_ITEMS: View.Nav.Item[] = [TOOLBAR];
+export const NAV_DRAWER_ITEMS: Service.Nav.Item[] = [TOOLBAR];

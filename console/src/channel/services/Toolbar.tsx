@@ -14,7 +14,7 @@ import { type ReactElement } from "react";
 import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";
 import { CREATE_LAYOUT } from "@/channel/Create";
 import { EmptyAction, Toolbar } from "@/components";
-import { type View } from "@/layered/view";
+import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
@@ -68,7 +68,7 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: View.Nav.Item = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "channel",
   icon: <Icon.Channel />,
   content: <Content />,

@@ -12,8 +12,7 @@ import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import { View } from "@/layered/view";
-import { Bar } from "@/layered/view/nav/Bar";
+import { Service } from "@/layered/service";
 import { Project } from "@/project";
 import { User } from "@/user";
 import { Version } from "@/version";
@@ -21,9 +20,9 @@ import { Version } from "@/version";
 export const Top = (): ReactElement | null => {
   const os = OS.use();
   return (
-    <Bar location="top" size="6.5rem">
+    <Service.Nav.Bar location="top" size="6.5rem">
       <Nav.Bar.Start data-tauri-drag-region gap="large">
-        <View.Window.Controls visibleIfOS="macOS" forceOS={os} />
+        <Service.Window.Controls visibleIfOS="macOS" forceOS={os} />
         <Project.Selector />
       </Nav.Bar.Start>
       <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">
@@ -31,8 +30,8 @@ export const Top = (): ReactElement | null => {
         <User.Badge />
         <Cluster.ConnectionBadge />
         <Docs.OpenButton />
-        <View.Window.Controls visibleIfOS="Windows" forceOS={os} />
+        <Service.Window.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
-    </Bar>
+    </Service.Nav.Bar>
   );
 };

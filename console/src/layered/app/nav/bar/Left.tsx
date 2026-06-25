@@ -12,8 +12,8 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Items } from "@/layered/app/nav/items";
+import { Service } from "@/layered/service";
 import { Session } from "@/layered/session";
-import { View } from "@/layered/view";
 
 const BottomMenu = () => {
   const dispatch = useDispatch();
@@ -36,7 +36,7 @@ const BottomMenu = () => {
     [dispatch],
   );
   return (
-    <View.Nav.Menu
+    <Service.Nav.Menu
       items={Items.BOTTOM}
       activeKey={visible ? Items.BOTTOM.key : undefined}
       onSelect={handleSelect}
@@ -72,7 +72,7 @@ const LeftMenu = () => {
     [dispatch],
   );
   return (
-    <View.Nav.Menu
+    <Service.Nav.Menu
       items={Items.LEFT}
       activeKey={selected}
       onSelect={handleSelect}
@@ -85,12 +85,12 @@ const LeftMenu = () => {
 };
 
 export const Left = (): ReactElement => (
-  <View.Nav.Bar location="left" size="8rem">
+  <Service.Nav.Bar location="left" size="8rem">
     <Nav.Bar.Content align="center">
       <LeftMenu />
     </Nav.Bar.Content>
     <Nav.Bar.End bordered>
       <BottomMenu />
     </Nav.Bar.End>
-  </View.Nav.Bar>
+  </Service.Nav.Bar>
 );

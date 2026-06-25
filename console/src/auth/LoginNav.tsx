@@ -10,20 +10,20 @@
 import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { View } from "@/layered/view";
+import { Service } from "@/layered/service";
 import { Version } from "@/version";
 
 export const LoginNav = (): ReactElement => {
   const os = OS.use();
   return (
-    <View.Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
+    <Service.Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
       <Nav.Bar.Start data-tauri-drag-region>
-        <View.Window.Controls visibleIfOS="macOS" forceOS={os} />
+        <Service.Window.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>
       <Nav.Bar.End data-tauri-drag-region justify="end">
         <Version.Badge />
-        <View.Window.Controls visibleIfOS="Windows" forceOS={os} />
+        <Service.Window.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
-    </View.Nav.Bar>
+    </Service.Nav.Bar>
   );
 };

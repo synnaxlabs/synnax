@@ -12,12 +12,12 @@ import { type FC, type ReactElement } from "react";
 
 import { Arc } from "@/arc";
 import { EmptyAction, Toolbar } from "@/components";
+import { type Service } from "@/layered/service";
+import { LinePlot } from "@/layered/service/lineplot";
 import { Log } from "@/layered/service/log";
-import { type View } from "@/layered/view";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
 import { createSelectorLayout, useSelectorVisible } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
 
@@ -71,7 +71,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: View.Nav.Item = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "visualization",
   content: <Content />,
   tooltip: "Visualize",

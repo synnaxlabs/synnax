@@ -28,13 +28,13 @@ import { useDispatch } from "react-redux";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
+import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 import { contextMenu } from "@/status/list/ContextMenu";
 import { useSelectFavorites } from "@/status/selectors";
 import { removeFavorites } from "@/status/slice";
-import { View } from "@/layered/view";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
@@ -163,7 +163,7 @@ const Actions = (): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: View.Nav.Item = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "status",
   icon: <Icon.Status />,
   content: <Content />,

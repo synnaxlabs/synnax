@@ -23,7 +23,6 @@ import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
 import { Persist } from "@/persist";
 import { Project } from "@/project";
 import { Range } from "@/range";
@@ -32,10 +31,10 @@ import { Status } from "@/status";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
+  ...Session.LinePlot.PERSIST_EXCLUDE,
   ...Session.Log.PERSIST_EXCLUDE,
   ...Session.Schematic.PERSIST_EXCLUDE,
   ...Session.Table.PERSIST_EXCLUDE,
-  ...LinePlot.PERSIST_EXCLUDE,
 ];
 
 const ZERO_STATE: RootState = {
@@ -44,9 +43,9 @@ const ZERO_STATE: RootState = {
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
-  [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Session.Nav.SLICE_NAME]: Session.Nav.ZERO_SLICE_STATE,
   [Session.Log.SLICE_NAME]: Session.Log.ZERO_SLICE_STATE,
+  [Session.LinePlot.SLICE_NAME]: Session.LinePlot.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Session.Schematic.SLICE_NAME]: Session.Schematic.ZERO_SLICE_STATE,
@@ -61,9 +60,9 @@ const reducer = combineReducers({
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
-  [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Session.Nav.SLICE_NAME]: Session.Nav.reducer,
   [Session.Log.SLICE_NAME]: Session.Log.reducer,
+  [Session.LinePlot.SLICE_NAME]: Session.LinePlot.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
@@ -78,8 +77,8 @@ export interface RootState {
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
-  [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Session.Log.SLICE_NAME]: Session.Log.SliceState;
+  [Session.LinePlot.SLICE_NAME]: Session.LinePlot.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Session.Nav.SLICE_NAME]: Session.Nav.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
@@ -95,8 +94,8 @@ export type RootAction =
   | Docs.Action
   | Drift.Action
   | Layout.Action
-  | LinePlot.Action
   | Session.Log.Action
+  | Session.LinePlot.Action
   | Session.Nav.Action
   | Project.Action
   | Range.Action
@@ -118,7 +117,6 @@ export const migrateState = (prev: RootState): RootState => {
   const cluster = Cluster.migrateSlice(prev.cluster);
   const docs = Docs.migrateSlice(prev.docs);
   const layout = Layout.migrateSlice(prev.layout);
-  const line = LinePlot.migrateSlice(prev.line);
   // The project slice was persisted under "workspace" before the rename;
   // migrateLegacySlice reads the legacy key so an upgrading user keeps their saved
   // active project.
@@ -133,7 +131,6 @@ export const migrateState = (prev: RootState): RootState => {
     cluster,
     docs,
     layout,
-    line,
     project,
     range,
     status,
@@ -165,7 +162,7 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
   ...Session.Nav.MIDDLEWARE,
-  ...LinePlot.MIDDLEWARE,
+  ...Session.LinePlot.MIDDLEWARE,
   ...Arc.MIDDLEWARE,
 ];
 

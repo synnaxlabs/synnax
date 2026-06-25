@@ -30,7 +30,7 @@ import { EXPLORER_LAYOUT } from "@/arc/Explorer";
 import { useRename, useTask } from "@/arc/hooks";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
-import { type View } from "@/layered/view";
+import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 
 interface EmptyContentProps {
@@ -148,7 +148,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: View.Nav.Item = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "arc",
   icon: <Icon.Arc />,
   content: <Content />,

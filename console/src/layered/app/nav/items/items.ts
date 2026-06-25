@@ -10,7 +10,7 @@
 import { Arc } from "@/arc";
 import { ChannelServices } from "@/channel/services";
 import { Hardware } from "@/hardware";
-import { type View } from "@/layered/view";
+import { type Service } from "@/layered/service";
 import { ProjectServices } from "@/project/services";
 import { Range } from "@/range";
 import { Status } from "@/status";
@@ -19,7 +19,7 @@ import { Vis } from "@/vis";
 
 export const DEFAULT_SIZE = 200;
 
-export const LEFT: View.Nav.Item[] = [
+export const LEFT: Service.Nav.Item[] = [
   ...Hardware.NAV_DRAWER_ITEMS,
   Arc.TOOLBAR,
   Range.TOOLBAR,
@@ -29,4 +29,4 @@ export const LEFT: View.Nav.Item[] = [
   UserServices.TOOLBAR,
 ];
 
-export const BOTTOM: View.Nav.Item = Vis.TOOLBAR;
+export const BOTTOM: Service.Nav.Item = Vis.TOOLBAR;

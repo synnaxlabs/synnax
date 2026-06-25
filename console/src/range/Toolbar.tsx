@@ -31,6 +31,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
+import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
@@ -38,7 +39,6 @@ import { EXPLORER_LAYOUT } from "@/range/Explorer";
 import { select, useSelect, useSelectStaticKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
 import { type RootState } from "@/store";
-import { View } from "@/layered/view";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
@@ -210,7 +210,7 @@ const Content = (): ReactElement => (
   </Toolbar.Content>
 );
 
-export const TOOLBAR: View.Nav.Item = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,

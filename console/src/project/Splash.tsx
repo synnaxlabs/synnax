@@ -28,7 +28,7 @@ import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { View } from "@/layered/view";
+import { Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { setActive } from "@/project/slice";
 import { Triggers } from "@/triggers";
@@ -50,15 +50,15 @@ const listItem = Component.renderProp(
 const SplashNav = (): ReactElement => {
   const os = OS.use();
   return (
-    <View.Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
+    <Service.Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
       <Nav.Bar.Start data-tauri-drag-region>
-        <View.Window.Controls visibleIfOS="macOS" forceOS={os} />
+        <Service.Window.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>
       <Nav.Bar.End data-tauri-drag-region justify="end">
         <Version.Badge />
-        <View.Window.Controls visibleIfOS="Windows" forceOS={os} />
+        <Service.Window.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
-    </View.Nav.Bar>
+    </Service.Nav.Bar>
   );
 };
 

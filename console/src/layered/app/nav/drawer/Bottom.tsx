@@ -11,8 +11,8 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Items } from "@/layered/app/nav/items";
+import { Service } from "@/layered/service";
 import { Session } from "@/layered/session";
-import { View } from "@/layered/view";
 
 export const Bottom = (): ReactElement => {
   const { visible, hover, size } = Session.Nav.useSelectBottom();
@@ -30,7 +30,7 @@ export const Bottom = (): ReactElement => {
     [dispatch],
   );
   return (
-    <View.Nav.Drawer
+    <Service.Nav.Drawer
       location="bottom"
       open={visible}
       size={size ?? Items.BOTTOM.initialSize ?? Items.DEFAULT_SIZE}
@@ -41,6 +41,6 @@ export const Bottom = (): ReactElement => {
       onStopHover={onStopHover}
     >
       {Items.BOTTOM.content}
-    </View.Nav.Drawer>
+    </Service.Nav.Drawer>
   );
 };

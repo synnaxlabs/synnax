@@ -11,8 +11,8 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Items } from "@/layered/app/nav/items";
+import { Drawer } from "@/layered/service/nav/Drawer";
 import { Session } from "@/layered/session";
-import { Drawer } from "@/layered/view/nav/Drawer";
 
 export const Left = (): ReactElement => {
   const { selected, hover, size } = Session.Nav.useSelectLeft();

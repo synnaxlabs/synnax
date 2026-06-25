@@ -46,11 +46,11 @@ import { useDispatch, useStore } from "react-redux";
 import { ContextMenu as CMenu } from "@/components";
 import { CSS } from "@/css";
 import { Import } from "@/import";
+import { LinePlot } from "@/layered/service/lineplot";
 import { App } from "@/layered/app";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
-import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { ProjectServices } from "@/project/services";
 import { Runtime } from "@/runtime";
@@ -282,7 +282,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [placeLayout, store, client, addStatus, handleError, removeLayout, services],
   );
 
-  LinePlot.useTriggerHold({ defaultMode: "toggle", toggle: [["H"]] });
+  LinePlot.useTriggerHold();
 
   const handleClose = Layout.useRemover();
 

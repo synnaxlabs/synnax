@@ -10,4 +10,4 @@
 export * from "@/layered/app/nav/bar/AuxTop";
 export * from "@/layered/app/nav/bar/Left";
 export * from "@/layered/app/nav/bar/Top";
-export * from "@/layered/view/nav/Bar";
+export * from "@/layered/service/nav/Bar";

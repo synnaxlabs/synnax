@@ -14,8 +14,8 @@ import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Items } from "@/layered/app/nav/items";
+import { Service } from "@/layered/service";
 import { Session } from "@/layered/session";
-import { View } from "@/layered/view";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 
@@ -45,7 +45,7 @@ export const AuxTop = (): ReactElement => {
   const activeName = Layout.useSelectActiveMosaicTabName();
   const activeProjectName = Project.useSelectActiveName();
   return (
-    <View.Nav.Bar
+    <Service.Nav.Bar
       location="top"
       size="6rem"
       data-tauri-drag-region
@@ -53,7 +53,7 @@ export const AuxTop = (): ReactElement => {
       className={CSS.BE("mosaic", "bar")}
     >
       <Nav.Bar.Start data-tauri-drag-region align="center">
-        <View.Window.Controls visibleIfOS="macOS" forceOS={os} />
+        <Service.Window.Controls visibleIfOS="macOS" forceOS={os} />
         {os === "Windows" && (
           <>
             <Logo />
@@ -73,9 +73,9 @@ export const AuxTop = (): ReactElement => {
         </Text.Text>
       </Nav.Bar.AbsoluteCenter>
       <Nav.Bar.End data-tauri-drag-region align="center" justify="end">
-        <View.Window.Controls visibleIfOS="Windows" forceOS={os} />
+        <Service.Window.Controls visibleIfOS="Windows" forceOS={os} />
         {os === "macOS" && <BottomToggleButton />}
       </Nav.Bar.End>
-    </View.Nav.Bar>
+    </Service.Nav.Bar>
   );
 };
