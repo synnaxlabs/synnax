@@ -31,9 +31,8 @@ import {
   Tabs,
   Text,
   Triggers,
-  useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { caseconv, type location, TimeSpan } from "@synnaxlabs/x";
+import { caseconv, type location } from "@synnaxlabs/x";
 import {
   type ComponentType,
   memo,
@@ -223,8 +222,6 @@ interface MosaicProps {
   mosaic: Base.Node;
 }
 
-const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
-
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
   return windowKey == null || mosaic == null ? null : (
@@ -302,11 +299,10 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [dispatch],
   );
 
-  const handleResize = useDebouncedCallback(
+  const handleResize = useCallback(
     (key: number, size: number) => {
       dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
     },
-    RESIZE_DEBOUNCE,
     [dispatch, windowKey],
   );
 

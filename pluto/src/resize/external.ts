@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/resize/Base";
-export * from "@/resize/Multiple";
 export * from "@/resize/Single";
+export * from "@/resize/Split";
