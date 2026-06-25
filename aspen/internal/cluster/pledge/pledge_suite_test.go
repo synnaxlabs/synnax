@@ -28,7 +28,7 @@ func TestMembership(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
-	ins = Instrumentation("pledge", InstrumentationConfig{Log: new(false)})
+	ins = MustOpen(OpenInstrumentation("pledge", InstrumentationConfig{Log: new(false)}))
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

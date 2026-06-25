@@ -21,7 +21,7 @@ import (
 var _ = Describe("Falamos", func() {
 	Describe("Name", func() {
 		It("Should correctly attach tracing metadata", func(ctx SpecContext) {
-			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: new(true)})
+			clientIns := MustOpen(OpenInstrumentation("falamos", InstrumentationConfig{Trace: new(true)}))
 			clientMw := MustSucceed(alamos.Middleware(alamos.Config{
 				Instrumentation: clientIns,
 			}))
@@ -36,7 +36,7 @@ var _ = Describe("Falamos", func() {
 			_, ok := oCtx.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
 
-			serverIns := Instrumentation("falamos", InstrumentationConfig{Trace: new(true)})
+			serverIns := MustOpen(OpenInstrumentation("falamos", InstrumentationConfig{Trace: new(true)}))
 			serverMw := MustSucceed(alamos.Middleware(alamos.Config{
 				Instrumentation: serverIns,
 			}))

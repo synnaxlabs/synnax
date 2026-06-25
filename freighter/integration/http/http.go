@@ -24,8 +24,12 @@ import (
 )
 
 func BindTo(f *fiber.App) error {
+	ins, err := testutil.OpenInstrumentation("freighter-integration")
+	if err != nil {
+		return err
+	}
 	router, err := http.NewRouter(http.RouterConfig{
-		Instrumentation:     testutil.Instrumentation("freighter-integration"),
+		Instrumentation:     ins,
 		StreamWriteDeadline: 50 * time.Millisecond,
 	})
 	if err != nil {

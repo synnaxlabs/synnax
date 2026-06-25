@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package testutil provides alamos instrumentation helpers for tests. It lives in the
-// alamos module (rather than x/testutil) so that x/testutil stays free of the alamos +
-// OpenTelemetry dependency tree, which keeps the lightweight x test helpers importable
-// from low-level packages and from the golangci-lint custom plugin build.
+// Package testutil provides Alamos instrumentation helpers for tests.
 package testutil
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -23,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/git"
 	"github.com/synnaxlabs/x/override"
-	xtest "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
@@ -63,42 +61,77 @@ func serviceName() string { return lo.Must(os.Hostname()) }
 
 const devDSN = "http://synnax_dev@localhost:14317/2"
 
-func newTracer(serviceName string) *alamos.Tracer {
+func newTracer(serviceName string) (*alamos.Tracer, error) {
+	commit, err := git.CurrentCommit()
+	if err != nil {
+		return nil, err
+	}
 	uptrace.ConfigureOpentelemetry(
 		uptrace.WithDSN(devDSN),
 		uptrace.WithServiceName(serviceName),
-		uptrace.WithServiceVersion(lo.Must(git.CurrentCommit())),
+		uptrace.WithServiceVersion(commit),
 	)
-	return xtest.MustSucceed(alamos.NewTracer(alamos.TracingConfig{
+	return alamos.NewTracer(alamos.TracingConfig{
 		OtelProvider:   otel.GetTracerProvider(),
 		OtelPropagator: otel.GetTextMapPropagator(),
-	}))
+	})
 }
 
-func newLogger() *alamos.Logger {
-	return xtest.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-		ZapConfig: zap.NewDevelopmentConfig(),
-	}))
+func newLogger() (*alamos.Logger, error) {
+	return alamos.NewLogger(alamos.LoggerConfig{ZapConfig: zap.NewDevelopmentConfig()})
 }
 
-func newReports() *alamos.Reporter { return xtest.MustSucceed(alamos.NewReporter()) }
+// shutdownUptrace stops the process-global OpenTelemetry SDK that newTracer configured.
+// uptrace.Shutdown flushes buffered spans and metrics to the dev collector (devDSN) as
+// part of shutting down; that collector is not running during tests, so the flush fails
+// with a connection error. Stopping the SDK's background goroutines does not depend on
+// the flush succeeding, so the upload error is expected and intentionally dropped here —
+// surfacing it would fail every suite that enables tracing.
+func shutdownUptrace(ctx context.Context) error {
+	_ = uptrace.Shutdown(ctx)
+	return nil
+}
 
-func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
+// OpenInstrumentation builds Instrumentation from the given config and returns it
+// alongside no separate closer: the returned Instrumentation is itself an io.Closer.
+// When tracing is enabled it configures the process-global OpenTelemetry SDK and
+// registers uptrace.Shutdown as a shutdown function, so Closing the Instrumentation tears
+// the SDK exporter back down. Pair it with MustOpen / DeferClose in tests.
+func OpenInstrumentation(
+	key string,
+	cfgs ...InstrumentationConfig,
+) (alamos.Instrumentation, error) {
 	cfg, err := config.New(DefaultInstrumentationConfig, cfgs...)
 	if err != nil {
-		zap.S().Fatal(err)
+		return alamos.Instrumentation{}, err
 	}
 	var options []alamos.Option
 	if *cfg.Trace {
-		options = append(options, alamos.WithTracer(newTracer(serviceName())))
+		tracer, err := newTracer(serviceName())
+		if err != nil {
+			return alamos.Instrumentation{}, err
+		}
+		options = append(
+			options,
+			alamos.WithTracer(tracer),
+			alamos.WithShutdown(shutdownUptrace),
+		)
 	}
 	if *cfg.Log {
-		options = append(options, alamos.WithLogger(newLogger()))
+		logger, err := newLogger()
+		if err != nil {
+			return alamos.Instrumentation{}, err
+		}
+		options = append(options, alamos.WithLogger(logger))
 	}
 	if *cfg.Report {
-		options = append(options, alamos.WithReporter(newReports()))
+		reporter, err := alamos.NewReporter()
+		if err != nil {
+			return alamos.Instrumentation{}, err
+		}
+		options = append(options, alamos.WithReporter(reporter))
 	}
-	return alamos.New(key, options...)
+	return alamos.New(key, options...), nil
 }
 
 // ObservedInstrumentation returns an Instrumentation backed by a zap observer that
@@ -108,7 +141,7 @@ func ObservedInstrumentation(
 	level zapcore.Level,
 ) (alamos.Instrumentation, *observer.ObservedLogs) {
 	core, logs := observer.New(level)
-	l := xtest.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+	l := testutil.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 		ZapLogger: zap.New(core),
 	}))
 	return alamos.New("test", alamos.WithLogger(l)), logs
@@ -119,7 +152,7 @@ func ObservedInstrumentation(
 func PanicLogger() alamos.Instrumentation {
 	cfg := zap.NewDevelopmentConfig()
 	cfg.Level.SetLevel(zap.PanicLevel)
-	l := xtest.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg}))
+	l := testutil.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg}))
 	return alamos.New(
 		fmt.Sprintf("synnax-testing-%s", uuid.New().String()),
 		alamos.WithLogger(l),

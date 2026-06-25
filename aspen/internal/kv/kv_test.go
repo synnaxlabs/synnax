@@ -76,7 +76,7 @@ var _ = Describe("txn", func() {
 			It("Should propagate the operation to other members of the cluster",
 				func(ctx SpecContext) {
 					kv1 := MustSucceed(builder.New(ctx, kv.Config{
-						Instrumentation: Instrumentation("kv1"),
+						Instrumentation: MustOpen(OpenInstrumentation("kv1")),
 					}, cluster.Config{}))
 					kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 					Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
