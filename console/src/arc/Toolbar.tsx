@@ -154,9 +154,8 @@ export const TOOLBAR: Service.Nav.Item = {
   content: <Content />,
   trigger: ["A"],
   tooltip: "Arcs",
+  sizeBounds: { lower: 225, upper: 400 },
   initialSize: 300,
-  minSize: 225,
-  maxSize: 400,
   useVisible: () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID),
 };
 

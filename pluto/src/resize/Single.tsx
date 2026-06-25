@@ -7,43 +7,53 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, box, clamp, location } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { bounds, box, location } from "@synnaxlabs/x";
+import { clsx } from "clsx";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Base, type BaseProps } from "@/resize/Base";
 
+/** Props for the {@link Single} component. */
 export interface SingleProps extends Omit<
   BaseProps,
-  "showHandle" | "onResize" | "onDragStart" | "ref"
+  "showHandle" | "size" | "onResize" | "onDragStart" | "ref"
 > {
-  onResize: (size: number, box: box.Box) => void;
+  initialSize?: number;
   sizeBounds?: Partial<bounds.Bounds>;
+  onResize?: (size: number, box: box.Box) => void;
   collapseThreshold?: number;
   onCollapse?: () => void;
 }
 
 const COLLAPSED_SIZE = 2;
-const DEFAULT_MIN_SIZE = 100;
+const DEFAULT_SIZE_BOUNDS = { lower: 100 };
 
 export const Single = ({
   onCollapse,
   onResize,
-  location: propsLocation = "left",
-  size,
-  sizeBounds,
+  location: location_ = "left",
+  sizeBounds = DEFAULT_SIZE_BOUNDS,
+  initialSize = 200,
   collapseThreshold = Infinity,
   className,
   ...rest
 }: SingleProps): ReactElement => {
+  const fullSizeBounds = useMemo(() => {
+    sizeBounds.lower ??= DEFAULT_SIZE_BOUNDS.lower;
+    return bounds.construct(sizeBounds);
+  }, [sizeBounds.lower, sizeBounds.upper]);
+  const [size, setSize] = useState(bounds.clamp(fullSizeBounds, initialSize));
   const marker = useRef<number | null>(null);
-  const loc = location.construct(propsLocation);
-  const clampSize = useCallback(
-    (value: number) => clamp(value, sizeBounds?.lower, sizeBounds?.upper),
-    [sizeBounds],
-  );
-  const clampedSize = clampSize(size);
+  const loc = location.construct(location_);
 
   const calcNextSize = useCallback(
     (b: box.Box) => {
@@ -52,15 +62,12 @@ export const Single = ({
         box.dim(b, location.direction(loc), true) *
         (1 - 2 * Number(["bottom", "right"].includes(loc)));
       const rawNextSize = marker.current + dim;
-      const nextSize = clampSize(rawNextSize);
-      if (
-        (nextSize - rawNextSize) / (sizeBounds?.lower ?? DEFAULT_MIN_SIZE) >
-        collapseThreshold
-      )
+      const nextSize = bounds.clamp(fullSizeBounds, rawNextSize);
+      if ((nextSize - rawNextSize) / fullSizeBounds.lower > collapseThreshold)
         return COLLAPSED_SIZE;
       return nextSize;
     },
-    [loc, sizeBounds, collapseThreshold],
+    [loc, fullSizeBounds, collapseThreshold],
   );
 
   const ref = useRef<HTMLDivElement>(null);
@@ -68,20 +75,33 @@ export const Single = ({
   const handleMove = useCallback(
     (dragRegion: box.Box) => {
       const nextSize = calcNextSize(dragRegion);
-      if (nextSize === COLLAPSED_SIZE || ref.current == null) return;
-      onResize?.(nextSize, box.construct(ref.current));
+      setSize(nextSize);
+      if (ref.current != null) onResize?.(nextSize, box.construct(ref.current));
     },
     [onResize, calcNextSize],
   );
 
-  const handleStart = useCallback(() => {
-    marker.current = clampedSize;
-  }, [clampedSize]);
+  const handleStart = useCallback(
+    () =>
+      setSize((prev) => {
+        marker.current = prev;
+        return prev;
+      }),
+    [setSize],
+  );
 
   const handleEnd = useCallback(
     (box: box.Box) => calcNextSize(box) === COLLAPSED_SIZE && onCollapse?.(),
     [onCollapse, calcNextSize],
   );
+
+  useEffect(() => {
+    setSize((prev) => {
+      const nextSize = bounds.clamp(fullSizeBounds, prev);
+      marker.current = nextSize;
+      return nextSize;
+    });
+  }, [fullSizeBounds]);
 
   const handleDragStart = useCursorDrag({
     onMove: handleMove,
@@ -93,9 +113,9 @@ export const Single = ({
     <Base
       ref={ref}
       location={loc}
-      size={clampedSize}
+      size={size}
       onDragStart={handleDragStart}
-      className={CSS(className, CSS.expanded(clampedSize !== COLLAPSED_SIZE))}
+      className={clsx(className, CSS.expanded(size !== COLLAPSED_SIZE))}
       {...rest}
     />
   );

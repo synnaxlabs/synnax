@@ -246,8 +246,7 @@ export const TOOLBAR: Service.Nav.Item = {
   trigger: ["T"],
   tooltip: "Tasks",
   initialSize: 300,
-  minSize: 225,
-  maxSize: 400,
+  sizeBounds: { lower: 225, upper: 400 },
   useVisible: () => Access.useRetrieveGranted(task.TYPE_ONTOLOGY_ID),
 };
 

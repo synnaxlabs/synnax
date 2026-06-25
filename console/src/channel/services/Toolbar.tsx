@@ -75,7 +75,6 @@ export const TOOLBAR: Service.Nav.Item = {
   tooltip: "Channels",
   trigger: ["C"],
   initialSize: 300,
-  minSize: 175,
-  maxSize: 400,
+  sizeBounds: { lower: 175, upper: 400 },
   useVisible: () => Access.useRetrieveGranted(channel.TYPE_ONTOLOGY_ID),
 };

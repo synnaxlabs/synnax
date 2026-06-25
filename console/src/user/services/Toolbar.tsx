@@ -59,8 +59,7 @@ export const TOOLBAR: Service.Nav.Item = {
   content: <Content />,
   tooltip: "Users",
   initialSize: 300,
-  minSize: 175,
-  maxSize: 400,
+  sizeBounds: { lower: 175, upper: 400 },
   trigger: ["U"],
   useVisible: () => Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID),
 };

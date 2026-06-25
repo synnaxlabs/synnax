@@ -359,7 +359,7 @@ export const NavShowcase = () => {
                 </Nav.Bar>
                 <Nav.Drawer
                   open={topDrawer.activeItem != null}
-                  size={topDrawer.size}
+                  initialSize={topDrawer.size}
                   sizeBounds={{
                     lower: topDrawer.activeItem?.minSize,
                     upper: topDrawer.activeItem?.maxSize,
