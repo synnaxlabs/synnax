@@ -12,7 +12,6 @@ package http
 import (
 	"context"
 	"encoding/json"
-	"go/types"
 	"sync"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 )
@@ -97,7 +97,7 @@ func unaryEcho(_ context.Context, req Message) (Message, error) {
 
 var (
 	flakyMu   sync.Mutex
-	flakySeen = make(map[string]types.Nil)
+	flakySeen = set.New[string]()
 )
 
 // flakyUnavailable responds with 503 Service Unavailable the first time it sees a given
@@ -114,8 +114,8 @@ func flakyUnavailable(c fiber.Ctx) error {
 	c.Set(fiber.HeaderContentType, "application/json")
 	flakyMu.Lock()
 	defer flakyMu.Unlock()
-	if _, ok := flakySeen[req.Message]; !ok {
-		flakySeen[req.Message] = types.Nil{}
+	if !flakySeen.Contains(req.Message) {
+		flakySeen.Add(req.Message)
 		c.Status(fiber.StatusServiceUnavailable)
 		return c.SendString(`{"type":"integration.error","data":"1,transient unavailable"}`)
 	}
@@ -151,7 +151,7 @@ func streamRespondWithTenMessages(_ context.Context, stream ServerStream) error 
 
 var (
 	timeoutMu sync.Mutex
-	timeouts  = make(map[string]types.Nil)
+	timeouts  = set.New[string]()
 )
 
 func streamSlamMessages(_ context.Context, stream ServerStream) error {
@@ -162,7 +162,7 @@ func streamSlamMessages(_ context.Context, stream ServerStream) error {
 	for i := range 1_000_000 {
 		if err := stream.Send(Message{Message: "hello", ID: i}); err != nil {
 			timeoutMu.Lock()
-			timeouts[msg.Message] = types.Nil{}
+			timeouts.Add(msg.Message)
 			timeoutMu.Unlock()
 			return err
 		}
@@ -182,7 +182,7 @@ func streamEventuallyResponseWithMessage(_ context.Context, stream ServerStream)
 func slamMessagesTimeoutCheckHandler(_ context.Context, msg Message) (Message, error) {
 	timeoutMu.Lock()
 	defer timeoutMu.Unlock()
-	if _, ok := timeouts[msg.Message]; ok {
+	if timeouts.Contains(msg.Message) {
 		return Message{Message: "timeout"}, nil
 	}
 	return Message{Message: "success"}, nil

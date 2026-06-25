@@ -98,9 +98,13 @@ class HTTPClient(MiddlewareCollector):
         so the full body never has to fit in memory. The Content-Type is inferred from
         the file extension via the client's registered codecs.
 
-        Retries are disabled for uploads: urllib3 does not rewind the file body between
-        attempts, so a transparent retry would replay a partially-consumed stream and
-        send a truncated request. A failed upload surfaces to the caller instead.
+        Retries are disabled for uploads because an upload mutates server state and is
+        not assumed to be idempotent: a transient failure that occurs after the server
+        has begun applying the import could replay it on retry and double-apply the
+        data. (urllib3 would in fact rewind the seekable file body and resend the full
+        request via set_file_position/rewind_body, so the stream itself is replayable;
+        the concern is request semantics, not the body.) A failed upload surfaces to the
+        caller instead, leaving the retry decision to the caller.
         """
         codec = self._codec_for_path(req)
         with open(req, "rb") as f:

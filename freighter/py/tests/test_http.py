@@ -100,9 +100,11 @@ class TestUpload:
 @pytest.mark.http
 class TestRetries:
     """Exercises retry behavior against the server's /flakyUnavailable endpoint, which
-    responds 503 to the first request for a given message and succeeds on every retry. An
-    in-memory send replays its body and recovers; an upload streams an unreplayable file
-    body and so must opt out of retries, surfacing the failure instead.
+    responds 503 to the first request for a given message and succeeds on every retry. A
+    unary send recovers on the retry; an upload opts out of retries because it mutates
+    server state and is not assumed idempotent, so the transient failure surfaces rather
+    than risking a double-applied import. (The file body itself is seekable and would be
+    rewound by urllib3 — the opt-out is about request semantics, not the stream.)
 
     The client is configured to retry on 503, the conventional transient-failure status.
     The production client (synnax.transport) retries no status codes — only connection
@@ -128,8 +130,8 @@ class TestRetries:
         assert res.message == key
 
     def test_upload_surfaces_first_failure(self, endpoint: URL, tmp_path: Path) -> None:
-        """An upload disables retries, so the transient 503 surfaces rather than
-        replaying the already-consumed file body."""
+        """An upload disables retries, so the transient 503 surfaces to the caller
+        rather than being retried against a non-idempotent server-side import."""
         client = self._retrying_client(endpoint)
         key = f"retry-upload-{uuid.uuid4()}"
         path = tmp_path / "in.json"
