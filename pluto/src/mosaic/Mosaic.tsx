@@ -45,7 +45,7 @@ export interface MosaicProps
     >,
     Omit<
       Flex.BoxProps,
-      "contextMenu" | "onSelect" | "children" | "onResize" | "onDrop" | "size"
+      "contextMenu" | "onSelect" | "children" | "onResize" | "onDrop"
     > {
   root: Node;
   onDrop: (
@@ -116,7 +116,7 @@ export const Mosaic = memo(
       [onResize, key],
     );
 
-    let extraProps: Partial<Omit<Flex.BoxProps, "size">> = {};
+    let extraProps: Partial<Flex.BoxProps> = {};
     if (key == 1)
       extraProps = {
         ...rest,
@@ -138,7 +138,7 @@ export const Mosaic = memo(
         <Resize.Split
           id={`mosaic-${key}`}
           direction={direction}
-          size={size}
+          initialSize={size}
           onResize={handleResize}
           {...extraProps}
         >

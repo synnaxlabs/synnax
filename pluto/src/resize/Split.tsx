@@ -26,20 +26,16 @@ import { Base } from "@/resize/Base";
 /** Props for the {@link Split} component. */
 export interface SplitProps extends Omit<
   Flex.BoxProps,
-  "size" | "direction" | "x" | "y" | "onResize" | "children"
+  "size" | "onResize" | "children"
 > {
   /** The two panes to lay out, the first on the left/top and the second on the
    * right/bottom. Exactly two children are required. */
   children: [ReactNode, ReactNode];
-  /** The direction the panes are laid out and draggable along. Defaults to "x". */
-  direction?: direction.Crude;
   /**
-   * The fraction of the container occupied by the first pane, as a decimal between 0 and
-   * 1. Controlled: the component renders this value, but resizes are applied locally for
-   * the duration of a drag and reported via onResize; an external change to this prop
-   * (e.g. the panes being rearranged) re-syncs the rendered size. Defaults to 0.5.
+   * The fraction of the container occupied by the first pane on mount, as a decimal
+   * between 0 and 1. Defaults to 0.5.
    */
-  size?: number;
+  initialSize?: number;
   /** The smallest size, in pixels, either pane can be resized to. Defaults to 100. */
   minSize?: number;
   /** Called with the first pane's fraction (0..1) whenever the panes are resized. */
@@ -54,6 +50,8 @@ export interface SplitProps extends Omit<
  */
 const DELTA = 0.001;
 
+const HALF_SPLIT = 0.5;
+
 /**
  * A pair of panes that can be resized relative to one another by dragging the handle
  * between them. Both panes are sized as percentages of the container, so the split ratio
@@ -64,30 +62,24 @@ const DELTA = 0.001;
  * left/top and the second on the right/bottom.
  */
 export const Split = ({
-  direction: propsDirection = "x",
-  size: propsSize = 0.5,
-  minSize = 100,
   onResize,
   children,
   className,
+  initialSize = HALF_SPLIT,
+  minSize = 100,
   align = "stretch",
+  direction: propsDirection,
+  x,
+  y,
+  pack,
   ...rest
 }: SplitProps): ReactElement => {
-  const dir = direction.construct(propsDirection);
+  const dir = Flex.parseDirection(propsDirection, x, y, pack) ?? "x";
   const loc = direction.location(dir);
   const ref = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState(propsSize);
-  const start = useRef(propsSize);
+  const [size, setSize] = useState(initialSize);
+  const start = useRef(initialSize);
   const [first, last] = Children.toArray(children);
-
-  // Re-sync to the controlled prop when it changes from outside a drag. The mosaic reuses
-  // a Split instance across tree restructures (keys are positional), so without this the
-  // rendered size would stay stale and the panes drift to slivers over repeated splits.
-  const [prevPropsSize, setPrevPropsSize] = useState(propsSize);
-  if (propsSize !== prevPropsSize) {
-    setPrevPropsSize(propsSize);
-    setSize(propsSize);
-  }
 
   useEffect(() => onResize?.(size), [size, onResize]);
 
@@ -114,7 +106,7 @@ export const Split = ({
 
   const handleDragStart = useCursorDrag({ onStart: handleStart, onMove: handleMove });
 
-  const offset = math.closeTo(size, 0.5, DELTA) ? DELTA : 0;
+  const offset = math.closeTo(size, HALF_SPLIT, DELTA) ? DELTA : 0;
   return (
     <Flex.Box
       {...rest}

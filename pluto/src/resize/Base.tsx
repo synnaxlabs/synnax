@@ -40,13 +40,11 @@ export const Base = ({
 }: BaseProps): ReactElement => {
   const parsedLocation = location.construct(cloc);
   const dir = location.direction(parsedLocation);
-  const dim = direction.dimension(dir);
   const style = useMemo<CSSProperties>(() => {
-    let cssSize: string;
-    if (decimal) cssSize = `${size * 100}%`;
-    else cssSize = `${size}px`;
+    const dim = direction.dimension(dir);
+    const cssSize = decimal ? `${size * 100}%` : `${size}px`;
     return { [dim]: cssSize, ...propsStyle };
-  }, [size, propsStyle]);
+  }, [decimal, size, dir, propsStyle]);
   return (
     <Flex.Box
       className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), className)}

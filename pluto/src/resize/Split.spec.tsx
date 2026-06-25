@@ -74,49 +74,37 @@ describe("Resize.Split", () => {
 
   it("should grow the first pane when the handle is dragged forward", () => {
     const onResize = vi.fn();
-    const c = renderSplit({ size: 0.5, onResize });
+    const c = renderSplit({ initialSize: 0.5, onResize });
     drag(c, { from: 500, to: 600 });
     expect(lastSize(onResize)).toBeCloseTo(0.6);
   });
 
   it("should shrink the first pane when the handle is dragged backward", () => {
     const onResize = vi.fn();
-    const c = renderSplit({ size: 0.5, onResize });
+    const c = renderSplit({ initialSize: 0.5, onResize });
     drag(c, { from: 500, to: 350 });
     expect(lastSize(onResize)).toBeCloseTo(0.35);
   });
 
   it("should clamp the first pane to the minimum size", () => {
     const onResize = vi.fn();
-    const c = renderSplit({ size: 0.5, minSize: 100, onResize });
+    const c = renderSplit({ initialSize: 0.5, minSize: 100, onResize });
     drag(c, { from: 500, to: -10000 });
     expect(lastSize(onResize)).toBeCloseTo(100 / PARENT_SIZE);
   });
 
   it("should clamp so the second pane keeps the minimum size", () => {
     const onResize = vi.fn();
-    const c = renderSplit({ size: 0.5, minSize: 100, onResize });
+    const c = renderSplit({ initialSize: 0.5, minSize: 100, onResize });
     drag(c, { from: 500, to: 10000 });
     expect(lastSize(onResize)).toBeCloseTo(1 - 100 / PARENT_SIZE);
   });
 
   it("should report the clean ratio while offsetting an even split for re-render", () => {
     const onResize = vi.fn();
-    const c = renderSplit({ size: 0.5, onResize });
+    const c = renderSplit({ initialSize: 0.5, onResize });
     expect(lastSize(onResize)).toBeCloseTo(0.5);
     const [first, last] = panesOf(c);
     expect(first.style.width).not.toEqual(last.style.width);
-  });
-
-  it("should re-sync the rendered size when the size prop changes externally", () => {
-    const c = renderSplit({ size: 0.2 });
-    expect(panesOf(c)[0].style.width).toEqual("20%");
-    c.rerender(
-      <Resize.Split size={0.6}>
-        <p>First</p>
-        <p>Last</p>
-      </Resize.Split>,
-    );
-    expect(panesOf(c)[0].style.width).toEqual("60%");
   });
 });
