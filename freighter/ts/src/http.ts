@@ -25,9 +25,6 @@ const ACCEPT_HEADER_KEY = "Accept";
 
 const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   JSON: "application/json",
-  MessagePack: "application/msgpack",
-  YAML: "application/yaml",
-  TOML: "application/toml",
 };
 
 const UNREACHABLE_CODES = new Set([
@@ -96,6 +93,13 @@ export class HTTPClient
     });
   }
 
+  private get defaultHeaders(): Record<string, string> {
+    return {
+      [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
+      [ACCEPT_HEADER_KEY]: this.encoder.contentType,
+    };
+  }
+
   async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
@@ -111,11 +115,7 @@ export class HTTPClient
         const httpRes = await this.fetch(url, ctx.target, {
           method: "POST",
           body: this.encoder.encode(req, reqSchema),
-          headers: {
-            [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-            [ACCEPT_HEADER_KEY]: this.encoder.contentType,
-            ...ctx.params,
-          },
+          headers: { ...this.defaultHeaders, ...ctx.params },
         });
         const data = await httpRes.arrayBuffer();
         if (httpRes.ok) {
@@ -147,8 +147,8 @@ export class HTTPClient
           method: "POST",
           body,
           headers: {
+            ...this.defaultHeaders,
             [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
-            [ACCEPT_HEADER_KEY]: this.encoder.contentType,
             ...ctx.params,
           },
           duplex: "half",
@@ -182,7 +182,7 @@ export class HTTPClient
           method: "POST",
           body: this.encoder.encode(req, reqSchema),
           headers: {
-            [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
+            ...this.defaultHeaders,
             [ACCEPT_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
             ...ctx.params,
           },

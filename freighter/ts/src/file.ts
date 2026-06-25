@@ -25,7 +25,7 @@ export type UploadBody =
 /**
  * The wire encodings a FileTransport can transfer.
  */
-export type FileEncoding = "JSON" | "MessagePack" | "YAML" | "TOML";
+export type FileEncoding = "JSON";
 
 /**
  * Options shared by FileTransport.upload and FileTransport.download. Carries the wire
