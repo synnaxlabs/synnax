@@ -35,18 +35,18 @@ func fixedOverflowChecker(limit int) channel.IntOverflowChecker {
 
 var _ = Describe("Limit", Ordered, func() {
 	var (
-		limit       = 5
-		mockCluster *mock.Cluster
-		dist        mock.Node
+		limit   = 5
+		cluster *mock.Cluster
+		dist    mock.Node
 	)
 	BeforeEach(func(ctx SpecContext) {
-		mockCluster = mock.OpenCluster(ctx, 0)
-		dist = mockCluster.Provision(ctx, distribution.LayerConfig{
+		cluster = mock.OpenCluster(ctx, 0)
+		dist = cluster.Provision(ctx, distribution.LayerConfig{
 			TestingIntOverflowCheck: fixedOverflowChecker(limit),
 		})
 	})
 	AfterEach(func() {
-		Expect(mockCluster.Close()).To(Succeed())
+		Expect(cluster.Close()).To(Succeed())
 	})
 	It("Should not allow creating channels over the limit", func(ctx SpecContext) {
 		// Create channels up to the limit

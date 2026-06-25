@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	mockCluster *mock.Cluster
-	dist        *distribution.Layer
+	cluster *mock.Cluster
+	dist    *distribution.Layer
 )
 
 func TestFramer(t *testing.T) {
@@ -29,10 +29,10 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	mockCluster = mock.OpenCluster(ctx, 1)
-	dist = mockCluster.Nodes[1].Layer
+	cluster = mock.OpenCluster(ctx, 1)
+	dist = cluster.Nodes[1].Layer
 	DeferCleanup(func() {
 		Expect(dist.Close()).To(Succeed())
-		Expect(mockCluster.Close()).To(Succeed())
+		Expect(cluster.Close()).To(Succeed())
 	})
 })

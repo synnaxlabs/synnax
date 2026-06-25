@@ -20,12 +20,12 @@ import (
 )
 
 var _ = Describe("Delete", Ordered, func() {
-	var mockCluster *mock.Cluster
+	var cluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.OpenCluster(ctx, 2)
+		cluster = mock.OpenCluster(ctx, 2)
 	})
 	AfterAll(func() {
-		Expect(mockCluster.Close()).To(Succeed())
+		Expect(cluster.Close()).To(Succeed())
 	})
 	Describe("Channel Deletion", func() {
 		Context("Single Channel", func() {
@@ -35,11 +35,11 @@ var _ = Describe("Delete", Ordered, func() {
 				idxCh.Name = prefix + "_time"
 				idxCh.DataType = telem.TimeStampT
 				idxCh.IsIndex = true
-				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &idxCh)).To(Succeed())
+				Expect(cluster.Nodes[1].Channel.Create(ctx, &idxCh)).To(Succeed())
 				ch.Name = prefix + "_data"
 				ch.DataType = telem.Float64T
 				ch.LocalIndex = idxCh.LocalKey
-				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+				Expect(cluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 			})
 			Context("Node is local", func() {
 				BeforeEach(func() {
@@ -47,19 +47,19 @@ var _ = Describe("Delete", Ordered, func() {
 					ch.Leaseholder = 1
 				})
 				It("Should not allow deletion of index channel with dependent channels", func(ctx SpecContext) {
-					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
+					Expect(cluster.Nodes[1].Channel.Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
 				})
 				It("Should delete the channel without error", func(ctx SpecContext) {
-					Expect(mockCluster.Nodes[1].Channel.DeleteMany(ctx, channel.Keys{idxCh.Key(), ch.Key()}, true)).To(Succeed())
+					Expect(cluster.Nodes[1].Channel.DeleteMany(ctx, channel.Keys{idxCh.Key(), ch.Key()}, true)).To(Succeed())
 				})
 				It("Should not be able to retrieve the channel after deletion", func(ctx SpecContext) {
-					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
-					exists := MustSucceed(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))
+					Expect(cluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
+					exists := MustSucceed(cluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))
 					Expect(exists).To(BeFalse())
 				})
 				It("Should not be able to retrieve the channel from the time-series DB", func(ctx SpecContext) {
-					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
-					channels, err := mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
+					Expect(cluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
+					channels, err := cluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 					Expect(channels).To(BeEmpty())
 				})
@@ -71,23 +71,23 @@ var _ = Describe("Delete", Ordered, func() {
 					ch.Leaseholder = 2
 				})
 				It("Should not allow deletion of index channel with dependent channels", func(ctx SpecContext) {
-					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
+					Expect(cluster.Nodes[1].Channel.Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
 				})
 				It("Should delete the channel without error", func(ctx SpecContext) {
-					Expect(mockCluster.Nodes[1].Channel.DeleteMany(ctx, []channel.Key{idxCh.Key(), ch.Key()}, true)).To(Succeed())
+					Expect(cluster.Nodes[1].Channel.DeleteMany(ctx, []channel.Key{idxCh.Key(), ch.Key()}, true)).To(Succeed())
 				})
 				It("Should not be able to retrieve the channel after deletion", func(ctx SpecContext) {
-					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
-					exists := MustSucceed(mockCluster.Nodes[2].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))
+					Expect(cluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
+					exists := MustSucceed(cluster.Nodes[2].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))
 					Expect(exists).To(BeFalse())
 					Eventually(func(g Gomega) {
-						exists = MustSucceed(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))
+						exists = MustSucceed(cluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))
 						g.Expect(exists).To(BeFalse())
 					}).Should(Succeed())
 				})
 				It("Should not be able to retrieve the channel from the time-series DB", func(ctx SpecContext) {
-					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
-					channels, err := mockCluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
+					Expect(cluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
+					channels, err := cluster.Nodes[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 					Expect(channels).To(BeEmpty())
 				})

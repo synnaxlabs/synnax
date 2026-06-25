@@ -206,8 +206,8 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 1)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 1)
+	dist := cluster.Nodes[1]
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
@@ -216,14 +216,14 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 		keys:   keys,
 		names:  names,
 		dist:   dist,
-		closer: builder,
+		closer: cluster,
 	}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 4)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 4)
+	dist := cluster.Nodes[1]
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 2)
 	}
@@ -243,14 +243,14 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		keys:   keys,
 		names:  names,
 		dist:   dist,
-		closer: builder,
+		closer: cluster,
 	}
 }
 
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 3)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 3)
+	dist := cluster.Nodes[1]
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 1)
 	}
@@ -270,6 +270,6 @@ func mixedScenario(ctx context.Context) scenario {
 		keys:   keys,
 		names:  names,
 		dist:   dist,
-		closer: builder,
+		closer: cluster,
 	}
 }

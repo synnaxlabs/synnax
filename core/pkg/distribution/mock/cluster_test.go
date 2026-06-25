@@ -25,10 +25,10 @@ var _ = Describe("Cluster", func() {
 	ShouldNotLeakGoroutinesPerSpec()
 	Describe("Name", func() {
 		It("Should open a three node memory backed distribution layer", func(ctx SpecContext) {
-			mockCluster := mock.MustOpenCluster(ctx, 0)
-			coreOne := mockCluster.Provision(ctx)
-			coreTwo := mockCluster.Provision(ctx)
-			coreThree := mockCluster.Provision(ctx)
+			cluster := mock.MustOpenCluster(ctx, 0)
+			coreOne := cluster.Provision(ctx)
+			coreTwo := cluster.Provision(ctx)
+			coreThree := cluster.Provision(ctx)
 
 			Expect(coreOne.Cluster.HostKey()).To(Equal(node.Key(1)))
 			Expect(coreTwo.Cluster.HostKey()).To(Equal(node.Key(2)))
