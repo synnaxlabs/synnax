@@ -77,7 +77,7 @@ int32_t synnax_channel_retrieve_keys(
                 out_keys[i] = 0;
                 if (out_index_keys != nullptr) out_index_keys[i] = 0;
                 if (!missing.empty()) missing += ", ";
-                missing += req[i];
+                missing += "\"" + req[i] + "\"";
             } else {
                 out_keys[i] = it->second->key;
                 if (out_index_keys != nullptr) out_index_keys[i] = it->second->index;
@@ -98,10 +98,7 @@ int32_t synnax_channel_retrieve_keys(
             copy_str(out_dtypes, out_dtypes_size, types);
         }
         if (!missing.empty()) {
-            const auto nf = synnax::errors::not_found_error(
-                "channels",
-                "names " + missing
-            );
+            const auto nf = synnax::errors::not_found_error("channels", missing);
             set_err(err, CODE_ERROR, nf.type, nf.data);
             return CODE_ERROR;
         }
