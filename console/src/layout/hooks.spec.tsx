@@ -296,30 +296,6 @@ describe("layout hooks", () => {
       expect(result.current.activeItem).toBeUndefined();
     });
 
-    it("should handle resizing with debounce", async () => {
-      vi.useFakeTimers();
-      const store = configureStore({
-        reducer: combineReducers({
-          layout: reducer,
-          drift: Drift.reducer,
-        }),
-      });
-      const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>{children}</Provider>
-      );
-      const { result } = renderHook(() => useNavDrawer("left", mockItems), { wrapper });
-
-      act(() => {
-        result.current.onResize(200);
-      });
-
-      act(() => {
-        vi.advanceTimersByTime(150);
-      });
-
-      vi.useRealTimers();
-    });
-
     it("should handle multiple drawer locations", () => {
       const store = configureStore({
         reducer: combineReducers({
