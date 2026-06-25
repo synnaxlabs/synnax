@@ -47,10 +47,14 @@ export const Single = ({
   className,
   ...rest
 }: SingleProps): ReactElement => {
-  const fullSizeBounds = useMemo(() => {
-    sizeBounds.lower ??= DEFAULT_SIZE_BOUNDS.lower;
-    return bounds.construct(sizeBounds);
-  }, [sizeBounds.lower, sizeBounds.upper]);
+  const fullSizeBounds = useMemo(
+    () =>
+      bounds.construct({
+        lower: sizeBounds.lower ?? DEFAULT_SIZE_BOUNDS.lower,
+        upper: sizeBounds.upper,
+      }),
+    [sizeBounds.lower, sizeBounds.upper],
+  );
   const [size, setSize] = useState(bounds.clamp(fullSizeBounds, initialSize));
   const marker = useRef<number | null>(null);
   const loc = location.construct(location_);
