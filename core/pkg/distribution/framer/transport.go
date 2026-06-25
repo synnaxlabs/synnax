@@ -16,9 +16,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 )
 
+// Transport bundles the node-to-node transports for the framer's operations: streaming
+// writes, streaming historical reads (iterator), streaming live reads (relay), and unary
+// deletes.
 type Transport interface {
-	Iterator() iterator.Transport
-	Writer() writer.Transport
-	Relay() relay.Transport
+	// Deleter returns the transport for deleting data from channels.
 	Deleter() deleter.Transport
+	// Iterator returns the transport for streaming historical reads.
+	Iterator() iterator.Transport
+	// Relay returns the transport for streaming live reads.
+	Relay() relay.Transport
+	// Writer returns the transport for streaming writes.
+	Writer() writer.Transport
 }

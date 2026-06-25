@@ -52,8 +52,8 @@ type Transport interface {
 	RenameServer() RenameTransportServer
 }
 
-// CreateMessage is the request and response payload for a channel create operation. As a
-// request it carries the channels to create; as a response it carries those same
+// CreateMessage is the request and response payload for a channel create operation. As
+// a request it carries the channels to create; as a response it carries those same
 // channels populated with their assigned keys.
 type CreateMessage struct {
 	// Channels are the channels to create on the request, and the created channels with

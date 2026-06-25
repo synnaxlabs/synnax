@@ -19,9 +19,12 @@ import (
 )
 
 //go:generate stringer -type=Command
+
+// Command is an operation that can be executed on a remote Writer.
 type Command uint8
 
 const (
+	// CommandOpen represents opening the writer.
 	CommandOpen Command = iota
 	// CommandWrite represents a call to Writer.Write.
 	CommandWrite
@@ -33,6 +36,7 @@ const (
 
 var validateCommand = validate.NewInclusiveBoundsChecker(CommandOpen, CommandSetAuthority)
 
+// Mode configures the persistence and streaming behavior of a writer.
 type Mode = ts.WriterMode
 
 // Request represents a streaming call to a Writer.
@@ -69,13 +73,24 @@ type Response struct {
 }
 
 type (
-	ServerStream    = freighter.ServerStream[Request, Response]
-	ClientStream    = freighter.ClientStream[Request, Response]
+	// ServerStream is the server side of a writer stream, receiving Requests from and
+	// sending Responses to a remote Core.
+	ServerStream = freighter.ServerStream[Request, Response]
+	// ClientStream is the client side of a writer stream, sending Requests to and
+	// receiving Responses from a remote Core.
+	ClientStream = freighter.ClientStream[Request, Response]
+	// TransportServer is the server side interface for handling writer streams from a
+	// remote Core.
 	TransportServer = freighter.StreamServer[Request, Response]
+	// TransportClient is the client side interface for opening a writer stream to a
+	// remote Core.
 	TransportClient = freighter.StreamClient[Request, Response]
 )
 
+// Transport is the interface for the writer transport.
 type Transport interface {
+	// Server returns the server side interface for handling writer streams.
 	Server() TransportServer
+	// Client returns the client side interface for opening writer streams.
 	Client() TransportClient
 }

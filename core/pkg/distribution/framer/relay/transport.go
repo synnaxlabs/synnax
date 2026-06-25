@@ -16,13 +16,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
+// Request opens or updates a relay subscription, streaming live samples for the given
+// channels. Sending a new Request replaces the previous set of channels.
 type Request struct {
+	// Keys are the channels to stream live samples from.
 	Keys channel.Keys
 }
 
+// Response carries a batch of live samples delivered to a relay subscriber.
 type Response struct {
+	// Frame holds the live samples for the subscribed channels.
 	Frame frame.Frame `json:"frame" msgpack:"frame"`
-	Group uint32      `json:"group" msgpack:"group"`
+	// Group identifies the control group that produced the frame, used to filter relayed
+	// frames (see relay ExcludeGroups).
+	Group uint32 `json:"group" msgpack:"group"`
 }
 
 func reqToStorage(req Request) ts.StreamerRequest {
@@ -34,13 +41,24 @@ func resFromStorage(res ts.StreamerResponse) Response {
 }
 
 type (
-	ServerStream    = freighter.ServerStream[Request, Response]
-	ClientStream    = freighter.ClientStream[Request, Response]
+	// ServerStream is the server side of a relay stream, receiving Requests from and
+	// sending Responses to a remote Core.
+	ServerStream = freighter.ServerStream[Request, Response]
+	// ClientStream is the client side of a relay stream, sending Requests to and
+	// receiving Responses from a remote Core.
+	ClientStream = freighter.ClientStream[Request, Response]
+	// TransportServer is the server side interface for handling relay streams from a
+	// remote Core.
 	TransportServer = freighter.StreamServer[Request, Response]
+	// TransportClient is the client side interface for opening a relay stream to a remote
+	// Core.
 	TransportClient = freighter.StreamClient[Request, Response]
 )
 
+// Transport is the interface for the relay transport.
 type Transport interface {
+	// Server returns the server side interface for handling relay streams.
 	Server() TransportServer
+	// Client returns the client side interface for opening relay streams.
 	Client() TransportClient
 }
