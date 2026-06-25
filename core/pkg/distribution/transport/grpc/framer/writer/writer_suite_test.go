@@ -39,7 +39,7 @@ var _ = BeforeEach(func() {
 	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 	addr = address.Address(lis.Addr().String())
 	grpcServer := grpc.NewServer()
-	pool := fgrpc.OpenPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	pool := DeferClose(fgrpc.OpenPool("", grpc.WithTransportCredentials(insecure.NewCredentials())))
 	transport = writergrpc.New(pool)
 	transport.BindTo(grpcServer)
 	go func() {
@@ -47,5 +47,4 @@ var _ = BeforeEach(func() {
 		Expect(grpcServer.Serve(lis)).To(Succeed())
 	}()
 	DeferCleanup(grpcServer.GracefulStop)
-	DeferCleanup(func() { Expect(pool.Close()).To(Succeed()) })
 })

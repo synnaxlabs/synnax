@@ -131,7 +131,7 @@ var _ = Describe("Transport", func() {
 			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 			useAddr := address.Address(lis.Addr().String())
 			grpcServer := grpc.NewServer()
-			pool := fgrpc.OpenPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+			pool := DeferClose(fgrpc.OpenPool("", grpc.WithTransportCredentials(insecure.NewCredentials())))
 			t := framer.New(pool)
 			t.BindTo(grpcServer)
 			go func() {
@@ -139,7 +139,6 @@ var _ = Describe("Transport", func() {
 				Expect(grpcServer.Serve(lis)).To(Succeed())
 			}()
 			DeferCleanup(grpcServer.GracefulStop)
-			DeferCleanup(func() { Expect(pool.Close()).To(Succeed()) })
 
 			var clientCalls, serverCalls atomic.Int32
 			t.Use(freighter.MiddlewareFunc(func(
