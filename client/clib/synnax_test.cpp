@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstddef>
 #include <cstring>
 
 #include "gtest/gtest.h"
@@ -15,6 +16,15 @@
 
 namespace synnax::clib {
 constexpr int32_t OK = 0;
+
+/// @brief it should keep the SynnaxError byte layout the LabVIEW Array Data Pointer
+/// parse depends on: 644 bytes, code at 0, type at 4, message at 132.
+TEST(ClibError, testSynnaxErrorLayoutMatchesLabVIEWContract) {
+    EXPECT_EQ(sizeof(SynnaxError), 644u);
+    EXPECT_EQ(offsetof(SynnaxError, code), 0u);
+    EXPECT_EQ(offsetof(SynnaxError, type), 4u);
+    EXPECT_EQ(offsetof(SynnaxError, message), 132u);
+}
 
 /// @brief it should return a non-empty version string.
 TEST(ClibClient, testReturnsNonEmptyVersion) {

@@ -214,4 +214,30 @@ TEST(ClibChannel, testRetrievesWithNullOptionalOutputs) {
 
     synnax_client_close(client);
 }
+
+/// @brief it should fill a raw 644-byte buffer, as LabVIEW passes it, so the code, type,
+/// and message can be read back at their fixed offsets.
+TEST(ClibChannel, testRetrieveFillsErrorByteBufferForLabVIEW) {
+    uint8_t buf[644] = {0};
+    uint32_t keys[1] = {0};
+    const int32_t code = synnax_channel_retrieve_keys(
+        nullptr,
+        "name",
+        1,
+        keys,
+        nullptr,
+        nullptr,
+        0,
+        reinterpret_cast<SynnaxError *>(buf)
+    );
+    EXPECT_NE(code, OK);
+    int32_t err_code = 0;
+    std::memcpy(&err_code, buf, sizeof(err_code));
+    EXPECT_EQ(err_code, code);
+    EXPECT_STREQ(reinterpret_cast<const char *>(buf + 4), "sy.validation");
+    EXPECT_STREQ(
+        reinterpret_cast<const char *>(buf + 132),
+        "null client, names, or out_keys"
+    );
+}
 }

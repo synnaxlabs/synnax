@@ -26,8 +26,8 @@ extern "C" {
 #define SYNNAX_EXPORT
 
 // Opaque handles as void* so the wizard maps them to UPtr instead of empty clusters.
-// SynnaxError is also a handle here: for the spike pass 0 (NULL); parsing the real
-// struct (i32 + char[128] + char[512]) is a follow-up that switches it back.
+// SynnaxError is a 644-byte struct (i32 code, char type[128], char message[512]); wired
+// functions take a uint8_t* (Array Data Pointer) to it, others still pass 0 (NULL).
 typedef void *SynnaxClient;
 typedef void *SynnaxWriter;
 typedef void *SynnaxError;
@@ -59,7 +59,7 @@ SYNNAX_EXPORT int32_t synnax_channel_retrieve_keys(
     uint32_t *out_index_keys,
     char *out_dtypes,
     uint64_t out_dtypes_size,
-    SynnaxError err
+    uint8_t *err
 );
 
 SYNNAX_EXPORT int32_t synnax_writer_open(
