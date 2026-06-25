@@ -33,14 +33,14 @@ func (n *Network) New(addr address.Address) deleter.Transport {
 }
 
 type transport struct {
-	client deleter.UnaryClient
-	server deleter.UnaryServer
+	client deleter.Client
+	server deleter.Server
 }
 
 var _ deleter.Transport = transport{}
 
 // Client implements the deleter.Transport interface.
-func (t transport) Client() deleter.UnaryClient { return t.client }
+func (t transport) Client() deleter.Client { return t.client }
 
 // Server implements the deleter.Transport interface.
-func (t transport) Server() deleter.UnaryServer { return t.server }
+func (t transport) Server() deleter.Server { return t.server }

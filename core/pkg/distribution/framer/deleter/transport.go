@@ -18,20 +18,20 @@ import (
 )
 
 type (
-	// UnaryClient is the client-side interface for sending a delete request to a remote
+	// Client is the client-side interface for sending a delete request to a remote
 	// Core.
-	UnaryClient = freighter.UnaryClient[Request, types.Nil]
-	// UnaryServer is the server-side interface for receiving and processing a delete
-	// request from a remote Core.
-	UnaryServer = freighter.UnaryServer[Request, types.Nil]
+	Client = freighter.UnaryClient[Request, types.Nil]
+	// Server is the server-side interface for receiving and processing a delete request
+	// from a remote Core.
+	Server = freighter.UnaryServer[Request, types.Nil]
 )
 
 // Transport is the interface for the deleter transport.
 type Transport interface {
 	// Client returns the client-side interface for sending delete requests.
-	Client() UnaryClient
+	Client() Client
 	// Server returns the server-side interface for handling delete requests.
-	Server() UnaryServer
+	Server() Server
 }
 
 // Request is the request for deleting data from a Synnax cluster through deleting

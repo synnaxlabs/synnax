@@ -70,10 +70,10 @@ func New(pool *fgrpc.Pool) Transport {
 }
 
 // Client implements the deleter.Transport interface.
-func (t Transport) Client() deleter.UnaryClient { return t.client }
+func (t Transport) Client() deleter.Client { return t.client }
 
 // Server implements the deleter.Transport interface.
-func (t Transport) Server() deleter.UnaryServer { return t.server }
+func (t Transport) Server() deleter.Server { return t.server }
 
 // BindTo registers the transport's server with the given gRPC service registrar.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) { t.server.BindTo(reg) }
