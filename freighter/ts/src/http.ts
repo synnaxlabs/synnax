@@ -21,6 +21,7 @@ import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
+export const ACCEPT_HEADER_KEY = "Accept";
 
 const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   JSON: "application/json",
@@ -42,13 +43,15 @@ const UNREACHABLE_CODES = new Set([
 interface NodeErrorLike {
   code?: unknown;
   errno?: unknown;
-  cause?: { code?: unknown };
 }
 
-const shouldCastToUnreachable = (err: Error): boolean => {
-  const e = err as Error & NodeErrorLike;
-  // First try Node/Undici codes
-  const code = e.cause?.code ?? e.code ?? e.errno;
+const shouldCastToUnreachable = (err: Error & NodeErrorLike): boolean => {
+  // First try Node/Undici codes. cause is typed unknown on Error, so narrow it.
+  const causeCode =
+    typeof err.cause === "object" && err.cause !== null && "code" in err.cause
+      ? err.cause.code
+      : undefined;
+  const code = causeCode ?? err.code ?? err.errno;
   if (typeof code === "string" && UNREACHABLE_CODES.has(code)) return true;
 
   // Browser/Safari fallback: detect canonical network-failure TypeError messages
@@ -64,7 +67,7 @@ const shouldCastToUnreachable = (err: Error): boolean => {
   }
 
   // Abort should not be "unreachable"
-  if (err.name === "AbortError" || e.code === "ABORT_ERR") return false;
+  if (err.name === "AbortError" || err.code === "ABORT_ERR") return false;
 
   return false;
 };
@@ -113,8 +116,8 @@ export class HTTPClient
           method: "POST",
           body: this.encoder.encode(req, reqSchema),
           headers: {
-            "Content-Type": this.encoder.contentType,
-            Accept: this.encoder.contentType,
+            [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
+            [ACCEPT_HEADER_KEY]: this.encoder.contentType,
             ...ctx.params,
           },
         });
@@ -149,8 +152,8 @@ export class HTTPClient
           method: "POST",
           body: body as BodyInit,
           headers: {
-            "Content-Type": ENCODING_CONTENT_TYPES[encoding],
-            Accept: this.encoder.contentType,
+            [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
+            [ACCEPT_HEADER_KEY]: this.encoder.contentType,
             ...ctx.params,
           },
           duplex: "half",
@@ -185,7 +188,7 @@ export class HTTPClient
           body: this.encoder.encode(req, reqSchema),
           headers: {
             [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-            Accept: ENCODING_CONTENT_TYPES[encoding],
+            [ACCEPT_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
             ...ctx.params,
           },
         });
