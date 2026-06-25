@@ -19,8 +19,7 @@ import { type Transport } from "@/transport";
 export type UploadBody = ReadableStream<Uint8Array> | Blob | ArrayBufferView | string;
 
 /**
- * The wire encodings a FileClient can transfer. Extend this union (and the transport's
- * content-type mapping) to support additional encodings.
+ * The wire encodings a FileClient can transfer.
  */
 export type FileEncoding = "JSON" | "MessagePack" | "YAML" | "TOML";
 
@@ -35,12 +34,8 @@ export interface FileOptions {
    *
    * On upload it describes the request body and is sent as Content-Type; the body has a
    * single representation, so pass a single encoding.
-   *
-   * On download it describes the response bodies the caller will accept and is sent as
-   * Accept. Pass a list to let the server negotiate which one it returns — the server
-   * picks the response encoding, which need not match how the request was encoded.
    */
-  encoding: FileEncoding | FileEncoding[];
+  encoding: FileEncoding;
 }
 
 /**

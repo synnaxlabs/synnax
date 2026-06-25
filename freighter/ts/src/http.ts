@@ -29,16 +29,6 @@ const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   TOML: "application/toml",
 };
 
-/**
- * Builds the Content-Type / Accept header value for one or more encodings. A list is
- * joined into a comma-separated header so the server can negotiate which encoding to
- * use.
- */
-const encodingHeader = (encoding: FileEncoding | FileEncoding[]): string =>
-  (Array.isArray(encoding) ? encoding : [encoding])
-    .map((e) => ENCODING_CONTENT_TYPES[e])
-    .join(", ");
-
 const UNREACHABLE_CODES = new Set([
   "ECONNREFUSED",
   "ECONNRESET",
@@ -75,8 +65,7 @@ export const shouldCastToUnreachable = (err: Error): boolean => {
 const HTTP_STATUS_BAD_REQUEST = 400;
 
 /**
- * HTTPClientFactory provides a POST and GET implementation of the Unary
- * protocol.
+ * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
  *
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
@@ -98,10 +87,6 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
     });
   }
 
-  get headers(): Record<string, string> {
-    return { [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType };
-  }
-
   async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
@@ -117,7 +102,10 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
         const httpRes = await this.fetch(url, ctx.target, {
           method: "POST",
           body: this.encoder.encode(req, reqSchema) as BodyInit,
-          headers: { ...this.headers, ...ctx.params },
+          headers: {
+            [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
+            ...ctx.params,
+          },
         });
         const data = await httpRes.arrayBuffer();
         if (httpRes.ok) {
@@ -147,7 +135,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
           method: "POST",
           body: body as BodyInit,
           headers: {
-            [CONTENT_TYPE_HEADER_KEY]: encodingHeader(encoding),
+            [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
             Accept: this.encoder.contentType,
             ...ctx.params,
           },
@@ -182,8 +170,8 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient, File
           method: "POST",
           body: this.encoder.encode(req, reqSchema) as BodyInit,
           headers: {
-            ...this.headers,
-            Accept: encodingHeader(encoding),
+            [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
+            Accept: ENCODING_CONTENT_TYPES[encoding],
             ...ctx.params,
           },
         });
