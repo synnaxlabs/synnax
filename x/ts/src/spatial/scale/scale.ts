@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { clamp } from "@/clamp/clamp";
+import { clamp } from "@/math/clamp";
 import { type numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
 import { box } from "@/spatial/box";

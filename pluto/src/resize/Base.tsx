@@ -29,7 +29,7 @@ export type BaseProps = Omit<
 
 export const Base = ({
   ref,
-  location: cloc,
+  location: propsLocation,
   style,
   size,
   className,
@@ -39,12 +39,12 @@ export const Base = ({
   showHandle = true,
   ...rest
 }: BaseProps): ReactElement => {
-  const parsedLocation = location.construct(cloc);
-  const dir = location.direction(parsedLocation);
+  const loc = location.construct(propsLocation);
+  const dir = location.direction(loc);
   const dim = direction.dimension(dir);
   return (
     <Flex.Box
-      className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), className)}
+      className={CSS(CSS.B("resize"), CSS.loc(loc), className)}
       style={{ [dim]: `${size}${sizeUnits}`, ...style }}
       ref={ref}
       direction={dir}
@@ -55,10 +55,7 @@ export const Base = ({
       {showHandle && (
         <div
           draggable
-          className={CSS(
-            CSS.BE("resize", "handle"),
-            CSS.bordered(location.swap(parsedLocation)),
-          )}
+          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.swap(loc)))}
           onDragStart={onDragStart}
           onDrag={preventDefault}
           onDragEnd={preventDefault}
