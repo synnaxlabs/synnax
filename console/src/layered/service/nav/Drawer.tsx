@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Eraser, Errors, Resize } from "@synnaxlabs/pluto";
+import "@/layered/service/nav/Nav.css";
+
+import { CSS as PCSS, Eraser, Errors, Resize } from "@synnaxlabs/pluto";
 import { box, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -23,6 +25,7 @@ const Y_THRESHOLD = xy.swap(X_THRESHOLD);
 interface DrawerProps extends Omit<Resize.SingleProps, "onResize"> {
   location: location.Location;
   hover: boolean;
+  visible: boolean;
   onStopHover: () => void;
 }
 
@@ -31,44 +34,50 @@ const CLASS = CSS.BE("nav", "drawer");
 export const Drawer = ({
   location: loc,
   hover,
+  visible,
   onStopHover,
   children,
+  collapseThreshold = 0.65,
   ...rest
 }: DrawerProps): ReactElement => {
   const { erase } = Eraser.use({ enabled: !hover });
   const handleResize = useCallback((_: number, b: box.Box) => erase(b), [erase]);
-  const handleMouseLeave = useCallback((e: ReactMouseEvent) => {
-    const threshold = direction.isY(loc) ? Y_THRESHOLD : X_THRESHOLD;
-    const content = (e.target as HTMLElement).closest(CLASS);
-    if (content == null) return;
-    let b = box.construct(content);
-    b = box.translate(b, xy.scale(threshold, -1));
-    b = box.resize(b, {
-      width: box.width(b) + threshold.x * 2,
-      height: box.height(b) + threshold.y * 2,
-    });
-    const lis = (e: MouseEvent) => {
-      const pos = xy.construct(e);
-      if (!box.contains(b, pos)) {
-        window.removeEventListener("mousemove", lis);
-        onStopHover();
-      } else if (e.buttons != 0) window.removeEventListener("mousemove", lis);
-    };
-    window.addEventListener("mousemove", lis);
-  }, []);
+  const handleMouseLeave = useCallback(
+    (e: ReactMouseEvent) => {
+      const threshold = direction.isY(loc) ? Y_THRESHOLD : X_THRESHOLD;
+      const content = (e.target as HTMLElement).closest(`.${CLASS}`);
+      if (content == null) return;
+      let b = box.construct(content);
+      b = box.translate(b, xy.scale(threshold, -1));
+      b = box.resize(b, {
+        width: box.width(b) + threshold.x * 2,
+        height: box.height(b) + threshold.y * 2,
+      });
+      const lis = (e: MouseEvent) => {
+        const pos = xy.construct(e);
+        if (!box.contains(b, pos)) {
+          window.removeEventListener("mousemove", lis);
+          onStopHover();
+        } else if (e.buttons != 0) window.removeEventListener("mousemove", lis);
+      };
+      window.addEventListener("mousemove", lis);
+    },
+    [loc, onStopHover],
+  );
   return (
     <Resize.Single
       location={loc}
-      className={CSS(CLASS, hover && CSS.M("hover"))}
+      className={CSS(CLASS, PCSS.visible(visible), hover && CSS.M("hover"))}
       onMouseLeave={handleMouseLeave}
       onResize={handleResize}
+      collapseThreshold={collapseThreshold}
       background={0}
       rounded={1}
       bordered
       borderColor={5}
       {...rest}
     >
-      <Errors.Boundary>{children}</Errors.Boundary>
+      <Errors.Boundary>{visible ? children : null}</Errors.Boundary>
     </Resize.Single>
   );
 };

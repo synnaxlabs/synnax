@@ -29,14 +29,14 @@ export const Bottom = (): ReactElement | null => {
     () => dispatch(Session.Nav.stopBottomHover({})),
     [dispatch],
   );
-  if (!visible) return null;
-  const { initialSize, sizeBounds, content } = Items.BOTTOM;
+  const { initialSize = Items.DEFAULT_SIZE, sizeBounds, content } = Items.BOTTOM;
   return (
     <Service.Nav.Drawer
       location="bottom"
-      size={size ?? initialSize ?? Items.DEFAULT_SIZE}
+      size={size ?? initialSize}
       sizeBounds={sizeBounds}
       hover={hover}
+      visible={visible}
       onResizeEnd={onResizeEnd}
       onCollapse={onCollapse}
       onStopHover={onStopHover}

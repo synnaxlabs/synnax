@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Logo } from "@synnaxlabs/media";
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -14,6 +15,7 @@ import { useDispatch } from "react-redux";
 import { Items } from "@/layered/app/nav/items";
 import { Service } from "@/layered/service";
 import { Session } from "@/layered/session";
+import { Palette } from "@/palette";
 
 const BottomMenu = () => {
   const dispatch = useDispatch();
@@ -84,8 +86,17 @@ const LeftMenu = () => {
   );
 };
 
+const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
+  command: [["Control", "Shift", "P"]],
+  defaultMode: "command",
+  search: [["Control", "P"]],
+};
+
 export const Left = (): ReactElement => (
   <Service.Nav.Bar location="left" size="8rem">
+    <Nav.Bar.Start bordered align="center">
+      <Palette.Palette commandSymbol=">" triggerConfig={PALETTE_TRIGGER_CONFIG} />
+    </Nav.Bar.Start>
     <Nav.Bar.Content align="center">
       <LeftMenu />
     </Nav.Bar.Content>

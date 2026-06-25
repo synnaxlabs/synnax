@@ -20,13 +20,13 @@ import { Vis } from "@/vis";
 export const DEFAULT_SIZE = 200;
 
 export const LEFT: Service.Nav.Item[] = [
-  ...Hardware.NAV_DRAWER_ITEMS,
-  Arc.TOOLBAR,
-  Range.TOOLBAR,
-  Status.TOOLBAR,
   ChannelServices.TOOLBAR,
+  Range.TOOLBAR,
   ProjectServices.TOOLBAR,
+  ...Hardware.NAV_DRAWER_ITEMS,
   UserServices.TOOLBAR,
+  Arc.TOOLBAR,
+  Status.TOOLBAR,
 ];
 
 export const BOTTOM: Service.Nav.Item = Vis.TOOLBAR;

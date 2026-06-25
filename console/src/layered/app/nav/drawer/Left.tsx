@@ -11,10 +11,10 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Items } from "@/layered/app/nav/items";
-import { Drawer } from "@/layered/service/nav/Drawer";
+import { Service } from "@/layered/service";
 import { Session } from "@/layered/session";
 
-export const Left = (): ReactElement | null => {
+export const Left = (): ReactElement => {
   const { selected, hover, size } = Session.Nav.useSelectLeft();
   const dispatch = useDispatch();
   const item = Items.LEFT.find((i) => i.key === selected);
@@ -30,19 +30,19 @@ export const Left = (): ReactElement | null => {
     () => dispatch(Session.Nav.stopLeftHover({})),
     [dispatch],
   );
-  if (item == null) return null;
-  const { initialSize, sizeBounds, content } = item;
+  const { initialSize = Items.DEFAULT_SIZE, sizeBounds, content } = item ?? {};
   return (
-    <Drawer
+    <Service.Nav.Drawer
       location="left"
-      size={size ?? initialSize ?? Items.DEFAULT_SIZE}
+      size={size ?? initialSize}
       sizeBounds={sizeBounds}
       hover={hover}
+      visible={item != null}
       onResizeEnd={handleResizeEnd}
       onCollapse={handleCollapse}
       onStopHover={handleStopHover}
     >
       {content}
-    </Drawer>
+    </Service.Nav.Drawer>
   );
 };
