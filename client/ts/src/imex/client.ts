@@ -50,10 +50,10 @@ export interface Options {
  *   stream to the Console's downloadStream helper.
  */
 export class Client {
-  private readonly file: FileTransport;
+  private readonly file_transport: FileTransport;
 
   constructor(file: FileTransport) {
-    this.file = file;
+    this.file_transport = file;
   }
 
   /**
@@ -67,7 +67,7 @@ export class Client {
    * @returns the new resource's ontology ID as stamped by the Core.
    */
   async import(source: UploadBody, options: Options): Promise<ontology.ID> {
-    return await this.file.upload(
+    return await this.file_transport.upload(
       "/imex/import",
       source,
       { encoding: options.contentType },
@@ -86,7 +86,7 @@ export class Client {
    * @returns the serialized resource as a stream of bytes.
    */
   async export(id: ontology.ID, options: Options): Promise<ReadableStream<Uint8Array>> {
-    return await this.file.download("/imex/export", id, ontology.idZ, {
+    return await this.file_transport.download("/imex/export", id, ontology.idZ, {
       encoding: options.contentType,
     });
   }
