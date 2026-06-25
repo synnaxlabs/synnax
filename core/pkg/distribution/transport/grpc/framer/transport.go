@@ -181,12 +181,16 @@ func New(pool *fgrpc.Pool) Transport {
 
 type writerServer struct{ writerServerCore }
 
+// Write implements the framerpb.WriterServiceServer interface, dispatching the gRPC
+// stream to the registered freighter handler.
 func (w *writerServer) Write(server framerpb.WriterService_WriteServer) error {
 	return w.Handler(server.Context(), server)
 }
 
 type iteratorServer struct{ iteratorServerCore }
 
+// Iterate implements the framerpb.IteratorServiceServer interface, dispatching the gRPC
+// stream to the registered freighter handler.
 func (t *iteratorServer) Iterate(server framerpb.IteratorService_IterateServer) error {
 	return t.Handler(server.Context(), server)
 }
@@ -209,7 +213,7 @@ func (t Transport) Iterator() iterator.Transport { return t.iterator }
 // Relay implements the framer.Transport interface.
 func (t Transport) Relay() relay.Transport { return t.relay }
 
-// Deleter implements the framer.Transport interface
+// Deleter implements the framer.Transport interface.
 func (t Transport) Deleter() deleter.Transport { return t.deleter }
 
 // BindTo implements the grpc.BindableTransport interface.
@@ -256,6 +260,8 @@ func (t iteratorTransport) Server() iterator.TransportServer { return t.server }
 
 type relayServer struct{ relayServerCore }
 
+// Relay implements the framerpb.RelayServiceServer interface, dispatching the gRPC
+// stream to the registered freighter handler.
 func (t *relayServer) Relay(server framerpb.RelayService_RelayServer) error {
 	return t.Handler(server.Context(), server)
 }

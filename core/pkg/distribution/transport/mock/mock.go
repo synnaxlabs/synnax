@@ -47,6 +47,8 @@ type transport struct {
 
 var _ distribution.Transport = transport{}
 
+// Channel implements the distribution.Transport interface.
 func (t transport) Channel() distchannel.Transport { return t.channel }
 
+// Framer implements the distribution.Transport interface.
 func (t transport) Framer() distframer.Transport { return t.framer }

@@ -35,7 +35,12 @@ const (
 // CreateServiceClient is the client API for CreateService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// CreateService forwards channel create requests from a gateway node to the leaseholder
+// that will own the new channels.
 type CreateServiceClient interface {
+	// Exec creates the requested channels and returns them populated with their assigned
+	// keys.
 	Exec(ctx context.Context, in *CreateMessage, opts ...grpc.CallOption) (*CreateMessage, error)
 }
 
@@ -60,7 +65,12 @@ func (c *createServiceClient) Exec(ctx context.Context, in *CreateMessage, opts 
 // CreateServiceServer is the server API for CreateService service.
 // All implementations should embed UnimplementedCreateServiceServer
 // for forward compatibility.
+//
+// CreateService forwards channel create requests from a gateway node to the leaseholder
+// that will own the new channels.
 type CreateServiceServer interface {
+	// Exec creates the requested channels and returns them populated with their assigned
+	// keys.
 	Exec(context.Context, *CreateMessage) (*CreateMessage, error)
 }
 
@@ -135,7 +145,11 @@ const (
 // DeleteServiceClient is the client API for DeleteService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// DeleteService forwards channel delete requests from a gateway node to the leaseholder
+// that owns the channels.
 type DeleteServiceClient interface {
+	// Exec deletes the requested channels.
 	Exec(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -160,7 +174,11 @@ func (c *deleteServiceClient) Exec(ctx context.Context, in *DeleteRequest, opts 
 // DeleteServiceServer is the server API for DeleteService service.
 // All implementations should embed UnimplementedDeleteServiceServer
 // for forward compatibility.
+//
+// DeleteService forwards channel delete requests from a gateway node to the leaseholder
+// that owns the channels.
 type DeleteServiceServer interface {
+	// Exec deletes the requested channels.
 	Exec(context.Context, *DeleteRequest) (*emptypb.Empty, error)
 }
 
@@ -235,7 +253,11 @@ const (
 // RenameServiceClient is the client API for RenameService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// RenameService forwards channel rename requests from a gateway node to the leaseholder
+// that owns the channels.
 type RenameServiceClient interface {
+	// Exec renames the requested channels.
 	Exec(ctx context.Context, in *RenameRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -260,7 +282,11 @@ func (c *renameServiceClient) Exec(ctx context.Context, in *RenameRequest, opts 
 // RenameServiceServer is the server API for RenameService service.
 // All implementations should embed UnimplementedRenameServiceServer
 // for forward compatibility.
+//
+// RenameService forwards channel rename requests from a gateway node to the leaseholder
+// that owns the channels.
 type RenameServiceServer interface {
+	// Exec renames the requested channels.
 	Exec(context.Context, *RenameRequest) (*emptypb.Empty, error)
 }
 

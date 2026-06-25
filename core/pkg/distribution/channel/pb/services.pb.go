@@ -31,10 +31,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// CreateOptions controls how a create request behaves when a channel with the same name
+// already exists.
 type CreateOptions struct {
-	state                 protoimpl.MessageState `protogen:"open.v1"`
-	RetrieveIfNameExists  bool                   `protobuf:"varint,1,opt,name=retrieve_if_name_exists,json=retrieveIfNameExists,proto3" json:"retrieve_if_name_exists,omitempty"`
-	OverwriteIfNameExists bool                   `protobuf:"varint,2,opt,name=overwrite_if_name_exists,json=overwriteIfNameExists,proto3" json:"overwrite_if_name_exists,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// retrieve_if_name_exists returns the existing channel instead of creating a new one
+	// when a channel with the same name already exists.
+	RetrieveIfNameExists bool `protobuf:"varint,1,opt,name=retrieve_if_name_exists,json=retrieveIfNameExists,proto3" json:"retrieve_if_name_exists,omitempty"`
+	// overwrite_if_name_exists overwrites the existing channel when a channel with the
+	// same name already exists.
+	OverwriteIfNameExists bool `protobuf:"varint,2,opt,name=overwrite_if_name_exists,json=overwriteIfNameExists,proto3" json:"overwrite_if_name_exists,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -83,10 +89,16 @@ func (x *CreateOptions) GetOverwriteIfNameExists() bool {
 	return false
 }
 
+// CreateMessage is the request and response payload for a channel create operation. On
+// the request the channels carry no keys; on the response they are populated with their
+// assigned keys.
 type CreateMessage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Channels      []*Channel             `protobuf:"bytes,1,rep,name=channels,proto3" json:"channels,omitempty"`
-	Opts          *CreateOptions         `protobuf:"bytes,2,opt,name=opts,proto3" json:"opts,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// channels are the channels to create on the request, and the created channels with
+	// their assigned keys on the response.
+	Channels []*Channel `protobuf:"bytes,1,rep,name=channels,proto3" json:"channels,omitempty"`
+	// opts controls create behavior on name collisions.
+	Opts          *CreateOptions `protobuf:"bytes,2,opt,name=opts,proto3" json:"opts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -135,9 +147,11 @@ func (x *CreateMessage) GetOpts() *CreateOptions {
 	return nil
 }
 
+// DeleteRequest is the payload for a channel delete operation.
 type DeleteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// keys identifies the channels to delete.
+	Keys          []uint32 `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -179,10 +193,14 @@ func (x *DeleteRequest) GetKeys() []uint32 {
 	return nil
 }
 
+// RenameRequest is the payload for a channel rename operation. keys and names are
+// positional: the channel at keys[i] is renamed to names[i].
 type RenameRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// keys identifies the channels to rename.
+	Keys []uint32 `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	// names holds the new name for each channel in keys, by position.
+	Names         []string `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

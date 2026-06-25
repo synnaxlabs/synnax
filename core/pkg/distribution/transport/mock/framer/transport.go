@@ -78,12 +78,16 @@ type transport struct {
 
 var _ framer.Transport = transport{}
 
+// Writer implements the framer.Transport interface.
 func (t transport) Writer() writer.Transport { return t.writer }
 
+// Iterator implements the framer.Transport interface.
 func (t transport) Iterator() iterator.Transport { return t.iterator }
 
+// Relay implements the framer.Transport interface.
 func (t transport) Relay() relay.Transport { return t.relay }
 
+// Deleter implements the framer.Transport interface.
 func (t transport) Deleter() deleter.Transport { return t.deleter }
 
 type writerTransport struct {
@@ -91,8 +95,10 @@ type writerTransport struct {
 	server writer.TransportServer
 }
 
+// Client implements the writer.Transport interface.
 func (t writerTransport) Client() writer.TransportClient { return t.client }
 
+// Server implements the writer.Transport interface.
 func (t writerTransport) Server() writer.TransportServer { return t.server }
 
 type iteratorTransport struct {
@@ -100,8 +106,10 @@ type iteratorTransport struct {
 	server iterator.TransportServer
 }
 
+// Client implements the iterator.Transport interface.
 func (t iteratorTransport) Client() iterator.TransportClient { return t.client }
 
+// Server implements the iterator.Transport interface.
 func (t iteratorTransport) Server() iterator.TransportServer { return t.server }
 
 type relayTransport struct {
@@ -109,8 +117,10 @@ type relayTransport struct {
 	server relay.TransportServer
 }
 
+// Client implements the relay.Transport interface.
 func (t relayTransport) Client() relay.TransportClient { return t.client }
 
+// Server implements the relay.Transport interface.
 func (t relayTransport) Server() relay.TransportServer { return t.server }
 
 type deleterTransport struct {
@@ -118,6 +128,8 @@ type deleterTransport struct {
 	server deleter.TransportServer
 }
 
+// Client implements the deleter.Transport interface.
 func (t deleterTransport) Client() deleter.TransportClient { return t.client }
 
+// Server implements the deleter.Transport interface.
 func (t deleterTransport) Server() deleter.TransportServer { return t.server }
