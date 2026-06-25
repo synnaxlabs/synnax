@@ -28,9 +28,9 @@ func TestAlamos(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
-	devIns = MustOpen(OpenInstrumentation("alamos-test", InstrumentationConfig{
+	devIns = Instrumentation("alamos-test", InstrumentationConfig{
 		Trace: new(true),
-	}))
+	})
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

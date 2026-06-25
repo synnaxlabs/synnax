@@ -25,13 +25,6 @@
 // recording the configuration of the application.
 package alamos
 
-import (
-	"context"
-	"slices"
-
-	"github.com/synnaxlabs/x/errors"
-)
-
 // Instrumentation is the alamos core data type, and represents a collection of
 // instrumentation tools: a logger, a devTracer, and a reporter.
 //
@@ -81,9 +74,6 @@ type Instrumentation struct {
 	// Meta is the Metadata associated with this instrumentation. This field should be
 	// considered read-only.
 	Meta InstrumentationMeta
-	// shutdown holds functions registered via WithShutdown that release resources backing
-	// the instrumentation (e.g. an OpenTelemetry SDK exporter). They are run by Close.
-	shutdown []func(context.Context) error
 }
 
 // New instantiates new Instrumentation with the given key and options. The returned
@@ -105,18 +95,6 @@ func New(key string, options ...Option) Instrumentation {
 
 // IsZero returns true if the instrumentation is the zero value for its type.
 func (i Instrumentation) IsZero() bool { return i.Meta.IsZero() }
-
-// Close releases the resources backing the instrumentation by running the shutdown
-// functions registered with WithShutdown, in reverse registration order. It is a no-op
-// for instrumentation with no registered shutdown functions (including the zero value),
-// and implements io.Closer.
-func (i Instrumentation) Close() error {
-	var err error
-	for _, fn := range slices.Backward(i.shutdown) {
-		err = errors.Combine(err, fn(context.Background()))
-	}
-	return err
-}
 
 // Child creates a child of this instrumentation with the given key. The child
 // instrumentation will have a path of 'parent.key'. All traces and logs created
@@ -189,11 +167,3 @@ func WithReporter(r *Reporter) Option { return func(ins *Instrumentation) { ins.
 
 // WithLogger configures the instrumentation to use the given Logger.
 func WithLogger(l *Logger) Option { return func(ins *Instrumentation) { ins.L = l } }
-
-// WithShutdown registers a function to be run when the instrumentation is Closed. Use it
-// to tear down resources that the instrumentation's backends depend on but do not own,
-// such as a process-global OpenTelemetry SDK exporter. Shutdown functions run in reverse
-// registration order.
-func WithShutdown(fn func(context.Context) error) Option {
-	return func(ins *Instrumentation) { ins.shutdown = append(ins.shutdown, fn) }
-}

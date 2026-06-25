@@ -16,6 +16,7 @@ import (
 	"os"
 
 	"github.com/google/uuid"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -61,77 +62,53 @@ func serviceName() string { return lo.Must(os.Hostname()) }
 
 const devDSN = "http://synnax_dev@localhost:14317/2"
 
-func newTracer(serviceName string) (*alamos.Tracer, error) {
-	commit, err := git.CurrentCommit()
-	if err != nil {
-		return nil, err
-	}
+func newTracer(serviceName string) *alamos.Tracer {
 	uptrace.ConfigureOpentelemetry(
 		uptrace.WithDSN(devDSN),
 		uptrace.WithServiceName(serviceName),
-		uptrace.WithServiceVersion(commit),
+		uptrace.WithServiceVersion(lo.Must(git.CurrentCommit())),
 	)
-	return alamos.NewTracer(alamos.TracingConfig{
+	return testutil.MustSucceed(alamos.NewTracer(alamos.TracingConfig{
 		OtelProvider:   otel.GetTracerProvider(),
 		OtelPropagator: otel.GetTextMapPropagator(),
-	})
+	}))
 }
 
-func newLogger() (*alamos.Logger, error) {
-	return alamos.NewLogger(alamos.LoggerConfig{ZapConfig: zap.NewDevelopmentConfig()})
+func newLogger() *alamos.Logger {
+	return testutil.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+		ZapConfig: zap.NewDevelopmentConfig(),
+	}))
 }
 
-// shutdownUptrace stops the process-global OpenTelemetry SDK that newTracer configured.
-// uptrace.Shutdown flushes buffered spans and metrics to the dev collector (devDSN) as
-// part of shutting down; that collector is not running during tests, so the flush fails
-// with a connection error. Stopping the SDK's background goroutines does not depend on
-// the flush succeeding, so the upload error is expected and intentionally dropped here —
-// surfacing it would fail every suite that enables tracing.
-func shutdownUptrace(ctx context.Context) error {
-	_ = uptrace.Shutdown(ctx)
-	return nil
-}
+func newReports() *alamos.Reporter { return testutil.MustSucceed(alamos.NewReporter()) }
 
-// OpenInstrumentation builds Instrumentation from the given config and returns it
-// alongside no separate closer: the returned Instrumentation is itself an io.Closer.
-// When tracing is enabled it configures the process-global OpenTelemetry SDK and
-// registers uptrace.Shutdown as a shutdown function, so Closing the Instrumentation tears
-// the SDK exporter back down. Pair it with MustOpen / DeferClose in tests.
-func OpenInstrumentation(
-	key string,
-	cfgs ...InstrumentationConfig,
-) (alamos.Instrumentation, error) {
+// Instrumentation builds Instrumentation from the given config. When tracing is enabled
+// it configures the process-global OpenTelemetry SDK and registers a Ginkgo DeferCleanup
+// that shuts the SDK back down when the enclosing node finishes, releasing the SDK's
+// background goroutines so they do not leak. It must therefore be called from within a
+// Ginkgo node (a spec, BeforeEach, BeforeAll, BeforeSuite, etc.).
+func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
 	cfg, err := config.New(DefaultInstrumentationConfig, cfgs...)
 	if err != nil {
-		return alamos.Instrumentation{}, err
+		zap.S().Fatal(err)
 	}
 	var options []alamos.Option
 	if *cfg.Trace {
-		tracer, err := newTracer(serviceName())
-		if err != nil {
-			return alamos.Instrumentation{}, err
-		}
-		options = append(
-			options,
-			alamos.WithTracer(tracer),
-			alamos.WithShutdown(shutdownUptrace),
-		)
+		options = append(options, alamos.WithTracer(newTracer(serviceName())))
+		// uptrace.Shutdown flushes buffered spans and metrics to the dev collector
+		// (devDSN), which is not running during tests, so the flush fails with a
+		// connection error. Stopping the SDK's background goroutines does not depend on
+		// the flush succeeding, so the upload error is expected and dropped — the goal
+		// here is only to release the goroutines.
+		ginkgo.DeferCleanup(func() { _ = uptrace.Shutdown(context.Background()) })
 	}
 	if *cfg.Log {
-		logger, err := newLogger()
-		if err != nil {
-			return alamos.Instrumentation{}, err
-		}
-		options = append(options, alamos.WithLogger(logger))
+		options = append(options, alamos.WithLogger(newLogger()))
 	}
 	if *cfg.Report {
-		reporter, err := alamos.NewReporter()
-		if err != nil {
-			return alamos.Instrumentation{}, err
-		}
-		options = append(options, alamos.WithReporter(reporter))
+		options = append(options, alamos.WithReporter(newReports()))
 	}
-	return alamos.New(key, options...), nil
+	return alamos.New(key, options...)
 }
 
 // ObservedInstrumentation returns an Instrumentation backed by a zap observer that

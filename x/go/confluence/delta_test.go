@@ -18,7 +18,6 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Delta", func() {
@@ -119,7 +118,7 @@ var _ = Describe("Delta", func() {
 
 	Describe("DynamicDeltaMultiplier", func() {
 		It("Should allow the caller to add and remove outlets dynamically", func() {
-			delta := NewDynamicDeltaMultiplier[int](0, MustOpen(OpenInstrumentation("dev")))
+			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
@@ -139,7 +138,7 @@ var _ = Describe("Delta", func() {
 			It("Should allow the delta to operate normally if a consumer receives within the timeout", func() {
 				delta := NewDynamicDeltaMultiplier[int](
 					100*time.Millisecond,
-					MustOpen(OpenInstrumentation("dev", InstrumentationConfig{Log: new(true)})),
+					Instrumentation("dev", InstrumentationConfig{Log: new(true)}),
 				)
 				delta.InFrom(inputOne)
 				ctx, cancel := signal.Isolated()
@@ -159,7 +158,7 @@ var _ = Describe("Delta", func() {
 			It("Should allow other outlets to receive values even if one consumer times out", func() {
 				delta := NewDynamicDeltaMultiplier[int](
 					10*time.Millisecond,
-					MustOpen(OpenInstrumentation("dev", InstrumentationConfig{Log: new(false)})),
+					Instrumentation("dev", InstrumentationConfig{Log: new(false)}),
 				)
 				delta.InFrom(inputOne)
 				ctx, cancel := signal.Isolated()
