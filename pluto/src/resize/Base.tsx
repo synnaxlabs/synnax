@@ -10,7 +10,7 @@
 import "@/resize/Base.css";
 
 import { direction, location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -22,36 +22,42 @@ export interface BaseProps extends Omit<
 > {
   location: location.Crude;
   size: number;
-  sizeUnits?: "px" | "%";
-  showHandle?: boolean;
+  decimal?: boolean;
+  hideHandle?: boolean;
 }
 
 export const Base = ({
   ref,
   location: cloc,
-  style,
+  style: propsStyle,
   size,
   className,
   children,
   onDragStart,
-  sizeUnits = "px",
-  showHandle = true,
+  decimal = false,
+  hideHandle = false,
   ...rest
 }: BaseProps): ReactElement => {
   const parsedLocation = location.construct(cloc);
   const dir = location.direction(parsedLocation);
   const dim = direction.dimension(dir);
+  const style = useMemo<CSSProperties>(() => {
+    let cssSize: string;
+    if (decimal) cssSize = `${size * 100}%`;
+    else cssSize = `${size}px`;
+    return { [dim]: cssSize, ...propsStyle };
+  }, [size, propsStyle]);
   return (
     <Flex.Box
       className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), className)}
-      style={{ [dim]: `${size}${sizeUnits}`, ...style }}
+      style={style}
       ref={ref}
       direction={dir}
       empty
       {...rest}
     >
       {children}
-      {showHandle && (
+      {!hideHandle && (
         <div
           draggable
           className={CSS(

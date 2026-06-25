@@ -11,7 +11,7 @@ import { bounds, box, location } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -24,7 +24,7 @@ import { Base, type BaseProps } from "@/resize/Base";
 /** Props for the {@link Single} component. */
 export interface SingleProps extends Omit<
   BaseProps,
-  "showHandle" | "size" | "onResize" | "onDragStart" | "ref"
+  "hideHandle" | "size" | "onResize" | "onDragStart" | "ref"
 > {
   initialSize?: number;
   sizeBounds?: Partial<bounds.Bounds>;
@@ -39,8 +39,8 @@ const DEFAULT_SIZE_BOUNDS = { lower: 100 };
 export const Single = ({
   onCollapse,
   onResize,
-  location: location_ = "left",
-  sizeBounds = DEFAULT_SIZE_BOUNDS,
+  location: propsLoc = "left",
+  sizeBounds,
   initialSize = 200,
   collapseThreshold = Infinity,
   className,
@@ -49,14 +49,14 @@ export const Single = ({
   const fullSizeBounds = useMemo(
     () =>
       bounds.construct({
-        lower: sizeBounds.lower ?? DEFAULT_SIZE_BOUNDS.lower,
-        upper: sizeBounds.upper,
+        ...sizeBounds,
+        lower: sizeBounds?.lower ?? DEFAULT_SIZE_BOUNDS.lower,
       }),
-    [sizeBounds.lower, sizeBounds.upper],
+    [sizeBounds?.lower, sizeBounds?.upper],
   );
   const [size, setSize] = useState(bounds.clamp(fullSizeBounds, initialSize));
   const marker = useRef<number | null>(null);
-  const loc = location.construct(location_);
+  const loc = location.construct(propsLoc);
 
   const calcNextSize = useCallback(
     (b: box.Box) => {
@@ -98,13 +98,15 @@ export const Single = ({
     [onCollapse, calcNextSize],
   );
 
-  useEffect(() => {
-    setSize((prev) => {
-      const nextSize = bounds.clamp(fullSizeBounds, prev);
-      marker.current = nextSize;
-      return nextSize;
-    });
-  }, [fullSizeBounds]);
+  useLayoutEffect(
+    () =>
+      setSize((prev) => {
+        const nextSize = bounds.clamp(fullSizeBounds, prev);
+        marker.current = nextSize;
+        return nextSize;
+      }),
+    [fullSizeBounds],
+  );
 
   const handleDragStart = useCursorDrag({
     onMove: handleMove,
