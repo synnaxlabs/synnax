@@ -23,10 +23,10 @@ import (
 var _ = Describe("Cluster", func() {
 	Describe("Name", func() {
 		It("Should open a three node memory backed distribution layer", func(ctx SpecContext) {
-			cluster := mock.MustOpenCluster(ctx, 0)
-			coreOne := cluster.Provision(ctx)
-			coreTwo := cluster.Provision(ctx)
-			coreThree := cluster.Provision(ctx)
+			cluster := mock.MustOpenCluster(ctx, 3)
+			coreOne := cluster.Nodes[node.Key(1)]
+			coreTwo := cluster.Nodes[node.Key(2)]
+			coreThree := cluster.Nodes[node.Key(3)]
 
 			Expect(coreOne.Cluster.HostKey()).To(Equal(node.Key(1)))
 			Expect(coreTwo.Cluster.HostKey()).To(Equal(node.Key(2)))

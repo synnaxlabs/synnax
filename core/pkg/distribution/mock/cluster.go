@@ -88,7 +88,7 @@ func (c *Cluster) Provision(
 		peers        = c.addrFactory.Generated()
 		addr         = c.addrFactory.Next()
 		storageLayer = c.storage.Provision(ctx)
-		cfgs         = append([]distribution.LayerConfig{{
+		cfg          = distribution.LayerConfig{
 			Storage: storageLayer,
 			FrameTransport: mockFramerTransport{
 				iter:    c.iterNet.New(addr, 1),
@@ -103,7 +103,8 @@ func (c *Cluster) Provision(
 			AspenOptions: []aspen.Option{
 				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 			},
-		}}, overrides...)
+		}
+		cfgs              = append([]distribution.LayerConfig{cfg}, overrides...)
 		distributionLayer = testutil.MustSucceed(distribution.OpenLayer(ctx, cfgs...))
 	)
 	node := Node{Layer: distributionLayer, Storage: storageLayer}
