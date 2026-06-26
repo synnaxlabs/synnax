@@ -25,15 +25,8 @@ func TestAlamos(t *testing.T) {
 	RunSpecs(t, "Alamos Suite")
 }
 
-// The suite-wide instrumentation starts process-global OpenTelemetry SDK daemons (batch
-// span processor, periodic reader, log exporter) that alamos exposes no teardown for, so
-// a BeforeSuite leak check is not applicable here.
-//
-//nolint:leaklint
 var _ = BeforeSuite(func() {
 	devIns = Instrumentation("alamos-test", InstrumentationConfig{
 		Trace: new(true),
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

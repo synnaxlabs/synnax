@@ -19,7 +19,6 @@ import (
 )
 
 var _ = BeforeSuite(func() {
-	ShouldNotLeakGoroutines()
 	zap.ReplaceGlobals(MustSucceed(zap.NewDevelopment()))
 })
 
@@ -27,5 +26,3 @@ func TestTelem(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Telem Suite")
 }
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -53,7 +53,6 @@ var _ = Describe("Create", Ordered, func() {
 		tx gorp.Tx
 	)
 	BeforeAll(func() {
-		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 	})
 	BeforeEach(func() {

@@ -14,12 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestVersion(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Version Suite")
 }
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

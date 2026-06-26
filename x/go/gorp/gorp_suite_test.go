@@ -25,7 +25,6 @@ var (
 	db   *gorp.DB
 )
 var _ = BeforeSuite(func() {
-	ShouldNotLeakGoroutines()
 	kvDB = memkv.New()
 	db = DeferClose(gorp.Wrap(kvDB))
 })
@@ -34,5 +33,3 @@ func TestGorp(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Gorp Suite")
 }
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

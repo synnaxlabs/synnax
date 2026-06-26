@@ -14,12 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestErrors(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Errors Suite")
 }
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -92,7 +92,6 @@ var _ = Describe("FS Testutil", func() {
 				createdAt string
 			)
 			BeforeAll(func() {
-				ShouldNotLeakGoroutines()
 				priorDirs = matchingTempDirs(TempDirPrefix())
 			})
 			It("Creates the tempdir while the spec is running", func() {

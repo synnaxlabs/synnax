@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/pluralize"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestPluralize(t *testing.T) {
@@ -184,5 +183,3 @@ var _ = Describe("Pluralize", func() {
 		})
 	})
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

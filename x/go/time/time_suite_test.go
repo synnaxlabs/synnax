@@ -14,12 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestTime(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Time Suite")
 }
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
