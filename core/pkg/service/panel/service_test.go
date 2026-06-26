@@ -18,9 +18,9 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() panel.ServiceConfig {
 		return panel.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Search:   dist.Search,
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Search:   node.Search,
 		}
 	}
 
@@ -50,22 +50,22 @@ var _ = Describe("ServiceConfig", func() {
 	Describe("Override", func() {
 		It("Should prefer the other config's fields when set", func() {
 			merged := panel.ServiceConfig{}.Override(full())
-			Expect(merged.DB).To(BeIdenticalTo(dist.DB))
-			Expect(merged.Ontology).To(BeIdenticalTo(dist.Ontology))
-			Expect(merged.Search).To(BeIdenticalTo(dist.Search))
+			Expect(merged.DB).To(BeIdenticalTo(node.DB))
+			Expect(merged.Ontology).To(BeIdenticalTo(node.Ontology))
+			Expect(merged.Search).To(BeIdenticalTo(node.Search))
 		})
 
 		It("Should preserve the receiver's fields when other's are nil", func() {
 			merged := full().Override(panel.ServiceConfig{})
-			Expect(merged.DB).To(BeIdenticalTo(dist.DB))
-			Expect(merged.Ontology).To(BeIdenticalTo(dist.Ontology))
+			Expect(merged.DB).To(BeIdenticalTo(node.DB))
+			Expect(merged.Ontology).To(BeIdenticalTo(node.Ontology))
 		})
 	})
 })
 
 var _ = Describe("OpenService", func() {
 	It("Should fail when a required field is missing", func(ctx SpecContext) {
-		Expect(panel.OpenService(ctx, panel.ServiceConfig{DB: dist.DB})).Error().
+		Expect(panel.OpenService(ctx, panel.ServiceConfig{DB: node.DB})).Error().
 			To(MatchError(ContainSubstring("ontology")))
 	})
 })
