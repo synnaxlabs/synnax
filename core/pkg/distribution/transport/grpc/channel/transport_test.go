@@ -99,7 +99,7 @@ var _ = Describe("Transport", func() {
 			useAddr := StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 				t = channel.New(pool)
 				t.BindTo(reg)
-			}).Address
+			})
 
 			var clientCalls, serverCalls atomic.Int32
 			t.Use(freighter.MiddlewareFunc(func(

@@ -59,7 +59,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 					return v1.NewTestUnaryServiceClient(conn).Exec(ctx, req)
 				},
 			}
-		}).Address
+		})
 	})
 
 	test.UnarySuite(func() (

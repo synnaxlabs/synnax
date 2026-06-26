@@ -37,5 +37,5 @@ var _ = BeforeSuite(func() {
 	addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 		transport = channel.New(pool)
 		transport.BindTo(reg)
-	}).Address
+	})
 })

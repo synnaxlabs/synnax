@@ -24,24 +24,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// Server is an in-process gRPC server started by StartServer, bundled with the address
-// it listens on and a freighter connection pool dialed against it.
-type Server struct {
-	// Address is the ephemeral localhost address the server listens on.
-	Address address.Address
-	// Pool is a freighter gRPC connection pool dialed against the server with insecure
-	// transport credentials. It is closed automatically when the spec completes.
-	Pool *fgrpc.Pool
-	// Server is the underlying gRPC server. It is gracefully stopped automatically when
-	// the spec completes.
-	Server *grpc.Server
-}
-
 // StartServer starts a gRPC server listening on an ephemeral localhost port and opens a
 // freighter connection pool dialed against it with insecure transport credentials. bind
 // registers the transports under test, receiving the server as a grpc.ServiceRegistrar
 // and the pool so that a transport acting as both client and server can be constructed
-// from it. Any opts are forwarded to grpc.NewServer.
+// from it. Any opts are forwarded to grpc.NewServer. It returns the ephemeral localhost
+// address the server listens on.
 //
 // The server is served in a background goroutine. StartServer registers Ginkgo cleanup
 // that gracefully stops the server and then closes the pool when the current spec
@@ -49,7 +37,7 @@ type Server struct {
 func StartServer(
 	bind func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool),
 	opts ...grpc.ServerOption,
-) Server {
+) address.Address {
 	lis := testutil.MustSucceed(net.Listen("tcp", "localhost:0"))
 	srv := grpc.NewServer(opts...)
 	pool := testutil.DeferClose(fgrpc.OpenPool(
@@ -67,9 +55,5 @@ func StartServer(
 		}
 	}()
 	ginkgo.DeferCleanup(srv.GracefulStop)
-	return Server{
-		Address: address.Address(lis.Addr().String()),
-		Pool:    pool,
-		Server:  srv,
-	}
+	return address.Address(lis.Addr().String())
 }

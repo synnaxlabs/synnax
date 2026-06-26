@@ -117,7 +117,7 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 		},
 			grpc.ChainUnaryInterceptor(fgrpc.RecoveryUnaryServerInterceptor(ins)),
 			grpc.ChainStreamInterceptor(fgrpc.RecoveryStreamServerInterceptor(ins)),
-		).Address
+		)
 	})
 
 	It("should contain a unary handler panic and keep serving", func(ctx SpecContext) {

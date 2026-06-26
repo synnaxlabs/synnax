@@ -77,7 +77,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					return v1.NewTestStreamServiceClient(conn).Exec(ctx)
 				},
 			}
-		}).Address
+		})
 	})
 
 	test.StreamSuite(func() (
