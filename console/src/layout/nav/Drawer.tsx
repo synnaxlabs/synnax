@@ -48,14 +48,14 @@ const SHORT_AXIS_THRESHOLD = 24;
 const X_THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
 
 export const Drawer = ({ location: loc, menuItems }: DrawerProps): ReactElement => {
-  const { activeItem, onResize, onSelect, hover, onStopHover, onCollapse } =
+  const { activeItem, onResizeEnd, onSelect, hover, onStopHover, onCollapse } =
     useNavDrawer(loc, menuItems);
   return (
     <Nav.Drawer
       location={loc}
       className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
       activeItem={activeItem}
-      onResize={onResize}
+      onResizeEnd={onResizeEnd}
       onSelect={onSelect}
       onMouseLeave={mouseLeaveBy(
         direction.construct(loc) === "y" ? xy.swap(X_THRESHOLD) : X_THRESHOLD,

@@ -41,6 +41,24 @@ describe("Bounds", () => {
       expect(bound.upper).toEqual(1);
     });
 
+    describe("partial bounds", () => {
+      it("should default a missing upper to Infinity", () => {
+        const bound = bounds.construct({ lower: 0 });
+        expect(bound.lower).toEqual(0);
+        expect(bound.upper).toEqual(Infinity);
+      });
+      it("should default a missing lower to -Infinity", () => {
+        const bound = bounds.construct({ upper: 10 });
+        expect(bound.lower).toEqual(-Infinity);
+        expect(bound.upper).toEqual(10);
+      });
+      it("should default both bounds when given an empty object", () => {
+        const bound = bounds.construct({});
+        expect(bound.lower).toEqual(-Infinity);
+        expect(bound.upper).toEqual(Infinity);
+      });
+    });
+
     describe("makeValid", () => {
       it("should make the bounds valid", () => {
         const bound = bounds.construct<number>(2, 1, { makeValid: true });
@@ -401,11 +419,18 @@ describe("Bounds", () => {
     });
   });
   describe("clamp", () => {
-    it("should clamp the provided target to the bounds", () => {
+    it("should project the target onto the closed interval", () => {
       const b = bounds.construct([1, 3]);
       expect(bounds.clamp(b, 0)).toEqual(1);
       expect(bounds.clamp(b, 2)).toEqual(2);
-      expect(bounds.clamp(b, 4)).toEqual(2);
+      expect(bounds.clamp(b, 4)).toEqual(3);
+    });
+    it("should return the upper bound when the target exceeds it", () => {
+      expect(bounds.clamp(bounds.DECIMAL, 1)).toEqual(1);
+      expect(bounds.clamp(bounds.DECIMAL, 5)).toEqual(1);
+    });
+    it("should return the lower bound when the target is below it", () => {
+      expect(bounds.clamp(bounds.DECIMAL, -5)).toEqual(0);
     });
   });
   describe("mean", () => {

@@ -8,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import {
-  type Icon,
-  type Nav,
-  type Triggers,
-  useDebouncedCallback,
-  useSyncedRef,
-} from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { type Icon, type Nav, type Triggers, useSyncedRef } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -43,7 +36,7 @@ export interface UseNavDrawerReturn {
   menuItems: NavMenuItem[];
   onSelect: (item: string) => void;
   onCollapse: () => void;
-  onResize: (size: number) => void;
+  onResizeEnd: (size: number) => void;
   onStartHover: (item: string) => void;
   onStopHover: () => void;
   hover: boolean;
@@ -56,11 +49,8 @@ export const useNavDrawer = (
   const windowKey = useSelectWindowKey() as string;
   const state = useSelectNavDrawer(location);
   const dispatch = useDispatch();
-  const onResize = useDebouncedCallback(
-    (size: number) => {
-      dispatch(resizeNavDrawer({ windowKey, location, size }));
-    },
-    TimeSpan.milliseconds(100),
+  const onResizeEnd = useCallback(
+    (size: number) => dispatch(resizeNavDrawer({ windowKey, location, size })),
     [dispatch, windowKey],
   );
 
@@ -103,7 +93,7 @@ export const useNavDrawer = (
     menuItems: menuItems ?? [],
     onSelect,
     onCollapse,
-    onResize,
+    onResizeEnd,
     hover: state?.hover ?? false,
     onStartHover,
     onStopHover,
