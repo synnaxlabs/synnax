@@ -32,7 +32,19 @@ var _ = Describe("Transport", func() {
 			t := transportgrpc.New(pool)
 			Expect(t.Channel()).ToNot(BeNil())
 			Expect(t.Framer()).ToNot(BeNil())
-			Expect(t.BindableTransports()).To(HaveLen(2))
+		})
+
+		It("Should register both the channel and framer services on bind", func() {
+			pool := DeferClose(fgrpc.OpenPool(
+				"",
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+			))
+			t := transportgrpc.New(pool)
+			srv := grpc.NewServer()
+			t.BindTo(srv)
+			info := srv.GetServiceInfo()
+			Expect(info).To(HaveKey(HavePrefix("distribution.channel.pb.")))
+			Expect(info).To(HaveKey(HavePrefix("synnax.distribution.framer.")))
 		})
 	})
 

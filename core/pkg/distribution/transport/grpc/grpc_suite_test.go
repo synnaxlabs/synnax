@@ -36,8 +36,6 @@ var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
 	addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 		transport = transportgrpc.New(pool)
-		for _, bt := range transport.BindableTransports() {
-			bt.BindTo(reg)
-		}
+		transport.BindTo(reg)
 	}).Address
 })

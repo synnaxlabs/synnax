@@ -264,8 +264,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 				},
 				&server.GRPCBranch{Transports: slices.Concat(
 					transportLayer.GRPC,
-					[]grpc.BindableTransport{aspenTransport},
-					distTransport.BindableTransports(),
+					[]grpc.BindableTransport{aspenTransport, distTransport},
 				)},
 				server.NewHTTPRedirectBranch(),
 			},
