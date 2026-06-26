@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -23,6 +24,34 @@ var _ = Describe("Leak", func() {
 			var wg sync.WaitGroup
 			wg.Go(func() {})
 			wg.Wait()
+		})
+	})
+
+	Describe("ShouldNotLeakGoroutinesIn", func() {
+		It("passes when the block forks and joins a goroutine", func() {
+			failures := InterceptGomegaFailures(func() {
+				ShouldNotLeakGoroutinesIn(func() {
+					var wg sync.WaitGroup
+					wg.Go(func() {})
+					wg.Wait()
+				})
+			})
+			Expect(failures).To(BeEmpty())
+		})
+
+		It("fails when the block leaves a goroutine running", func() {
+			block := make(chan struct{})
+			done := make(chan struct{})
+			DeferCleanup(func() {
+				close(block)
+				Eventually(done).Should(BeClosed())
+			})
+			failures := InterceptGomegaFailures(func() {
+				ShouldNotLeakGoroutinesIn(func() {
+					go func() { defer close(done); <-block }()
+				})
+			})
+			Expect(failures).ToNot(BeEmpty())
 		})
 	})
 

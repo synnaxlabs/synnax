@@ -30,6 +30,16 @@ func ShouldNotLeakGoroutines() {
 	ginkgo.DeferCleanup(func() { assertNoLeakedGoroutines(snapshot) })
 }
 
+// ShouldNotLeakGoroutinesIn runs f and asserts that it leaves no goroutines running
+// once it returns. Unlike ShouldNotLeakGoroutines, the assertion fires synchronously
+// rather than through a Ginkgo DeferCleanup, so it can be used to scope a leak check to
+// a single block of code (and lets the leak check itself be exercised directly).
+func ShouldNotLeakGoroutinesIn(f func()) {
+	snapshot := gleak.Goroutines()
+	f()
+	assertNoLeakedGoroutines(snapshot)
+}
+
 // ShouldNotLeakGoroutinesPerSpec wires per-spec leak checking into the current
 // container. Every spec inside it gets a fresh snapshot taken just before the spec body
 // runs and a cleanup assertion that fires after every AfterEach and DeferCleanup the
@@ -74,8 +84,7 @@ func ShouldNotLeakGoroutinesPerSpec() bool {
 type snapshotHolder struct{ snapshot []gleak.Goroutine }
 
 // assertNoLeakedGoroutines runs the leak assertion synchronously against the supplied
-// baseline. Exposed at package scope so tests can drive the check without going through
-// Ginkgo's DeferCleanup machinery.
+// baseline, ignoring goroutines that are known to be unstoppable process-globals.
 func assertNoLeakedGoroutines(snapshot []gleak.Goroutine) {
 	args := make([]any, 0, 2)
 	args = append(args, snapshot)
