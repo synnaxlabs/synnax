@@ -10,7 +10,7 @@
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { type z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
