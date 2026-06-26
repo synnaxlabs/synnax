@@ -14,16 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGRPC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	// The suites here share a connection pool that lazily dials the server on the
-	// first RPC and caches the connection for the rest of the suite (the pool is
-	// closed in each container's teardown). The spec that first dials therefore
-	// registers a pooled connection that outlives it by design, so per-spec
-	// goroutine-leak checking is not applicable. Container-level leak checks in each
-	// BeforeAll still verify the pool and server are fully shut down at teardown.
-	//nolint:leaklint
 	RunSpecs(t, "GRPC Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
