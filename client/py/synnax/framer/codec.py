@@ -12,7 +12,7 @@ from __future__ import annotations
 import struct
 
 import synnax.channel.payload as channel
-from x.codec import Codec as FreighterCodec, JSONCodec
+from x.codec import Codec, JSONCodec
 from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import Alignment, DataType, Series, TimeRange
@@ -333,13 +333,12 @@ class Codec:
 
 LOW_PERF_SPECIAL_CHAR = 254
 HIGH_PERF_SPECIAL_CHAR = 255
-CONTENT_TYPE = "application/vnd.synnax.frame"
 
 
-class WSFramerCodec(FreighterCodec):
+class WSFramerCodec(Codec):
     def __init__(self, codec: Codec) -> None:
         self.codec = codec
         self.lower_perf_codec = JSONCodec()
 
     def content_type(self) -> str:
-        return CONTENT_TYPE
+        return "application/vnd.synnax.frame"
