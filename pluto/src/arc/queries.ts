@@ -15,7 +15,7 @@ import {
   status,
   task,
 } from "@synnaxlabs/client";
-import { errors, id, primitive, type record, xy } from "@synnaxlabs/x";
+import { compare, errors, id, primitive, type record, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -114,22 +114,43 @@ const requireArc = (store: FluxSubStore, key: arc.Key): arc.Arc => {
   return a;
 };
 
-// useSelectNodes returns the graph nodes of the Arc with the given key as diagram
+// useSelectAllNodes returns every graph node of the Arc with the given key as diagram
 // nodes. graph.Node is a structural superset of Diagram.Node, so the stored array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated store updates.
-export const useSelectNodes = Scope.bindHook(
+export const useSelectAllNodes = Scope.bindHook(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, Diagram.Node[]>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key }) => requireArc(store, key).graph.nodes,
   }),
 );
 
-// useSelectEdges returns the graph edges of the Arc with the given key as diagram
+export interface SelectNodesArgs {
+  key: arc.Key;
+  keys: string[];
+}
+
+// useSelectNodes returns only the graph nodes whose keys are in the given set. The
+// filter runs in the store and the result is compared by value, so a consumer that
+// tracks a selection re-renders only when its nodes change, not on every node mutation.
+export const useSelectNodes = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectNodesArgs, Diagram.Node[]>({
+    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+    select: (store, { key, keys }) => {
+      const a = store.arcs.get(key);
+      if (a == null || keys.length === 0) return [];
+      const keySet = new Set(keys);
+      return a.graph.nodes.filter((n) => keySet.has(n.key));
+    },
+    equal: compare.arraysEqual,
+  }),
+);
+
+// useSelectAllEdges returns every graph edge of the Arc with the given key as diagram
 // edges. graph.Edge is a structural superset of Diagram.Edge, so the stored array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated store updates.
-export const useSelectEdges = Scope.bindHook(
+export const useSelectAllEdges = Scope.bindHook(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, Diagram.Edge[]>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key }) => requireArc(store, key).graph.edges,

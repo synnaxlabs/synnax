@@ -19,27 +19,21 @@ import {
   Status,
 } from "@synnaxlabs/pluto";
 import { box, type direction, location, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo } from "react";
+import { memo, type ReactElement, useCallback } from "react";
 
 import { Session } from "@/layered/session";
 
 export const Properties = memo((): ReactElement | null => {
   const selected = Session.Arc.useSelectSelected();
-  const nodes = Arc.useSelectNodes();
-  const selectedNodeKeys = useMemo(() => {
-    const nodeKeys = new Set(nodes.map((n) => n.key));
-    return selected.filter((k) => nodeKeys.has(k));
-  }, [nodes, selected]);
-
-  if (selected.length === 0)
+  const nodes = Arc.useSelectNodes({ keys: selected });
+  if (selected.length === 0 || nodes.length === 0)
     return (
       <Status.Summary center variant="disabled" hideIcon>
         Select an Arc element to configure its properties.
       </Status.Summary>
     );
-  if (selected.length > 1) return <MultiConfig selectedNodeKeys={selectedNodeKeys} />;
-  if (selectedNodeKeys.length === 0) return null;
-  return <IndividualConfig key={selectedNodeKeys[0]} nodeKey={selectedNodeKeys[0]} />;
+  if (selected.length > 1) return <MultiConfig nodes={nodes} />;
+  return <IndividualConfig key={nodes[0].key} nodeKey={nodes[0].key} />;
 });
 Properties.displayName = "PropertiesControls";
 
@@ -72,23 +66,18 @@ const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | nu
 };
 
 interface MultiElementPropertiesProps {
-  selectedNodeKeys: string[];
+  nodes: Diagram.Node[];
 }
 
-const MultiConfig = ({
-  selectedNodeKeys,
-}: MultiElementPropertiesProps): ReactElement => {
+const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
   const dispatch = Arc.useSingleDispatch();
-  const nodes = Arc.useSelectNodes();
   const viewport = Session.Arc.useSelectViewport();
 
   const getLayouts = () =>
-    selectedNodeKeys
-      .map((nodeKey) => {
-        const node = nodes.find((n) => n.key === nodeKey);
-        if (node == null) return null;
+    nodes
+      .map((node) => {
         try {
-          const nodeEl = Diagram.selectNode(nodeKey);
+          const nodeEl = Diagram.selectNode(node.key);
           const nodeBox = box.construct(node.position, box.dims(box.construct(nodeEl)));
           const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
           const nodeElBox = box.construct(nodeEl);
@@ -104,7 +93,7 @@ const MultiConfig = ({
             const orientation = location.construct(match[1]) as location.Outer;
             return new Diagram.HandleLayout(dist, orientation);
           });
-          return new Diagram.NodeLayout(nodeKey, nodeBox, handles);
+          return new Diagram.NodeLayout(node.key, nodeBox, handles);
         } catch (e) {
           console.error(e);
         }

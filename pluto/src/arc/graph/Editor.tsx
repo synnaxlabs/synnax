@@ -22,8 +22,8 @@ import { canDropHaulItem, filterHaulItems } from "@/arc/haul";
 import {
   useAddNode,
   useRedo,
-  useSelectEdges,
-  useSelectNodes,
+  useSelectAllEdges,
+  useSelectAllNodes,
   useSingleDispatch,
   useUndo,
 } from "@/arc/queries";
@@ -69,9 +69,9 @@ export const Editor = ({
   ...props
 }: EditorProps): ReactElement => {
   const key = useKey();
-  const nodes = useSelectNodes();
+  const nodes = useSelectAllNodes();
   const nodesRef = useSyncedRef(nodes);
-  const edges = useSelectEdges();
+  const edges = useSelectAllEdges();
   const edgesRef = useSyncedRef(edges);
   const dispatch = useSingleDispatch();
 
