@@ -11,19 +11,15 @@ package grpc_test
 
 import (
 	"context"
-	"net"
 
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
-	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type streamServer struct {
@@ -45,64 +41,44 @@ func (s *streamServer) BindTo(reg grpc.ServiceRegistrar) {
 
 var _ = Describe("Stream", Ordered, Serial, func() {
 	var (
-		server     freighter.StreamServer[test.Request, test.Response]
-		client     freighter.StreamClient[test.Request, test.Response]
-		addr       address.Address
-		grpcServer *grpc.Server
+		server freighter.StreamServer[test.Request, test.Response]
+		client freighter.StreamClient[test.Request, test.Response]
+		addr   address.Address
 	)
 
 	BeforeAll(func() {
-		ShouldNotLeakGoroutines()
-		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
-		addr = address.Address(lis.Addr().String())
+		addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+			sServer := &streamServer{
+				StreamServerCore: fgrpc.StreamServerCore[
+					test.Request, *v1.Request,
+					test.Response, *v1.Response,
+				]{
+					RequestTranslator:  requestTranslator{},
+					ResponseTranslator: responseTranslator{},
+					ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+					Internal:           true,
+				},
+			}
+			sServer.BindTo(reg)
+			server = &sServer.StreamServerCore
 
-		grpcServer = grpc.NewServer()
-
-		sServer := &streamServer{
-			StreamServerCore: fgrpc.StreamServerCore[
+			client = &fgrpc.StreamClient[
 				test.Request, *v1.Request,
 				test.Response, *v1.Response,
 			]{
 				RequestTranslator:  requestTranslator{},
 				ResponseTranslator: responseTranslator{},
+				Pool:               pool,
 				ServiceDesc:        &v1.TestStreamService_ServiceDesc,
-				Internal:           true,
-			},
-		}
-		sServer.BindTo(grpcServer)
-		server = &sServer.StreamServerCore
-
-		pool := DeferClose(fgrpc.NewPool(
-			"",
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		))
-		client = &fgrpc.StreamClient[
-			test.Request, *v1.Request,
-			test.Response, *v1.Response,
-		]{
-			RequestTranslator:  requestTranslator{},
-			ResponseTranslator: responseTranslator{},
-			Pool:               pool,
-			ServiceDesc:        &v1.TestStreamService_ServiceDesc,
-			ClientFunc: func(
-				ctx context.Context,
-				conn grpc.ClientConnInterface,
-			) (fgrpc.GRPCClientStream[*v1.Request, *v1.Response], error) {
-				return v1.NewTestStreamServiceClient(conn).Exec(ctx)
-			},
-		}
-
-		go func() {
-			defer GinkgoRecover()
-			Expect(grpcServer.Serve(lis)).To(Succeed())
-		}()
-
-		conn := MustSucceed(pool.Acquire(addr))
-		conn.Connect()
-		Eventually(conn.GetState).Should(Equal(connectivity.Ready))
+				ClientFunc: func(
+					ctx context.Context,
+					conn grpc.ClientConnInterface,
+				) (fgrpc.GRPCClientStream[*v1.Request, *v1.Response], error) {
+					return v1.NewTestStreamServiceClient(conn).Exec(ctx)
+				},
+			}
+		})
 	})
-
-	AfterAll(func() { grpcServer.GracefulStop() })
 
 	test.StreamSuite(func() (
 		freighter.StreamServer[test.Request, test.Response],

@@ -21,9 +21,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// fakeAdapter is a hand-rolled pool.Adapter used by the tests below. The
-// closeBlock channel lets a test gate when Close is allowed to return so we
-// can exercise concurrent Close + Acquire ordering.
+// fakeAdapter is a hand-rolled pool.Adapter used by the tests below. The closeBlock
+// channel lets a test gate when Close is allowed to return so we can exercise
+// concurrent Close + Acquire ordering.
 type fakeAdapter struct {
 	id         int
 	healthy    bool
@@ -32,9 +32,9 @@ type fakeAdapter struct {
 	closeBlock chan struct{}
 }
 
-func (a *fakeAdapter) Healthy() bool  { return a.healthy }
-func (a *fakeAdapter) Acquire() error { return nil }
-func (a *fakeAdapter) Release()       {}
+func (a *fakeAdapter) Healthy() bool { return a.healthy }
+func (*fakeAdapter) Acquire() error  { return nil }
+func (*fakeAdapter) Release()        {}
 func (a *fakeAdapter) Close() error {
 	if a.closeBlock != nil {
 		<-a.closeBlock
@@ -53,7 +53,9 @@ type fakeFactory struct {
 	failNext   bool
 }
 
-func (f *fakeFactory) New(_ string) (*fakeAdapter, error) {
+func newFactory() *fakeFactory { return &fakeFactory{healthy: true} }
+
+func (f *fakeFactory) Open(string) (*fakeAdapter, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.failNext {
@@ -71,14 +73,11 @@ func (f *fakeFactory) New(_ string) (*fakeAdapter, error) {
 	return a, nil
 }
 
-func newFactory() *fakeFactory { return &fakeFactory{healthy: true} }
-
 var _ = Describe("Pool", func() {
 	Describe("Acquire", func() {
 		It("returns the same adapter for the same key when it stays healthy", func() {
 			f := newFactory()
-			p := pool.New(f)
-			defer func() { Expect(p.Close()).To(Succeed()) }()
+			p := DeferClose(pool.Open(f))
 
 			a1 := MustSucceed(p.Acquire("k"))
 			a2 := MustSucceed(p.Acquire("k"))
@@ -88,8 +87,7 @@ var _ = Describe("Pool", func() {
 
 		It("creates a new adapter when the cached one is unhealthy", func() {
 			f := newFactory()
-			p := pool.New(f)
-			defer func() { Expect(p.Close()).To(Succeed()) }()
+			p := DeferClose(pool.Open(f))
 
 			a1 := MustSucceed(p.Acquire("k"))
 			a1.healthy = false
@@ -102,17 +100,15 @@ var _ = Describe("Pool", func() {
 		It("propagates factory errors", func() {
 			f := newFactory()
 			f.failNext = true
-			p := pool.New(f)
-			defer func() { Expect(p.Close()).To(Succeed()) }()
+			p := DeferClose(pool.Open(f))
 
-			_, err := p.Acquire("k")
-			Expect(err).To(MatchError(ContainSubstring("factory: failed")))
+			Expect(p.Acquire("k")).Error().
+				To(MatchError(ContainSubstring("factory: failed")))
 		})
 
 		It("serializes concurrent Acquire calls so the factory only runs once per key", func() {
 			f := newFactory()
-			p := pool.New(f)
-			defer func() { Expect(p.Close()).To(Succeed()) }()
+			p := DeferClose(pool.Open(f))
 
 			const goroutines = 32
 			var (
@@ -147,7 +143,7 @@ var _ = Describe("Pool", func() {
 	Describe("Close", func() {
 		It("closes every cached adapter", func() {
 			f := newFactory()
-			p := pool.New(f)
+			p := pool.Open(f)
 			MustSucceed(p.Acquire("a"))
 			MustSucceed(p.Acquire("b"))
 
@@ -160,17 +156,17 @@ var _ = Describe("Pool", func() {
 		It("aggregates errors from adapter closes", func() {
 			f := newFactory()
 			f.closeErr = errors.New("adapter: boom")
-			p := pool.New(f)
+			p := pool.Open(f)
 			MustSucceed(p.Acquire("a"))
 			MustSucceed(p.Acquire("b"))
 
-			err := p.Close()
-			Expect(err).To(MatchError(ContainSubstring("adapter: boom")))
+			Expect(p.Close()).Error().
+				To(MatchError(ContainSubstring("adapter: boom")))
 		})
 
 		It("is idempotent", func() {
 			f := newFactory()
-			p := pool.New(f)
+			p := pool.Open(f)
 			MustSucceed(p.Acquire("a"))
 
 			Expect(p.Close()).To(Succeed())
@@ -178,27 +174,25 @@ var _ = Describe("Pool", func() {
 		})
 
 		It("does not deadlock when an adapter's Close blocks", func() {
-			// Regression test for the original implementation, which held
-			// the pool mutex across adapter.Close. With that bug, the
-			// concurrent Acquire below would block indefinitely waiting on
-			// the lock instead of immediately returning ErrClosed.
+			// Regression test for the original implementation, which held the pool
+			// mutex across adapter.Close. With that bug, the concurrent Acquire below
+			// would block indefinitely waiting on the lock instead of immediately
+			// returning ErrClosed.
 			f := newFactory()
 			f.closeBlock = make(chan struct{})
-			p := pool.New(f)
+			p := pool.Open(f)
 			MustSucceed(p.Acquire("a"))
 
 			closeReturned := make(chan error, 1)
 			go func() { closeReturned <- p.Close() }()
 
-			// Wait long enough that Close has reached adapter.Close and is
-			// waiting on closeBlock. Then verify a concurrent Acquire is
-			// not blocked by the lock — it should observe the closed pool
-			// and return ErrClosed straight away.
+			// Wait long enough that Close has reached adapter.Close and is waiting on
+			// closeBlock. Then verify a concurrent Acquire is not blocked by the lock —
+			// it should observe the closed pool and return ErrClosed straight away.
 			Eventually(func() error {
 				_, err := p.Acquire("a")
 				return err
-			}).WithTimeout(500 * time.Millisecond).
-				Should(MatchError(pool.ErrClosed))
+			}).WithTimeout(500 * time.Millisecond).Should(MatchError(pool.ErrClosed))
 
 			close(f.closeBlock)
 			Eventually(closeReturned).Should(Receive(BeNil()))
@@ -208,12 +202,10 @@ var _ = Describe("Pool", func() {
 	Describe("Acquire after Close", func() {
 		It("returns ErrClosed", func() {
 			f := newFactory()
-			p := pool.New(f)
+			p := pool.Open(f)
 			Expect(p.Close()).To(Succeed())
 
-			_, err := p.Acquire("a")
-			Expect(err).To(MatchError(pool.ErrClosed))
-			Expect(errors.Is(err, pool.ErrClosed)).To(BeTrue())
+			Expect(p.Acquire("a")).Error().To(MatchError(pool.ErrClosed))
 		})
 	})
 })
