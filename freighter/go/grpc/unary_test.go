@@ -79,10 +79,6 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			Expect(grpcServer.Serve(lis)).To(Succeed())
 		}()
 
-		// Establish the pooled connection here so it is part of every spec's goroutine
-		// baseline. The pool dials lazily and caches the connection for the suite, so
-		// without this the first spec to send a request would appear to leak the
-		// connection it opens; specs reuse this cached, ready connection instead.
 		conn := MustSucceed(pool.Acquire(addr))
 		conn.Connect()
 		Eventually(conn.GetState).Should(Equal(connectivity.Ready))

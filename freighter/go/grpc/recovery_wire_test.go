@@ -94,7 +94,9 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 		})
 		sServer.BindTo(grpcServer)
 
-		pool := DeferClose(fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials())))
+		pool := DeferClose(
+			fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials())),
+		)
 		unaryClient = &fgrpc.UnaryClient[
 			test.Request, *v1.Request,
 			test.Response, *v1.Response,
@@ -132,10 +134,6 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 			Expect(grpcServer.Serve(lis)).To(Succeed())
 		}()
 
-		// Establish the pooled connection here so it is part of every spec's goroutine
-		// baseline. The pool dials lazily and caches the connection for the suite, so
-		// without this the first spec to issue an RPC would appear to leak the
-		// connection it opens; specs reuse this cached, ready connection instead.
 		conn := MustSucceed(pool.Acquire(addr))
 		conn.Connect()
 		Eventually(conn.GetState).Should(Equal(connectivity.Ready))
