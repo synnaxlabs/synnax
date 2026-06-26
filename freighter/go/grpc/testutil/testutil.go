@@ -35,7 +35,7 @@ import (
 // that gracefully stops the server and then closes the pool when the current spec
 // completes, so it must be called from within a Ginkgo spec or lifecycle hook.
 func StartServer(
-	bind func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool),
+	bind func(grpc.ServiceRegistrar, *fgrpc.Pool),
 	opts ...grpc.ServerOption,
 ) address.Address {
 	lis := testutil.MustSucceed(net.Listen("tcp", "localhost:0"))
@@ -47,9 +47,9 @@ func StartServer(
 	bind(srv, pool)
 	go func() {
 		defer ginkgo.GinkgoRecover()
-		// Serve returns ErrServerStopped when GracefulStop wins the race against a
-		// spec that finishes before the server fully starts. That is the cleanup we
-		// asked for, not a failure.
+		// Serve returns ErrServerStopped when GracefulStop wins the race against a spec
+		// that finishes before the server fully starts. That is the cleanup we asked
+		// for, not a failure.
 		if err := srv.Serve(lis); !errors.Is(err, grpc.ErrServerStopped) {
 			gomega.Expect(err).To(gomega.Succeed())
 		}
