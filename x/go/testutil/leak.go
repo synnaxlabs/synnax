@@ -10,47 +10,10 @@
 package testutil
 
 import (
-	"time"
-
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gleak"
 )
-
-// LeakOption tunes a ShouldNotLeakGoroutines call.
-type LeakOption func(*leakConfig)
-
-type leakConfig struct {
-	timeout time.Duration
-	filters []any
-}
-
-// LeakWithin sets the maximum time to wait for goroutines to drain before failing the
-// leak assertion. The default matches Gomega's Eventually default (1 second). Bump this
-// for suites with intentionally slow shutdown paths.
-func LeakWithin(d time.Duration) LeakOption {
-	return func(c *leakConfig) { c.timeout = d }
-}
-
-// LeakIgnoring adds gleak filter matchers (e.g. gleak.IgnoringTopFunction,
-// gleak.IgnoringCreator, gleak.IgnoringInBacktrace) for goroutines that are expected to
-// outlive the spec. Use sparingly. A leak that needs filtering is almost always a bug
-// in the production code or test cleanup, not a reason to suppress the check. These are
-// applied on top of defaultLeakFilters.
-func LeakIgnoring(matchers ...any) LeakOption {
-	return func(c *leakConfig) { c.filters = append(c.filters, matchers...) }
-}
-
-func defaultLeakFilters() []any {
-	return []any{
-		// fasthttp lazily starts a single process-global goroutine (guarded by
-		// serverDateOnce) the first time any server writes a response; it refreshes the
-		// cached HTTP Date header every second and loops forever with no way to stop
-		// it. Upstream closed the request to add a shutdown mechanism as not-planned:
-		// https://github.com/valyala/fasthttp/issues/2257
-		gleak.IgnoringCreator("github.com/valyala/fasthttp.updateServerDate"),
-	}
-}
 
 // ShouldNotLeakGoroutines snapshots the currently running goroutines and registers a
 // Ginkgo DeferCleanup that asserts no new goroutines remain when the enclosing node
@@ -62,32 +25,9 @@ func defaultLeakFilters() []any {
 //
 // For the common case of "check every spec in this Describe", prefer
 // ShouldNotLeakGoroutinesPerSpec.
-func ShouldNotLeakGoroutines(opts ...LeakOption) {
-	cfg := buildLeakConfig(opts)
+func ShouldNotLeakGoroutines() {
 	snapshot := gleak.Goroutines()
-	ginkgo.DeferCleanup(func() { assertNoLeakedGoroutines(snapshot, cfg) })
-}
-
-func buildLeakConfig(opts []LeakOption) leakConfig {
-	cfg := leakConfig{filters: defaultLeakFilters()}
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-	return cfg
-}
-
-// assertNoLeakedGoroutines runs the leak assertion synchronously against the supplied
-// baseline. Exposed at package scope so tests can drive the check without going through
-// Ginkgo's DeferCleanup machinery.
-func assertNoLeakedGoroutines(snapshot []gleak.Goroutine, cfg leakConfig) {
-	args := make([]any, 0, len(cfg.filters)+1)
-	args = append(args, snapshot)
-	args = append(args, cfg.filters...)
-	assertion := gomega.Eventually(gleak.Goroutines)
-	if cfg.timeout > 0 {
-		assertion = assertion.WithTimeout(cfg.timeout)
-	}
-	assertion.ShouldNot(gleak.HaveLeaked(args...))
+	ginkgo.DeferCleanup(func() { assertNoLeakedGoroutines(snapshot) })
 }
 
 // ShouldNotLeakGoroutinesPerSpec wires per-spec leak checking into the current
@@ -112,10 +52,8 @@ func assertNoLeakedGoroutines(snapshot []gleak.Goroutine, cfg leakConfig) {
 // Returns a bool so it can be invoked at file scope for suite-wide coverage:
 //
 //	var _ = ShouldNotLeakGoroutinesPerSpec()
-func ShouldNotLeakGoroutinesPerSpec(opts ...LeakOption) bool {
-	type snapshotHolder struct{ snapshot []gleak.Goroutine }
+func ShouldNotLeakGoroutinesPerSpec() bool {
 	var current *snapshotHolder
-	cfg := buildLeakConfig(opts)
 	ginkgo.BeforeEach(func() {
 		h := &snapshotHolder{}
 		current = h
@@ -127,10 +65,29 @@ func ShouldNotLeakGoroutinesPerSpec(opts ...LeakOption) bool {
 			if h.snapshot == nil {
 				return
 			}
-			assertNoLeakedGoroutines(h.snapshot, cfg)
+			assertNoLeakedGoroutines(h.snapshot)
 		})
 	})
-	return ginkgo.JustBeforeEach(func() {
-		current.snapshot = gleak.Goroutines()
-	})
+	return ginkgo.JustBeforeEach(func() { current.snapshot = gleak.Goroutines() })
+}
+
+type snapshotHolder struct{ snapshot []gleak.Goroutine }
+
+// assertNoLeakedGoroutines runs the leak assertion synchronously against the supplied
+// baseline. Exposed at package scope so tests can drive the check without going through
+// Ginkgo's DeferCleanup machinery.
+func assertNoLeakedGoroutines(snapshot []gleak.Goroutine) {
+	args := make([]any, 0, 2)
+	args = append(args, snapshot)
+	// fasthttp lazily starts a single process-global goroutine (guarded by
+	// serverDateOnce) the first time any server writes a response; it refreshes the
+	// cached HTTP Date header every second and loops forever with no way to stop it.
+	// Upstream closed the request to add a shutdown mechanism as not-planned:
+	// https://github.com/valyala/fasthttp/issues/2257
+	args = append(
+		args,
+		gleak.IgnoringCreator("github.com/valyala/fasthttp.updateServerDate"),
+	)
+	assertion := gomega.Eventually(gleak.Goroutines)
+	assertion.ShouldNot(gleak.HaveLeaked(args...))
 }
