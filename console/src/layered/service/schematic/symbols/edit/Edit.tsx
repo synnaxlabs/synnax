@@ -73,7 +73,7 @@ export const createEditLayout = (
   return { ...EDIT_LAYOUT, ...initial, name: isEdit ? EDIT_NAME : CREATE_NAME };
 };
 
-const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1001 };
+const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
 const DEFAULT_REGION_KEY = "default";
 
