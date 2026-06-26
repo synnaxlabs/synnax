@@ -9,3 +9,4 @@
 
 export * from "@/vis/render/test/record";
 export * from "@/vis/render/test/Recorder";
+export * from "@/vis/render/test/RenderProvider";

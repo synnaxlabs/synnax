@@ -10,20 +10,21 @@
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { CSS } from "@/css";
 
-const RENDER_CONTEXT_KEY = "pluto-render-context";
+/** Mirrors the private context key set by `render.Context`. Kept in sync with that
+ * module's `CSS.B("render-context")` so the recorder lands under the key
+ * `render.Context.use` reads. */
+const RENDER_CONTEXT_KEY = CSS.B("render-context");
 
-export const renderProviderStateZ = z.object({
-  context: z.any(),
-});
+export const renderProviderStateZ = z.object({ context: z.any() });
 
 /** Thin Composite that injects a `render.Context`-shaped value into the parent context
- * under the key consumed by `render.Context.use`. Used by {@link mount} to bridge a
- * test recorder (or any duck-typed render context) into the aether tree without
- * requiring a real `Canvas` component (which depends on WebGL and OffscreenCanvas APIs
- * jsdom does not provide). */
+ * under the key consumed by `render.Context.use`. Lets a test recorder (or any
+ * duck-typed render context) flow into the aether tree without a real `Canvas`
+ * component, which depends on WebGL and OffscreenCanvas APIs jsdom does not provide. */
 export class RenderProvider extends aether.Composite<typeof renderProviderStateZ> {
-  static readonly TYPE = "aetherTest.RenderProvider";
+  static readonly TYPE = "render.test.RenderProvider";
   static readonly stateZ = renderProviderStateZ;
   schema = RenderProvider.stateZ;
 

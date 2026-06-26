@@ -17,55 +17,71 @@ export interface Call {
   args: unknown[];
 }
 
+/** Return values for the canvas methods that callers read a result from. Everything
+ * else records and returns undefined. */
 const PASSTHROUGH: Record<string, unknown> = {
   measureText: { width: 8 },
   getImageData: { data: new Uint8ClampedArray() },
 };
 
-const buildCanvasRecorder = (
-  width = 800,
-  height = 600,
-): { ctx: unknown; calls: Call[] } => {
+/** Style/state properties seeded so reads before a write return canvas-shaped defaults
+ * instead of a recording stub. Mirrors the defaults a real 2D context exposes. */
+const STYLE_DEFAULTS: Record<string, unknown> = {
+  fillStyle: "",
+  strokeStyle: "",
+  lineWidth: 1,
+  lineCap: "butt",
+  lineJoin: "miter",
+  lineDashOffset: 0,
+  globalAlpha: 1,
+  font: "",
+  textAlign: "start",
+  textBaseline: "alphabetic",
+};
+
+/** Recording analog of `SugaredOffscreenCanvasRenderingContext2D`. It is itself the
+ * drawing surface — every method call and property assignment is captured in
+ * {@link calls} in encounter order — so it can stand in directly wherever production
+ * reads `render.Context.lower2d` / `upper2d` (e.g. constructing a `Draw2D`). */
+export interface RecordingCanvas {
+  /** Recorded method calls and property sets, in encounter order. */
+  calls: Call[];
+  /** Restrict drawing to a region; records the call and returns a no-op destructor. */
+  scissor(region: box.Box, overScan?: xy.XY): destructor.Destructor;
+  [op: string]: unknown;
+}
+
+const buildCanvas = (width = 800, height = 600): RecordingCanvas => {
   const calls: Call[] = [];
-  const state: Record<string, unknown> = {
+  const target: Record<string, unknown> = {
     canvas: { width, height },
+    calls,
+    scissor: (region: box.Box, overScan: xy.XY = xy.ZERO) => {
+      calls.push({ op: "scissor", args: [region, overScan] });
+      return () => {};
+    },
+    ...STYLE_DEFAULTS,
   };
   const handler: ProxyHandler<Record<string, unknown>> = {
-    get(target, prop) {
+    get(t, prop) {
       if (typeof prop !== "string") return undefined;
-      if (prop in target) return target[prop];
+      if (prop in t) return t[prop];
       const fn = (...args: unknown[]): unknown => {
         calls.push({ op: prop, args });
         return PASSTHROUGH[prop];
       };
-      target[prop] = fn;
+      t[prop] = fn;
       return fn;
     },
-    set(target, prop, value) {
+    set(t, prop, value) {
       if (typeof prop !== "string") return false;
       calls.push({ op: `set:${prop}`, args: [value] });
-      target[prop] = value;
+      t[prop] = value;
       return true;
     },
   };
-  return { ctx: new Proxy(state, handler), calls };
+  return new Proxy(target, handler) as unknown as RecordingCanvas;
 };
-
-/** Recording analog of `SugaredOffscreenCanvasRenderingContext2D`. Every method and
- * property access is captured in {@link calls} in encounter order. */
-export interface RecordingCanvas2D {
-  readonly ctx: unknown;
-  readonly calls: Call[];
-  scissor(region: box.Box, overScan?: xy.XY): destructor.Destructor;
-}
-
-/** Recording analog of `WebGL2RenderingContext`. Smoke-level: every call is captured
- * but no real GL state is maintained. Sufficient for "did Line attempt to render?"
- * assertions; not sufficient for pixel-level WebGL testing. */
-export interface RecordingGL {
-  readonly ctx: unknown;
-  readonly calls: Call[];
-}
 
 /** A single `scissor()` call recorded on the recorder. */
 export interface ScissorCall {
@@ -88,14 +104,14 @@ export interface LoopCall {
 
 /** Duck-typed render context that records every component-visible call.
  *
- * Drop into {@link aetherTest.mount}'s `renderContext` option to make a component
- * under test see this recorder as its `render.Context`. Recorded data is available on
- * the recorder for assertion after the test drives whatever lifecycle steps it cares
- * about. */
+ * Pass as the `render` option to `renderAether` (or `render`) to make a component under
+ * test see this recorder as its `render.Context`. The 2D canvases are themselves
+ * recording drawing surfaces, so components that draw (via `Draw2D`) work unchanged;
+ * recorded data is available on the recorder for assertion afterward. */
 export class Recorder {
-  readonly upper2d: RecordingCanvas2D;
-  readonly lower2d: RecordingCanvas2D;
-  readonly gl: RecordingGL;
+  readonly upper2d: RecordingCanvas;
+  readonly lower2d: RecordingCanvas;
+  readonly gl: RecordingCanvas;
 
   /** Calls to `Recorder.scissor` in encounter order. */
   readonly scissorCalls: ScissorCall[] = [];
@@ -114,30 +130,14 @@ export class Recorder {
   };
 
   constructor() {
-    const upper = buildCanvasRecorder();
-    const lower = buildCanvasRecorder();
-    const gl = buildCanvasRecorder();
-    this.upper2d = {
-      ctx: upper.ctx,
-      calls: upper.calls,
-      scissor: (region, overScan = xy.ZERO) => {
-        upper.calls.push({ op: "scissor", args: [region, overScan] });
-        return () => {};
-      },
-    };
-    this.lower2d = {
-      ctx: lower.ctx,
-      calls: lower.calls,
-      scissor: (region, overScan = xy.ZERO) => {
-        lower.calls.push({ op: "scissor", args: [region, overScan] });
-        return () => {};
-      },
-    };
-    this.gl = { ctx: gl.ctx, calls: gl.calls };
+    this.upper2d = buildCanvas();
+    this.lower2d = buildCanvas();
+    this.gl = buildCanvas();
   }
 
-  /** Resets every recording (calls, scissor/erase/loop) and the recorded region/dpr.
-   * Use between phases of a test when you only care about calls made since `clear`. */
+  /** Resets every recording — the per-canvas calls and the scissor/erase/loop lists.
+   * Region and dpr are left as-is. Use between phases of a test when you only care
+   * about calls made since `clear`. */
   clear(): void {
     this.upper2d.calls.length = 0;
     this.lower2d.calls.length = 0;

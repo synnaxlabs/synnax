@@ -23,29 +23,29 @@ describe("canvasTest.record", () => {
   describe("2D context recording", () => {
     it("records a method call as { op, args }", () => {
       const r = canvasTest.record();
-      const ctx = r.upper2d.ctx as DrawableCtx;
+      const ctx = r.upper2d as unknown as DrawableCtx;
       ctx.fillRect(1, 2, 3, 4);
       expect(r.upper2d.calls).toEqual([{ op: "fillRect", args: [1, 2, 3, 4] }]);
     });
 
     it("records property assignments under set:<prop>", () => {
       const r = canvasTest.record();
-      const ctx = r.lower2d.ctx as DrawableCtx;
+      const ctx = r.lower2d as unknown as DrawableCtx;
       ctx.strokeStyle = "red";
       expect(r.lower2d.calls).toEqual([{ op: "set:strokeStyle", args: ["red"] }]);
     });
 
     it("preserves property reads after assignment", () => {
       const r = canvasTest.record();
-      const ctx = r.upper2d.ctx as DrawableCtx;
+      const ctx = r.upper2d as unknown as DrawableCtx;
       ctx.strokeStyle = "red";
       expect(ctx.strokeStyle).toBe("red");
     });
 
     it("records multiple calls in encounter order across both 2D contexts", () => {
       const r = canvasTest.record();
-      const upper = r.upper2d.ctx as DrawableCtx;
-      const lower = r.lower2d.ctx as DrawableCtx;
+      const upper = r.upper2d as unknown as DrawableCtx;
+      const lower = r.lower2d as unknown as DrawableCtx;
       upper.beginPath();
       lower.fillRect(0, 0, 10, 10);
       upper.closePath();
@@ -87,7 +87,7 @@ describe("canvasTest.record", () => {
   describe("clear", () => {
     it("resets every recording", () => {
       const r = canvasTest.record();
-      const ctx = r.upper2d.ctx as DrawableCtx;
+      const ctx = r.upper2d as unknown as DrawableCtx;
       ctx.fillRect(0, 0, 1, 1);
       r.scissor(box.ZERO);
       r.erase(box.ZERO);

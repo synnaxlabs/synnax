@@ -9,7 +9,7 @@
 
 import { Recorder } from "@/vis/render/test/Recorder";
 
-/** Construct a fresh canvas {@link Recorder}. Returns an object that can be passed
- * directly to `aetherTest.mount`'s `renderContext` option, or used standalone to
- * record draw calls from non-aether code. */
+/** Construct a fresh canvas {@link Recorder}. Returns an object that can be passed as
+ * the `render` option to `renderAether` (or `render`), or used standalone to record
+ * draw calls from non-aether code. */
 export const record = (): Recorder => new Recorder();
