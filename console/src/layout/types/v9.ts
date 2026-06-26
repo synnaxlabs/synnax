@@ -10,7 +10,6 @@
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { TYPE as ARC_TYPE } from "@/layered/service/arc/imex/migrations";
 import * as v1 from "@/layout/types/v1";
 import * as v8 from "@/layout/types/v8";
 
@@ -36,7 +35,7 @@ export const sliceMigration: migrate.Migration<v8.SliceState, SliceState> =
       layouts: Object.fromEntries(
         Object.entries(layouts).map(([key, layout]) => [
           key,
-          { ...layout, type: layout.type === "arc_editor" ? ARC_TYPE : layout.type },
+          { ...layout, type: layout.type === "arc_editor" ? "arc" : layout.type },
         ]),
       ),
     }),
