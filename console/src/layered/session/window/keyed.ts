@@ -17,6 +17,10 @@ import { Drift } from "@synnaxlabs/drift";
 import { type require } from "@synnaxlabs/x";
 import type z from "zod";
 
+/**
+ * Base payload for window-scoped actions. When windowKey is omitted, the inject-key
+ * middleware fills it with the dispatching window's key.
+ */
 export interface OptionalKeyParams {
   windowKey?: string;
 }
@@ -26,6 +30,15 @@ type RequireWindowKey<Payload extends OptionalKeyParams> = require.Require<
   "windowKey"
 >;
 
+/**
+ * Builds a reducer wrapper that scopes a handler to a single window's state. The
+ * returned wrapper resolves (and lazily creates from schema defaults) the per-window
+ * state for the action's windowKey, then invokes handler with it.
+ *
+ * @param schema the zod schema used to default a window's state on first access.
+ * @throws {UnexpectedError} if the dispatched action has no windowKey, which should
+ * already have been injected by createInjectKeyMiddleware.
+ */
 export const createWithKeyHandler =
   <State extends z.ZodType>(schema: State) =>
   <
@@ -55,6 +68,14 @@ export const createWithKeyHandler =
 
 type KeyActionMatcher = Pick<ActionCreatorWithPayload<OptionalKeyParams>, "match">;
 
+/**
+ * Creates Redux middleware that stamps the dispatching window's key onto matching
+ * actions that were dispatched without an explicit windowKey. Actions that already
+ * carry a windowKey pass through unchanged; matching actions dispatched before a window
+ * key is available are dropped.
+ *
+ * @param actionCreators the action creator(s) whose payloads should be key-injected.
+ */
 export const createInjectKeyMiddleware = <StoreState>(
   actionCreators: KeyActionMatcher | KeyActionMatcher[],
 ): Middleware<{}, Drift.StoreState & StoreState> => {

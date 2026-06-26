@@ -106,6 +106,10 @@ const { actions, reducer } = createSlice({
         left.size = size;
       },
     ),
+    collapseLeft: withKey<Window.OptionalKeyParams, SliceState>(({ left }) => {
+      left.hover = false;
+      left.selected = undefined;
+    }),
     selectBottom: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
       if (bottom.visible && !bottom.hover) bottom.visible = false;
       else {
@@ -140,6 +144,10 @@ const { actions, reducer } = createSlice({
         bottom.size = size;
       },
     ),
+    collapseBottom: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
+      bottom.hover = false;
+      bottom.visible = false;
+    }),
     hideAll: withKey<Window.OptionalKeyParams, SliceState>(({ left, bottom }) => {
       left.selected = undefined;
       left.hover = false;
@@ -156,12 +164,14 @@ export const {
   startLeftHover,
   stopLeftHover,
   resizeLeft,
+  collapseLeft,
   selectBottom,
   showBottom,
   toggleBottom,
   startBottomHover,
   stopBottomHover,
   resizeBottom,
+  collapseBottom,
   hideAll,
 } = actions;
 
@@ -178,12 +188,14 @@ export const MIDDLEWARE = [
     startLeftHover,
     stopLeftHover,
     resizeLeft,
+    collapseLeft,
     selectBottom,
     showBottom,
     toggleBottom,
     startBottomHover,
     stopBottomHover,
     resizeBottom,
+    collapseBottom,
     hideAll,
   ]),
 ];

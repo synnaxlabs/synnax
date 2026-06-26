@@ -11,7 +11,7 @@ import { combineReducers, configureStore, type EnhancedStore } from "@reduxjs/to
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Aether, Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
-import { aether, flux, status, synnax } from "@synnaxlabs/pluto/ether";
+import { aether, eraser, flux, status, synnax } from "@synnaxlabs/pluto/ether";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
 import { Provider } from "react-redux";
@@ -56,6 +56,7 @@ export const createTestStore = (
 const AETHER_REGISTRY: aether.ComponentRegistry = {
   ...synnax.REGISTRY,
   ...status.REGISTRY,
+  ...eraser.REGISTRY,
   ...flux.createRegistry({ storeConfig: {} }),
 };
 

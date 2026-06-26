@@ -21,10 +21,10 @@ export const Bottom = (): ReactElement | null => {
     (size: number) => dispatch(Session.Nav.resizeBottom({ size })),
     [dispatch],
   );
-  const handleCollapse = useCallback(() => {
-    if (hover) dispatch(Session.Nav.stopBottomHover({}));
-    else dispatch(Session.Nav.selectBottom({}));
-  }, [dispatch, hover]);
+  const handleCollapse = useCallback(
+    () => dispatch(Session.Nav.collapseBottom({})),
+    [dispatch],
+  );
   const handleStopHover = useCallback(
     () => dispatch(Session.Nav.stopBottomHover({})),
     [dispatch],

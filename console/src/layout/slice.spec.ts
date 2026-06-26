@@ -47,7 +47,7 @@ import {
 
 const rootReducer = combineReducers({
   [SLICE_NAME]: reducer,
-  drift: Drift.reducer,
+  [Drift.SLICE_NAME]: Drift.reducer,
 });
 
 type TestState = ReturnType<typeof rootReducer>;

@@ -18,7 +18,7 @@ import { Nav } from "@/layered/session/nav";
 
 const rootReducer = combineReducers({
   [Nav.SLICE_NAME]: Nav.reducer,
-  drift: Drift.reducer,
+  [Drift.SLICE_NAME]: Drift.reducer,
 });
 
 const storeWith = (...actions: Nav.Action[]) => {

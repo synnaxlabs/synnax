@@ -16,15 +16,14 @@ import { describe, expect, it } from "vitest";
 
 import { Layout } from "@/layout";
 import { select } from "@/layout/selectors";
-import { reducer } from "@/layout/slice";
 
 describe("layout hooks", () => {
   describe("placing & removing", () => {
     it("should place a layout within the store", () => {
       const store = configureStore({
         reducer: combineReducers({
-          layout: reducer,
-          drift: Drift.reducer,
+          [Layout.SLICE_NAME]: Layout.reducer,
+          [Drift.SLICE_NAME]: Drift.reducer,
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
@@ -59,8 +58,8 @@ describe("layout hooks", () => {
     it("should remove a layout from the store", () => {
       const store = configureStore({
         reducer: combineReducers({
-          layout: reducer,
-          drift: Drift.reducer,
+          [Layout.SLICE_NAME]: Layout.reducer,
+          [Drift.SLICE_NAME]: Drift.reducer,
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
@@ -96,8 +95,8 @@ describe("layout hooks", () => {
     it("should select the active mosaic tab", () => {
       const store = configureStore({
         reducer: combineReducers({
-          layout: reducer,
-          drift: Drift.reducer,
+          [Layout.SLICE_NAME]: Layout.reducer,
+          [Drift.SLICE_NAME]: Drift.reducer,
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
@@ -140,8 +139,8 @@ describe("layout hooks", () => {
     it("should return true for blurred if there is a modal open", () => {
       const store = configureStore({
         reducer: combineReducers({
-          layout: reducer,
-          drift: Drift.reducer,
+          [Layout.SLICE_NAME]: Layout.reducer,
+          [Drift.SLICE_NAME]: Drift.reducer,
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (

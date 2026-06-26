@@ -72,7 +72,7 @@ const rootReducer = combineReducers({
   [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Session.Table.SLICE_NAME]: Session.Table.reducer,
   [Project.SLICE_NAME]: Project.reducer,
-  drift: Drift.reducer,
+  [Drift.SLICE_NAME]: Drift.reducer,
 }) as unknown as Reducer<Record<string, unknown>, UnknownAction>;
 
 // An exported layout slice with a schematic and a table tab, each keyed to match the

@@ -16,7 +16,7 @@ import { Nav } from "@/layered/session/nav";
 
 const rootReducer = combineReducers({
   [Nav.SLICE_NAME]: Nav.reducer,
-  drift: Drift.reducer,
+  [Drift.SLICE_NAME]: Drift.reducer,
 });
 
 type TestState = ReturnType<typeof rootReducer>;
@@ -197,6 +197,26 @@ describe("Nav Slice", () => {
         expect(left(s).size).toBe(320);
       });
     });
+
+    describe("collapseLeft", () => {
+      it("should clear a hovered item", () => {
+        const s = run(Nav.startLeftHover({ key: "a" }), Nav.collapseLeft({}));
+        expect(Nav.selectLeftSelected(s)).toBeUndefined();
+        expect(left(s).hover).toBe(false);
+      });
+
+      it("should clear a pinned item", () => {
+        const s = run(Nav.pinLeft({ key: "a" }), Nav.collapseLeft({}));
+        expect(Nav.selectLeftSelected(s)).toBeUndefined();
+        expect(left(s).hover).toBe(false);
+      });
+
+      it("should leave an already-collapsed left nav untouched", () => {
+        const s = run(Nav.collapseLeft({}));
+        expect(Nav.selectLeftSelected(s)).toBeUndefined();
+        expect(left(s).hover).toBe(false);
+      });
+    });
   });
 
   describe("bottom navigation", () => {
@@ -278,6 +298,34 @@ describe("Nav Slice", () => {
       it("should set the bottom size", () => {
         const s = run(Nav.resizeBottom({ size: 180 }));
         expect(bottom(s).size).toBe(180);
+      });
+    });
+
+    describe("collapseBottom", () => {
+      it("should hide a hovered bottom nav", () => {
+        const s = run(Nav.startBottomHover({}), Nav.collapseBottom({}));
+        expect(Nav.selectBottomVisible(s)).toBe(false);
+        expect(bottom(s).hover).toBe(false);
+      });
+
+      it("should hide a pinned bottom nav", () => {
+        const s = run(Nav.showBottom({}), Nav.collapseBottom({}));
+        expect(Nav.selectBottomVisible(s)).toBe(false);
+      });
+
+      it("should leave an already-collapsed bottom nav hidden", () => {
+        const s = run(Nav.collapseBottom({}));
+        expect(Nav.selectBottomVisible(s)).toBe(false);
+        expect(bottom(s).hover).toBe(false);
+      });
+
+      it("should stay collapsed when invoked repeatedly", () => {
+        const s = run(
+          Nav.showBottom({}),
+          Nav.collapseBottom({}),
+          Nav.collapseBottom({}),
+        );
+        expect(Nav.selectBottomVisible(s)).toBe(false);
       });
     });
   });

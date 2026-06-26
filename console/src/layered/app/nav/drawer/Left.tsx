@@ -22,10 +22,10 @@ export const Left = (): ReactElement => {
     (size: number) => dispatch(Session.Nav.resizeLeft({ size })),
     [dispatch],
   );
-  const handleCollapse = useCallback(() => {
-    if (hover) dispatch(Session.Nav.stopLeftHover({}));
-    else if (selected != null) dispatch(Session.Nav.selectLeft({ key: selected }));
-  }, [dispatch, hover, selected]);
+  const handleCollapse = useCallback(
+    () => dispatch(Session.Nav.collapseLeft({})),
+    [dispatch],
+  );
   const handleStopHover = useCallback(
     () => dispatch(Session.Nav.stopLeftHover({})),
     [dispatch],
