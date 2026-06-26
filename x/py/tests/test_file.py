@@ -31,7 +31,8 @@ class TestStreamToFile:
         assert dest.read_bytes() == b'{"new": true}'
 
     def test_empty_stream_allowed_by_default(self, tmp_path: Path) -> None:
-        """An empty stream writes a zero-byte file when allow_empty is left at default."""
+        """An empty stream writes a zero-byte file when allow_empty is left at
+        default."""
         dest = tmp_path / "out.json"
         stream_to_file([], dest)
         assert dest.read_bytes() == b""
@@ -57,7 +58,8 @@ class TestStreamToFile:
         assert list(tmp_path.glob("*.part")) == []
 
     def test_mid_stream_failure_preserves_dest(self, tmp_path: Path) -> None:
-        """A failure partway through leaves an existing dest untouched and no temp file."""
+        """A failure partway through leaves an existing dest untouched and no temp
+        file."""
         dest = tmp_path / "out.json"
         dest.write_bytes(b'{"old": true}')
 
