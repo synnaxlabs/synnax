@@ -60,8 +60,6 @@ type transport struct {
 	renameServer channel.RenameServer
 }
 
-var _ channel.Transport = transport{}
-
 // CreateClient implements the channel.Transport interface.
 func (t transport) CreateClient() channel.CreateClient { return t.createClient }
 

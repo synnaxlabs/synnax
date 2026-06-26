@@ -37,8 +37,6 @@ type transport struct {
 	server deleter.Server
 }
 
-var _ deleter.Transport = transport{}
-
 // Client implements the deleter.Transport interface.
 func (t transport) Client() deleter.Client { return t.client }
 

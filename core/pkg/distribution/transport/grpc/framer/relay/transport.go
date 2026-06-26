@@ -36,8 +36,8 @@ type (
 
 type server struct{ serverCore }
 
-// Relay implements the pb.RelayServiceServer interface, dispatching the gRPC
-// stream to the registered freighter handler.
+// Relay implements the pb.RelayServiceServer interface, dispatching the gRPC stream to
+// the registered freighter handler.
 func (s *server) Relay(stream pb.RelayService_RelayServer) error {
 	return s.Handler(stream.Context(), stream)
 }
