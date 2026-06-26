@@ -105,13 +105,13 @@
   },
   "devDependencies": {
     "@prettier/plugin-xml": "^3.4.2",
-    "knip": "^6.14.1",
-    "prettier": "^3.8.3",
+    "knip": "^6.20.0",
+    "prettier": "^3.8.4",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-sh": "^0.18.1",
     "prettier-plugin-toml": "^2.0.6",
     "stylelint-config-standard": "catalog:",
-    "turbo": "^2.9.14"
+    "turbo": "^2.10.0"
   },
   "engines": {
     "node": "^24.18.0"
