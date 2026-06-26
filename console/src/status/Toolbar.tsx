@@ -28,6 +28,7 @@ import { useDispatch } from "react-redux";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
+import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
@@ -162,7 +163,7 @@ const Actions = (): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "status",
   icon: <Icon.Status />,
   content: <Content />,

@@ -9,6 +9,7 @@
 
 export * from "@/layered/session/lineplot";
 export * from "@/layered/session/log";
+export * from "@/layered/session/nav";
 export * from "@/layered/session/schematic";
 export * from "@/layered/session/table";
 export * from "@/layered/session/theme";
