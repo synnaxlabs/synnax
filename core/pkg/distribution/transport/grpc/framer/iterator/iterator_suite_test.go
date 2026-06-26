@@ -39,3 +39,5 @@ var _ = BeforeSuite(func() {
 		transport.BindTo(reg)
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
