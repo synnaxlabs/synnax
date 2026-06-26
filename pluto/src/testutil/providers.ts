@@ -123,8 +123,8 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     ...theming.REGISTRY,
     [telem.PROVIDER_TYPE]: buildTelemProvider(telemFactories),
     [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider,
-    [aetherTest.TestLeaf.TYPE]: aetherTest.TestLeaf,
-    [aetherTest.TestComposite.TYPE]: aetherTest.TestComposite,
+    [aetherTest.Leaf.TYPE]: aetherTest.Leaf,
+    [aetherTest.Composite.TYPE]: aetherTest.Composite,
     ...registry,
   };
 

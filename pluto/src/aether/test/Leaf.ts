@@ -11,23 +11,23 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 
-export const testLeafStateZ = z.record(z.string(), z.unknown());
-export type TestLeafState = z.infer<typeof testLeafStateZ>;
+export const leafStateZ = z.record(z.string(), z.unknown());
+export type LeafState = z.infer<typeof leafStateZ>;
 
-/** Captures a single `afterUpdate` invocation on a {@link TestLeaf}, including the
+/** Captures a single `afterUpdate` invocation on a {@link Leaf}, including the
  * state at that point and the state immediately preceding it. */
 export interface UpdateCall {
-  state: TestLeafState;
-  prevState: TestLeafState;
+  state: LeafState;
+  prevState: LeafState;
 }
 
 /** Bundled aether `Leaf` stub for tests. Registered in a test registry under any type
  * name; records every lifecycle invocation for later assertion. The schema accepts any
  * record-shaped state. */
-export class TestLeaf extends aether.Leaf<typeof testLeafStateZ> {
-  static readonly TYPE: string = "aetherTest.TestLeaf";
-  static readonly stateZ = testLeafStateZ;
-  schema = TestLeaf.stateZ;
+export class Leaf extends aether.Leaf<typeof leafStateZ> {
+  static readonly TYPE: string = "aetherTest.Leaf";
+  static readonly stateZ = leafStateZ;
+  schema = Leaf.stateZ;
 
   /** Every call to {@link afterUpdate}, in order. */
   readonly updateCalls: UpdateCall[] = [];

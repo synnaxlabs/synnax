@@ -132,6 +132,9 @@ export const renderAether = <C extends ComponentClass>(
     stack.driver.update([...componentPath, childKey], child.type, child.state);
 
   const component = stack.driver.find<InstanceType<C>>(componentPath);
+  // Component (the public type) and Leaf<S> (typed state access) are two views of the
+  // same instance; alias once so state reads below need no further assertion.
+  const leaf = component as aether.Leaf<S>;
 
   let disposed = false;
   const unmount = (): void => {
@@ -145,10 +148,9 @@ export const renderAether = <C extends ComponentClass>(
   return {
     component,
     get state(): z.infer<S> {
-      return (component as aether.Leaf<S>).state;
+      return leaf.state;
     },
     setState(next: state.SetArg<z.infer<S>>): void {
-      const leaf = component as aether.Leaf<S>;
       stack.driver.update(
         componentPath,
         Component.TYPE,

@@ -18,8 +18,8 @@ import { theming } from "@/theming/aether";
 
 const HookComponent = ({ initialValue }: { initialValue: number }) => {
   Aether.use({
-    type: aetherTest.TestLeaf.TYPE,
-    schema: aetherTest.TestLeaf.stateZ,
+    type: aetherTest.Leaf.TYPE,
+    schema: aetherTest.Leaf.stateZ,
     aetherKey: "consumer",
     initialState: { value: initialValue },
   });
@@ -49,8 +49,8 @@ describe("render", () => {
         "telem",
         "consumer",
       ]);
-      expect(leaf).toBeInstanceOf(aetherTest.TestLeaf);
-      expect((leaf as aetherTest.TestLeaf).state).toEqual({ value: 7 });
+      expect(leaf).toBeInstanceOf(aetherTest.Leaf);
+      expect((leaf as aetherTest.Leaf).state).toEqual({ value: 7 });
     });
   });
 

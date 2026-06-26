@@ -76,9 +76,9 @@ describe("Diagram", () => {
       state: { position: xy.ZERO, zoom: 1, region: REGION, visible: true },
       render: recorder,
       children: {
-        e1: { type: aetherTest.TestComposite.TYPE, state: {} },
+        e1: { type: aetherTest.Composite.TYPE, state: {} },
       },
     });
-    expect(h.child<aetherTest.TestComposite>("e1").updateCalls).toHaveLength(1);
+    expect(h.child<aetherTest.Composite>("e1").updateCalls).toHaveLength(1);
   });
 });

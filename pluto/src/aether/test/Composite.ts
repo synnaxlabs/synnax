@@ -10,19 +10,19 @@
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { type UpdateCall } from "@/aether/test/TestLeaf";
+import { type UpdateCall } from "@/aether/test/Leaf";
 
-export const testCompositeStateZ = z.record(z.string(), z.unknown());
-export type TestCompositeState = z.infer<typeof testCompositeStateZ>;
+export const compositeStateZ = z.record(z.string(), z.unknown());
+export type CompositeState = z.infer<typeof compositeStateZ>;
 
-/** Bundled aether `Composite` stub for tests. Same shape as {@link TestLeaf} but
+/** Bundled aether `Composite` stub for tests. Same shape as {@link Leaf} but
  * accepts arbitrary descendants — drop it into a registry to stand in for a real
  * Composite parent while keeping its children under the harness's normal child
  * registry. */
-export class TestComposite extends aether.Composite<typeof testCompositeStateZ> {
-  static readonly TYPE: string = "aetherTest.TestComposite";
-  static readonly stateZ = testCompositeStateZ;
-  schema = TestComposite.stateZ;
+export class Composite extends aether.Composite<typeof compositeStateZ> {
+  static readonly TYPE: string = "aetherTest.Composite";
+  static readonly stateZ = compositeStateZ;
+  schema = Composite.stateZ;
 
   /** Every call to {@link afterUpdate}, in order. */
   readonly updateCalls: UpdateCall[] = [];
