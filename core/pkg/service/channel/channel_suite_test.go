@@ -33,14 +33,10 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// The suite-wide mock distribution cluster opens pebble-backed stores whose internal
-// goroutines (block-cache shards, cleanup manager) are not released within the
-// leak-check window even after the cluster is closed, so a BeforeSuite leak check is not
-// applicable here.
-//
-//nolint:leaklint
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = DeferClose(mock.NewCluster().Provision(ctx))
+	ShouldNotLeakGoroutines()
+	cluster := DeferClose(mock.NewCluster())
+	dist = DeferClose(cluster.Provision(ctx))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,

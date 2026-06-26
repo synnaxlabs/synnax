@@ -55,16 +55,13 @@ var (
 	arcClock = telem.Now
 )
 
-// The mock distribution cluster's pebble-backed cesium storage and the signals
-// provider spawn background goroutines that do not fully drain within the
-// leak-check window after Close.
-//
-//nolint:leaklint
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.Open())
-	dist = DeferClose(mock.NewCluster().Provision(ctx))
+	cluster := DeferClose(mock.NewCluster())
+	dist = DeferClose(cluster.Provision(ctx))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -119,6 +116,4 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-var _ = BeforeEach(func() { tx = db.OpenTx() })
-
-var _ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
