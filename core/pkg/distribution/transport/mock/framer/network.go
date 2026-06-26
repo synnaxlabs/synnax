@@ -24,8 +24,8 @@ import (
 
 // Network backs the in-memory framer transports for a cluster of nodes. It bundles the
 // per-operation networks (deleter, iterator, relay, writer) so that a single Transport
-// can be provisioned per node, mirroring the gRPC framer.Transport that bundles the same
-// operations.
+// can be provisioned per node, mirroring the gRPC framer.Transport that bundles the
+// same operations.
 type Network struct {
 	deleter  *deleter.Network
 	iterator *iterator.Network
