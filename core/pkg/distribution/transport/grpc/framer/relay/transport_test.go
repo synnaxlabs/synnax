@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	distrelay "github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -25,15 +25,15 @@ var _ = Describe("Transport", func() {
 	It("Should round-trip a request over the wire", func(ctx SpecContext) {
 		transport.Server().BindHandler(func(
 			_ context.Context,
-			srv freighter.ServerStream[distrelay.Request, distrelay.Response],
+			srv freighter.ServerStream[relay.Request, relay.Response],
 		) error {
 			if _, err := srv.Receive(); err != nil {
 				return err
 			}
-			return srv.Send(distrelay.Response{Group: 7})
+			return srv.Send(relay.Response{Group: 7})
 		})
 		stream := MustSucceed(transport.Client().Stream(ctx, addr))
-		Expect(stream.Send(distrelay.Request{Keys: channel.Keys{1, 2}})).To(Succeed())
+		Expect(stream.Send(relay.Request{Keys: channel.Keys{1, 2}})).To(Succeed())
 		Expect(MustSucceed(stream.Receive()).Group).To(Equal(uint32(7)))
 		Expect(stream.CloseSend()).To(Succeed())
 	})
@@ -60,15 +60,15 @@ var _ = Describe("Transport", func() {
 			}))
 			transport.Server().BindHandler(func(
 				_ context.Context,
-				srv freighter.ServerStream[distrelay.Request, distrelay.Response],
+				srv freighter.ServerStream[relay.Request, relay.Response],
 			) error {
 				if _, err := srv.Receive(); err != nil {
 					return err
 				}
-				return srv.Send(distrelay.Response{})
+				return srv.Send(relay.Response{})
 			})
 			stream := MustSucceed(transport.Client().Stream(ctx, addr))
-			Expect(stream.Send(distrelay.Request{})).To(Succeed())
+			Expect(stream.Send(relay.Request{})).To(Succeed())
 			MustSucceed(stream.Receive())
 			Expect(stream.CloseSend()).To(Succeed())
 			Expect(clientCalls.Load()).To(Equal(int32(1)))

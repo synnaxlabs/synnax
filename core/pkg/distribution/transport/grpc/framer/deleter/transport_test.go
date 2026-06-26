@@ -18,14 +18,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	distdeleter "github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 )
 
 var _ = Describe("Transport", func() {
 	It("Should round-trip a delete request over the wire", func(ctx SpecContext) {
-		var received distdeleter.Request
+		var received deleter.Request
 		transport.Server().BindHandler(
-			func(_ context.Context, req distdeleter.Request) (types.Nil, error) {
+			func(_ context.Context, req deleter.Request) (types.Nil, error) {
 				received = req
 				return types.Nil{}, nil
 			},
@@ -33,7 +33,7 @@ var _ = Describe("Transport", func() {
 		Expect(transport.Client().Send(
 			ctx,
 			addr,
-			distdeleter.Request{Keys: channel.Keys{1, 2, 3}},
+			deleter.Request{Keys: channel.Keys{1, 2, 3}},
 		)).To(Equal(types.Nil{}))
 		Expect(received.Keys).To(Equal(channel.Keys{1, 2, 3}))
 	})
@@ -59,14 +59,14 @@ var _ = Describe("Transport", func() {
 				return next(mCtx)
 			}))
 			transport.Server().BindHandler(
-				func(_ context.Context, _ distdeleter.Request) (types.Nil, error) {
+				func(_ context.Context, _ deleter.Request) (types.Nil, error) {
 					return types.Nil{}, nil
 				},
 			)
 			Expect(transport.Client().Send(
 				ctx,
 				addr,
-				distdeleter.Request{Keys: channel.Keys{1}},
+				deleter.Request{Keys: channel.Keys{1}},
 			)).To(Equal(types.Nil{}))
 			Expect(clientCalls.Load()).To(Equal(int32(1)))
 			Expect(serverCalls.Load()).To(Equal(int32(1)))
