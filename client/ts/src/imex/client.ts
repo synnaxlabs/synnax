@@ -15,7 +15,7 @@ import { ontology } from "@/ontology";
  * The serialized wire formats a resource can be imported from or exported to. Today
  * only "JSON" is supported.
  */
-export type ContentType = "JSON";
+export type Encoding = "JSON";
 
 /**
  * Options shared by import and export. Carries the wire format of the resource and is
@@ -23,7 +23,7 @@ export type ContentType = "JSON";
  */
 export interface Options {
   /** The serialized format of the resource. */
-  contentType: ContentType;
+  encoding: Encoding;
 }
 
 /**
@@ -32,11 +32,11 @@ export interface Options {
  * opaque to the client: nothing is parsed or transformed on the way through, so the
  * wire format is exactly the file's contents.
  *
- * Each call moves exactly one resource. The client streams payloads to and from the
- * cluster without buffering them in its own memory, so the client process never has to
- * hold a whole resource at once. The cluster, however, currently materializes each
- * payload server-side, so a single import or export is bounded by the server's
- * available memory.
+ * Each call moves exactly one resource. When source is a ReadableStream or Blob, the
+ * client streams the payload without buffering it in its own memory; an ArrayBufferView
+ * or string is sent as-is (already in memory). Exports always stream back without
+ * buffering. The cluster, however, currently materializes each payload server-side, so
+ * a single import or export is bounded by the server's available memory.
  *
  * The client is environment-agnostic — the byte streams are standard Web Streams that
  * work in browsers, Node 18+, and Tauri webviews. Callers bridge the filesystem with
@@ -50,10 +50,10 @@ export interface Options {
  *   stream to the Console's downloadStream helper.
  */
 export class Client {
-  private readonly file_transport: FileTransport;
+  private readonly fileTransport: FileTransport;
 
   constructor(file: FileTransport) {
-    this.file_transport = file;
+    this.fileTransport = file;
   }
 
   /**
@@ -67,10 +67,10 @@ export class Client {
    * @returns the new resource's ontology ID as stamped by the Core.
    */
   async import(source: UploadBody, options: Options): Promise<ontology.ID> {
-    return await this.file_transport.upload(
+    return await this.fileTransport.upload(
       "/imex/import",
       source,
-      { encoding: options.contentType },
+      options,
       ontology.idZ,
     );
   }
@@ -86,8 +86,6 @@ export class Client {
    * @returns the serialized resource as a stream of bytes.
    */
   async export(id: ontology.ID, options: Options): Promise<ReadableStream<Uint8Array>> {
-    return await this.file_transport.download("/imex/export", id, ontology.idZ, {
-      encoding: options.contentType,
-    });
+    return await this.fileTransport.download("/imex/export", id, ontology.idZ, options);
   }
 }
