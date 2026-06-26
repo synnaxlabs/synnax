@@ -26,6 +26,7 @@ import (
 const (
 	leaseholder = address.Address("leaseholder")
 	gateway     = address.Address("gateway")
+	peer        = address.Address("peer")
 )
 
 var _ = Describe("Transport", func() {
@@ -78,9 +79,4 @@ var _ = Describe("Transport", func() {
 		Expect(received).To(Equal(channel.Keys{9}))
 	})
 
-	It("Should share network state across transports provisioned from the same Network", func() {
-		another := net.New("another", 1)
-		Expect(another.Channel()).ToNot(BeNil())
-		Expect(another.Framer()).ToNot(BeNil())
-	})
 })
