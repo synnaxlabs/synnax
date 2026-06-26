@@ -14,15 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestFalamos(t *testing.T) {
 	RegisterFailHandler(Fail)
-	// This suite creates multiple traced instrumentations in a single spec, each of
-	// which reconfigures the process-global OpenTelemetry SDK via uptrace. Only the
-	// last-configured provider can be shut down on Close, so the earlier ones' SDK
-	// daemons (periodic metric reader, log batch processor) are orphaned and cannot be
-	// drained — per-spec goroutine-leak checking is therefore not applicable here.
-	//nolint:leaklint
 	RunSpecs(t, "Alamos Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
