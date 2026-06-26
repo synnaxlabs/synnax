@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
-	framerpb "github.com/synnaxlabs/synnax/pkg/distribution/framer/pb"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -24,13 +24,13 @@ import (
 type (
 	client = fgrpc.UnaryClient[
 		deleter.Request,
-		*framerpb.DeleteRequest,
+		*pb.DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	server = fgrpc.UnaryServer[
 		deleter.Request,
-		*framerpb.DeleteRequest,
+		*pb.DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
@@ -49,22 +49,22 @@ func New(pool *fgrpc.Pool) Transport {
 	return Transport{
 		server: &server{
 			Internal:           true,
-			RequestTranslator:  framerpb.DeleteRequestTranslator{},
+			RequestTranslator:  pb.DeleteRequestTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
-			ServiceDesc:        &framerpb.DeleteService_ServiceDesc,
+			ServiceDesc:        &pb.DeleteService_ServiceDesc,
 		},
 		client: &client{
 			Pool:               pool,
-			RequestTranslator:  framerpb.DeleteRequestTranslator{},
+			RequestTranslator:  pb.DeleteRequestTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
 			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
-				req *framerpb.DeleteRequest,
+				req *pb.DeleteRequest,
 			) (*emptypb.Empty, error) {
-				return framerpb.NewDeleteServiceClient(conn).Exec(ctx, req)
+				return pb.NewDeleteServiceClient(conn).Exec(ctx, req)
 			},
-			ServiceDesc: &framerpb.DeleteService_ServiceDesc,
+			ServiceDesc: &pb.DeleteService_ServiceDesc,
 		},
 	}
 }

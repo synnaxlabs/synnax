@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	framerpb "github.com/synnaxlabs/synnax/pkg/distribution/framer/pb"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/pb"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"google.golang.org/grpc"
 )
@@ -22,30 +22,30 @@ import (
 type (
 	client = fgrpc.StreamClient[
 		writer.Request,
-		*framerpb.WriterRequest,
+		*pb.WriterRequest,
 		writer.Response,
-		*framerpb.WriterResponse,
+		*pb.WriterResponse,
 	]
 	serverCore = fgrpc.StreamServerCore[
 		writer.Request,
-		*framerpb.WriterRequest,
+		*pb.WriterRequest,
 		writer.Response,
-		*framerpb.WriterResponse,
+		*pb.WriterResponse,
 	]
 )
 
 var (
-	_ writer.Server                = (*server)(nil)
-	_ writer.Client                = (*client)(nil)
-	_ framerpb.WriterServiceServer = (*server)(nil)
-	_ writer.Transport             = Transport{}
+	_ writer.Server          = (*server)(nil)
+	_ writer.Client          = (*client)(nil)
+	_ pb.WriterServiceServer = (*server)(nil)
+	_ writer.Transport       = Transport{}
 )
 
 type server struct{ serverCore }
 
-// Write implements the framerpb.WriterServiceServer interface, dispatching the gRPC
+// Write implements the pb.WriterServiceServer interface, dispatching the gRPC
 // stream to the registered freighter handler.
-func (s *server) Write(stream framerpb.WriterService_WriteServer) error {
+func (s *server) Write(stream pb.WriterService_WriteServer) error {
 	return s.Handler(stream.Context(), stream)
 }
 
@@ -60,21 +60,21 @@ func New(pool *fgrpc.Pool) Transport {
 	return Transport{
 		client: &client{
 			Pool:               pool,
-			RequestTranslator:  framerpb.WriterRequestTranslator{},
-			ResponseTranslator: framerpb.WriterResponseTranslator{},
+			RequestTranslator:  pb.WriterRequestTranslator{},
+			ResponseTranslator: pb.WriterResponseTranslator{},
 			ClientFunc: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
-			) (fgrpc.GRPCClientStream[*framerpb.WriterRequest, *framerpb.WriterResponse], error) {
-				return framerpb.NewWriterServiceClient(conn).Write(ctx)
+			) (fgrpc.GRPCClientStream[*pb.WriterRequest, *pb.WriterResponse], error) {
+				return pb.NewWriterServiceClient(conn).Write(ctx)
 			},
-			ServiceDesc: &framerpb.WriterService_ServiceDesc,
+			ServiceDesc: &pb.WriterService_ServiceDesc,
 		},
 		server: &server{serverCore: serverCore{
 			Internal:           true,
-			RequestTranslator:  framerpb.WriterRequestTranslator{},
-			ResponseTranslator: framerpb.WriterResponseTranslator{},
-			ServiceDesc:        &framerpb.WriterService_ServiceDesc,
+			RequestTranslator:  pb.WriterRequestTranslator{},
+			ResponseTranslator: pb.WriterResponseTranslator{},
+			ServiceDesc:        &pb.WriterService_ServiceDesc,
 		}},
 	}
 }
@@ -87,7 +87,7 @@ func (t Transport) Server() writer.Server { return t.server }
 
 // BindTo registers the transport's server with the given gRPC service registrar.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
-	framerpb.RegisterWriterServiceServer(reg, t.server)
+	pb.RegisterWriterServiceServer(reg, t.server)
 }
 
 // Use binds the given middleware to both the client and server endpoints.

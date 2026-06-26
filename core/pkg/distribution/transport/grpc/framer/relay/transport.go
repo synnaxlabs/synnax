@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	framerpb "github.com/synnaxlabs/synnax/pkg/distribution/framer/pb"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/pb"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"google.golang.org/grpc"
 )
@@ -22,30 +22,30 @@ import (
 type (
 	client = fgrpc.StreamClient[
 		relay.Request,
-		*framerpb.RelayRequest,
+		*pb.RelayRequest,
 		relay.Response,
-		*framerpb.RelayResponse,
+		*pb.RelayResponse,
 	]
 	serverCore = fgrpc.StreamServerCore[
 		relay.Request,
-		*framerpb.RelayRequest,
+		*pb.RelayRequest,
 		relay.Response,
-		*framerpb.RelayResponse,
+		*pb.RelayResponse,
 	]
 )
 
 var (
-	_ relay.Server                = (*server)(nil)
-	_ relay.Client                = (*client)(nil)
-	_ framerpb.RelayServiceServer = (*server)(nil)
-	_ relay.Transport             = Transport{}
+	_ relay.Server          = (*server)(nil)
+	_ relay.Client          = (*client)(nil)
+	_ pb.RelayServiceServer = (*server)(nil)
+	_ relay.Transport       = Transport{}
 )
 
 type server struct{ serverCore }
 
-// Relay implements the framerpb.RelayServiceServer interface, dispatching the gRPC
+// Relay implements the pb.RelayServiceServer interface, dispatching the gRPC
 // stream to the registered freighter handler.
-func (s *server) Relay(stream framerpb.RelayService_RelayServer) error {
+func (s *server) Relay(stream pb.RelayService_RelayServer) error {
 	return s.Handler(stream.Context(), stream)
 }
 
@@ -60,21 +60,21 @@ func New(pool *fgrpc.Pool) Transport {
 	return Transport{
 		client: &client{
 			Pool:               pool,
-			RequestTranslator:  framerpb.RelayRequestTranslator{},
-			ResponseTranslator: framerpb.RelayResponseTranslator{},
+			RequestTranslator:  pb.RelayRequestTranslator{},
+			ResponseTranslator: pb.RelayResponseTranslator{},
 			ClientFunc: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
-			) (fgrpc.GRPCClientStream[*framerpb.RelayRequest, *framerpb.RelayResponse], error) {
-				return framerpb.NewRelayServiceClient(conn).Relay(ctx)
+			) (fgrpc.GRPCClientStream[*pb.RelayRequest, *pb.RelayResponse], error) {
+				return pb.NewRelayServiceClient(conn).Relay(ctx)
 			},
-			ServiceDesc: &framerpb.RelayService_ServiceDesc,
+			ServiceDesc: &pb.RelayService_ServiceDesc,
 		},
 		server: &server{serverCore: serverCore{
 			Internal:           true,
-			RequestTranslator:  framerpb.RelayRequestTranslator{},
-			ResponseTranslator: framerpb.RelayResponseTranslator{},
-			ServiceDesc:        &framerpb.RelayService_ServiceDesc,
+			RequestTranslator:  pb.RelayRequestTranslator{},
+			ResponseTranslator: pb.RelayResponseTranslator{},
+			ServiceDesc:        &pb.RelayService_ServiceDesc,
 		}},
 	}
 }
@@ -87,7 +87,7 @@ func (t Transport) Server() relay.Server { return t.server }
 
 // BindTo registers the transport's server with the given gRPC service registrar.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
-	framerpb.RegisterRelayServiceServer(reg, t.server)
+	pb.RegisterRelayServiceServer(reg, t.server)
 }
 
 // Use binds the given middleware to both the client and server endpoints.

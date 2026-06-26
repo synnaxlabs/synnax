@@ -15,37 +15,37 @@ import (
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	framerpb "github.com/synnaxlabs/synnax/pkg/distribution/framer/pb"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/pb"
 	"google.golang.org/grpc"
 )
 
 type (
 	client = fgrpc.StreamClient[
 		iterator.Request,
-		*framerpb.IteratorRequest,
+		*pb.IteratorRequest,
 		iterator.Response,
-		*framerpb.IteratorResponse,
+		*pb.IteratorResponse,
 	]
 	serverCore = fgrpc.StreamServerCore[
 		iterator.Request,
-		*framerpb.IteratorRequest,
+		*pb.IteratorRequest,
 		iterator.Response,
-		*framerpb.IteratorResponse,
+		*pb.IteratorResponse,
 	]
 )
 
 var (
-	_ iterator.Server                = (*server)(nil)
-	_ iterator.Client                = (*client)(nil)
-	_ framerpb.IteratorServiceServer = (*server)(nil)
-	_ iterator.Transport             = Transport{}
+	_ iterator.Server          = (*server)(nil)
+	_ iterator.Client          = (*client)(nil)
+	_ pb.IteratorServiceServer = (*server)(nil)
+	_ iterator.Transport       = Transport{}
 )
 
 type server struct{ serverCore }
 
-// Iterate implements the framerpb.IteratorServiceServer interface, dispatching the gRPC
+// Iterate implements the pb.IteratorServiceServer interface, dispatching the gRPC
 // stream to the registered freighter handler.
-func (s *server) Iterate(stream framerpb.IteratorService_IterateServer) error {
+func (s *server) Iterate(stream pb.IteratorService_IterateServer) error {
 	return s.Handler(stream.Context(), stream)
 }
 
@@ -60,21 +60,21 @@ func New(pool *fgrpc.Pool) Transport {
 	return Transport{
 		client: &client{
 			Pool:               pool,
-			RequestTranslator:  framerpb.IteratorRequestTranslator{},
-			ResponseTranslator: framerpb.IteratorResponseTranslator{},
+			RequestTranslator:  pb.IteratorRequestTranslator{},
+			ResponseTranslator: pb.IteratorResponseTranslator{},
 			ClientFunc: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
-			) (fgrpc.GRPCClientStream[*framerpb.IteratorRequest, *framerpb.IteratorResponse], error) {
-				return framerpb.NewIteratorServiceClient(conn).Iterate(ctx)
+			) (fgrpc.GRPCClientStream[*pb.IteratorRequest, *pb.IteratorResponse], error) {
+				return pb.NewIteratorServiceClient(conn).Iterate(ctx)
 			},
-			ServiceDesc: &framerpb.IteratorService_ServiceDesc,
+			ServiceDesc: &pb.IteratorService_ServiceDesc,
 		},
 		server: &server{serverCore: serverCore{
 			Internal:           true,
-			RequestTranslator:  framerpb.IteratorRequestTranslator{},
-			ResponseTranslator: framerpb.IteratorResponseTranslator{},
-			ServiceDesc:        &framerpb.IteratorService_ServiceDesc,
+			RequestTranslator:  pb.IteratorRequestTranslator{},
+			ResponseTranslator: pb.IteratorResponseTranslator{},
+			ServiceDesc:        &pb.IteratorService_ServiceDesc,
 		}},
 	}
 }
@@ -87,7 +87,7 @@ func (t Transport) Server() iterator.Server { return t.server }
 
 // BindTo registers the transport's server with the given gRPC service registrar.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
-	framerpb.RegisterIteratorServiceServer(reg, t.server)
+	pb.RegisterIteratorServiceServer(reg, t.server)
 }
 
 // Use binds the given middleware to both the client and server endpoints.
