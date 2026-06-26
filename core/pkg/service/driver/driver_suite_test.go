@@ -29,14 +29,14 @@ import (
 )
 
 var (
-	dist         mock.Node
+	node         mock.Node
 	db           *gorp.DB
 	rackService  *rack.Service
 	taskService  *task.Service
 	channelSvc   *channel.Service
 	framerSvc    *framer.Service
 	statusSvc    *status.Service
-	hostProvider = mock.StaticHostKeyProvider(1)
+	hostProvider = mock.NewStaticHostProvider(1)
 )
 
 func TestDriver(t *testing.T) {
@@ -48,39 +48,39 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	dist = DeferClose(mock.NewCluster()).Provision(ctx)
-	db = dist.DB
+	node = mock.NewNode(ctx)
+	db = node.DB
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
 		Search:   searchIdx,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Group:    dist.Group,
+		Ontology: node.Ontology,
+		DB:       node.DB,
+		Group:    node.Group,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
 	rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           dist.DB,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
+		DB:           node.DB,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
 		HostProvider: hostProvider,
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
-	channelSvc = channel.Wrap(dist.Channel)
-	framerSvc = dist.Framer
+	channelSvc = channel.Wrap(node.Channel)
+	framerSvc = node.Framer
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
-		Channel:  channel.Wrap(dist.Channel),
+		Channel:  channel.Wrap(node.Channel),
 		Search:   searchIdx,
 	}))
 })

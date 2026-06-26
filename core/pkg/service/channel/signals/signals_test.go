@@ -33,12 +33,12 @@ func openStreamer(ctx context.Context, name string) (
 	confluence.Outlet[framer.StreamerResponse], io.Closer,
 ) {
 	var sigCh channel.Channel
-	Expect(dist.Channel.NewRetrieve().
+	Expect(node.Channel.NewRetrieve().
 		Where(channel.MatchNames(name)).
 		Entry(&sigCh).
 		Exec(ctx, nil),
 	).To(Succeed())
-	streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+	streamer := MustSucceed(node.Framer.NewStreamer(ctx, framer.StreamerConfig{
 		Keys: channel.Keys{sigCh.Key()},
 	}))
 	requests, responses := confluence.Attach(streamer, 2)
@@ -56,7 +56,7 @@ var _ = Describe("Signals", func() {
 		ch := channel.Channel{
 			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
-		Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
+		Expect(node.Channel.Create(ctx, &ch)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		payloads := MustSucceed(telem.UnmarshalJSONSeries[channelPayload](
@@ -76,9 +76,9 @@ var _ = Describe("Signals", func() {
 		ch := channel.Channel{
 			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
-		Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
+		Expect(node.Channel.Create(ctx, &ch)).To(Succeed())
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_delete")
-		Expect(dist.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
+		Expect(node.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		keys := telem.UnmarshalSeries[uint32](res.Frame.SeriesAt(0))

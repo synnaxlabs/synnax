@@ -79,23 +79,22 @@ var _ = Describe("Writer", func() {
 			strCh channel.Channel
 		)
 		BeforeAll(func(ctx SpecContext) {
-			builder := mock.ProvisionCluster(ctx, 1)
-			dist := builder.Nodes[1]
+			node := mock.OpenNode(ctx)
 			idxCh = channel.Channel{
 				Name:     channel.NewRandomName(),
 				IsIndex:  true,
 				DataType: telem.TimeStampT,
 			}
-			Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+			Expect(node.Channel.Create(ctx, &idxCh)).To(Succeed())
 			strCh = channel.Channel{
 				Name:       channel.NewRandomName(),
 				DataType:   telem.StringT,
 				LocalIndex: idxCh.LocalKey,
 			}
-			Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
+			Expect(node.Channel.Create(ctx, &strCh)).To(Succeed())
 			s = DeferClose(scenario{
-				dist:   dist,
-				closer: builder,
+				dist:   node,
+				closer: node,
 				name:   "Variable",
 				keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 			})
@@ -243,23 +242,22 @@ var _ = Describe("Writer", func() {
 		Describe("Invalid JSON", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
-				builder := mock.ProvisionCluster(ctx, 1)
-				dist := builder.Nodes[1]
+				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     channel.NewRandomName(),
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
-				Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+				Expect(node.Channel.Create(ctx, &idxCh)).To(Succeed())
 				jsonCh := channel.Channel{
 					Name:       channel.NewRandomName(),
 					DataType:   telem.JSONT,
 					LocalIndex: idxCh.LocalKey,
 				}
-				Expect(dist.Channel.Create(ctx, &jsonCh)).To(Succeed())
+				Expect(node.Channel.Create(ctx, &jsonCh)).To(Succeed())
 				s = DeferClose(scenario{
-					dist:   dist,
-					closer: builder,
+					dist:   node,
+					closer: node,
 					keys:   []channel.Key{idxCh.Key(), jsonCh.Key()},
 				})
 			})
@@ -284,23 +282,22 @@ var _ = Describe("Writer", func() {
 		Describe("Invalid UTF-8", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
-				builder := mock.ProvisionCluster(ctx, 1)
-				dist := builder.Nodes[1]
+				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     channel.NewRandomName(),
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
-				Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+				Expect(node.Channel.Create(ctx, &idxCh)).To(Succeed())
 				strCh := channel.Channel{
 					Name:       channel.NewRandomName(),
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
-				Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
+				Expect(node.Channel.Create(ctx, &strCh)).To(Succeed())
 				s = DeferClose(scenario{
-					dist:   dist,
-					closer: builder,
+					dist:   node,
+					closer: node,
 					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 				})
 			})
@@ -325,23 +322,22 @@ var _ = Describe("Writer", func() {
 		Describe("Malformed Variable Prefix", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
-				builder := mock.ProvisionCluster(ctx, 1)
-				dist := builder.Nodes[1]
+				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     channel.NewRandomName(),
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
-				Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+				Expect(node.Channel.Create(ctx, &idxCh)).To(Succeed())
 				strCh := channel.Channel{
 					Name:       channel.NewRandomName(),
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
-				Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
+				Expect(node.Channel.Create(ctx, &strCh)).To(Succeed())
 				s = DeferClose(scenario{
-					dist:   dist,
-					closer: builder,
+					dist:   node,
+					closer: node,
 					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 				})
 			})
@@ -475,8 +471,8 @@ var _ = Describe("Writer", func() {
 
 	Describe("Auto-Index", func() {
 		It("Should auto-stamp from the leaseholder when the data channel lives on a peer", func(ctx SpecContext) {
-			builder := DeferClose(mock.ProvisionCluster(ctx, 2))
-			gw := builder.Nodes[1]
+			cluster := mock.NewCluster(ctx, 2)
+			gw := cluster.Nodes[1]
 			peer := node.Key(2)
 
 			idx := channel.Channel{
@@ -639,17 +635,16 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 1)
-	dist := builder.Nodes[1]
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	node := mock.OpenNode(ctx)
+	Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Gateway Only", keys: keys, dist: dist, closer: builder}
+	return scenario{name: "Gateway Only", keys: keys, dist: node, closer: node}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 4)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 4)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
@@ -662,44 +657,44 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: builder}
+	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: cluster}
 }
 
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 3)
-	svc := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 3)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
 		channels[i] = ch
 	}
-	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
+		err := dist.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: svc, closer: builder}
+	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: dist, closer: cluster}
 }
 
 func freeWriterScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 3)
-	svc := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 3)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
+		err := dist.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Free Writes", keys: keys, dist: svc, closer: builder}
+	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: cluster}
 }

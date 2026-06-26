@@ -32,7 +32,7 @@ export const COMMANDS: Palette.Command[] = [
   ...Import.COMMANDS,
   ...LabelServices.COMMANDS,
   ...Service.LinePlot.COMMANDS,
-  ...Service.LinePlot.COMMANDS,
+  ...Service.Log.COMMANDS,
   ...Persist.COMMANDS,
   ...RangeServices.COMMANDS,
   ...Service.Schematic.COMMANDS,
