@@ -12,10 +12,11 @@ from __future__ import annotations
 import struct
 
 import synnax.channel.payload as channel
-from x.codec import Codec, JSONCodec
 from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import Alignment, DataType, Series, TimeRange
+from x.codec import Codec as XCodec
+from x.codec import JSONCodec
 
 ZERO_ALIGNMENTS_FLAG_POS = 5
 EQUAL_ALIGNMENTS_FLAG_POS = 4
@@ -335,7 +336,7 @@ LOW_PERF_SPECIAL_CHAR = 254
 HIGH_PERF_SPECIAL_CHAR = 255
 
 
-class WSFramerCodec(Codec):
+class WSFramerCodec(XCodec):
     def __init__(self, codec: Codec) -> None:
         self.codec = codec
         self.lower_perf_codec = JSONCodec()

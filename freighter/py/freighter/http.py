@@ -17,11 +17,11 @@ from urllib3 import PoolManager, Retry
 from urllib3.exceptions import MaxRetryError
 from urllib3.response import BaseHTTPResponse
 
-from x.codec import Codec
 from freighter.context import Context
 from freighter.exceptions import Unreachable
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.url import URL
+from x.codec import Codec
 from x.exceptions import ExceptionPayload, decode_exception
 from x.fs import FilePath, stream_to_file
 

@@ -14,10 +14,10 @@ import pytest
 from urllib3 import Retry
 
 from freighter import URL
-from x.codec import JSONCodec
 from freighter.context import Context
 from freighter.http import HTTPClient
 from freighter.transport import Next
+from x.codec import JSONCodec
 
 from .interface import Error, Message
 
