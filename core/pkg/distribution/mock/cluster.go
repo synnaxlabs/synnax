@@ -30,10 +30,10 @@ import (
 type Cluster struct {
 	storage *storagemock.Cluster
 	// Nodes maps each provisioned node's host key to its Node.
-	Nodes        map[node.Key]Node
-	transportNet *mock.Network
-	aspenNet     *aspentransportmock.Network
-	addrFactory  *address.Factory
+	Nodes       map[node.Key]Node
+	distNet     *mock.Network
+	aspenNet    *aspentransportmock.Network
+	addrFactory *address.Factory
 }
 
 // NewCluster opens an n-node in-memory cluster and registers its teardown via
@@ -53,11 +53,11 @@ func NewCluster(ctx context.Context, n int) *Cluster {
 // returned Cluster to tear down all nodes and their storage.
 func OpenCluster(ctx context.Context, n int) *Cluster {
 	c := &Cluster{
-		storage:      storagemock.NewCluster(),
-		transportNet: mock.NewNetwork(),
-		aspenNet:     aspentransportmock.NewNetwork(),
-		addrFactory:  address.NewLocalFactory(0),
-		Nodes:        make(map[node.Key]Node),
+		storage:     storagemock.NewCluster(),
+		distNet:     mock.NewNetwork(),
+		aspenNet:    aspentransportmock.NewNetwork(),
+		addrFactory: address.NewLocalFactory(0),
+		Nodes:       make(map[node.Key]Node),
 	}
 	for range n {
 		c.Provision(ctx)
@@ -77,7 +77,7 @@ func (c *Cluster) Provision(
 		storageLayer = c.storage.Provision(ctx)
 		cfg          = distribution.LayerConfig{
 			Storage:          storageLayer,
-			Transport:        c.transportNet.New(addr, 1),
+			Transport:        c.distNet.New(addr, 1),
 			AspenTransport:   c.aspenNet.NewTransport(),
 			AdvertiseAddress: addr,
 			PeerAddresses:    peers,

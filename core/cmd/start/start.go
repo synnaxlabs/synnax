@@ -14,14 +14,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
-	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -262,9 +260,10 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 				&server.SecureHTTPBranch{
 					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
-				&server.GRPCBranch{Transports: slices.Concat(
+				&server.GRPCBranch{Transports: append(
 					transportLayer.GRPC,
-					[]grpc.BindableTransport{aspenTransport, distTransport},
+					aspenTransport,
+					distTransport,
 				)},
 				server.NewHTTPRedirectBranch(),
 			},

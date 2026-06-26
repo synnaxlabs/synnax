@@ -46,8 +46,8 @@ func (t Transport) Channel() distchannel.Transport { return t.channel }
 // Framer implements distribution.Transport.
 func (t Transport) Framer() distframer.Transport { return t.framer }
 
-// Use implements the freighter.Transport interface, binding the given middleware to both
-// the channel and framer transports.
+// Use implements the freighter.Transport interface, binding the given middleware to
+// both the channel and framer transports.
 func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.channel.Use(middleware...)
 	t.framer.Use(middleware...)
