@@ -22,7 +22,7 @@ import (
 var node mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node = mock.MustOpenNode(ctx)
+	node = mock.NewNode(ctx)
 })
 
 var _ = Describe("Graph", func() {

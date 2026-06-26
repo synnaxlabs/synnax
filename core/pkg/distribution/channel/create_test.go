@@ -28,7 +28,7 @@ import (
 var _ = Describe("Create", Ordered, func() {
 	var cluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		cluster = mock.MustOpenCluster(ctx, 2)
+		cluster = mock.NewCluster(ctx, 2)
 	})
 	Context("Single channel", func() {
 		var ch channel.Channel
@@ -577,7 +577,7 @@ var _ = Context("Name Validation Disabled", func() {
 	Describe("Channel Creation", Ordered, func() {
 		var cluster *mock.Cluster
 		BeforeAll(func(ctx SpecContext) {
-			cluster = mock.MustOpenCluster(ctx, 0)
+			cluster = mock.NewCluster(ctx, 0)
 			cluster.Provision(ctx, distribution.LayerConfig{
 				ValidateChannelNames: new(false),
 			})

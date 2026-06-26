@@ -34,7 +34,7 @@ func TestGRPC(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node := distmock.MustOpenNode(ctx)
+	node := distmock.NewNode(ctx)
 	dist = node.Layer
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),

@@ -48,7 +48,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.MustOpenNode(ctx)
+	node = mock.NewNode(ctx)
 	db = node.DB
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{

@@ -108,7 +108,7 @@ var _ = Describe("Relay", func() {
 	Describe("ExcludeGroups", Ordered, func() {
 		It("Should filter out frames from a matching group on gateway writes", func(ctx SpecContext) {
 			channels := newChannelSet()
-			node := mock.MustOpenNode(ctx)
+			node := mock.NewNode(ctx)
 			Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
@@ -143,7 +143,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			node := mock.MustOpenNode(ctx)
+			node := mock.NewNode(ctx)
 			Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
@@ -181,7 +181,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames with no group even when ExcludeGroups is set", func(ctx SpecContext) {
 			channels := newChannelSet()
-			node := mock.MustOpenNode(ctx)
+			node := mock.NewNode(ctx)
 			Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
@@ -217,7 +217,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should filter out free channel frames from a matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			svc := mock.MustOpenNode(ctx)
+			svc := mock.NewNode(ctx)
 			for i, ch := range channels {
 				ch.Leaseholder = node.KeyFree
 				ch.Virtual = true
@@ -258,7 +258,7 @@ var _ = Describe("Relay", func() {
 	})
 	Describe("Errors", func() {
 		It("Should raise an error if a channel is not found", func(ctx SpecContext) {
-			svc := mock.MustOpenNode(ctx)
+			svc := mock.NewNode(ctx)
 			_, err := svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
@@ -275,7 +275,7 @@ var _ = Describe("Relay", func() {
 	Describe("SendOpenAck", Ordered, func() {
 		var svc mock.Node
 		BeforeAll(func(ctx SpecContext) {
-			svc = mock.MustOpenNode(ctx)
+			svc = mock.NewNode(ctx)
 		})
 
 		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {

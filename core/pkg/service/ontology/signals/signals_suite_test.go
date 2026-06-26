@@ -36,7 +36,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node = mock.MustOpenNode(ctx)
+	node = mock.NewNode(ctx)
 	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
 	node.Ontology.RegisterService(svc)
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{

@@ -28,7 +28,7 @@ import (
 var _ = Describe("Calculator", Ordered, func() {
 	var node mock.Node
 	BeforeAll(func(ctx SpecContext) {
-		node = mock.MustOpenNode(ctx)
+		node = mock.NewNode(ctx)
 	})
 
 	open := func(

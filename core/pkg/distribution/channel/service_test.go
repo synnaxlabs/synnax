@@ -25,7 +25,7 @@ import (
 var _ = Describe("Service", Ordered, func() {
 	var dist mock.Node
 	BeforeAll(func(ctx SpecContext) {
-		dist = mock.MustOpenNode(ctx)
+		dist = mock.NewNode(ctx)
 	})
 
 	Describe("CountExternalNonVirtual", func() {

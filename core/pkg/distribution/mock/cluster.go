@@ -45,16 +45,16 @@ type Cluster struct {
 	addrFactory *address.Factory
 }
 
-// MustOpenCluster opens an n-node in-memory cluster and registers its teardown via
+// NewCluster opens an n-node in-memory cluster and registers its teardown via
 // testutil.DeferClose, so callers running inside a Ginkgo spec do not need to close it
 // themselves. It must be called from within a Ginkgo node; use OpenCluster from plain
 // Go tests and benchmarks, where DeferCleanup is unavailable.
 //
-// The teardown runs at the scope where MustOpenCluster is called. When called from a
+// The teardown runs at the scope where NewCluster is called. When called from a
 // BeforeAll or BeforeSuite, the close fires after ShouldNotLeakGoroutinesPerSpec's
 // per-spec check, so a spec that spawns a goroutine against this cluster (e.g. an
 // observer) must stop it itself rather than relying on cluster teardown.
-func MustOpenCluster(ctx context.Context, n int) *Cluster {
+func NewCluster(ctx context.Context, n int) *Cluster {
 	return testutil.DeferClose(OpenCluster(ctx, n))
 }
 

@@ -34,7 +34,7 @@ func TestTransport(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node := distmock.MustOpenNode(ctx)
+	node := distmock.NewNode(ctx)
 	dist = node.Layer
 	insecure := true
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{

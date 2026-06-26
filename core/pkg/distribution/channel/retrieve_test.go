@@ -24,7 +24,7 @@ const internalChannelCount = 1
 var _ = Describe("Retrieve", Ordered, func() {
 	var cluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
-		cluster = mock.MustOpenCluster(ctx, 2)
+		cluster = mock.NewCluster(ctx, 2)
 		for _, n := range cluster.Nodes {
 			Expect(n.Search.Initialize(ctx)).To(Succeed())
 		}
@@ -207,7 +207,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 
 		It("Should return empty when no calculated channels exist in a fresh cluster", func(ctx SpecContext) {
-			freshNode := mock.MustOpenNode(ctx)
+			freshNode := mock.NewNode(ctx)
 			base := channel.Channel{
 				Virtual:  true,
 				DataType: telem.Float32T,

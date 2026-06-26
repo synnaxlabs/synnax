@@ -27,7 +27,7 @@ import (
 
 var _ = Describe("Ontology", Ordered, func() {
 	var node mock.Node
-	BeforeAll(func(ctx SpecContext) { node = mock.MustOpenNode(ctx) })
+	BeforeAll(func(ctx SpecContext) { node = mock.NewNode(ctx) })
 	Describe("OntologyID", func() {
 		It("Should correctly return the ontology.ID for the specified channel", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}

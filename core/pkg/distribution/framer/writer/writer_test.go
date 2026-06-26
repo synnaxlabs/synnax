@@ -471,7 +471,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Auto-Index", func() {
 		It("Should auto-stamp from the leaseholder when the data channel lives on a peer", func(ctx SpecContext) {
-			cluster := mock.MustOpenCluster(ctx, 2)
+			cluster := mock.NewCluster(ctx, 2)
 			gw := cluster.Nodes[1]
 			peer := node.Key(2)
 

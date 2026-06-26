@@ -23,7 +23,7 @@ import (
 var _ = Describe("Cluster", func() {
 	Describe("Name", func() {
 		It("Should open a three node memory backed distribution layer", func(ctx SpecContext) {
-			cluster := mock.MustOpenCluster(ctx, 3)
+			cluster := mock.NewCluster(ctx, 3)
 			nodeOne := cluster.Nodes[node.Key(1)]
 			nodeTwo := cluster.Nodes[node.Key(2)]
 			nodeThree := cluster.Nodes[node.Key(3)]

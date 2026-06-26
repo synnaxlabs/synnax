@@ -42,12 +42,10 @@ func (n Node) Close() error {
 	return err
 }
 
-// MustOpenNode opens a single-node in-memory cluster and registers its teardown via
-// testutil.DeferClose, returning the node. Like MustOpenCluster, it must be called from
+// NewNode opens a single-node in-memory cluster and registers its teardown via
+// testutil.DeferClose, returning the node. Like NewCluster, it must be called from
 // within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
-func MustOpenNode(ctx context.Context) Node {
-	return testutil.DeferClose(OpenNode(ctx))
-}
+func NewNode(ctx context.Context) Node { return testutil.DeferClose(OpenNode(ctx)) }
 
 // OpenNode opens a single-node in-memory cluster and returns its node. The caller owns
 // teardown: closing the returned node tears down the whole cluster, including its

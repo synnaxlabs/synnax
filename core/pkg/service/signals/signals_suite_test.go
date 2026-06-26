@@ -32,7 +32,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node = mock.MustOpenNode(ctx)
+	node = mock.NewNode(ctx)
 	sigs = MustSucceed(signals.New(signals.Config{
 		Channel: channel.Wrap(node.Channel),
 		Framer:  framer.Wrap(node.Framer),

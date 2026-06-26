@@ -32,9 +32,9 @@ var _ = Describe("Node", func() {
 		})
 	})
 
-	Describe("MustOpenNode", func() {
+	Describe("NewNode", func() {
 		It("Should open a node and register its teardown with the spec", func(ctx SpecContext) {
-			n := mock.MustOpenNode(ctx)
+			n := mock.NewNode(ctx)
 			Expect(n.Cluster.HostKey()).To(Equal(node.KeyBootstrapper))
 			Expect(n.Storage).ToNot(BeNil())
 		})

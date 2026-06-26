@@ -40,7 +40,7 @@ var _ = Describe("Limit", Ordered, func() {
 		dist    mock.Node
 	)
 	BeforeEach(func(ctx SpecContext) {
-		cluster = mock.MustOpenCluster(ctx, 0)
+		cluster = mock.NewCluster(ctx, 0)
 		dist = cluster.Provision(ctx, distribution.LayerConfig{
 			TestingIntOverflowCheck: fixedOverflowChecker(limit),
 		})

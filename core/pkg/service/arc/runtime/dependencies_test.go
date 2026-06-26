@@ -29,7 +29,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 	var node mock.Node
 
 	BeforeAll(func(ctx SpecContext) {
-		node = mock.MustOpenNode(ctx)
+		node = mock.NewNode(ctx)
 	})
 
 	Describe("NewDependencies", func() {

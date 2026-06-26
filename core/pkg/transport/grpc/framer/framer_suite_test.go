@@ -26,5 +26,5 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = mock.MustOpenNode(ctx).Layer
+	dist = mock.NewNode(ctx).Layer
 })

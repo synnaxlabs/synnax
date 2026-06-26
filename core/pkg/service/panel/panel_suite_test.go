@@ -40,7 +40,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node = mock.MustOpenNode(ctx)
+	node = mock.NewNode(ctx)
 	db = node.DB
 	otg = node.Ontology
 	sigs := MustSucceed(signals.New(signals.Config{

@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("Rename", Ordered, func() {
 	var cluster *mock.Cluster
-	BeforeAll(func(ctx SpecContext) { cluster = mock.MustOpenCluster(ctx, 3) })
+	BeforeAll(func(ctx SpecContext) { cluster = mock.NewCluster(ctx, 3) })
 	Context("Single channel", func() {
 		var ch channel.Channel
 		JustBeforeEach(func(ctx SpecContext) {
