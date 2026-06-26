@@ -36,7 +36,7 @@ var _ = Describe("HTTP", func() {
 		})
 		port := MustSucceed(net.FindOpenPort())
 		addr := address.Newf("localhost:%d", port)
-		b := MustSucceed(server.Serve(server.Config{
+		MustOpen(server.Serve(server.Config{
 			ListenAddress: addr,
 			Security:      server.SecurityConfig{Insecure: new(true)},
 			Debug:         new(true),
@@ -44,7 +44,6 @@ var _ = Describe("HTTP", func() {
 				&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r}},
 			},
 		}))
-		defer func() { Expect(b.Close()).To(Succeed()) }()
 		url := "http://" + addr.String() + "/basic"
 		body := MustSucceed(json.Marshal(1))
 		req := MustSucceed(http.NewRequestWithContext(
