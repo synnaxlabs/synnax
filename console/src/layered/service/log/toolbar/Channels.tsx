@@ -35,7 +35,7 @@ import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
 
-const PRECISION_BOUNDS = { lower: -1, upper: 18 };
+const PRECISION_BOUNDS = { lower: -1, upper: 17 };
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
   dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);

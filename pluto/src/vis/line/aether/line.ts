@@ -12,7 +12,6 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import {
   bounds,
   type box,
-  clamp,
   color,
   DataType,
   type destructor,
@@ -487,10 +486,12 @@ export const buildDrawOperations = (
         bounds.span(y.alignmentBounds) - yAlignmentOffset,
       );
       if (alignmentCount === 0n) return;
-      let downsample = clamp(
+      let downsample = bounds.clamp(
+        {
+          lower: userSpecifiedDownSampling,
+          upper: 51,
+        },
         Math.round(exposure * 4 * Number(alignmentCount)),
-        userSpecifiedDownSampling,
-        51,
       );
       if (downsampleMode !== "decimate") downsample = 1;
       const count = Number(alignmentCount / x.alignmentMultiple);
