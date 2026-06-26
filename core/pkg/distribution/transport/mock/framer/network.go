@@ -11,14 +11,14 @@ package framer
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	deletermock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/deleter"
-	iteratormock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/iterator"
-	relaymock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/relay"
-	writermock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/writer"
+	distdeleter "github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	distiterator "github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	distrelay "github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
+	distwriter "github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/relay"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/writer"
 	"github.com/synnaxlabs/x/address"
 )
 
@@ -27,19 +27,19 @@ import (
 // can be provisioned per node, mirroring the gRPC framer.Transport that bundles the same
 // operations.
 type Network struct {
-	deleter  *deletermock.Network
-	iterator *iteratormock.Network
-	relay    *relaymock.Network
-	writer   *writermock.Network
+	deleter  *deleter.Network
+	iterator *iterator.Network
+	relay    *relay.Network
+	writer   *writer.Network
 }
 
 // NewNetwork constructs a Network with freshly initialized per-operation networks.
 func NewNetwork() *Network {
 	return &Network{
-		deleter:  deletermock.NewNetwork(),
-		iterator: iteratormock.NewNetwork(),
-		relay:    relaymock.NewNetwork(),
-		writer:   writermock.NewNetwork(),
+		deleter:  deleter.NewNetwork(),
+		iterator: iterator.NewNetwork(),
+		relay:    relay.NewNetwork(),
+		writer:   writer.NewNetwork(),
 	}
 }
 
@@ -55,16 +55,16 @@ func (n *Network) New(addr address.Address, buffers ...int) framer.Transport {
 }
 
 type transport struct {
-	deleter  deleter.Transport
-	iterator iterator.Transport
-	relay    relay.Transport
-	writer   writer.Transport
+	deleter  distdeleter.Transport
+	iterator distiterator.Transport
+	relay    distrelay.Transport
+	writer   distwriter.Transport
 }
 
-func (t transport) Deleter() deleter.Transport { return t.deleter }
+func (t transport) Deleter() distdeleter.Transport { return t.deleter }
 
-func (t transport) Iterator() iterator.Transport { return t.iterator }
+func (t transport) Iterator() distiterator.Transport { return t.iterator }
 
-func (t transport) Relay() relay.Transport { return t.relay }
+func (t transport) Relay() distrelay.Transport { return t.relay }
 
-func (t transport) Writer() writer.Transport { return t.writer }
+func (t transport) Writer() distwriter.Transport { return t.writer }
