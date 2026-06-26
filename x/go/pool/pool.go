@@ -47,34 +47,26 @@ type Factory[K comparable, A Adapter] interface {
 }
 
 // Pool caches and reuses Adapters keyed by K, opening new ones via a Factory only when
-// no healthy adapter is already cached for a key. Implementations are safe for
-// concurrent use.
-type Pool[K comparable, A Adapter] interface {
-	// Acquire returns an adapter for the given key, creating one via the Factory if no
-	// healthy adapter is already cached.
-	//
-	// Calling Acquire after Close is a programming error: the contract is that the
-	// caller stops using the pool before Close runs. As a safety net for buggy callers,
-	// Acquire returns ErrClosed instead of silently allocating an adapter that nothing
-	// will ever close.
-	Acquire(K) (A, error)
-	// Closer closes every adapter the pool has opened. The pool must not be used after
-	// Close returns.
-	io.Closer
-}
-
-// Open returns a Pool that opens adapters on demand via factory.
-func Open[K comparable, A Adapter](factory Factory[K, A]) Pool[K, A] {
-	return &pool[K, A]{pool: make(map[K][]A), factory: factory}
-}
-
-type pool[K comparable, A Adapter] struct {
+// no healthy adapter is already cached for a key. Pool is safe for concurrent use.
+type Pool[K comparable, A Adapter] struct {
 	factory Factory[K, A]
 	pool    map[K][]A
 	mu      sync.Mutex
 }
 
-func (p *pool[K, A]) Acquire(key K) (A, error) {
+// Open returns a Pool that opens adapters on demand via factory.
+func Open[K comparable, A Adapter](factory Factory[K, A]) *Pool[K, A] {
+	return &Pool[K, A]{pool: make(map[K][]A), factory: factory}
+}
+
+// Acquire returns an adapter for the given key, creating one via the Factory if no
+// healthy adapter is already cached.
+//
+// Calling Acquire after Close is a programming error: the contract is that the caller
+// stops using the pool before Close runs. As a safety net for buggy callers, Acquire
+// returns ErrClosed instead of silently allocating an adapter that nothing will ever
+// close.
+func (p *Pool[K, A]) Acquire(key K) (A, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.pool == nil {
@@ -93,7 +85,9 @@ func (p *pool[K, A]) Acquire(key K) (A, error) {
 	return p.open(key)
 }
 
-func (p *pool[K, A]) Close() error {
+// Close closes every adapter the pool has opened. The pool must not be used after Close
+// returns.
+func (p *Pool[K, A]) Close() error {
 	p.mu.Lock()
 	adapters := p.pool
 	p.pool = nil
@@ -112,7 +106,7 @@ func (p *pool[K, A]) Close() error {
 	return err
 }
 
-func (p *pool[K, A]) open(key K) (A, error) {
+func (p *Pool[K, A]) open(key K) (A, error) {
 	a, err := p.factory.Open(key)
 	if err != nil {
 		return types.Zero[A](), err

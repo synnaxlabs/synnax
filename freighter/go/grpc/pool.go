@@ -42,18 +42,14 @@ func (c *ClientConn) Healthy() bool {
 }
 
 // Pool is a pool of reusable gRPC client connections keyed by target address. Open one
-// with [OpenPool] and acquire connections through the embedded [pool.Pool] interface.
-type Pool struct {
-	pool.Pool[address.Address, *ClientConn]
-}
+// with [OpenPool] and acquire connections through [pool.Pool.Acquire].
+type Pool = pool.Pool[address.Address, *ClientConn]
 
 // OpenPool returns a [Pool] that dials connections with the given dial options.
 // targetPrefix is prepended to every acquired address, allowing callers to scope all
 // connections to a common host or namespace.
 func OpenPool(targetPrefix address.Address, dialOpts ...grpc.DialOption) *Pool {
-	return &Pool{
-		Pool: pool.Open(&factory{dialOpts: dialOpts, targetPrefix: targetPrefix}),
-	}
+	return pool.Open(&factory{dialOpts: dialOpts, targetPrefix: targetPrefix})
 }
 
 type factory struct {
