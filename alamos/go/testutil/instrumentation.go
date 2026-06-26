@@ -17,7 +17,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -96,9 +95,12 @@ func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumen
 	var options []alamos.Option
 	if *cfg.Trace {
 		options = append(options, alamos.WithTracer(newTracer(serviceName())))
-		ginkgo.DeferCleanup(func(ctx context.Context) {
-			gomega.Expect(uptrace.Shutdown(ctx)).To(gomega.Succeed())
-		})
+		// uptrace.Shutdown flushes buffered spans and metrics to the dev collector
+		// (devDSN) as it stops the SDK. That collector is not running during tests, so
+		// the flush fails with a connection error — but the SDK's background goroutines
+		// stop regardless, which is all this cleanup needs. Drop the upload error so a
+		// clean teardown does not fail the suite.
+		ginkgo.DeferCleanup(func(ctx context.Context) { _ = uptrace.Shutdown(ctx) })
 	}
 	if *cfg.Log {
 		options = append(options, alamos.WithLogger(newLogger()))
