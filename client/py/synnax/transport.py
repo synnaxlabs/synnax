@@ -14,8 +14,8 @@ from freighter import (
     URL,
     AsyncMiddleware,
     AsyncWebsocketClient,
+    FileTransport,
     HTTPClient,
-    JSONCodec,
     Middleware,
     UnaryClient,
     WebsocketClient,
@@ -23,6 +23,7 @@ from freighter import (
     instrumentation_middleware,
 )
 from synnax.telem import Size, TimeSpan
+from x.codec import JSONCodec
 
 
 class Transport:
@@ -30,6 +31,7 @@ class Transport:
     stream: WebsocketClient
     stream_async: AsyncWebsocketClient
     unary: UnaryClient
+    file_transport: FileTransport
     secure: bool
 
     def __init__(
@@ -53,18 +55,20 @@ class Transport:
             "close_timeout": read_timeout.seconds,
         }
         self.stream = WebsocketClient(**ws_args)
-        # We need to update these here because the websocket client doesn't support
-        # the same arguments as the async websocket client.
+        # We need to update these here because the WebSocket client doesn't support the
+        # same arguments as the async WebSocket client.
         ws_args["ping_interval"] = keep_alive.seconds
         ws_args["ping_timeout"] = 180
         self.stream_async = AsyncWebsocketClient(**ws_args)
-        self.unary = HTTPClient(
+        http = HTTPClient(
             url=self.url,
             codec=codec,
             secure=secure,
             timeout=Timeout(connect=open_timeout.seconds, read=read_timeout.seconds),
             retries=Retry(total=max_retries),
         )
+        self.unary = http
+        self.file_transport = http
         self.use(instrumentation_middleware(instrumentation))
         self.use_async(async_instrumentation_middleware(instrumentation))
 
