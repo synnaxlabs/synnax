@@ -61,10 +61,10 @@ class Console:
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)
         self.channels = ChannelClient(self.layout, self.client)
-        self.ranges = RangesClient(self.layout)
+        self.project = ProjectClient(self.layout, self.client)
+        self.ranges = RangesClient(self.layout, self.project)
         self.statuses = StatusesClient(self.layout)
         self.tasks = TaskClient(self.layout)
-        self.project = ProjectClient(self.layout, self.client)
 
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""

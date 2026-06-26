@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import TYPE_CHECKING
+
 from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -16,6 +18,9 @@ from console.notifications import NotificationsClient
 from console.tree import Tree
 from framework.run_dir import resolve_results_path
 from x.color import Color
+
+if TYPE_CHECKING:
+    from console.project import ProjectClient
 
 
 class RangesClient:
@@ -35,8 +40,10 @@ class RangesClient:
     def __init__(
         self,
         layout: LayoutClient,
+        project: "ProjectClient",
     ):
         self.layout = layout
+        self.project = project
         self.ctx_menu = ContextMenu(layout.page)
         self.notifications = NotificationsClient(layout.page)
         self.tree = Tree(layout.page)
@@ -364,7 +371,9 @@ class RangesClient:
         """Open the range overview/details page from explorer."""
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.dblclick()
+        # A single click on the explorer row opens the overview; a second click
+        # re-toggles it shut, so click once and wait for the Name field.
+        item.click()
 
     def navigate_to_parent(self, parent_name: str) -> None:
         """Navigate to parent range from current range overview.
@@ -1259,8 +1268,7 @@ class RangesClient:
             name: Name of the page or task to snapshot.
             range_name: Name of the active range (for menu text matching).
         """
-        self.layout.show_resource_toolbar("project")
-        self.tree.expand_root("project:")
+        self.project.expand_active()
         page_item = (
             self.layout.page.locator(".pluto-tree__item").filter(has_text=name).first
         )
