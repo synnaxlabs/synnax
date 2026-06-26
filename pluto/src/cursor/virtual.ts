@@ -21,11 +21,15 @@ export interface UseVirtualDragProps extends UseDragProps {
 interface RefState {
   start: xy.XY;
   mouseKey: Triggers.Key;
+  // pointerId identifies the pointer that owns the active gesture, or null when idle.
+  // Moves and the terminating up from any other pointer are ignored.
+  pointerId: number | null;
 }
 
 const INITIAL_STATE: RefState = {
   start: xy.ZERO,
   mouseKey: "MouseLeft",
+  pointerId: null,
 };
 
 /**
@@ -45,26 +49,30 @@ export const useVirtualDrag = ({
     const { current: el } = ref;
 
     const handleMove = (e: PointerEvent): void => {
-      const next = xy.construct(e);
-      const { mouseKey, start } = stateRef.current;
-      onMove?.(box.construct(start, next), mouseKey, e);
+      const { mouseKey, start, pointerId } = stateRef.current;
+      if (e.pointerId !== pointerId) return;
+      onMove?.(box.construct(start, xy.construct(e)), mouseKey, e);
     };
 
     const handleDown = (e: PointerEvent): void => {
+      if (e.button !== 0 || e.isPrimary === false) return;
       el.setPointerCapture(e.pointerId);
       el.onpointermove = handleMove;
       const start = xy.construct(e);
       const mouseKey = Triggers.eventKey(e);
-      setRef({ start, mouseKey });
+      setRef({ start, mouseKey, pointerId: e.pointerId });
       onStart?.(start, mouseKey, el);
-      el.addEventListener("pointerup", handleUp, { once: true });
+      el.addEventListener("pointerup", handleUp);
     };
     el.addEventListener("pointerdown", handleDown);
 
     const handleUp = (e: PointerEvent): void => {
+      if (e.pointerId !== stateRef.current.pointerId) return;
+      el.removeEventListener("pointerup", handleUp);
       el.onpointermove = null;
       el.releasePointerCapture(e.pointerId);
       const { start, mouseKey } = stateRef.current;
+      setRef((prev) => ({ ...prev, pointerId: null }));
       onEnd?.(box.construct(start, xy.construct(e)), mouseKey, e);
     };
 

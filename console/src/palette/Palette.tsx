@@ -60,7 +60,7 @@ export const Palette = ({
   Triggers.use({ triggers, callback: handleTrigger });
 
   return (
-    <Tooltip.Dialog location="bottom" hide={visible}>
+    <Tooltip.Dialog location="right" hide={visible}>
       <TooltipContent triggerConfig={triggerConfig} />
       <Dialog.Frame
         visible={visible}
