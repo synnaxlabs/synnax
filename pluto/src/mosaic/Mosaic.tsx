@@ -45,7 +45,7 @@ export interface MosaicProps
     >,
     Omit<
       Flex.BoxProps,
-      "contextMenu" | "onSelect" | "children" | "onResize" | "onDrop"
+      "contextMenu" | "onSelect" | "children" | "onResize" | "onDrop" | "size"
     > {
   root: Node;
   onDrop: (
@@ -111,19 +111,12 @@ export const Mosaic = memo(
       tabName,
     };
 
-    const isSplit = first != null && last != null;
     const handleResize = useCallback(
-      ([size]: number[]) => isSplit && onResize(key, size),
-      [onResize, key, isSplit],
+      (size: number) => onResize(key, size),
+      [onResize, key],
     );
 
-    const { props: resizeProps } = Resize.useMultiple({
-      direction,
-      onResize: handleResize,
-      count: 2,
-      initialSizes: size != null ? [size] : undefined,
-    });
-    let extraProps: Partial<Flex.BoxProps> = {};
+    let extraProps: Partial<Omit<Flex.BoxProps, "size">> = {};
     if (key == 1)
       extraProps = {
         ...rest,
@@ -142,15 +135,16 @@ export const Mosaic = memo(
       );
     else if (first != null && last != null)
       content = (
-        <Resize.Multiple
+        <Resize.Split
           id={`mosaic-${key}`}
-          align="stretch"
-          {...resizeProps}
+          direction={direction}
+          size={size}
+          onResizeEnd={handleResize}
           {...extraProps}
         >
           <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
           <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
-        </Resize.Multiple>
+        </Resize.Split>
       );
     else {
       content = null;

@@ -75,7 +75,6 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   content: <Content />,
   tooltip: "Visualize",
   icon: <Icon.Visualize />,
-  minSize: 160,
-  maxSize: 300,
+  sizeBounds: { lower: 160, upper: 300 },
   trigger: ["V"],
 };
