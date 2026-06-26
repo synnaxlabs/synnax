@@ -12,7 +12,6 @@ import "@/schematic/edge/common/segmented/Segmented.css";
 import { box, direction, xy } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import {
-  type DragEvent,
   type FC,
   Fragment,
   type ReactElement,
@@ -23,7 +22,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { Cursor } from "@/cursor";
 import { type Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
 import {
@@ -102,11 +101,11 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
     const segments = dragOverride ?? visualSegments;
     const dragRef = useRef<CurrentlyDragging | null>(null);
 
-    const dragStart = useCursorDrag({
+    const dragStart = Cursor.useDrag({
       onStart: useCallback(
-        (_: xy.XY, __: Key, e: DragEvent) => {
+        (_: xy.XY, __: Key, el: HTMLElement) => {
           dragRef.current = {
-            index: Number(e.currentTarget.id.split("-")[1]),
+            index: Number(el.id.split("-")[1]),
             segments: [...segments],
           };
         },
@@ -170,9 +169,9 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
                     className={CSS(
                       CSS.BE("diagram-edge-handle", "dragger"),
                       CSS.dir(dir),
+                      Cursor.DRAG_CLASS,
                     )}
-                    draggable
-                    onDragStart={dragStart}
+                    onPointerDown={dragStart}
                   />
                 </foreignObject>
               </Fragment>

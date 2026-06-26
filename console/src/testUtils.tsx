@@ -11,7 +11,7 @@ import { combineReducers, configureStore, type EnhancedStore } from "@reduxjs/to
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Aether, Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
-import { aether, flux, status, synnax } from "@synnaxlabs/pluto/ether";
+import { aether, eraser, flux, status, synnax } from "@synnaxlabs/pluto/ether";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
 import { Provider } from "react-redux";
@@ -27,6 +27,7 @@ const consoleReducer = combineReducers({
   [Session.Log.SLICE_NAME]: Session.Log.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
+  [Session.Nav.SLICE_NAME]: Session.Nav.reducer,
 });
 
 export type ConsolePreloadedState = {
@@ -34,6 +35,7 @@ export type ConsolePreloadedState = {
   [Session.Log.SLICE_NAME]?: Session.Log.SliceState;
   [Project.SLICE_NAME]?: Project.SliceState;
   [Cluster.SLICE_NAME]?: Cluster.SliceState;
+  [Session.Nav.SLICE_NAME]?: Session.Nav.SliceState;
 };
 
 export interface ConsoleTestProviderOptions {
@@ -47,12 +49,14 @@ export const createTestStore = (
   return configureStore({
     reducer: consoleReducer,
     preloadedState,
+    middleware: (getDefault) => getDefault().concat(Session.Nav.MIDDLEWARE),
   });
 };
 
 const AETHER_REGISTRY: aether.ComponentRegistry = {
   ...synnax.REGISTRY,
   ...status.REGISTRY,
+  ...eraser.REGISTRY,
   ...flux.createRegistry({ storeConfig: {} }),
 };
 
