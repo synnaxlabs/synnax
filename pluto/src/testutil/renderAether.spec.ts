@@ -26,22 +26,18 @@ describe("renderAether", () => {
       expect(h.state).toEqual({ value: 1 });
     });
 
-    it("invokes afterUpdate exactly once on initial mount", () => {
+    it("types component as its concrete class without a cast", () => {
       const h = renderAether(TestLeaf, { state: { value: 1 } });
-      expect((h.component as aetherTest.TestLeaf).updateCalls).toHaveLength(1);
-      expect((h.component as aetherTest.TestLeaf).updateCalls[0].state).toEqual({
-        value: 1,
-      });
+      expect(h.component.updateCalls).toHaveLength(1);
+      expect(h.component.updateCalls[0].state).toEqual({ value: 1 });
     });
 
     it("applies setState and re-runs afterUpdate", () => {
       const h = renderAether(TestLeaf, { state: { value: 1 } });
       h.setState({ value: 2 });
       expect(h.state).toEqual({ value: 2 });
-      expect((h.component as aetherTest.TestLeaf).updateCalls).toHaveLength(2);
-      expect((h.component as aetherTest.TestLeaf).updateCalls[1].prevState).toEqual({
-        value: 1,
-      });
+      expect(h.component.updateCalls).toHaveLength(2);
+      expect(h.component.updateCalls[1].prevState).toEqual({ value: 1 });
     });
 
     it("accepts a setter function in setState", () => {
@@ -52,7 +48,7 @@ describe("renderAether", () => {
 
     it("records afterDelete on unmount", () => {
       const h = renderAether(TestLeaf, { state: { value: 1 } });
-      const leaf = h.component as aetherTest.TestLeaf;
+      const leaf = h.component;
       h.unmount();
       expect(leaf.deleteCallCount).toBe(1);
     });

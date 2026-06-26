@@ -71,7 +71,7 @@ const setup = (
   h.setState(() => logStateZ.parse(input));
   return {
     h,
-    log: h.component as Log,
+    log: h.component,
     source,
     recorder,
     updateState: (overrides: Record<string, unknown>) =>

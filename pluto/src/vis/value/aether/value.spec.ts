@@ -57,7 +57,7 @@ const setup = ({
   });
   return {
     h,
-    component: h.component as value.Value,
+    component: h.component,
     source,
     backgroundSource,
     recorder,
