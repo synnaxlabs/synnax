@@ -29,99 +29,109 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChannelCreateService_Exec_FullMethodName = "/distribution.channel.pb.ChannelCreateService/Exec"
+	CreateService_Exec_FullMethodName = "/distribution.channel.pb.CreateService/Exec"
 )
 
-// ChannelCreateServiceClient is the client API for ChannelCreateService service.
+// CreateServiceClient is the client API for CreateService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type ChannelCreateServiceClient interface {
+//
+// CreateService forwards channel create requests from a gateway node to the leaseholder
+// that will own the new channels.
+type CreateServiceClient interface {
+	// Exec creates the requested channels and returns them populated with their assigned
+	// keys.
 	Exec(ctx context.Context, in *CreateMessage, opts ...grpc.CallOption) (*CreateMessage, error)
 }
 
-type channelCreateServiceClient struct {
+type createServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewChannelCreateServiceClient(cc grpc.ClientConnInterface) ChannelCreateServiceClient {
-	return &channelCreateServiceClient{cc}
+func NewCreateServiceClient(cc grpc.ClientConnInterface) CreateServiceClient {
+	return &createServiceClient{cc}
 }
 
-func (c *channelCreateServiceClient) Exec(ctx context.Context, in *CreateMessage, opts ...grpc.CallOption) (*CreateMessage, error) {
+func (c *createServiceClient) Exec(ctx context.Context, in *CreateMessage, opts ...grpc.CallOption) (*CreateMessage, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateMessage)
-	err := c.cc.Invoke(ctx, ChannelCreateService_Exec_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, CreateService_Exec_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ChannelCreateServiceServer is the server API for ChannelCreateService service.
-// All implementations should embed UnimplementedChannelCreateServiceServer
+// CreateServiceServer is the server API for CreateService service.
+// All implementations should embed UnimplementedCreateServiceServer
 // for forward compatibility.
-type ChannelCreateServiceServer interface {
+//
+// CreateService forwards channel create requests from a gateway node to the leaseholder
+// that will own the new channels.
+type CreateServiceServer interface {
+	// Exec creates the requested channels and returns them populated with their assigned
+	// keys.
 	Exec(context.Context, *CreateMessage) (*CreateMessage, error)
 }
 
-// UnimplementedChannelCreateServiceServer should be embedded to have
+// UnimplementedCreateServiceServer should be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedChannelCreateServiceServer struct{}
+type UnimplementedCreateServiceServer struct{}
 
-func (UnimplementedChannelCreateServiceServer) Exec(context.Context, *CreateMessage) (*CreateMessage, error) {
+func (UnimplementedCreateServiceServer) Exec(context.Context, *CreateMessage) (*CreateMessage, error) {
 	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
 }
-func (UnimplementedChannelCreateServiceServer) testEmbeddedByValue() {}
+func (UnimplementedCreateServiceServer) testEmbeddedByValue() {}
 
-// UnsafeChannelCreateServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ChannelCreateServiceServer will
+// UnsafeCreateServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CreateServiceServer will
 // result in compilation errors.
-type UnsafeChannelCreateServiceServer interface {
-	mustEmbedUnimplementedChannelCreateServiceServer()
+type UnsafeCreateServiceServer interface {
+	mustEmbedUnimplementedCreateServiceServer()
 }
 
-func RegisterChannelCreateServiceServer(s grpc.ServiceRegistrar, srv ChannelCreateServiceServer) {
-	// If the following call panics, it indicates UnimplementedChannelCreateServiceServer was
+func RegisterCreateServiceServer(s grpc.ServiceRegistrar, srv CreateServiceServer) {
+	// If the following call panics, it indicates UnimplementedCreateServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&ChannelCreateService_ServiceDesc, srv)
+	s.RegisterService(&CreateService_ServiceDesc, srv)
 }
 
-func _ChannelCreateService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CreateService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChannelCreateServiceServer).Exec(ctx, in)
+		return srv.(CreateServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChannelCreateService_Exec_FullMethodName,
+		FullMethod: CreateService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChannelCreateServiceServer).Exec(ctx, req.(*CreateMessage))
+		return srv.(CreateServiceServer).Exec(ctx, req.(*CreateMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// ChannelCreateService_ServiceDesc is the grpc.ServiceDesc for ChannelCreateService service.
+// CreateService_ServiceDesc is the grpc.ServiceDesc for CreateService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var ChannelCreateService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "distribution.channel.pb.ChannelCreateService",
-	HandlerType: (*ChannelCreateServiceServer)(nil),
+var CreateService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "distribution.channel.pb.CreateService",
+	HandlerType: (*CreateServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Exec",
-			Handler:    _ChannelCreateService_Exec_Handler,
+			Handler:    _CreateService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -129,99 +139,107 @@ var ChannelCreateService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChannelDeleteService_Exec_FullMethodName = "/distribution.channel.pb.ChannelDeleteService/Exec"
+	DeleteService_Exec_FullMethodName = "/distribution.channel.pb.DeleteService/Exec"
 )
 
-// ChannelDeleteServiceClient is the client API for ChannelDeleteService service.
+// DeleteServiceClient is the client API for DeleteService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type ChannelDeleteServiceClient interface {
+//
+// DeleteService forwards channel delete requests from a gateway node to the leaseholder
+// that owns the channels.
+type DeleteServiceClient interface {
+	// Exec deletes the requested channels.
 	Exec(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type channelDeleteServiceClient struct {
+type deleteServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewChannelDeleteServiceClient(cc grpc.ClientConnInterface) ChannelDeleteServiceClient {
-	return &channelDeleteServiceClient{cc}
+func NewDeleteServiceClient(cc grpc.ClientConnInterface) DeleteServiceClient {
+	return &deleteServiceClient{cc}
 }
 
-func (c *channelDeleteServiceClient) Exec(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *deleteServiceClient) Exec(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, ChannelDeleteService_Exec_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, DeleteService_Exec_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ChannelDeleteServiceServer is the server API for ChannelDeleteService service.
-// All implementations should embed UnimplementedChannelDeleteServiceServer
+// DeleteServiceServer is the server API for DeleteService service.
+// All implementations should embed UnimplementedDeleteServiceServer
 // for forward compatibility.
-type ChannelDeleteServiceServer interface {
+//
+// DeleteService forwards channel delete requests from a gateway node to the leaseholder
+// that owns the channels.
+type DeleteServiceServer interface {
+	// Exec deletes the requested channels.
 	Exec(context.Context, *DeleteRequest) (*emptypb.Empty, error)
 }
 
-// UnimplementedChannelDeleteServiceServer should be embedded to have
+// UnimplementedDeleteServiceServer should be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedChannelDeleteServiceServer struct{}
+type UnimplementedDeleteServiceServer struct{}
 
-func (UnimplementedChannelDeleteServiceServer) Exec(context.Context, *DeleteRequest) (*emptypb.Empty, error) {
+func (UnimplementedDeleteServiceServer) Exec(context.Context, *DeleteRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
 }
-func (UnimplementedChannelDeleteServiceServer) testEmbeddedByValue() {}
+func (UnimplementedDeleteServiceServer) testEmbeddedByValue() {}
 
-// UnsafeChannelDeleteServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ChannelDeleteServiceServer will
+// UnsafeDeleteServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DeleteServiceServer will
 // result in compilation errors.
-type UnsafeChannelDeleteServiceServer interface {
-	mustEmbedUnimplementedChannelDeleteServiceServer()
+type UnsafeDeleteServiceServer interface {
+	mustEmbedUnimplementedDeleteServiceServer()
 }
 
-func RegisterChannelDeleteServiceServer(s grpc.ServiceRegistrar, srv ChannelDeleteServiceServer) {
-	// If the following call panics, it indicates UnimplementedChannelDeleteServiceServer was
+func RegisterDeleteServiceServer(s grpc.ServiceRegistrar, srv DeleteServiceServer) {
+	// If the following call panics, it indicates UnimplementedDeleteServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&ChannelDeleteService_ServiceDesc, srv)
+	s.RegisterService(&DeleteService_ServiceDesc, srv)
 }
 
-func _ChannelDeleteService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DeleteService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChannelDeleteServiceServer).Exec(ctx, in)
+		return srv.(DeleteServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChannelDeleteService_Exec_FullMethodName,
+		FullMethod: DeleteService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChannelDeleteServiceServer).Exec(ctx, req.(*DeleteRequest))
+		return srv.(DeleteServiceServer).Exec(ctx, req.(*DeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// ChannelDeleteService_ServiceDesc is the grpc.ServiceDesc for ChannelDeleteService service.
+// DeleteService_ServiceDesc is the grpc.ServiceDesc for DeleteService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var ChannelDeleteService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "distribution.channel.pb.ChannelDeleteService",
-	HandlerType: (*ChannelDeleteServiceServer)(nil),
+var DeleteService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "distribution.channel.pb.DeleteService",
+	HandlerType: (*DeleteServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Exec",
-			Handler:    _ChannelDeleteService_Exec_Handler,
+			Handler:    _DeleteService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -229,99 +247,107 @@ var ChannelDeleteService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChannelRenameService_Exec_FullMethodName = "/distribution.channel.pb.ChannelRenameService/Exec"
+	RenameService_Exec_FullMethodName = "/distribution.channel.pb.RenameService/Exec"
 )
 
-// ChannelRenameServiceClient is the client API for ChannelRenameService service.
+// RenameServiceClient is the client API for RenameService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type ChannelRenameServiceClient interface {
+//
+// RenameService forwards channel rename requests from a gateway node to the leaseholder
+// that owns the channels.
+type RenameServiceClient interface {
+	// Exec renames the requested channels.
 	Exec(ctx context.Context, in *RenameRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type channelRenameServiceClient struct {
+type renameServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewChannelRenameServiceClient(cc grpc.ClientConnInterface) ChannelRenameServiceClient {
-	return &channelRenameServiceClient{cc}
+func NewRenameServiceClient(cc grpc.ClientConnInterface) RenameServiceClient {
+	return &renameServiceClient{cc}
 }
 
-func (c *channelRenameServiceClient) Exec(ctx context.Context, in *RenameRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *renameServiceClient) Exec(ctx context.Context, in *RenameRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, ChannelRenameService_Exec_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, RenameService_Exec_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ChannelRenameServiceServer is the server API for ChannelRenameService service.
-// All implementations should embed UnimplementedChannelRenameServiceServer
+// RenameServiceServer is the server API for RenameService service.
+// All implementations should embed UnimplementedRenameServiceServer
 // for forward compatibility.
-type ChannelRenameServiceServer interface {
+//
+// RenameService forwards channel rename requests from a gateway node to the leaseholder
+// that owns the channels.
+type RenameServiceServer interface {
+	// Exec renames the requested channels.
 	Exec(context.Context, *RenameRequest) (*emptypb.Empty, error)
 }
 
-// UnimplementedChannelRenameServiceServer should be embedded to have
+// UnimplementedRenameServiceServer should be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedChannelRenameServiceServer struct{}
+type UnimplementedRenameServiceServer struct{}
 
-func (UnimplementedChannelRenameServiceServer) Exec(context.Context, *RenameRequest) (*emptypb.Empty, error) {
+func (UnimplementedRenameServiceServer) Exec(context.Context, *RenameRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
 }
-func (UnimplementedChannelRenameServiceServer) testEmbeddedByValue() {}
+func (UnimplementedRenameServiceServer) testEmbeddedByValue() {}
 
-// UnsafeChannelRenameServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ChannelRenameServiceServer will
+// UnsafeRenameServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RenameServiceServer will
 // result in compilation errors.
-type UnsafeChannelRenameServiceServer interface {
-	mustEmbedUnimplementedChannelRenameServiceServer()
+type UnsafeRenameServiceServer interface {
+	mustEmbedUnimplementedRenameServiceServer()
 }
 
-func RegisterChannelRenameServiceServer(s grpc.ServiceRegistrar, srv ChannelRenameServiceServer) {
-	// If the following call panics, it indicates UnimplementedChannelRenameServiceServer was
+func RegisterRenameServiceServer(s grpc.ServiceRegistrar, srv RenameServiceServer) {
+	// If the following call panics, it indicates UnimplementedRenameServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&ChannelRenameService_ServiceDesc, srv)
+	s.RegisterService(&RenameService_ServiceDesc, srv)
 }
 
-func _ChannelRenameService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RenameService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RenameRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ChannelRenameServiceServer).Exec(ctx, in)
+		return srv.(RenameServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ChannelRenameService_Exec_FullMethodName,
+		FullMethod: RenameService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ChannelRenameServiceServer).Exec(ctx, req.(*RenameRequest))
+		return srv.(RenameServiceServer).Exec(ctx, req.(*RenameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// ChannelRenameService_ServiceDesc is the grpc.ServiceDesc for ChannelRenameService service.
+// RenameService_ServiceDesc is the grpc.ServiceDesc for RenameService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var ChannelRenameService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "distribution.channel.pb.ChannelRenameService",
-	HandlerType: (*ChannelRenameServiceServer)(nil),
+var RenameService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "distribution.channel.pb.RenameService",
+	HandlerType: (*RenameServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Exec",
-			Handler:    _ChannelRenameService_Exec_Handler,
+			Handler:    _RenameService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
