@@ -35,7 +35,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		iteratorSvc *iterator.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		dist = mock.MustOpenNode(ctx)
+		dist = mock.NewNode(ctx)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,

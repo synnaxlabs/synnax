@@ -9,11 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-nav-drawer {
-    &.pluto--direction-y {
-        width: 100%;
-    }
-    &.pluto--direction-x {
-        height: 100%;
-    }
+.pluto-nav-drawer.pluto--hidden > .pluto-resize__handle {
+    border-color: var(--pluto-border-color);
+    border-width: var(--pluto-border-width);
 }

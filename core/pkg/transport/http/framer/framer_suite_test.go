@@ -29,7 +29,7 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node := mock.MustOpenNode(ctx)
+	node := mock.NewNode(ctx)
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: node.Ontology,

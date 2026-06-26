@@ -49,7 +49,7 @@ var (
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		searchIdx := MustOpen(search.Open())
-		node := mock.MustOpenNode(ctx)
+		node := mock.NewNode(ctx)
 		db = node.DB
 		otg = node.Ontology
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{

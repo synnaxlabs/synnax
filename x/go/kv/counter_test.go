@@ -52,7 +52,7 @@ var _ = Describe("Counter", Ordered, func() {
 				c := MustSucceed(kv.NewCounter(ctx, db, []byte("test-two")))
 				Expect(c.Value()).To(Equal(int64(0)))
 				Expect(c.Add(ctx, 10)).To(Equal(int64(10)))
-				Expect(MustSucceed(c.Add(ctx, 10))).To(Equal(int64(20)))
+				Expect(c.Add(ctx, 10)).To(Equal(int64(20)))
 				cTwo := MustSucceed(kv.NewCounter(ctx, db, []byte("test-two")))
 				Expect(cTwo.Value()).To(Equal(int64(20)))
 			})

@@ -39,7 +39,7 @@ var _ = BeforeEach(func() {
 	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 	addr = address.Address(lis.Addr().String())
 	grpcServer := grpc.NewServer()
-	pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	pool := fgrpc.OpenPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	transport = channelgrpc.New(pool)
 	transport.BindTo(grpcServer)
 	go func() {

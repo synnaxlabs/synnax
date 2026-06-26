@@ -76,7 +76,7 @@ func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node = mock.MustOpenNode(ctx)
+	node = mock.NewNode(ctx)
 	validCfg = newFramerConfig(ctx, node)
 	channelSvc = validCfg.Channel
 	statusSvc = validCfg.Status

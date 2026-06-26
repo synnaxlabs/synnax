@@ -2072,8 +2072,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography" },
-    { name = "jeepney" },
+    { name = "cryptography", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "jeepney", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -2167,7 +2167,6 @@ version = "0.56.0"
 source = { editable = "freighter/py" }
 dependencies = [
     { name = "alamos" },
-    { name = "msgpack" },
     { name = "pydantic" },
     { name = "synnax-x" },
     { name = "urllib3" },
@@ -2186,7 +2185,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alamos", editable = "alamos/py" },
-    { name = "msgpack", specifier = ">=1.2.1,<2" },
     { name = "pydantic", specifier = ">=2.13.4,<3" },
     { name = "synnax-x", editable = "x/py" },
     { name = "urllib3", specifier = ">=2.7.0,<3" },
@@ -2271,6 +2269,7 @@ name = "synnax-x"
 version = "0.56.0"
 source = { editable = "x/py" }
 dependencies = [
+    { name = "msgpack" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pydantic" },
@@ -2289,6 +2288,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "msgpack", specifier = ">=1.2.1,<2" },
     { name = "numpy", specifier = ">=2.5.0,<3" },
     { name = "pandas", specifier = ">=3.0.3,<4" },
     { name = "pydantic", specifier = ">=2.13.4,<3" },

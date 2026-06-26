@@ -14,6 +14,7 @@ import { type ReactElement } from "react";
 import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";
 import { CREATE_LAYOUT } from "@/channel/Create";
 import { EmptyAction, Toolbar } from "@/components";
+import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
@@ -67,14 +68,13 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "channel",
   icon: <Icon.Channel />,
   content: <Content />,
   tooltip: "Channels",
   trigger: ["C"],
   initialSize: 300,
-  minSize: 175,
-  maxSize: 400,
+  sizeBounds: { lower: 175, upper: 400 },
   useVisible: () => Access.useRetrieveGranted(channel.TYPE_ONTOLOGY_ID),
 };

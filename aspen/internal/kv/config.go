@@ -81,7 +81,7 @@ func (cfg Config) Override(other Config) Config {
 
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
-	v := validate.New("aspen.kv")
+	v := validate.New("aspen.kv.db")
 	validate.NotNil(v, "cluster", cfg.Cluster)
 	validate.NotNil(v, "tx_transport_client", cfg.BatchTransportClient)
 	validate.NotNil(v, "tx_transport_server", cfg.BatchTransportServer)

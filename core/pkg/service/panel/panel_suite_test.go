@@ -33,7 +33,7 @@ func TestPanel(t *testing.T) {
 }
 
 var (
-	dist       mock.Node
+	node       mock.Node
 	db         *gorp.DB
 	otg        *ontology.Ontology
 	svc        *panel.Service
@@ -43,53 +43,53 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = mock.MustOpenNode(ctx)
-	db = dist.DB
-	otg = dist.Ontology
+	node = mock.NewNode(ctx)
+	db = node.DB
+	otg = node.Ontology
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Search:   dist.Search,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
 		Label:    labelSvc,
-		Search:   dist.Search,
+		Search:   node.Search,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostResolver: dist.Cluster,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		Search:       dist.Search,
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
 		Status:       statusSvc,
 	}))
 	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:       dist.Framer,
+		Framer:       node.Framer,
 		Channel:      channelSvc,
-		DB:           dist.DB,
+		DB:           node.DB,
 		Status:       statusSvc,
-		HostResolver: dist.Cluster,
+		HostResolver: node.Cluster,
 	}))
 	sigs := MustSucceed(signals.New(signals.Config{
 		Channel: channelSvc,
 		Framer:  framerSvc,
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Search:   dist.Search,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Search:   node.Search,
 		Signals:  sigs,
 	}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Search:   dist.Search,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
 	}))
 	parent := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "panel-parent"}))
 	parentID = user.OntologyID(parent.Key)

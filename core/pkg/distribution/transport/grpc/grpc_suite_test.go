@@ -10,17 +10,16 @@
 package grpc_test
 
 import (
-	"net"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	transportgrpc "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestGRPC(t *testing.T) {
@@ -33,21 +32,10 @@ var (
 	addr      address.Address
 )
 
-var _ = ShouldNotLeakGoroutinesPerSpec()
-
-var _ = BeforeEach(func() {
-	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
-	addr = address.Address(lis.Addr().String())
-	pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	transport = transportgrpc.New(pool)
-	grpcServer := grpc.NewServer()
-	for _, bt := range transport.BindableTransports() {
-		bt.BindTo(grpcServer)
-	}
-	go func() {
-		defer GinkgoRecover()
-		Expect(grpcServer.Serve(lis)).To(Succeed())
-	}()
-	DeferCleanup(grpcServer.GracefulStop)
-	DeferCleanup(func() { Expect(pool.Close()).To(Succeed()) })
+var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
+	addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+		transport = transportgrpc.New(pool)
+		transport.BindTo(reg)
+	})
 })

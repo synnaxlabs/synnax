@@ -100,7 +100,7 @@ var _ = Describe("Transport", func() {
 			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 			useAddr := address.Address(lis.Addr().String())
 			grpcServer := grpc.NewServer()
-			pool := fgrpc.NewPool(
+			pool := fgrpc.OpenPool(
 				"", grpc.WithTransportCredentials(insecure.NewCredentials()),
 			)
 			t := channel.New(pool)

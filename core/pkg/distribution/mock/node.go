@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -26,29 +27,25 @@ type Node struct {
 	*distribution.Layer
 	// Storage is the storage layer for the node. It persists frame data to this node.
 	Storage *storage.Layer
-	// owner is non-nil only for the Node returned by OpenNode, where the node owns its
-	// single-node cluster. When set, Close tears down the whole cluster (including
-	// storage) rather than just this node's layer.
-	owner *Cluster
+	owner   *Cluster
 }
 
 // Close closes the node's distribution layer. For a Node returned by OpenNode it also
-// closes the underlying single-node cluster, including its storage. This intentionally
-// shadows the embedded Layer.Close so that OpenNode's caller can tear everything down
-// through the returned node.
+// closes the underlying single-node cluster's storage. This intentionally shadows the
+// embedded Layer.Close so that OpenNode's caller can tear everything down through the
+// returned node.
 func (n Node) Close() error {
+	err := n.Layer.Close()
 	if n.owner != nil {
-		return n.owner.Close()
+		err = errors.Join(err, n.owner.storage.Close())
 	}
-	return n.Layer.Close()
+	return err
 }
 
-// MustOpenNode opens a single-node in-memory cluster and registers its teardown via
-// testutil.DeferClose, returning the node. Like MustOpenCluster, it must be called from
+// NewNode opens a single-node in-memory cluster and registers its teardown via
+// testutil.DeferClose, returning the node. Like NewCluster, it must be called from
 // within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
-func MustOpenNode(ctx context.Context) Node {
-	return testutil.DeferClose(OpenNode(ctx))
-}
+func NewNode(ctx context.Context) Node { return testutil.DeferClose(OpenNode(ctx)) }
 
 // OpenNode opens a single-node in-memory cluster and returns its node. The caller owns
 // teardown: closing the returned node tears down the whole cluster, including its

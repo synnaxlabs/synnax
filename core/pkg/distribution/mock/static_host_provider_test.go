@@ -17,9 +17,15 @@ import (
 )
 
 var _ = Describe("StaticHostProvider", func() {
-	It("Should always report the configured node as the host", func() {
-		p := mock.NewStaticHostProvider(node.Key(42))
+	It("Should report the configured key as the host", func() {
+		p := mock.NewStaticHostProvider(42)
 		Expect(p.HostKey()).To(Equal(node.Key(42)))
-		Expect(p.Host()).To(Equal(node.Node{Key: node.Key(42)}))
+		Expect(p.Host().Key).To(Equal(node.Key(42)))
+	})
+
+	It("Should consistently report the same host across calls", func() {
+		p := mock.NewStaticHostProvider(7)
+		Expect(p.HostKey()).To(Equal(p.Host().Key))
+		Expect(p.HostKey()).To(Equal(node.Key(7)))
 	})
 })

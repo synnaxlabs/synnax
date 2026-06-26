@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	dist         mock.Node
+	node         mock.Node
 	db           *gorp.DB
 	rackService  *rack.Service
 	taskService  *task.Service
@@ -48,50 +48,50 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	dist = mock.MustOpenNode(ctx)
-	db = dist.DB
+	node = mock.NewNode(ctx)
+	db = node.DB
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
 		Search:   searchIdx,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Group:    dist.Group,
+		Ontology: node.Ontology,
+		DB:       node.DB,
+		Group:    node.Group,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
 	rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           dist.DB,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
+		DB:           node.DB,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
 		HostProvider: hostProvider,
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostResolver: dist.Cluster,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:       dist.Framer,
+		Framer:       node.Framer,
 		Channel:      channelSvc,
-		DB:           dist.DB,
+		DB:           node.DB,
 		Status:       statusSvc,
-		HostResolver: dist.Cluster,
+		HostResolver: node.Cluster,
 	}))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
 		Channel:  channelSvc,

@@ -24,7 +24,7 @@ var _ = Describe("Delete", Ordered, func() {
 	var n mock.Node
 
 	BeforeAll(func(ctx SpecContext) {
-		n = mock.MustOpenNode(ctx)
+		n = mock.NewNode(ctx)
 	})
 
 	It("Should delete the storage channel for a gateway key", func(ctx SpecContext) {
@@ -50,7 +50,7 @@ var _ = Describe("Delete", Ordered, func() {
 			peer    mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
-			cluster := mock.MustOpenCluster(ctx, 2)
+			cluster := mock.NewCluster(ctx, 2)
 			gateway = cluster.Nodes[node.KeyBootstrapper]
 			peer = cluster.Nodes[node.Key(2)]
 		})

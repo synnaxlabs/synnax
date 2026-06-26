@@ -34,7 +34,7 @@ func TestTransport(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node := mock.MustOpenNode(ctx)
+	node := mock.NewNode(ctx)
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),
 		KeySize:  secmock.SmallKeySize,

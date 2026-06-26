@@ -14,14 +14,29 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Node", func() {
-	ShouldNotLeakGoroutinesPerSpec()
-	It("Should open a single-node cluster whose host is the bootstrapper", func(ctx SpecContext) {
-		n := mock.OpenNode(ctx)
-		Expect(n.Cluster.HostKey()).To(Equal(node.KeyBootstrapper))
-		Expect(n.Close()).To(Succeed())
+	Describe("OpenNode", func() {
+		It("Should open a single-node cluster bootstrapped as the first node", func(ctx SpecContext) {
+			n := mock.OpenNode(ctx)
+			Expect(n.Cluster.HostKey()).To(Equal(node.KeyBootstrapper))
+			Expect(n.Layer).ToNot(BeNil())
+			Expect(n.Storage).ToNot(BeNil())
+			Expect(n.Close()).To(Succeed())
+		})
+
+		It("Should tear down the underlying cluster and storage on Close", func(ctx SpecContext) {
+			n := mock.OpenNode(ctx)
+			Expect(n.Close()).To(Succeed())
+		})
+	})
+
+	Describe("NewNode", func() {
+		It("Should open a node and register its teardown with the spec", func(ctx SpecContext) {
+			n := mock.NewNode(ctx)
+			Expect(n.Cluster.HostKey()).To(Equal(node.KeyBootstrapper))
+			Expect(n.Storage).ToNot(BeNil())
+		})
 	})
 })

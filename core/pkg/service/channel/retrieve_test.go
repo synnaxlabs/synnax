@@ -28,7 +28,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		services    map[node.Key]*channel.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.MustOpenCluster(ctx, 2)
+		mockCluster = mock.NewCluster(ctx, 2)
 		services = make(map[node.Key]*channel.Service)
 		for k, n := range mockCluster.Nodes {
 			services[k] = openService(ctx, n)
@@ -213,7 +213,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 
 		It("Should return empty when no calculated channels exist in a fresh cluster", func(ctx SpecContext) {
-			freshCluster := mock.MustOpenCluster(ctx, 1)
+			freshCluster := mock.NewCluster(ctx, 1)
 			freshSvc := openService(ctx, freshCluster.Nodes[1])
 			base := channel.Channel{
 				Virtual:  true,

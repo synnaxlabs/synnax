@@ -87,8 +87,8 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{
 		cfg:          cfg,
-		deleteRouter: proxy.NewBatchFactory[Key](cfg.HostResolver.HostKey()),
-		renameRouter: proxy.NewBatchFactory[renameBatchEntry](cfg.HostResolver.HostKey()),
+		deleteRouter: proxy.BatchFactory[Key](cfg.HostResolver.HostKey()),
+		renameRouter: proxy.BatchFactory[renameBatchEntry](cfg.HostResolver.HostKey()),
 	}
 	leasedCounterKey := []byte(
 		cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter",

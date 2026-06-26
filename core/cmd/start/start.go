@@ -14,14 +14,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
-	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -41,10 +39,10 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	xservice "github.com/synnaxlabs/x/service"
-	xsignal "github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -262,10 +260,10 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 				&server.SecureHTTPBranch{
 					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
-				&server.GRPCBranch{Transports: slices.Concat(
+				&server.GRPCBranch{Transports: append(
 					transportLayer.GRPC,
-					[]grpc.BindableTransport{aspenTransport},
-					distTransport.BindableTransports(),
+					aspenTransport,
+					distTransport,
 				)},
 				server.NewHTTPRedirectBranch(),
 			},
@@ -343,7 +341,7 @@ func openWorkDir() (string, io.Closer, error) {
 		"workdir",
 		strconv.Itoa(os.Getpid()),
 	)
-	if err = os.MkdirAll(dir, xfs.UserRWX); err != nil {
+	if err = os.MkdirAll(dir, fs.UserRWX); err != nil {
 		return "", nil, err
 	}
 	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil
@@ -356,12 +354,12 @@ func runStartupSearchIndexing(
 	// Run indexing inside an isolated signal context, so that if we receive an early
 	// cancellation signal, we can ensure that we exit indexing before we close any
 	// resources that it depends on (notably storage KV).
-	searchIndexCtx, cancelIndexing := xsignal.WithCancel(ctx)
+	searchIndexCtx, cancelIndexing := signal.WithCancel(ctx)
 	searchIndexCtx.Go(
 		dist.Search.Initialize,
-		xsignal.WithKey("startup_search_indexing"),
+		signal.WithKey("startup_search_indexing"),
 	)
-	return xsignal.NewHardShutdown(searchIndexCtx, cancelIndexing)
+	return signal.NewHardShutdown(searchIndexCtx, cancelIndexing)
 }
 
 func parseIntegrations(enabled, disabled []string) []string {

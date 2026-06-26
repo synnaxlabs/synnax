@@ -36,7 +36,7 @@ var _ = Describe("Signals", func() {
 		var ch channel.Channel
 		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 			Exec(ctx, nil)).To(Succeed())
-		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		streamer := MustSucceed(node.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{ch.Key()},
 		}))
 		requests, responses := confluence.Attach(streamer, 2)

@@ -60,7 +60,7 @@ var _ = Describe("Publisher", Serial, func() {
 			Entry(&cfg.DeleteChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
-		streamer = MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		streamer = MustSucceed(node.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{cfg.SetChannel.Key(), cfg.DeleteChannel.Key()},
 		}))
 		requests, responses = confluence.Attach(streamer, 2)

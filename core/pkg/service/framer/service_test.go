@@ -108,7 +108,7 @@ var _ = Describe("Service", func() {
 
 	Describe("OpenService", func() {
 		It("Should open and close a service from a valid configuration", func(ctx SpecContext) {
-			svc := MustSucceed(framer.OpenService(ctx, newFramerConfig(ctx, mock.MustOpenNode(ctx))))
+			svc := MustSucceed(framer.OpenService(ctx, newFramerConfig(ctx, mock.NewNode(ctx))))
 			Expect(svc.Close()).To(Succeed())
 		})
 		It("Should return an error for an invalid configuration", func(ctx SpecContext) {

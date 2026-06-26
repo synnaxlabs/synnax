@@ -14,7 +14,6 @@ import {
   type PayloadAction,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { UnexpectedError } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
 import { deep, type direction, id, type location } from "@synnaxlabs/x";
@@ -26,8 +25,6 @@ import { type RootState } from "@/store";
 
 export type State<A = unknown> = latest.State<A>;
 export type SliceState = latest.SliceState;
-export type NavDrawerLocation = latest.NavDrawerLocation;
-export type NavDrawerEntryState = latest.NavDrawerEntryState;
 export type WindowProps = latest.WindowProps;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_MOSAIC_STATE = latest.ZERO_MOSAIC_STATE;
@@ -91,12 +88,6 @@ interface RenamePayload {
   name: string;
 }
 
-interface ResizeNavDrawerPayload {
-  windowKey: string;
-  location: NavDrawerLocation;
-  size: number;
-}
-
 interface SetFocusPayload {
   key: string | null;
   windowKey: string;
@@ -114,37 +105,8 @@ interface SetUnsavedChangesPayload {
 
 interface SetHaulingPayload extends Haul.DraggingState {}
 
-export interface SetNavDrawerPayload extends NavDrawerEntryState {
-  location: NavDrawerLocation;
-  windowKey: string;
-}
-
 export interface SetProjectPayload {
-  keepNav?: boolean;
   slice: SliceState;
-}
-
-export interface SetNavDrawerVisiblePayload {
-  windowKey?: string;
-  key?: string;
-  location?: NavDrawerLocation;
-  value?: boolean;
-}
-
-interface StartNavHoverPayload {
-  windowKey: string;
-  location: NavDrawerLocation;
-  key: string;
-}
-
-interface ToggleNavHoverPayload {
-  windowKey: string;
-  key: string;
-}
-
-interface StopNavHoverPayload {
-  windowKey: string;
-  location: NavDrawerLocation;
 }
 
 interface SetArgsPayload<T = unknown> {
@@ -161,7 +123,6 @@ const purgeEmptyMosaics = (state: SliceState) => {
     if (key === MAIN_WINDOW || !Mosaic.isEmpty(mosaic.root)) return;
     delete state.mosaics[key];
     delete state.layouts[key];
-    delete state.nav[key];
   });
 };
 
@@ -375,114 +336,7 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.renameTab(mosaic.root, layout.key, name);
       state.mosaics[layout.windowKey] = mosaic;
     },
-    setNavDrawer: (state, { payload }: PayloadAction<SetNavDrawerPayload>) => {
-      const { windowKey, location, ...rest } = payload;
-      if (!(windowKey in state.nav)) state.nav[windowKey] = { drawers: {} };
-      state.nav[windowKey].drawers[location] = rest;
-    },
-    resizeNavDrawer: (
-      state,
-      { payload: { windowKey, location, size } }: PayloadAction<ResizeNavDrawerPayload>,
-    ) => {
-      const navState = state.nav[windowKey];
-      if (navState?.drawers[location] == null) return;
-      (navState.drawers[location] as NavDrawerEntryState).size = size;
-    },
-    setNavDrawerVisible: (
-      state,
-      {
-        payload: { windowKey, key, location, value },
-      }: PayloadAction<SetNavDrawerVisiblePayload>,
-    ) => {
-      if (windowKey == null)
-        throw new UnexpectedError(
-          "setNavDrawerVisible requires a windowKey; the layout middleware should " +
-            "have injected one from drift state",
-        );
-      let navState = state.nav[windowKey];
-      if (navState == null) {
-        navState = { drawers: {} };
-        state.nav[windowKey] = navState;
-      }
-      if (key != null)
-        Object.values(navState.drawers).forEach((drawer) => {
-          if (drawer.menuItems.includes(key)) {
-            const activeItem = (value ?? drawer.activeItem !== key) ? key : null;
-            if (drawer.hover) {
-              drawer.activeItem = key;
-              drawer.hover = false;
-            } else drawer.activeItem = activeItem;
-          }
-        });
-      else if (location != null) {
-        let drawer = navState.drawers[location];
-        if (drawer == null) {
-          drawer = { activeItem: null, menuItems: [] };
-          navState.drawers[location] = drawer;
-        }
-        if (value === true && drawer.activeItem == null)
-          drawer.activeItem = drawer.menuItems[0];
-        else if (value === false) drawer.activeItem = null;
-        else if (drawer.activeItem == null) drawer.activeItem = drawer.menuItems[0];
-        else drawer.activeItem = null;
-      } else throw new Error("setNavDrawerVisible requires either a key or location");
-    },
-    startNavHover: (
-      state,
-      { payload: { windowKey, location, key } }: PayloadAction<StartNavHoverPayload>,
-    ) => {
-      const navState = state.nav[windowKey];
-      if (navState == null) return;
-      const drawerState = navState.drawers[location];
-      if (
-        drawerState == null ||
-        (drawerState.activeItem != null && drawerState.hover !== true)
-      )
-        return;
-      drawerState.hover = true;
-      drawerState.activeItem = key;
-    },
-    toggleNavHover: (
-      state,
-      { payload: { windowKey, key } }: PayloadAction<ToggleNavHoverPayload>,
-    ) => {
-      const navState = state.nav[windowKey];
-      if (navState == null) return;
-      const drawer = Object.values(navState.drawers).find((drawer) =>
-        drawer.menuItems.includes(key),
-      );
-      if (drawer == null) return;
-
-      if (drawer.activeItem != null && drawer.hover === false) {
-        if (key === drawer.activeItem) drawer.activeItem = null;
-        else drawer.activeItem = key;
-        return;
-      }
-
-      if (drawer.hover === true && key !== drawer.activeItem) {
-        drawer.activeItem = key;
-        return;
-      }
-
-      drawer.hover = !(drawer.hover ?? false);
-      if (!drawer.hover && key == drawer.activeItem) drawer.activeItem = null;
-      else drawer.activeItem = key;
-    },
-    stopNavHover: (
-      state,
-      { payload: { windowKey, location } }: PayloadAction<StopNavHoverPayload>,
-    ) => {
-      const navState = state.nav[windowKey];
-      if (navState == null) return;
-      const drawerState = navState.drawers[location];
-      if (drawerState == null || !drawerState.hover) return;
-      drawerState.hover = false;
-      drawerState.activeItem = null;
-    },
-    setProject: (
-      state,
-      { payload: { slice, keepNav = true } }: PayloadAction<SetProjectPayload>,
-    ) => {
+    setProject: (state, { payload: { slice } }: PayloadAction<SetProjectPayload>) => {
       // Mosaic.insertTab mutates tabs arrays in place; clone before
       // reconciling so the helper does not fight frozen nested objects
       // carried over from the previous store snapshot. Snapshot the draft
@@ -498,7 +352,6 @@ export const { actions, reducer } = createSlice({
             main: MAIN_LAYOUT,
           },
           hauling: s.hauling,
-          nav: keepNav ? s.nav : slice.nav,
         }),
       );
       reconcileMosaicLayouts(next);
@@ -511,7 +364,6 @@ export const { actions, reducer } = createSlice({
         main: MAIN_LAYOUT,
       },
       hauling: state.hauling,
-      nav: state.nav,
     }),
     setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
       const layout = select(state, key);
@@ -551,14 +403,6 @@ export const { actions, reducer } = createSlice({
         }));
       }
     },
-    hideAllNavDrawers: (state) => {
-      Object.values(state.nav).forEach((navState) => {
-        Object.values(navState.drawers).forEach((drawer) => {
-          drawer.activeItem = null;
-          drawer.hover = false;
-        });
-      });
-    },
   },
 });
 
@@ -572,18 +416,11 @@ export const {
   setAltKey,
   splitMosaicNode,
   rename,
-  setNavDrawer,
-  resizeNavDrawer,
-  setNavDrawerVisible,
   setHauled,
   setProject,
   setColorContext,
   clearProject,
-  startNavHover,
-  toggleNavHover,
-  stopNavHover,
   setUnsavedChanges,
-  hideAllNavDrawers,
 } = actions;
 
 export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload<T>> =>

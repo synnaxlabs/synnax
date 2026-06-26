@@ -58,7 +58,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.Open())
-	dist := mock.MustOpenNode(ctx)
+	dist := mock.NewNode(ctx)
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,

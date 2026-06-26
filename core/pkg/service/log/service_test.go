@@ -120,7 +120,7 @@ var _ = Describe("OpenService", func() {
 	})
 
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
-		node := mock.MustOpenNode(ctx)
+		node := mock.NewNode(ctx)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: node.Ontology,

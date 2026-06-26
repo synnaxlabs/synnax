@@ -30,6 +30,7 @@ import { EXPLORER_LAYOUT } from "@/arc/Explorer";
 import { useRename, useTask } from "@/arc/hooks";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
+import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 
 interface EmptyContentProps {
@@ -147,15 +148,14 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "arc",
   icon: <Icon.Arc />,
   content: <Content />,
   trigger: ["A"],
   tooltip: "Arcs",
+  sizeBounds: { lower: 225, upper: 400 },
   initialSize: 300,
-  minSize: 225,
-  maxSize: 400,
   useVisible: () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID),
 };
 

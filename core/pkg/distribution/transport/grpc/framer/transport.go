@@ -10,80 +10,31 @@
 package framer
 
 import (
-	"context"
-	"go/types"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	framerpb "github.com/synnaxlabs/synnax/pkg/distribution/framer/pb"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	distdeleter "github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	distiterator "github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	distrelay "github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
+	distwriter "github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/relay"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/writer"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type (
-	writerClient = fgrpc.StreamClient[
-		writer.Request,
-		*framerpb.WriterRequest,
-		writer.Response,
-		*framerpb.WriterResponse,
-	]
-	writerServerCore = fgrpc.StreamServerCore[
-		writer.Request,
-		*framerpb.WriterRequest,
-		writer.Response,
-		*framerpb.WriterResponse,
-	]
-	iteratorClient = fgrpc.StreamClient[
-		iterator.Request,
-		*framerpb.IteratorRequest,
-		iterator.Response,
-		*framerpb.IteratorResponse,
-	]
-	iteratorServerCore = fgrpc.StreamServerCore[
-		iterator.Request,
-		*framerpb.IteratorRequest,
-		iterator.Response,
-		*framerpb.IteratorResponse,
-	]
-	relayClient = fgrpc.StreamClient[
-		relay.Request,
-		*framerpb.RelayRequest,
-		relay.Response,
-		*framerpb.RelayResponse,
-	]
-	relayServerCore = fgrpc.StreamServerCore[
-		relay.Request,
-		*framerpb.RelayRequest,
-		relay.Response,
-		*framerpb.RelayResponse,
-	]
-	deleteClient = fgrpc.UnaryClient[
-		deleter.Request,
-		*framerpb.DeleteRequest,
-		types.Nil,
-		*emptypb.Empty,
-	]
-	deleteServer = fgrpc.UnaryServer[
-		deleter.Request,
-		*framerpb.DeleteRequest,
-		types.Nil,
-		*emptypb.Empty,
-	]
-)
-
-// Transport is a gRPC-backed implementation of the framer.Transport interface.
+// Transport is a gRPC-backed implementation of the framer.Transport interface. It
+// bundles the per-operation gRPC transports for the deleter, iterator, relay, and
+// writer.
 type Transport struct {
+	// ReportProvider provides a report for the transport.
 	alamos.ReportProvider
-	writer   writerTransport
-	iterator iteratorTransport
-	relay    relayTransport
-	deleter  deleteTransport
+	deleter  deleter.Transport
+	iterator iterator.Transport
+	relay    relay.Transport
+	writer   writer.Transport
 }
 
 var (
@@ -91,186 +42,43 @@ var (
 	_ fgrpc.BindableTransport = Transport{}
 )
 
-// New creates a new grpc Transport that opens connections from the given pool.
+// New creates a new gRPC Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
 	return Transport{
 		ReportProvider: fgrpc.Reporter,
-		writer: writerTransport{
-			client: &writerClient{
-				Pool:               pool,
-				RequestTranslator:  framerpb.WriterRequestTranslator{},
-				ResponseTranslator: framerpb.WriterResponseTranslator{},
-				ClientFunc: func(
-					ctx context.Context,
-					conn grpc.ClientConnInterface,
-				) (fgrpc.GRPCClientStream[
-					*framerpb.WriterRequest,
-					*framerpb.WriterResponse,
-				], error) {
-					return framerpb.NewWriterServiceClient(conn).Write(ctx)
-				},
-				ServiceDesc: &framerpb.WriterService_ServiceDesc,
-			},
-			server: &writerServer{
-				writerServerCore: writerServerCore{
-					Internal:           true,
-					RequestTranslator:  framerpb.WriterRequestTranslator{},
-					ResponseTranslator: framerpb.WriterResponseTranslator{},
-					ServiceDesc:        &framerpb.WriterService_ServiceDesc,
-				}},
-		},
-		iterator: iteratorTransport{
-			server: &iteratorServer{iteratorServerCore: iteratorServerCore{
-				Internal:           true,
-				RequestTranslator:  framerpb.IteratorRequestTranslator{},
-				ResponseTranslator: framerpb.IteratorResponseTranslator{},
-				ServiceDesc:        &framerpb.IteratorService_ServiceDesc,
-			}},
-			client: &iteratorClient{
-				Pool:               pool,
-				RequestTranslator:  framerpb.IteratorRequestTranslator{},
-				ResponseTranslator: framerpb.IteratorResponseTranslator{},
-				ClientFunc: func(
-					ctx context.Context,
-					conn grpc.ClientConnInterface,
-				) (fgrpc.GRPCClientStream[
-					*framerpb.IteratorRequest,
-					*framerpb.IteratorResponse,
-				], error) {
-					return framerpb.NewIteratorServiceClient(conn).Iterate(ctx)
-				},
-				ServiceDesc: &framerpb.IteratorService_ServiceDesc,
-			},
-		},
-		relay: relayTransport{
-			server: &relayServer{relayServerCore: relayServerCore{
-				Internal:           true,
-				RequestTranslator:  framerpb.RelayRequestTranslator{},
-				ResponseTranslator: framerpb.RelayResponseTranslator{},
-				ServiceDesc:        &framerpb.RelayService_ServiceDesc,
-			}},
-			client: &relayClient{
-				Pool:               pool,
-				RequestTranslator:  framerpb.RelayRequestTranslator{},
-				ResponseTranslator: framerpb.RelayResponseTranslator{},
-				ClientFunc: func(
-					ctx context.Context,
-					conn grpc.ClientConnInterface,
-				) (fgrpc.GRPCClientStream[
-					*framerpb.RelayRequest,
-					*framerpb.RelayResponse,
-				], error) {
-					return framerpb.NewRelayServiceClient(conn).Relay(ctx)
-				},
-				ServiceDesc: &framerpb.RelayService_ServiceDesc,
-			},
-		},
-		deleter: deleteTransport{
-			server: &deleteServer{
-				Internal:           true,
-				RequestTranslator:  framerpb.DeleteRequestTranslator{},
-				ResponseTranslator: fgrpc.EmptyTranslator{},
-				ServiceDesc:        &framerpb.DeleteService_ServiceDesc,
-			},
-			client: &deleteClient{
-				Pool:               pool,
-				RequestTranslator:  framerpb.DeleteRequestTranslator{},
-				ResponseTranslator: fgrpc.EmptyTranslator{},
-				Exec: func(
-					ctx context.Context,
-					conn grpc.ClientConnInterface,
-					req *framerpb.DeleteRequest,
-				) (*emptypb.Empty, error) {
-					return framerpb.NewDeleteServiceClient(conn).Exec(ctx, req)
-				},
-				ServiceDesc: &framerpb.DeleteService_ServiceDesc,
-			},
-		},
+		deleter:        deleter.New(pool),
+		iterator:       iterator.New(pool),
+		relay:          relay.New(pool),
+		writer:         writer.New(pool),
 	}
 }
 
-// Writer implements the framer.Transport interface.
-func (t Transport) Writer() writer.Transport { return t.writer }
+// Deleter implements the framer.Transport interface.
+func (t Transport) Deleter() distdeleter.Transport { return t.deleter }
 
 // Iterator implements the framer.Transport interface.
-func (t Transport) Iterator() iterator.Transport { return t.iterator }
+func (t Transport) Iterator() distiterator.Transport { return t.iterator }
 
 // Relay implements the framer.Transport interface.
-func (t Transport) Relay() relay.Transport { return t.relay }
+func (t Transport) Relay() distrelay.Transport { return t.relay }
 
-// Deleter implements the framer.Transport interface
-func (t Transport) Deleter() deleter.Transport { return t.deleter }
+// Writer implements the framer.Transport interface.
+func (t Transport) Writer() distwriter.Transport { return t.writer }
 
-// BindTo implements the grpc.BindableTransport interface.
+// BindTo implements the grpc.BindableTransport interface, registering each
+// per-operation server with the given gRPC service registrar.
 func (t Transport) BindTo(server grpc.ServiceRegistrar) {
-	framerpb.RegisterWriterServiceServer(server, t.writer.server)
-	framerpb.RegisterIteratorServiceServer(server, t.iterator.server)
-	framerpb.RegisterRelayServiceServer(server, t.relay.server)
-	t.deleter.server.BindTo(server)
+	t.deleter.BindTo(server)
+	t.iterator.BindTo(server)
+	t.relay.BindTo(server)
+	t.writer.BindTo(server)
 }
 
-// Use implements the freighter.Transport interface.
+// Use implements the freighter.Transport interface, binding the given middleware to
+// every per-operation transport.
 func (t Transport) Use(middleware ...freighter.Middleware) {
-	t.writer.client.Use(middleware...)
-	t.writer.server.Use(middleware...)
-	t.iterator.client.Use(middleware...)
-	t.iterator.server.Use(middleware...)
-	t.relay.client.Use(middleware...)
-	t.relay.server.Use(middleware...)
-	t.deleter.client.Use(middleware...)
-	t.deleter.server.Use(middleware...)
+	t.deleter.Use(middleware...)
+	t.iterator.Use(middleware...)
+	t.relay.Use(middleware...)
+	t.writer.Use(middleware...)
 }
-
-type writerServer struct{ writerServerCore }
-
-type writerTransport struct {
-	client *writerClient
-	server *writerServer
-}
-
-func (t writerTransport) Client() writer.TransportClient { return t.client }
-
-func (t writerTransport) Server() writer.TransportServer { return t.server }
-
-func (w *writerServer) Write(server framerpb.WriterService_WriteServer) error {
-	return w.Handler(server.Context(), server)
-}
-
-type iteratorServer struct{ iteratorServerCore }
-
-func (t *iteratorServer) Iterate(server framerpb.IteratorService_IterateServer) error {
-	return t.Handler(server.Context(), server)
-}
-
-type iteratorTransport struct {
-	client *iteratorClient
-	server *iteratorServer
-}
-
-func (t iteratorTransport) Client() iterator.TransportClient { return t.client }
-
-func (t iteratorTransport) Server() iterator.TransportServer { return t.server }
-
-type relayServer struct{ relayServerCore }
-
-func (t *relayServer) Relay(server framerpb.RelayService_RelayServer) error {
-	return t.Handler(server.Context(), server)
-}
-
-type relayTransport struct {
-	client *relayClient
-	server *relayServer
-}
-
-func (t relayTransport) Client() relay.TransportClient { return t.client }
-
-func (t relayTransport) Server() relay.TransportServer { return t.server }
-
-type deleteTransport struct {
-	client *deleteClient
-	server *deleteServer
-}
-
-func (t deleteTransport) Client() deleter.TransportClient { return t.client }
-
-func (t deleteTransport) Server() deleter.TransportServer { return t.server }

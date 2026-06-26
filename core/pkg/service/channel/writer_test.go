@@ -47,7 +47,7 @@ var _ = Describe("Writer", func() {
 	Describe("External Channel Overflow", Ordered, func() {
 		var overflowSvc *channel.Service
 		BeforeAll(func(ctx SpecContext) {
-			overflowSvc = openService(ctx, mock.MustOpenNode(ctx), channel.ServiceConfig{
+			overflowSvc = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
 				IntOverflowCheck: fixedOverflowChecker(2),
 			})
 		})
@@ -132,7 +132,7 @@ var _ = Describe("Writer", func() {
 			services    map[node.Key]*channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
-			mockCluster = mock.MustOpenCluster(ctx, 2)
+			mockCluster = mock.NewCluster(ctx, 2)
 			services = make(map[node.Key]*channel.Service)
 			for k, n := range mockCluster.Nodes {
 				services[k] = openService(ctx, n)
@@ -684,7 +684,7 @@ var _ = Describe("Writer", func() {
 				services    map[node.Key]*channel.Service
 			)
 			BeforeAll(func(ctx SpecContext) {
-				mockCluster = mock.MustOpenCluster(ctx, 1)
+				mockCluster = mock.NewCluster(ctx, 1)
 				services = make(map[node.Key]*channel.Service)
 				services[1] = openService(ctx, mockCluster.Nodes[1], channel.ServiceConfig{ValidateNames: new(false)})
 			})
@@ -771,7 +771,7 @@ var _ = Describe("Writer", func() {
 			services    map[node.Key]*channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
-			mockCluster = mock.MustOpenCluster(ctx, 2)
+			mockCluster = mock.NewCluster(ctx, 2)
 			services = make(map[node.Key]*channel.Service)
 			for k, n := range mockCluster.Nodes {
 				services[k] = openService(ctx, n)
@@ -858,7 +858,7 @@ var _ = Describe("Writer", func() {
 			services    map[node.Key]*channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
-			mockCluster = mock.MustOpenCluster(context.Background(), 3)
+			mockCluster = mock.NewCluster(context.Background(), 3)
 			services = make(map[node.Key]*channel.Service)
 			for k, n := range mockCluster.Nodes {
 				services[k] = openService(ctx, n)
@@ -963,7 +963,7 @@ var _ = Describe("Writer", func() {
 			limitSvc *channel.Service
 		)
 		BeforeEach(func(ctx SpecContext) {
-			dist = mock.MustOpenNode(ctx)
+			dist = mock.NewNode(ctx)
 			limitSvc = openService(ctx, dist, channel.ServiceConfig{IntOverflowCheck: fixedOverflowChecker(limit)})
 		})
 		It("Should not allow creating channels over the limit", func(ctx SpecContext) {
