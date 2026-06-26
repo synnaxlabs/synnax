@@ -111,3 +111,41 @@ int32_t synnax_channel_retrieve_keys(
         return CODE_INTERNAL;
     }
 }
+
+int32_t synnax_channel_create(
+    SynnaxClient *client,
+    const char *name,
+    const char *data_type,
+    const int32_t is_index,
+    const uint32_t index,
+    const int32_t is_virtual,
+    uint32_t *out_key,
+    SynnaxError *err
+) {
+    clear_err(err);
+    if (client == nullptr || out_key == nullptr) {
+        set_err(err, CODE_INTERNAL, "sy.validation", "null client");
+        return CODE_INTERNAL;
+    }
+    try {
+        synnax::channel::Channel ch;
+        ch.name = str_or(name, "");
+        ch.data_type = x::telem::DataType{str_or(data_type, "")};
+        ch.is_index = is_index != 0;
+        ch.index = index;
+        ch.is_virtual = is_virtual != 0;
+        const auto c_err = client->client.channels.create(ch);
+        if (!c_err.ok()) {
+            set_err(err, CODE_ERROR, c_err.type, c_err.data);
+            return CODE_ERROR;
+        }
+        *out_key = ch.key;
+        return CODE_OK;
+    } catch (const std::exception &e) {
+        set_err(err, CODE_INTERNAL, "sy.internal", e.what());
+        return CODE_INTERNAL;
+    } catch (...) {
+        set_err(err, CODE_INTERNAL, "sy.internal", "unknown exception");
+        return CODE_INTERNAL;
+    }
+}

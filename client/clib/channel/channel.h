@@ -37,6 +37,19 @@ SYNNAX_EXPORT int32_t synnax_channel_retrieve_keys(
     SynnaxError *err
 );
 
+/// @brief creates a channel, writing its assigned key to out_key. data_type is a Synnax
+/// type name ("float32"; "timestamp" for an index); index is the indexer key or 0.
+SYNNAX_EXPORT int32_t synnax_channel_create(
+    SynnaxClient *client,
+    const char *name,
+    const char *data_type,
+    int32_t is_index,
+    uint32_t index,
+    int32_t is_virtual,
+    uint32_t *out_key,
+    SynnaxError *err
+);
+
 #ifdef __cplusplus
 }
 #endif

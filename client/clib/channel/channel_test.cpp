@@ -240,4 +240,86 @@ TEST(ClibChannel, testRetrieveFillsErrorByteBufferForLabVIEW) {
         "null client, names, or out_keys"
     );
 }
+
+/// @brief it should reject a channel create with a null client.
+TEST(ClibChannel, testCreateWithNullClientReturnsValidationError) {
+    SynnaxError err;
+    uint32_t key = 0;
+    const int32_t code = synnax_channel_create(
+        nullptr,
+        "ch",
+        "float32",
+        0,
+        0,
+        0,
+        &key,
+        &err
+    );
+    EXPECT_NE(code, OK);
+    EXPECT_STREQ(err.type, "sy.validation");
+}
+
+/// @brief it should create an index channel and assign it a non-zero key.
+TEST(ClibChannel, testCreateIndexChannel) {
+    SynnaxError err;
+    SynnaxClient *client = open_test_client(&err);
+    ASSERT_NE(client, nullptr) << err.message;
+
+    const std::string name = make_unique_channel_name("idx");
+    uint32_t key = 0;
+    const int32_t code = synnax_channel_create(
+        client,
+        name.c_str(),
+        "timestamp",
+        1,
+        0,
+        0,
+        &key,
+        &err
+    );
+    ASSERT_EQ(code, OK) << err.message;
+    EXPECT_NE(key, 0u);
+
+    synnax_client_close(client);
+}
+
+/// @brief it should create an indexed data channel that references a created index.
+TEST(ClibChannel, testCreateIndexedDataChannel) {
+    SynnaxError err;
+    SynnaxClient *client = open_test_client(&err);
+    ASSERT_NE(client, nullptr) << err.message;
+
+    const std::string idx_name = make_unique_channel_name("idx");
+    uint32_t idx_key = 0;
+    ASSERT_EQ(
+        synnax_channel_create(
+            client,
+            idx_name.c_str(),
+            "timestamp",
+            1,
+            0,
+            0,
+            &idx_key,
+            &err
+        ),
+        OK
+    ) << err.message;
+
+    const std::string data_name = make_unique_channel_name("data");
+    uint32_t data_key = 0;
+    const int32_t code = synnax_channel_create(
+        client,
+        data_name.c_str(),
+        "float32",
+        0,
+        idx_key,
+        0,
+        &data_key,
+        &err
+    );
+    ASSERT_EQ(code, OK) << err.message;
+    EXPECT_NE(data_key, 0u);
+
+    synnax_client_close(client);
+}
 }

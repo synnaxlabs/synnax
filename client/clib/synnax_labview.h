@@ -62,6 +62,17 @@ SYNNAX_EXPORT int32_t synnax_channel_retrieve_keys(
     uint8_t *err
 );
 
+SYNNAX_EXPORT int32_t synnax_channel_create(
+    SynnaxClient client,
+    const char *name,
+    const char *data_type,
+    int32_t is_index,
+    uint32_t index,
+    int32_t is_virtual,
+    uint32_t *out_key,
+    uint8_t *err
+);
+
 SYNNAX_EXPORT int32_t synnax_writer_open(
     SynnaxClient client,
     int64_t start,
