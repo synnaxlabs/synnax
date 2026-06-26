@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errors, URL } from "@synnaxlabs/x";
+import { errors, url } from "@synnaxlabs/x";
 
 /**
  * Base class for all freighter-specific errors
@@ -37,17 +37,20 @@ export class StreamClosed extends FreighterError.sub("stream_closed") {
  */
 export interface UnreachableArgs {
   message?: string;
-  url?: URL;
+  url?: url.URL;
+  /** Underlying error that caused the target to be unreachable (e.g. the original fetch
+   * failure). Preserved on Error.cause for stack-trace continuity. */
+  cause?: unknown;
 }
 
 /** Thrown when a network target is unreachable. */
 export class Unreachable extends FreighterError.sub("unreachable") {
-  url: URL;
+  url: url.URL;
 
   constructor(args: UnreachableArgs = {}) {
-    const { message = "Unreachable", url = URL.UNKNOWN } = args;
-    super(message);
-    this.url = url;
+    const { message = "Unreachable", url: endpoint = url.URL.UNKNOWN, cause } = args;
+    super(message, cause !== undefined ? { cause } : undefined);
+    this.url = endpoint;
   }
 }
 

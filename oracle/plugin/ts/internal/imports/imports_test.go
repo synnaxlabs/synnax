@@ -19,7 +19,7 @@ import (
 
 func TestImports(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "TS Imports Suite")
+	RunSpecs(t, "Plugin TS Imports Suite")
 }
 
 var _ = Describe("Manager", func() {

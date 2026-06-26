@@ -28,5 +28,5 @@ var _ = BeforeSuite(func() {
 
 func TestVersion(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Version Suite")
+	RunSpecs(t, "Cmd Version Suite")
 }

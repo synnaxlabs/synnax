@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
@@ -66,11 +65,11 @@ type ServiceConfig struct {
 	// DistFramer is the distribution layer frame service to extend.
 	// [REQUIRED]
 	DistFramer *framer.Service
-	// Channel is used to retrieve information about channels.
+	// Channel is used to retrieve information about channels and to resolve channel
+	// symbols for Arc expression compilation.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	Arc     *arc.Service
 	// Instrumentation is for logging, tracing, and metrics.
 	// [OPTIONAL] - defaults to noop instrumentation.
 	alamos.Instrumentation
@@ -89,7 +88,6 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
-	cfg.Arc = override.Nil(cfg.Arc, other.Arc)
 	return cfg
 }
 
@@ -98,7 +96,6 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
 	validate.NotNil(v, "framer", cfg.DistFramer)
 	validate.NotNil(v, "channel", cfg.Channel)
-	validate.NotNil(v, "arc", cfg.Arc)
 	return v.Error()
 }
 
@@ -189,7 +186,6 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	calcGraph, err := graph.New(graph.Config{
 		Instrumentation: s.cfg.Child("calculation.graph"),
 		Channel:         s.cfg.Channel,
-		SymbolResolver:  s.cfg.Arc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		return nil, err

@@ -15,7 +15,7 @@
 #include "freighter/cpp/mock/mock.h"
 #include "x/cpp/test/test.h"
 
-#include "core/pkg/api/grpc/auth/auth.pb.h"
+#include "core/pkg/transport/grpc/auth/auth.pb.h"
 
 namespace synnax::auth {
 /// @brief it should correctly authenticate with a Synnax cluster.

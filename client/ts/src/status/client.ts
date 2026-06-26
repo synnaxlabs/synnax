@@ -13,7 +13,8 @@ import z from "zod";
 
 import { label } from "@/label";
 import { ontology } from "@/ontology";
-import { type Key, keyZ, type New, newZ, type Status, statusZ } from "@/status/payload";
+import { type Key, keyZ } from "@/status/payload";
+import { type New, type Status, statusZ } from "@/status/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -21,11 +22,11 @@ const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
 ) =>
   z.object({
     parent: ontology.idZ.optional(),
-    statuses: newZ(detailsSchema).array(),
+    statuses: statusZ({ details: detailsSchema }).array(),
   });
 const setResZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
-) => z.object({ statuses: statusZ(detailsSchema).array() });
+) => z.object({ statuses: statusZ({ details: detailsSchema }).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 
@@ -51,7 +52,12 @@ export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
-) => z.object({ statuses: array.nullishToEmpty(statusZ(detailsSchema)) });
+) =>
+  z.object({
+    statuses: statusZ({ details: detailsSchema })
+      .array()
+      .default(() => []),
+  });
 
 export interface SetOptions {
   parent?: ontology.ID;
@@ -99,7 +105,9 @@ export class Client {
     const res = await this.client.send(
       "/status/set",
       {
-        statuses: array.toArray(statuses),
+        statuses: array.toArray(statuses) as z.input<
+          ReturnType<typeof setReqZ<DetailsSchema>>
+        >["statuses"],
         parent: opts.parent,
       },
       setReqZ(opts.detailsSchema),

@@ -9,19 +9,18 @@
 
 import "@/schematic/node/vessels/tank/tank.css";
 
-import { color, type dimensions } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { color } from "@synnaxlabs/x";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/tank/config";
-import { Theming } from "@/theming";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
-  onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
   strokeWidth?: number;
 }
@@ -37,7 +36,6 @@ export const Tank = ({
 }: RenderProps): ReactElement => {
   const detailedRadius = Border.parseRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
-  const t = Theming.use();
   const { width, height } = dimensions;
   const refreshDeps = useMemo(
     () => [dimensions, borderRadius, detailedRadius],
@@ -54,16 +52,23 @@ export const Tank = ({
   const rightOffset = 100 - leftOffset;
   const topOffset = Border.pixelToPercent(1, height);
   const bottomOffset = 100 - topOffset;
+  const cssBorderRadius = boxBorderRadius ?? Border.cssRadius(detailedRadius);
+  const backgroundCSS = color.cssString(backgroundColor);
+  const style = useMemo<CSSProperties>(
+    () => ({
+      width,
+      height,
+      borderRadius: cssBorderRadius,
+      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      backgroundColor: backgroundCSS,
+      borderWidth: strokeWidth,
+    }),
+    [width, height, cssBorderRadius, colorVal, backgroundCSS, strokeWidth],
+  );
   return (
     <Primitive.Div
-      className={CSS(className, CSS.B("tank"))}
-      style={{
-        ...dimensions,
-        borderRadius: boxBorderRadius ?? Border.cssRadius(detailedRadius),
-        borderColor: color.cssString(colorVal ?? t.colors.gray.l11),
-        backgroundColor: color.cssString(backgroundColor),
-        borderWidth: strokeWidth,
-      }}
+      className={CSS(className, CSS.B("tank"), CSS.B("symbol-colored"))}
+      style={style}
     >
       <Handle.Boundary refreshDeps={refreshDeps} orientation="left">
         <Handle.Handle

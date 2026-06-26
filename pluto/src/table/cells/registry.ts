@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { NotFoundError } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { z } from "zod";
@@ -81,4 +82,17 @@ const text: Spec<typeof textPropsZ> = {
   schema: textPropsZ,
 };
 
-export const CELLS: Record<Variant, Spec<any>> = { text, value };
+export const REGISTRY: Record<Variant, Spec<any>> = { text, value };
+
+export const configZ = z.discriminatedUnion("variant", [
+  z.object({ key: z.string(), variant: z.literal("text"), props: textPropsZ }),
+  z.object({ key: z.string(), variant: z.literal("value"), props: valuePropsZ }),
+]);
+export type Config = z.infer<typeof configZ>;
+
+export const resolveSpec = (variant: string): Spec<any> => {
+  const spec = REGISTRY[variant as Variant];
+  if (spec == null)
+    throw new NotFoundError(`Table cell with variant ${variant} not found`);
+  return spec;
+};

@@ -16,9 +16,18 @@ package arc
 import (
 	"context"
 
-	v54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
+	"github.com/synnaxlabs/arc/text"
+	v56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
 )
 
-func MigrateArc(ctx context.Context, old v54.Arc) (Arc, error) {
-	return AutoMigrateArc(ctx, old)
+func MigrateArc(ctx context.Context, old v56.Arc) (Arc, error) {
+	migrated, err := AutoMigrateArc(ctx, old)
+	if err != nil {
+		return Arc{}, err
+	}
+	// Text is now stored as a replicated document; seed it from the previously
+	// persisted raw source. Raw itself is derived and no longer persisted.
+	migrated.Text.Doc = text.Seed(old.Text.Raw)
+	migrated.Text.Raw = ""
+	return migrated, nil
 }

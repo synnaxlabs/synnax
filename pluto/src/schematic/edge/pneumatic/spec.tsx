@@ -7,28 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type direction, xy } from "@synnaxlabs/x";
+import { type direction, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
 import { NAME, VARIANT } from "@/schematic/edge/pneumatic/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 const SYMBOL_INTERVAL = 40;
 const SYMBOL_SIZE = 10;
 
 interface SymbolProps {
-  color: color.Crude;
   position: xy.XY;
   direction: direction.Direction;
 }
 
-const PneumaticSymbol = ({
-  color: colorVal,
-  position,
-  direction,
-}: SymbolProps): ReactElement => {
+const PneumaticSymbol = ({ position, direction }: SymbolProps): ReactElement => {
   const pos = { ...position };
   if (direction === "x") pos.y += SYMBOL_SIZE / 3;
   else pos.x -= SYMBOL_SIZE / 3;
@@ -38,12 +35,10 @@ const PneumaticSymbol = ({
     pointTwo = xy.translateY(pos, -10);
     rotate += 90;
   }
-  const stroke = color.cssString(colorVal);
   return (
     <>
       <path
         d={`M0,0 L0,-${SYMBOL_SIZE}`}
-        stroke={stroke}
         fill="none"
         strokeWidth={2}
         transform={`translate(${pos.x},${pos.y}) rotate(${rotate})`}
@@ -51,7 +46,6 @@ const PneumaticSymbol = ({
       />
       <path
         d={`M0,0 L0,-${SYMBOL_SIZE}`}
-        stroke={stroke}
         fill="none"
         strokeWidth={2}
         transform={`translate(${pointTwo.x},${pointTwo.y}) rotate(${rotate})`}
@@ -61,18 +55,20 @@ const PneumaticSymbol = ({
   );
 };
 
-export const spec = Segmented.createSpec(VARIANT, NAME, ({ points, color }) => (
-  <>
-    <Base.Base path={Path.rounded(points)} color={color} />
-    {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
-      ({ position, direction }, i) => (
-        <PneumaticSymbol
-          key={i}
-          position={position}
-          direction={direction}
-          color={color}
-        />
-      ),
-    )}
-  </>
-));
+export const spec = Segmented.createSpec(
+  VARIANT,
+  NAME,
+  ({ points, crossings, color: colorVal }) => (
+    <g
+      className={CSS.B("symbol-colored")}
+      style={{ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }}
+    >
+      <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
+      {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
+        ({ position, direction }, i) => (
+          <PneumaticSymbol key={i} position={position} direction={direction} />
+        ),
+      )}
+    </g>
+  ),
+);

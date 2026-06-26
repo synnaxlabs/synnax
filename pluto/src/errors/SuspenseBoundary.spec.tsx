@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
 import { act, render } from "@testing-library/react";
 import { type ReactElement, use } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,7 +19,10 @@ const Suspender = ({ promise }: { promise: Promise<string> }): ReactElement => (
   <div>{use(promise)}</div>
 );
 
+// Test helper that deliberately throws arbitrary values to exercise SuspenseBoundary's
+// fallback path with non-Error rejections.
 const Thrower = ({ throwable }: { throwable: unknown }): ReactElement => {
+  // eslint-disable-next-line @typescript-eslint/only-throw-error
   throw throwable;
 };
 

@@ -13,13 +13,13 @@ cc_library(
     deps = [
         "//client/cpp/errors",
         "//client/cpp/ontology",
-        "//core/pkg/api/grpc:api_grpc",
+        "//client/cpp/status",
         "//core/pkg/service/task:task_grpc",
+        "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/pb",
-        "//x/cpp/status",
         "@nlohmann_json//:json",
     ],
 )

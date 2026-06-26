@@ -208,9 +208,9 @@ export const eventKey = (
   return mouseKey((e as MouseEvent).button);
 };
 
-/* Tracks a list of keys that have an opinionated location i.e. "Left"  or "Right"
- as Triggers is location agnostic. */
-const INCLUDES_KEYS: Key[] = ["Control", "Alt", "Shift"];
+// Location-agnostic modifier keys. "Meta" is excluded because keyboardKey() maps it to
+// "Control", so it's already tracked as "Control".
+export const MODIFIER_KEYS: Key[] = ["Control", "Alt", "Shift"];
 
 /**
  * Parses the TriggerKey from the provided KeyboardEvent.
@@ -223,7 +223,7 @@ export const keyboardKey = (
   if (["Digit", "Key"].some((k) => e.code.startsWith(k)))
     return e.code.slice(-1) as Key;
   if (e.code.includes("Meta")) return "Control";
-  const includeKey = INCLUDES_KEYS.find((k) => e.code.includes(k));
+  const includeKey = MODIFIER_KEYS.find((k) => e.code.includes(k));
   if (includeKey != null) return includeKey;
   return e.code as Key;
 };
@@ -421,3 +421,6 @@ export const purgeMouse = (triggers: Trigger[]): Trigger[] =>
   triggers
     .map((t) => t.filter((k) => !k.startsWith("Mouse")))
     .filter((t) => t.length > 0);
+
+export const UNDO: Trigger = ["Control", "Z"];
+export const REDO: Trigger = ["Control", "Shift", "Z"];

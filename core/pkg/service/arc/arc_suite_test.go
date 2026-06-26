@@ -19,8 +19,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
@@ -31,7 +34,7 @@ import (
 
 func TestArc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Suite")
+	RunSpecs(t, "Service Arc Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -48,6 +51,8 @@ var (
 	rackSvc  *rack.Service
 	taskSvc  *task.Service
 	testRack *rack.Rack
+	sigs     *signals.Provider
+	arcClock = telem.Now
 )
 
 var (
@@ -93,12 +98,20 @@ var (
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+		sigs = MustSucceed(signals.New(signals.Config{
+			Channel: channel.Wrap(dist.Channel),
+			Framer:  framer.Wrap(dist.Framer),
+		}))
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Channel:  dist.Channel,
-			Task:     taskSvc,
-			Search:   searchIdx,
+			DB:                  db,
+			Ontology:            otg,
+			Channel:             channel.Wrap(dist.Channel),
+			Task:                taskSvc,
+			Search:              searchIdx,
+			Signals:             sigs,
+			TextSweepQuiescence: 5 * telem.Second,
+			TextSweepThreshold:  1,
+			Now:                 func() telem.TimeStamp { return arcClock() },
 		}))
 	})
 	_ = BeforeEach(func() { tx = db.OpenTx() })

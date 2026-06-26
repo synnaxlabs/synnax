@@ -16,9 +16,9 @@ import (
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
-	"github.com/synnaxlabs/x/status"
-	statuspb "github.com/synnaxlabs/x/status/pb"
 	"github.com/synnaxlabs/x/telem"
 	gotypes "go/types"
 )
@@ -40,12 +40,14 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		DataType:    string(r.DataType),
 		IsIndex:     r.IsIndex,
 		Index:       uint32(r.Index),
-		Alias:       r.Alias,
 		Virtual:     r.Virtual,
 		Internal:    r.Internal,
 		Expression:  r.Expression,
 		Operations:  operationsVal,
 		Concurrency: concurrencyVal,
+	}
+	if r.Alias != nil {
+		pb.Alias = r.Alias
 	}
 	if r.Status != nil {
 		var err error
@@ -78,10 +80,12 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	r.DataType = telem.DataType(pb.DataType)
 	r.IsIndex = pb.IsIndex
 	r.Index = distributionchannel.Key(pb.Index)
-	r.Alias = pb.Alias
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
+	if pb.Alias != nil {
+		r.Alias = pb.Alias
+	}
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[gotypes.Nil](pb.Status, nil)
 		if err != nil {

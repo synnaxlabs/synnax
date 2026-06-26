@@ -20,20 +20,24 @@ import (
 
 const name = "error"
 
-var panicSymbol = symbol.Symbol{
-	Name: "panic",
-	Kind: symbol.KindFunction,
-	Exec: symbol.ExecWASM,
-	Type: types.Function(types.FunctionProperties{
-		Inputs: types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
-	}),
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the error module containing panic. Both module and member
+// are Internal — panic is emitted by lowering passes (e.g., out-of-bounds
+// checks), not called from user source.
+func NewSymbols() []*symbol.Symbol {
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(&symbol.Symbol{
+		Name:     "panic",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
+		}),
+		Trigger: symbol.TriggerOnly,
+	})
+	return []*symbol.Symbol{mod}
 }
-
-var module = symbol.NewModule(name, panicSymbol)
-
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the error module containing panic.
-var Symbols = []*symbol.Symbol{module}
 
 // Host is the runtime host-side support for the error module: it registers
 // the panic host function and holds a reference to the WASM guest's

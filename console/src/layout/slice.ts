@@ -9,6 +9,7 @@
 
 import {
   createSlice,
+  current,
   type Dispatch,
   type PayloadAction,
   type UnknownAction,
@@ -49,7 +50,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = ["hauling", "themes"].map(
+export const PERSIST_EXCLUDE = ["hauling"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<RootState>>;
 
@@ -60,9 +61,6 @@ export type PlacePayload = State;
 export interface RemovePayload {
   keys: string[];
 }
-
-/** Signature for the setTheme action. */
-export type SetActiveThemePayload = string | undefined;
 
 export interface MoveMosaicTabPayload {
   tabKey: string;
@@ -121,7 +119,7 @@ export interface SetNavDrawerPayload extends NavDrawerEntryState {
   windowKey: string;
 }
 
-export interface SetWorkspacePayload {
+export interface SetProjectPayload {
   keepNav?: boolean;
   slice: SliceState;
 }
@@ -377,21 +375,6 @@ export const { actions, reducer } = createSlice({
       mosaic.root = Mosaic.renameTab(mosaic.root, layout.key, name);
       state.mosaics[layout.windowKey] = mosaic;
     },
-    setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
-      if (key != null) state.activeTheme = key;
-      else {
-        const keys = Object.keys(state.themes).sort();
-        const index = keys.indexOf(state.activeTheme);
-        const next = keys[(index + 1) % keys.length];
-        state.activeTheme = next;
-      }
-    },
-    toggleActiveTheme: (state) => {
-      const keys = Object.keys(state.themes);
-      const index = keys.indexOf(state.activeTheme);
-      const next = keys[(index + 1) % keys.length];
-      state.activeTheme = next;
-    },
     setNavDrawer: (state, { payload }: PayloadAction<SetNavDrawerPayload>) => {
       const { windowKey, location, ...rest } = payload;
       if (!(windowKey in state.nav)) state.nav[windowKey] = { drawers: {} };
@@ -496,39 +479,38 @@ export const { actions, reducer } = createSlice({
       drawerState.hover = false;
       drawerState.activeItem = null;
     },
-    setWorkspace: (
+    setProject: (
       state,
-      { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
+      { payload: { slice, keepNav = true } }: PayloadAction<SetProjectPayload>,
     ) => {
       // Mosaic.insertTab mutates tabs arrays in place; clone before
       // reconciling so the helper does not fight frozen nested objects
-      // carried over from the previous store snapshot.
+      // carried over from the previous store snapshot. Snapshot the draft
+      // with current() first, since structuredClone cannot clone Immer's
+      // draft Proxies.
+      const s = current(state);
       const next = deep.copy(
         migrateSlice({
           ...slice,
           layouts: {
-            ...layoutsToPreserve(state.layouts),
+            ...layoutsToPreserve(s.layouts),
             ...slice.layouts,
             main: MAIN_LAYOUT,
           },
-          hauling: state.hauling,
-          themes: state.themes,
-          activeTheme: state.activeTheme,
-          nav: keepNav ? state.nav : slice.nav,
+          hauling: s.hauling,
+          nav: keepNav ? s.nav : slice.nav,
         }),
       );
       reconcileMosaicLayouts(next);
       return next;
     },
-    clearWorkspace: (state) => ({
+    clearProject: (state) => ({
       ...ZERO_SLICE_STATE,
       layouts: {
         ...layoutsToPreserve(state.layouts),
         main: MAIN_LAYOUT,
       },
       hauling: state.hauling,
-      themes: state.themes,
-      activeTheme: state.activeTheme,
       nav: state.nav,
     }),
     setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
@@ -584,8 +566,6 @@ export const {
   place,
   setFocus,
   remove,
-  toggleActiveTheme,
-  setActiveTheme,
   moveMosaicTab,
   selectMosaicTab,
   resizeMosaicTab,
@@ -596,9 +576,9 @@ export const {
   resizeNavDrawer,
   setNavDrawerVisible,
   setHauled,
-  setWorkspace,
+  setProject,
   setColorContext,
-  clearWorkspace,
+  clearProject,
   startNavHover,
   toggleNavHover,
   stopNavHover,

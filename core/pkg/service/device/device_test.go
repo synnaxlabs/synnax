@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -90,6 +89,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev1",
 				Name:     "Dog",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			var res device.Device
@@ -103,6 +104,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev2",
 				Name:     "Cat",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			var res ontology.Resource
@@ -149,6 +152,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev3",
 				Name:     "Bird",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			var res ontology.Resource
@@ -166,6 +171,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev3",
 				Name:     "Bird",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			Expect(otg.NewWriter(tx).DeleteRelationship(
@@ -179,6 +186,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev3",
 				Name:     "Bird",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d2)).To(Succeed())
 			var res ontology.Resource
@@ -199,6 +208,8 @@ var _ = Describe("Device", func() {
 				Rack:     rack1.Key,
 				Location: "original-loc",
 				Name:     "Mover",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 
@@ -212,6 +223,8 @@ var _ = Describe("Device", func() {
 				Rack:     rack2.Key,
 				Location: "original-loc",
 				Name:     "Mover",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d2)).To(Succeed())
 
@@ -240,6 +253,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "loc",
 				Name:     "Original Name",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 
@@ -248,6 +263,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "loc",
 				Name:     "New Name",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d2)).To(Succeed())
 
@@ -262,7 +279,7 @@ var _ = Describe("Device", func() {
 
 		It("Should use the provided status when creating a device", func(ctx SpecContext) {
 			providedStatus := &device.Status{
-				Variant:     xstatus.VariantSuccess,
+				Variant:     status.VariantSuccess,
 				Time:        telem.Now(),
 				Message:     "Device is connected",
 				Description: "Custom device description",
@@ -272,6 +289,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "loc-status",
 				Name:     "Device with custom status",
+				Make:     "Test Make",
+				Model:    "Test Model",
 				Status:   providedStatus,
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
@@ -281,7 +300,7 @@ var _ = Describe("Device", func() {
 				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&deviceStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(deviceStatus.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(deviceStatus.Message).To(Equal("Device is connected"))
 			Expect(deviceStatus.Description).To(Equal("Custom device description"))
 			// Key should be auto-assigned
@@ -303,6 +322,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "loc-invalid",
 				Name:     "Device with invalid status",
+				Make:     "Test Make",
+				Model:    "Test Model",
 				Status:   providedStatus,
 			}
 			Expect(w.Create(ctx, &d)).Error().To(MatchError(ContainSubstring("variant")))
@@ -313,20 +334,94 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "loc",
 				Name:     "Populated Device",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			Expect(d.Status).ToNot(BeNil())
-			Expect(d.Status.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(d.Status.Variant).To(Equal(status.VariantWarning))
 			Expect(d.Status.Name).To(Equal("Populated Device"))
 			Expect(d.Parent).ToNot(BeNil())
 			Expect(*d.Parent).To(Equal(rackSvc.EmbeddedKey.OntologyID()))
 		})
+		It("Should restore a missing status row when the device is re-configured", func(ctx SpecContext) {
+			d := device.Device{
+				Key:      "heal-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "heal-loc",
+				Name:     "Heal Device",
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+
+			Expect(status.NewWriter[device.StatusDetails](stat, tx).
+				Delete(ctx, device.OntologyID(d.Key).String())).To(Succeed())
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+
+			reconfigured := device.Device{
+				Key:      d.Key,
+				Rack:     d.Rack,
+				Location: d.Location,
+				Name:     d.Name,
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(w.Create(ctx, &reconfigured)).To(Succeed())
+
+			var healed device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Entry(&healed).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(healed.Details.Device).To(Equal(d.Key))
+		})
+
+		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
+			d := device.Device{
+				Key:      "live-status-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "live-loc",
+				Name:     "Live Device",
+				Make:     "Test Make",
+				Model:    "Test Model",
+				Status: &device.Status{
+					Variant: status.VariantSuccess,
+					Message: "Device is connected",
+					Time:    telem.Now(),
+				},
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+
+			reconfigured := device.Device{
+				Key:      d.Key,
+				Rack:     d.Rack,
+				Location: d.Location,
+				Name:     d.Name,
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(w.Create(ctx, &reconfigured)).To(Succeed())
+
+			var preserved device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Entry(&preserved).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
+			Expect(preserved.Message).To(Equal("Device is connected"))
+		})
+
 		It("Should populate Status and Parent with explicit parent after Create", func(ctx SpecContext) {
 			chassis := device.Device{
 				Key:      "pop-chassis",
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-0",
 				Name:     "Pop Chassis",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &chassis)).To(Succeed())
 
@@ -336,12 +431,44 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-1",
 				Name:     "Pop Module",
+				Make:     "Test Make",
+				Model:    "Test Model",
 				Parent:   &chassisID,
 			}
 			Expect(w.Create(ctx, &module)).To(Succeed())
 			Expect(module.Status).ToNot(BeNil())
 			Expect(module.Parent).ToNot(BeNil())
 			Expect(*module.Parent).To(Equal(chassisID))
+		})
+	})
+	Describe("CreateMany", func() {
+		It("Should create multiple devices", func(ctx SpecContext) {
+			devices := []device.Device{
+				{
+					Key:      "device-many-1",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "loc-1",
+					Name:     "Device 1",
+					Make:     "Test Make",
+					Model:    "Test Model",
+				},
+				{
+					Key:      "device-many-2",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "loc-2",
+					Name:     "Device 2",
+					Make:     "Test Make",
+					Model:    "Test Model",
+				},
+			}
+			Expect(w.CreateMany(ctx, &devices)).To(Succeed())
+
+			var retrieved []device.Device
+			Expect(svc.NewRetrieve().Where(device.MatchKeys(
+				devices[0].Key,
+				devices[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
 		})
 	})
 	Describe("Parent Ontology Relationship", func() {
@@ -351,6 +478,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-0",
 				Name:     "Chassis 1",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &chassis)).To(Succeed())
 
@@ -359,6 +488,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-1",
 				Name:     "Module 1",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			chassisParent := device.OntologyID("pd-chassis-1")
 			module.Parent = &chassisParent
@@ -380,6 +511,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "loc",
 				Name:     "Standalone",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 
@@ -399,12 +532,16 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-a",
 				Name:     "Chassis A",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			chassisB := device.Device{
 				Key:      "pd-chassis-b",
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-b",
 				Name:     "Chassis B",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &chassisA)).To(Succeed())
 			Expect(w.Create(ctx, &chassisB)).To(Succeed())
@@ -415,6 +552,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-1",
 				Name:     "Moving Module",
+				Make:     "Test Make",
+				Model:    "Test Model",
 				Parent:   &chassisAParent,
 			}
 			Expect(w.Create(ctx, &module)).To(Succeed())
@@ -456,6 +595,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-1",
 				Name:     "Converge Module",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &module)).To(Succeed())
 
@@ -473,6 +614,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-0",
 				Name:     "Converge Chassis",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &chassis)).To(Succeed())
 
@@ -497,6 +640,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-0",
 				Name:     "Skip Chassis",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &chassis)).To(Succeed())
 
@@ -505,6 +650,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "slot-1",
 				Name:     "Skip Module",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 
@@ -528,7 +675,10 @@ var _ = Describe("Device", func() {
 			d := device.Device{
 				Key:      "device4",
 				Rack:     rackSvc.EmbeddedKey,
-				Location: "dev4", Name: "Fish",
+				Location: "dev4",
+				Name:     "Fish",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			var res device.Device
@@ -542,6 +692,7 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev5",
 				Name:     "Fish",
+				Make:     "Test Make",
 				Model:    "A",
 			}
 			d2a := device.Device{
@@ -549,6 +700,7 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev6",
 				Name:     "Fish",
+				Make:     "Test Make",
 				Model:    "B",
 			}
 			d2b := device.Device{
@@ -556,6 +708,7 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev7",
 				Name:     "Fish",
+				Make:     "Test Make",
 				Model:    "B",
 			}
 			Expect(w.Create(ctx, &d1)).To(Succeed())
@@ -576,6 +729,7 @@ var _ = Describe("Device", func() {
 				Location: "dev8",
 				Name:     "Fish",
 				Make:     "A",
+				Model:    "Test Model",
 			}
 			d2a := device.Device{
 				Key:      "device9",
@@ -583,6 +737,7 @@ var _ = Describe("Device", func() {
 				Location: "dev9",
 				Name:     "Fish",
 				Make:     "B",
+				Model:    "Test Model",
 			}
 			d2b := device.Device{
 				Key:      "device10",
@@ -590,6 +745,7 @@ var _ = Describe("Device", func() {
 				Location: "dev10",
 				Name:     "Fish",
 				Make:     "B",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d1)).To(Succeed())
 			Expect(w.Create(ctx, &d2a)).To(Succeed())
@@ -607,18 +763,24 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev11",
 				Name:     "Fish",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			d2a := device.Device{
 				Key:      "device12",
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev12",
 				Name:     "Fish",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			d2b := device.Device{
 				Key:      "device13",
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev13",
 				Name:     "Fish",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d1)).To(Succeed())
 			Expect(w.Create(ctx, &d2a)).To(Succeed())
@@ -638,6 +800,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev14",
 				Name:     "Fish",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			Expect(w.Delete(ctx, d.Key)).To(Succeed())
@@ -656,6 +820,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "dev15",
 				Name:     "Fish",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			Expect(w.Delete(ctx, d.Key)).To(Succeed())
@@ -714,6 +880,8 @@ var _ = Describe("Device", func() {
 				Rack:     r.Key,
 				Location: "loc1",
 				Name:     "Test Device",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
 
@@ -723,7 +891,7 @@ var _ = Describe("Device", func() {
 					Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 					Entry(&deviceStatus).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(deviceStatus.Variant).To(Equal(xstatus.VariantWarning))
+				g.Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))
 				g.Expect(deviceStatus.Message).To(ContainSubstring("not running"))
 				g.Expect(deviceStatus.Details.Device).To(Equal(d.Key))
 				g.Expect(deviceStatus.Details.Rack).To(Equal(r.Key))
@@ -786,7 +954,7 @@ var _ = Describe("Device", func() {
 				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(restoredStatus.Message).To(Equal("Migration Test Device state unknown"))
 			Expect(restoredStatus.Details.Device).To(Equal(d.Key))
 			Expect(restoredStatus.Details.Rack).To(Equal(rackSvc.EmbeddedKey))
@@ -836,6 +1004,8 @@ var _ = Describe("Device", func() {
 				Rack:     rackSvc.EmbeddedKey,
 				Location: "loc",
 				Name:     "Device With Status",
+				Make:     "Test Make",
+				Model:    "Test Model",
 			}
 			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
 
@@ -844,7 +1014,7 @@ var _ = Describe("Device", func() {
 				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&deviceStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(deviceStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(deviceStatus.Message).To(ContainSubstring("Device With Status"))
 		})
 	})

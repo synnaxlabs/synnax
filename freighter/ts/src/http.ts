@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, errors, type URL } from "@synnaxlabs/x";
+import { type binary, errors, type url } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
@@ -59,10 +59,10 @@ const HTTP_STATUS_BAD_REQUEST = 400;
  * @param encoder - The encoder/decoder to use for the request/response.
  */
 export class HTTPClient extends MiddlewareCollector implements UnaryClient {
-  endpoint: URL;
+  endpoint: url.URL;
   encoder: binary.Codec;
 
-  constructor(endpoint: URL, encoder: binary.Codec, secure: boolean = false) {
+  constructor(endpoint: url.URL, encoder: binary.Codec, secure: boolean = false) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
@@ -109,8 +109,10 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         try {
           httpRes = await fetch(ctx.target, request);
         } catch (e) {
-          if (!(e instanceof Error)) throw e;
-          throw shouldCastToUnreachable(e) ? new Unreachable({ url }) : e;
+          const err = errors.fromUnknown(e);
+          throw shouldCastToUnreachable(err)
+            ? new Unreachable({ url, cause: err })
+            : err;
         }
         const data = await httpRes.arrayBuffer();
         if (httpRes?.ok) {
@@ -118,18 +120,25 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           return outCtx;
         }
         if (httpRes.status !== HTTP_STATUS_BAD_REQUEST)
-          throw new Error(httpRes.statusText);
+          throw new Error(
+            `[freighter] HTTP ${httpRes.status} from ${ctx.target}: ${httpRes.statusText}`,
+          );
         let decoded: Error | null;
         try {
           decoded = errors.decode(this.encoder.decode(data, errors.payloadZ));
         } catch (e) {
-          if (!(e instanceof Error)) throw e;
+          const err = errors.fromUnknown(e);
           throw new Error(
-            `[freighter] - failed to decode error: ${httpRes.statusText}: ${e.message}`,
+            `[freighter] - failed to decode error: ${httpRes.statusText}: ${err.message}`,
             { cause: e },
           );
         }
-        throw decoded ?? new Error(httpRes.statusText);
+        throw (
+          decoded ??
+          new Error(
+            `[freighter] HTTP ${httpRes.status} from ${ctx.target}: ${httpRes.statusText}`,
+          )
+        );
       },
     );
 

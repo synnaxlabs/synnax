@@ -22,10 +22,8 @@ Series parse_default_value(
     const types::Type &type
 ) {
     auto data_type = type.telem();
-    if (value.has_value()) {
-        auto casted = data_type.cast(*value);
-        return x::mem::make_local_shared<x::telem::Series>(casted);
-    }
+    if (value.has_value())
+        return x::mem::make_local_shared<x::telem::Series>(data_type.cast(*value));
     switch (type.kind) {
         case types::Kind::I8:
             return x::mem::make_local_shared<x::telem::Series>(static_cast<int8_t>(0));
@@ -110,6 +108,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
     std::vector<Series> aligned_time(num_inputs);
     std::vector<Node::InputEntry> accumulated(num_inputs);
     std::vector<size_t> input_source_idx(num_inputs);
+    std::vector<bool> is_reference(num_inputs);
 
     for (size_t i = 0; i < num_inputs; i++)
         aligned_time[i] = x::mem::make_local_shared<x::telem::Series>(
@@ -119,6 +118,11 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
 
     for (size_t i = 0; i < num_inputs; i++) {
         const auto &param = ir_node.inputs[i];
+        // A channel input is a reference resolved by key in the host functions.
+        if (param.type.kind == types::Kind::Chan) {
+            is_reference[i] = true;
+            continue;
+        }
         ir::Handle target_handle(key, param.name);
         if (auto edge = this->cfg.ir.edge_to(target_handle)) {
             inputs[i] = *edge;
@@ -181,7 +185,8 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
             std::move(output_idx),
             std::move(accumulated),
             std::move(aligned_data),
-            std::move(aligned_time)
+            std::move(aligned_time),
+            std::move(is_reference)
         ),
         x::errors::NIL
     };
@@ -229,9 +234,11 @@ void Node::init_input(size_t param_index, const Series &data, const Series &time
 }
 
 bool Node::refresh_inputs() {
-    if (this->inputs.empty()) return true;
+    bool has_data_input = false;
     bool has_unconsumed = false;
     for (size_t i = 0; i < this->inputs.size(); i++) {
+        if (this->is_reference[i]) continue;
+        has_data_input = true;
         const Value &src = this->state.values[this->accumulated[i].source];
         const auto *time_ptr = src.time.get();
         const auto *data_ptr = src.data.get();
@@ -249,8 +256,10 @@ bool Node::refresh_inputs() {
             return false;
         if (!this->accumulated[i].consumed) has_unconsumed = true;
     }
+    if (!has_data_input) return true;
     if (!has_unconsumed) return false;
     for (size_t i = 0; i < this->inputs.size(); i++) {
+        if (this->is_reference[i]) continue;
         this->aligned_data[i] = this->accumulated[i].data;
         this->aligned_time[i] = this->accumulated[i].time;
         this->accumulated[i].consumed = true;
@@ -274,6 +283,7 @@ void Node::write_series(
 const Series &Node::input_time(const size_t param_index) const {
     return this->aligned_time[param_index];
 }
+
 Series &Node::output(const size_t param_index) const {
     return this->state.values[this->output_idx[param_index]].data;
 }

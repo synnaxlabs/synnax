@@ -99,7 +99,7 @@ var _ = Describe("Convergence", func() {
 					addresses = append(addresses, gossipT.Address)
 					clusters = append(clusters, cluster)
 				}
-				Expect(len(clusters)).To(Equal(values.clusterSize))
+				Expect(clusters).To(HaveLen(values.clusterSize))
 				for j, c := range clusters {
 					Expect(c.HostKey()).To(Equal(node.Key(j + 1)))
 				}

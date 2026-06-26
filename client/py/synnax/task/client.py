@@ -30,7 +30,7 @@ from synnax.rack import Rack
 from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
 from synnax.task.types_gen import Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
-from x.normalize import check_for_none, normalize, override
+from x.lists import check_for_none, normalize, override
 
 
 class _CreateRequest(BaseModel):
@@ -65,7 +65,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    tasks: list[Payload] | None = None
+    tasks: list[Payload] = Field(default_factory=list)
 
 
 _CREATE_ENDPOINT = "/task/create"
@@ -509,7 +509,7 @@ class Client:
             ),
             _RetrieveResponse,
         )
-        sug = self.sugar(res.tasks or [])
+        sug = self.sugar(res.tasks)
 
         # Warn if multiple tasks found when retrieving by name
         if is_single and name is not None and len(sug) > 1:
@@ -543,7 +543,7 @@ class Client:
             _RetrieveRequest(rack=rack, internal=False),
             _RetrieveResponse,
         )
-        return self.sugar(res.tasks or [])
+        return self.sugar(res.tasks)
 
     def copy(
         self,

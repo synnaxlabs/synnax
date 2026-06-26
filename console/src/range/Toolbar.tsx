@@ -121,7 +121,11 @@ export const useRename = () => {
 const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   const { itemKey } = props;
   const entry = useSelect(itemKey);
-  const labels = Ranger.useLabels(itemKey)?.data ?? [];
+  const isLocal = entry != null && !entry.persisted;
+  const labels =
+    Ranger.useLabels(itemKey, {
+      beforeRetrieve: useCallback(() => (isLocal ? [] : true), [isLocal]),
+    })?.data ?? [];
   const onRename = useRename();
   const hasUpdatePermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;
@@ -212,7 +216,6 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   tooltip: "Ranges",
   trigger: ["R"],
   initialSize: 300,
-  minSize: 175,
-  maxSize: 400,
+  sizeBounds: { lower: 175, upper: 400 },
   useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
 };

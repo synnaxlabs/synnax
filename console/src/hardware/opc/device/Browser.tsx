@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Browser.css";
 
-import { type rack } from "@synnaxlabs/client";
+import { type rack, type status } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -27,7 +27,7 @@ import {
   Tree,
   useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
-import { array, type optional, type status } from "@synnaxlabs/x";
+import { array, type optional } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";

@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
 	"github.com/tetratelabs/wazero"
@@ -28,97 +29,104 @@ func tv() types.Type { return types.Variable("T", &numConstraint) }
 var i32 = types.I32()
 var i64 = types.I64()
 
-// userLenSymbol is the user-facing `len(series) i64` builtin installed at
-// root scope so programs can use it without an import.
-var userLenSymbol = symbol.Symbol{
-	Name: "len",
-	Kind: symbol.KindFunction,
-	Exec: symbol.ExecWASM,
-	Type: types.Function(types.FunctionProperties{
-		Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-	}),
+var lenDoc = doc.New(
+	doc.Paragraph("Returns the length of a series or string as i64."),
+	doc.Divider(),
+	doc.Code("arc", "length := len(data)"),
+)
+
+func newUserLenSymbol() *symbol.Symbol {
+	return &symbol.Symbol{
+		Name: "len",
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecWASM,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+		}),
+		Trigger: symbol.TriggerOnly,
+		Doc:     lenDoc,
+	}
 }
 
-var (
-	scalarArithIn = types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}
-	rScalarIn     = types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}
-	seriesBinIn   = types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}
-	resultOut     = types.Params{{Name: "result", Type: i32}}
-)
+// Name is the module name.
+const Name = "series"
 
-const name = "series"
-
-var module = symbol.NewModule(
-	name,
-	symbol.InternalHostFunc("element_add", scalarArithIn, resultOut),
-	symbol.InternalHostFunc("element_sub", scalarArithIn, resultOut),
-	symbol.InternalHostFunc("element_mul", scalarArithIn, resultOut),
-	symbol.InternalHostFunc("element_div", scalarArithIn, resultOut),
-	symbol.InternalHostFunc("element_mod", scalarArithIn, resultOut),
-	symbol.InternalHostFunc("element_radd", rScalarIn, resultOut),
-	symbol.InternalHostFunc("element_rsub", rScalarIn, resultOut),
-	symbol.InternalHostFunc("element_rmul", rScalarIn, resultOut),
-	symbol.InternalHostFunc("element_rdiv", rScalarIn, resultOut),
-	symbol.InternalHostFunc("element_rmod", rScalarIn, resultOut),
-	symbol.InternalHostFunc("series_add", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("series_sub", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("series_mul", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("series_div", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("series_mod", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("compare_gt", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("compare_lt", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("compare_ge", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("compare_le", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("compare_eq", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("compare_ne", seriesBinIn, resultOut),
-	symbol.InternalHostFunc("compare_gt_scalar", scalarArithIn, resultOut),
-	symbol.InternalHostFunc("compare_lt_scalar", scalarArithIn, resultOut),
-	symbol.InternalHostFunc("compare_ge_scalar", scalarArithIn, resultOut),
-	symbol.InternalHostFunc("compare_le_scalar", scalarArithIn, resultOut),
-	symbol.InternalHostFunc("compare_eq_scalar", scalarArithIn, resultOut),
-	symbol.InternalHostFunc("compare_ne_scalar", scalarArithIn, resultOut),
-	symbol.InternalHostFunc(
-		"create_empty",
-		types.Params{{Name: "len", Type: i32}},
-		types.Params{{Name: "handle", Type: i32}},
-	),
-	symbol.InternalHostFunc(
-		"set_element",
-		types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}, {Name: "value", Type: tv()}},
-		resultOut,
-	),
-	symbol.InternalHostFunc(
-		"index",
-		types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}},
-		types.Params{{Name: "value", Type: tv()}},
-	),
-	symbol.InternalHostFunc(
-		"negate",
-		types.Params{{Name: "handle", Type: i32}},
-		resultOut,
-	),
-	symbol.InternalHostFunc(
-		"not_u8",
-		types.Params{{Name: "handle", Type: i32}},
-		resultOut,
-	),
-	symbol.InternalHostFunc(
-		"len",
-		types.Params{{Name: "handle", Type: i32}},
-		types.Params{{Name: "length", Type: i64}},
-	),
-	symbol.InternalHostFunc(
-		"slice",
-		types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}},
-		resultOut,
-	),
-)
-
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the series module plus the bare `len` global (a user-facing
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the series module plus the bare `len` global (a user-facing
 // builtin reachable without an import).
-var Symbols = []*symbol.Symbol{module, &userLenSymbol}
+func NewSymbols() []*symbol.Symbol {
+	scalarArithIn := types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}
+	rScalarIn := types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}
+	seriesBinIn := types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}
+	resultOut := types.Params{{Name: "result", Type: i32}}
+	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(
+		symbol.InternalHostFunc("element_add", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("element_sub", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("element_mul", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("element_div", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("element_mod", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("element_radd", rScalarIn, resultOut),
+		symbol.InternalHostFunc("element_rsub", rScalarIn, resultOut),
+		symbol.InternalHostFunc("element_rmul", rScalarIn, resultOut),
+		symbol.InternalHostFunc("element_rdiv", rScalarIn, resultOut),
+		symbol.InternalHostFunc("element_rmod", rScalarIn, resultOut),
+		symbol.InternalHostFunc("series_add", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("series_sub", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("series_mul", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("series_div", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("series_mod", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("compare_gt", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("compare_lt", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("compare_ge", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("compare_le", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("compare_eq", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("compare_ne", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("compare_gt_scalar", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("compare_lt_scalar", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("compare_ge_scalar", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("compare_le_scalar", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("compare_eq_scalar", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("compare_ne_scalar", scalarArithIn, resultOut),
+		symbol.InternalHostFunc(
+			"create_empty",
+			types.Params{{Name: "len", Type: i32}},
+			types.Params{{Name: "handle", Type: i32}},
+		),
+		symbol.InternalHostFunc(
+			"set_element",
+			types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}, {Name: "value", Type: tv()}},
+			resultOut,
+		),
+		symbol.InternalHostFunc(
+			"index",
+			types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}},
+			types.Params{{Name: "value", Type: tv()}},
+		),
+		symbol.InternalHostFunc(
+			"negate",
+			types.Params{{Name: "handle", Type: i32}},
+			resultOut,
+		),
+		symbol.InternalHostFunc(
+			"not_u8",
+			types.Params{{Name: "handle", Type: i32}},
+			resultOut,
+		),
+		symbol.InternalHostFunc(
+			"len",
+			types.Params{{Name: "handle", Type: i32}},
+			types.Params{{Name: "length", Type: i64}},
+		),
+		symbol.InternalHostFunc(
+			"slice",
+			types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}},
+			resultOut,
+		),
+	)
+	return []*symbol.Symbol{mod, newUserLenSymbol()}
+}
 
 // Host is the runtime host-side support for the series module: it
 // registers the WASM host bindings that allocate and manipulate series
@@ -139,7 +147,7 @@ func NewHost(
 	if rt == nil {
 		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder(name)
+	builder := rt.NewHostModuleBuilder(Name)
 	builder = bindU8(builder, s)
 	builder = bindU16(builder, s)
 	builder = bindU32(builder, s)

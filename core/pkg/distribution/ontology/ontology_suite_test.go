@@ -30,7 +30,7 @@ import (
 
 func TestOntology(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Ontology Suite")
+	RunSpecs(t, "Distribution Ontology Suite")
 }
 
 type sampleService struct {
@@ -39,17 +39,15 @@ type sampleService struct {
 
 var _ ontology.Service = (*sampleService)(nil)
 
-const sampleOntologyType ontology.ResourceType = "sample"
-
 type Sample struct{ Key string }
 
 func newSampleType(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: sampleOntologyType}
+	return ontology.ID{Key: key, Type: ontology.ResourceTypeChannel}
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func (s *sampleService) Type() ontology.ResourceType { return sampleOntologyType }
+func (s *sampleService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
 func (s *sampleService) Schema() zyn.Schema { return schema }
 

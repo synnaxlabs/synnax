@@ -29,7 +29,8 @@ var _ = Describe("Import Pass", func() {
 		dynChannels := StaticResolver{
 			{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10},
 		}
-		timeModule := symbol.NewModule("time", symbol.Symbol{
+		timeModule := &symbol.Symbol{Name: "time", Kind: symbol.KindModule}
+		timeModule.AddChild(&symbol.Symbol{
 			Name: "now",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{

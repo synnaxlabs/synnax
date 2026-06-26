@@ -28,12 +28,12 @@ import (
 // the test files don't have to spell out the generic parameters at every use.
 type scopedAction = actions.Scoped[schematic.Key, schematic.Action]
 
-// createSchematic persists a fresh schematic owned by the suite workspace and
+// createSchematic persists a fresh schematic owned by the suite project and
 // returns it with its key populated. Writes commit immediately (nil tx) so
 // access-control reads can observe the new ontology resource.
 func createSchematic(ctx context.Context, name string) schematic.Schematic {
 	s := schematic.Schematic{Name: name}
-	Expect(schematicSvc.NewWriter(nil).Create(ctx, ws.Key, &s)).To(Succeed())
+	Expect(schematicSvc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
 	return s
 }
 
@@ -41,7 +41,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 	Describe("access control", func() {
 		It("Should reject the request with access.ErrDenied when the subject has no policy", func(ctx SpecContext) {
 			s := createSchematic(ctx, "no-policy")
-			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         s.Key,
 				DispatchKey: "sess-1",
 				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
@@ -53,7 +53,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 		It("Should accept the request when the subject's policy permits update on the target schematic", func(ctx SpecContext) {
 			s := createSchematic(ctx, "with-policy")
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(s.Key))
-			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         s.Key,
 				DispatchKey: "sess-1",
 				Actions: []schematic.Action{schematic.NewSetNodeAction(schematic.SetNodePayload{
@@ -72,7 +72,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			a := createSchematic(ctx, "policy-target")
 			b := createSchematic(ctx, "no-policy-target")
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(a.Key))
-			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         b.Key,
 				DispatchKey: "sess-1",
 				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
@@ -86,7 +86,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 		It("Should apply a multi-action sequence to the target schematic", func(ctx SpecContext) {
 			s := createSchematic(ctx, "multi-action")
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(s.Key))
-			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         s.Key,
 				DispatchKey: "sess-1",
 				Actions: []schematic.Action{
@@ -116,7 +116,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			var snap schematic.Schematic
 			Expect(schematicSvc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(snap.Key))
-			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         snap.Key,
 				DispatchKey: "sess-1",
 				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
@@ -128,7 +128,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 		It("Should bubble up query.ErrNotFound when the target schematic does not exist", func(ctx SpecContext) {
 			missing := uuid.New()
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(missing))
-			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         missing,
 				DispatchKey: "sess-1",
 				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
@@ -147,7 +147,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 				seen <- sa
 			})
 			DeferCleanup(disconnect)
-			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
 				Key:         s.Key,
 				DispatchKey: "session-marker-xyz",
 				Actions: []schematic.Action{schematic.NewSetNodeAction(schematic.SetNodePayload{

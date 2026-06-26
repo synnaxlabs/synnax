@@ -14,14 +14,13 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -135,7 +134,7 @@ func backfillStatuses(
 				Key:     key,
 				Name:    r.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.VariantWarning,
+				Variant: status.VariantWarning,
 				Message: "Status unknown",
 				Details: StatusDetails{Rack: r.Key},
 			})

@@ -46,9 +46,8 @@ var _ = Describe("ProgramState", func() {
 			Expect(h3).To(Equal(h2 + 1))
 		})
 
-		It("Should handle empty strings", func() {
-			h := s.Create("")
-			Expect(MustBeOk(s.Get(h))).To(Equal(""))
+		It("Should return handle 0 for empty strings", func() {
+			Expect(s.Create("")).To(Equal(uint32(0)))
 		})
 
 		It("Should handle strings with special characters", func() {
@@ -76,31 +75,30 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
-	Describe("CreateConfig", func() {
-		It("Should return a handle in the config range", func() {
-			h := s.CreateConfig("config_value")
+	Describe("CreateLiteral", func() {
+		It("Should return a handle in the literal range", func() {
+			h := s.CreateLiteral("literal_value")
 			Expect(h).To(BeNumerically(">=", uint32(1<<24)))
 		})
 
-		It("Should return unique handles for successive config creates", func() {
-			h1 := s.CreateConfig("a")
-			h2 := s.CreateConfig("b")
+		It("Should return unique handles for successive literal creates", func() {
+			h1 := s.CreateLiteral("a")
+			h2 := s.CreateLiteral("b")
 			Expect(h1).ToNot(Equal(h2))
 		})
 
 		It("Should not collide with transient handles", func() {
 			th := s.Create("transient")
-			ch := s.CreateConfig("config")
+			ch := s.CreateLiteral("literal")
 			Expect(th).ToNot(Equal(ch))
 		})
 
-		It("Should handle empty config strings", func() {
-			h := s.CreateConfig("")
-			Expect(MustBeOk(s.Get(h))).To(Equal(""))
+		It("Should return handle 0 for empty literal strings", func() {
+			Expect(s.CreateLiteral("")).To(Equal(uint32(0)))
 		})
 
-		It("Should handle UTF-8 config strings", func() {
-			h := s.CreateConfig("配置")
+		It("Should handle UTF-8 literal strings", func() {
+			h := s.CreateLiteral("配置")
 			Expect(MustBeOk(s.Get(h))).To(Equal("配置"))
 		})
 
@@ -108,9 +106,9 @@ var _ = Describe("ProgramState", func() {
 			for range 1000 {
 				s.Create("transient")
 			}
-			ch := s.CreateConfig("config")
+			ch := s.CreateLiteral("literal")
 			Expect(ch).To(BeNumerically(">=", uint32(1<<24)))
-			Expect(MustBeOk(s.Get(ch))).To(Equal("config"))
+			Expect(MustBeOk(s.Get(ch))).To(Equal("literal"))
 		})
 	})
 
@@ -120,8 +118,8 @@ var _ = Describe("ProgramState", func() {
 			Expect(MustBeOk(s.Get(h))).To(Equal("world"))
 		})
 
-		It("Should retrieve a config string by handle", func() {
-			h := s.CreateConfig("persistent")
+		It("Should retrieve a literal string by handle", func() {
+			h := s.CreateLiteral("persistent")
 			Expect(MustBeOk(s.Get(h))).To(Equal("persistent"))
 		})
 
@@ -130,9 +128,8 @@ var _ = Describe("ProgramState", func() {
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should return false for handle zero", func() {
-			_, ok := s.Get(0)
-			Expect(ok).To(BeFalse())
+		It("Should return empty string with ok=true for handle zero", func() {
+			Expect(MustBeOk(s.Get(0))).To(Equal(""))
 		})
 
 		It("Should return false for max uint32 handle", func() {
@@ -140,22 +137,22 @@ var _ = Describe("ProgramState", func() {
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should check transient before config on Get", func() {
+		It("Should check transient before literal on Get", func() {
 			s.Create("a")
 			s.Create("b")
-			s.CreateConfig("c")
+			s.CreateLiteral("c")
 			Expect(MustBeOk(s.Get(1))).To(Equal("a"))
 			Expect(MustBeOk(s.Get(2))).To(Equal("b"))
 		})
 
-		It("Should fall back to config when transient handle not found", func() {
-			ch := s.CreateConfig("fallback")
+		It("Should fall back to literal when transient handle not found", func() {
+			ch := s.CreateLiteral("fallback")
 			Expect(MustBeOk(s.Get(ch))).To(Equal("fallback"))
 		})
 
-		It("Should return false for handle in gap between transient and config", func() {
+		It("Should return false for handle in gap between transient and literal", func() {
 			s.Create("t")
-			s.CreateConfig("c")
+			s.CreateLiteral("c")
 			_, ok := s.Get(100)
 			Expect(ok).To(BeFalse())
 		})
@@ -169,8 +166,8 @@ var _ = Describe("ProgramState", func() {
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should preserve config strings", func() {
-			ch := s.CreateConfig("persistent")
+		It("Should preserve literal strings", func() {
+			ch := s.CreateLiteral("persistent")
 			s.Create("ephemeral")
 			s.Clear()
 			Expect(MustBeOk(s.Get(ch))).To(Equal("persistent"))
@@ -204,9 +201,9 @@ var _ = Describe("ProgramState", func() {
 			Expect(h).To(Equal(uint32(1)))
 		})
 
-		It("Should preserve multiple config strings", func() {
-			ch1 := s.CreateConfig("c1")
-			ch2 := s.CreateConfig("c2")
+		It("Should preserve multiple literal strings", func() {
+			ch1 := s.CreateLiteral("c1")
+			ch2 := s.CreateLiteral("c2")
 			s.Create("t1")
 			s.Create("t2")
 			s.Clear()
@@ -214,18 +211,18 @@ var _ = Describe("ProgramState", func() {
 			Expect(MustBeOk(s.Get(ch2))).To(Equal("c2"))
 		})
 
-		It("Should not affect config counter", func() {
-			s.CreateConfig("first")
+		It("Should not affect literal counter", func() {
+			s.CreateLiteral("first")
 			s.Clear()
-			h2 := s.CreateConfig("second")
+			h2 := s.CreateLiteral("second")
 			Expect(h2).To(Equal(uint32(1<<24 + 1)))
 		})
 	})
 
 	Describe("Reset", func() {
-		It("Should remove both transient and config strings", func() {
+		It("Should remove both transient and literal strings", func() {
 			th := s.Create("transient")
-			ch := s.CreateConfig("config")
+			ch := s.CreateLiteral("literal")
 			s.Reset()
 			_, tok := s.Get(th)
 			_, cok := s.Get(ch)
@@ -233,10 +230,10 @@ var _ = Describe("ProgramState", func() {
 			Expect(cok).To(BeFalse())
 		})
 
-		It("Should reset config counter so config handles restart", func() {
-			h1 := s.CreateConfig("first")
+		It("Should reset literal counter so literal handles restart", func() {
+			h1 := s.CreateLiteral("first")
 			s.Reset()
-			h2 := s.CreateConfig("second")
+			h2 := s.CreateLiteral("second")
 			Expect(h2).To(Equal(h1))
 		})
 
@@ -250,10 +247,10 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should allow full reuse after reset", func() {
 			s.Create("a")
-			s.CreateConfig("b")
+			s.CreateLiteral("b")
 			s.Reset()
 			th := s.Create("c")
-			ch := s.CreateConfig("d")
+			ch := s.CreateLiteral("d")
 			Expect(MustBeOk(s.Get(th))).To(Equal("c"))
 			Expect(MustBeOk(s.Get(ch))).To(Equal("d"))
 		})
@@ -264,7 +261,7 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should be safe to call multiple times", func() {
 			s.Create("a")
-			s.CreateConfig("b")
+			s.CreateLiteral("b")
 			s.Reset()
 			s.Reset()
 			s.Reset()
@@ -284,8 +281,8 @@ var _ = Describe("ProgramState", func() {
 			}
 		})
 
-		It("Should maintain config strings across clear cycles", func() {
-			ch := s.CreateConfig("stable")
+		It("Should maintain literal strings across clear cycles", func() {
+			ch := s.CreateLiteral("stable")
 			for range 10 {
 				s.Create("temp")
 				s.Clear()

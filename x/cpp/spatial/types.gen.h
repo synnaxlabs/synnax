@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -72,6 +71,8 @@ constexpr const char *DIMENSION_HEIGHT = "height";
 
 constexpr const char *SIGNED_DIMENSION_SIGNED_WIDTH = "signedWidth";
 constexpr const char *SIGNED_DIMENSION_SIGNED_HEIGHT = "signedHeight";
+
+using Decimal = double;
 
 /// @brief XY is a 2D coordinate point with x and y values. Used for positioning
 /// elements in two-dimensional space.
@@ -164,7 +165,7 @@ struct Bounds {
 /// @brief Viewport is the camera state of a viewport.
 struct Viewport {
     /// @brief zoom is the zoom level where 1.0 equals 100%.
-    double zoom = 0;
+    double zoom = 1;
     /// @brief position is the (x, y) pan offset of the viewport.
     XY position;
 
@@ -219,10 +220,10 @@ struct StickyXY {
     double x = 0;
     /// @brief y is the vertical coordinate.
     double y = 0;
-    /// @brief root is the optional anchor corner for the position.
-    std::optional<CornerLocation> root;
-    /// @brief units is the optional unit specification for the coordinates.
-    std::optional<StickyUnits> units;
+    /// @brief root is the anchor corner for the position.
+    CornerLocation root = {.x = X_LOCATION_LEFT, .y = Y_LOCATION_TOP};
+    /// @brief units is the unit specification for the coordinates.
+    StickyUnits units = {.x = STICKY_UNIT_PX, .y = STICKY_UNIT_PX};
 
     static StickyXY parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

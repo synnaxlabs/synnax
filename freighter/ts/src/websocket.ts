@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, buildQueryString, errors, type URL } from "@synnaxlabs/x";
+import { type binary, errors, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EOF, StreamClosed } from "@/errors";
@@ -144,7 +144,7 @@ const CLOSE_NORMAL = 1000;
  * websockets.
  */
 export class WebSocketClient extends MiddlewareCollector implements StreamClient {
-  baseUrl: URL;
+  baseUrl: url.URL;
   encoder: binary.Codec;
   secure: boolean;
 
@@ -155,7 +155,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
    *   responses.
    * @param baseEndpoint - A base url to use as a prefix for all requests.
    */
-  constructor(baseEndpoint: URL, encoder: binary.Codec, secure = false) {
+  constructor(baseEndpoint: url.URL, encoder: binary.Codec, secure = false) {
     super();
     this.secure = secure;
     this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
@@ -189,7 +189,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   private buildURL(target: string, ctx: Context): string {
-    const qs = buildQueryString(
+    const qs = url.buildQueryString(
       {
         [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
         ...ctx.params,
@@ -210,11 +210,11 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
         oWs
           .receiveOpenAck()
           .then(() => resolve(oWs))
-          .catch((err: Error) => reject(err));
+          .catch((err: unknown) => reject(errors.fromUnknown(err)));
       };
       ws.onerror = (ev: Event) => {
         const ev_ = ev as ErrorEvent;
-        reject(new Error(ev_.message));
+        reject(new Error(ev_.message ?? "websocket error", { cause: ev_.error ?? ev }));
       };
     });
   }

@@ -33,10 +33,10 @@ export const Symbol = ({
     nodeKey={nodeKey}
     orientation={orientation}
     onRotate={onConfigChange}
+    onResize={(dimensions) => onConfigChange({ dimensions })}
   >
     <Label.Label config={label} onChange={onConfigChange} />
     <Cylinder
-      onResize={(dimensions) => onConfigChange({ dimensions })}
       orientation={orientation}
       color={color}
       dimensions={dimensions}

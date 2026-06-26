@@ -12,22 +12,17 @@ package distribution
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	channelsignals "github.com/synnaxlabs/synnax/pkg/distribution/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	groupsignals "github.com/synnaxlabs/synnax/pkg/distribution/group/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologysignals "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -75,11 +70,6 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
-	// EnableServiceSignals sets whether to enable CDC signal propagation for changes
-	// to distribution layer data structures (channels, groups, etc.)
-	//
-	// [OPTIONAL] - Defaults to true.
-	EnableServiceSignals *bool
 	// ValidateChannelNames disables channel name validation when true.
 	// This allows channels with special characters, spaces, etc.
 	//
@@ -116,7 +106,6 @@ var (
 	// required fields specific in Config.
 	DefaultLayerConfig = LayerConfig{
 		GorpCodec:            orc.NewCodec(msgpack.Codec),
-		EnableServiceSignals: new(true),
 		ValidateChannelNames: new(true),
 	}
 )
@@ -134,7 +123,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Verifier = override.String(c.Verifier, other.Verifier)
 	c.TestingIntOverflowCheck = override.Nil(c.TestingIntOverflowCheck, other.TestingIntOverflowCheck)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
-	c.EnableServiceSignals = override.Nil(c.EnableServiceSignals, other.EnableServiceSignals)
 	c.ValidateChannelNames = override.Nil(c.ValidateChannelNames, other.ValidateChannelNames)
 	return c
 }
@@ -149,7 +137,6 @@ func (c LayerConfig) Validate() error {
 	validate.NotNil(v, "frame_transport", c.FrameTransport)
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
 	validate.NotNil(v, "codec", c.GorpCodec)
-	validate.NotNil(v, "enable_channel_signals", c.EnableServiceSignals)
 	validate.NotNil(v, "disable_channel_name_validation", c.ValidateChannelNames)
 	return v.Error()
 }
@@ -179,9 +166,6 @@ type Layer struct {
 	// Search is the full-text search index for ontology resources.
 	// [REQUIRED]
 	Search *search.Index
-	// Signals are for propagating changes to data structures through channels in
-	// Synnax.
-	Signals *signals.Provider
 	// Group is for grouping related resources in the cluster.
 	Group *group.Service
 	// Verification verifies that the universe remains as it is.
@@ -261,15 +245,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if _, err = node.NewService(ctx, node.ServiceConfig{
-		Instrumentation: cfg.Child("node"),
-		Cluster:         l.Cluster,
-		Ontology:        l.Ontology,
-		Search:          l.Search,
-	}); !ok(err, nil) {
-		return nil, err
-	}
-
 	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
 		Verifier:        cfg.Verifier,
 		DB:              l.DB.KV(),
@@ -309,40 +284,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 
 	if err = l.configureControlUpdates(ctx); !ok(err, nil) {
 		return nil, err
-	}
-
-	if l.Signals, err = signals.New(signals.Config{
-		Channel:         l.Channel,
-		Framer:          l.Framer,
-		Instrumentation: cfg.Child("signals"),
-	}); !ok(err, nil) {
-		return nil, err
-	}
-
-	if *cfg.EnableServiceSignals {
-		var channelSignalsCloser io.Closer
-		if channelSignalsCloser, err = channelsignals.Publish(
-			ctx,
-			l.Signals,
-			l.Channel.Observe(),
-		); !ok(err, channelSignalsCloser) {
-			return nil, err
-		}
-		var groupSignalsCloser io.Closer
-		if groupSignalsCloser, err = groupsignals.Publish(ctx, l.Signals, l.Group.Observe()); !ok(err, groupSignalsCloser) {
-			return nil, err
-		}
-	}
-
-	if l.Cluster.HostKey() == node.KeyBootstrapper {
-		var ontologyCDCCloser io.Closer
-		if ontologyCDCCloser, err = ontologysignals.Publish(
-			ctx,
-			l.Signals,
-			l.Ontology,
-		); !ok(err, ontologyCDCCloser) {
-			return nil, err
-		}
 	}
 
 	return l, err

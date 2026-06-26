@@ -23,12 +23,51 @@ import (
 
 func allModules() []*symbol.Symbol {
 	var mods []*symbol.Symbol
-	for _, s := range stl.Symbols {
+	for _, s := range stl.NewSymbols() {
 		if s.Kind == symbol.KindModule {
 			mods = append(mods, s)
 		}
 	}
 	return mods
+}
+
+// allSymbols returns every registered stdlib symbol, recursing into module members.
+func allSymbols() []*symbol.Symbol {
+	var out []*symbol.Symbol
+	var walk func([]*symbol.Symbol)
+	walk = func(syms []*symbol.Symbol) {
+		for _, s := range syms {
+			out = append(out, s)
+			walk(s.Children())
+		}
+	}
+	walk(stl.NewSymbols())
+	return out
+}
+
+// findSym resolves an stl symbol by qualified ("module.member") or bare
+// ("select") name, returning nil when absent.
+func findSym(qualified string) *symbol.Symbol {
+	name, member, hasMember := strings.Cut(qualified, ".")
+	if !hasMember {
+		for _, s := range stl.NewSymbols() {
+			if s.Name == name && s.Kind == symbol.KindFunction {
+				return s
+			}
+		}
+		return nil
+	}
+	for _, mod := range allModules() {
+		if mod.Name != name {
+			continue
+		}
+		for _, m := range mod.Children() {
+			if m.Name == member {
+				return m
+			}
+		}
+	}
+	return nil
 }
 
 var _ = Describe("STL Symbols", func() {
@@ -71,37 +110,35 @@ var _ = Describe("STL Symbols", func() {
 				strings.Join(violations, "\n  "))
 	})
 
-	It("Should obey the ExecBoth structural contract on every ExecBoth symbol", func() {
+	It("Should attach an AnalyzeArguments hook only to KindFunction symbols", func() {
 		var violations []string
-		for _, mod := range allModules() {
-			for _, sym := range mod.Children() {
-				if sym.Kind != symbol.KindFunction || sym.Exec != symbol.ExecBoth {
-					continue
-				}
-				inputs := sym.Type.Inputs
-				config := sym.Type.Config
-				if len(inputs) != len(config) {
-					violations = append(violations, fmt.Sprintf(
-						"%s.%s (Inputs has %d params, Config has %d; ExecBoth requires "+
-							"one-to-one mirroring)",
-						mod.Name, sym.Name, len(inputs), len(config),
-					))
-					continue
-				}
-				for i := range inputs {
-					if inputs[i].Name != config[i].Name || !types.Equal(inputs[i].Type, config[i].Type) {
-						violations = append(violations, fmt.Sprintf(
-							"%s.%s (Inputs[%d]={%s,%s} does not match Config[%d]={%s,%s})",
-							mod.Name, sym.Name,
-							i, inputs[i].Name, inputs[i].Type,
-							i, config[i].Name, config[i].Type,
-						))
-					}
-				}
+		for _, sym := range allSymbols() {
+			if sym.AnalyzeArguments != nil && sym.Kind != symbol.KindFunction {
+				violations = append(violations, fmt.Sprintf(
+					"%s (Kind is %s, but has an AnalyzeArguments hook)", sym.Name, sym.Kind,
+				))
 			}
 		}
 		Expect(violations).To(BeEmpty(),
-			"ExecBoth symbols violating the dual-shape contract:\n  "+
+			"Non-function symbols with an AnalyzeArguments hook:\n  "+
+				strings.Join(violations, "\n  "))
+	})
+
+	It("Should bind every non-empty Trigger.Target to an existing input param", func() {
+		var violations []string
+		for _, sym := range allSymbols() {
+			target := sym.Trigger.Target
+			if target == "" {
+				continue
+			}
+			if !sym.Type.Inputs.Has(target) {
+				violations = append(violations, fmt.Sprintf(
+					"%s (Trigger.Target %q names no param in Inputs)", sym.Name, target,
+				))
+			}
+		}
+		Expect(violations).To(BeEmpty(),
+			"Symbols whose Trigger.Target names no existing input param:\n  "+
 				strings.Join(violations, "\n  "))
 	})
 
@@ -125,4 +162,49 @@ var _ = Describe("STL Symbols", func() {
 			"User-callable single-output functions with non-default output name (will be rejected as non-callable):\n  "+
 				strings.Join(violations, "\n  "))
 	})
+
+	DescribeTable("Should declare the unified Inputs and Trigger",
+		func(qualified string, wantInputNames []string, wantTrigger symbol.TriggerBinding) {
+			sym := findSym(qualified)
+			Expect(sym).ToNot(BeNil(), "symbol %q not registered", qualified)
+			gotNames := make([]string, len(sym.Type.Inputs))
+			for i, p := range sym.Type.Inputs {
+				gotNames[i] = p.Name
+			}
+			Expect(gotNames).To(Equal(wantInputNames))
+			Expect(sym.Trigger).To(Equal(wantTrigger))
+		},
+		Entry("math.avg", "math.avg",
+			[]string{ir.DefaultInputParam, "duration", "count", "reset"}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("math.min", "math.min",
+			[]string{ir.DefaultInputParam, "duration", "count", "reset"}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("math.max", "math.max",
+			[]string{ir.DefaultInputParam, "duration", "count", "reset"}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("math.derivative", "math.derivative",
+			[]string{ir.DefaultInputParam}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("math.pow", "math.pow",
+			[]string{"base", "exp"}, symbol.TriggerOnly),
+		Entry("op.ge", "ge",
+			[]string{ir.LHSInputParam, ir.RHSInputParam}, symbol.TriggerInput(ir.LHSInputParam)),
+		Entry("op.and", "and",
+			[]string{ir.LHSInputParam, ir.RHSInputParam}, symbol.TriggerInput(ir.LHSInputParam)),
+		Entry("op.not", "not",
+			[]string{ir.DefaultInputParam}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("on", "on",
+			[]string{"channel"}, symbol.TriggerOnly),
+		Entry("write", "write",
+			[]string{ir.DefaultInputParam, "channel"}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("stable.for", "stable.for",
+			[]string{ir.DefaultInputParam, "duration"}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("select", "select",
+			[]string{ir.DefaultOutputParam}, symbol.TriggerInput(ir.DefaultOutputParam)),
+		Entry("time.interval", "time.interval",
+			[]string{"period"}, symbol.TriggerOnly),
+		Entry("time.wait", "time.wait",
+			[]string{"duration"}, symbol.TriggerOnly),
+		Entry("time.now", "time.now",
+			[]string{}, symbol.TriggerOnly),
+		Entry("constant", "constant",
+			[]string{"value"}, symbol.TriggerOnly),
+	)
 })

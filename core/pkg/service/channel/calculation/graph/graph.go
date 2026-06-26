@@ -16,10 +16,9 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	channel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
-	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -39,15 +38,15 @@ type node struct {
 	invalid    bool
 }
 
-// Graph tracks all calculated channels, their dependency edges, and their
-// inferred DataTypes. It subscribes to the channel observable and reactively
-// re-inspects affected nodes when channels are created, updated, or deleted.
+// Graph tracks all calculated channels, their dependency edges, and their inferred
+// DataTypes. It subscribes to the channel observable and reactively re-inspects
+// affected nodes when channels are created, updated, or deleted.
 type Graph struct {
 	alamos.Instrumentation
-	distribution *channel.Service
-	status       status.Writer[types.Nil]
-	disconnect   observe.Disconnect
-	mu           struct {
+	svc        *channel.Service
+	status     status.Writer[types.Nil]
+	disconnect observe.Disconnect
+	mu         struct {
 		nodes            map[channel.Key]node
 		dependents       map[channel.Key]set.Set[channel.Key]
 		unresolvedByName map[string]set.Set[channel.Key]
@@ -57,18 +56,24 @@ type Graph struct {
 
 // Config configures a Graph.
 type Config struct {
-	// Channel is the distribution-layer channel service used for retrieval and
-	// observable subscription.
+	// Channel is the service-layer channel service. The graph retrieves and writes
+	// channels through its embedded distribution service and builds the Arc symbol
+	// resolver (via NewArcSymbolResolver) used to analyze calculated channel
+	// expressions.
+	//
+	// [REQUIRED]
 	Channel *channel.Service
 	// Status is used to publish error/clear statuses for calculated channels.
+	//
+	// [REQUIRED]
 	Status *status.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 func (c Config) Validate() error {
 	v := validate.New("service.channel.calculation.graph")
@@ -90,13 +95,13 @@ func Open(
 	ctx context.Context,
 	cfgs ...Config,
 ) (*Graph, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Graph{
 		Instrumentation: cfg.Instrumentation,
-		distribution:    cfg.Channel,
+		svc:             cfg.Channel,
 		status:          status.NewWriter[types.Nil](cfg.Status, nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
@@ -119,7 +124,7 @@ func (s *Graph) Close() error {
 
 func (s *Graph) hydrate(ctx context.Context) error {
 	var channels []channel.Channel
-	if err := s.distribution.NewRetrieve().Where(channel.MatchCalculated()).Entries(&channels).Exec(ctx, nil); err != nil {
+	if err := s.svc.NewRetrieve().Where(channel.MatchCalculated()).Entries(&channels).Exec(ctx, nil); err != nil {
 		return err
 	}
 	s.L.Info("hydrating calculated channel graph", zap.Int("count", len(channels)))
@@ -195,7 +200,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 	s.mu.Unlock()
 	if len(repairs) > 0 {
 		s.L.Info("persisting DataType repairs from hydration", zap.Int("count", len(repairs)))
-		if err := s.distribution.NewWriter(nil).CreateMany(ctx, &repairs); err != nil {
+		if err := s.svc.Service.NewWriter(nil).CreateMany(ctx, &repairs); err != nil {
 			return err
 		}
 	}
@@ -263,7 +268,7 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 	s.mu.Unlock()
 	if len(updates) > 0 {
 		s.L.Info("persisting DataType updates", zap.Int("count", len(updates)))
-		if err := s.distribution.NewWriter(nil).CreateMany(ctx, &updates); err != nil {
+		if err := s.svc.Service.NewWriter(nil).CreateMany(ctx, &updates); err != nil {
 			s.L.Error("failed to persist DataType updates", zap.Error(err))
 		}
 	}
@@ -287,15 +292,15 @@ func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
 	}
 }
 
-func (s *Graph) newAnalyzer(tx gorp.Tx) *channelanalyzer.Analyzer {
-	return channelanalyzer.New(symbol.NewChannelResolver(s.distribution, tx))
+func (s *Graph) newAnalyzer(tx gorp.Tx) *analyzer.Analyzer {
+	return analyzer.New(s.svc.NewArcSymbolResolver(tx))
 }
 
 func (s *Graph) inspectNode(
 	ctx context.Context,
 	tx gorp.Tx,
 	ch channel.Channel,
-	analyzer *channelanalyzer.Analyzer,
+	analyzer *analyzer.Analyzer,
 ) (node, error) {
 	if analyzer == nil {
 		analyzer = s.newAnalyzer(tx)
@@ -321,7 +326,7 @@ func (s *Graph) reconcileQueued(
 	queued set.Set[channel.Key],
 	unresolvedNames []string,
 	overlayMap map[channel.Key]channel.Channel,
-	analyzer *channelanalyzer.Analyzer,
+	analyzer *analyzer.Analyzer,
 ) []channel.Channel {
 	if overlayMap == nil {
 		overlayMap = make(map[channel.Key]channel.Channel)
@@ -339,7 +344,7 @@ func (s *Graph) reconcileQueued(
 				continue
 			}
 			refetched := nd.Channel
-			if err := s.distribution.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&refetched).Exec(ctx, tx); err != nil {
+			if err := s.svc.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&refetched).Exec(ctx, tx); err != nil {
 				s.L.Warn("failed to refetch channel during reconciliation",
 					zap.Stringer("channel", key),
 					zap.Error(err),

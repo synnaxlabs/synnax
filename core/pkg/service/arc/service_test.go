@@ -17,8 +17,9 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/query"
@@ -30,6 +31,7 @@ var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func(ctx SpecContext) {
 		a := arc.Arc{
 			Name: "test-arc",
+			Mode: arc.ModeGraph,
 			Graph: graph.Graph{
 				Functions: []ir.Function{
 					{
@@ -63,6 +65,7 @@ var _ = Describe("CompileProgram", func() {
 	It("Should return error when graph compilation fails", func(ctx SpecContext) {
 		a := arc.Arc{
 			Name: "invalid-arc",
+			Mode: arc.ModeGraph,
 			Graph: graph.Graph{
 				Functions: []ir.Function{
 					{
@@ -73,13 +76,16 @@ var _ = Describe("CompileProgram", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "src", Type: "source"},
+					{Key: "src"},
 				},
-				Edges: []ir.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"src": {"type": "source"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "nonexistent", Param: "input"},
-					},
+					}},
 				},
 			},
 		}

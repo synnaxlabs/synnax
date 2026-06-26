@@ -41,11 +41,11 @@ export interface MosaicProps
       | "onRename"
       | "onClose"
       | "addTooltip"
-      | "Name"
+      | "tabName"
     >,
     Omit<
       Flex.BoxProps,
-      "contextMenu" | "onSelect" | "children" | "onResize" | "onDrop"
+      "contextMenu" | "onSelect" | "children" | "onResize" | "onDrop" | "size"
     > {
   root: Node;
   onDrop: (
@@ -56,12 +56,6 @@ export interface MosaicProps
   ) => void;
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
-  onReorder?: (
-    key: number,
-    droppedTabKey: string,
-    targetTabKey: string,
-    location: location.X,
-  ) => void;
   onFileDrop?: (key: number, loc: location.Location, event: DragEvent) => void;
   children: Tabs.RenderProp;
   activeTab?: string;
@@ -95,11 +89,10 @@ export const Mosaic = memo(
     onSelect,
     onClose,
     onRename,
-    onReorder,
     contextMenu,
     addTooltip,
     className,
-    Name,
+    tabName,
     ...rest
   }: MosaicProps): ReactElement | null => {
     const { tabs, direction, first, last, key, size } = root;
@@ -113,24 +106,17 @@ export const Mosaic = memo(
       contextMenu,
       onSelect,
       onRename,
-      onReorder,
       activeTab,
       addTooltip,
-      Name,
+      tabName,
     };
 
     const handleResize = useCallback(
-      ([size]: number[]) => onResize(key, size),
-      [onResize],
+      (size: number) => onResize(key, size),
+      [onResize, key],
     );
 
-    const { props: resizeProps } = Resize.useMultiple({
-      direction,
-      onResize: handleResize,
-      count: 2,
-      initialSizes: size != null ? [size] : undefined,
-    });
-    let extraProps: Partial<Flex.BoxProps> = {};
+    let extraProps: Partial<Omit<Flex.BoxProps, "size">> = {};
     if (key == 1)
       extraProps = {
         ...rest,
@@ -149,15 +135,16 @@ export const Mosaic = memo(
       );
     else if (first != null && last != null)
       content = (
-        <Resize.Multiple
+        <Resize.Split
           id={`mosaic-${key}`}
-          align="stretch"
-          {...resizeProps}
+          direction={direction}
+          size={size}
+          onResizeEnd={handleResize}
           {...extraProps}
         >
           <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
           <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
-        </Resize.Multiple>
+        </Resize.Split>
       );
     else {
       content = null;
@@ -241,7 +228,6 @@ const TabLeaf = memo(
     activeTab,
     children,
     className,
-    onReorder,
     onFileDrop,
     addTooltip,
     ...rest

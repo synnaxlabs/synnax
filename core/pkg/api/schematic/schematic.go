@@ -20,15 +20,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *schematic.Service
 }
@@ -39,7 +38,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		internal: cfg.Service.Schematic,
 		access:   cfg.Service.RBAC,
 	}, nil
@@ -48,72 +46,53 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-		Workspace  workspace.Key         `json:"workspace" msgpack:"workspace"`
+		Project    project.Key           `json:"project" msgpack:"project"`
 	}
 	CreateResponse struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
 	}
 )
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: schematic.OntologyIDsFromSchematics(req.Schematics),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeSchematic}},
 	}); err != nil {
-		return res, err
+		return CreateResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, sch := range req.Schematics {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &sch); err != nil {
-				return err
-			}
-			req.Schematics[i] = sch
-		}
-		res.Schematics = req.Schematics
-		return nil
-	})
-}
-
-type SetDataRequest struct {
-	Data schematic.Schematic `json:"data" msgpack:"data"`
-	Key  schematic.Key       `json:"key" msgpack:"key"`
-}
-
-func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Project, &req.Schematics); err != nil {
+		return CreateResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
-	})
+	return CreateResponse{Schematics: req.Schematics}, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single schematic.
-// DispatchKey is a client-generated identifier for the batch, registered as
-// outstanding on the originator before the request is sent. The server echoes
-// it verbatim on the broadcast frame so the originator can recognize its own
-// echo race-safely.
+// DispatchKey is a client-generated identifier for the batch, registered as outstanding
+// on the originator before the request is sent. The server echoes it verbatim on the
+// broadcast frame so the originator can recognize its own echo race-safely.
 type DispatchRequest = actions.DispatchRequest[schematic.Key, schematic.Action]
 
-// Dispatch applies the action sequence to the target schematic atomically.
-// Subscribers to the schematic action signals receive the sequence after the
-// transaction commits.
-func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+// Dispatch applies the action sequence to the target schematic atomically. Subscribers
+// to the schematic action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
@@ -125,37 +104,42 @@ type (
 	}
 )
 
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, err error) {
-	err = s.internal.NewRetrieve().
-		Where(schematic.MatchKeys(req.Keys...)).Entries(&res.Schematics).Exec(ctx, nil)
-	if err != nil {
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	if err := s.internal.NewRetrieve().
+		Where(schematic.MatchKeys(req.Keys...)).Entries(&res.Schematics).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: schematic.OntologyIDs(req.Keys),
+		Objects: schematic.OntologyIDsFromSchematics(res.Schematics),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, err
+	return res, nil
 }
 
 type DeleteRequest struct {
 	Keys []schematic.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: schematic.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 type (
@@ -169,27 +153,30 @@ type (
 	}
 )
 
-func (s *Service) Copy(ctx context.Context, req CopyRequest) (res CopyResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Copy(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CopyRequest,
+) (CopyResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
-	}
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, &res.Schematic)
-	}); err != nil {
 		return CopyResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	var res CopyResponse
+	if err := s.internal.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, &res.Schematic); err != nil {
+		return CopyResponse{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{schematic.OntologyID(res.Schematic.Key)},
 	}); err != nil {
 		return CopyResponse{}, err
 	}
-	return res, err
+	return res, nil
 }
 
 type (
@@ -202,38 +189,49 @@ type (
 	}
 )
 
-func (s *Service) CreateSymbol(ctx context.Context, req CreateSymbolRequest) (res CreateSymbolResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) CreateSymbol(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateSymbolRequest,
+) (CreateSymbolResponse, error) {
+	enforcer := s.access.NewEnforcer(tx)
+	if err := enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: symbol.OntologyIDsFromSymbols(req.Symbols),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeSchematicSymbol}},
 	}); err != nil {
-		return res, err
+		return CreateSymbolResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		writer := s.internal.Symbol.NewWriter(tx)
-		for i, sym := range req.Symbols {
-			if err = writer.Create(ctx, &sym, req.Parent); err != nil {
-				return err
-			}
-			req.Symbols[i] = sym
+	if !req.Parent.IsZero() {
+		if err := enforcer.Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: []ontology.ID{req.Parent},
+		}); err != nil {
+			return CreateSymbolResponse{}, err
 		}
-		res.Symbols = req.Symbols
-		return nil
-	})
+	}
+	writer := s.internal.Symbol.NewWriter(tx)
+	if err := writer.CreateMany(ctx, &req.Symbols, req.Parent); err != nil {
+		return CreateSymbolResponse{}, err
+	}
+	return CreateSymbolResponse{Symbols: req.Symbols}, nil
 }
 
 type (
 	RetrieveSymbolRequest struct {
-		SearchTerm string          `json:"search_term" msgpack:"search_term"`
-		Keys       []schematic.Key `json:"keys" msgpack:"keys"`
+		SearchTerm string       `json:"search_term" msgpack:"search_term"`
+		Keys       []symbol.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveSymbolResponse struct {
-		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
+		Symbols []symbol.Symbol `json:"symbols,omitzero" msgpack:"symbols,omitzero"`
 	}
 )
 
-func (s *Service) RetrieveSymbol(ctx context.Context, req RetrieveSymbolRequest) (res RetrieveSymbolResponse, err error) {
+func (s *Service) RetrieveSymbol(
+	ctx context.Context,
+	req RetrieveSymbolRequest,
+) (RetrieveSymbolResponse, error) {
 	q := s.internal.Symbol.NewRetrieve()
 	if len(req.Keys) > 0 {
 		q = q.Where(symbol.MatchKeys(req.Keys...))
@@ -241,53 +239,57 @@ func (s *Service) RetrieveSymbol(ctx context.Context, req RetrieveSymbolRequest)
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
 	}
-	err = q.Entries(&res.Symbols).Exec(ctx, nil)
-	if err != nil {
+	var res RetrieveSymbolResponse
+	if err := q.Entries(&res.Symbols).Exec(ctx, nil); err != nil {
 		return RetrieveSymbolResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: symbol.OntologyIDsFromSymbols(res.Symbols),
 	}); err != nil {
 		return RetrieveSymbolResponse{}, err
 	}
-	return res, err
+	return res, nil
 }
 
 type RenameSymbolRequest struct {
-	Name string        `json:"name" msgpack:"name"`
-	Key  schematic.Key `json:"key" msgpack:"key"`
+	Name string     `json:"name" msgpack:"name"`
+	Key  symbol.Key `json:"key" msgpack:"key"`
 }
 
-func (s *Service) RenameSymbol(ctx context.Context, req RenameSymbolRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) RenameSymbol(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameSymbolRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{symbol.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.Symbol.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
+	return types.Nil{}, s.internal.Symbol.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type DeleteSymbolRequest struct {
-	Keys []schematic.Key `json:"keys" msgpack:"keys"`
+	Keys []symbol.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) DeleteSymbol(ctx context.Context, req DeleteSymbolRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) DeleteSymbol(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteSymbolRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: symbol.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.Symbol.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+	return types.Nil{}, s.internal.Symbol.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 type RetrieveSymbolGroupRequest struct{}
@@ -301,7 +303,7 @@ func (s *Service) RetrieveSymbolGroup(
 	_ RetrieveSymbolGroupRequest,
 ) (RetrieveSymbolGroupResponse, error) {
 	g := s.internal.Symbol.Group()
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{g.OntologyID()},

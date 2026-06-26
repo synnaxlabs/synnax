@@ -18,22 +18,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,7 +36,6 @@ import (
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c         *calculation.Service
-		arcSvc    *arc.Service
 		dist      mock.Node
 		statusSvc *status.Service
 	)
@@ -108,48 +102,21 @@ var _ = Describe("Calculation", Ordered, func() {
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
 			Search:   dist.Search,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
 			Search:   dist.Search,
 		}))
-		rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           dist.DB,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       statusSvc,
-			Search:       dist.Search,
-		}))
-		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Rack:     rackService,
-			Status:   statusSvc,
-			Search:   dist.Search,
-		}))
-		arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			Channel:  dist.Channel,
-			Ontology: dist.Ontology,
-			DB:       dist.DB,
-			Signals:  dist.Signals,
-			Task:     taskSvc,
-			Search:   dist.Search,
-		}))
-		channelSvc := svcchannel.Wrap(dist.Channel)
+		channelSvc := channel.Wrap(dist.Channel)
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
 			Channel:           channelSvc,
 			ChannelObservable: dist.Channel.Observe(),
-			Arc:               arcSvc,
 			Status:            statusSvc,
 		}))
 	})
@@ -515,7 +482,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Where(status.MatchKeys[types.Nil](statusKey)).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(st.Variant).To(Equal(xstatus.VariantError))
+			Expect(st.Variant).To(Equal(status.VariantError))
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 		Specify("Should persist error status on calculation update failure", func(ctx SpecContext) {
@@ -545,7 +512,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Entry(&st).
 					Exec(ctx, nil)
 				g.Expect(err).To(Succeed())
-				g.Expect(st.Variant).To(Equal(xstatus.VariantError))
+				g.Expect(st.Variant).To(Equal(status.VariantError))
 			}).Should(Succeed())
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
@@ -601,10 +568,10 @@ var _ = Describe("Calculation", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
-				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
-			})
+			}, 5*time.Second).Should(Succeed())
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})
@@ -640,12 +607,12 @@ var _ = Describe("Calculation", Ordered, func() {
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
-			Expect(func(g Gomega) {
+			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2))))
-				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
-			})
+			}, 5*time.Second).Should(Succeed())
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})

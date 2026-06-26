@@ -10,6 +10,7 @@
 import { view } from "@synnaxlabs/client";
 import { array, type optional } from "@synnaxlabs/x";
 import { useEffect } from "react";
+import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -116,16 +117,18 @@ const retrieveSingle = async ({
   return v;
 };
 
-const ZERO_VALUES = {
+export const formSchema = view.viewZ.partial({ key: true });
+
+const ZERO_VALUES: z.infer<typeof formSchema> = {
   name: "",
   type: "",
   query: {},
 };
 export type FormQuery = optional.Optional<view.RetrieveSingleParams, "key">;
 
-export const useForm = Flux.createForm<FormQuery, typeof view.newZ, FluxSubStore>({
+export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
   name: RESOURCE_NAME,
-  schema: view.newZ,
+  schema: formSchema,
   initialValues: ZERO_VALUES,
   retrieve: async ({ client, query: { key }, store, reset }) => {
     if (key == null) return;

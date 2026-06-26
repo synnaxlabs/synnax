@@ -9,7 +9,7 @@
 
 import "@/color/GradientPicker.css";
 
-import { box, clamp, color, id, scale } from "@synnaxlabs/x";
+import { bounds, box, color, id, scale } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
 import { Swatch } from "@/color/Swatch";
@@ -136,10 +136,9 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
       ) as HTMLElement;
       onChange({
         ...stop,
-        position: clamp(
+        position: bounds.clamp(
+          bounds.DECIMAL,
           positionRef.current + box.signedWidth(b) / box.width(picker),
-          0,
-          1,
         ),
       });
     },

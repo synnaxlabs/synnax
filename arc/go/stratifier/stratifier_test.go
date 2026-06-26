@@ -361,4 +361,104 @@ var _ = Describe("Stratify", func() {
 			Expect(stratumOf(root, "process")).To(Equal(1))
 		})
 	})
+
+	Describe("Inline routing synth activation", func() {
+		It("Should bump an inline synth past its non-inline activator", func(ctx SpecContext) {
+			outerHandle := ir.Handle{Node: "outer_select", Param: "true"}
+			synth := ir.Scope{
+				Key:        "__inline_0",
+				Mode:       ir.ScopeModeParallel,
+				Liveness:   ir.LivenessGated,
+				Activation: &outerHandle,
+				Strata:     []ir.Members{{ir.NodeMember("inline_body")}},
+			}
+			main := ir.Scope{
+				Key:      "main",
+				Mode:     ir.ScopeModeSequential,
+				Liveness: ir.LivenessGated,
+				Steps:    ir.Members{ir.NodeMember("outer_select")},
+			}
+			root := run(ctx, programOf(
+				[]ir.Member{ir.ScopeMember(synth), ir.ScopeMember(main)},
+				nil,
+			))
+			Expect(stratumOf(root, "main")).To(Equal(0))
+			Expect(stratumOf(root, "__inline_0")).To(Equal(1))
+		})
+
+		It("Should bump a nested inline synth past its outer-inline activator", func(ctx SpecContext) {
+			// When one inline synth activates another, the inner synth must
+			// land one stratum past the outer so it runs after the outer
+			// fires the activation handle in the same cycle.
+			innerHandle := ir.Handle{Node: "inner_select", Param: "true"}
+			outer := ir.Scope{
+				Key:      "__inline_0",
+				Mode:     ir.ScopeModeParallel,
+				Liveness: ir.LivenessGated,
+				Strata:   []ir.Members{{ir.NodeMember("inner_select")}},
+			}
+			inner := ir.Scope{
+				Key:        "__inline_1",
+				Mode:       ir.ScopeModeParallel,
+				Liveness:   ir.LivenessGated,
+				Activation: &innerHandle,
+				Strata:     []ir.Members{{ir.NodeMember("inner_body")}},
+			}
+			root := run(ctx, programOf(
+				[]ir.Member{ir.ScopeMember(inner), ir.ScopeMember(outer)},
+				nil,
+			))
+			Expect(stratumOf(root, "__inline_0")).To(Equal(0))
+			Expect(stratumOf(root, "__inline_1")).To(Equal(1))
+		})
+
+		It("Should chain N-level inline synths across consecutive strata", func(ctx SpecContext) {
+			// A chain of inline synths each activated by the previous level
+			// must land one stratum apart so each inner body runs in the
+			// cycle immediately after its outer activates.
+			h1 := ir.Handle{Node: "select_0", Param: "true"}
+			h2 := ir.Handle{Node: "select_1", Param: "true"}
+			h3 := ir.Handle{Node: "select_2", Param: "true"}
+			s0 := ir.Scope{
+				Key:      "__inline_0",
+				Mode:     ir.ScopeModeParallel,
+				Liveness: ir.LivenessGated,
+				Strata:   []ir.Members{{ir.NodeMember("select_0")}},
+			}
+			s1 := ir.Scope{
+				Key:        "__inline_1",
+				Mode:       ir.ScopeModeParallel,
+				Liveness:   ir.LivenessGated,
+				Activation: &h1,
+				Strata:     []ir.Members{{ir.NodeMember("select_1")}},
+			}
+			s2 := ir.Scope{
+				Key:        "__inline_2",
+				Mode:       ir.ScopeModeParallel,
+				Liveness:   ir.LivenessGated,
+				Activation: &h2,
+				Strata:     []ir.Members{{ir.NodeMember("select_2")}},
+			}
+			s3 := ir.Scope{
+				Key:        "__inline_3",
+				Mode:       ir.ScopeModeParallel,
+				Liveness:   ir.LivenessGated,
+				Activation: &h3,
+				Strata:     []ir.Members{{ir.NodeMember("innermost_body")}},
+			}
+			root := run(ctx, programOf(
+				[]ir.Member{
+					ir.ScopeMember(s3),
+					ir.ScopeMember(s2),
+					ir.ScopeMember(s1),
+					ir.ScopeMember(s0),
+				},
+				nil,
+			))
+			Expect(stratumOf(root, "__inline_0")).To(Equal(0))
+			Expect(stratumOf(root, "__inline_1")).To(Equal(1))
+			Expect(stratumOf(root, "__inline_2")).To(Equal(2))
+			Expect(stratumOf(root, "__inline_3")).To(Equal(3))
+		})
+	})
 })

@@ -11,17 +11,14 @@ package alias_test
 
 import (
 	"context"
-	"time"
-
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
@@ -46,7 +43,6 @@ var _ = Describe("Alias", Ordered, func() {
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
 			Search:   dist.Search,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
@@ -59,7 +55,7 @@ var _ = Describe("Alias", Ordered, func() {
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              dist.DB,
 			Ontology:        dist.Ontology,
-			Channel:         svcchannel.Wrap(dist.Channel),
+			Channel:         channel.Wrap(dist.Channel),
 			ParentRetriever: rangerSvc,
 			Search:          dist.Search,
 		}))
@@ -142,8 +138,9 @@ var _ = Describe("Alias", Ordered, func() {
 					Start: telem.TimeStamp(7 * telem.Second),
 					End:   telem.TimeStamp(9 * telem.Second),
 				},
+				Parent: &parent,
 			}
-			Expect(rangerSvc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			a := MustSucceed(aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key()))
 			Expect(a).To(Equal("Alias"))
 		})
@@ -215,8 +212,9 @@ var _ = Describe("Alias", Ordered, func() {
 					Start: telem.TimeStamp(7 * telem.Second),
 					End:   telem.TimeStamp(9 * telem.Second),
 				},
+				Parent: &parent,
 			}
-			Expect(rangerSvc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			resolved := MustSucceed(aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "Alias"))
 			Expect(resolved).To(Equal(ch.Key()))
 		})
@@ -238,8 +236,9 @@ var _ = Describe("Alias", Ordered, func() {
 					Start: telem.TimeStamp(7 * telem.Second),
 					End:   telem.TimeStamp(9 * telem.Second),
 				},
+				Parent: &parent,
 			}
-			Expect(rangerSvc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			_, err := aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "not_an_alias")
 			Expect(err).To(HaveOccurred())
 		})
@@ -296,8 +295,9 @@ var _ = Describe("Alias", Ordered, func() {
 					Start: telem.TimeStamp(7 * telem.Second),
 					End:   telem.TimeStamp(9 * telem.Second),
 				},
+				Parent: &parent,
 			}
-			Expect(rangerSvc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			aliases := MustSucceed(aliasSvc.NewReader(tx).List(ctx, r.Key))
 			Expect(aliases).To(HaveKeyWithValue(ch.Key(), "Alias"))
 		})

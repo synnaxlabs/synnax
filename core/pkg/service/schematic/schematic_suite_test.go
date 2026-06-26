@@ -17,9 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -27,17 +26,17 @@ import (
 
 func TestSchematic(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Schematic Suite")
+	RunSpecs(t, "Service Schematic Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db  *gorp.DB
-	otg *ontology.Ontology
-	ws  workspace.Workspace
-	svc *schematic.Service
-	tx  gorp.Tx
+	db   *gorp.DB
+	otg  *ontology.Ontology
+	proj project.Project
+	svc  *schematic.Service
+	tx   gorp.Tx
 )
 
 var (
@@ -51,13 +50,7 @@ var (
 				Ontology: otg,
 				Search:   searchIdx,
 			}))
-			workspaceSvc = MustOpen(workspace.OpenService(ctx, workspace.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Search:   searchIdx,
-			}))
-			userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+			projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -69,11 +62,8 @@ var (
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		author := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: "test",
-		}))
-		ws.Author = author.Key
-		Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
+		proj.Name = "test-project"
+		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

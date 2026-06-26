@@ -28,7 +28,7 @@ var _ = Describe("Arc", func() {
 	compile := func(ctx SpecContext, code string, channels ...arc.Symbol) arc.Program {
 		t := arc.Text{Raw: code}
 		Expect(t.Raw).ToNot(BeEmpty())
-		root := symbol.NewRoot(nil, stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.NewSymbols())
 		for i := range channels {
 			s := channels[i]
 			root.Parent.AddChild(&s)
@@ -188,7 +188,7 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
 
 		writeNode := findNodeByType(mod.Nodes, "write")
 		Expect(writeNode.Channels.Write).To(HaveKey(uint32(2)))
-		Expect(writeNode.Inputs).To(HaveLen(1))
+		Expect(writeNode.Inputs).To(HaveLen(2))
 
 		Expect(mod.Edges).To(HaveLen(2))
 
@@ -242,7 +242,7 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
 		// under the new IR.
 		Expect(mod.Nodes).To(HaveLen(2))
 		constNode := findNodeByType(mod.Nodes, "constant")
-		Expect(constNode.Config).To(HaveLen(1))
+		Expect(constNode.Inputs).To(HaveLen(1))
 
 		writeNode := findNodeByType(mod.Nodes, "write")
 		Expect(writeNode.Channels.Write).To(HaveKey(uint32(1)))
@@ -441,7 +441,7 @@ trigger -> counter{} -> output_b
 		Expect(imports).ToNot(BeEmpty())
 
 		for _, imp := range imports {
-			if imp.module == "state" {
+			if imp.module == "stateful" {
 				// Every state import must have a type suffix (e.g., load_i64, store_i64)
 				Expect(imp.name).ToNot(Equal("load"),
 					"state::load should be state::load_i64 (missing type suffix)")
@@ -455,7 +455,7 @@ trigger -> counter{} -> output_b
 	})
 
 	It("Should return a compile error when () is used instead of {} in a flow", func(ctx SpecContext) {
-		root := symbol.NewRoot(nil, stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.NewSymbols())
 		some := symbol.Symbol{
 			Name: "some_ch",
 			Kind: symbol.KindChannel,

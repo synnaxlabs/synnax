@@ -156,19 +156,32 @@ export class Dynamic {
     if (this.curr == null) {
       this.curr = this.allocate(cap, series.alignment, this.now(), series.data[0]);
       res.allocated.push(this.curr);
-    } else if (
-      Math.abs(
-        Number(this.curr.alignment + BigInt(this.curr.length) - series.alignment),
-      ) > 1
-    ) {
-      // This case occurs when the alignment of the incoming series does not match
-      // the alignment of the current buffer. In this case, we flush the current buffer
-      // and allocate a new one.
-      const now = this.now();
-      this.curr.timeRange.end = now;
-      res.flushed.push(this.curr);
-      this.curr = this.allocate(cap, series.alignment, now, series.data[0]);
-      res.allocated.push(this.curr);
+    } else {
+      // overlap > 0: the incoming series steps back into samples the current buffer
+      // already holds. overlap < 0: there is a gap between the buffer and the series.
+      const overlap = Number(
+        this.curr.alignment + BigInt(this.curr.length) - series.alignment,
+      );
+      if (overlap > 1) {
+        // The stream re-sent samples we already have. Drop the duplicated leading
+        // samples and continue the current buffer rather than allocating a new,
+        // overlapping fragment. Without this, an overlapping frame on every cycle
+        // fragments the cache into dozens of overlapping series that the renderer must
+        // draw — the source of the console freeze and the tangled line plot.
+        // sub (not slice) returns a zero-copy view; only the non-duplicate tail is
+        // written to the buffer below, so this does strictly less work than a
+        // contiguous frame.
+        if (overlap >= series.length) return res;
+        series = series.sub(overlap);
+      } else if (overlap < -1) {
+        // The incoming series starts after a gap; flush the current buffer and
+        // allocate a new one at the incoming alignment.
+        const now = this.now();
+        this.curr.timeRange.end = now;
+        res.flushed.push(this.curr);
+        this.curr = this.allocate(cap, series.alignment, now, series.data[0]);
+        res.allocated.push(this.curr);
+      }
     }
     const converted = convertSeriesToSupportedGL(series, this.curr.sampleOffset);
     const amountWritten = this.curr.write(converted);

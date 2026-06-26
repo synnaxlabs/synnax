@@ -18,14 +18,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *log.Service
 }
@@ -36,7 +36,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		internal: cfg.Service.Log,
 		access:   cfg.Service.RBAC,
 	}, nil
@@ -44,68 +43,53 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Logs      []log.Log     `json:"logs" msgpack:"logs"`
-		Workspace workspace.Key `json:"workspace" msgpack:"workspace"`
+		Logs    []log.Log   `json:"logs" msgpack:"logs"`
+		Project project.Key `json:"project" msgpack:"project"`
 	}
 	CreateResponse struct {
 		Logs []log.Log `json:"logs" msgpack:"logs"`
 	}
 )
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: log.OntologyIDsFromLogs(req.Logs),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeLog}},
 	}); err != nil {
-		return res, err
+		return CreateResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, l := range req.Logs {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &l); err != nil {
-				return err
-			}
-			req.Logs[i] = l
-		}
-		res.Logs = req.Logs
-		return nil
-	})
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Project, &req.Logs); err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse{Logs: req.Logs}, nil
 }
 
-type RenameRequest struct {
-	Name string  `json:"name" msgpack:"name"`
-	Key  log.Key `json:"key" msgpack:"key"`
-}
+// DispatchRequest carries an action sequence to apply to a single log. DispatchKey
+// identifies the originating client's batch so cluster broadcasts can be deduplicated
+// against the local optimistic update.
+type DispatchRequest = actions.DispatchRequest[log.Key, log.Action]
 
-func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+// Dispatch applies the action sequence to the target log atomically. Subscribers to the
+// log action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{log.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
-}
-
-type SetDataRequest struct {
-	Data map[string]any `json:"data" msgpack:"data"`
-	Key  log.Key        `json:"key" msgpack:"key"`
-}
-
-func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{log.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
@@ -113,39 +97,44 @@ type (
 		Keys []log.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveResponse struct {
-		Logs []log.Log `json:"logs" msgpack:"logs"`
+		Logs []log.Log `json:"logs,omitzero" msgpack:"logs,omitzero"`
 	}
 )
 
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, err error) {
-	err = s.internal.NewRetrieve().
-		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, nil)
-	if err != nil {
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	if err := s.internal.NewRetrieve().
+		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: log.OntologyIDs(req.Keys),
+		Objects: log.OntologyIDsFromLogs(res.Logs),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, err
+	return res, nil
 }
 
 type DeleteRequest struct {
 	Keys []log.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: log.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

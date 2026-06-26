@@ -15,6 +15,7 @@ on:
       - alamos/ts/**
       - aspen/**
       - cesium/**
+      - client/clib/**
       - client/cpp/**
       - client/py/**
       - client/ts/**
@@ -58,6 +59,7 @@ on:
       - alamos/ts/**
       - aspen/**
       - cesium/**
+      - client/clib/**
       - client/cpp/**
       - client/py/**
       - client/ts/**
@@ -96,7 +98,7 @@ jobs:
       ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Diff Changes
         uses: dorny/paths-filter@v4
@@ -118,6 +120,7 @@ jobs:
               - .bazelrc
               - .clang-format
               - .clang-format-ignore
+              - client/clib/**
               - client/cpp/**
               - freighter/cpp/**
               - MODULE.bazel
@@ -180,7 +183,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.19.0
@@ -194,9 +197,17 @@ jobs:
       - name: Check Formatting
         run: scripts/check_clang_format.sh client/cpp
 
+      - name: Check Formatting (clib)
+        run: scripts/check_clang_format.sh client/clib
+
       - name: Test (Ubuntu)
         run:
           bazel test --config=asan-leak --test_output=all //client/cpp/...
+          --nocache_test_results
+
+      - name: Test Clib (Ubuntu)
+        run:
+          bazel test --config=asan-leak --test_output=all //client/clib/...
           --nocache_test_results
 
   py:
@@ -222,7 +233,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Test Python
         uses: ./.github/actions/test-python
@@ -257,7 +268,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript

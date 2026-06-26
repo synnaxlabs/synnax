@@ -10,6 +10,7 @@
 package analyzer
 
 import (
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -87,7 +88,7 @@ func reportUnusedImports(ctx acontext.Context[parser.IProgramContext]) {
 			child.AST,
 			"imported module %q is unused",
 			child.Name,
-		))
+		).WithCode(codes.UnusedImport))
 	}
 }
 
@@ -101,14 +102,17 @@ func ambientOf(root *symbol.Symbol) *symbol.Symbol {
 }
 
 // lookupModule searches the ambient prelude for a KindModule child with the
-// given canonical path. Returns nil when ambient is nil or the module is
-// not present.
+// given canonical path. Internal modules are skipped so user `import`
+// statements cannot reach compiler-only modules (channels, strings,
+// series, stateful). Returns nil when ambient is nil, the module is not
+// present, or the matched module is Internal.
 func lookupModule(ambient *symbol.Symbol, path string) *symbol.Symbol {
 	if ambient == nil {
 		return nil
 	}
-	if child := ambient.FindChild(path); child != nil && child.Kind == symbol.KindModule {
-		return child
+	child := ambient.FindChild(path)
+	if child == nil || child.Kind != symbol.KindModule || child.Internal {
+		return nil
 	}
-	return nil
+	return child
 }

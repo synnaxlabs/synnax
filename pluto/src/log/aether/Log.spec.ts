@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log as clientLog } from "@synnaxlabs/client";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { channelConfigZ, Log, logState } from "@/log/aether/Log";
+import { Log, logStateZ } from "@/log/aether/Log";
 import {
   MockLogSource,
   mockLogSourceSpec,
@@ -18,8 +19,8 @@ import {
 } from "@/log/aether/telem/mock";
 import { type LogEntry } from "@/log/aether/telem/types";
 import { renderAether } from "@/testutil/renderAether";
-import { canvasTest } from "@/vis/render/test";
 import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/base/theme";
+import { canvasTest } from "@/vis/render/test";
 
 const THEME: Theme = themeZ.parse(SYNNAX_DARK);
 
@@ -62,19 +63,19 @@ const setup = (
   const recorder = canvasTest.record();
   const input = baseInput(testId, region, stateOverrides);
   const h = renderAether(Log, {
-    state: logState.parse(input),
+    state: logStateZ.parse(input),
     theming: { theme, fontURLs: [] },
     render: recorder,
   });
   source.push(...entries);
-  h.setState(() => logState.parse(input));
+  h.setState(() => logStateZ.parse(input));
   return {
     h,
     log: h.component as Log,
     source,
     recorder,
     updateState: (overrides: Record<string, unknown>) =>
-      h.setState(() => logState.parse(baseInput(testId, region, overrides))),
+      h.setState(() => logStateZ.parse(baseInput(testId, region, overrides))),
   };
 };
 
@@ -179,40 +180,9 @@ describe("log/aether/Log", () => {
     });
   });
 
-  describe("channelConfigZ", () => {
-    it("should parse with defaults", () => {
-      const parsed = channelConfigZ.parse({});
-      expect(parsed.color).toBe("");
-      expect(parsed.notation).toBe("standard");
-      expect(parsed.precision).toBe(-1);
-      expect(parsed.alias).toBe("");
-    });
-
-    it("should accept valid values", () => {
-      const parsed = channelConfigZ.parse({
-        color: "#ff0000",
-        notation: "scientific",
-        precision: 5,
-        alias: "Temperature",
-      });
-      expect(parsed.color).toBe("#ff0000");
-      expect(parsed.notation).toBe("scientific");
-      expect(parsed.precision).toBe(5);
-      expect(parsed.alias).toBe("Temperature");
-    });
-
-    it("should reject precision above 17", () => {
-      expect(() => channelConfigZ.parse({ precision: 18 })).toThrow();
-    });
-
-    it("should reject precision below -1", () => {
-      expect(() => channelConfigZ.parse({ precision: -2 })).toThrow();
-    });
-  });
-
-  describe("logState schema", () => {
+  describe("logStateZ schema", () => {
     it("should provide defaults for new selection fields", () => {
-      const parsed = logState.parse({
+      const parsed = logStateZ.parse({
         region: REGION_500,
         wheelPos: 0,
         scrolling: false,
@@ -224,52 +194,58 @@ describe("log/aether/Log", () => {
       expect(parsed.selectedText).toBe("");
       expect(parsed.selectedLines).toEqual([]);
       expect(parsed.computedLineHeight).toBe(0);
-      expect(parsed.entryCount).toBe(0);
     });
 
     it("should provide defaults for channel-related fields", () => {
-      const parsed = logState.parse({
+      const parsed = logStateZ.parse({
         region: REGION_500,
         wheelPos: 0,
         scrolling: false,
         empty: true,
         visible: true,
       });
-      expect(parsed.showChannelNames).toBe(true);
+      expect(parsed.hideChannelNames).toBe(false);
       expect(parsed.timestampPrecision).toBe(0);
       expect(parsed.channelNames).toEqual({});
       expect(parsed.channels).toEqual([]);
     });
 
     it("should accept explicit channel config values", () => {
-      const parsed = logState.parse({
+      const parsed = logStateZ.parse({
         region: REGION_500,
         wheelPos: 0,
         scrolling: false,
         empty: true,
         visible: true,
-        channels: [{ channel: 1, color: "#ff0000", precision: 3 }, { channel: 2 }],
-        showChannelNames: false,
+        channels: [
+          clientLog.channelEntryZ.parse({
+            channel: 1,
+            color: color.construct("#ff0000"),
+            precision: 3,
+          }),
+          clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
+        ],
+        hideChannelNames: true,
         timestampPrecision: 2,
       });
-      expect(parsed.showChannelNames).toBe(false);
+      expect(parsed.hideChannelNames).toBe(true);
       expect(parsed.timestampPrecision).toBe(2);
       expect(parsed.channels).toHaveLength(2);
-      expect(parsed.channels[0].color).toBe("#ff0000");
+      expect(parsed.channels[0].color).toEqual([255, 0, 0, 1]);
       expect(parsed.channels[0].precision).toBe(3);
     });
   });
 
-  describe("entryCount tracking", () => {
-    it("should set entryCount when entries arrive", () => {
+  describe("empty tracking", () => {
+    it("should set empty to false when entries arrive", () => {
       const entries = Array.from({ length: 7 }, (_, i) => makeEntry(i));
       const { log } = setup(entries);
-      expect(log.state.entryCount).toBe(7);
+      expect(log.state.empty).toBe(false);
     });
 
-    it("should keep entryCount at 0 when no entries", () => {
+    it("should keep empty true when no entries", () => {
       const { log } = setup([]);
-      expect(log.state.entryCount).toBe(0);
+      expect(log.state.empty).toBe(true);
     });
   });
 
@@ -288,7 +264,11 @@ describe("log/aether/Log", () => {
   describe("channel management", () => {
     it("should pass channel keys to telem source", () => {
       const { source } = setup([], REGION_500, {
-        channels: [{ channel: 1 }, { channel: 2 }, { channel: 3 }],
+        channels: [
+          clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
+          clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
+          clientLog.channelEntryZ.parse({ channel: 3, color: color.ZERO }),
+        ],
       });
       // afterUpdate calls setChannels on the source. Verify the filter works
       // by pushing entries for configured and unconfigured channels.
@@ -603,11 +583,11 @@ describe("log/aether/Log", () => {
   });
 
   describe("channel configs and formatting", () => {
-    it("should format entries with channel names when showChannelNames is true", () => {
+    it("should format entries with channel names when hideChannelNames is false", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1));
       const { log } = setup(entries, REGION_500, {
-        showChannelNames: true,
-        channels: [{ channel: 1 }],
+        hideChannelNames: false,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "Sensor1" },
         selectionStart: 0,
         selectionEnd: 0,
@@ -617,10 +597,10 @@ describe("log/aether/Log", () => {
       expect(log.state.selectedText).toContain("Sensor1");
     });
 
-    it("should format entries without channel names when showChannelNames is false", () => {
+    it("should format entries without channel names when hideChannelNames is true", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i, 1));
       const { log } = setup(entries, REGION_500, {
-        showChannelNames: false,
+        hideChannelNames: true,
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -638,7 +618,13 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setup(entries, REGION_500, {
-        channels: [{ channel: 1, precision: 2 }],
+        channels: [
+          clientLog.channelEntryZ.parse({
+            channel: 1,
+            color: color.ZERO,
+            precision: 2,
+          }),
+        ],
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -655,7 +641,14 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setup(entries, REGION_500, {
-        channels: [{ channel: 1, notation: "scientific", precision: 2 }],
+        channels: [
+          clientLog.channelEntryZ.parse({
+            channel: 1,
+            color: color.ZERO,
+            notation: "scientific",
+            precision: 2,
+          }),
+        ],
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -676,9 +669,9 @@ describe("log/aether/Log", () => {
         { channelKey: 1, timestamp: TimeStamp.milliseconds(2000), value: "again" },
       ];
       const { log } = setup(entries, REGION_500, {
-        showChannelNames: true,
-        showReceiptTimestamp: false,
-        channels: [{ channel: 1 }],
+        hideChannelNames: false,
+        hideReceiptTimestamp: true,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
         selectionEnd: 2,
@@ -700,9 +693,9 @@ describe("log/aether/Log", () => {
         { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "" },
       ];
       const { log } = setup(entries, REGION_500, {
-        showChannelNames: true,
-        showReceiptTimestamp: false,
-        channels: [{ channel: 1 }],
+        hideChannelNames: false,
+        hideReceiptTimestamp: true,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
         selectionEnd: 0,
@@ -729,9 +722,9 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setup(entries, REGION_500, {
-        showChannelNames: true,
-        showReceiptTimestamp: true,
-        channels: [{ channel: 1 }],
+        hideChannelNames: false,
+        hideReceiptTimestamp: false,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "sensor" },
         selectionStart: 0,
         selectionEnd: 2,
@@ -758,9 +751,9 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setup(entries, REGION_500, {
-        showChannelNames: false,
-        showReceiptTimestamp: false,
-        channels: [{ channel: 1 }],
+        hideChannelNames: true,
+        hideReceiptTimestamp: true,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         selectionStart: 0,
         selectionEnd: 1,
       });
@@ -788,9 +781,12 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setup(entries, REGION_500, {
-        showChannelNames: true,
-        showReceiptTimestamp: false,
-        channels: [{ channel: 1 }, { channel: 2 }],
+        hideChannelNames: false,
+        hideReceiptTimestamp: true,
+        channels: [
+          clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
+          clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
+        ],
         channelNames: { "1": "chA", "2": "chB" },
         selectionStart: 0,
         selectionEnd: 3,
@@ -818,9 +814,9 @@ describe("log/aether/Log", () => {
         },
       ];
       const { log } = setup(entries, REGION_500, {
-        showChannelNames: true,
-        showReceiptTimestamp: false,
-        channels: [{ channel: 1 }],
+        hideChannelNames: false,
+        hideReceiptTimestamp: true,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
         selectionEnd: 1,
@@ -870,6 +866,16 @@ describe("log/aether/Log", () => {
       expect(log.state.selectedText).toContain("\n");
     });
 
+    it("should clamp a select-to-end sentinel to all entries", () => {
+      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
+      const { log } = setup(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: Number.MAX_SAFE_INTEGER,
+      });
+      log.render();
+      expect(log.state.selectedLines).toHaveLength(10);
+    });
+
     it("should handle reversed selection (end < start)", () => {
       const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
@@ -884,7 +890,12 @@ describe("log/aether/Log", () => {
     it("should include color in selectedLines when channel has custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setup(entries, REGION_500, {
-        channels: [{ channel: 1, color: "#ff0000" }],
+        channels: [
+          clientLog.channelEntryZ.parse({
+            channel: 1,
+            color: color.construct("#ff0000"),
+          }),
+        ],
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -960,8 +971,12 @@ describe("log/aether/Log", () => {
         makeEntry(3, 3),
       ];
       const { log } = setup(entries, REGION_500, {
-        showChannelNames: true,
-        channels: [{ channel: 1 }, { channel: 2 }, { channel: 3 }],
+        hideChannelNames: false,
+        channels: [
+          clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
+          clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
+          clientLog.channelEntryZ.parse({ channel: 3, color: color.ZERO }),
+        ],
         channelNames: { "1": "Temperature", "2": "Pressure", "3": "Humidity" },
         selectionStart: 0,
         selectionEnd: 3,
@@ -977,8 +992,14 @@ describe("log/aether/Log", () => {
       const entries = [makeEntry(0, 1), makeEntry(1, 2)];
       const { log } = setup(entries, REGION_500, {
         channels: [
-          { channel: 1, color: "#ff0000" },
-          { channel: 2, color: "#00ff00" },
+          clientLog.channelEntryZ.parse({
+            channel: 1,
+            color: color.construct("#ff0000"),
+          }),
+          clientLog.channelEntryZ.parse({
+            channel: 2,
+            color: color.construct("#00ff00"),
+          }),
         ],
         selectionStart: 0,
         selectionEnd: 1,

@@ -94,3 +94,51 @@ var _ = Describe("TypeCamel", func() {
 		Entry("snake with acronym word", "url_value", "urlValue"),
 	)
 })
+
+var _ = Describe("PascalAcronym", func() {
+	DescribeTable("should fully upper-case whole acronym segments only",
+		func(input, expected string) {
+			Expect(casing.PascalAcronym(input)).To(Equal(expected))
+		},
+		Entry("leading acronym", "ai_voltage", "AIVoltage"),
+		Entry("embedded acronym", "accel_4_wire_dc_voltage", "Accel4WireDCVoltage"),
+		Entry("rtd acronym", "ai_rtd", "AIRTD"),
+		Entry("no acronym", "force_bridge_table", "ForceBridgeTable"),
+		Entry("word containing acronym is not mangled", "email_address", "EmailAddress"),
+	)
+})
+
+var _ = Describe("CamelAcronym", func() {
+	DescribeTable("should lower-case the leading word while preserving acronyms",
+		func(input, expected string) {
+			Expect(casing.CamelAcronym(input)).To(Equal(expected))
+		},
+		Entry("embedded acronym after a word", "BaseAOChannel", "baseAOChannel"),
+		Entry("embedded acronym, ci", "BaseCIChannel", "baseCIChannel"),
+		Entry("leading acronym", "AIVoltageChannel", "aiVoltageChannel"),
+		Entry("leading and embedded acronym", "AIVoltageRMSChannel", "aiVoltageRMSChannel"),
+		Entry("adjacent acronyms keep the trailing one", "AIRTDChannel", "aiRTDChannel"),
+		Entry("standalone acronym type", "RTDType", "rtdType"),
+		Entry("leading acronym not in the dictionary", "CJCSource", "cjcSource"),
+		Entry("unknown leading acronym", "URLValue", "urlValue"),
+		Entry("no acronym", "BaseReadConfig", "baseReadConfig"),
+		Entry("plain word", "Channel", "channel"),
+		Entry("snake input with leading acronym", "ai_voltage", "aiVoltage"),
+		Entry("snake input with embedded acronym", "accel_4_wire_dc_voltage", "accel4WireDCVoltage"),
+		Entry("empty", "", ""),
+	)
+})
+
+var _ = Describe("VariantTypeName", func() {
+	DescribeTable("should factor a repeated union acronym, else prefix the union name",
+		func(union, variant, expected string) {
+			Expect(casing.VariantTypeName(union, variant)).To(Equal(expected))
+		},
+		Entry("acronym union factors the shared prefix", "AIChannel", "ai_voltage", "AIVoltageChannel"),
+		Entry("multi-word variant", "AIChannel", "ai_force_bridge_table", "AIForceBridgeTableChannel"),
+		Entry("ci union", "CIChannel", "ci_two_edge_sep", "CITwoEdgeSepChannel"),
+		Entry("ao union", "AOChannel", "ao_voltage", "AOVoltageChannel"),
+		Entry("plain union keeps union prefix", "Scale", "linear", "ScaleLinear"),
+		Entry("variant not repeating the acronym keeps union prefix", "AIChannel", "voltage", "AIChannelVoltage"),
+	)
+})

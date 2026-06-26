@@ -35,7 +35,7 @@ from synnax.framer.codec import (
 from synnax.framer.frame import CrudeFrame, FramePayload
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
-from x.normalize import normalize
+from x.lists import normalize
 
 
 class WriterCommand(int, Enum):

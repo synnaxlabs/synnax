@@ -12,6 +12,7 @@ package pb
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -126,13 +127,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 	for path := range standaloneEnums {
-		found := false
-		for _, p := range outputOrder {
-			if p == path {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(outputOrder, path)
 		if !found {
 			outputOrder = append(outputOrder, path)
 		}
@@ -447,7 +442,7 @@ func (p *Plugin) processFieldForTranslation(
 		BackwardExpr:     backwardExpr,
 		ForwardJSONExpr:  forwardJSONExpr,
 		BackwardJSONExpr: backwardJSONExpr,
-		IsOptional:       field.IsHardOptional,
+		IsOptional:       field.Optional,
 		IsArray:          field.Type.Name == "Array",
 		IsGenericField:   isGenericField,
 		TypeParamName:    typeParamName,
@@ -477,7 +472,7 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if resolution.IsPrimitive(typeRef.Name) {
-		return p.generatePrimitiveConversion(typeRef.Name, cppFieldName, pbAccessorName, pbSetter, field.IsHardOptional, data)
+		return p.generatePrimitiveConversion(typeRef.Name, cppFieldName, pbAccessorName, pbSetter, field.Optional, data)
 	}
 
 	if typeRef.TypeParam != nil {
@@ -497,13 +492,13 @@ func (p *Plugin) generateFieldConversion(
 
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		return p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, cppFieldName, pbAccessorName)
+		return p.generateStructConversion(typeRef, resolved, field.Optional, data, cppFieldName, pbAccessorName)
 	case resolution.EnumForm:
 		return p.generateEnumConversion(resolved, form, cppFieldName, pbAccessorName, pbSetter, data)
 	case resolution.DistinctForm:
 		return p.generateDistinctConversion(resolved, form, cppFieldName, pbAccessorName, pbSetter, data)
 	case resolution.AliasForm:
-		return p.generateAliasConversion(resolved, form, field.IsHardOptional, cppFieldName, pbAccessorName, pbSetter, data)
+		return p.generateAliasConversion(resolved, form, field.Optional, cppFieldName, pbAccessorName, pbSetter, data)
 	default:
 		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
@@ -516,7 +511,7 @@ func (p *Plugin) generateJSONFieldConversion(
 	pbAccessorName string,
 	data *templateData,
 ) (forward, backward string) {
-	if field.IsHardOptional {
+	if field.Optional {
 		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_any(*this->%s)", cppFieldName, pbAccessorName, cppFieldName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = x::json::from_any(pb.%s());
@@ -715,7 +710,7 @@ func (p *Plugin) generateTypeParamConversion(
 	// Always use JSON serialization for generic type parameters.
 	// This ensures compatibility with the Go server which stores details as JSON.
 	// Handle monostate specially since it doesn't have to_json()/parse() methods.
-	if field.IsHardOptional {
+	if field.Optional {
 		forward = fmt.Sprintf(`if (this->%s.has_value()) {
         if constexpr (std::is_same_v<%s, std::monostate>)
             *pb.mutable_%s() = x::json::to_any(x::json::json(nullptr));
@@ -764,11 +759,13 @@ func (p *Plugin) generateEnumConversion(
 	enumName := resolved.Name
 
 	cppEnumType := domain.GetName(resolved, "cpp")
+	funcNamespace := ""
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			ns := deriveNamespace(targetOutputPath)
 			cppEnumType = fmt.Sprintf("::%s::%s", ns, cppEnumType)
+			funcNamespace = fmt.Sprintf("::%s::", ns)
 		}
 	}
 
@@ -779,7 +776,7 @@ func (p *Plugin) generateEnumConversion(
 		forward = fmt.Sprintf("%s(static_cast<%s::%s>(this->%s))", pbSetter, pbNamespace, enumName, cppFieldName)
 		backward = fmt.Sprintf("cpp.%s = static_cast<%s>(pb.%s());", cppFieldName, cppEnumType, pbAccessorName)
 	} else {
-		funcName := casing.TypeSnake(enumName)
+		funcName := funcNamespace + casing.TypeSnake(enumName)
 		forward = fmt.Sprintf(`{
         auto [v, err] = %s_to_pb(this->%s);
         if (err) return {{}, err};
@@ -827,7 +824,7 @@ func (p *Plugin) generateDistinctConversion(
 			return p.generateNestedArrayConversion(cppFieldName, pbAccessorName, form.Base, data)
 		}
 		elemType := form.Base.TypeArgs[0]
-		return p.generateArrayAliasConversion(cppFieldName, pbAccessorName, elemType, data)
+		return p.generateArrayAliasConversion(cppFieldName, pbAccessorName, elemType, false, data)
 	}
 
 	return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
@@ -850,7 +847,7 @@ func (p *Plugin) generateAliasConversion(
 			return p.generateNestedArrayConversion(cppFieldName, pbAccessorName, form.Target, data)
 		}
 		elemType := form.Target.TypeArgs[0]
-		return p.generateArrayAliasConversion(cppFieldName, pbAccessorName, elemType, data)
+		return p.generateArrayAliasConversion(cppFieldName, pbAccessorName, elemType, isOptional, data)
 	}
 
 	targetResolved, ok := form.Target.Resolve(data.table)
@@ -927,20 +924,27 @@ func (p *Plugin) generateArrayConversion(
 	}
 
 	elemType := typeRef.TypeArgs[0]
-	return p.generateArrayElementConversion(cppFieldName, pbAccessorName, elemType, data)
+	return p.generateArrayElementConversion(cppFieldName, pbAccessorName, elemType, field.Optional, data)
 }
 
 func (p *Plugin) generateArrayAliasConversion(
 	cppFieldName, pbAccessorName string,
 	elemType resolution.TypeRef,
+	isOptional bool,
 	data *templateData,
 ) (forward, backward string) {
-	return p.generateArrayElementConversion(cppFieldName, pbAccessorName, elemType, data)
+	return p.generateArrayElementConversion(cppFieldName, pbAccessorName, elemType, isOptional, data)
 }
 
+// generateArrayElementConversion renders the proto conversion for an array field.
+// A nullable array maps to a wrapper message (a list message whose repeated field
+// is named values) so absence is distinguishable from emptiness; the generated
+// code unwraps the std::optional and gates the wrapper on presence. A required
+// array maps to a plain repeated field.
 func (p *Plugin) generateArrayElementConversion(
 	cppFieldName, pbAccessorName string,
 	elemType resolution.TypeRef,
+	isOptional bool,
 	data *templateData,
 ) (forward, backward string) {
 	if !resolution.IsPrimitive(elemType.Name) {
@@ -954,6 +958,21 @@ func (p *Plugin) generateArrayElementConversion(
 					}
 				}
 				elemCppType := p.typeRefToCppForTranslator(elemType, data)
+				if isOptional {
+					forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto* wrapper = pb.mutable_%s();
+        for (const auto& item : *this->%s) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }`, cppFieldName, pbAccessorName, cppFieldName)
+					backward = fmt.Sprintf(`if (pb.has_%s()) {
+        cpp.%s.emplace();
+        if (auto err = x::pb::from_proto_repeated<%s>(*cpp.%s, pb.%s().values())) return {{}, err};
+    }`, pbAccessorName, cppFieldName, elemCppType, cppFieldName, pbAccessorName)
+					return forward, backward
+				}
 				forward = fmt.Sprintf(`for (const auto& item : this->%s) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
@@ -963,6 +982,18 @@ func (p *Plugin) generateArrayElementConversion(
 				return forward, backward
 			}
 		}
+	}
+
+	if isOptional {
+		forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto* wrapper = pb.mutable_%s();
+        for (const auto& item : *this->%s) wrapper->add_values(item);
+    }`, cppFieldName, pbAccessorName, cppFieldName)
+		backward = fmt.Sprintf(`if (pb.has_%s()) {
+        cpp.%s.emplace();
+        for (const auto& item : pb.%s().values()) cpp.%s->push_back(item);
+    }`, pbAccessorName, cppFieldName, pbAccessorName, cppFieldName)
+		return forward, backward
 	}
 
 	forward = fmt.Sprintf("for (const auto& item : this->%s) pb.add_%s(item)", cppFieldName, pbAccessorName)
@@ -981,6 +1012,47 @@ func (p *Plugin) generateMapConversion(
 
 	if len(typeRef.TypeArgs) < 2 {
 		return "// TODO: map without enough type args", "// TODO: map without enough type args"
+	}
+
+	valueType := typeRef.TypeArgs[1]
+
+	if valueType.Name == "record" {
+		data.includes.addInternal("x/cpp/json/struct.h")
+		forward = fmt.Sprintf(`for (const auto& [k, v] : this->%s) {
+        auto [pb_v, err] = x::json::to_struct(v);
+        if (err) return {{}, err};
+        (*pb.mutable_%s())[k] = pb_v;
+    }`, fieldName, accessorName)
+		backward = fmt.Sprintf(`for (const auto& [k, v] : pb.%s()) {
+        auto [cpp_v, err] = x::json::from_struct(v);
+        if (err) return {{}, err};
+        cpp.%s[k] = cpp_v;
+    }`, accessorName, fieldName)
+		return forward, backward
+	}
+
+	if resolved, ok := valueType.Resolve(data.table); ok {
+		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+			if resolved.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(resolved, "cpp")
+				if targetOutputPath != "" {
+					data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
+					data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+				}
+			}
+			valueCppType := p.typeRefToCppForTranslator(valueType, data)
+			forward = fmt.Sprintf(`for (const auto& [k, v] : this->%s) {
+        auto [pb_v, err] = v.to_proto();
+        if (err) return {{}, err};
+        (*pb.mutable_%s())[k] = pb_v;
+    }`, fieldName, accessorName)
+			backward = fmt.Sprintf(`for (const auto& [k, v] : pb.%s()) {
+        auto [cpp_v, err] = %s::from_proto(v);
+        if (err) return {{}, err};
+        cpp.%s[k] = cpp_v;
+    }`, accessorName, valueCppType, fieldName)
+			return forward, backward
+		}
 	}
 
 	forward = fmt.Sprintf("for (const auto& [k, v] : this->%s) (*pb.mutable_%s())[k] = v", fieldName, accessorName)

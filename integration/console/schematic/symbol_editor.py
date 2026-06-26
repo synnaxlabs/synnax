@@ -105,20 +105,26 @@ class SymbolEditor:
         )
         self.wait_for_form_visible()
 
-    def set_region_stroke_color(self, hex_color: str, region_index: int = 0) -> None:
-        """Set the stroke color for a region.
-
-        Args:
-            hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
-            region_index: Index of the region (0-based).
-        """
-        region_items = self.page.locator(".pluto-list__item").filter(
+    def _region_rows(self) -> Locator:
+        """Locate the region rows (the only list items carrying color swatches)."""
+        return self.page.locator(".pluto-list__item").filter(
             has=self.page.locator(".pluto-color-swatch")
         )
-        region_item = region_items.nth(region_index)
-        stroke_swatch = region_item.locator(".pluto-color-swatch").first
-        stroke_swatch.click()
 
+    def region_count(self) -> int:
+        """Return the number of detected regions."""
+        return self._region_rows().count()
+
+    def _set_region_color(
+        self, swatch_index: int, hex_color: str, region_index: int
+    ) -> None:
+        swatch = (
+            self._region_rows()
+            .nth(region_index)
+            .locator(".pluto-color-swatch")
+            .nth(swatch_index)
+        )
+        swatch.click()
         color_picker = self.page.locator(".pluto-color-picker-container")
         color_picker.wait_for(state="visible", timeout=2000)
         hex_input = color_picker.locator(".sketch-picker input").first
@@ -127,6 +133,64 @@ class SymbolEditor:
         self.page.keyboard.press("Enter")
         self.page.keyboard.press("Escape")
         color_picker.wait_for(state="hidden", timeout=2000)
+
+    def set_region_stroke_color(self, hex_color: str, region_index: int = 0) -> None:
+        """Set the stroke color for a region (the first swatch in the row).
+
+        Args:
+            hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
+            region_index: Index of the region (0-based).
+        """
+        self._set_region_color(0, hex_color, region_index)
+
+    def set_region_fill_color(self, hex_color: str, region_index: int = 0) -> None:
+        """Set the fill color for a region (the second swatch in the row).
+
+        Args:
+            hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
+            region_index: Index of the region (0-based).
+        """
+        self._set_region_color(1, hex_color, region_index)
+
+    def get_preview_fill(self, selector: str) -> str:
+        """Return the computed fill (e.g. "rgb(255, 0, 0)") of a rendered preview shape.
+
+        Args:
+            selector: A CSS selector resolved within the rendered preview SVG.
+        """
+        el = self.page.locator(f".console-preview svg {selector}").first
+        el.wait_for(state="attached", timeout=5000)
+        return str(el.evaluate("(el) => getComputedStyle(el).fill"))
+
+    def assert_preview_fill(
+        self, selector: str, expected_rgb: str, timeout: int = 5000
+    ) -> None:
+        """Wait until a rendered preview shape resolves to the expected computed fill.
+
+        Args:
+            selector: A CSS selector resolved within the rendered preview SVG.
+            expected_rgb: The expected computed fill, e.g. "rgb(255, 0, 0)".
+        """
+        self.page.wait_for_function(
+            """([sel, exp]) => {
+                const el = document.querySelector('.console-preview svg ' + sel);
+                return el != null && getComputedStyle(el).fill === exp;
+            }""",
+            arg=[selector, expected_rgb],
+            timeout=timeout,
+        )
+
+    def assert_preview_width(self, expected: float, timeout: int = 5000) -> None:
+        """Wait until the rendered preview SVG reaches the expected width attribute."""
+        self.page.wait_for_function(
+            """(exp) => {
+                const svg = document.querySelector('.console-preview svg');
+                if (svg == null) return false;
+                return Math.abs(parseFloat(svg.getAttribute('width')) - exp) < 0.5;
+            }""",
+            arg=expected,
+            timeout=timeout,
+        )
 
     def add_handle(self) -> None:
         """Add a new connection handle."""

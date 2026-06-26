@@ -15,14 +15,14 @@ import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
-import { LinePlotServices } from "@/lineplot/services";
-import { LogServices } from "@/log/services";
+import { LinePlot } from "@/layered/service/lineplot";
+import { Log } from "@/layered/service/log";
+import { Schematic } from "@/layered/service/schematic";
+import { Table } from "@/layered/service/table";
 import { Ontology } from "@/ontology";
+import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
-import { SchematicServices } from "@/schematic/services";
-import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
-import { WorkspaceServices } from "@/workspace/services";
 
 const createEmptyService = (
   type: ontology.ResourceType,
@@ -34,15 +34,15 @@ const createEmptyService = (
 };
 
 export const SERVICES: Ontology.Services = {
-  schematic: SchematicServices.ONTOLOGY_SERVICE,
+  schematic: Schematic.ONTOLOGY_SERVICE,
   schematic_symbol: createEmptyService("schematic_symbol", <Icon.Schematic />),
   user: UserServices.ONTOLOGY_SERVICE,
   builtin: createEmptyService("builtin"),
   node: createEmptyService("node", <Icon.Node />),
   group: GroupServices.ONTOLOGY_SERVICE,
   range: RangeServices.ONTOLOGY_SERVICE,
-  workspace: WorkspaceServices.ONTOLOGY_SERVICE,
-  lineplot: LinePlotServices.ONTOLOGY_SERVICE,
+  project: ProjectServices.ONTOLOGY_SERVICE,
+  lineplot: LinePlot.ONTOLOGY_SERVICE,
   "range-alias": createEmptyService("range-alias"),
   label: createEmptyService("label", <Icon.Label />),
   rack: Hardware.Rack.ONTOLOGY_SERVICE,
@@ -51,8 +51,9 @@ export const SERVICES: Ontology.Services = {
   channel: ChannelServices.ONTOLOGY_SERVICE,
   framer: createEmptyService("framer"),
   policy: Access.Policy.ONTOLOGY_SERVICE,
-  log: LogServices.ONTOLOGY_SERVICE,
-  table: TableServices.ONTOLOGY_SERVICE,
+  log: Log.ONTOLOGY_SERVICE,
+  table: Table.ONTOLOGY_SERVICE,
+  panel: createEmptyService("panel"),
   status: createEmptyService("status", <Icon.Status />),
   arc: ArcServices.ONTOLOGY_SERVICE,
   view: createEmptyService("view"),

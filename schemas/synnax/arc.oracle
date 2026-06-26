@@ -1,0 +1,199 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/spatial"
+import "schemas/synnax/status"
+import "schemas/x/crdt"
+import "schemas/arc/graph"
+import "schemas/arc/text"
+import "schemas/arc/ir"
+import "schemas/arc/compiler"
+import "schemas/arc/program"
+
+@ts output  "client/ts/src/arc"
+@py output  "client/py/synnax/arc"
+@go output  "core/pkg/service/arc"
+@cpp output "client/cpp/arc"
+@pb
+
+StatusDetails struct {
+    running bool {
+        @doc value "indicates whether the Arc module is currently executing."
+    }
+
+    @doc value "contains Arc-specific status details for execution state."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the status of an Arc module including execution state."
+}
+
+Key = uuid {
+    @doc value "is a unique identifier for an Arc module."
+}
+
+Mode enum {
+    text  = "text"
+    graph = "graph"
+
+    @doc value """
+        specifies whether an Arc module uses text-based or graph-based representation.
+    """
+}
+
+Arc struct {
+    key     Key = create {
+        @key
+        @doc value "is the unique identifier for this module."
+    }
+    name    string           {
+        @doc value         "is a human-readable name for the module."
+        @filter
+        @validate required
+    }
+    mode    Mode             {
+        @doc value """
+            specifies the representation mode for this module.
+            Either "text" for text-based Arc code or "graph" for visual dataflow.
+        """
+    }
+    graph   graph.Graph = {} {
+        @doc value "is the visual dataflow graph representation of the module."
+    }
+    text    text.Text = {} {
+        @doc value "is the text-based Arc source code."
+    }
+    program program.Program? {
+        @doc value  """
+            is the compiled module output including IR and WebAssembly bytecode.
+        """
+        @go marshal omit
+    }
+    status  Status?          {
+        @doc value  "is the current execution status of the module."
+        @go marshal omit
+    }
+
+    action Rename {
+        name string
+
+        @doc value "renames the Arc module."
+    }
+
+    action SetNode {
+        node graph.Node
+
+        @doc value """
+            inserts the node if no node with the same key exists, otherwise
+            replaces the existing node in place. Operates only on the node's
+            position; the node's function type and config are set separately
+            via SetNodeConfig.
+        """
+    }
+
+    action SetNodePosition {
+        key      string
+        position spatial.XY
+
+        @doc value "moves a graph node to a new canvas position."
+    }
+
+    action SetNodeConfig {
+        key    string
+        config record {
+            @ts preserve_case
+        }
+
+        @doc value """
+            merges the given config into the entry for the given key in the
+            graph configs map. Top-level fields present in the payload overwrite
+            existing fields; fields absent from the payload are preserved. The
+            node's function type is held under "type".
+        """
+    }
+
+    action RemoveNode {
+        key string
+
+        @doc value """
+            removes the node with the given key along with its config entry and
+            any edges connected to it.
+        """
+    }
+
+    action AddEdge {
+        edge graph.Edge
+
+        @doc value """
+            appends the edge to the graph. No-op when an edge with the same
+            source and target handles already exists, so concurrent additions of
+            the same connection converge regardless of differing keys.
+        """
+    }
+
+    action RemoveEdge {
+        key string
+
+        @doc value """
+            removes the edge with the given key, if present.
+        """
+    }
+
+    action ReconnectEdge {
+        key    string
+        source ir.Handle
+        target ir.Handle
+
+        @doc value """
+            rewrites the endpoints of the edge with the given key, preserving its
+            key and kind. No-op when no edge with the key exists.
+        """
+    }
+
+    action InsertChar extends crdt.Insert {
+        @doc value """
+            carries a single collaborative-edit character insertion against the
+            module's text. The payload is a sequence CRDT operation; the server relays
+            it to the other editors of the module without interpreting it.
+        """
+    }
+
+    action DeleteChar extends crdt.Delete {
+        @doc value """
+            carries a single collaborative-edit character deletion against the module's
+            text. The payload is a sequence CRDT operation; the server relays it to the
+            other editors of the module without interpreting it.
+        """
+    }
+
+    action ForgetChars {
+        ids crdt.ID[]
+
+        @doc value """
+            removes the given already-deleted characters from the module's text document,
+            dropping both their insert and delete operations from the replicated op-log.
+            The server emits it after a quiet editing period to reclaim the space held by
+            tombstoned characters. Because the characters are already deleted, and thus
+            invisible, applying it never changes the materialized text.
+        """
+    }
+
+    @doc value     """
+        is an Arc module combining visual graph representation and text-based
+        source code for reactive control systems. Compiles to WebAssembly for
+        sandboxed execution.
+    """
+    @ontology type "arc"
+    @go marshal
+    @go migrate
+    @py name       "Payload"
+    @retrieve
+    @search
+    @create
+}

@@ -19,18 +19,22 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Arc = arc.Arc
+type (
+	Arc = arc.Arc
+	Key = arc.Key
+)
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *arc.Service
 	status   *status.Service
@@ -43,7 +47,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:              cfg.Distribution.DB,
 		access:          cfg.Service.RBAC,
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Service.Arc,
@@ -58,42 +61,66 @@ type (
 	CreateResponse = CreateRequest
 )
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: arc.OntologyIDsFromArcs(req.Arcs),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeArc}},
 	}); err != nil {
-		return res, err
+		return CreateResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.internal.NewWriter(tx)
-		for i, a := range req.Arcs {
-			if err = w.Create(ctx, &a); err != nil {
-				return err
-			}
-			req.Arcs[i] = a
-		}
-		res.Arcs = req.Arcs
-		return nil
-	})
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Arcs); err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse(req), nil
 }
 
 type DeleteRequest struct {
 	Keys []arc.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: arc.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+}
+
+// DispatchRequest carries a sequence of collaborative-edit actions to relay to the
+// other clients editing a single arc. DispatchKey is the originating client's batch
+// identifier, echoed verbatim on the broadcast so the sender can recognize its own
+// edits.
+type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
+
+// Dispatch relays the action sequence to the other clients editing the arc, broadcasting
+// it on the arc collaborative-edit signals channel. The caller must hold update access
+// to the arc. The server does not interpret or persist the actions.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{arc.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
@@ -107,19 +134,21 @@ type (
 		Compile       bool      `json:"compile" msgpack:"compile"`
 	}
 	RetrieveResponse struct {
-		Arcs []Arc `json:"arcs" msgpack:"arcs"`
+		Arcs []Arc `json:"arcs,omitzero" msgpack:"arcs,omitzero"`
 	}
 )
 
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, err error) {
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	var arcs []arc.Arc
 	var (
-		svcArcs   []arc.Arc
-		q         = s.internal.NewRetrieve().Entries(&svcArcs)
+		q         = s.internal.NewRetrieve().Entries(&arcs)
 		hasKeys   = len(req.Keys) > 0
 		hasNames  = len(req.Names) > 0
 		hasSearch = req.SearchTerm != ""
 	)
-
 	if hasKeys {
 		q = q.Where(arc.MatchKeys(req.Keys...))
 	}
@@ -135,17 +164,23 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-
-	if err = q.Exec(ctx, nil); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 
-	res.Arcs = svcArcs
+	res := RetrieveResponse{Arcs: arcs}
+
+	// Raw is derived from the replicated document and not stored, so materialize it before
+	// compilation and for clients that read the source text directly rather than
+	// reconstructing the document.
+	for i := range res.Arcs {
+		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()
+	}
 
 	// Compile Arcs to modules if requested
 	if req.Compile {
 		for i := range res.Arcs {
-			if err = s.compile(ctx, &res.Arcs[i]); err != nil {
+			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
@@ -156,13 +191,14 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 		}
 	}
 
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: arc.OntologyIDsFromArcs(svcArcs),
+		Objects: arc.OntologyIDsFromArcs(arcs),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
+
 	return res, nil
 }
 
@@ -170,7 +206,10 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 type LSPMessage = arctransport.JSONRPCMessage
 
 // LSP handles LSP protocol messages over a Freighter stream
-func (s *Service) LSP(ctx context.Context, stream freighter.ServerStream[LSPMessage, LSPMessage]) error {
+func (s *Service) LSP(
+	ctx context.Context,
+	stream freighter.ServerStream[LSPMessage, LSPMessage],
+) error {
 	lsp, err := s.internal.NewLSP()
 	if err != nil {
 		return err
@@ -181,25 +220,21 @@ func (s *Service) LSP(ctx context.Context, stream freighter.ServerStream[LSPMess
 	})
 }
 
-// compile compiles the Arc text to a module containing IR and WASM bytecode.
-// Returns an error if parsing, analysis, or compilation fails.
+// compile compiles the Arc text to a module containing IR and WASM bytecode. Returns an
+// error if parsing, analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, arc *Arc) error {
-	// Step 1: Parse the Arc text
 	parsed, diag := arctext.Parse(arc.Text)
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
-	// Step 2: Analyze the parsed text to produce IR
 	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil))
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
-	// Step 3: Compile IR to WebAssembly module
 	mod, err := arctext.Compile(ctx, ir)
 	if err != nil {
 		return err
 	}
-	// Step 4: Attach compiled module to Arc
 	arc.Program = &mod
 	return nil
 }

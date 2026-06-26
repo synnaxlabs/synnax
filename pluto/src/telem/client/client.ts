@@ -127,7 +127,7 @@ export class Core implements Client {
     this.streamer = new Streamer({
       cache: this.cache,
       openStreamer: async (keys) =>
-        framer.HardenedStreamer.open(core.openStreamer.bind(core), keys),
+        await framer.HardenedStreamer.open(core.openStreamer.bind(core), keys),
       instrumentation: this.ins.child("streamer"),
     });
   }

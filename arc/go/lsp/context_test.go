@@ -87,6 +87,42 @@ var _ = Describe("Context Detection", func() {
 		Entry("statement start at empty file",
 			"", uint32(0), uint32(0), lsp.ContextStatementStart),
 
+		// Statement-level comma (regression: a stray comma at the end of a
+		// statement inside a block body must not be treated as expression
+		// context, otherwise the editor offers channel completions in places
+		// where the next token cannot be an expression). The same statement-
+		// start context applies whether the cursor is still on the line with
+		// the comma or has moved to the next line — comma is a statement
+		// terminator, not an opener, so it does not need the same-line
+		// suppression that ContextNone applies after `{`.
+		Entry("statement-level comma inside sequence body (same line)",
+			"sequence {\n    0 -> \"hello\",", uint32(1), uint32(17), lsp.ContextStatementStart),
+		Entry("statement-level comma inside sequence body (next line)",
+			"sequence {\n    0 -> \"hello\",\n", uint32(2), uint32(0), lsp.ContextStatementStart),
+		Entry("statement-level comma inside stage body (same line)",
+			"stage foo {\n    x = \"bar\",", uint32(1), uint32(14), lsp.ContextStatementStart),
+		Entry("statement-level comma inside stage body (next line)",
+			"stage foo {\n    x = \"bar\",\n    ", uint32(2), uint32(4), lsp.ContextStatementStart),
+		Entry("statement-level comma inside function body (same line)",
+			"func foo() {\n    x := 1,", uint32(1), uint32(11), lsp.ContextStatementStart),
+		Entry("statement-level comma inside function body (next line)",
+			"func foo() {\n    x := 1,\n    ", uint32(2), uint32(4), lsp.ContextStatementStart),
+		Entry("statement-level comma inside nested stage body (same line)",
+			"sequence main {\n    stage press {\n        0 -> \"hello\",",
+			uint32(2), uint32(21), lsp.ContextStatementStart),
+		Entry("statement-level comma inside nested stage body (next line)",
+			"sequence main {\n    stage press {\n        0 -> \"hello\",\n        ",
+			uint32(3), uint32(8), lsp.ContextStatementStart),
+
+		// Expression-level commas must stay expression context regardless of
+		// whether the cursor wraps to the next line. Guards the fix above
+		// against widening too far and breaking multi-line function calls or
+		// array literals.
+		Entry("expression-level comma in function call wraps to next line",
+			"foo(a,\n    ", uint32(1), uint32(4), lsp.ContextExpression),
+		Entry("expression-level comma in array literal wraps to next line",
+			"[1,\n    ", uint32(1), uint32(4), lsp.ContextExpression),
+
 		// Unknown Context
 		Entry("unknown for ambiguous positions",
 			"func foo() i32", uint32(0), uint32(14), lsp.ContextUnknown),

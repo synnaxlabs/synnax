@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, device, NotFoundError } from "@synnaxlabs/client";
-import { id, status } from "@synnaxlabs/x";
+import { createTestClient, device, NotFoundError, status } from "@synnaxlabs/client";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -1152,13 +1152,13 @@ describe("queries", () => {
         });
 
         const nameField = result.current.form.get("name");
-        expect(nameField.status.message).toBe("Name is required");
+        expect(nameField.status.message).toBe("name is required");
         const makeField = result.current.form.get("make");
-        expect(makeField.status.message).toBe("Make is required");
+        expect(makeField.status.message).toBe("make is required");
         const modelField = result.current.form.get("model");
-        expect(modelField.status.message).toBe("Model is required");
+        expect(modelField.status.message).toBe("model is required");
         const locationField = result.current.form.get("location");
-        expect(locationField.status.message).toBe("Location is required");
+        expect(locationField.status.message).toBe("location is required");
       });
 
       it("should support custom properties", async () => {
@@ -1303,7 +1303,7 @@ describe("queries", () => {
         expect(isValid).toBe(false);
 
         const msg = result.current.form.get("name").status.message;
-        expect(msg).toEqual("Name is required");
+        expect(msg).toEqual("name is required");
       });
     });
   });

@@ -37,6 +37,8 @@ Choose a name and select **Text** for the editor mode.
 Copy this code into the editor:
 
 ```arc
+import time
+
 func scale_reading(value f64) f64 {
     return value * 2.0
 }
@@ -49,7 +51,7 @@ func output_reading() {
 
 tank_pressure -> scale_reading{} -> pressure_scaled
 
-interval{period=200ms} -> output_reading{}
+time.interval{period=200ms} -> output_reading{}
 ```
 
 This program has two parts that work together:
@@ -148,11 +150,11 @@ updates `pressure_scaled`.
 ### Interval Timer
 
 ```arc
-interval{period=200ms} -> output_reading{}
+time.interval{period=200ms} -> output_reading{}
 ```
 
-`interval` is a built-in that fires on a schedule. Here it triggers every 200
-milliseconds, which runs `output_reading` five times per second.
+`time.interval` fires on a schedule. Here it triggers every 200 milliseconds, which runs
+`output_reading` five times per second.
 
 This pattern (an interval driving a function) is common for control loops, periodic
 sampling, and generating test data.
@@ -181,6 +183,9 @@ Here's a more practical example that triggers a notification when pressure excee
 limit. This builds on our previous example by adding alarm logic:
 
 ```arc
+import status
+import time
+
 func output_reading() {
     count f64 $= 10
     count += 1
@@ -191,14 +196,13 @@ func check_pressure{limit f64} (reading f64) u8 {
     return reading > limit
 }
 
-tank_pressure -> check_pressure{limit=15.0} => set_status{
-    status_key = "pressure_warning",
-    name = "Tank Pressure Alarm",
+tank_pressure -> check_pressure{limit=15.0} => status.set{
+    key_or_name = "Tank Pressure Alarm",
     variant = "warning",
     message = "Tank pressure exceeded 15"
 }
 
-interval{period=200ms} -> output_reading{}
+time.interval{period=200ms} -> output_reading{}
 ```
 
 This program reuses `tank_pressure` from before, but now checks if the value exceeds 15.
@@ -214,8 +218,9 @@ New concepts in this example:
 - **Conditional edge** (`=>`) -> fires the target while the source is truthy. Unlike
   `->`, which fires on every data arrival, `=>` only fires on ticks where the source
   expression holds
-- **Built-in function** (`set_status`): Displays a notification in the Console toolbar
-  when the input is truthy (non-zero)
+- **Standard library function** (`status.set`): Publishes a status notification to the
+  Core. It lives in the `status` module, so the program imports it with `import status`
+  at the top
 
 <Divider.Divider x />
 

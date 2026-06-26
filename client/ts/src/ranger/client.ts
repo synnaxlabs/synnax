@@ -33,7 +33,7 @@ import {
   type Payload,
   payloadZ,
 } from "@/ranger/types.gen";
-import { type CreateOptions, type Writer } from "@/ranger/writer";
+import { type Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_range_set";
@@ -128,7 +128,7 @@ export class Range {
   }
 
   async retrieveParent(): Promise<Range | null> {
-    return this.rangeClient.retrieveParent(this.key);
+    return await this.rangeClient.retrieveParent(this.key);
   }
 
   async retrieveChildren(): Promise<Range[]> {
@@ -192,7 +192,7 @@ const retrieveArgsZ = retrieveRequestZ
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
-const retrieveResZ = z.object({ ranges: array.nullishToEmpty(payloadZ) });
+const retrieveResZ = z.object({ ranges: payloadZ.array().default(() => []) });
 
 export class Client {
   readonly type: string = "range";
@@ -225,13 +225,11 @@ export class Client {
     this.createKVClient = createKVClient;
   }
 
-  async create(range: New, options?: CreateOptions): Promise<Range>;
-  async create(ranges: New[], options?: CreateOptions): Promise<Range[]>;
-  async create(ranges: New | New[], options?: CreateOptions): Promise<Range | Range[]> {
+  async create(range: New): Promise<Range>;
+  async create(ranges: New[]): Promise<Range[]>;
+  async create(ranges: New | New[]): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
-    const res = this.sugarMany(
-      await this.writer.create(array.toArray(ranges), options),
-    );
+    const res = this.sugarMany(await this.writer.create(array.toArray(ranges)));
     return single ? res[0] : res;
   }
 

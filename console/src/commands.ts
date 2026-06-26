@@ -15,17 +15,13 @@ import { Framer } from "@/framer";
 import { Hardware } from "@/hardware";
 import { Import } from "@/import";
 import { LabelServices } from "@/label/services";
-import { LinePlotServices } from "@/lineplot/services";
-import { LogServices } from "@/log/services";
+import { Service } from "@/layered/service";
 import { type Palette } from "@/palette";
 import { Persist } from "@/persist";
+import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
-import { SchematicServices } from "@/schematic/services";
 import { Status } from "@/status";
-import { TableServices } from "@/table/services";
-import { Theme } from "@/theme";
 import { UserServices } from "@/user/services";
-import { WorkspaceServices } from "@/workspace/services";
 
 export const COMMANDS: Palette.Command[] = [
   ...ChannelServices.COMMANDS,
@@ -35,15 +31,15 @@ export const COMMANDS: Palette.Command[] = [
   ...Hardware.COMMANDS,
   ...Import.COMMANDS,
   ...LabelServices.COMMANDS,
-  ...LinePlotServices.COMMANDS,
-  ...LogServices.COMMANDS,
+  ...Service.LinePlot.COMMANDS,
+  ...Service.LinePlot.COMMANDS,
   ...Persist.COMMANDS,
   ...RangeServices.COMMANDS,
-  ...SchematicServices.COMMANDS,
-  ...TableServices.COMMANDS,
+  ...Service.Schematic.COMMANDS,
+  ...Service.Table.COMMANDS,
   ...UserServices.COMMANDS,
-  ...WorkspaceServices.COMMANDS,
+  ...ProjectServices.COMMANDS,
   ...ArcServices.COMMANDS,
   ...Status.COMMANDS,
-  ...Theme.COMMANDS,
+  ...Service.Theme.COMMANDS,
 ];

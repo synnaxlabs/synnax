@@ -34,12 +34,45 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
+
+// Argument is one call argument: a value expression bound to a param by Name,
+// or by position (Index) when Name is empty.
+type Argument struct {
+	// Index is the argument's position in the call's argument list.
+	Index int
+	// Name is the param this argument binds to, or empty if positional.
+	Name string
+	// Expr is the argument's value expression.
+	Expr parser.IExpressionContext
+	// AST is the argument's parser node, for diagnostic source locations.
+	AST antlr.ParserRuleContext
+}
+
+// ArgumentsHook runs optional symbol-specific argument validation, reporting any
+// findings to the analyzer's diagnostics sink.
+type ArgumentsHook func(diags *diagnostics.Diagnostics, args []Argument)
+
+// TriggerBinding declares what an upstream wire does to a symbol in flow context.
+type TriggerBinding struct {
+	// Target names the param the wire binds its value to, or empty (TriggerOnly)
+	// for pure activation.
+	Target string
+}
+
+// TriggerOnly is the zero TriggerBinding: the wire activates without binding a value.
+var TriggerOnly = TriggerBinding{}
+
+// TriggerInput declares that an upstream wire binds its value to the named param.
+func TriggerInput(name string) TriggerBinding { return TriggerBinding{Target: name} }
 
 // ExecContext indicates which execution context a symbol is valid in.
 type ExecContext int
@@ -128,8 +161,8 @@ const (
 //
 // ID Assignment: Symbols whose Kind allocates a runtime slot (KindVariable,
 // KindStatefulVariable, KindChannel, KindInput, KindOutput, KindConfig,
-// KindLoopVariable) receive a unique ID from the nearest ancestor that owns a
-// Counter (the root and each function or sequence).
+// KindLoopVariable) receive a unique ID from the nearest ancestor that owns an
+// ID counter (the root and each function or sequence).
 type Symbol struct {
 	// Type is the symbol's type from Arc's type system.
 	Type types.Type
@@ -170,11 +203,22 @@ type Symbol struct {
 	// Flow, or Both). A zero value is invalid and will cause resolution to
 	// fail, forcing every symbol to be explicitly tagged.
 	Exec ExecContext
+	// AnalyzeArguments runs optional symbol-specific argument validation.
+	AnalyzeArguments ArgumentsHook
+	// Trigger names the param an upstream wire binds to in flow context; the
+	// zero value (TriggerOnly) means pure activation.
+	Trigger TriggerBinding
 	// Deprecated points at the canonical replacement Symbol for a deprecated
 	// reference. Nil means not deprecated. When non-nil, analysis helpers
 	// emit a deprecation warning naming Deprecated.QualifiedName(), and the
 	// compiler routes the emitted call to Deprecated rather than s.
 	Deprecated *Symbol
+	// Doc is the user-facing documentation body for this symbol. The LSP
+	// hover renderer appends it after the auto-generated title and
+	// signature. Contains only the description and examples — the title,
+	// kind annotation, and signature are derived from Name / Kind / Type
+	// and must not be duplicated here. Empty Doc is rendered as nothing.
+	Doc doc.Doc
 
 	// --- Tree structure (zero on leaf symbols, populated on containers) ---
 
@@ -192,9 +236,9 @@ type Symbol struct {
 	// uses FindChild to obtain the alias and works with its
 	// fields directly.
 	children []*Symbol
-	// Counter assigns unique IDs to slot-allocating descendants. Non-nil on
+	// counter assigns unique IDs to slot-allocating descendants. Non-nil on
 	// the root and on each function and sequence; nil elsewhere.
-	Counter *int
+	counter *int
 	// Channels tracks which Synnax channels this symbol's AST node reads
 	// from and writes to. Populated for function symbols.
 	Channels types.Channels
@@ -206,10 +250,10 @@ type Symbol struct {
 	// other Kinds leave it false because nothing reads it and writing to
 	// shared STL members would race across concurrent NewRoot calls.
 	Used bool
-	// GlobalResolver provides on-demand lookups for symbols not pre-materialized
+	// globalResolver provides on-demand lookups for symbols not pre-materialized
 	// in the symbol tree (e.g., global channels). Consulted by Resolve
-	// when a name is not found among Children. Typically set on the root only.
-	GlobalResolver Resolver
+	// when a name is not found among Children. Set on the root only via NewRoot.
+	globalResolver Resolver
 }
 
 // NewRoot creates a user-program root attached to an empty ambient
@@ -220,19 +264,16 @@ type Symbol struct {
 // where STL symbols, test channels, and custom modules belong.
 //
 // Each ambient global is shallow-copied before being attached so the
-// per-root Parent assignment does not mutate the caller's symbol. STL
-// packages expose their modules as package-level singletons, and
-// concurrent NewRoot calls (e.g. an LSP server analyzing two documents
-// at once) would otherwise race on those shared Parent fields. Module
-// children stay shared across roots — they are read-only after
-// construction and the seal at KindModule means Parent-walks inside a
-// module never observe the per-root Parent of the wrapper.
-func NewRoot(dynamicResolver Resolver, ambientGlobals ...*Symbol) *Symbol {
+// per-root Parent assignment does not mutate the caller's symbol. This
+// matters when a caller reuses the same slice across multiple roots:
+// without the copy, the second NewRoot call would re-parent symbols
+// away from the first root's ambient.
+func NewRoot(dynamicResolver Resolver, ambientGlobals []*Symbol) *Symbol {
 	ambient := &Symbol{Kind: KindAmbient}
 	root := &Symbol{
 		Kind:           KindBlock,
-		Counter:        new(int),
-		GlobalResolver: dynamicResolver,
+		counter:        new(int),
+		globalResolver: dynamicResolver,
 	}
 	ambient.AddChild(root)
 	for _, sym := range ambientGlobals {
@@ -317,7 +358,7 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	*child = sym
 	child.Parent = s
 	if sym.Kind == KindFunction || sym.Kind == KindSequence {
-		child.Counter = new(int)
+		child.counter = new(int)
 	}
 	if sym.Kind == KindFunction {
 		child.Channels = types.NewChannels()
@@ -334,29 +375,34 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	return child, nil
 }
 
-// AddChild appends an already-constructed child to s.children and sets its
-// Parent. Used by builders (e.g., STL module construction) that prepare
-// children before attaching them. Does not check for naming conflicts and
-// does not assign IDs; callers are responsible for these when constructing
-// tree fragments directly.
-func (s *Symbol) AddChild(child *Symbol) *Symbol {
-	child.Parent = s
-	s.children = append(s.children, child)
-	return child
+// AddChild appends each already-constructed child to s.children and sets
+// its Parent to s. Used by builders (e.g., STL module construction) that
+// prepare children before attaching them. Does not check for naming
+// conflicts and does not assign IDs; callers are responsible for these
+// when constructing tree fragments directly. Returns s so calls can be
+// chained.
+func (s *Symbol) AddChild(children ...*Symbol) *Symbol {
+	for _, child := range children {
+		child.Parent = s
+		s.children = append(s.children, child)
+	}
+	return s
 }
 
-// AutoImportModules aliases each KindModule in root's ambient as a
-// KindModuleAlias child of root. Used by graph mode and other entry
-// points that reference module-qualified names (`control.set_authority`,
-// `time.interval`) without producing `import` statements. Text-mode
-// callers do not call this — the analyzer installs aliases from
-// source-level import declarations.
+// AutoImportModules aliases each non-Internal KindModule in root's
+// ambient as a KindModuleAlias child of root. Used by graph mode and
+// other entry points that reference module-qualified names
+// (`control.set_authority`, `time.interval`) without producing `import`
+// statements. Internal modules are skipped — they are compiler-only and
+// must not become reachable by name from user code. Text-mode callers
+// do not call this — the analyzer installs aliases from source-level
+// import declarations.
 func AutoImportModules(root *Symbol) {
 	if root.Parent == nil {
 		return
 	}
 	for _, child := range root.Parent.children {
-		if child.Kind != KindModule {
+		if child.Kind != KindModule || child.Internal {
 			continue
 		}
 		alias := &Symbol{
@@ -373,8 +419,8 @@ func AutoImportModules(root *Symbol) {
 // is hidden from user code. Used by STL packages to declare host bindings
 // (channels.read, state.load, etc.) with the common shape factored out:
 // every WASM host shim is Kind=KindFunction, Exec=ExecWASM, Internal=true.
-func InternalHostFunc(name string, inputs, outputs types.Params) Symbol {
-	return Symbol{
+func InternalHostFunc(name string, inputs, outputs types.Params) *Symbol {
+	return &Symbol{
 		Name:     name,
 		Kind:     KindFunction,
 		Exec:     ExecWASM,
@@ -386,33 +432,10 @@ func InternalHostFunc(name string, inputs, outputs types.Params) Symbol {
 	}
 }
 
-// NewModule constructs a sealed module symbol with the given name and the
-// supplied members as children. Parent is nil so name resolution from
-// outside cannot see the module's siblings, and lookup from inside cannot
-// escape the module's namespace.
-func NewModule(name string, members ...Symbol) *Symbol {
-	mod := &Symbol{Name: name, Kind: KindModule}
-	for i := range members {
-		child := members[i]
-		child.Parent = mod
-		mod.children = append(mod.children, &child)
-	}
-	return mod
-}
-
-// Deprecate returns a heap-allocated copy of sym with Deprecated set to
-// replacement. Used by STL packages to build the bare-name aliases
-// (`avg`, `interval`, ...) that point at their canonical module members
-// (`math.avg`, `time.interval`, ...).
-func Deprecate(sym Symbol, replacement *Symbol) *Symbol {
-	sym.Deprecated = replacement
-	return &sym
-}
-
 func (s *Symbol) addIndex() int {
-	if s.Counter != nil {
-		v := *s.Counter
-		*s.Counter++
+	if s.counter != nil {
+		v := *s.counter
+		*s.counter++
 		return v
 	}
 	return s.Parent.addIndex()
@@ -455,6 +478,10 @@ type resolveOpts struct {
 	// KindModule filter. Used by the compiler to reach host-function
 	// shims and module members that user code is not allowed to see.
 	includeInternal bool
+	// suppressUsage stops Resolve from recording that a module alias was
+	// consulted. Read-only callers operating on an already-analyzed tree
+	// set this so the lookup leaves no trace; see WithoutUsageTracking.
+	suppressUsage bool
 }
 
 // IncludeInternal causes Resolve to walk past the user-visibility filters:
@@ -464,8 +491,16 @@ type resolveOpts struct {
 // use it from analysis paths that surface symbols to user code.
 func IncludeInternal(o *resolveOpts) { o.includeInternal = true }
 
+// WithoutUsageTracking causes Resolve to leave the alias Used flag untouched.
+// Marking an alias Used is a write into the symbol tree, which is unsafe when
+// the tree is a shared, already-analyzed snapshot read concurrently by other
+// callers. Feature queries (hover, rename, definition, completion) run against
+// such snapshots and must pass this; the analysis pass that builds the tree and
+// reports unused imports must not, since it relies on the usage record.
+func WithoutUsageTracking(o *resolveOpts) { o.suppressUsage = true }
+
 // Resolve looks up a single name using lexical scoping rules: children →
-// GlobalResolver → parent. The walk stops at a KindModule scope — inside
+// global resolver → parent. The walk stops at a KindModule scope — inside
 // a module, lookup cannot escape outward. That seal is what gives module
 // members their member-only semantics. By default the walk also skips
 // KindModule entries encountered along the way: bare module names are
@@ -500,7 +535,7 @@ func (s *Symbol) Resolve(
 // of by Name. The Arc lexer forbids identifiers starting with a digit,
 // so an all-numeric input is unambiguously an ID reference (graph
 // configs, channel-key literals in source). The branches share the walk
-// shape (children → GlobalResolver → parent) so a caller passing either
+// shape (children → global resolver → parent) so a caller passing either
 // kind of key gets the same scoping semantics.
 //
 // Resolving on a KindModuleAlias transparently dispatches to its
@@ -524,14 +559,14 @@ func (s *Symbol) resolve(
 	}
 	if child := s.findChild(matches); child != nil {
 		if opts.includeInternal || (!child.Internal && child.Kind != KindModule) {
-			if child.Kind == KindModuleAlias {
+			if child.Kind == KindModuleAlias && !opts.suppressUsage {
 				child.Used = true
 			}
 			return child, nil
 		}
 	}
-	if s.GlobalResolver != nil {
-		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil {
+	if s.globalResolver != nil {
+		if sym, err := s.globalResolver.Resolve(ctx, name); err == nil {
 			if opts.includeInternal || !sym.Internal {
 				return sym, nil
 			}
@@ -560,8 +595,8 @@ func (s *Symbol) Search(ctx context.Context, term string) ([]*Symbol, error) {
 			seen.Add(child.Name)
 		}
 	}
-	if s.GlobalResolver != nil {
-		matches, err := s.GlobalResolver.Search(ctx, term)
+	if s.globalResolver != nil {
+		matches, err := s.globalResolver.Search(ctx, term)
 		if err == nil {
 			for _, sym := range matches {
 				if sym.Internal {
@@ -636,7 +671,7 @@ func ResolveConfigChannel(
 	}
 	if !replaced {
 		dir := types.ChanDirectionRead
-		if param, ok := fnSym.Type.Config.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
+		if param, ok := fnSym.Type.Inputs.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
 			dir = param.Type.ChanDirection
 		}
 		if dir.IsRead() {

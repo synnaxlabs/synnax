@@ -144,7 +144,7 @@ func heater_ctrl{
     return state
 }
 
-interval{period=50ms} -> heater_ctrl{
+time.interval{period=50ms} -> heater_ctrl{
     temp = tank_temp,
     enable = heater_enable,
     setpoint = 50.0,
@@ -231,7 +231,7 @@ func cooler_ctrl{
     return state
 }
 
-interval{period=50ms} -> cooler_ctrl{
+time.interval{period=50ms} -> cooler_ctrl{
     temp = tank_temp,
     enable = cooler_enable,
     setpoint = 25.0,
@@ -312,7 +312,7 @@ func pressure_ctrl{
     return state
 }
 
-interval{period=50ms} -> pressure_ctrl{
+time.interval{period=50ms} -> pressure_ctrl{
     pressure = tank_pressure,
     enable = press_enable,
     target = 500.0,
@@ -417,14 +417,14 @@ func cool_control{temp chan f64, enable chan u8, setpoint f64, deadband f64} () 
     return state
 }
 
-interval{period=50ms} -> heat_control{
+time.interval{period=50ms} -> heat_control{
     temp = tank_temp,
     enable = temp_enable,
     setpoint = 50.0,
     deadband = 3.0
 } -> heater_cmd
 
-interval{period=50ms} -> cool_control{
+time.interval{period=50ms} -> cool_control{
     temp = tank_temp,
     enable = temp_enable,
     setpoint = 50.0,
@@ -461,7 +461,7 @@ func bang_bang_controller{sensor chan f64, output chan f64, low f64, high f64} (
     output = f64(state)
 }
 // Run control loop at 20Hz (50ms)
-interval{period=50ms} -> bang_bang_controller{
+time.interval{period=50ms} -> bang_bang_controller{
     sensor = tank_temp,
     output = heater_cmd,
     low = 48.0,
@@ -499,7 +499,7 @@ sequence main {
         // Maintain both
         tank_temp -> bang_bang{low=45.0, high=55.0} -> heater_cmd
         tank_pressure -> bang_bang{low=490.0, high=510.0} -> valve_cmd
-        wait{duration=60s} => next
+        time.wait{duration=60s} => next
     }
 
     stage complete {

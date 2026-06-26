@@ -35,7 +35,9 @@ on:
   workflow_dispatch:
 
 env:
-  BAZEL_REMOTE_CACHE_FLAGS: --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_URL }}
+  BAZEL_REMOTE_CACHE_FLAGS:
+    --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
+    --remote_cache_compression=true
 
 jobs:
   test:
@@ -57,7 +59,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.19.0

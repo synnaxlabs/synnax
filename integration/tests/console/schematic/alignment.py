@@ -373,7 +373,7 @@ class Alignment(ConsoleCase):
     def run(self) -> None:
         console = self.console
 
-        schematic = console.workspace.create_schematic("set_output_schematic")
+        schematic = console.project.create_schematic("set_output_schematic")
         self._cleanup_pages.append(schematic.page_name)
 
         # Set up Symbols

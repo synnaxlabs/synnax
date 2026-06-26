@@ -836,7 +836,11 @@ export class Series<T extends TelemValue = TelemValue>
     if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required);
     const v = this.at(index, required as true);
     if (v == null) return undefined;
-    if (this.dataType.equals(DataType.FLOAT32)) return stringifyFloat32(v as number);
+    // Only genuine numbers get float32-precision formatting. at() can also return a
+    // bigint at runtime — an i64 value narrowed into a float32 GL buffer and
+    // reconstructed via a bigint sampleOffset — which stringifies as an integer.
+    if (typeof v !== "number") return String(v);
+    if (this.dataType.equals(DataType.FLOAT32)) return stringifyFloat32(v);
     return String(v);
   }
 
@@ -1166,9 +1170,9 @@ class SubIterator<T> implements Iterator<T> {
 
   constructor(series: Series, start: number, end: number) {
     this.series = series;
-    const b = bounds.construct(0, series.length + 1);
-    this.end = bounds.clamp(b, end);
-    this.index = bounds.clamp(b, start);
+    const bound = bounds.construct(0, series.length);
+    this.end = bounds.clamp(bound, end);
+    this.index = bounds.clamp(bound, start);
   }
 
   next(): IteratorResult<T> {

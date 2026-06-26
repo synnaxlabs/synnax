@@ -9,7 +9,7 @@
 
 import "@/auth/Login.css";
 
-import { Synnax as Client } from "@synnaxlabs/client";
+import { status, Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Button,
@@ -20,7 +20,6 @@ import {
   Text,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
@@ -28,7 +27,6 @@ import { z } from "zod";
 import { LoginNav } from "@/auth/LoginNav";
 import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
-import { Version } from "@/version";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
@@ -90,8 +88,6 @@ export const Login = (): ReactElement => {
         const message = state.message ?? "Unknown error";
         return setStatus(status.create({ variant: "error", message }));
       }
-      if (state.nodeVersion != null && servingCluster != null)
-        dispatch(Version.set(state.nodeVersion));
       dispatch(Cluster.set({ ...clusterToConnect, key, ...credentials }));
       dispatch(Cluster.setActive(key));
     }, "Failed to log in");

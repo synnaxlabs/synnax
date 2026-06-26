@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 
 import { Arc } from "@/arc";
-import { translateGraphToConsole } from "@/arc/types/translate";
 import { type Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
@@ -22,29 +21,24 @@ const handleSelect: Ontology.HandleSelect = ({
   placeLayout,
   handleError,
 }) => {
-  load(client, selection[0].id, placeLayout).catch((e) => {
+  load(client, selection[0].id, placeLayout).catch((e: unknown) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
-      "arc",
+      "Arc",
     );
-    handleError(e, `Failed to load arc ${names}`);
+    handleError(e, `Failed to load ${names}`);
   });
 };
 
 const load = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer) => {
   const retrieved = await client.arcs.retrieve({ key: id.key });
-  const { name, key, text, mode } = retrieved;
-  const graph = translateGraphToConsole(retrieved.graph);
+  const { name, key } = retrieved;
   placeLayout(
     Arc.Editor.create({
       name,
-      version: "1.0.0",
+      version: Arc.ZERO_STATE.version,
       key,
       type: "arc",
-      remoteCreated: true,
-      graph,
-      text,
-      mode,
     }),
   );
 };

@@ -12,16 +12,14 @@ package rack
 import (
 	"context"
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -41,36 +39,45 @@ import (
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
 	// HostProvider is used to assign keys to racks.
+	//
 	// [REQUIRED]
 	HostProvider node.HostProvider
 	// DB is the gorp database that racks will be stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between racks and other resources
 	// in the Synnax cluster.
+	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create rack related groups of ontology resources.
+	//
 	// [REQUIRED]
 	Group *group.Service
 	// Status is used to define and process statuses for racks.
+	//
 	// [REQUIRED]
 	Status *status.Service
-	// Signals is used to propagate rack changes through the Synnax signals' channel
-	// communication mechanism.
-	// [OPTIONAL]
-	Signals *signals.Provider
 	alamos.Instrumentation
 	// HealthCheckInterval specifies the interval at which the rack service will check
 	// that it has received a status update from a rack.
+	//
 	// [OPTIONAL]
 	HealthCheckInterval telem.TimeSpan
+	// Now returns the current time. It is used by the rack health monitor to decide
+	// whether a rack has gone stale.
+	//
+	// [OPTIONAL - defaults to telem.Now]
+	Now func() telem.TimeStamp
 	// Search is the search index for fuzzy searching racks.
+	//
 	// [REQUIRED]
 	Search *search.Index
 	// AlertEveryNChecks controls dampening for dead rack alerts. After the initial
 	// alert when a rack goes down, subsequent alerts are only fired every N consecutive
 	// dead checks. Set to 1 to alert on every check (no dampening).
+	//
 	// [OPTIONAL - defaults to 12]
 	AlertEveryNChecks int
 }
@@ -83,6 +90,7 @@ var (
 	DefaultServiceConfig = ServiceConfig{
 		HealthCheckInterval: 5 * telem.Second,
 		AlertEveryNChecks:   12,
+		Now:                 telem.Now,
 	}
 )
 
@@ -93,11 +101,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
-	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.HealthCheckInterval = override.Numeric(c.HealthCheckInterval, other.HealthCheckInterval)
 	c.AlertEveryNChecks = override.Numeric(c.AlertEveryNChecks, other.AlertEveryNChecks)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 
@@ -137,16 +145,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		HostProvider: cfg.HostProvider,
 		Status:       cfg.Status,
 	})
-	if s.table, err = gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Key, Rack]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
 			gorp.CodecMigration[v54.Key, v54.Rack]("msgpack_to_orc", v0Mig.Key()),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[v54.Key, Key, v54.Rack, Rack](
-					"v54_drop_status",
-					MigrateRack,
-				),
+				gorp.NewEntryMigration("v54_drop_status", MigrateRack),
 				"msgpack_to_orc",
 			),
 		},
@@ -158,7 +163,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		return nil, err
 	}
 	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
-	if s.localKeyCounter, err = kv.OpenCounter(ctx, cfg.DB, counterKey); !ok(err, nil) {
+	if s.localKeyCounter, err = kv.NewCounter(ctx, cfg.DB, counterKey); !ok(err, nil) {
 		return nil, err
 	}
 	if err = s.loadEmbeddedRack(ctx); !ok(err, nil) {
@@ -169,17 +174,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if s.monitor, err = openMonitor(s.Child("monitor"), s); !ok(err, s.monitor) {
 		return nil, err
 	}
-	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(
-			ctx,
-			cfg.Signals,
-			signals.GorpPublisherConfigNumeric[Key, Rack](s.table.Observe(), telem.Uint32T),
-		); !ok(err, sig) {
-			return nil, err
-		}
-	}
 	return s, nil
+}
+
+// Observe returns an observable that notifies callers of changes to rack entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Rack]] {
+	return s.table.Observe()
 }
 
 func (s *Service) OnSuspect(handler func(ctx context.Context, status Status)) observe.Disconnect {

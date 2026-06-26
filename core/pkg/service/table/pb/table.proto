@@ -30,6 +30,19 @@ message Cell {
   google.protobuf.Struct props = 3;
 }
 
+// CellTemplate is a variant + props pair describing what a cell should look like,
+// without identifying which cell. Used by actions that overwrite existing cells in
+// place (EraseCells), where the target cell's key is provided separately.
+message CellTemplate {
+  // variant is the cell variant identifier (e.g. "text", "value"). The variant determines
+  // the shape of props and which Pluto cell component renders the cell.
+  string variant = 1;
+  // props is the variant-specific cell configuration. The shape is determined by the
+  // variant; the wire format intentionally stores it as an opaque record so new variants
+  // can be added without a schema migration.
+  google.protobuf.Struct props = 2;
+}
+
 // Row is a single row in a table, with height and ordered cell keys.
 message Row {
   // size is the height of the row in pixels.

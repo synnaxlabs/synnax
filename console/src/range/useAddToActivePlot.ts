@@ -7,19 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Ranger, Status } from "@synnaxlabs/pluto";
+import { lineplot } from "@synnaxlabs/client";
+import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 
+import { LAYOUT_TYPE } from "@/layered/service/lineplot/layout";
 import { Layout } from "@/layout";
-import { setRanges } from "@/lineplot/slice";
 import { add } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 import { type RootState } from "@/store";
 
 export const useAddToActivePlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
   const store = useStore<RootState>();
+  const client = Synnax.use();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
     onChange: useCallback(
       ({ data, variant, status }) => {
@@ -28,18 +32,21 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
           return;
         }
         const active = Layout.selectActiveMosaicLayout(store.getState());
-        if (active == null) return;
+        if (active == null || active.type !== LAYOUT_TYPE || client == null) return;
         store.dispatch(add({ ranges: fromClientRange(data) }));
-        store.dispatch(
-          setRanges({
-            key: active.key,
-            axisKey: "x1",
-            mode: "add",
-            ranges: data.map((range) => range.key),
-          }),
+        handleError(
+          () =>
+            client.lineplots.dispatch(
+              active.key,
+              id.create(),
+              data.map((range) =>
+                lineplot.addRange({ axisKey: "x1", range: range.key }),
+              ),
+            ),
+          "Failed to add ranges to plot",
         );
       },
-      [store],
+      [store, client, addStatus, handleError],
     ),
   });
   return useCallback((keys: string[]) => retrieve({ keys }), []);

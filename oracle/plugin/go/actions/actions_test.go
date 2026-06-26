@@ -20,7 +20,7 @@ import (
 
 func TestGoActions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Actions Plugin Suite")
+	RunSpecs(t, "Plugin Go Actions Suite")
 }
 
 var _ = Describe("Go Actions Plugin", func() {
@@ -113,6 +113,31 @@ var _ = Describe("Go Actions Plugin", func() {
 					"type SetValue struct",
 					"type Increment struct",
 				)
+			})
+
+			It("Should flatten fields from an extended struct into the action payload", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/counter"
+
+					Named struct {
+						name string
+					}
+
+					Counter struct {
+						key uuid
+
+						action Rename extends Named {
+							force int32
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "counter", loader, p)
+				ExpectContent(resp, "actions.gen.go").
+					ToContain(
+						"type RenamePayload struct {",
+						"Name string `json:\"name\" msgpack:\"name\"`",
+						"Force int32 `json:\"force\" msgpack:\"force\"`",
+					)
 			})
 
 			It("Should snake_case action names with multiple words", func(ctx SpecContext) {

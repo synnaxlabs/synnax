@@ -10,12 +10,12 @@
 from typing import overload
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.user.payload import New, User
-from x.normalize import normalize
+from x.lists import normalize
 from x.params import require_named_params
 
 
@@ -33,7 +33,7 @@ class _RetrieveRequest(BaseModel):
 
 
 class _RetrieveResponse(BaseModel):
-    users: list[User] | None = None
+    users: list[User] = Field(default_factory=list)
 
 
 class _DeleteRequest(BaseModel):
@@ -157,7 +157,7 @@ class Client:
             _RetrieveRequest(keys=keys, usernames=usernames),
             _RetrieveResponse,
         )
-        users = res.users or []
+        users = res.users
         if not single:
             return users
         if len(users) == 0:

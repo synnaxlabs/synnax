@@ -14,6 +14,7 @@ export * from "@/select/Frame";
 export * from "@/select/ListItem";
 export * from "@/select/Multiple";
 export * from "@/select/MultipleTrigger";
+export * from "@/select/Provider";
 export * from "@/select/Single";
 export * from "@/select/SingleTrigger";
 export * from "@/select/Static";

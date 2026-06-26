@@ -90,65 +90,22 @@ class Payload(BaseModel):
         status: Is the current operational status of the channel.
     """
 
-    key: Key = Field(ge=0, le=4294967295)
+    key: Key = Field(default=Key(0), ge=0, le=4294967295)
     name: Name
-    leaseholder: cluster.NodeKey = Field(ge=0, le=4095)
+    leaseholder: cluster.NodeKey = Field(default=cluster.NodeKey(0), ge=0, le=4095)
     data_type: telem.DataType
-    is_index: bool
-    index: Key = Field(ge=0, le=4294967295)
+    is_index: bool = False
+    index: Key = Field(default=Key(0), ge=0, le=4294967295)
     alias: str | None = None
-    virtual: bool = Field(default=False)
-    internal: bool = Field(default=False)
-    expression: str = Field(default="")
-    operations: list[Operation] | None = None
-    concurrency: control.Concurrency | None = None
+    virtual: bool = False
+    internal: bool = False
+    expression: str = ""
+    operations: list[Operation] = Field(default_factory=list)
+    concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class New(BaseModel):
-    """Contains parameters for creating a new channel. Most fields are optional
-    and will be assigned default values by Synnax.
-
-    Attributes:
-        key: Is an optional key for the channel. If not provided, one will be
-            automatically assigned.
-        name: Is the human-readable channel name.
-        leaseholder: Is an optional leaseholder node. If not provided, Synnax will assign one.
-        data_type: Is the data type of samples stored in this channel (e.g., Float64,
-            Int32, TimeStamp).
-        is_index: Should be set to true to create an index channel. Index channels
-            must have int64 values (TIMESTAMP data type) written in ascending
-            order.
-        index: Is the channel used to index this channel's values, associating
-            each value with a timestamp.
-        alias: Is an optional alternate name for the channel within a specific context.
-        virtual: Should be set to true to create a streaming-only channel that does
-            not persist data.
-        internal: Should be set to true to create a system channel hidden from normal
-            user queries.
-        expression: Is an Arc expression for creating a calculated channel.
-        operations: Contains aggregation operations to apply to the channel data.
-        concurrency: Sets the policy for concurrent writes. Only virtual channels can
-            have shared concurrency.
-        status: Is the current operational status of the channel.
-    """
-
-    key: Key | None = Field(default=None, ge=0, le=4294967295)
-    name: Name
-    leaseholder: int | None = Field(default=None, ge=0, le=4095)
-    data_type: telem.DataType
-    is_index: bool | None = None
-    index: Key | None = Field(default=None, ge=0, le=4294967295)
-    alias: str | None = None
-    virtual: bool | None = None
-    internal: bool | None = None
-    expression: str | None = None
-    operations: list[Operation] | None = None
-    concurrency: control.Concurrency | None = None
-    status: Status | None = None
 
 
 ONTOLOGY_TYPE = ID(type="channel")

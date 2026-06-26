@@ -16,11 +16,14 @@ import (
 	"context"
 	"strings"
 
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // NewRoot builds a test root with all STL symbols plus extras attached
@@ -28,13 +31,23 @@ import (
 // internally) so tests can pass their per-test []symbol.Symbol resolver
 // slices directly without a conversion loop.
 func NewRoot(resolver symbol.Resolver, extras ...symbol.Symbol) *symbol.Symbol {
-	syms := make([]*symbol.Symbol, 0, len(stl.Symbols)+len(extras))
-	syms = append(syms, stl.Symbols...)
+	stlSyms := stl.NewSymbols()
+	syms := make([]*symbol.Symbol, 0, len(stlSyms)+len(extras))
+	syms = append(syms, stlSyms...)
 	for i := range extras {
 		s := extras[i]
 		syms = append(syms, &s)
 	}
-	return symbol.NewRoot(resolver, syms...)
+	return symbol.NewRoot(resolver, syms)
+}
+
+// BeAValidationPathError matches a validate.PathError wrapping validate.ErrValidation,
+// which PathError has no Unwrap for, so MatchError(validate.ErrValidation) misses it.
+func BeAValidationPathError() types.GomegaMatcher {
+	return gomega.MatchError(func(err error) bool {
+		var pathErr validate.PathError
+		return errors.As(err, &pathErr) && errors.Is(pathErr.Err, validate.ErrValidation)
+	}, "be a validation path error")
 }
 
 // NewGraphRoot is NewRoot plus symbol.AutoImportModules. Graph-mode tests

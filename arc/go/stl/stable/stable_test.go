@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -39,10 +40,8 @@ var _ = Describe("StableFor", func() {
 		irNode = ir.Node{
 			Key:  "stable",
 			Type: "stable_for",
-			Config: types.Params{
-				{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 1},
-			},
 			Inputs: types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 1},
 				{Name: ir.DefaultInputParam, Type: types.U8()},
 			},
 			Outputs: types.Params{
@@ -51,14 +50,18 @@ var _ = Describe("StableFor", func() {
 		}
 		g := graph.Graph{
 			Nodes: []graph.Node{
-				{Key: "source", Type: "source"},
-				{Key: "stable", Type: "stable_for"},
+				{Key: "source"},
+				{Key: "stable"},
 			},
-			Edges: []graph.Edge{
-				{
+			Configs: map[string]msgpack.EncodedJSON{
+				"source": {"type": "source"},
+				"stable": {"type": "stable_for"},
+			},
+			Edges: graph.Edges{
+				{Edge: ir.Edge{
 					Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-				},
+				}},
 			},
 			Functions: []graph.Function{
 				{
@@ -132,7 +135,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -167,7 +170,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -209,7 +212,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -243,7 +246,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -283,7 +286,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -319,7 +322,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -349,7 +352,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -378,7 +381,7 @@ var _ = Describe("StableFor", func() {
 
 	Describe("Symbols", func() {
 		var root *symbol.Symbol
-		BeforeEach(func() { root = symbol.NewRoot(nil, stable.Symbols...) })
+		BeforeEach(func() { root = symbol.NewRoot(nil, stable.NewSymbols()) })
 		It("Should expose bare stable_for symbol", func(ctx SpecContext) {
 			sym := MustSucceed(root.Resolve(ctx, "stable_for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("stable_for"))
@@ -395,16 +398,21 @@ var _ = Describe("StableFor", func() {
 		It("Should create node for stable.for via CompoundFactory", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "stable", Type: "stable_for", Config: map[string]any{
-						"duration": int(telem.Second),
-					}},
+					{Key: "source"},
+					{Key: "stable"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"stable": {
+						"type":     "stable_for",
+						"duration": int(telem.Second),
+					},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -415,10 +423,8 @@ var _ = Describe("StableFor", func() {
 					},
 					{
 						Key: "stable_for",
-						Config: types.Params{
-							{Name: "duration", Type: types.TimeSpan()},
-						},
 						Inputs: types.Params{
+							{Name: "duration", Type: types.TimeSpan()},
 							{Name: ir.DefaultInputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
@@ -439,5 +445,36 @@ var _ = Describe("StableFor", func() {
 			}))
 			Expect(n).ToNot(BeNil())
 		})
+	})
+})
+
+var _ = Describe("Construction validation", func() {
+	It("Should error at construction when the input param is missing", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "stable",
+			Type: "stable_for",
+			Inputs: types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: telem.TimeSpanZero},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := node.New(prog)
+		cfg := node.Config{Node: prog.Nodes[0], State: s.Node("stable")}
+		Expect(stable.NewHost().Create(ctx, cfg)).Error().
+			To(MatchError(node.ErrInputNotFound))
+	})
+	It("Should error at construction when the duration input value is invalid", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "stable",
+			Type: "stable_for",
+			Inputs: types.Params{
+				{Name: "duration", Type: types.String(), Value: []any{1}},
+				{Name: ir.DefaultInputParam, Type: types.F32(), Value: float32(0)},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := node.New(prog)
+		cfg := node.Config{Node: prog.Nodes[0], State: s.Node("stable")}
+		Expect(stable.NewHost().Create(ctx, cfg)).Error().To(BeAValidationPathError())
 	})
 })

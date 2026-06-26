@@ -15,7 +15,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   select,
   selectActiveMosaicTabState,
-  selectActiveThemeKey,
   selectAltKey,
   selectArgs,
   selectColorContext,
@@ -26,7 +25,7 @@ import {
   selectSliceState,
 } from "@/layout/selectors";
 import {
-  clearWorkspace,
+  clearProject,
   hideAllNavDrawers,
   moveMosaicTab,
   place,
@@ -36,7 +35,6 @@ import {
   resizeMosaicTab,
   resizeNavDrawer,
   selectMosaicTab,
-  setActiveTheme,
   setAltKey,
   setArgs,
   setColorContext,
@@ -44,14 +42,13 @@ import {
   setHauled,
   setNavDrawer,
   setNavDrawerVisible,
+  setProject,
   setUnsavedChanges,
-  setWorkspace,
   SLICE_NAME,
   splitMosaicNode,
   startNavHover,
   type State,
   stopNavHover,
-  toggleActiveTheme,
   toggleNavHover,
   ZERO_SLICE_STATE,
 } from "@/layout/slice";
@@ -280,27 +277,6 @@ describe("Layout Slice", () => {
       };
       store.dispatch(setColorContext({ state: ctx }));
       expect(selectColorContext(state())).toEqual(ctx);
-    });
-  });
-
-  describe("setActiveTheme", () => {
-    it("should set the named theme", () => {
-      store.dispatch(setActiveTheme("synnaxLight"));
-      expect(selectActiveThemeKey(state())).toBe("synnaxLight");
-    });
-
-    it("should cycle to the next theme when payload is undefined", () => {
-      store.dispatch(setActiveTheme(undefined));
-      expect(selectActiveThemeKey(state())).toBe("synnaxLight");
-      store.dispatch(setActiveTheme(undefined));
-      expect(selectActiveThemeKey(state())).toBe("synnaxDark");
-    });
-  });
-
-  describe("toggleActiveTheme", () => {
-    it("should cycle to the next theme", () => {
-      store.dispatch(toggleActiveTheme());
-      expect(selectActiveThemeKey(state())).toBe("synnaxLight");
     });
   });
 
@@ -563,35 +539,38 @@ describe("Layout Slice", () => {
     });
   });
 
-  describe("setWorkspace", () => {
-    it("should preserve window-located layouts when applying a workspace", () => {
+  describe("setProject", () => {
+    it("should preserve window-located layouts when applying a project", () => {
       store.dispatch(place(windowLayout("popup-1")));
-      const ws = {
-        ...ZERO_SLICE_STATE,
-        layouts: { ...ZERO_SLICE_STATE.layouts, "ws-plot": mosaicLayout("ws-plot") },
-      };
-      store.dispatch(setWorkspace({ slice: ws }));
-      expect(select(state(), "popup-1")).toBeDefined();
-      expect(select(state(), "ws-plot")).toBeDefined();
-      expect(select(state(), "main")).toBeDefined();
-    });
-
-    it("should resurrect orphan mosaic layouts that the workspace's mosaics map omits", () => {
-      const ws = {
+      const proj = {
         ...ZERO_SLICE_STATE,
         layouts: {
           ...ZERO_SLICE_STATE.layouts,
-          "ws-orphan": mosaicLayout("ws-orphan"),
+          "proj-plot": mosaicLayout("proj-plot"),
         },
       };
-      store.dispatch(setWorkspace({ slice: ws }));
-      expect(select(state(), "ws-orphan")).toBeDefined();
+      store.dispatch(setProject({ slice: proj }));
+      expect(select(state(), "popup-1")).toBeDefined();
+      expect(select(state(), "proj-plot")).toBeDefined();
+      expect(select(state(), "main")).toBeDefined();
+    });
+
+    it("should resurrect orphan mosaic layouts that the project's mosaics map omits", () => {
+      const proj = {
+        ...ZERO_SLICE_STATE,
+        layouts: {
+          ...ZERO_SLICE_STATE.layouts,
+          "proj-orphan": mosaicLayout("proj-orphan"),
+        },
+      };
+      store.dispatch(setProject({ slice: proj }));
+      expect(select(state(), "proj-orphan")).toBeDefined();
       const [, root] = selectMosaic(state());
-      expect(Mosaic.findTabNode(root!, "ws-orphan")).toBeDefined();
+      expect(Mosaic.findTabNode(root!, "proj-orphan")).toBeDefined();
     });
 
     it("should fall back to the main mosaic when an orphan layout points at a missing window", () => {
-      const ws = {
+      const proj = {
         ...ZERO_SLICE_STATE,
         layouts: {
           ...ZERO_SLICE_STATE.layouts,
@@ -600,14 +579,14 @@ describe("Layout Slice", () => {
           }),
         },
       };
-      store.dispatch(setWorkspace({ slice: ws }));
+      store.dispatch(setProject({ slice: proj }));
       expect(select(state(), "stale-window-tab")?.windowKey).toBe(MAIN_WINDOW);
       const [, root] = selectMosaic(state());
       expect(Mosaic.findTabNode(root!, "stale-window-tab")).toBeDefined();
     });
 
-    it("should adopt the workspace's nav state when keepNav is false", () => {
-      const ws = {
+    it("should adopt the project's nav state when keepNav is false", () => {
+      const proj = {
         ...ZERO_SLICE_STATE,
         nav: {
           ...ZERO_SLICE_STATE.nav,
@@ -622,16 +601,16 @@ describe("Layout Slice", () => {
           },
         },
       };
-      store.dispatch(setWorkspace({ slice: ws, keepNav: false }));
+      store.dispatch(setProject({ slice: proj, keepNav: false }));
       expect(selectNavDrawer(state(), "left")?.activeItem).toBe("task");
     });
   });
 
-  describe("clearWorkspace", () => {
+  describe("clearProject", () => {
     it("should drop mosaic layouts but preserve window-located ones", () => {
       store.dispatch(place(mosaicLayout("plot-1")));
       store.dispatch(place(windowLayout("popup-1")));
-      store.dispatch(clearWorkspace());
+      store.dispatch(clearProject());
       expect(select(state(), "plot-1")).toBeUndefined();
       expect(select(state(), "popup-1")).toBeDefined();
       expect(select(state(), "main")).toBeDefined();

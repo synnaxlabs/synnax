@@ -21,12 +21,11 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 
 const createSchem = async () => {
-  const ws = await client.workspaces.create({
-    name: `ws_${uuid.create()}`,
+  const proj = await client.projects.create({
+    name: `project_${uuid.create()}`,
     layout: {},
   });
-  return await client.schematics.create(ws.key, {
-    ...schematic.ZERO_NEW,
+  return await client.schematics.create(proj.key, {
     name: `dispatch_test_${uuid.create()}`,
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -136,23 +135,6 @@ describe("Flux.createDispatch", () => {
       await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
     });
 
-    it("does not push non-undoable actions onto the stack", async () => {
-      const { result, key } = await setupHook((td, k) => ({
-        dispatch: td.useDispatch(),
-        undo: td.useUndo({ key: k }),
-      }));
-      await act(async () => {
-        await result.current.dispatch.dispatchAsync({
-          key,
-          actions: schematic.setNodeMeasured({
-            key: "n1",
-            measured: { width: 1, height: 1 },
-          }),
-        });
-      });
-      expect(result.current.undo.canUndo).toBe(false);
-    });
-
     it("rolls back local state when send fails", async () => {
       const send = vi.fn<SendFn>(async () => {
         throw new Error("send failed");
@@ -200,6 +182,50 @@ describe("Flux.createDispatch", () => {
       const doc = getDoc(result.current.store, key);
       expect(doc?.nodes[0].position).toEqual({ x: 1, y: 1 });
       expect(doc?.nodes[1].position).toEqual({ x: 2, y: 2 });
+    });
+
+    it("returns true without sending when given an empty actions array", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      let ok = false;
+      await act(async () => {
+        ok = await result.current.dispatch.dispatchAsync({ key, actions: [] });
+      });
+      expect(ok).toBe(true);
+      expect(send).not.toHaveBeenCalled();
+      expect(result.current.undo.canUndo).toBe(false);
+    });
+
+    it("returns true without sending when the replay leaves state unchanged", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      const before = getDoc(result.current.store, key);
+      let ok = false;
+      await act(async () => {
+        ok = await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({
+            key: "nonexistent",
+            position: { x: 1, y: 1 },
+          }),
+        });
+      });
+      expect(ok).toBe(true);
+      expect(send).not.toHaveBeenCalled();
+      expect(getDoc(result.current.store, key)).toBe(before);
+      expect(result.current.undo.canUndo).toBe(false);
     });
 
     it("returns false from dispatchAsync when the doc is not cached", async () => {
@@ -477,10 +503,9 @@ describe("Flux.createDispatch", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
-          actions: schematic.setConfig({ key: "n1", config: { label: "x" } }),
+          actions: schematic.rename({ name: "renamed" }),
         });
       });
-      // Two distinct entries: one undo leaves canUndo true, a second clears it.
       act(() => result.current.undo.undo());
       await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
       expect(result.current.undo.canUndo).toBe(true);
@@ -493,7 +518,7 @@ describe("Flux.createDispatch", () => {
         dispatch: td.useDispatch(),
         undo: td.useUndo({ key: k }),
       }));
-      // Seed an existing config so the next two setConfigs hit the
+      // Establish an existing config so the next two setConfigs hit the
       // "existing != null" branch and capture non-empty inverses. setNode's
       // kind differs from "set_config", so this entry won't coalesce with
       // the burst that follows.

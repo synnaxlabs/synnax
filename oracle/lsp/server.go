@@ -63,7 +63,7 @@ func New() *Server {
 			HoverProvider:              true,
 			CompletionProvider:         &protocol.CompletionOptions{},
 			DocumentFormattingProvider: true,
-			SemanticTokensProvider: map[string]interface{}{
+			SemanticTokensProvider: map[string]any{
 				"legend": protocol.SemanticTokensLegend{
 					TokenTypes: xlsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
 				},

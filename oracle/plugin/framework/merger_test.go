@@ -22,7 +22,7 @@ import (
 
 func TestFramework(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Framework Suite")
+	RunSpecs(t, "Plugin Framework Suite")
 }
 
 var _ = Describe("MergeTypes", func() {
@@ -100,8 +100,8 @@ var _ = Describe("MergeTypes", func() {
 
 		_ = framework.MergeTypes(a, b)
 
-		Expect(len(a)).To(Equal(originalALen))
-		Expect(len(b)).To(Equal(originalBLen))
+		Expect(a).To(HaveLen(originalALen))
+		Expect(b).To(HaveLen(originalBLen))
 	})
 })
 

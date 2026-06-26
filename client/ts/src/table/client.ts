@@ -11,18 +11,13 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, dispatchReqZ } from "@/table/actions.gen";
-import { type Key, keyZ, type New, newZ, type Table, tableZ } from "@/table/types.gen";
+import { project } from "@/project";
+import { type Action, dispatchReqZ, rename as renameAction } from "@/table/actions.gen";
+import { type Key, keyZ, type New, type Table, tableZ } from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { workspace } from "@/workspace";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
 
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
-
-const setDataBodyZ = tableZ.omit({ key: true, name: true });
-export type SetDataBody = z.input<typeof setDataBodyZ>;
-const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -35,9 +30,9 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ tables: array.nullishToEmpty(tableZ) });
+const retrieveResZ = z.object({ tables: tableZ.array().default(() => []) });
 
-const createReqZ = z.object({ workspace: workspace.keyZ, tables: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, tables: tableZ.array() });
 const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
@@ -49,16 +44,13 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: workspace.Key, table: New): Promise<Table>;
-  async create(workspace: workspace.Key, tables: New[]): Promise<Table[]>;
-  async create(
-    workspace: workspace.Key,
-    tables: New | New[],
-  ): Promise<Table | Table[]> {
+  async create(project: project.Key, table: New): Promise<Table>;
+  async create(project: project.Key, tables: New[]): Promise<Table[]>;
+  async create(project: project.Key, tables: New | New[]): Promise<Table | Table[]> {
     const isMany = Array.isArray(tables);
     const res = await this.client.send(
       "/table/create",
-      { workspace, tables: array.toArray(tables) },
+      { project, tables: array.toArray(tables) },
       createReqZ,
       createResZ,
     );
@@ -66,11 +58,7 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await this.client.send("/table/rename", { key, name }, renameReqZ, emptyResZ);
-  }
-
-  async setData(key: Key, data: SetDataBody): Promise<void> {
-    await this.client.send("/table/set-data", { key, data }, setDataReqZ, emptyResZ);
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {

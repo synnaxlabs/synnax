@@ -19,8 +19,8 @@ package pb
 
 import (
 	pb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
+	pb2 "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	pb1 "github.com/synnaxlabs/x/control/pb"
-	pb2 "github.com/synnaxlabs/x/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -58,7 +58,7 @@ type Channel struct {
 	// a timestamp.
 	Index uint32 `protobuf:"varint,6,opt,name=index,proto3" json:"index,omitempty"`
 	// alias is an optional alternate name for the channel within a specific context.
-	Alias string `protobuf:"bytes,7,opt,name=alias,proto3" json:"alias,omitempty"`
+	Alias *string `protobuf:"bytes,7,opt,name=alias,proto3,oneof" json:"alias,omitempty"`
 	// virtual is true if this channel does not store data in the database but can still be
 	// used for streaming purposes.
 	Virtual bool `protobuf:"varint,8,opt,name=virtual,proto3" json:"virtual,omitempty"`
@@ -152,8 +152,8 @@ func (x *Channel) GetIndex() uint32 {
 }
 
 func (x *Channel) GetAlias() string {
-	if x != nil {
-		return x.Alias
+	if x != nil && x.Alias != nil {
+		return *x.Alias
 	}
 	return ""
 }
@@ -204,15 +204,15 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a.core/pkg/distribution/channel/pb/channel.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x1bx/go/status/pb/status.proto\"\xc9\x03\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a.core/pkg/distribution/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xde\x03\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x03 \x01(\rR\vleaseholder\x12\x1b\n" +
 	"\tdata_type\x18\x04 \x01(\tR\bdataType\x12\x19\n" +
 	"\bis_index\x18\x05 \x01(\bR\aisIndex\x12\x14\n" +
-	"\x05index\x18\x06 \x01(\rR\x05index\x12\x14\n" +
-	"\x05alias\x18\a \x01(\tR\x05alias\x12\x18\n" +
+	"\x05index\x18\x06 \x01(\rR\x05index\x12\x19\n" +
+	"\x05alias\x18\a \x01(\tH\x00R\x05alias\x88\x01\x01\x12\x18\n" +
 	"\avirtual\x18\b \x01(\bR\avirtual\x12\x1a\n" +
 	"\binternal\x18\t \x01(\bR\binternal\x12\x1e\n" +
 	"\n" +
@@ -222,8 +222,9 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
 	"operations\x18\v \x03(\v2\".distribution.channel.pb.OperationR\n" +
 	"operations\x12;\n" +
-	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x120\n" +
-	"\x06status\x18\r \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
+	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
+	"\x06status\x18\r \x01(\v2\x19.service.status.pb.StatusH\x01R\x06status\x88\x01\x01B\b\n" +
+	"\x06_aliasB\t\n" +
 	"\a_statusB\xad\x01\n" +
 	"\x12com.api.channel.pbB\fChannelProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/api/channel/pb\xa2\x02\x03ACP\xaa\x02\x0eApi.Channel.Pb\xca\x02\x0eApi\\Channel\\Pb\xe2\x02\x1aApi\\Channel\\Pb\\GPBMetadata\xea\x02\x10Api::Channel::Pbb\x06proto3"
 
@@ -244,12 +245,12 @@ var file_core_pkg_api_channel_pb_channel_proto_goTypes = []any{
 	(*Channel)(nil),      // 0: api.channel.pb.Channel
 	(*pb.Operation)(nil), // 1: distribution.channel.pb.Operation
 	(pb1.Concurrency)(0), // 2: x.control.pb.Concurrency
-	(*pb2.Status)(nil),   // 3: x.status.pb.Status
+	(*pb2.Status)(nil),   // 3: service.status.pb.Status
 }
 var file_core_pkg_api_channel_pb_channel_proto_depIdxs = []int32{
 	1, // 0: api.channel.pb.Channel.operations:type_name -> distribution.channel.pb.Operation
 	2, // 1: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
-	3, // 2: api.channel.pb.Channel.status:type_name -> x.status.pb.Status
+	3, // 2: api.channel.pb.Channel.status:type_name -> service.status.pb.Status
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name

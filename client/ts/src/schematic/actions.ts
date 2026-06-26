@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { color, type record } from "@synnaxlabs/x";
-import { current, type Draft, isDraft } from "immer";
 
+import { actions } from "@/actions";
 import {
-  type Action,
   addEdge,
   createReduceAll,
-  type HandlerResult,
   type Handlers,
   removeEdge,
   removeNode,
@@ -23,15 +21,6 @@ import {
   setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
-
-const NO_OP: HandlerResult = { inverse: [], targets: [] };
-
-// Snapshots a value out of an Immer draft so the result is safe to embed in an
-// action stored on the undo stack. When reduceAll applies multiple actions in
-// one produce(), an earlier action's wholesale assignment (e.g. state.configs[k]
-// = {...existing, ...payload.config}) leaves the slot as a plain object — the
-// next action would crash if it called current() unconditionally.
-const snapshot = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
 const handlers: Handlers = {
   rename: (state, payload) => {
@@ -44,24 +33,13 @@ const handlers: Handlers = {
   },
   setNodePosition: (state, payload) => {
     const node = state.nodes.find((n) => n.key === payload.key);
-    if (node == null) return NO_OP;
+    if (node == null) return actions.NO_OP_RESULT;
     const oldPosition = { x: node.position.x, y: node.position.y };
     node.position = payload.position;
     return {
       inverse: [setNodePosition({ key: payload.key, position: oldPosition })],
       targets: [payload.key],
     };
-  },
-
-  // set_node_measured carries layout-derived dimensions, not user intent.
-  // Both the inverse and the target list are empty so it neither contributes
-  // to the undo stack nor invalidates undoables targeting the same node when
-  // a remote session emits it.
-  setNodeMeasured: (state, payload) => {
-    const node = state.nodes.find((n) => n.key === payload.key);
-    if (node == null) return NO_OP;
-    node.measured = payload.measured;
-    return { inverse: [], targets: [] };
   },
   setNode: (state, payload) => {
     const idx = state.nodes.findIndex((n) => n.key === payload.node.key);
@@ -73,9 +51,10 @@ const handlers: Handlers = {
         targets: [payload.node.key],
       };
     }
-    const oldNode = snapshot(state.nodes[idx]);
+    const oldNode = actions.snapshotDraft(state.nodes[idx]);
     const oldConfigRaw = state.configs[payload.node.key];
-    const oldConfig = oldConfigRaw != null ? snapshot(oldConfigRaw) : undefined;
+    const oldConfig =
+      oldConfigRaw != null ? actions.snapshotDraft(oldConfigRaw) : undefined;
     state.nodes[idx] = payload.node;
     if (payload.config != null) state.configs[payload.node.key] = payload.config;
     return {
@@ -91,10 +70,11 @@ const handlers: Handlers = {
   },
   removeNode: (state, payload) => {
     const idx = state.nodes.findIndex((n) => n.key === payload.key);
-    if (idx === -1) return NO_OP;
-    const oldNode = snapshot(state.nodes[idx]);
+    if (idx === -1) return actions.NO_OP_RESULT;
+    const oldNode = actions.snapshotDraft(state.nodes[idx]);
     const oldConfigRaw = state.configs[payload.key];
-    const oldConfig = oldConfigRaw != null ? snapshot(oldConfigRaw) : undefined;
+    const oldConfig =
+      oldConfigRaw != null ? actions.snapshotDraft(oldConfigRaw) : undefined;
     state.nodes.splice(idx, 1);
     delete state.configs[payload.key];
     return {
@@ -109,7 +89,8 @@ const handlers: Handlers = {
     };
   },
   addEdge: (state, payload) => {
-    if (state.edges.some((e) => e.key === payload.edge.key)) return NO_OP;
+    if (state.edges.some((e) => e.key === payload.edge.key))
+      return actions.NO_OP_RESULT;
     state.edges.push(payload.edge);
     return {
       inverse: [removeEdge({ key: payload.edge.key })],
@@ -119,8 +100,8 @@ const handlers: Handlers = {
 
   removeEdge: (state, payload) => {
     const idx = state.edges.findIndex((e) => e.key === payload.key);
-    if (idx === -1) return NO_OP;
-    const oldEdge = snapshot(state.edges[idx]);
+    if (idx === -1) return actions.NO_OP_RESULT;
+    const oldEdge = actions.snapshotDraft(state.edges[idx]);
     state.edges.splice(idx, 1);
     return {
       inverse: [addEdge({ edge: oldEdge })],
@@ -136,7 +117,7 @@ const handlers: Handlers = {
   setConfig: (state, payload) => {
     const existingRaw = state.configs[payload.key];
     if (existingRaw != null) {
-      const existing = snapshot(existingRaw);
+      const existing = actions.snapshotDraft(existingRaw);
       const restoreFields: record.Unknown = {};
       for (const k of Object.keys(payload.config))
         if (existing[k] !== undefined) restoreFields[k] = existing[k];
@@ -163,6 +144,3 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
-
-export const isUndoable = (action: Action): boolean =>
-  action.type !== "set_node_measured";

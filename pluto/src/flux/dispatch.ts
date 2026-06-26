@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, id, type record } from "@synnaxlabs/x";
+import { type destructor, errors, id, type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type base } from "@/flux/base";
@@ -78,6 +78,10 @@ export const createDispatch = <
     const r = store[storeKey].replay(key, actions, { skipPreprocess });
     if (r == null) return false;
     const stackRollback = commitStack(r);
+    // A replay that left the state untouched has nothing for the server: no
+    // document change, no broadcast worth echoing. The stack mutation still
+    // runs above so undo/redo consume their entry instead of pinning it.
+    if (!r.changed) return true;
     const dispatchKey = id.create();
     store[storeKey].registerOutstandingDispatch(key, dispatchKey);
     try {
@@ -110,7 +114,8 @@ export const createDispatch = <
       async (input: DispatchInput<Key, Action>): Promise<boolean> => {
         if (client == null) return false;
         const actions = Array.isArray(input.actions) ? input.actions : [input.actions];
-        return apply(
+        if (actions.length === 0) return true;
+        return await apply(
           store,
           client,
           input.key,
@@ -144,7 +149,7 @@ export const createDispatch = <
             await send({ client, key: input.key, actions, dispatchKey });
           } catch (e) {
             addStatus(errorResult("commit transaction", e).status);
-            throw e;
+            throw errors.fromUnknown(e);
           }
         };
         return store[storeKey].beginTransaction(input.key, wrappedSend, input.kind);
@@ -178,7 +183,7 @@ export const createDispatch = <
     return { undo, canUndo };
   };
 
-  const useRedo = ({ key }: { key: Key }) => {
+  const useRedo = ({ key }: record.Keyed<Key>) => {
     const store = useStore<ScopedStore>();
     const client = Synnax.use();
     const addStatus = useAdder();
@@ -201,5 +206,15 @@ export const createDispatch = <
     return { redo, canRedo };
   };
 
-  return { useDispatch, useUndo, useRedo };
+  const useSingleDispatch = ({
+    key,
+  }: record.Keyed<Key>): ((action: Action | Action[]) => void) => {
+    const { dispatch } = useDispatch();
+    return useCallback(
+      (actions: Action | Action[]) => dispatch({ key, actions }),
+      [key, dispatch],
+    );
+  };
+
+  return { useDispatch, useUndo, useRedo, useSingleDispatch };
 };

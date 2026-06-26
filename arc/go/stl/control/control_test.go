@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -30,7 +31,8 @@ var _ = Describe("Control", func() {
 	Describe("NewModule", func() {
 		It("Should create factory with state", func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
+				Nodes:     []graph.Node{{Key: "set_auth"}},
+				Configs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -49,7 +51,8 @@ var _ = Describe("Control", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
+				Nodes:     []graph.Node{{Key: "set_auth"}},
+				Configs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -62,7 +65,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -75,7 +78,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -89,7 +92,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "control.set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -105,11 +108,21 @@ var _ = Describe("Control", func() {
 			}
 			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
+		It("Should error when an input value is invalid", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type:   "set_authority",
+					Inputs: types.Params{{Name: "value", Type: types.U8(), Value: []any{1}}},
+				},
+				State: s.Node("set_auth"),
+			}
+			Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+		})
 		It("Should parse channel config with specific channel", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -129,7 +142,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(150)},
 						{Name: "channel", Type: types.U8(), Value: uint32(0)},
 					},
@@ -154,7 +167,8 @@ var _ = Describe("Control", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
+				Nodes:     []graph.Node{{Key: "set_auth"}},
+				Configs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -169,7 +183,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -189,7 +203,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(150)},
 						{Name: "channel", Type: types.U8(), Value: uint32(0)},
 					},
@@ -208,7 +222,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -228,7 +242,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -252,7 +266,8 @@ var _ = Describe("Control", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
+				Nodes:     []graph.Node{{Key: "set_auth"}},
+				Configs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -266,7 +281,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -288,7 +303,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -312,7 +327,8 @@ var _ = Describe("Control", func() {
 	Describe("IsOutputTruthy", func() {
 		It("Should always return false", func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
+				Nodes:     []graph.Node{{Key: "set_auth"}},
+				Configs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -322,7 +338,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -338,7 +354,7 @@ var _ = Describe("Control", func() {
 
 	Describe("Symbols", func() {
 		var root *symbol.Symbol
-		BeforeEach(func() { root = symbol.NewRoot(nil, control.Symbols...) })
+		BeforeEach(func() { root = symbol.NewRoot(nil, control.NewSymbols()) })
 		bare := func(ctx context.Context, name string) *symbol.Symbol {
 			return MustSucceed(root.Resolve(ctx, name, symbol.IncludeInternal))
 		}
@@ -353,17 +369,14 @@ var _ = Describe("Control", func() {
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should have optional input", func(ctx SpecContext) {
+		It("Should declare unified inputs with an activation trigger", func(ctx SpecContext) {
 			sym := bare(ctx, "set_authority")
-			Expect(sym.Type.Inputs).To(HaveLen(1))
+			Expect(sym.Type.Inputs).To(HaveLen(3))
 			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
 			Expect(sym.Type.Inputs[0].Value).To(Equal(uint8(0)))
-		})
-		It("Should have config params", func(ctx SpecContext) {
-			sym := bare(ctx, "set_authority")
-			Expect(sym.Type.Config).To(HaveLen(2))
-			Expect(sym.Type.Config[0].Name).To(Equal("value"))
-			Expect(sym.Type.Config[1].Name).To(Equal("channel"))
+			Expect(sym.Type.Inputs[1].Name).To(Equal("value"))
+			Expect(sym.Type.Inputs[2].Name).To(Equal("channel"))
+			Expect(sym.Trigger).To(Equal(symbol.TriggerInput(ir.DefaultOutputParam)))
 		})
 	})
 })

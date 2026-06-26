@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.55.0",
+  "version": "0.56.5",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
@@ -18,6 +18,17 @@
     "generate-theme": "tsx src/theming/static/generate.ts"
   },
   "dependencies": {
+    "vscode": "npm:@codingame/monaco-vscode-extension-api@^28.4.1",
+    "vscode-jsonrpc": "^8.2.1",
+    "vscode-languageclient": "^9.0.1",
+    "@synnaxlabs/arc": "workspace:^",
+    "@codingame/monaco-vscode-api": "^28.4.1",
+    "@codingame/monaco-vscode-editor-api": "^28.4.1",
+    "@codingame/monaco-vscode-extension-api": "^28.4.1",
+    "@codingame/monaco-vscode-languages-service-override": "^28.4.1",
+    "@codingame/monaco-vscode-textmate-service-override": "^28.4.1",
+    "@codingame/monaco-vscode-theme-defaults-default-extension": "^28.4.1",
+    "@codingame/monaco-vscode-theme-service-override": "^28.4.1",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource/geist-mono": "catalog:",
     "@fontsource/inter": "catalog:",
@@ -39,6 +50,7 @@
     "react": "catalog:",
     "react-color": "^2.19.3",
     "react-icons": "catalog:",
+    "stacktrace-js": "^2.0.2",
     "use-sync-external-store": "^1.6.0",
     "zod": "catalog:"
   },

@@ -14,15 +14,17 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
+
+type Credentials = auth.Credentials
 
 // ClusterInfo is general information about the cluster and node that the request was
 // sent to.
@@ -39,7 +41,6 @@ type ClusterInfo struct {
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
-	db      *gorp.DB
 	token   *token.Service
 	auth    *auth.Service
 	user    *user.Service
@@ -52,7 +53,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:      cfg.Distribution.DB,
 		token:   cfg.Service.Token,
 		auth:    cfg.Service.Auth,
 		user:    cfg.Service.User,
@@ -69,11 +69,14 @@ type LoginResponse struct {
 	ClusterInfo ClusterInfo `json:"cluster_info" msgpack:"cluster_info"`
 }
 
-type LoginRequest struct{ auth.Credentials }
+type LoginRequest struct{ Credentials }
 
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
-func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, error) {
+func (s *Service) Login(
+	ctx context.Context,
+	req LoginRequest,
+) (LoginResponse, error) {
 	startTime := telem.Now()
 	if err := s.auth.Authenticate(ctx, nil, req.Credentials); err != nil {
 		return LoginResponse{}, err
@@ -101,19 +104,21 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, e
 }
 
 type ChangePasswordRequest struct {
-	auth.Credentials
+	Credentials
 	NewPassword string `json:"new_password" msgpack:"new_password" validate:"required"`
 }
 
 // ChangePassword changes the password for the user with the provided credentials.
-func (s *Service) ChangePassword(ctx context.Context, req ChangePasswordRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
-			return err
-		}
-		return s.auth.NewWriter(tx).ChangePassword(ctx, auth.Credentials{
-			Username: req.Username,
-			Password: req.NewPassword,
-		})
+func (s *Service) ChangePassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ChangePasswordRequest,
+) (types.Nil, error) {
+	if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.auth.NewWriter(tx).ChangePassword(ctx, Credentials{
+		Username: req.Username,
+		Password: req.NewPassword,
 	})
 }

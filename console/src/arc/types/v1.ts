@@ -25,7 +25,7 @@ export const SLICE_MIGRATION_NAME = "arc.slice";
 export type NodeProps = v0.NodeProps;
 export const nodePropsZ = v0.nodePropsZ;
 
-const graphStateZ = z.object({
+export const graphStateZ = z.object({
   editable: z.boolean(),
   fitViewOnResize: z.boolean(),
   viewport: Diagram.viewportZ,
@@ -44,7 +44,7 @@ export const stateZ = z.object({
   version: z.literal(VERSION),
   remoteCreated: z.boolean(),
   graph: graphStateZ,
-  text: arc.text.textZ.default({ raw: "" }),
+  text: z.object({ raw: z.string() }),
   mode: arc.modeZ.default("graph"),
 });
 
@@ -148,6 +148,7 @@ export const stateMigration = migrate.createMigration<v0.State, State>({
     ...state,
     version: VERSION,
     graph: migrateGraphState(state.graph),
+    text: state.text,
   }),
 });
 

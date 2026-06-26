@@ -112,17 +112,17 @@ var _ = Describe("Hover", func() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### set_authority"))
-			Expect(hover.Contents.Value).To(ContainSubstring("control.set_authority{}"))
+			Expect(hover.Contents.Value).To(ContainSubstring("control.set_authority"))
 		})
 
 		It("should provide hover for 'control.set_authority' function", func(ctx SpecContext) {
-			content := "control.set_authority{value=255}"
+			content := "import control\n\ntrig -> control.set_authority{value=255}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 12},
+					Position:     protocol.Position{Line: 2, Character: 20}, // control.set_a|uthority
 				},
 			}))
 
@@ -132,13 +132,13 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'math.avg' function", func(ctx SpecContext) {
-			content := "sensor -> math.avg{} -> output"
+			content := "import math\n\nsensor -> math.avg{} -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 16},
+					Position:     protocol.Position{Line: 2, Character: 16},
 				},
 			}))
 
@@ -164,13 +164,13 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'stable.for' function", func(ctx SpecContext) {
-			content := "sensor -> stable.for{duration=5s} -> output"
+			content := "import stable\n\nsensor -> stable.for{duration=5s} -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 18},
+					Position:     protocol.Position{Line: 2, Character: 18},
 				},
 			}))
 
@@ -179,30 +179,14 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("remained stable"))
 		})
 
-		It("should provide hover for 'status.set' function", func(ctx SpecContext) {
-			content := `sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
-			OpenArcDocument(server, ctx, uri, content)
-
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 17},
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### status.set"))
-			Expect(hover.Contents.Value).To(ContainSubstring("status notification"))
-		})
-
 		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
-			content := "t := time.now()"
+			content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 11}, // n|ow
+					Position:     protocol.Position{Line: 3, Character: 17}, // n|ow
 				},
 			}))
 
@@ -228,13 +212,13 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'time.interval' function", func(ctx SpecContext) {
-			content := "time.interval{period=100ms}"
+			content := "import time\n\ntime.interval{period=100ms} -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 7}, // time.i|nterval
+					Position:     protocol.Position{Line: 2, Character: 7}, // time.i|nterval
 				},
 			}))
 
@@ -260,13 +244,13 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'time.wait' function", func(ctx SpecContext) {
-			content := "time.wait{duration=500ms}"
+			content := "import time\n\ntime.wait{duration=500ms} -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 7}, // time.w|ait
+					Position:     protocol.Position{Line: 2, Character: 7}, // time.w|ait
 				},
 			}))
 
@@ -558,6 +542,57 @@ func add(a i32, b i32) i32 {
 		})
 	})
 
+	DescribeTable("kind label hover",
+		func(
+			ctx SpecContext,
+			content string,
+			line, char uint32,
+			expectedTitle, expectedKind string,
+		) {
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, line, char)
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedTitle))
+			Expect(hover.Contents.Value).To(ContainSubstring(expectedKind))
+		},
+		Entry("function",
+			"func foo() i32 { return 0 }\n",
+			uint32(0), uint32(5),
+			"foo", "Node"),
+		Entry("variable",
+			"func test() {\n    x i32 := 42\n    y := x + 10\n}\n",
+			uint32(2), uint32(9),
+			"x", "Variable"),
+		Entry("stateful variable",
+			"func counter{} () u32 {\n    count u32 $= 0\n    count = count + 1\n    return count\n}\n",
+			uint32(2), uint32(5),
+			"count", "Stateful Variable"),
+		Entry("input parameter",
+			"func multiply(x f64, y f64) f64 {\n    return x * y\n}\n",
+			uint32(1), uint32(11),
+			"x", "Input Parameter"),
+		Entry("output parameter",
+			"func compute() result f64 {\n    result = 1.0\n}\n",
+			uint32(1), uint32(4),
+			"result", "Output Parameter"),
+		Entry("config parameter",
+			"func compute{k f64}() f64 {\n    return k\n}\n",
+			uint32(1), uint32(11),
+			"k", "Configuration Parameter"),
+		Entry("module alias",
+			"import time\n\nfunc test() {\n    time.now()\n}\n",
+			uint32(3), uint32(5),
+			"time", "Module"),
+		Entry("sequence",
+			"sequence main {\n    stage first {}\n}\n",
+			uint32(0), uint32(10),
+			"main", "Sequence"),
+		Entry("stage",
+			"sequence main {\n    stage first {}\n}\n",
+			uint32(1), uint32(11),
+			"first", "Stage"),
+	)
+
 	DescribeTable("operator hover",
 		func(ctx SpecContext, content string, char uint32, expectedOp, expectedSubstring string) {
 			OpenArcDocument(server, ctx, uri, content)
@@ -645,9 +680,9 @@ func add(a i32, b i32) i32 {
 			}))
 			server.SetClient(&MockClient{})
 
-			content := "func test() i64 {\n    return time.now()\n}"
+			content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"
 			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, 1, 14)
+			hover := Hover(server, ctx, uri, 3, 14)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("now"))
 		})
@@ -664,6 +699,23 @@ func add(a i32, b i32) i32 {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 1, 10)
 			Expect(hover).To(BeNil())
+		})
+
+		It("Should not provide hover for a member of an unimported module", func(ctx SpecContext) {
+			// `time` is not imported, so `time.now` is an undefined reference
+			// to the analyzer. Hover must not render docs as if it were valid.
+			content := "func test() i64 {\n    return time.now()\n}"
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 1, 17) // n|ow
+			Expect(hover).To(BeNil())
+		})
+
+		It("Should provide hover for a member of an imported module", func(ctx SpecContext) {
+			content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 3, 17) // n|ow
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### time.now"))
 		})
 	})
 
@@ -788,16 +840,16 @@ func add(a i32, b i32) i32 {
 			Expect(foundInput).To(BeTrue())
 		})
 
-		It("should tokenize sequence names as sequence type", func(ctx SpecContext) {
+		It("should tokenize sequence names as function type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "sequence main { stage init {} }")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
 			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
-			Expect(tokens.Data[8]).To(Equal(uint32(lsp.SemanticTokenTypeSequence)))
+			Expect(tokens.Data[8]).To(Equal(uint32(lsp.SemanticTokenTypeFunction)))
 		})
 
-		It("should tokenize stage names as stage type", func(ctx SpecContext) {
+		It("should tokenize stage names as function type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "sequence main { stage init {} }")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
@@ -811,7 +863,7 @@ func add(a i32, b i32) i32 {
 				}
 			}
 			Expect(stageKeywordIdx).ToNot(Equal(-1))
-			Expect(tokens.Data[stageKeywordIdx+8]).To(Equal(uint32(lsp.SemanticTokenTypeStage)))
+			Expect(tokens.Data[stageKeywordIdx+8]).To(Equal(uint32(lsp.SemanticTokenTypeFunction)))
 		})
 
 		It("should tokenize stateful variables as statefulVariable type", func(ctx SpecContext) {
@@ -858,7 +910,7 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize member name as function in qualified calls", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "time.interval{period=100ms}")
+			OpenArcDocument(server, ctx, uri, "import time\n\ntime.interval{period=100ms} -> output")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			foundFunction := false

@@ -40,7 +40,7 @@ func (e *UndefinedSymbolError) GetHint() string {
 	if dot := strings.IndexByte(head, '.'); dot > 0 {
 		head = head[:dot]
 	}
-	if e.scope.isAmbientModule(head) {
+	if e.scope.IsAmbientModule(head) {
 		return fmt.Sprintf("module %q is not imported. add `import %s` at the top of the file", head, head)
 	}
 	suggestions := e.scope.SuggestSimilar(e.ctx, e.Name, 2)
@@ -50,15 +50,17 @@ func (e *UndefinedSymbolError) GetHint() string {
 	return ""
 }
 
-// isAmbientModule reports whether name matches a KindModule child of an
-// ancestor scope of kind KindAmbient. Used to suggest missing imports
-// when an unimported module path appears in user code.
-func (s *Symbol) isAmbientModule(name string) bool {
+// IsAmbientModule reports whether name matches a non-Internal KindModule
+// child of an ancestor scope of kind KindAmbient reachable from s. Used to
+// detect unimported references to modules available in the ambient prelude
+// so callers can suggest an `import` fix. Internal modules are excluded
+// because user code cannot import them.
+func (s *Symbol) IsAmbientModule(name string) bool {
 	for cur := s; cur != nil; cur = cur.Parent {
 		if cur.Kind != KindAmbient {
 			continue
 		}
-		if child := cur.FindChild(name); child != nil && child.Kind == KindModule {
+		if child := cur.FindChild(name); child != nil && child.Kind == KindModule && !child.Internal {
 			return true
 		}
 	}

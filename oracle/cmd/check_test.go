@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -107,13 +108,17 @@ func buildOracleBinary() string {
 	}
 	dir := MustSucceed(os.MkdirTemp("", "oracle-bin"))
 	bin := filepath.Join(dir, "oracle")
-	cmd := exec.Command("go", "build", "-o", bin, ".")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	// -buildvcs=false keeps the build working inside a Git worktree, where VCS stamping
+	// fails ("error obtaining VCS status: exit status 128").
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", bin, ".")
 	cmd.Dir = MustSucceed(findOracleModuleRoot())
-	out := MustSucceed(cmd.CombinedOutput())
-	_ = out
+	Expect(cmd.CombinedOutput()).ToNot(BeNil())
 	oracleBinaryPath = bin
 	DeferCleanup(func() {
-		_ = os.RemoveAll(dir)
+		Expect(os.RemoveAll(dir)).To(Succeed())
 		oracleBinaryPath = ""
 	})
 	return bin

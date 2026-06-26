@@ -31,9 +31,8 @@ import {
   Tabs,
   Text,
   Triggers,
-  useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { caseconv, type location, TimeSpan } from "@synnaxlabs/x";
+import { caseconv, type location } from "@synnaxlabs/x";
 import {
   type ComponentType,
   memo,
@@ -47,16 +46,16 @@ import { useDispatch, useStore } from "react-redux";
 import { ContextMenu as CMenu } from "@/components";
 import { CSS } from "@/css";
 import { Import } from "@/import";
+import { LinePlot } from "@/layered/service/lineplot";
 import { Layout } from "@/layout";
 import { Controls } from "@/layout/Controls";
 import { Nav } from "@/layouts/nav";
 import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
-import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
+import { Project } from "@/project";
+import { ProjectServices } from "@/project/services";
 import { Runtime } from "@/runtime";
 import { type RootState, type RootStore } from "@/store";
-import { Workspace } from "@/workspace";
-import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => {
   const createComponentEnabled = useSelectorVisible();
@@ -216,12 +215,12 @@ const TabName: ComponentType<Tabs.NameProps> = (props) => {
   return <Tabs.DefaultName {...props} />;
 };
 
+const renderTabName = Component.renderProp(TabName);
+
 interface MosaicProps {
   windowKey: string;
   mosaic: Base.Node;
 }
-
-const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
@@ -282,7 +281,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [placeLayout, store, client, addStatus, handleError, removeLayout, services],
   );
 
-  LinePlot.useTriggerHold({ defaultMode: "toggle", toggle: [["H"]] });
+  LinePlot.useTriggerHold();
 
   const handleClose = Layout.useRemover();
 
@@ -300,11 +299,10 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [dispatch],
   );
 
-  const handleResize = useDebouncedCallback(
+  const handleResize = useCallback(
     (key: number, size: number) => {
       dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
     },
-    RESIZE_DEBOUNCE,
     [dispatch, windowKey],
   );
 
@@ -317,7 +315,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             await Import.dataTransferItem(item, {
               client,
               fileIngesters,
-              ingestDirectory: WorkspaceServices.ingest,
+              ingestDirectory: ProjectServices.ingest,
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
               placeLayout,
               store,
@@ -387,7 +385,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onFileDrop={handleFileDrop}
         addTooltip="Create component"
         className={CSS.B("mosaic")}
-        Name={TabName}
+        tabName={renderTabName}
       >
         {renderProp}
       </Base.Mosaic>
@@ -400,7 +398,7 @@ const NavTop = (): ReactElement | null => {
   const isWindowsOS = os === "Windows";
   const { onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
   const activeName = Layout.useSelectActiveMosaicTabName();
-  const activeWorkspaceName = Workspace.useSelectActiveName();
+  const activeProjectName = Project.useSelectActiveName();
   const button = (
     <Button.Button
       variant="outlined"
@@ -438,7 +436,7 @@ const NavTop = (): ReactElement | null => {
           data-tauri-drag-region
           style={{ cursor: "default" }}
         >
-          {activeName} {activeWorkspaceName && `- ${activeWorkspaceName}`}
+          {activeName} {activeProjectName && `- ${activeProjectName}`}
         </Text.Text>
       </PNav.Bar.AbsoluteCenter>
       <PNav.Bar.End data-tauri-drag-region align="center" justify="end">

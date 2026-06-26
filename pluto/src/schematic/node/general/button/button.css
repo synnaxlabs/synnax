@@ -1,0 +1,20 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-symbol-button {
+    --pluto-bg: var(--pluto-symbol-display);
+    --pluto-hover-bg: oklch(from var(--pluto-symbol-display) l c h / 85%);
+    --pluto-active-bg: oklch(from var(--pluto-symbol-display) l c h / 60%);
+    --pluto-border-color: var(--pluto-symbol-display);
+    --pluto-hover-border-color: oklch(from var(--pluto-symbol-display) l c h / 85%);
+    --pluto-active-border-color: oklch(from var(--pluto-symbol-display) l c h / 70%);
+    --pluto-btn-text-color: var(--pluto-symbol-contrast);
+}

@@ -62,7 +62,7 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Start Core on main
         id: start_main
@@ -81,12 +81,12 @@ jobs:
           echo "Synnax failed to start" && exit 1
 
       - name: Checkout main
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: main
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v8.2.0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -111,7 +111,7 @@ jobs:
           docker rm synnax-main
 
       - name: Checkout current branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Login to Github Container registry
         uses: docker/login-action@v4
@@ -169,12 +169,6 @@ jobs:
         with:
           package: client
           lint: false
-          # The "on main" run above installs pnpm 10 into the default ~/setup-pnpm.
-          # Install the current branch's pnpm (11+) into a separate dest so it doesn't
-          # refresh that PNPM_HOME and delete the v10 store, which the main run's
-          # setup-node cache-save still points at (otherwise its post step fails the
-          # job). Remove once main and rc are on the same pnpm major.
-          pnpm_dest: ~/setup-pnpm-current
 
       - name: Stop Core on current branch
         if: always() && steps.start_current.outcome == 'success'

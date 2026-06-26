@@ -33,7 +33,7 @@ jobs:
       matrix: ${{ fromJSON(inputs.test_matrix) }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Force Quit Existing Synnax Processes (Windows)
         if: runner.os == 'Windows'
@@ -64,7 +64,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v8.2.0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -114,20 +114,14 @@ jobs:
         run: >-
           uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
 
+      # The conductor writes a per-run bundle to integration/tests/results/run-*/
+      # containing summary.json, server.log, and per-test subdirs (trace.zip,
+      # sliced server.log, screenshots, exports). Uploading the bundle is the
+      # single artifact CI and local devs share for debugging.
       - name: Upload Test Results
         uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-${{ inputs.os }}-${{ matrix.name }}
           path: integration/tests/results/*
-          retention-days: 7
-
-      - name: Upload Core Logs
-        uses: actions/upload-artifact@v7
-        if: ${{ failure() || cancelled() }}
-        with:
-          name:
-            core-logs-${{ inputs.os }}-${{ matrix.name }}-attempt-${{ github.run_attempt
-            }}
-          path: ~/synnax-data/synnax-core.log
           retention-days: 7

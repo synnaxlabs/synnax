@@ -10,10 +10,10 @@
 import {
   NotFoundError,
   type ontology,
+  type project,
   schematic,
-  type workspace,
 } from "@synnaxlabs/client";
-import { array, type record, uuid, xy } from "@synnaxlabs/x";
+import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
@@ -22,6 +22,7 @@ import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
+import { Scope } from "@/schematic/scope";
 import { type Symbol } from "@/schematic/symbol";
 import { Theming } from "@/theming";
 
@@ -96,110 +97,90 @@ const requireSchematic = (
   return schem;
 };
 
-export const useSelectAllNodes = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  schematic.Node[]
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) => requireSchematic(store, key).nodes,
-});
+export const useSelectAllNodes = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Node[]>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key }) => requireSchematic(store, key).nodes,
+  }),
+);
 
-export const useSelectAllEdges = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  schematic.Edge[]
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) => requireSchematic(store, key).edges,
-});
+export const useSelectAllEdges = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Edge[]>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key }) => requireSchematic(store, key).edges,
+  }),
+);
 
 export interface SelectConfigArgs {
   key: schematic.Key;
   elKey: string;
 }
 
-export const useSelectElementConfig = Flux.createSelector<
-  FluxSubStore,
-  SelectConfigArgs,
-  ElementConfig
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, elKey }) =>
-    requireSchematic(store, key).configs[elKey] as ElementConfig,
-});
-
-export interface SelectEdgeArgs {
-  key: schematic.Key;
-  edgeKey: string;
-}
-
-export const useSelectEdge = Flux.createSelector<
-  FluxSubStore,
-  SelectEdgeArgs,
-  schematic.Edge | undefined
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, edgeKey }) => {
-    const s = store.schematics.get(key);
-    return s?.edges?.find((e) => e.key === edgeKey);
-  },
-});
+export const useSelectElementConfig = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectConfigArgs, ElementConfig | undefined>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key, elKey }) =>
+      requireSchematic(store, key).configs[elKey] as ElementConfig | undefined,
+  }),
+);
 
 export interface SelectConfigsArgs {
   key: schematic.Key;
   keys: string[];
 }
 
-export const useSelectConfigs = Flux.createSelector<
-  FluxSubStore,
-  SelectConfigsArgs,
-  Map<string, ElementConfig>
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, keys }) => {
-    const result = new Map<string, ElementConfig>();
-    const s = store.schematics.get(key);
-    if (s == null || keys.length === 0) return result;
-    for (const elKey of keys) {
-      const cfg = s.configs?.[elKey];
-      if (cfg != null) result.set(elKey, cfg as ElementConfig);
-    }
-    return result;
-  },
-});
+export const useSelectConfigs = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectConfigsArgs, Map<string, ElementConfig>>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key, keys }) => {
+      const result = new Map<string, ElementConfig>();
+      const s = store.schematics.get(key);
+      if (s == null || keys.length === 0) return result;
+      for (const elKey of keys) {
+        const cfg = s.configs?.[elKey];
+        if (cfg != null) result.set(elKey, cfg as ElementConfig);
+      }
+      return result;
+    },
+    equal: compare.mapsEqual,
+  }),
+);
 
 export interface SelectNodesArgs {
   key: schematic.Key;
   keys: string[];
 }
 
-export const useSelectNodes = Flux.createSelector<
-  FluxSubStore,
-  SelectNodesArgs,
-  schematic.Node[]
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, keys }) => {
-    const s = store.schematics.get(key);
-    if (s == null || keys.length === 0) return [];
-    const keySet = new Set(keys);
-    return s.nodes.filter((n) => keySet.has(n.key));
-  },
-});
+export const useSelectNodes = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectNodesArgs, schematic.Node[]>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key, keys }) => {
+      const s = store.schematics.get(key);
+      if (s == null || keys.length === 0) return [];
+      const keySet = new Set(keys);
+      return s.nodes.filter((n) => keySet.has(n.key));
+    },
+    equal: compare.arraysEqual,
+  }),
+);
 
 export interface SelectFieldArgs {
   key: schematic.Key;
 }
 
-export const useSelectSnapshot = Flux.createSelector<
-  FluxSubStore,
-  SelectFieldArgs,
-  boolean
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) => requireSchematic(store, key).snapshot,
-});
+export const useSelectSnapshot = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectFieldArgs, boolean>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key }) => requireSchematic(store, key).snapshot,
+  }),
+);
+
+export const useSelectName = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key }) => requireSchematic(store, key).name,
+  }),
+);
 
 export type DeleteParams = schematic.Key | schematic.Key[];
 
@@ -234,27 +215,23 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
 });
 
 export interface UseCreateArgs extends schematic.New {
-  workspace?: workspace.Key;
-}
-
-export interface UseCreateResult extends schematic.Schematic {
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   UseCreateArgs,
   FluxSubStore,
-  UseCreateResult
+  schematic.Schematic
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    data.key ??= uuid.create();
-    const { workspace, ...rest } = data;
-    rollbacks.push(store.schematics.set(data.key, data as schematic.Schematic));
-    const s = await client.schematics.create(workspace ?? uuid.ZERO, rest);
-    store.schematics.set(s);
-    return { ...s, workspace };
+    const optimistic = schematic.schematicZ.parse(data);
+    rollbacks.push(store.schematics.set(optimistic));
+    const project = data.project ?? uuid.ZERO;
+    const created = await client.schematics.create(project, optimistic);
+    store.schematics.set(created);
+    return created;
   },
 });
 
@@ -345,11 +322,15 @@ export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
   preprocess: augmentWithEdgeSegments,
   channel: schematic.SET_CHANNEL_NAME,
   schema: schematic.scopedActionZ,
-  isUndoable: schematic.isUndoable,
   kindOf: kindOfTransaction,
 });
 
-export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+export const {
+  useDispatch,
+  useUndo: useUndoBase,
+  useRedo: useRedoBase,
+  useSingleDispatch: useSingleDispatchBase,
+} = Flux.createDispatch<
   schematic.Key,
   schematic.Schematic,
   schematic.Action,
@@ -360,6 +341,10 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   send: ({ client, key, actions, dispatchKey }) =>
     client.schematics.dispatch(key, dispatchKey, actions),
 });
+
+export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
+export const useUndo = Scope.bindHook(useUndoBase);
+export const useRedo = Scope.bindHook(useRedoBase);
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}
 
@@ -385,10 +370,10 @@ export interface AddNodeProps {
   config?: Node.Config;
 }
 
-export const useAddNode = (resourceKey: string) => {
+export const useAddNode = () => {
   const store = Flux.useStore<Symbol.FluxSubStore>();
   const theme = Theming.use();
-  const { dispatch } = useDispatch();
+  const dispatch = useSingleDispatch();
 
   return useCallback(
     ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
@@ -398,16 +383,13 @@ export const useAddNode = (resourceKey: string) => {
         const sym = store.schematicSymbols.get(specKey);
         if (config.label != null && sym != null) config.label.label = sym.name;
       }
-      dispatch({
-        key: resourceKey,
-        actions: [
-          schematic.setNode({
-            node: { key, position: position ?? xy.ZERO },
-            config: { ...config, ...override, variant },
-          }),
-        ],
-      });
+      dispatch(
+        schematic.setNode({
+          node: { key, position: position ?? xy.ZERO },
+          config: { ...config, ...override, variant },
+        }),
+      );
     },
-    [dispatch, resourceKey, theme, store],
+    [dispatch, theme, store],
   );
 };

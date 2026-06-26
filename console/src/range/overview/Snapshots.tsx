@@ -29,9 +29,9 @@ import { type FC } from "react";
 
 import { CSS } from "@/css";
 import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/hardware/task/layouts";
+import { create } from "@/layered/service/schematic/layout";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { create } from "@/schematic/layout";
 
 interface SnapshotCtx {
   client: Client | null;
@@ -60,7 +60,7 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
   task: {
     icon: <Icon.Task />,
     onClick: async ({ id: { key } }, { client, placeLayout }) =>
-      retrieveAndPlaceTaskLayout(client, key, placeLayout),
+      await retrieveAndPlaceTaskLayout(client, key, placeLayout),
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
       await client.tasks.delete(key);

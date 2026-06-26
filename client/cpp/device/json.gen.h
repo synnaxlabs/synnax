@@ -16,8 +16,8 @@
 #include "client/cpp/device/types.gen.h"
 #include "client/cpp/ontology/json.gen.h"
 #include "client/cpp/rack/json.gen.h"
+#include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/json.gen.h"
 
 namespace synnax::device {
 
@@ -43,7 +43,7 @@ inline Device Device::parse(x::json::Parser parser) {
         .make = parser.field<std::string>("make"),
         .model = parser.field<std::string>("model"),
         .name = parser.field<std::string>("name"),
-        .configured = parser.field<bool>("configured"),
+        .configured = parser.field<bool>("configured", false),
         .properties = parser.field<x::json::json::object_t>("properties"),
         .status = parser.field<std::optional<Status>>("status"),
         .parent = parser.field<std::optional<::synnax::ontology::ID>>("parent"),

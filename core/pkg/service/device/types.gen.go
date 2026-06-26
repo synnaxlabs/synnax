@@ -14,8 +14,9 @@ package device
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for the device
@@ -55,10 +56,23 @@ type Device struct {
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties contains device-specific configuration properties stored as JSON.
 	// Structure varies by device make and model.
-	Properties msgpack.EncodedJSON `json:"properties" msgpack:"properties"`
+	Properties msgpack.EncodedJSON `json:"properties,omitzero" msgpack:"properties,omitzero"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 	// Parent is an optional parent resource ID for hierarchical device organization (e.g.,
 	// NI chassis containing modules).
 	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
+}
+
+func (d Device) Validate() error {
+	v := validate.New("Device")
+	validate.NonZero(v, "rack", d.Rack)
+	validate.NotEmptyString(v, "location", d.Location)
+	validate.NotEmptyString(v, "make", d.Make)
+	validate.NotEmptyString(v, "model", d.Model)
+	validate.NotEmptyString(v, "name", d.Name)
+	if d.Parent != nil {
+		v.Exec(func() error { return validate.PathedError(d.Parent.Validate(), "parent") })
+	}
+	return v.Error()
 }

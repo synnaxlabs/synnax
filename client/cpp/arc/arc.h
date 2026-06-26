@@ -19,7 +19,7 @@
 #include "client/cpp/arc/types.gen.h"
 #include "freighter/cpp/freighter.h"
 
-#include "core/pkg/api/grpc/arc/arc.pb.h"
+#include "core/pkg/transport/grpc/arc/arc.pb.h"
 
 namespace synnax::arc {
 

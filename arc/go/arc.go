@@ -15,6 +15,7 @@ package arc
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
@@ -42,18 +43,16 @@ type (
 // any extras attached to the ambient prelude, and resolver installed as
 // the GlobalResolver. This is the canonical entry point for production
 // compilation: callers pass any additional static symbols (e.g. status
-// types) as extras alongside the resolver.
+// types) as extras alongside the resolver. STL symbols are freshly
+// allocated per call so no analysis can corrupt another's view of the
+// standard library.
 func NewRoot(resolver SymbolResolver, extras ...*symbol.Symbol) *symbol.Symbol {
-	syms := make([]*symbol.Symbol, 0, len(stl.Symbols)+len(extras))
-	syms = append(syms, stl.Symbols...)
-	syms = append(syms, extras...)
-	return symbol.NewRoot(resolver, syms...)
+	return symbol.NewRoot(resolver, slices.Concat(stl.NewSymbols(), extras))
 }
 
 // CompileGraph parses, analyzes, and compiles a graph-mode program
 // against root. root must have its ambient prelude populated by the
-// caller (typically with stl.Symbols and any cluster channels). Graph
-// mode auto-imports modules; callers do not need to call
+// caller. Graph mode auto-imports modules; callers do not need to call
 // symbol.AutoImportModules themselves — CompileGraph does it.
 func CompileGraph(ctx context.Context, g Graph, root *symbol.Symbol) (Program, error) {
 	graphWithAST, err := graph.Parse(g)
@@ -73,8 +72,7 @@ func CompileGraph(ctx context.Context, g Graph, root *symbol.Symbol) (Program, e
 }
 
 // CompileText parses, analyzes, and compiles a text-mode program against
-// root. root must have its ambient prelude populated by the caller
-// (typically with stl.Symbols and any cluster channels).
+// root. root must have its ambient prelude populated by the caller.
 func CompileText(ctx context.Context, t Text, root *symbol.Symbol) (Program, error) {
 	textWithAST, err := text.Parse(t)
 	if err != nil {

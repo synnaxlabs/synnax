@@ -20,10 +20,10 @@
 
 #include "client/cpp/cluster/types.gen.h"
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/status/types.gen.h"
 #include "x/cpp/control/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
@@ -44,7 +44,7 @@ using Key = std::uint32_t;
 
 using Name = std::string;
 
-using Status = ::x::status::Status<std::monostate>;
+using Status = ::synnax::status::Status<std::monostate>;
 
 /// @brief Operation defines an aggregation operation applied to channel data.
 /// Operations calculate min, max, or average values over a time duration or triggered
@@ -97,7 +97,7 @@ struct Channel {
     Key index = 0;
     /// @brief alias is an optional alternate name for the channel within a specific
     /// context.
-    std::string alias;
+    std::optional<std::string> alias;
     /// @brief is_virtual is true if this channel does not store data in the database
     /// but
     /// can still be used for streaming purposes.
@@ -108,11 +108,11 @@ struct Channel {
     /// @brief expression is an Arc expression for calculated channels. If set, the
     /// channel
     /// is automatically configured as virtual.
-    std::string expression;
+    std::string expression = "";
     /// @brief operations contains optional aggregation operations (min, max, avg)
     /// applied
     /// to channel data over time or triggered by a reset channel.
-    std::vector<Operation> operations;
+    std::vector<Operation> operations = {};
     /// @brief concurrency sets the policy for concurrent writes to the channel's data.
     /// Only
     /// virtual channels can have a policy of shared concurrency.

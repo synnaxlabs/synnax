@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -54,8 +56,8 @@ var _ = Describe("Migrate", func() {
 		// Open a bare Range table with only the codec transition migration.
 		// This simulates the state of the DB before the range_groups migration
 		// was added.
-		bareTable := MustSucceed(gorp.OpenTable[uuid.UUID, ranger.Range](
-			ctx, gorp.TableConfig[uuid.UUID, ranger.Range]{DB: db},
+		bareTable := MustSucceed(gorp.OpenTable(
+			ctx, gorp.TableConfig[uuid.UUID, rangerv0.Range]{DB: db},
 		))
 
 		tx := db.OpenTx()
@@ -67,7 +69,7 @@ var _ = Describe("Migrate", func() {
 		)
 
 		// Create two ranges and their ontology resources under the subgroup.
-		r1 := ranger.Range{
+		r1 := rangerv0.Range{
 			Key:  uuid.New(),
 			Name: "Range1",
 			TimeRange: telem.TimeRange{
@@ -75,7 +77,7 @@ var _ = Describe("Migrate", func() {
 				End:   telem.TimeStamp(20 * telem.Second),
 			},
 		}
-		r2 := ranger.Range{
+		r2 := rangerv0.Range{
 			Key:  uuid.New(),
 			Name: "Range2",
 			TimeRange: telem.TimeRange{
@@ -107,12 +109,11 @@ var _ = Describe("Migrate", func() {
 		Expect(bareTable.Close()).To(Succeed())
 
 		svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:             db,
-			Ontology:       otg,
-			Group:          gSvc,
-			Label:          lab,
-			ForceMigration: new(true),
-			Search:         searchIdx,
+			DB:       db,
+			Ontology: otg,
+			Group:    gSvc,
+			Label:    lab,
+			Search:   searchIdx,
 		}))
 
 		// The "Ranges" group and "Subgroup" should be deleted.
@@ -145,5 +146,49 @@ var _ = Describe("Migrate", func() {
 			childNames = append(childNames, c.Name)
 		}
 		Expect(childNames).To(ConsistOf("Range1", "Range2"))
+	})
+
+	It("should re-encode value-color ranges as nullable pointer color", func(ctx SpecContext) {
+		bareTable := MustSucceed(gorp.OpenTable(
+			ctx, gorp.TableConfig[uuid.UUID, rangerv0.Range]{DB: db},
+		))
+		tr := telem.TimeRange{
+			Start: telem.TimeStamp(telem.Second),
+			End:   telem.TimeStamp(2 * telem.Second),
+		}
+		colored := rangerv0.Range{
+			Key:       uuid.New(),
+			Name:      "Colored",
+			TimeRange: tr,
+			Color:     color.Color{R: 255, G: 128, B: 0, A: 1},
+		}
+		// A zero value-color denoted "no color" under the old layout, so it must
+		// migrate to a nil pointer rather than a pointer to the zero color.
+		uncolored := rangerv0.Range{Key: uuid.New(), Name: "Uncolored", TimeRange: tr}
+
+		tx := db.OpenTx()
+		Expect(bareTable.NewCreate().Entry(&colored).Exec(ctx, tx)).To(Succeed())
+		Expect(bareTable.NewCreate().Entry(&uncolored).Exec(ctx, tx)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		Expect(tx.Close()).To(Succeed())
+		Expect(bareTable.Close()).To(Succeed())
+
+		svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    gSvc,
+			Label:    lab,
+			Search:   searchIdx,
+		}))
+
+		var got ranger.Range
+		Expect(svc.NewRetrieve().Where(ranger.MatchKeys(colored.Key)).
+			Entry(&got).Exec(ctx, nil)).To(Succeed())
+		Expect(got.Color).ToNot(BeNil())
+		Expect(*got.Color).To(Equal(color.Color{R: 255, G: 128, B: 0, A: 1}))
+
+		Expect(svc.NewRetrieve().Where(ranger.MatchKeys(uncolored.Key)).
+			Entry(&got).Exec(ctx, nil)).To(Succeed())
+		Expect(got.Color).To(BeNil())
 	})
 })

@@ -29,21 +29,12 @@ inputs:
     description: Additional arguments to pass to the test command
     required: false
     default: ""
-  pnpm_dest:
-    description:
-      Directory pnpm is installed into (pnpm/action-setup `dest`). Override when a
-      single job sets up more than one pnpm major version so the installs don't share a
-      PNPM_HOME and clobber each other's store.
-    required: false
-    default: ~/setup-pnpm
 
 runs:
   using: composite
   steps:
     - name: Set up pnpm
       uses: pnpm/action-setup@v6
-      with:
-        dest: ${{ inputs.pnpm_dest }}
 
     - name: Set up Node.js
       uses: actions/setup-node@v6
@@ -82,7 +73,7 @@ runs:
 
     - name: Upload coverage
       if: inputs.test == 'true'
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       with:
         fail_ci_if_error: true
         flags: ${{ inputs.coverage_flag }}

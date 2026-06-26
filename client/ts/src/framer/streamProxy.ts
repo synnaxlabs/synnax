@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream } from "@synnaxlabs/freighter";
+import { errors } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { UnexpectedError } from "@/errors";
@@ -37,7 +38,7 @@ export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
         res = await this.stream.receive();
       } catch (err) {
         if (EOF.matches(err)) return;
-        throw err;
+        throw errors.fromUnknown(err);
       }
       throw new UnexpectedError(
         `${this.name} received unexpected response ${JSON.stringify(res)} on closure.`,

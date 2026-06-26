@@ -22,13 +22,13 @@
 #include "client/cpp/device/proto.gen.h"
 #include "client/cpp/device/types.gen.h"
 #include "client/cpp/rack/rack.h"
+#include "client/cpp/status/status.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/json/struct.h"
-#include "x/cpp/status/status.h"
 
-#include "core/pkg/api/grpc/device/device.pb.h"
+#include "core/pkg/transport/grpc/device/device.pb.h"
 
 namespace synnax::device {
 const std::string SET_CHANNEL = "sy_device_set";

@@ -7,11 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 # ── Main arc source: channel propagation edge cases (valid, runs at runtime) ──
 
@@ -122,7 +123,7 @@ start_edge_case_cmd -> test_chan_multi_param{}
 start_edge_case_cmd -> test_chan_fwd_ref{}
 """
 
-# ── Read-only monitor (no write channels, only set_status) ──
+# ── Read-only monitor (no write channels, only status.set) ──
 # Regression test: the C++ driver unconditionally created writer/streamer
 # pipelines even when write_channels was empty, causing the server to reject
 # the empty keys list.
@@ -134,14 +135,12 @@ start_read_only_monitor_cmd => main
 sequence main {
     stage on {
         edge_monitor_input > 30 => status.set{
-            status_key = "press_monitor_status",
-            name = "Press Monitor",
+            key_or_name = "press_monitor_status",
             variant = "warning",
             message = "Pressure high"
         }
         edge_monitor_input < 30 => status.set{
-            status_key = "press_monitor_status",
-            name = "Press Monitor",
+            key_or_name = "press_monitor_status",
             variant = "success",
             message = "Pressure nominal"
         }
@@ -152,7 +151,7 @@ sequence main {
 # ── Circular dependency sources (invalid, caught at configure time) ──
 # Comprehensive topology coverage is in the Go unit tests
 # (arc/go/analyzer/analyzer_test.go). These integration tests verify that
-# circular detection works end-to-end through the console UI.
+# circular detection works end-to-end through the Python client.
 
 # a -> a
 ARC_SELF_REC = """
@@ -263,7 +262,7 @@ EXEC_CONTEXT_CASES = [
 ]
 
 # ── Import diagnostic sources (invalid, caught at configure time) ──
-# Verify the four import diagnostics surface end-to-end through the console.
+# Verify the four import diagnostics surface end-to-end through the Python client.
 # Comprehensive coverage is in arc/go/import_test.go.
 
 # Qualified module member used without an `import (…)` block.
@@ -358,7 +357,7 @@ TYPE_MISMATCH_CASES = [
     TypeMismatchCase(
         "UnitMismatchPsiBar",
         ARC_UNIT_MISMATCH_PSI_BAR,
-        "is not equal to argument type",
+        "does not match",
     ),
 ]
 
@@ -476,17 +475,19 @@ GUARDED_CASES = [
 ]
 
 
-class EdgeCases(ArcConsoleCase):
+class EdgeCases(ArcCase):
     """Test channel propagation edge cases at runtime and circular dependency
     detection at configure time. Comprehensive circular/guarded topology
     coverage (mutual, chain, diamond, buried, overlap) is in the Go unit tests
     at arc/go/analyzer/analyzer_test.go. This file focuses on end-to-end
-    verification through the console UI."""
+    verification through the Python client."""
 
     arc_source = ARC_CHANNEL_EDGE_CASES_SOURCE
     arc_name_prefix = "ArcEdgeCases"
     start_cmd_channel = "start_edge_case_cmd"
     subscribe_channels = CHANNEL_VIRTUAL
+    collect_notifications = True
+    collect_task_status = True
 
     def setup(self) -> None:
         for ch in CHANNEL_VIRTUAL:
@@ -509,61 +510,68 @@ class EdgeCases(ArcConsoleCase):
         self.log("=== Channel propagation edge cases ===")
 
         self.log("[SameChannel] last write wins -> 2.0")
-        self.wait_for_near("edge_same_ch", 2.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_same_ch", 2.0, tolerance=0.01)
 
         self.log("[Diamond] diamond_leaf -> 42.0")
-        self.wait_for_near("edge_diamond", 42.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_diamond", 42.0, tolerance=0.01)
 
         self.log("[MultiCallee] write_a -> 10.0, write_b -> 20.0")
-        self.wait_for_near("edge_multi_a", 10.0, tolerance=0.01, is_virtual=True)
-        self.wait_for_near("edge_multi_b", 20.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_multi_a", 10.0, tolerance=0.01)
+        self.wait_for_near("edge_multi_b", 20.0, tolerance=0.01)
 
         self.log("[Chain] chain_leaf -> 99.0")
-        self.wait_for_near("edge_chain", 99.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chain", 99.0, tolerance=0.01)
 
         self.log("[FwdRef] fwd_callee -> 55.0")
-        self.wait_for_near("edge_fwd", 55.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_fwd", 55.0, tolerance=0.01)
 
         self.log("[ChanParam] chan_write -> 77.0")
-        self.wait_for_near("edge_chan_basic", 77.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_basic", 77.0, tolerance=0.01)
 
         self.log("[ChanChain] chan_chain_leaf -> 88.0")
-        self.wait_for_near("edge_chan_chain", 88.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_chain", 88.0, tolerance=0.01)
 
         self.log("[ChanDiffArgs] chan_set -> 33.0 for both")
-        self.wait_for_near("edge_chan_arg_a", 33.0, tolerance=0.01, is_virtual=True)
-        self.wait_for_near("edge_chan_arg_b", 33.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_arg_a", 33.0, tolerance=0.01)
+        self.wait_for_near("edge_chan_arg_b", 33.0, tolerance=0.01)
 
         self.log("[ChanMultiParam] chan_multi_write -> 11.0, 22.0")
-        self.wait_for_near("edge_chan_mp_a", 11.0, tolerance=0.01, is_virtual=True)
-        self.wait_for_near("edge_chan_mp_b", 22.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_mp_a", 11.0, tolerance=0.01)
+        self.wait_for_near("edge_chan_mp_b", 22.0, tolerance=0.01)
 
         self.log("[ChanFwdRef] chan_fwd_callee -> 66.0")
-        self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01)
 
-    def _assert_circular_error(self, case: CircularCase) -> None:
-        self.log(f"[{case.label}] Testing circular dependency")
-        self.load_arc(case.source, f"Circ{case.label}", start=False, configure=False)
-
-        self.console.arc.configure_no_wait()
-        status = self.console.arc.wait_for_status(case.wait_substr)
-
-        for name in case.expect:
-            assert name in status, (
-                f"[{case.label}] Expected '{name}' in error, got: {status}"
+    def _assert_configure_error(
+        self,
+        source: str,
+        name_prefix: str,
+        substr: str,
+        expect: Sequence[str] = (),
+    ) -> None:
+        """Deploy an Arc expected to be rejected and verify the error message."""
+        try:
+            self.load_arc(source, name_prefix, start=False)
+        except sy.ConfigurationError as e:
+            message = str(e)
+            assert substr in message, (
+                f"[{name_prefix}] expected '{substr}' in error, got: {message}"
             )
-
-        notifications = self.console.notifications.check(timeout=5)
-        error_notifications = [n for n in notifications if n.get("type") == "error"]
-        assert len(error_notifications) > 0, (
-            f"[{case.label}] Expected error notification, got: {notifications}"
-        )
-        self.console.notifications.close_all()
+            for name in expect:
+                assert name in message, (
+                    f"[{name_prefix}] expected '{name}' in error, got: {message}"
+                )
+            self.log(f"[{name_prefix}] Got expected error: {message}")
+            return
+        self.fail(f"[{name_prefix}] configuration unexpectedly succeeded")
 
     def _verify_circular_cases(self) -> None:
         self.log("=== Circular dependency detection ===")
         for case in CIRCULAR_CASES:
-            self._assert_circular_error(case)
+            self.log(f"[{case.label}] Testing circular dependency")
+            self._assert_configure_error(
+                case.source, f"Circ{case.label}", case.wait_substr, case.expect
+            )
 
     def _assert_guarded_configures(self, case: GuardedCase) -> None:
         self.log(f"[Guarded {case.label}] Testing guarded recursion")
@@ -578,54 +586,24 @@ class EdgeCases(ArcConsoleCase):
         self.log("=== ExecContext violation detection ===")
         for case in EXEC_CONTEXT_CASES:
             self.log(f"[{case.label}] Testing exec context violation")
-            self.load_arc(
-                case.source, f"ExecCtx{case.label}", start=False, configure=False
-            )
-
-            self.console.arc.configure_no_wait()
-            status = self.console.arc.wait_for_status(case.wait_substr)
-            self.log(f"[{case.label}] Got expected error: {status}")
-
-            notifications = self.console.notifications.check(timeout=5)
-            error_notifications = [n for n in notifications if n.get("type") == "error"]
-            assert len(error_notifications) > 0, (
-                f"[{case.label}] Expected error notification, got: {notifications}"
+            self._assert_configure_error(
+                case.source, f"ExecCtx{case.label}", case.wait_substr
             )
 
     def _verify_import_cases(self) -> None:
         self.log("=== Import diagnostic detection ===")
         for case in IMPORT_CASES:
             self.log(f"[{case.label}] Testing import diagnostic")
-            self.load_arc(
-                case.source, f"Import{case.label}", start=False, configure=False
-            )
-
-            self.console.arc.configure_no_wait()
-            status = self.console.arc.wait_for_status(case.wait_substr)
-            self.log(f"[{case.label}] Got expected error: {status}")
-
-            notifications = self.console.notifications.check(timeout=5)
-            error_notifications = [n for n in notifications if n.get("type") == "error"]
-            assert len(error_notifications) > 0, (
-                f"[{case.label}] Expected error notification, got: {notifications}"
+            self._assert_configure_error(
+                case.source, f"Import{case.label}", case.wait_substr
             )
 
     def _verify_type_mismatch_cases(self) -> None:
         self.log("=== Type mismatch detection ===")
         for case in TYPE_MISMATCH_CASES:
             self.log(f"[{case.label}] Testing type mismatch")
-            self.load_arc(
-                case.source, f"TypeMismatch{case.label}", start=False, configure=False
-            )
-
-            self.console.arc.configure_no_wait()
-            status = self.console.arc.wait_for_status(case.wait_substr)
-            self.log(f"[{case.label}] Got expected error: {status}")
-
-            notifications = self.console.notifications.check(timeout=5)
-            error_notifications = [n for n in notifications if n.get("type") == "error"]
-            assert len(error_notifications) > 0, (
-                f"[{case.label}] Expected error notification, got: {notifications}"
+            self._assert_configure_error(
+                case.source, f"TypeMismatch{case.label}", case.wait_substr
             )
 
     def _verify_read_only_monitor(self) -> None:
@@ -638,14 +616,14 @@ class EdgeCases(ArcConsoleCase):
 
         self.writer.write("edge_monitor_input", 50.0)
         self.log("Waiting for pressure status notification...")
-        assert self.console.notifications.wait_for("Press Monitor"), (
+        assert self.wait_for_notification("Pressure high"), (
             "No pressure status notification found"
         )
 
-        assert self.console.arc.is_running(), "Read-only Arc stopped unexpectedly"
+        assert self.task_is_running(self.task_key(name)), (
+            "Read-only Arc stopped unexpectedly"
+        )
         self.log("Read-only Arc with no write channels running successfully")
-        self.console.notifications.close_all()
-        self.stop_arc(name)
 
     def verify_sequence_execution(self) -> None:
         self._verify_channel_edge_cases()

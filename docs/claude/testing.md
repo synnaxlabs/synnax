@@ -207,6 +207,19 @@ Some test suites require external services:
 - **Task lifecycle tests**: Require OPC UA simulator (`OPCUASim`)
 - **NI form tests**: May fail with notification overlays if no driver is connected
 
+### Debugging Failures
+
+Every `uv run tc` run writes a self-contained debug bundle to
+`integration/tests/results/run-<ts>[-<name>]/` (also reachable via the `latest`
+symlink). Locally and in CI the bundle has the same layout: `summary.json`,
+`server.log`, and per-test `tests/<name>/` directories containing `trace.zip` (on
+failure), a sliced `server.log`, and any screenshots/exports the test produced. CI
+uploads the directory as a single `test-results-<os>-<name>` artifact.
+
+When debugging an integration failure, see the `synnax-integration-debug` Claude skill
+at `.claude/skills/synnax-integration-debug/SKILL.md` for the shell-first triage
+workflow (including pulling the bundle from a CI run via `gh run download`).
+
 ## Test Organization
 
 ### TypeScript

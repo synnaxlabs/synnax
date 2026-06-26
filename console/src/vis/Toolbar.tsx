@@ -12,11 +12,11 @@ import { type FC, type ReactElement } from "react";
 
 import { Arc } from "@/arc";
 import { EmptyAction, Toolbar } from "@/components";
+import { LinePlot } from "@/layered/service/lineplot";
+import { Log } from "@/layered/service/log";
+import { Schematic } from "@/layered/service/schematic";
+import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
-import { Log } from "@/log";
-import { Schematic } from "@/schematic";
-import { Table } from "@/table";
 import { createSelectorLayout, useSelectorVisible } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
 
@@ -75,7 +75,6 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   content: <Content />,
   tooltip: "Visualize",
   icon: <Icon.Visualize />,
-  minSize: 160,
-  maxSize: 300,
+  sizeBounds: { lower: 160, upper: 300 },
   trigger: ["V"],
 };

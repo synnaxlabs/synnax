@@ -285,7 +285,7 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(fn).To(HaveLen(1))
 			Expect(fn[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: 1, TokenType: tokenTypeFunction}))
 			for _, op := range filterByType(all, tokenTypeOperator) {
-				Expect(op.StartChar < 5).To(BeTrue())
+				Expect(op.StartChar).To(BeNumerically("<", 5))
 			}
 		})
 
@@ -418,6 +418,52 @@ var _ = Describe("Semantic Tokens", func() {
 				"func cat() i64 { return time.now() }\n")
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(tokens, tokenTypeNamespace)).To(BeEmpty())
+		})
+
+		It("does not route an unimported qualifier's member to function", func(ctx SpecContext) {
+			// `now` at col 29 must not be function-colored: `time` is not
+			// imported, so the analyzer treats `time.now` as undefined and the
+			// highlight must match rather than imply a valid call.
+			OpenArcDocument(server, ctx, uri,
+				"func cat() i64 { return time.now() }\n")
+			fns := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeFunction)
+			for _, t := range fns {
+				Expect(t.StartChar).ToNot(Equal(uint32(29)),
+					"unimported member `now` must not be colored as a function")
+			}
+		})
+
+		It("routes an imported qualifier's member to function", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri,
+				"import time\n\nfunc cat() i64 { return time.now() }\n")
+			fns := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeFunction)
+			Expect(fns).To(ContainElement(
+				decodedToken{Line: 2, StartChar: 29, Length: 3, TokenType: tokenTypeFunction},
+			))
+		})
+
+		It("routes sequence and stage names to the function token type", func(ctx SpecContext) {
+			// Sequence and stage names should share the same highlight
+			// color as function names — they are declarations of named,
+			// callable scopes.
+			OpenArcDocument(server, ctx, uri, "sequence main {\n    stage first {\n    }\n}")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			var mainTok, firstTok *decodedToken
+			for i := range tokens {
+				t := tokens[i]
+				if t.Line == 0 && t.StartChar == 9 && t.Length == 4 {
+					mainTok = &t
+				}
+				if t.Line == 1 && t.StartChar == 10 && t.Length == 5 {
+					firstTok = &t
+				}
+			}
+			Expect(mainTok).ToNot(BeNil(), "sequence name token not emitted")
+			Expect(firstTok).ToNot(BeNil(), "stage name token not emitted")
+			Expect(mainTok.TokenType).To(Equal(tokenTypeFunction),
+				"sequence name must be the function token type")
+			Expect(firstTok.TokenType).To(Equal(tokenTypeFunction),
+				"stage name must be the function token type")
 		})
 
 		It("routes import and as alongside func and authority to the keyword token type", func(ctx SpecContext) {

@@ -55,7 +55,7 @@ private:
         ir_node.key = "const";
         ir_node.type = "constant";
         ir_node.outputs.push_back(output_param);
-        ir_node.config.push_back(value_param);
+        ir_node.inputs.push_back(value_param);
 
         ir::Function fn;
         fn.key = "test";
@@ -88,6 +88,18 @@ TEST(ConstantModuleTest, CreatesConstantNode) {
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
     ASSERT_NE(node, nullptr);
+}
+
+/// @brief Test that create returns VALIDATION when the value parameter has no value.
+TEST(ConstantModuleTest, ErrorsWhenValueMissing) {
+    TestSetup setup(types::Kind::F32, x::json::json(nullptr));
+    Module module;
+    ASSERT_OCCURRED_AS_P(
+        module.create(
+            runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
+        ),
+        x::errors::VALIDATION
+    );
 }
 
 /// @brief Test that next() outputs the constant value on first call.

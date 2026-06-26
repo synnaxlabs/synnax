@@ -41,7 +41,7 @@ export interface Driver {
  * Create a {@link Driver} over a fresh worker-side aether tree using the given registry.
  *
  * The driver constructs components lazily through the registry the same way production
- * does — the caller never builds `parentCtxValues` by hand, so every level runs its real
+ * does — the caller never wires `parent` by hand, so every level runs its real
  * `afterUpdate` lifecycle and propagates context normally.
  */
 export const createDriver = (
@@ -56,20 +56,24 @@ export const createDriver = (
     type: string,
     stateValue: state.State,
   ): void => {
+    // A component retains the array it is constructed with as its `path`, and derives its
+    // `key` from the last element. Snapshot so a caller mutating its own path array (e.g.
+    // pushing the next provider key) cannot rewrite an already-mounted component's key.
+    const snapshot = [...path];
     root._updateState({
-      path,
+      path: snapshot,
       type,
       state: stateValue,
-      create: (parentCtxValues) => {
+      create: (parent) => {
         const Constructor = registry[type];
         if (Constructor == null)
           throw new UnexpectedError(`[aetherTest] type '${type}' not in registry`);
         return new Constructor({
-          key: path[path.length - 1],
+          path: snapshot,
           type,
           sender: workerSide,
           instrumentation,
-          parentCtxValues,
+          parent,
         });
       },
     });

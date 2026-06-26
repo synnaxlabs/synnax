@@ -23,55 +23,57 @@ import (
 	"github.com/tetratelabs/wazero"
 )
 
-var numConstraint = types.NumericConstraint()
+// Name is the module name.
+const Name = "channels"
 
-// userOnSymbol and userWriteSymbol are the user-facing flow-mode builtins
-// `on{}` and `write{}` installed at root scope so programs can reference
-// them without an import.
-var userOnSymbol = symbol.Symbol{
-	Name: "on",
-	Kind: symbol.KindFunction,
-	Exec: symbol.ExecFlow,
-	Type: types.Function(types.FunctionProperties{
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
-		Config:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
-	}),
-}
-
-var userWriteSymbol = symbol.Symbol{
-	Name: "write",
-	Kind: symbol.KindFunction,
-	Exec: symbol.ExecFlow,
-	Type: types.Function(types.FunctionProperties{
-		Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-		Config:  types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
-	}),
-}
-
-const name = "channels"
-
-var module = symbol.NewModule(
-	name,
-	symbol.InternalHostFunc(
-		"read",
-		types.Params{{Name: "ch", Type: types.I32()}},
-		types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
-	),
-	symbol.InternalHostFunc(
-		"write",
-		types.Params{
-			{Name: "ch", Type: types.I32()},
-			{Name: "value", Type: types.Variable("T", &numConstraint)},
-		},
-		nil,
-	),
-)
-
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the channels module plus `on` and `write` as bare globals so
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the channels module plus `on` and `write` as bare globals so
 // flow-mode programs can reference them without an import.
-var Symbols = []*symbol.Symbol{module, &userOnSymbol, &userWriteSymbol}
+func NewSymbols() []*symbol.Symbol {
+	numConstraint := new(types.NumericConstraint())
+	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(
+		symbol.InternalHostFunc(
+			"read",
+			types.Params{{Name: "ch", Type: types.I32()}},
+			types.Params{{Name: "value", Type: types.Variable("T", numConstraint)}},
+		),
+		symbol.InternalHostFunc(
+			"write",
+			types.Params{
+				{Name: "ch", Type: types.I32()},
+				{Name: "value", Type: types.Variable("T", numConstraint)},
+			},
+			nil,
+		),
+	)
+	return []*symbol.Symbol{
+		mod,
+		{
+			Name: "on",
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecFlow,
+			Type: types.Function(types.FunctionProperties{
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
+				Inputs:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
+			}),
+			Trigger: symbol.TriggerOnly,
+		},
+		{
+			Name: "write",
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecFlow,
+			Type: types.Function(types.FunctionProperties{
+				Inputs: types.Params{
+					{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
+					{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))},
+				},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			}),
+			Trigger: symbol.TriggerInput(ir.DefaultInputParam),
+		},
+	}
+}
 
 // Host is the runtime host-side support for the channels module: it
 // registers WASM host bindings (read/write per type) and acts as the node
@@ -94,7 +96,7 @@ func NewHost(
 	if rt == nil {
 		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder(name)
+	builder := rt.NewHostModuleBuilder(Name)
 	builder = bindI32[uint8](builder, cs, "u8")
 	builder = bindI32[uint16](builder, cs, "u16")
 	builder = bindI32[uint32](builder, cs, "u32")
@@ -119,7 +121,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return nil, query.ErrNotFound
 	}
 	var nodeCfg config
-	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
+	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &nodeCfg); err != nil {
 		return nil, err
 	}
 	if isSource {
@@ -129,7 +131,11 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			state: h.state,
 		}, nil
 	}
-	return &sink{State: cfg.State, state: h.state, key: nodeCfg.Channel}, nil
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	return &sink{State: cfg.State, state: h.state, key: nodeCfg.Channel, inputIdx: inputIdx}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -200,16 +206,17 @@ func (s *source) Next(ctx node.Context) {
 
 type sink struct {
 	*node.State
-	state *ProgramState
-	key   uint32
+	state    *ProgramState
+	key      uint32
+	inputIdx int
 }
 
 func (s *sink) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
 		return
 	}
-	data := s.Input(0)
-	time := s.InputTime(0)
+	data := s.Input(s.inputIdx)
+	time := s.InputTime(s.inputIdx)
 	if data.Len() == 0 {
 		return
 	}

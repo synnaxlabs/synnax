@@ -121,6 +121,8 @@ export const ZERO_READ_PAYLOAD = {
   name: "HTTP Read Task",
   config: ZERO_READ_CONFIG,
   type: "http_read",
+  internal: false,
+  snapshot: false,
 } as const satisfies ReadPayload;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
@@ -277,6 +279,8 @@ export const ZERO_WRITE_PAYLOAD = {
   name: "HTTP Write Task",
   config: ZERO_WRITE_CONFIG,
   type: WRITE_TYPE,
+  internal: false,
+  snapshot: false,
 } as const satisfies WritePayload;
 
 export const SCAN_TYPE = `${PREFIX}_scan`;

@@ -21,7 +21,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/framer/framer.pb.h"
+#include "core/pkg/transport/grpc/framer/framer.pb.h"
 
 namespace synnax::framer {
 /// @brief validates that the authorities vector is compatible with the keys vector.

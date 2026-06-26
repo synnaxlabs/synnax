@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/signal"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -116,7 +115,7 @@ func (d *Driver) startHeartbeat() {
 				Key:     rack.StatusKey(d.rack.Key),
 				Name:    d.rack.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.VariantSuccess,
+				Variant: status.VariantSuccess,
 				Message: "Driver is running",
 				Details: rack.StatusDetails{Rack: d.rack.Key},
 			}); err != nil {
@@ -148,7 +147,11 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	streamerRequests := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(streamerRequests)
 	d.streamerRequests = streamerRequests
-	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	p.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+	)
 	return nil
 }
 
@@ -183,7 +186,10 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 				d.cfg.TaskTimeout,
 				signal.WithInstrumentation(d.cfg.Instrumentation),
 			)
-			sCtx.Go(func(ctx context.Context) error { return t.Exec(ctx, cmd) })
+			sCtx.Go(
+				func(ctx context.Context) error { return t.Exec(ctx, cmd) },
+				signal.RecoverWithErrOnPanic(),
+			)
 			err := sCtx.Wait()
 			cancel()
 			if err != nil {
@@ -236,7 +242,10 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	)
 	defer cancel()
 	for _, t := range tasks {
-		sCtx.Go(func(ctx context.Context) error { d.configure(ctx, t); return nil })
+		sCtx.Go(
+			func(ctx context.Context) error { d.configure(ctx, t); return nil },
+			signal.RecoverWithErrOnPanic(),
+		)
 	}
 	if err := sCtx.Wait(); err != nil {
 		d.cfg.L.Error("timed out configuring existing tasks", zap.Error(err))
@@ -280,7 +289,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 		}
 		d.cfg.L.Warn("no factory handled task", zap.Stringer("task", t))
 		return nil
-	})
+	}, signal.RecoverWithErrOnPanic())
 	if err := sCtx.Wait(); err != nil {
 		d.cfg.L.Error(
 			"failed to configure task", zap.Stringer("task", t), zap.Error(err),

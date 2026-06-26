@@ -41,7 +41,7 @@ on:
   workflow_dispatch:
 
 env:
-  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
 
 jobs:
   server:
@@ -58,7 +58,7 @@ jobs:
     needs: [server]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
@@ -121,7 +121,7 @@ jobs:
       - name: Test
         run: |
           bazel test --config=asan-leak --test_output=all //arc/cpp/... \
-            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true \
             --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
             --spawn_strategy=local \
             --jobs=1
@@ -139,7 +139,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -162,6 +162,6 @@ jobs:
         if: matrix.os == 'windows-build-bot'
         run: |
           bazel --output_user_root=C:/tmp test --test_output=all //arc/cpp/... \
-            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true \
             --test_tag_filters=-requires-core
         shell: bash

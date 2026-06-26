@@ -314,6 +314,7 @@ TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
         .rack = r.key,
         .location = "192.168.1.100:8080",
         .make = "http",
+        .model = "http_device",
         .name = "retrieve-conn-test-secure",
         .properties = {{"timeout_ms", 5000}},
     };
@@ -333,6 +334,7 @@ TEST(RetrieveConnectionTest, InsecureBaseURL) {
         .rack = r.key,
         .location = "10.0.0.1:9090",
         .make = "http",
+        .model = "http_device",
         .name = "retrieve-conn-test-insecure",
         .properties = {{"secure", false}, {"timeout_ms", 2000}},
     };

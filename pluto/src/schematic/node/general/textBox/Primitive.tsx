@@ -9,13 +9,14 @@
 
 import "@/schematic/node/general/textBox/textBox.css";
 
-import { color, direction } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { direction } from "@synnaxlabs/x";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/textBox/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 interface RenderProps extends Omit<Config, "variant"> {
@@ -34,18 +35,27 @@ export const TextBox = ({
   value,
   onChange,
 }: RenderProps): ReactElement => {
-  const divStyle: CSSProperties = {
-    textAlign: align as CSSProperties["textAlign"],
-  };
-  if (direction.construct(orientation) === "y")
-    divStyle.height = autoFit ? "fit-content" : width;
-  else divStyle.width = autoFit ? "fit-content" : width;
+  const isVertical = direction.construct(orientation) === "y";
+  const size = autoFit ? "fit-content" : width;
+  const style = useMemo<CSSProperties>(
+    () => ({
+      textAlign: align as CSSProperties["textAlign"],
+      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      ...(isVertical ? { height: size } : { width: size }),
+    }),
+    [align, colorVal, isVertical, size],
+  );
 
   return (
     <Primitive.Div
-      style={divStyle}
+      style={style}
       orientation={orientation}
-      className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
+      className={CSS(
+        CSS.B("text-box"),
+        CSS.B("symbol-colored"),
+        CSS.loc(orientation),
+        className,
+      )}
     >
       <Handle.Rectangle
         orientation={orientation}
@@ -56,7 +66,6 @@ export const TextBox = ({
       />
       <Text.MaybeEditable
         className={CSS.BE("symbol", "label")}
-        color={color.cssString(colorVal)}
         level={level}
         value={value ?? ""}
         onChange={onChange}

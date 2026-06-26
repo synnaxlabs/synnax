@@ -16,7 +16,7 @@ import { z } from "zod";
 
 import { type Layout } from "@/layout";
 import { Runtime } from "@/runtime";
-import { useSelectVersion } from "@/version/selectors";
+import { use } from "@/version/use";
 
 export const INFO_LAYOUT_TYPE = "versionInfo";
 
@@ -27,7 +27,7 @@ export const INFO_LAYOUT: Layout.BaseState = {
   icon: "Info",
   location: "modal",
   window: { resizable: false, navTop: true, size: { width: 500, height: 325 } },
-  excludeFromWorkspace: true,
+  excludeFromProject: true,
 };
 
 const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
@@ -105,7 +105,7 @@ const { useUpdate } = Flux.createUpdate<
 });
 
 export const Info: Layout.Renderer = () => {
-  const version = useSelectVersion();
+  const version = use();
   const availableQuery = useRetrieveUpdateAvailable({});
   const updateQuery = useUpdate();
   let totalSize: Size = Size.bytes(0);

@@ -15,21 +15,31 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestActions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Actions Suite")
+	RunSpecs(t, "Service Actions Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var dist mock.Node
+var (
+	dist mock.Node
+	sigs *signals.Provider
+)
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	cluster := DeferClose(mock.NewCluster())
 	dist = DeferClose(cluster.Provision(ctx))
+	sigs = MustSucceed(signals.New(signals.Config{
+		Channel: channel.Wrap(dist.Channel),
+		Framer:  framer.Wrap(dist.Framer),
+	}))
 })
 
 // testAction is a small concrete action type used to instantiate the generic

@@ -14,6 +14,7 @@ package table
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -29,7 +30,20 @@ type Cell struct {
 	// Props is the variant-specific cell configuration. The shape is determined by the
 	// variant; the wire format intentionally stores it as an opaque record so new variants
 	// can be added without a schema migration.
-	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
+	Props msgpack.EncodedJSON `json:"props,omitzero" msgpack:"props,omitzero"`
+}
+
+// CellTemplate is a variant + props pair describing what a cell should look like,
+// without identifying which cell. Used by actions that overwrite existing cells in
+// place (EraseCells), where the target cell's key is provided separately.
+type CellTemplate struct {
+	// Variant is the cell variant identifier (e.g. "text", "value"). The variant determines
+	// the shape of props and which Pluto cell component renders the cell.
+	Variant string `json:"variant" msgpack:"variant"`
+	// Props is the variant-specific cell configuration. The shape is determined by the
+	// variant; the wire format intentionally stores it as an opaque record so new variants
+	// can be added without a schema migration.
+	Props msgpack.EncodedJSON `json:"props,omitzero" msgpack:"props,omitzero"`
 }
 
 // Row is a single row in a table, with height and ordered cell keys.
@@ -38,7 +52,7 @@ type Row struct {
 	Size float64 `json:"size" msgpack:"size"`
 	// Cells is the ordered list of cell keys in this row from left to right. Each key
 	// points at an entry in the table's cells map.
-	Cells []string `json:"cells" msgpack:"cells"`
+	Cells []string `json:"cells,omitzero" msgpack:"cells,omitzero"`
 }
 
 // Column is a single column in a table, with width.
@@ -56,11 +70,17 @@ type Table struct {
 	// Name is a human-readable name for the table.
 	Name string `json:"name" msgpack:"name"`
 	// Rows are the table rows in display order, top to bottom.
-	Rows []Row `json:"rows" msgpack:"rows"`
+	Rows []Row `json:"rows,omitzero" msgpack:"rows,omitzero"`
 	// Columns are the table columns in display order, left to right.
-	Columns []Column `json:"columns" msgpack:"columns"`
+	Columns []Column `json:"columns,omitzero" msgpack:"columns,omitzero"`
 	// Cells contains all cells in the table, keyed by cell key. Cell positions are derived
 	// from rows[*].cells[*] references; cells not referenced by any row are orphaned and
 	// will be pruned on the next structural edit.
-	Cells map[string]Cell `json:"cells" msgpack:"cells"`
+	Cells map[string]Cell `json:"cells,omitzero" msgpack:"cells,omitzero"`
+}
+
+func (t Table) Validate() error {
+	v := validate.New("Table")
+	validate.NotEmptyString(v, "name", t.Name)
+	return v.Error()
 }

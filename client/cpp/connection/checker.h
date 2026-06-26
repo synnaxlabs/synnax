@@ -24,7 +24,7 @@
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/connectivity/connectivity.pb.h"
+#include "core/pkg/transport/grpc/connectivity/connectivity.pb.h"
 
 namespace synnax::connection {
 enum class Status { DISCONNECTED, CONNECTING, CONNECTED, FAILED };

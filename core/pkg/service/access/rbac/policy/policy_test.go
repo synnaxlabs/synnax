@@ -46,6 +46,16 @@ var _ = Describe("Writer", func() {
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
 		})
 
+		It("Should return a validation error when an object has an invalid type", func(ctx SpecContext) {
+			p := &policy.Policy{
+				Name:    "test-policy",
+				Objects: []ontology.ID{{Type: "not-a-real-type", Key: "ch1"}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			Expect(w.Create(ctx, p)).
+				To(MatchError(ContainSubstring("objects.0.type: invalid type")))
+		})
+
 		It("Should create a policy with provided UUID", func(ctx SpecContext) {
 			key := uuid.New()
 			p := &policy.Policy{
@@ -64,7 +74,7 @@ var _ = Describe("Writer", func() {
 				Objects: []ontology.ID{
 					{Type: "channel", Key: "ch1"},
 					{Type: "channel", Key: "ch2"},
-					{Type: "workspace", Key: "ws1"},
+					{Type: "project", Key: "p1"},
 				},
 				Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate},
 			}
@@ -122,6 +132,33 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create multiple policies", func(ctx SpecContext) {
+			policies := []policy.Policy{
+				{
+					Name:    "policy-1",
+					Key:     uuid.New(),
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
+				{
+					Name:    "policy-2",
+					Key:     uuid.New(),
+					Objects: []ontology.ID{{Type: "project", Key: "proj1"}},
+					Actions: []access.Action{access.ActionUpdate},
+				},
+			}
+			Expect(w.CreateMany(ctx, &policies)).To(Succeed())
+
+			var retrieved []policy.Policy
+			Expect(svc.NewRetrieve().Where(policy.MatchKeys(
+				policies[0].Key,
+				policies[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
 	Describe("Delete", func() {
 		var policies []policy.Policy
 		BeforeEach(func(ctx SpecContext) {
@@ -133,7 +170,7 @@ var _ = Describe("Writer", func() {
 				},
 				{
 					Name:    "policy-2",
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Objects: []ontology.ID{{Type: "project", Key: "p1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			}
@@ -183,7 +220,7 @@ var _ = Describe("Writer", func() {
 				},
 				{
 					Name:    "policy-2",
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Objects: []ontology.ID{{Type: "project", Key: "p1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			}
@@ -239,7 +276,7 @@ var _ = Describe("Retriever", func() {
 			},
 			{
 				Name:    "beta-policy",
-				Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
 				Actions: []access.Action{access.ActionDelete},
 			},
 			{

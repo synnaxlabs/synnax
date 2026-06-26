@@ -105,7 +105,11 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		if i+1 < len(allTokens) {
 			nextType = allTokens[i+1].GetTokenType()
 		}
-		tokenType := classifyToken(ctx, t, prevType, nextType, importIdents.Contains(i), docIR)
+		qualifier := ""
+		if prevType == parser.ArcLexerDOT && i >= 2 {
+			qualifier = allTokens[i-2].GetText()
+		}
+		tokenType := classifyToken(ctx, t, prevType, nextType, importIdents.Contains(i), docIR, qualifier)
 		if tokenType == nil {
 			continue
 		}
@@ -278,11 +282,14 @@ func classifyToken(
 	prevTokenType, nextTokenType int,
 	inImport bool,
 	docIR ir.IR,
+	qualifier string,
 ) *uint32 {
-	return classifyTokenAt(ctx, t, prevTokenType, nextTokenType, inImport, docIR, t.GetLine(), t.GetColumn())
+	return classifyTokenAt(ctx, t, prevTokenType, nextTokenType, inImport, docIR, t.GetLine(), t.GetColumn(), qualifier)
 }
 
 // Variant with explicit (line1, col0) for tokens lexed out of a sub-string.
+// qualifier is the identifier preceding the DOT when t is a member access
+// (e.g. "time" in "time.now"); it is empty otherwise.
 func classifyTokenAt(
 	ctx context.Context,
 	t antlr.Token,
@@ -290,6 +297,7 @@ func classifyTokenAt(
 	inImport bool,
 	docIR ir.IR,
 	line1, col0 int,
+	qualifier string,
 ) *uint32 {
 	antlrType := t.GetTokenType()
 	// Identifiers (and AUTHORITY used as an importable name) inside an import
@@ -309,11 +317,26 @@ func classifyTokenAt(
 			prevTokenType == parser.ArcLexerFLOAT_LITERAL) {
 		return nil
 	}
-	// IDENTIFIER after DOT is the member part of a qualified name
-	// (e.g., "set_authority" in "control.set_authority"). Color it as a function.
+	// IDENTIFIER after DOT is the member part of a qualified name (e.g.,
+	// "set_authority" in "control.set_authority"). Color it by its symbol
+	// kind only when the qualifier resolves to an imported module that
+	// actually has this member. An unimported or unknown qualifier yields no
+	// token, so the highlight matches the analyzer's "undefined" view rather
+	// than implying a valid reference.
 	if antlrType == parser.ArcLexerIDENTIFIER && prevTokenType == parser.ArcLexerDOT {
-		tokenType := uint32(SemanticTokenTypeFunction)
-		return &tokenType
+		if docIR.Symbols == nil || qualifier == "" {
+			return nil
+		}
+		scope := findScopeAtInternalPosition(docIR.Symbols, position{Line: line1, Col: col0})
+		mod, err := scope.Resolve(ctx, qualifier, symbol.WithoutUsageTracking)
+		if err != nil {
+			return nil
+		}
+		member, err := mod.Resolve(ctx, t.GetText(), symbol.WithoutUsageTracking)
+		if err != nil {
+			return nil
+		}
+		return mapSymbolKind(member.Kind)
 	}
 	// IDENTIFIER followed by DOT is a qualifier; if it names an imported
 	// module (directly or via alias), color it as a namespace so callers can
@@ -331,7 +354,7 @@ func classifyTokenAt(
 
 func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, rootScope *symbol.Symbol) *uint32 {
 	scope := findScopeAtInternalPosition(rootScope, position{Line: line1, Col: col0})
-	sym, err := scope.Resolve(ctx, name)
+	sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking)
 	if err != nil || sym == nil {
 		return nil
 	}
@@ -357,10 +380,11 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeOutput
 	case symbol.KindChannel:
 		tokenType = SemanticTokenTypeChannel
-	case symbol.KindSequence:
-		tokenType = SemanticTokenTypeSequence
-	case symbol.KindStage:
-		tokenType = SemanticTokenTypeStage
+	case symbol.KindSequence, symbol.KindStage:
+		// Sequence and stage names share the function highlight: they are
+		// declarations of named, callable scopes, and using the function
+		// color keeps them visually consistent with `func` declarations.
+		tokenType = SemanticTokenTypeFunction
 	case symbol.KindBlock, symbol.KindLoop:
 		tokenType = SemanticTokenTypeBlock
 	case symbol.KindLoopVariable:
@@ -474,12 +498,16 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 			if i+1 < len(inner) {
 				next = inner[i+1].GetTokenType()
 			}
+			qualifier := ""
+			if prev == parser.ArcLexerDOT && i >= 2 {
+				qualifier = inner[i-2].GetText()
+			}
 			relLine, relCol := uint32(it.GetLine()-1), uint32(it.GetColumn())
 			absLine, absCol := baseLine+relLine, relCol
 			if relLine == 0 {
 				absCol = baseCol + relCol
 			}
-			tt := classifyTokenAt(ctx, it, prev, next, false, docIR, int(absLine)+1, int(absCol))
+			tt := classifyTokenAt(ctx, it, prev, next, false, docIR, int(absLine)+1, int(absCol), qualifier)
 			if tt == nil {
 				continue
 			}

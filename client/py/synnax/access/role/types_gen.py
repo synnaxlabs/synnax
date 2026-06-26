@@ -12,16 +12,16 @@
 from __future__ import annotations
 
 from typing import TypeAlias
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID
 
 Key: TypeAlias = UUID
 
 
-class Base(BaseModel):
+class Role(BaseModel):
     """Is a named collection of policies that can be assigned to users, enabling
     group-based permission management. Roles define what actions users can
     perform on resources.
@@ -35,32 +35,13 @@ class Base(BaseModel):
         internal: Is true if this is a built-in system role that cannot be deleted.
     """
 
-    key: Key
+    key: Key = Field(default_factory=uuid4)
     name: str
-    description: str | None = None
-    internal: bool | None = None
+    description: str = ""
+    internal: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class Role(BaseModel):
-    """Contains parameters for creating a new role.
-
-    Attributes:
-        key: Is an optional key for the role. If not provided, one will be
-            automatically assigned.
-        name: Is a human-readable name for the role (e.g., 'Administrator',
-            'Engineer').
-        description: Is an optional description explaining what permissions the role
-            provides.
-        internal: Is true if this is a built-in system role that cannot be deleted.
-    """
-
-    key: Key | None = None
-    name: str
-    description: str | None = None
-    internal: bool | None = None
 
 
 ONTOLOGY_TYPE = ID(type="role")

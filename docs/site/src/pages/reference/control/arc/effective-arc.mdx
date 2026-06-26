@@ -4,8 +4,8 @@ title: "Effective Arc"
 description: "Best practices and common pitfalls when writing Arc automations"
 prev: "Test Sequences"
 prevURL: "/reference/control/arc/how-to/test-sequences"
-next: "Syntax"
-nextURL: "/reference/control/arc/reference/syntax"
+next: "Language Reference"
+nextURL: "/reference/control/arc/reference"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -51,7 +51,7 @@ sensor -> filter{} -> output
 pressure > 500 => next
 ```
 
-For stage and sequence transitions, `=>` is what you want. `->` into a stage name also
+For sequence and stage transitions, `=>` is what you want. `->` into a stage name also
 transitions but fires on the first data arrival regardless of truthiness, which rarely
 matches operator intent.
 
@@ -86,7 +86,7 @@ sequence prime {
     1 -> press_vlv_cmd
     stage {
         tank_pressure > 500 => next
-        wait{30s} => abort
+        time.wait{30s} => abort
     }
     0 -> press_vlv_cmd
 }
@@ -95,15 +95,15 @@ sequence prime {
 sequence prime {
     stage close_vent {
         0 -> vent_vlv_cmd
-        wait{1ms} => next
+        time.wait{1ms} => next
     }
     stage open_press {
         1 -> press_vlv_cmd
-        wait{1ms} => next
+        time.wait{1ms} => next
     }
     stage wait_pressure {
         tank_pressure > 500 => next
-        wait{30s} => abort
+        time.wait{30s} => abort
     }
     stage close_press {
         0 -> press_vlv_cmd
@@ -151,6 +151,8 @@ func rate(value f64) f64 {
 Start programs at authority 200 (or lower) rather than the default 255:
 
 ```arc
+import control
+
 authority 200
 
 sequence main {
@@ -161,7 +163,7 @@ sequence main {
 
     stage emergency {
         // Escalate to override all other writers
-        set_authority{value=255}
+        control.set_authority{value=255}
         0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
     }
@@ -284,7 +286,7 @@ Add timeouts:
 ```arc
 stage wait_with_timeout {
     some_condition => next
-    wait{duration=30s} => timeout_stage
+    time.wait{duration=30s} => timeout_stage
 }
 ```
 
@@ -297,13 +299,13 @@ stage wait_with_timeout {
 The C++ driver runtime supports control loops up to 1kHz. For timing-critical
 applications:
 
-- Use `interval{period=...}` for consistent timing
+- Use `time.interval{period=...}` for consistent timing
 - Keep flow chains short
 - Avoid complex calculations in hot paths
 
 ```arc
 // 1kHz control loop
-interval{period=1ms} -> fast_controller{}
+time.interval{period=1ms} -> fast_controller{}
 ```
 
 ### Minimize Work Per Cycle

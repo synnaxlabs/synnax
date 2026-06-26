@@ -10,8 +10,8 @@
 import { bounds, box, location, scale, xy } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
+import { rule } from "@/lineplot/rule/aether";
 import { line } from "@/vis/line/aether";
-import { rule } from "@/vis/rule/aether";
 
 export const yAxisStateZ = baseAxisStateZ.extend({
   location: location.xZ.default("left"),

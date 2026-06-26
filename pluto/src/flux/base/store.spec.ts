@@ -205,6 +205,78 @@ describe("Base Store", () => {
         });
       });
 
+      describe("Set If Absent", () => {
+        interface KeyedValue extends record.Keyed<string> {
+          key: string;
+          value: string;
+        }
+
+        it("should insert a single value when the key is absent", () => {
+          const store = new ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          ).scope("scope");
+          store.setIfAbsent({ key: "key1", value: "value1" });
+          expect(store.get("key1")).toEqual({ key: "key1", value: "value1" });
+        });
+
+        it("should leave an existing value untouched", () => {
+          const store = new ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          ).scope("scope");
+          store.set({ key: "key1", value: "original" });
+          store.setIfAbsent({ key: "key1", value: "replacement" });
+          expect(store.get("key1")).toEqual({ key: "key1", value: "original" });
+        });
+
+        it("should insert only the absent keys from an array", () => {
+          const store = new ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          ).scope("scope");
+          store.set({ key: "key1", value: "original" });
+          store.setIfAbsent([
+            { key: "key1", value: "replacement" },
+            { key: "key2", value: "value2" },
+          ]);
+          expect(store.get("key1")).toEqual({ key: "key1", value: "original" });
+          expect(store.get("key2")).toEqual({ key: "key2", value: "value2" });
+        });
+
+        it("should not notify set listeners for keys that already exist", () => {
+          const baseStore = new ScopedUnaryStore<string, KeyedValue>(basicHandleError);
+          const scope1 = baseStore.scope("scope1");
+          const scope2 = baseStore.scope("scope2");
+          const setListener = vi.fn();
+
+          scope1.set({ key: "key1", value: "original" });
+          scope2.onSet(setListener);
+          scope1.setIfAbsent([
+            { key: "key1", value: "replacement" },
+            { key: "key2", value: "value2" },
+          ]);
+
+          expect(setListener).toHaveBeenCalledTimes(1);
+          expect(setListener).toHaveBeenCalledWith(
+            { key: "key2", value: "value2" },
+            undefined,
+          );
+        });
+
+        it("should only roll back the keys it inserted", () => {
+          const store = new ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          ).scope("scope");
+          store.set({ key: "key1", value: "original" });
+          const rollback = store.setIfAbsent([
+            { key: "key1", value: "replacement" },
+            { key: "key2", value: "value2" },
+          ]);
+
+          rollback();
+          expect(store.get("key1")).toEqual({ key: "key1", value: "original" });
+          expect(store.get("key2")).toBeUndefined();
+        });
+      });
+
       describe("Rollback Functionality", () => {
         describe("Set Rollback", () => {
           it("should rollback a set operation for new entry", () => {
@@ -954,7 +1026,7 @@ describe("Base Store", () => {
           expect(errorCall[1]).toBe("Failed to notify set listener");
         });
 
-        it("should continue notifying other listeners when one throws an error", async () => {
+        it("should continue notifying other listeners when one throws an error", () => {
           const baseStore = new ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
@@ -970,15 +1042,13 @@ describe("Base Store", () => {
 
           scope1.set("key1", "value1");
 
-          await new Promise((resolve) => setTimeout(resolve, 10));
-
           expect(listener1).toHaveBeenCalledWith("value1", undefined);
           expect(listener2).toHaveBeenCalledWith("value1", undefined);
           expect(listener3).toHaveBeenCalledWith("value1", undefined);
           expect(squashError).toHaveBeenCalledTimes(3);
         });
 
-        it("should handle errors from multiple listeners", async () => {
+        it("should handle errors from multiple listeners", () => {
           const baseStore = new ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
@@ -995,8 +1065,6 @@ describe("Base Store", () => {
           scope2.onSet(listener3);
 
           scope1.set("key1", "value1");
-
-          await new Promise((resolve) => setTimeout(resolve, 10));
 
           expect(listener3).toHaveBeenCalledWith("value1", undefined);
           expect(squashError).toHaveBeenCalledTimes(3);
@@ -1112,7 +1180,7 @@ describe("Base Store", () => {
           expect(errorCall[1]).toBe("Failed to notify delete listener");
         });
 
-        it("should continue notifying other listeners when one throws an error", async () => {
+        it("should continue notifying other listeners when one throws an error", () => {
           const baseStore = new ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
@@ -1129,15 +1197,13 @@ describe("Base Store", () => {
           scope1.set("key1", "value1");
           scope1.delete("key1");
 
-          await new Promise((resolve) => setTimeout(resolve, 10));
-
           expect(listener1).toHaveBeenCalledWith("key1");
           expect(listener2).toHaveBeenCalledWith("key1");
           expect(listener3).toHaveBeenCalledWith("key1");
           expect(squashError).toHaveBeenCalledTimes(3);
         });
 
-        it("should handle errors from multiple delete listeners", async () => {
+        it("should handle errors from multiple delete listeners", () => {
           const baseStore = new ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
@@ -1155,8 +1221,6 @@ describe("Base Store", () => {
 
           scope1.set("key1", "value1");
           scope1.delete("key1");
-
-          await new Promise((resolve) => setTimeout(resolve, 10));
 
           expect(listener3).toHaveBeenCalledWith("key1");
           expect(squashError).toHaveBeenCalledTimes(3);

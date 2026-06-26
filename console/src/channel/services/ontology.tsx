@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, isCalculated, ontology, ranger } from "@synnaxlabs/client";
+import { channel, isCalculated, ontology, ranger, status } from "@synnaxlabs/client";
 import {
   Access,
   Channel as PChannel,
@@ -22,25 +22,28 @@ import {
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { id, primitive, status } from "@synnaxlabs/x";
+import { id, primitive } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
 import { Group } from "@/group";
+import { LinePlot } from "@/layered/service/lineplot";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
+import { Project } from "@/project";
 import { Range } from "@/range";
 
 const handleSelect: Ontology.HandleSelect = ({
+  client,
   store,
   placeLayout,
   selection,
+  handleError,
 }): void => {
   const state = store.getState();
   const layout = Layout.selectActiveMosaicLayout(state);
@@ -54,25 +57,25 @@ const handleSelect: Ontology.HandleSelect = ({
 
   // Otherwise, update the layout with the selected channels.
   switch (layout?.type) {
-    case LinePlot.LAYOUT_TYPE:
-      store.dispatch(
-        LinePlot.setYChannels({
-          key: layout.key,
-          mode: "add",
-          axisKey: "y1",
-          channels: nonVirtualSelection,
-        }),
+    case LinePlot.LAYOUT_TYPE: {
+      handleError(
+        () => LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
+        "Failed to add channels to plot",
       );
       break;
-    default:
-      placeLayout(
-        LinePlot.create({
-          channels: {
-            ...LinePlot.ZERO_CHANNELS_STATE,
-            y1: nonVirtualSelection,
-          },
-        }),
-      );
+    }
+    default: {
+      const project = Project.selectActiveKey(state);
+      const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_KEY;
+      handleError(async () => {
+        const { key, name } = await client.lineplots.create(project, {
+          name: "Line Plot",
+          channels: { y1: nonVirtualSelection },
+          ranges: { x1: [activeRange] },
+        });
+        placeLayout(LinePlot.create({ key, name }));
+      }, "Failed to create plot");
+    }
   }
 };
 

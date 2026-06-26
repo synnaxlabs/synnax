@@ -10,6 +10,8 @@
 package lsp
 
 import (
+	"slices"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -26,6 +28,11 @@ const (
 	ContextConfigParamName
 	ContextConfigParamValue
 	ContextAuthorityEntry
+	// ContextImportPath marks positions where the cursor sits in the
+	// module-name slot of an `import` statement. Only module names should
+	// be suggested there — not channels, functions, or other unrelated
+	// symbols.
+	ContextImportPath
 	// ContextNone marks positions where the editor should not surface any
 	// completions, such as the same line as the opening brace of a func,
 	// sequence, or stage body. Completions resume once the cursor moves to
@@ -50,8 +57,8 @@ func findConfigBrace(tokens []antlr.Token) *configBraceResult {
 	}
 	braceDepth := 0
 	configBraceIndex := -1
-	for i := len(tokens) - 1; i >= 0; i-- {
-		tokenType := tokens[i].GetTokenType()
+	for i, token := range slices.Backward(tokens) {
+		tokenType := token.GetTokenType()
 		switch tokenType {
 		case parser.ArcLexerRBRACE:
 			braceDepth++
@@ -107,10 +114,16 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	if isSameLineAfterOpenBrace(lastToken, pos) {
 		return ContextNone
 	}
+	if isDeclarationNameContext(tokensBeforeCursor) {
+		return ContextNone
+	}
+	if isImportPathContext(tokensBeforeCursor) {
+		return ContextImportPath
+	}
 	if isTypeAnnotationContext(tokensBeforeCursor, lastToken) {
 		return ContextTypeAnnotation
 	}
-	if isExpressionContext(lastToken) {
+	if isExpressionContext(tokensBeforeCursor, lastToken) {
 		return ContextExpression
 	}
 	// When the last token is a partial identifier the user is typing, strip it
@@ -119,7 +132,7 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	if lastToken.GetTokenType() == parser.ArcLexerIDENTIFIER && len(tokensBeforeCursor) >= 2 {
 		stripped := tokensBeforeCursor[:len(tokensBeforeCursor)-1]
 		strippedLast := stripped[len(stripped)-1]
-		if isExpressionContext(strippedLast) {
+		if isExpressionContext(stripped, strippedLast) {
 			return ContextExpression
 		}
 		if isStatementStartContext(stripped, strippedLast, pos) {
@@ -216,6 +229,103 @@ func getTokensBeforeCursor(tokens []antlr.Token, pos protocol.Position) []antlr.
 	return result
 }
 
+// isDeclarationNameContext reports whether the cursor sits at the slot
+// that introduces a new identifier following a `sequence`, `stage`, or
+// `func` keyword (with or without a partial name already typed). Those
+// slots cannot legally reference any existing symbol, so no completions
+// should be offered. `import` is intentionally excluded: the slot after
+// `import` references an existing module name and should still surface
+// module suggestions.
+func isDeclarationNameContext(tokens []antlr.Token) bool {
+	if len(tokens) == 0 {
+		return false
+	}
+	last := tokens[len(tokens)-1]
+	if isDeclarationKeyword(last.GetTokenType()) {
+		return true
+	}
+	if last.GetTokenType() == parser.ArcLexerIDENTIFIER && len(tokens) >= 2 {
+		prev := tokens[len(tokens)-2]
+		if isDeclarationKeyword(prev.GetTokenType()) {
+			return true
+		}
+	}
+	return false
+}
+
+// isImportPathContext reports whether the cursor sits in the module-name
+// slot of an `import` statement (loose form `import name` or block form
+// `import ( name ... )`). The slot legally references only module names,
+// so the completion list should be filtered to modules.
+//
+// Detection has two paths:
+//   - Loose form: walking back must match `IDENT (DOT IDENT)* IMPORT`
+//     entirely on the cursor's current source line. The same-line
+//     constraint is what prevents a bare `m` on a new line after a
+//     previous `import math` from being misread as another import path.
+//   - Block form: there must be an unmatched LPAREN somewhere behind the
+//     cursor whose preceding token is IMPORT. Newlines inside the block
+//     are fine.
+func isImportPathContext(tokens []antlr.Token) bool {
+	if len(tokens) == 0 {
+		return false
+	}
+	anchorLine := tokens[len(tokens)-1].GetLine()
+	end := len(tokens) - 1
+	if tokens[end].GetTokenType() == parser.ArcLexerIDENTIFIER {
+		end--
+	}
+	j := end
+	if j >= 0 &&
+		tokens[j].GetLine() == anchorLine &&
+		tokens[j].GetTokenType() == parser.ArcLexerDOT {
+		j--
+	}
+	for j >= 0 && tokens[j].GetLine() == anchorLine {
+		if tokens[j].GetTokenType() == parser.ArcLexerIMPORT {
+			return true
+		}
+		if tokens[j].GetTokenType() != parser.ArcLexerIDENTIFIER {
+			break
+		}
+		j--
+		if j < 0 || tokens[j].GetLine() != anchorLine {
+			break
+		}
+		if tokens[j].GetTokenType() == parser.ArcLexerIMPORT {
+			return true
+		}
+		if tokens[j].GetTokenType() != parser.ArcLexerDOT {
+			break
+		}
+		j--
+	}
+	parenDepth := 0
+	for k := end; k >= 0; k-- {
+		switch tokens[k].GetTokenType() {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+		case parser.ArcLexerLPAREN:
+			if parenDepth > 0 {
+				parenDepth--
+				continue
+			}
+			return k >= 1 && tokens[k-1].GetTokenType() == parser.ArcLexerIMPORT
+		}
+	}
+	return false
+}
+
+func isDeclarationKeyword(t int) bool {
+	switch t {
+	case parser.ArcLexerSEQUENCE,
+		parser.ArcLexerSTAGE,
+		parser.ArcLexerFUNC:
+		return true
+	}
+	return false
+}
+
 func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 	if lastToken.GetTokenType() != parser.ArcLexerIDENTIFIER {
 		return false
@@ -247,8 +357,8 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 // (FUNC IDENTIFIER LBRACE ... RBRACE LPAREN).
 func isFuncParamParentheses(tokens []antlr.Token) bool {
 	depth := 0
-	for i := len(tokens) - 1; i >= 0; i-- {
-		switch tokens[i].GetTokenType() {
+	for i, token := range slices.Backward(tokens) {
+		switch token.GetTokenType() {
 		case parser.ArcLexerRPAREN:
 			depth++
 		case parser.ArcLexerLPAREN:
@@ -278,8 +388,11 @@ func isFuncParamParentheses(tokens []antlr.Token) bool {
 	return false
 }
 
-func isExpressionContext(lastToken antlr.Token) bool {
+func isExpressionContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 	tokenType := lastToken.GetTokenType()
+	if tokenType == parser.ArcLexerCOMMA {
+		return isExpressionLevelComma(tokens)
+	}
 	switch tokenType {
 	case parser.ArcLexerDECLARE,
 		parser.ArcLexerSTATE_DECLARE,
@@ -306,9 +419,48 @@ func isExpressionContext(lastToken antlr.Token) bool {
 		parser.ArcLexerNOT,
 		parser.ArcLexerLPAREN,
 		parser.ArcLexerLBRACKET,
-		parser.ArcLexerCOMMA,
 		parser.ArcLexerRETURN:
 		return true
+	}
+	return false
+}
+
+// isExpressionLevelComma reports whether the innermost unmatched opening
+// delimiter walking back from the end of tokens is `(` or `[` — i.e. the
+// trailing comma is separating function arguments, function parameters, or
+// array elements. Returns false when the innermost unmatched opening is `{`
+// (a body block) or when there is no unmatched opening at all, in which case
+// the comma is acting as a statement separator and the next position is
+// statement-start, not expression.
+func isExpressionLevelComma(tokens []antlr.Token) bool {
+	parenDepth, bracketDepth, braceDepth := 0, 0, 0
+	for _, token := range slices.Backward(tokens) {
+		switch token.GetTokenType() {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+		case parser.ArcLexerLPAREN:
+			if parenDepth > 0 {
+				parenDepth--
+			} else {
+				return braceDepth == 0
+			}
+		case parser.ArcLexerRBRACKET:
+			bracketDepth++
+		case parser.ArcLexerLBRACKET:
+			if bracketDepth > 0 {
+				bracketDepth--
+			} else {
+				return braceDepth == 0
+			}
+		case parser.ArcLexerRBRACE:
+			braceDepth++
+		case parser.ArcLexerLBRACE:
+			if braceDepth > 0 {
+				braceDepth--
+			} else {
+				return false
+			}
+		}
 	}
 	return false
 }
@@ -334,6 +486,14 @@ func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos pr
 	if tokenType == parser.ArcLexerLBRACE {
 		return cursorLine > lastLine
 	}
+	// A comma at statement level (not inside a function call, parameter list,
+	// or array literal) terminates the preceding statement. The next position
+	// is the start of a new statement regardless of whether the cursor has
+	// moved to a new line — unlike `{`, a comma is a closer, not an opener,
+	// so there is no need to suppress completions until the cursor wraps.
+	if tokenType == parser.ArcLexerCOMMA {
+		return !isExpressionLevelComma(tokens)
+	}
 	if len(tokens) == 0 {
 		return true
 	}
@@ -356,8 +516,8 @@ func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos pr
 // isAuthorityEntryContext checks if the cursor is inside an authority(...) block.
 func isAuthorityEntryContext(tokens []antlr.Token) bool {
 	parenDepth := 0
-	for i := len(tokens) - 1; i >= 0; i-- {
-		tokenType := tokens[i].GetTokenType()
+	for i, token := range slices.Backward(tokens) {
+		tokenType := token.GetTokenType()
 		switch tokenType {
 		case parser.ArcLexerRPAREN:
 			parenDepth++
@@ -380,8 +540,8 @@ func extractAuthorityExistingChannels(content string, pos protocol.Position) []s
 	// Find the opening paren of the authority block.
 	parenDepth := 0
 	parenIdx := -1
-	for i := len(tokensBeforeCursor) - 1; i >= 0; i-- {
-		tokenType := tokensBeforeCursor[i].GetTokenType()
+	for i, t := range slices.Backward(tokensBeforeCursor) {
+		tokenType := t.GetTokenType()
 		switch tokenType {
 		case parser.ArcLexerRPAREN:
 			parenDepth++

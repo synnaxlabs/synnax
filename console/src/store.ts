@@ -21,85 +21,84 @@ import { type deep, type record } from "@synnaxlabs/x";
 import { Arc } from "@/arc";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
-import { Log } from "@/log";
 import { Persist } from "@/persist";
+import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
-import { Schematic } from "@/schematic";
 import { Status } from "@/status";
-import { Table } from "@/table";
-import { Version } from "@/version";
-import { Workspace } from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
-  ...Schematic.PERSIST_EXCLUDE,
+  ...Session.LinePlot.PERSIST_EXCLUDE,
+  ...Session.Log.PERSIST_EXCLUDE,
+  ...Session.Schematic.PERSIST_EXCLUDE,
+  ...Session.Table.PERSIST_EXCLUDE,
 ];
 
 const ZERO_STATE: RootState = {
+  [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
-  [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
-  [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+  [Session.Log.SLICE_NAME]: Session.Log.ZERO_SLICE_STATE,
+  [Session.LinePlot.SLICE_NAME]: Session.LinePlot.ZERO_SLICE_STATE,
+  [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
-  [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
-  [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
-  [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
-  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
-  [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
+  [Session.Table.SLICE_NAME]: Session.Table.ZERO_SLICE_STATE,
+  [Session.Theme.SLICE_NAME]: Session.Theme.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
+  [Arc.SLICE_NAME]: Arc.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
-  [LinePlot.SLICE_NAME]: LinePlot.reducer,
-  [Log.SLICE_NAME]: Log.reducer,
+  [Session.Log.SLICE_NAME]: Session.Log.reducer,
+  [Session.LinePlot.SLICE_NAME]: Session.LinePlot.reducer,
+  [Project.SLICE_NAME]: Project.reducer,
   [Range.SLICE_NAME]: Range.reducer,
-  [Schematic.SLICE_NAME]: Schematic.reducer,
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
-  [Table.SLICE_NAME]: Table.reducer,
-  [Version.SLICE_NAME]: Version.reducer,
-  [Workspace.SLICE_NAME]: Workspace.reducer,
-  [Arc.SLICE_NAME]: Arc.reducer,
+  [Session.Table.SLICE_NAME]: Session.Table.reducer,
+  [Session.Theme.SLICE_NAME]: Session.Theme.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
+  [Arc.SLICE_NAME]: Arc.SliceState;
   [Cluster.SLICE_NAME]: Cluster.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
-  [LinePlot.SLICE_NAME]: LinePlot.SliceState;
-  [Log.SLICE_NAME]: Log.SliceState;
+  [Session.Log.SLICE_NAME]: Session.Log.SliceState;
+  [Session.LinePlot.SLICE_NAME]: Session.LinePlot.SliceState;
+  [Project.SLICE_NAME]: Project.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
-  [Schematic.SLICE_NAME]: Schematic.SliceState;
+  [Session.Schematic.SLICE_NAME]: Session.Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
-  [Table.SLICE_NAME]: Table.SliceState;
-  [Version.SLICE_NAME]: Version.SliceState;
-  [Workspace.SLICE_NAME]: Workspace.SliceState;
-  [Arc.SLICE_NAME]: Arc.SliceState;
+  [Session.Table.SLICE_NAME]: Session.Table.SliceState;
+  [Session.Theme.SLICE_NAME]: Session.Theme.SliceState;
 }
 
 export type RootAction =
+  | Arc.Action
   | Cluster.Action
   | Docs.Action
   | Drift.Action
   | Layout.Action
-  | LinePlot.Action
-  | Log.Action
+  | Session.Log.Action
+  | Session.LinePlot.Action
+  | Project.Action
   | Range.Action
-  | Schematic.Action
+  | Session.Schematic.Action
   | Status.Action
-  | Table.Action
-  | Version.Action
-  | Workspace.Action
-  | Arc.Action;
+  | Session.Table.Action
+  | Session.Theme.Action;
 
 export type RootStore = Store<RootState, RootAction>;
 
@@ -110,32 +109,26 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
 
 export const migrateState = (prev: RootState): RootState => {
   console.group("Migrating State");
-  console.log(`Previous Console Version: ${prev[Version.SLICE_NAME].version}`);
-  const layout = Layout.migrateSlice(prev.layout);
-  const schematic = Schematic.migrateSlice(prev.schematic);
-  const line = LinePlot.migrateSlice(prev.line);
-  const log = Log.migrateSlice(prev.log);
-  const version = Version.migrateSlice(prev.version);
-  const workspace = Workspace.migrateSlice(prev.workspace);
-  const range = Range.migrateSlice(prev.range);
-  const docs = Docs.migrateSlice(prev.docs);
-  const cluster = Cluster.migrateSlice(prev.cluster);
   const arc = Arc.migrateSlice(prev.arc);
+  const cluster = Cluster.migrateSlice(prev.cluster);
+  const docs = Docs.migrateSlice(prev.docs);
+  const layout = Layout.migrateSlice(prev.layout);
+  // The project slice was persisted under "workspace" before the rename;
+  // migrateLegacySlice reads the legacy key so an upgrading user keeps their saved
+  // active project.
+  const project = Project.migrateLegacySlice(prev);
+  const range = Range.migrateSlice(prev.range);
   const status = Status.migrateSlice(prev.status);
   console.log("Migrated State");
   console.groupEnd();
   return {
     ...prev,
-    layout,
-    schematic,
-    line,
-    log,
-    version,
-    workspace,
-    range,
-    docs,
-    cluster,
     arc,
+    cluster,
+    docs,
+    layout,
+    project,
+    range,
     status,
   };
 };
@@ -164,8 +157,7 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 
 const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
-  ...LinePlot.MIDDLEWARE,
-  ...Schematic.MIDDLEWARE,
+  ...Session.LinePlot.MIDDLEWARE,
   ...Arc.MIDDLEWARE,
 ];
 

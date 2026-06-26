@@ -19,11 +19,11 @@ from console.docs import DocsClient
 from console.labels import LabelClient
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
+from console.project import ProjectClient
 from console.ranges import RangesClient
 from console.statuses import StatusesClient
 from console.tasks import TaskClient
-from console.workspace import WorkspaceClient
-from framework.utils import get_results_path
+from framework.run_dir import resolve_results_path
 
 
 class Console:
@@ -47,7 +47,7 @@ class Console:
     ranges: RangesClient
     statuses: StatusesClient
     tasks: TaskClient
-    workspace: WorkspaceClient
+    project: ProjectClient
     page: Page
 
     def __init__(self, page: Page, client: sy.Synnax):
@@ -64,7 +64,7 @@ class Console:
         self.ranges = RangesClient(self.layout)
         self.statuses = StatusesClient(self.layout)
         self.tasks = TaskClient(self.layout)
-        self.workspace = WorkspaceClient(self.layout, self.client)
+        self.project = ProjectClient(self.layout, self.client)
 
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
@@ -82,7 +82,7 @@ class Console:
             name = name + ".png"
 
         self.page.screenshot(
-            path=get_results_path(name),
+            path=resolve_results_path(name),
             full_page=True,
             animations="disabled",
             type="png",

@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,10 +22,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackv0 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -32,7 +33,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -44,6 +44,10 @@ var _ = Describe("Rack", Ordered, func() {
 		db     *gorp.DB
 		svc    *rack.Service
 		stat   *status.Service
+		// frozenNow pins the health monitor's clock to a fixed timestamp when
+		// non-zero, letting timing tests stop logical time instead of racing the
+		// wall clock. Zero means use the real clock.
+		frozenNow atomic.Int64
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -77,10 +81,17 @@ var _ = Describe("Rack", Ordered, func() {
 
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
+			Now: func() telem.TimeStamp {
+				if t := frozenNow.Load(); t != 0 {
+					return telem.TimeStamp(t)
+				}
+				return telem.Now()
+			},
 		}))
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
+		frozenNow.Store(0)
 		tx = DeferClose(db.OpenTx())
 		writer = svc.NewWriter(tx)
 	})
@@ -166,6 +177,22 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should return an error if the rack has no name", func(ctx SpecContext) {
 			r := &rack.Rack{}
 			Expect(writer.Create(ctx, r)).Error().To(MatchError(ContainSubstring("name")))
+		})
+	})
+	Describe("CreateMany", func() {
+		It("Should create multiple racks", func(ctx SpecContext) {
+			racks := []rack.Rack{
+				{Name: "rack-many-1"},
+				{Name: "rack-many-2"},
+			}
+			Expect(writer.CreateMany(ctx, &racks)).To(Succeed())
+
+			var retrieved []rack.Rack
+			Expect(svc.NewRetrieve().Where(rack.MatchKeys(
+				racks[0].Key,
+				racks[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
 		})
 	})
 	Describe("Retrieve", func() {
@@ -512,7 +539,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 			Expect(s.Message).To(Equal("Status unknown"))
-			Expect(s.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 			Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
 			Expect(s.Details.Rack).To(Equal(r.Key))
@@ -520,7 +547,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should use the provided status when creating a rack", func(ctx SpecContext) {
 			providedStatus := &rack.Status{
-				Variant:     xstatus.VariantSuccess,
+				Variant:     status.VariantSuccess,
 				Time:        telem.Now(),
 				Message:     "Custom status message",
 				Description: "Custom description",
@@ -530,7 +557,7 @@ var _ = Describe("Rack", Ordered, func() {
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 			Expect(s.Message).To(Equal("Custom status message"))
 			Expect(s.Description).To(Equal("Custom description"))
-			Expect(s.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(s.Variant).To(Equal(status.VariantSuccess))
 			// Key should be auto-assigned to match ontology ID
 			Expect(s.Key).To(Equal(rack.OntologyID(r.Key).String()))
 			// Time should be auto-filled
@@ -550,6 +577,50 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).Error().To(MatchError(ContainSubstring("variant")))
 		})
 
+		It("Should restore a missing status row when the rack is re-configured", func(ctx SpecContext) {
+			r := rack.Rack{Name: "heal rack"}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+
+			Expect(status.NewWriter[rack.StatusDetails](stat, tx).
+				Delete(ctx, rack.OntologyID(r.Key).String())).To(Succeed())
+			Expect(status.NewRetrieve[rack.StatusDetails](stat).
+				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+
+			reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
+			Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
+
+			var healed rack.Status
+			Expect(status.NewRetrieve[rack.StatusDetails](stat).
+				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Entry(&healed).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(healed.Details.Rack).To(Equal(r.Key))
+		})
+
+		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
+			r := rack.Rack{
+				Name: "live status rack",
+				Status: &rack.Status{
+					Variant: status.VariantSuccess,
+					Message: "Rack is connected",
+					Time:    telem.Now(),
+				},
+			}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+
+			reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
+			Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
+
+			var preserved rack.Status
+			Expect(status.NewRetrieve[rack.StatusDetails](stat).
+				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Entry(&preserved).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
+			Expect(preserved.Message).To(Equal("Rack is connected"))
+		})
+
 		It("Should mark a rack as dead when it doesn't receive a status within the health check interval", func(ctx SpecContext) {
 			r := rack.Rack{Name: "dead test rack"}
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
@@ -557,7 +628,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Eventually(func(g Gomega) {
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 				g.Expect(s.Message).To(Equal("Synnax Driver on dead test rack not running"))
-				g.Expect(s.Variant).To(Equal(xstatus.VariantWarning))
+				g.Expect(s.Variant).To(Equal(status.VariantWarning))
 				g.Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 				g.Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
 				g.Expect(s.Details.Rack).To(Equal(r.Key))
@@ -566,29 +637,28 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 
 		It("Should not mark a rack as dead when the status is actively updated", func(ctx SpecContext) {
+			// Freeze logical time so that, from the monitor's perspective, no time
+			// elapses after a rack reports healthy. The health check ticker keeps
+			// firing on the real clock, but now - lastUpdated stays zero, so an
+			// actively-updated rack must never be marked dead.
+			frozenNow.Store(int64(telem.Now()))
+
 			r := rack.Rack{Name: "active test rack"}
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
-			statusWriter := status.NewWriter[rack.StatusDetails](stat, nil)
+			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
+				Key:     rack.OntologyID(r.Key).String(),
+				Name:    r.Name,
+				Time:    telem.Now(),
+				Variant: status.VariantSuccess,
+				Message: "Running",
+				Details: rack.StatusDetails{Rack: r.Key},
+			})).To(Succeed())
 
-			// Wait longer than the health check interval and verify the status
-			// is still what we set (not overwritten with "not running") as long
-			// as we keep actively updating it
 			Consistently(func(g Gomega) {
-				// Actively update the status to simulate a running driver
-				activeStatus := &rack.Status{
-					Key:     rack.OntologyID(r.Key).String(),
-					Name:    r.Name,
-					Time:    telem.Now(),
-					Variant: xstatus.VariantSuccess,
-					Message: "Running",
-					Details: rack.StatusDetails{Rack: r.Key},
-				}
-				g.Expect(statusWriter.Set(ctx, activeStatus)).To(Succeed())
-
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 				g.Expect(s.Message).To(Equal("Running"))
-				g.Expect(s.Variant).To(Equal(xstatus.VariantSuccess))
+				g.Expect(s.Variant).To(Equal(status.VariantSuccess))
 				g.Expect(s.Description).ToNot(ContainSubstring("Driver was last alive"))
 			}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
 		})
@@ -650,7 +720,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Key:     rack.OntologyID(r.Key).String(),
 				Name:    r.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.VariantSuccess,
+				Variant: status.VariantSuccess,
 				Message: "Running",
 				Details: rack.StatusDetails{Rack: r.Key},
 			})).To(Succeed())
@@ -721,7 +791,7 @@ var _ = Describe("Migration", func() {
 			Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(rack.Key(r.Key)).String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
-		Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
+		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 		Expect(restoredStatus.Message).To(Equal("Status unknown"))
 		Expect(restoredStatus.Details.Rack).To(Equal(rack.Key(r.Key)))
 	})
@@ -759,7 +829,7 @@ var _ = Describe("Migration", func() {
 			Exec(ctx, db)).To(Succeed())
 
 		svc := openService(ctx)
-		Expect(svc.EmbeddedKey).ToNot(Equal(mismatchedRack.Key))
+		Expect(svc.EmbeddedKey).ToNot(BeEquivalentTo(mismatchedRack.Key))
 
 		var embeddedRack rack.Rack
 		Expect(svc.NewRetrieve().

@@ -42,15 +42,9 @@ func OntologyIDsFromPolicies(policies []Policy) []ontology.ID {
 
 // KeysFromOntologyIDs extracts the Policy keys from the given ontology.IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	keys := make([]Key, len(ids))
-	var err error
-	for i, id := range ids {
-		keys[i], err = uuid.Parse(id.Key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return uuid.Parse(id.Key)
+	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

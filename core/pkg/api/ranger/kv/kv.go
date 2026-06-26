@@ -27,7 +27,6 @@ import (
 type Pair = kv.Pair
 
 type Service struct {
-	db     *gorp.DB
 	access *rbac.Service
 	kv     *kv.Service
 }
@@ -38,7 +37,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:     cfg.Distribution.DB,
 		access: cfg.Service.RBAC,
 		kv:     cfg.Service.KV,
 	}, nil
@@ -50,15 +48,12 @@ type (
 		Range ranger.Key `json:"range" msgpack:"range"`
 	}
 	GetResponse struct {
-		Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
+		Pairs []kv.Pair `json:"pairs,omitzero" msgpack:"pairs,omitzero"`
 	}
 )
 
-func (s *Service) Get(
-	ctx context.Context,
-	req GetRequest,
-) (GetResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+func (s *Service) Get(ctx context.Context, req GetRequest) (GetResponse, error) {
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
@@ -67,21 +62,18 @@ func (s *Service) Get(
 	}
 	reader := s.kv.NewReader(nil)
 	var (
-		res GetResponse
-		err error
+		pairs []kv.Pair
+		err   error
 	)
 	if len(req.Keys) == 0 {
-		res.Pairs, err = reader.List(ctx, req.Range)
-		if err != nil {
-			return GetResponse{}, err
-		}
-		return res, nil
+		pairs, err = reader.List(ctx, req.Range)
+	} else {
+		pairs, err = reader.GetMany(ctx, req.Range, req.Keys)
 	}
-	res.Pairs, err = reader.GetMany(ctx, req.Range, req.Keys)
 	if err != nil {
 		return GetResponse{}, err
 	}
-	return res, nil
+	return GetResponse{Pairs: pairs}, nil
 }
 
 type SetRequest struct {
@@ -91,19 +83,17 @@ type SetRequest struct {
 
 func (s *Service) Set(
 	ctx context.Context,
+	tx gorp.Tx,
 	req SetRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.kv.NewWriter(tx)
-		return w.SetMany(ctx, req.Pairs)
-	})
+	return types.Nil{}, s.kv.NewWriter(tx).SetMany(ctx, req.Pairs)
 }
 
 type DeleteRequest struct {
@@ -113,22 +103,21 @@ type DeleteRequest struct {
 
 func (s *Service) Delete(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.kv.NewWriter(tx)
-		for _, key := range req.Keys {
-			if err := w.Delete(ctx, req.Range, key); err != nil {
-				return err
-			}
+	w := s.kv.NewWriter(tx)
+	for _, key := range req.Keys {
+		if err := w.Delete(ctx, req.Range, key); err != nil {
+			return types.Nil{}, err
 		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }

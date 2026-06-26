@@ -17,13 +17,12 @@ import {
   type Key,
   keyZ,
   type New,
-  newZ,
   type Symbol,
   symbolZ,
 } from "@/schematic/symbol/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
-const createReqZ = z.object({ symbols: newZ.array(), parent: ontology.idZ });
+const createReqZ = z.object({ symbols: symbolZ.array(), parent: ontology.idZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -42,7 +41,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveResZ = z.object({ symbols: array.nullishToEmpty(symbolZ) });
+const retrieveResZ = z.object({ symbols: symbolZ.array().default(() => []) });
 const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});

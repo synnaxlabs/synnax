@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -41,7 +40,7 @@ func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 			Key:     OntologyID(d.Key).String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
-			Variant: xstatus.VariantWarning,
+			Variant: status.VariantWarning,
 			Message: fmt.Sprintf("%s state unknown", d.Name),
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
@@ -52,6 +51,22 @@ func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 	stat.Details.Device = d.Key
 	stat.Details.Rack = d.Rack
 	return &stat
+}
+
+// healStatus restores a device's status row if it has gone missing (e.g. deleted
+// out-of-band) without clobbering a live one. Devices are re-created on every scan
+// cycle, so on a no-op update the default "unknown" status must not overwrite a status
+// the driver has already reported; it is only written when no row exists.
+func (w Writer) healStatus(
+	ctx context.Context,
+	stat *status.Status[StatusDetails],
+) error {
+	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
+		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+		Exists(ctx, w.tx); err != nil || exists {
+		return err
+	}
+	return w.status.Set(ctx, stat)
 }
 
 // Create creates or updates the given device. If device.Parent is non-zero, the device
@@ -101,7 +116,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 		if device.Name != existing.Name {
 			return w.status.Set(ctx, stat)
 		}
-		return nil
+		return w.healStatus(ctx, stat)
 	}
 	stat := resolveStatus(device, providedStatus)
 	device.Status = stat
@@ -125,6 +140,17 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
+}
+
+// CreateMany creates or updates the given devices. If devices with the same key already
+// exist, they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
+	for i := range *devices {
+		if err := w.Create(ctx, &(*devices)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Delete deletes the device with the given key and its associated status.

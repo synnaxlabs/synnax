@@ -12,21 +12,72 @@
 package log
 
 import (
-	"encoding/json"
-
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
 )
+
+func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(ce.Channel))
+	if err := ce.Color.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(ce.Notation))
+	w.Int32(int32(ce.Precision))
+	w.String(ce.Alias)
+	if err := ce.Timestamp.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		ce.Channel = channel.Key(v)
+	}
+	if err = ce.Color.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		ce.Notation = notation.Notation(v)
+	}
+	if ce.Precision, err = r.Int32(); err != nil {
+		return err
+	}
+	if ce.Alias, err = r.String(); err != nil {
+		return err
+	}
+	if err = ce.Timestamp.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
 
 func (lv Log) EncodeOrc(w *orc.Writer) error {
 	w.Write(lv.Key[:])
 	w.String(lv.Name)
-	{
-		b, err := json.Marshal(lv.Data)
-		if err != nil {
-			return err
+	w.Bool(lv.Channels != nil)
+	if lv.Channels != nil {
+		w.Uint32(uint32(len(lv.Channels)))
+		for i := range lv.Channels {
+			if err := lv.Channels[i].EncodeOrc(w); err != nil {
+				return err
+			}
 		}
-		w.WriteWithLen(b)
 	}
+	w.Int32(int32(lv.TimestampPrecision))
+	w.Bool(lv.HideChannelNames)
+	w.Bool(lv.HideReceiptTimestamp)
 	return nil
 }
 
@@ -39,13 +90,55 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		b, err := r.ReadWithLen()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &lv.Data); err != nil {
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			lv.Channels = make([]ChannelEntry, n)
+			for i := range lv.Channels {
+				if err = lv.Channels[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if lv.TimestampPrecision, err = r.Int32(); err != nil {
+		return err
+	}
+	if lv.HideChannelNames, err = r.Bool(); err != nil {
+		return err
+	}
+	if lv.HideReceiptTimestamp, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (tc TimestampConfig) EncodeOrc(w *orc.Writer) error {
+	w.String(string(tc.Format))
+	w.String(string(tc.Tz))
+	return nil
+}
+
+func (tc *TimestampConfig) DecodeOrc(r *orc.Reader) error {
+	{
+		v, err := r.String()
+		if err != nil {
 			return err
 		}
+		tc.Format = telem.TimestampFormat(v)
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.Tz = telem.TimeZone(v)
 	}
 	return nil
 }

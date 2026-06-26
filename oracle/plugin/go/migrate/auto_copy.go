@@ -14,6 +14,7 @@ package migrate
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -325,13 +326,44 @@ func (c *collector) structFuncFromForms(
 		c.addField(&fn, ext, "old."+name, name, false)
 	}
 	for _, oldField := range oldSF.Fields {
-		if findField(newSF.Fields, oldField.Name) == nil {
+		newField := findField(newSF.Fields, oldField.Name)
+		if newField == nil {
+			continue
+		}
+		if c.unionMismatch(oldField.Type, newField.Type) {
 			continue
 		}
 		name := naming.GetFieldName(oldField)
-		c.addField(&fn, oldField.Type, "old."+name, name, oldField.IsHardOptional)
+		c.addField(&fn, oldField.Type, "old."+name, name, oldField.Optional)
 	}
 	return fn
+}
+
+// unionMismatch reports whether a field's old and new types disagree on
+// union-ness at any position, which auto-copy cannot bridge; such fields are
+// left to the hand-written migration.
+func (c *collector) unionMismatch(oldRef, newRef resolution.TypeRef) bool {
+	if isUnionIn(oldRef, c.oldTable) != isUnionIn(newRef, c.newTable) {
+		return true
+	}
+	n := min(len(oldRef.TypeArgs), len(newRef.TypeArgs))
+	for i := range n {
+		if c.unionMismatch(oldRef.TypeArgs[i], newRef.TypeArgs[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// isUnionIn reports whether a type reference resolves to a discriminated
+// union within the given table.
+func isUnionIn(ref resolution.TypeRef, table *resolution.Table) bool {
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return false
+	}
+	_, isUnion := resolved.Form.(resolution.UnionForm)
+	return isUnion
 }
 
 func (c *collector) addField(fn *funcData, ref resolution.TypeRef, accessor, goName string, isOptional bool) {
@@ -546,19 +578,12 @@ func (c *collector) hasOracleDefinedFields(typ resolution.Type) bool {
 			return true
 		}
 	}
-	for _, ext := range sf.Extends {
-		if c.refHasOracleType(ext) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(sf.Extends, c.refHasOracleType)
 }
 
 func (c *collector) refHasOracleType(ref resolution.TypeRef) bool {
-	for _, arg := range ref.TypeArgs {
-		if c.refHasOracleType(arg) {
-			return true
-		}
+	if slices.ContainsFunc(ref.TypeArgs, c.refHasOracleType) {
+		return true
 	}
 	resolved, ok := ref.Resolve(c.oldTable)
 	if !ok {
@@ -572,12 +597,24 @@ func (c *collector) isStructLike(typ resolution.Type) bool {
 	case resolution.StructForm:
 		return true
 	case resolution.AliasForm:
+		// An alias to an array of an oracle struct (e.g. Members = Member[]) is
+		// struct-like: its elements need a per-element migrate, not a slice cast.
+		if elemRef, isArr := arrayBaseRef(typ); isArr {
+			if elem, ok := c.resolveRef(elemRef); ok {
+				return c.isStructLike(elem)
+			}
+		}
 		if r, ok := form.Target.Resolve(c.oldTable); ok {
 			if _, s := r.Form.(resolution.StructForm); s {
 				return true
 			}
 		}
 	case resolution.DistinctForm:
+		if elemRef, isArr := arrayBaseRef(typ); isArr {
+			if elem, ok := c.resolveRef(elemRef); ok {
+				return c.isStructLike(elem)
+			}
+		}
 		if r, ok := form.Base.Resolve(c.oldTable); ok {
 			if _, s := r.Form.(resolution.StructForm); s {
 				return true

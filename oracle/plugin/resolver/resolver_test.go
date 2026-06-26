@@ -22,7 +22,7 @@ import (
 
 func TestResolver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Resolver Suite")
+	RunSpecs(t, "Plugin Resolver Suite")
 }
 
 // MockImportAdder implements ImportAdder for testing.
@@ -450,6 +450,70 @@ var _ = Describe("Resolver", func() {
 				})).To(Succeed())
 
 				typeRef := resolution.TypeRef{Name: "other.NoOutputEnum"}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("any"))
+			})
+		})
+
+		Describe("Union Types", func() {
+			BeforeEach(func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "Scale",
+					QualifiedName: "test.Scale",
+					Namespace:     "test",
+					Form:          resolution.UnionForm{Discriminator: "type"},
+					Domains: map[string]resolution.Domain{
+						"go": {
+							Expressions: []resolution.Expression{
+								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+							},
+						},
+					},
+				})).To(Succeed())
+			})
+
+			It("Should resolve union types in the same output", func() {
+				typeRef := resolution.TypeRef{Name: "test.Scale"}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("Scale"))
+			})
+
+			It("Should add import and qualify cross-output unions", func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "ExternalUnion",
+					QualifiedName: "other.ExternalUnion",
+					Namespace:     "other",
+					Form:          resolution.UnionForm{Discriminator: "type"},
+					Domains: map[string]resolution.Domain{
+						"go": {
+							Expressions: []resolution.Expression{
+								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "external/unions.go"}}},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				r.ImportResolver = &MockImportResolver{
+					ImportPath:   "github.com/example/external",
+					Qualifier:    "external",
+					ShouldImport: true,
+				}
+				typeRef := resolution.TypeRef{Name: "other.ExternalUnion"}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("external.ExternalUnion"))
+				Expect(adder.Imports).To(HaveLen(1))
+			})
+
+			It("Should return fallback for a union with no output path", func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "NoOutputUnion",
+					QualifiedName: "other.NoOutputUnion",
+					Namespace:     "other",
+					Form:          resolution.UnionForm{Discriminator: "type"},
+					Domains:       map[string]resolution.Domain{},
+				})).To(Succeed())
+
+				typeRef := resolution.TypeRef{Name: "other.NoOutputUnion"}
 				result := r.ResolveTypeRef(typeRef, ctx)
 				Expect(result).To(Equal("any"))
 			})

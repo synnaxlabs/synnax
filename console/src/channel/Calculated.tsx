@@ -9,10 +9,12 @@
 
 import "@/channel/Calculated.css";
 
-import { channel, TimeSpan } from "@synnaxlabs/client";
+import { channel, status, TimeSpan } from "@synnaxlabs/client";
 import {
+  Arc,
   Button,
   Channel,
+  Code,
   Flex,
   Form,
   Input,
@@ -21,12 +23,9 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
-import { Arc } from "@/arc";
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
-import { Code } from "@/code";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -74,13 +73,12 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
             <Form.Field<string> path="expression" grow>
               {({ value, onChange }) => (
                 <Code.Editor
-                  value={value}
-                  language={Arc.LSP.LANGUAGE}
-                  onChange={onChange}
+                  initialValue={value}
+                  language={Arc.NAME}
+                  onValueChange={onChange}
                   isBlock
                   bordered
                   rounded
-                  extensions={Arc.Editor.Text.EXTENSIONS}
                 />
               )}
             </Form.Field>

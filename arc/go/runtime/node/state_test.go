@@ -16,7 +16,9 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("ProgramState", func() {
@@ -24,24 +26,30 @@ var _ = Describe("ProgramState", func() {
 		It("Should correctly order the inputs regardless of edge order", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: graph.Nodes{
-					{Key: "in1", Type: "in1"},
-					{Key: "in2", Type: "in2"},
-					{Key: "in3", Type: "in3"},
-					{Key: "target", Type: "target"},
+					{Key: "in1"},
+					{Key: "in2"},
+					{Key: "in3"},
+					{Key: "target"},
 				},
-				Edges: []ir.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"in1":    {"type": "in1"},
+					"in2":    {"type": "in2"},
+					"in3":    {"type": "in3"},
+					"target": {"type": "target"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "in2", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: "in2"},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "in1", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: "in1"},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "in3", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: "in3"},
-					},
+					}},
 				},
 				Functions: []ir.Function{
 					{
@@ -98,7 +106,11 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should correctly align outputs of one node with inputs of another", func(ctx SpecContext) {
 			g := graph.Graph{
-				Nodes: graph.Nodes{{Key: "first", Type: "first"}, {Key: "second", Type: "second"}},
+				Nodes: graph.Nodes{{Key: "first"}, {Key: "second"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"first":  {"type": "first"},
+					"second": {"type": "second"},
+				},
 				Functions: []graph.Function{
 					{
 						Key: "first",
@@ -113,10 +125,10 @@ var _ = Describe("ProgramState", func() {
 						},
 					},
 				},
-				Edges: []graph.Edge{{
+				Edges: graph.Edges{{Edge: ir.Edge{
 					Source: graph.Handle{Node: "first", Param: ir.DefaultOutputParam},
 					Target: graph.Handle{Node: "second", Param: ir.DefaultInputParam},
-				}},
+				}}},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -150,14 +162,18 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "src", Type: "src"},
-					{Key: "dest", Type: "dest"},
+					{Key: "src"},
+					{Key: "dest"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"src":  {"type": "src"},
+					"dest": {"type": "dest"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "dest", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -187,14 +203,18 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: graph.Nodes{
-					{Key: "producer", Type: "producer"},
-					{Key: "consumer", Type: "consumer"},
+					{Key: "producer"},
+					{Key: "consumer"},
 				},
-				Edges: []ir.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"producer": {"type": "producer"},
+					"consumer": {"type": "consumer"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "producer", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "consumer", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -232,19 +252,24 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: graph.Nodes{
-					{Key: "a", Type: "a"},
-					{Key: "b", Type: "b"},
-					{Key: "target", Type: "target"},
+					{Key: "a"},
+					{Key: "b"},
+					{Key: "target"},
 				},
-				Edges: []ir.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"a":      {"type": "a"},
+					"b":      {"type": "b"},
+					"target": {"type": "target"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.LHSInputParam},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.RHSInputParam},
-					},
+					}},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -287,19 +312,24 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "early", Type: "early"},
-					{Key: "late", Type: "late"},
-					{Key: "target", Type: "target"},
+					{Key: "early"},
+					{Key: "late"},
+					{Key: "target"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"early":  {"type": "early"},
+					"late":   {"type": "late"},
+					"target": {"type": "target"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "early", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.LHSInputParam},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "late", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.RHSInputParam},
-					},
+					}},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -333,14 +363,18 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "sink", Type: "sink"},
+					{Key: "source"},
+					{Key: "sink"},
 				},
-				Edges: []ir.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"sink":   {"type": "sink"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -381,19 +415,24 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "a", Type: "a"},
-					{Key: "b", Type: "b"},
-					{Key: "target", Type: "target"},
+					{Key: "a"},
+					{Key: "b"},
+					{Key: "target"},
 				},
-				Edges: []ir.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"a":      {"type": "a"},
+					"b":      {"type": "b"},
+					"target": {"type": "target"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.LHSInputParam},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "target", Param: ir.RHSInputParam},
-					},
+					}},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -431,14 +470,18 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "src", Type: "src"},
-					{Key: "dst", Type: "dst"},
+					{Key: "src"},
+					{Key: "dst"},
 				},
-				Edges: []ir.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"src": {"type": "src"},
+					"dst": {"type": "dst"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "dst", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -483,19 +526,24 @@ var _ = Describe("ProgramState", func() {
 						},
 					},
 					Nodes: []graph.Node{
-						{Key: "lhs", Type: "lhs"},
-						{Key: "rhs", Type: "rhs"},
-						{Key: "op", Type: "op"},
+						{Key: "lhs"},
+						{Key: "rhs"},
+						{Key: "op"},
 					},
-					Edges: []ir.Edge{
-						{
+					Configs: map[string]msgpack.EncodedJSON{
+						"lhs": {"type": "lhs"},
+						"rhs": {"type": "rhs"},
+						"op":  {"type": "op"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-						},
-						{
+						}},
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-						},
+						}},
 					},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -536,19 +584,24 @@ var _ = Describe("ProgramState", func() {
 						},
 					},
 					Nodes: []graph.Node{
-						{Key: "a", Type: "a"},
-						{Key: "b", Type: "b"},
-						{Key: "compute", Type: "compute"},
+						{Key: "a"},
+						{Key: "b"},
+						{Key: "compute"},
 					},
-					Edges: []ir.Edge{
-						{
+					Configs: map[string]msgpack.EncodedJSON{
+						"a":       {"type": "a"},
+						"b":       {"type": "b"},
+						"compute": {"type": "compute"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "compute", Param: ir.LHSInputParam},
-						},
-						{
+						}},
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "compute", Param: ir.RHSInputParam},
-						},
+						}},
 					},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -590,19 +643,24 @@ var _ = Describe("ProgramState", func() {
 						},
 					},
 					Nodes: []graph.Node{
-						{Key: "early", Type: "early"},
-						{Key: "late", Type: "late"},
-						{Key: "target", Type: "target"},
+						{Key: "early"},
+						{Key: "late"},
+						{Key: "target"},
 					},
-					Edges: []ir.Edge{
-						{
+					Configs: map[string]msgpack.EncodedJSON{
+						"early":  {"type": "early"},
+						"late":   {"type": "late"},
+						"target": {"type": "target"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "early", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "target", Param: ir.LHSInputParam},
-						},
-						{
+						}},
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "late", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "target", Param: ir.RHSInputParam},
-						},
+						}},
 					},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -649,19 +707,24 @@ var _ = Describe("ProgramState", func() {
 						},
 					},
 					Nodes: []graph.Node{
-						{Key: "x", Type: "x"},
-						{Key: "y", Type: "y"},
-						{Key: "processor", Type: "processor"},
+						{Key: "x"},
+						{Key: "y"},
+						{Key: "processor"},
 					},
-					Edges: []ir.Edge{
-						{
+					Configs: map[string]msgpack.EncodedJSON{
+						"x":         {"type": "x"},
+						"y":         {"type": "y"},
+						"processor": {"type": "processor"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "processor", Param: ir.LHSInputParam},
-						},
-						{
+						}},
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "y", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "processor", Param: ir.RHSInputParam},
-						},
+						}},
 					},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -713,24 +776,30 @@ var _ = Describe("ProgramState", func() {
 						},
 					},
 					Nodes: []graph.Node{
-						{Key: "a", Type: "a"},
-						{Key: "b", Type: "b"},
-						{Key: "c", Type: "c"},
-						{Key: "combiner", Type: "combiner"},
+						{Key: "a"},
+						{Key: "b"},
+						{Key: "c"},
+						{Key: "combiner"},
 					},
-					Edges: []graph.Edge{
-						{
+					Configs: map[string]msgpack.EncodedJSON{
+						"a":        {"type": "a"},
+						"b":        {"type": "b"},
+						"c":        {"type": "c"},
+						"combiner": {"type": "combiner"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "combiner", Param: "in0"},
-						},
-						{
+						}},
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "combiner", Param: "in1"},
-						},
-						{
+						}},
+						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "c", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "combiner", Param: "in2"},
-						},
+						}},
 					},
 				}
 				ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -775,14 +844,18 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "processor", Type: "processor"},
+					{Key: "source"},
+					{Key: "processor"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source":    {"type": "source"},
+					"processor": {"type": "processor"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "processor", Param: "data"},
-					},
+					}},
 					// Note: "multiplier" input is not connected, should use default
 				},
 			}
@@ -796,6 +869,48 @@ var _ = Describe("ProgramState", func() {
 			Expect(processor.RefreshInputs()).To(BeTrue())
 			Expect(processor.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](5.0)))
 			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
+		})
+
+		It("Should seed an unconnected TimeSpan literal input as a timestamp series", func(ctx SpecContext) {
+			g := graph.Graph{
+				Functions: []graph.Function{
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+					},
+					{
+						Key: "windowed",
+						Inputs: types.Params{
+							{Name: "data", Type: types.F32()},
+							{Name: "duration", Type: types.TimeSpan(), Value: telem.TimeSpan(5)},
+						},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source"},
+					{Key: "windowed"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"source":   {"type": "source"},
+					"windowed": {"type": "windowed"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "windowed", Param: "data"},
+					}},
+				},
+			}
+			inter, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			s := node.New(inter)
+			source := s.Node("source")
+			windowed := s.Node("windowed")
+			*source.Output(0) = telem.NewSeriesV[float32](5.0)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			Expect(windowed.RefreshInputs()).To(BeTrue())
+			Expect(windowed.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[telem.TimeStamp](5)))
 		})
 
 		It("Should override default value when input is connected", func(ctx SpecContext) {
@@ -825,19 +940,24 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "data_source", Type: "data_source"},
-					{Key: "multiplier_source", Type: "multiplier_source"},
-					{Key: "processor", Type: "processor"},
+					{Key: "data_source"},
+					{Key: "multiplier_source"},
+					{Key: "processor"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"data_source":       {"type": "data_source"},
+					"multiplier_source": {"type": "multiplier_source"},
+					"processor":         {"type": "processor"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "data_source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "processor", Param: "value"},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "multiplier_source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "processor", Param: "factor"},
-					},
+					}},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -877,14 +997,18 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input", Type: "input"},
-					{Key: "calculator", Type: "calculator"},
+					{Key: "input"},
+					{Key: "calculator"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"input":      {"type": "input"},
+					"calculator": {"type": "calculator"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "calculator", Param: "x"},
-					},
+					}},
 					// "offset" and "scale" are unconnected, should use defaults
 				},
 			}
@@ -929,19 +1053,24 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "src1", Type: "src1"},
-					{Key: "src2", Type: "src2"},
-					{Key: "combiner", Type: "combiner"},
+					{Key: "src1"},
+					{Key: "src2"},
+					{Key: "combiner"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"src1":     {"type": "src1"},
+					"src2":     {"type": "src2"},
+					"combiner": {"type": "combiner"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "combiner", Param: "a"},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src2", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "combiner", Param: "c"},
-					},
+					}},
 					// "b" is unconnected, should use default value 20
 				},
 			}
@@ -983,14 +1112,18 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "data", Type: "data"},
-					{Key: "processor", Type: "processor"},
+					{Key: "data"},
+					{Key: "processor"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"data":      {"type": "data"},
+					"processor": {"type": "processor"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "data", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "processor", Param: "data"},
-					},
+					}},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -1027,14 +1160,18 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "processor", Type: "processor"},
+					{Key: "source"},
+					{Key: "processor"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"source":    {"type": "source"},
+					"processor": {"type": "processor"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "processor", Param: "value"},
-					},
+					}},
 					// "offset" is unconnected, will use default
 				},
 			}
@@ -1086,14 +1223,18 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input", Type: "input"},
-					{Key: "adder", Type: "adder"},
+					{Key: "input"},
+					{Key: "adder"},
 				},
-				Edges: []graph.Edge{
-					{
+				Configs: map[string]msgpack.EncodedJSON{
+					"input": {"type": "input"},
+					"adder": {"type": "adder"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "adder", Param: "base"},
-					},
+					}},
 				},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
@@ -1123,9 +1264,12 @@ var _ = Describe("ProgramState", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "generator", Type: "generator"},
+					{Key: "generator"},
 				},
-				Edges: []graph.Edge{},
+				Configs: map[string]msgpack.EncodedJSON{
+					"generator": {"type": "generator"},
+				},
+				Edges: graph.Edges{},
 			}
 			ir, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1144,7 +1288,8 @@ var _ = Describe("ProgramState", func() {
 		Describe("isSeriesTruthy helper", func() {
 			It("Should return false for empty series", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1163,7 +1308,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for series with last element 0 (float64)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1181,7 +1327,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return true for series with last element non-zero (float64)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1199,7 +1346,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for series with last element 0 (uint8)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1217,7 +1365,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return true for series with last element non-zero (uint8)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1235,7 +1384,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for series with last element 0 (int32)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1253,7 +1403,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return true for series with last element non-zero (int32)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1271,7 +1422,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for out-of-range output ordinal", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1290,7 +1442,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should check the last element only", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1312,7 +1465,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should handle timestamp type", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1329,6 +1483,59 @@ var _ = Describe("ProgramState", func() {
 				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
+
+			It("Should treat a non-empty string as truthy and an empty string as falsy", func(ctx SpecContext) {
+				g := graph.Graph{
+					Nodes:   []graph.Node{{Key: "test"}},
+					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.String()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := node.New(prog)
+				n := s.Node("test")
+				*n.Output(0) = telem.NewSeriesV[string]("")
+				Expect(n.IsOutputTruthy(0)).To(BeFalse())
+				*n.Output(0) = telem.NewSeriesV[string]("ox_alarm")
+				Expect(n.IsOutputTruthy(0)).To(BeTrue())
+			})
+		})
+	})
+
+	Describe("ResolveInput", func() {
+		buildNode := func(ctx SpecContext) *node.State {
+			g := graph.Graph{
+				Nodes:   []graph.Node{{Key: "n"}},
+				Configs: map[string]msgpack.EncodedJSON{"n": {"type": "n"}},
+				Functions: []graph.Function{{
+					Key: "n",
+					Inputs: types.Params{
+						{Name: ir.DefaultInputParam, Type: types.F32(), Value: float32(0)},
+						{Name: "reset", Type: types.U8(), Value: uint8(0)},
+					},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+				}},
+			}
+			prog, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			return node.New(prog).Node("n")
+		}
+
+		It("Should return the position of a present input", func(ctx SpecContext) {
+			n := buildNode(ctx)
+			Expect(MustSucceed(n.ResolveInput(ir.DefaultInputParam))).To(Equal(0))
+			Expect(MustSucceed(n.ResolveInput("reset"))).To(Equal(1))
+		})
+
+		It("Should return ErrInputNotFound for an absent input", func(ctx SpecContext) {
+			n := buildNode(ctx)
+			Expect(n.ResolveInput("missing")).Error().
+				To(MatchError(node.ErrInputNotFound))
 		})
 	})
 
@@ -1336,13 +1543,17 @@ var _ = Describe("ProgramState", func() {
 		It("Should not panic on a node with inputs and outputs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "src", Type: "src"},
-					{Key: "target", Type: "target"},
+					{Key: "src"},
+					{Key: "target"},
 				},
-				Edges: []ir.Edge{{
+				Configs: map[string]msgpack.EncodedJSON{
+					"src":    {"type": "src"},
+					"target": {"type": "target"},
+				},
+				Edges: graph.Edges{{Edge: ir.Edge{
 					Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "target", Param: "x"},
-				}},
+				}}},
 				Functions: []graph.Function{
 					{
 						Key:     "src",

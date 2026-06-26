@@ -120,7 +120,7 @@
         "direction": "x"
       },
       "orientation": "left",
-      "scale": null,
+      "scale": 1,
       "control": {
         "show": true
       },

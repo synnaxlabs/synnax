@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -43,19 +44,16 @@ var _ = Describe("Time", func() {
 			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
-				Nodes: []graph.Node{{
-					Key:  "interval_1",
-					Type: "interval",
-					Config: map[string]any{
-						"period": int64(telem.Second),
-					},
-				}},
+				Nodes: []graph.Node{{Key: "interval_1"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"interval_1": {"type": "interval", "period": int64(telem.Second)},
+				},
 				Functions: []graph.Function{{
 					Key: "interval",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.I64()},
 					},
 				}},
@@ -68,7 +66,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -82,7 +80,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "time.interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -99,11 +97,23 @@ var _ = Describe("Time", func() {
 			_, err := factory.Create(ctx, cfg)
 			Expect(err).To(Equal(query.ErrNotFound))
 		})
+		It("Should error at construction when the period input value is invalid", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "interval",
+					Inputs: types.Params{
+						{Name: "period", Type: types.String(), Value: "not-a-timespan"},
+					},
+				},
+				State: s.Node("interval_1"),
+			}
+			Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+		})
 		It("Should fire immediately on first tick", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -132,7 +142,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -174,7 +184,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -216,7 +226,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 					},
 				},
@@ -229,7 +239,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -256,7 +266,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -320,19 +330,16 @@ var _ = Describe("Time", func() {
 			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
-				Nodes: []graph.Node{{
-					Key:  "wait_1",
-					Type: "wait",
-					Config: map[string]any{
-						"duration": int64(telem.Second),
-					},
-				}},
+				Nodes: []graph.Node{{Key: "wait_1"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"wait_1": {"type": "wait", "duration": int64(telem.Second)},
+				},
 				Functions: []graph.Function{{
 					Key: "wait",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.I64()},
 					},
 				}},
@@ -345,7 +352,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -359,7 +366,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "time.wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -368,11 +375,23 @@ var _ = Describe("Time", func() {
 			n := MustSucceed(compound.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
+		It("Should error at construction when the duration input value is invalid", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "wait",
+					Inputs: types.Params{
+						{Name: "duration", Type: types.String(), Value: "not-a-timespan"},
+					},
+				},
+				State: s.Node("wait_1"),
+			}
+			Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+		})
 		It("Should not fire before duration elapses", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -400,7 +419,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -442,7 +461,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -496,7 +515,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -566,7 +585,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -610,7 +629,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -678,7 +697,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -744,7 +763,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -809,7 +828,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -851,27 +870,19 @@ var _ = Describe("Time", func() {
 			factory := MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{
-						Key:  "interval_1",
-						Type: "interval",
-						Config: map[string]any{
-							"period": int64(100 * telem.Millisecond),
-						},
-					},
-					{
-						Key:  "interval_2",
-						Type: "interval",
-						Config: map[string]any{
-							"period": int64(150 * telem.Millisecond),
-						},
-					},
+					{Key: "interval_1"},
+					{Key: "interval_2"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"interval_1": {"type": "interval", "period": int64(100 * telem.Millisecond)},
+					"interval_2": {"type": "interval", "period": int64(150 * telem.Millisecond)},
 				},
 				Functions: []graph.Function{{
 					Key: "interval",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.I64()},
 					},
 				}},
@@ -884,7 +895,7 @@ var _ = Describe("Time", func() {
 			cfg1 := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 					},
 				},
@@ -897,7 +908,7 @@ var _ = Describe("Time", func() {
 			cfg2 := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: 150 * telem.Millisecond},
 					},
 				},
@@ -910,7 +921,7 @@ var _ = Describe("Time", func() {
 	})
 	Describe("Symbols", func() {
 		var root *symbol.Symbol
-		BeforeEach(func() { root = symbol.NewRoot(nil, time.Symbols...) })
+		BeforeEach(func() { root = symbol.NewRoot(nil, time.NewSymbols()) })
 		bare := func(ctx context.Context, name string) *symbol.Symbol {
 			return MustSucceed(root.Resolve(ctx, name, symbol.IncludeInternal))
 		}
@@ -972,19 +983,16 @@ var _ = Describe("Time", func() {
 			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
-				Nodes: []graph.Node{{
-					Key:  "interval_1",
-					Type: "interval",
-					Config: map[string]any{
-						"period": int64(100 * telem.Millisecond),
-					},
-				}},
+				Nodes: []graph.Node{{Key: "interval_1"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"interval_1": {"type": "interval", "period": int64(100 * telem.Millisecond)},
+				},
 				Functions: []graph.Function{{
 					Key: "interval",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.I64()},
 					},
 				}},
@@ -998,7 +1006,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 						},
 					},
@@ -1041,7 +1049,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 						},
 					},
@@ -1084,7 +1092,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 						},
 					},
@@ -1124,7 +1132,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 						},
 					},
@@ -1167,19 +1175,16 @@ var _ = Describe("Time", func() {
 		Describe("Wait with tolerance", func() {
 			It("Should fire early within tolerance", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes: []graph.Node{{
-						Key:  "wait_1",
-						Type: "wait",
-						Config: map[string]any{
-							"duration": int64(100 * telem.Millisecond),
-						},
-					}},
+					Nodes: []graph.Node{{Key: "wait_1"}},
+					Configs: map[string]msgpack.EncodedJSON{
+						"wait_1": {"type": "wait", "duration": int64(100 * telem.Millisecond)},
+					},
 					Functions: []graph.Function{{
 						Key: "wait",
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.I64()},
 						},
 					}},
@@ -1192,7 +1197,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "wait",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 						},
 					},
@@ -1241,19 +1246,16 @@ var _ = Describe("Time", func() {
 			BeforeEach(func(ctx SpecContext) {
 				factory = MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
-					Nodes: []graph.Node{{
-						Key:  "interval_1",
-						Type: "interval",
-						Config: map[string]any{
-							"period": int64(telem.Second),
-						},
-					}},
+					Nodes: []graph.Node{{Key: "interval_1"}},
+					Configs: map[string]msgpack.EncodedJSON{
+						"interval_1": {"type": "interval", "period": int64(telem.Second)},
+					},
 					Functions: []graph.Function{{
 						Key: "interval",
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.I64()},
 						},
 					}},
@@ -1266,7 +1268,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 						},
 					},
@@ -1292,7 +1294,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 						},
 					},
@@ -1330,19 +1332,16 @@ var _ = Describe("Time", func() {
 			BeforeEach(func(ctx SpecContext) {
 				factory = MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
-					Nodes: []graph.Node{{
-						Key:  "wait_1",
-						Type: "wait",
-						Config: map[string]any{
-							"duration": int64(telem.Second),
-						},
-					}},
+					Nodes: []graph.Node{{Key: "wait_1"}},
+					Configs: map[string]msgpack.EncodedJSON{
+						"wait_1": {"type": "wait", "duration": int64(telem.Second)},
+					},
 					Functions: []graph.Function{{
 						Key: "wait",
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.I64()},
 						},
 					}},
@@ -1355,7 +1354,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "wait",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 						},
 					},
@@ -1381,7 +1380,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "wait",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 						},
 					},
@@ -1424,7 +1423,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "wait",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 						},
 					},
@@ -1474,10 +1473,10 @@ var _ = Describe("Time", func() {
 			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
-				Nodes: []graph.Node{{
-					Key:  "now_1",
-					Type: "now",
-				}},
+				Nodes: []graph.Node{{Key: "now_1"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"now_1": {"type": "now"},
+				},
 				Functions: []graph.Function{{
 					Key:     "now",
 					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},

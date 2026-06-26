@@ -39,14 +39,14 @@ func resolveQualified(
 	scope *symbol.Symbol,
 	name string,
 ) (*symbol.Symbol, error) {
-	if sym, err := scope.Resolve(ctx, name); err == nil {
+	if sym, err := scope.Resolve(ctx, name, symbol.IncludeInternal); err == nil {
 		return sym, nil
 	}
 	head, tail, ok := strings.Cut(name, ".")
 	if !ok {
 		return scope.Resolve(ctx, name)
 	}
-	headSym, err := scope.Resolve(ctx, head)
+	headSym, err := scope.Resolve(ctx, head, symbol.IncludeInternal)
 	if err != nil {
 		return nil, err
 	}
@@ -75,10 +75,6 @@ func Analyze(
 			AST:  fn.Body.AST,
 		})
 		if err != nil {
-			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
-			return ir.IR{}, aCtx.Diagnostics
-		}
-		if err = bindParams(aCtx, funcScope, fn.Config, symbol.KindConfig); err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
@@ -119,7 +115,27 @@ func Analyze(
 	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		fnSym, err := resolveQualified(aCtx, aCtx.Scope, n.Type)
+		cfg := g.Configs[n.Key]
+		rawType, ok := cfg["type"]
+		if !ok {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				nil,
+				"node '%s' is missing its function type",
+				n.Key,
+			))
+			return ir.IR{}, aCtx.Diagnostics
+		}
+		nodeType, ok := rawType.(string)
+		if !ok {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				nil,
+				"node '%s' function type must be a string, got %T",
+				n.Key,
+				rawType,
+			))
+			return ir.IR{}, aCtx.Diagnostics
+		}
+		fnSym, err := resolveQualified(aCtx, aCtx.Scope, nodeType)
 		if err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 			return ir.IR{}, aCtx.Diagnostics
@@ -128,33 +144,32 @@ func Analyze(
 		freshType := freshFuncTypes[n.Key]
 		node := ir.Node{
 			Key:      n.Key,
-			Type:     n.Type,
+			Type:     nodeType,
 			Channels: fnSym.Channels.Copy(),
-			Config:   freshType.Config,
 			Inputs:   freshType.Inputs,
 			Outputs:  freshType.Outputs,
 		}
-		// Process provided config values
-		for j, configParam := range freshType.Config {
-			configValue, ok := n.Config[configParam.Name]
+		// Param values come from the node's entry in the graph configs map.
+		for j, param := range freshType.Inputs {
+			paramValue, ok := cfg[param.Name]
 			if !ok {
 				continue
 			}
-			if configParam.Type.Kind == types.KindChan {
+			if param.Type.Kind == types.KindChan {
 				var k uint32
-				if err = zyn.Uint32().Coerce().Parse(configValue, &k); err != nil {
+				if err = zyn.Uint32().Coerce().Parse(paramValue, &k); err != nil {
 					return ir.IR{}, aCtx.Diagnostics
 				}
 				channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))
 				if err == nil && channelSym.Type.Kind == types.KindChan {
-					if err := configParam.Type.ChanDirection.CheckCompatibility(channelSym.Type.ChanDirection); err != nil {
+					if err := param.Type.ChanDirection.CheckCompatibility(channelSym.Type.ChanDirection); err != nil {
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
 					if err = atypes.Check(
 						aCtx.Constraints,
 						channelSym.Type,
-						configParam.Type,
+						param.Type,
 						nil,
 						"",
 					); err != nil {
@@ -164,76 +179,34 @@ func Analyze(
 					symbol.ResolveConfigChannel(
 						&node.Channels,
 						fnSym,
-						configParam.Name,
+						param.Name,
 						k,
 						channelSym.Name,
 					)
 				}
 			}
-			node.Config[j].Value = configValue
+			node.Inputs[j].Value = paramValue
 		}
 		irNodes[i] = node
-
-		// Validate all required config parameters are provided
-		for _, configParam := range freshType.Config {
-			if configParam.Value == nil {
-				aCtx.Diagnostics.Add(diagnostics.Errorf(
-					nil,
-					"node '%s' (%s) missing required config parameter '%s'",
-					n.Key,
-					n.Type,
-					configParam.Name,
-				))
-			}
-		}
 	}
 
 	// Step 5: Check Types Across Edges, Unify, and Apply Substitutions
-	if !analyzer.ResolveNodeTypes(irNodes, g.Edges, aCtx.Constraints, aCtx.Diagnostics) {
+	irEdges := g.Edges.IR()
+	if !analyzer.ResolveNodeTypes(irNodes, irEdges, aCtx.Constraints, aCtx.Diagnostics) {
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
-	// Step 5A: Check for Duplicate Edge Targets and Build Connected Inputs Map
-	connectedInputs := make(map[string]set.Set[string])
+	// Step 5A: Check for Duplicate Edge Targets
+	targets := set.New[ir.Handle]()
 	for _, edge := range g.Edges {
-		if connectedInputs[edge.Target.Node] == nil {
-			connectedInputs[edge.Target.Node] = make(set.Set[string])
-		}
-		if connectedInputs[edge.Target.Node].Contains(edge.Target.Param) {
+		if targets.Contains(edge.Target) {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(nil,
 				"multiple edges target node '%s' parameter '%s'",
 				edge.Target.Node,
 				edge.Target.Param,
 			))
 		}
-		connectedInputs[edge.Target.Node].Add(edge.Target.Param)
-	}
-	if !aCtx.Diagnostics.Ok() {
-		return ir.IR{}, aCtx.Diagnostics
-	}
-
-	// Step 5B: Check Missing Required Inputs
-	for _, n := range g.Nodes {
-		freshType := freshFuncTypes[n.Key]
-		if freshType.Inputs == nil {
-			continue
-		}
-		connected := connectedInputs[n.Key]
-		for _, inputParam := range freshType.Inputs {
-			if !connected.Contains(inputParam.Name) {
-				// Check if this parameter has a default value (is optional)
-				if inputParam.Value == nil {
-					// Required parameter is missing
-					aCtx.Diagnostics.Add(diagnostics.Errorf(
-						nil,
-						"node '%s' (%s) missing required input '%s'",
-						n.Key,
-						n.Type,
-						inputParam.Name,
-					))
-				}
-			}
-		}
+		targets.Add(edge.Target)
 	}
 	if !aCtx.Diagnostics.Ok() {
 		return ir.IR{}, aCtx.Diagnostics
@@ -261,7 +234,7 @@ func Analyze(
 	}
 	out := ir.IR{
 		Functions: g.Functions,
-		Edges:     g.Edges,
+		Edges:     irEdges,
 		Nodes:     irNodes,
 		Symbols:   aCtx.Scope,
 		Root:      irRoot,
@@ -275,8 +248,8 @@ func Analyze(
 	return out, aCtx.Diagnostics
 }
 
-// bindParams adds function parameters to the symbol scope with the specified kind.
-// Used internally to bind Config, Input, and Output parameters during function
+// bindParams adds function parameters to the symbol scope with the specified
+// kind. Used internally to bind input and output parameters during function
 // registration.
 func bindParams(
 	ctx context.Context,

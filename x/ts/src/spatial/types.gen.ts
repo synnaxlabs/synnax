@@ -142,6 +142,9 @@ export interface Bounds<T extends numeric.Value = number> {
   upper: T;
 }
 
+export const decimalZ = z.number().min(0).max(1);
+export type Decimal = z.infer<typeof decimalZ>;
+
 /** Viewport is the camera state of a viewport. */
 export const viewportZ = z.object({
   /** zoom is the zoom level where 1.0 equals 100%. */
@@ -160,9 +163,9 @@ export const stickyXYZ = z.object({
   x: z.number(),
   /** y is the vertical coordinate. */
   y: z.number(),
-  /** root is the optional anchor corner for the position. */
-  root: cornerLocationZ.optional(),
-  /** units is the optional unit specification for the coordinates. */
-  units: stickyUnitsZ.optional(),
+  /** root is the anchor corner for the position. */
+  root: cornerLocationZ.prefault({ x: "left", y: "top" }),
+  /** units is the unit specification for the coordinates. */
+  units: stickyUnitsZ.prefault({ x: "px", y: "px" }),
 });
 export interface StickyXY extends z.infer<typeof stickyXYZ> {}

@@ -13,12 +13,11 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -79,7 +78,7 @@ type Service struct {
 	ServiceConfig
 	closer xio.MultiCloser
 	group  group.Group
-	table  *gorp.Table[uuid.UUID, Symbol]
+	table  *gorp.Table[Key, Symbol]
 }
 
 // OpenService instantiates a new symbol service using the provided configurations. Each
@@ -93,7 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{ServiceConfig: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, Symbol]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Symbol]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -107,7 +106,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigUUID[Symbol](s.table.Observe())
+		signalsCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		signalsCfg.SetName = "sy_schematic_symbol_set"
 		signalsCfg.DeleteName = "sy_schematic_symbol_delete"
 		var sig io.Closer

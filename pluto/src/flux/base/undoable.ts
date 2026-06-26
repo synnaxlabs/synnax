@@ -77,6 +77,10 @@ export interface ReplayResult<Action> {
   processed: Action[];
   inverse: Action[];
   targets: readonly string[];
+  // changed reports whether the replay produced a different state. Reducers
+  // return the input state by reference when no action touched it, so a false
+  // value means the entire vector was a no-op and need not reach the server.
+  changed: boolean;
   rollback: destructor.Destructor;
 }
 
@@ -272,7 +276,13 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
       ? actions
       : this.config.preprocess(current, actions);
     const { next, inverse, targets } = this.config.reduce(current, processed);
-    return { processed, inverse, targets, rollback: this.docs.set(scope, key, next) };
+    return {
+      processed,
+      inverse,
+      targets,
+      changed: next !== current,
+      rollback: this.docs.set(scope, key, next),
+    };
   }
 
   recordEntry(

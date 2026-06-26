@@ -77,10 +77,14 @@ emergency overrides and operator intervention.
 
 ## Changing Authority at Runtime
 
-Use [`set_authority`](/reference/control/arc/reference/built-ins#set_authority) inside
-stages to change authority during execution:
+Use
+[`control.set_authority`](/reference/control/arc/reference/standard-library/control#set_authority)
+inside stages to change authority during execution:
 
 ```arc
+import control
+import time
+
 authority 100
 
 sequence main {
@@ -90,9 +94,9 @@ sequence main {
     }
 
     stage escalate {
-        set_authority{value=200}
+        control.set_authority{value=200}
         1 -> press_vlv_cmd
-        wait{duration=5s} => done
+        time.wait{duration=5s} => done
     }
 
     stage done {
@@ -104,7 +108,7 @@ start_cmd => main
 ```
 
 Authority changes are flushed before channel writes in the same execution cycle, so
-`set_authority` and channel writes can safely coexist in the same stage.
+`control.set_authority` and channel writes can safely coexist in the same stage.
 
 <Divider.Divider x />
 
@@ -133,6 +137,8 @@ A common pattern is starting at moderate authority and escalating when an emerge
 detected:
 
 ```arc
+import control
+
 authority 100
 
 sequence main {
@@ -142,7 +148,7 @@ sequence main {
     }
 
     stage emergency {
-        set_authority{value=255}
+        control.set_authority{value=255}
         0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
     }
@@ -166,6 +172,8 @@ Setting authority to 0 gives a program the lowest possible priority. Any other w
 takes precedence:
 
 ```arc
+import control
+
 authority 200
 
 sequence main {
@@ -175,7 +183,7 @@ sequence main {
     }
 
     stage yield {
-        set_authority{value=0}
+        control.set_authority{value=0}
         0 -> press_vlv_cmd
     }
 }
@@ -191,5 +199,5 @@ resume without restarting.
   Setting authority to 0 does not disconnect the writer. The program still holds the
   channel. It just has the lowest possible priority. Empty stages also do not lower
   authority; the writer keeps its current authority as long as the program is running.
-  You must explicitly call `set_authority&#123;value=0&#125;` to yield.
+  You must explicitly call `control.set_authority&#123;value=0&#125;` to yield.
 </Note.Note>
