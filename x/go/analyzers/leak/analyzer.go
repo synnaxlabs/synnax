@@ -18,13 +18,14 @@ import (
 )
 
 const (
-	// leakCheck is the per-scope goroutine-leak assertion that BeforeSuite and BeforeAll
-	// nodes must call first.
+	// leakCheck is the per-scope goroutine-leak assertion that BeforeSuite and
+	// BeforeAll nodes must call first.
 	leakCheck = "ShouldNotLeakGoroutines"
 	// perSpecCheck is the suite-wide per-spec goroutine-leak assertion that every suite
 	// must register at package scope.
 	perSpecCheck = "ShouldNotLeakGoroutinesPerSpec"
-	// runSpecs is the Ginkgo entry point whose presence marks a package as a test suite.
+	// runSpecs is the Ginkgo entry point whose presence marks a package as a test
+	// suite.
 	runSpecs = "RunSpecs"
 )
 
@@ -63,8 +64,8 @@ func run(pass *analysis.Pass) (any, error) {
 			}
 			body := setupBody(call)
 			if body == nil {
-				// The node was given a named function rather than a literal; its body is
-				// not visible here, so there is nothing to check.
+				// The node was given a named function rather than a literal; its body
+				// is not visible here, so there is nothing to check.
 				return true
 			}
 			if !firstStmtIsLeakCheck(body) {
