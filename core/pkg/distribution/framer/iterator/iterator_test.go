@@ -149,17 +149,16 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 1)
-	dist := builder.Nodes[1]
+	dist := mock.OpenNode(ctx)
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: builder}
+	return scenario{name: "Gateway Only", keys: keys, dist: dist, close: dist}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 4)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 4)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
@@ -172,7 +171,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Peer Only", keys: keys, dist: dist, close: builder}
+	return scenario{name: "Peer Only", keys: keys, dist: dist, close: cluster}
 }
 
 func mixedScenario(ctx context.Context) scenario {
@@ -180,8 +179,8 @@ func mixedScenario(ctx context.Context) scenario {
 		{Name: "mixed_gateway", IsIndex: true, DataType: telem.TimeStampT, Leaseholder: 1},
 		{Name: "mixed_peer", IsIndex: true, DataType: telem.TimeStampT, Leaseholder: 2},
 	}
-	builder := mock.ProvisionCluster(ctx, 2)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 2)
+	dist := cluster.Nodes[1]
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
@@ -190,5 +189,5 @@ func mixedScenario(ctx context.Context) scenario {
 			Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
-	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: dist, close: builder}
+	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: dist, close: cluster}
 }

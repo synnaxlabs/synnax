@@ -52,9 +52,8 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	testCluster = mock.ProvisionCluster(ctx, 2)
+	testCluster = mock.NewCluster(ctx, 2)
 	testSvc, testOtg = openTestService(ctx, testCluster.Nodes[1].Cluster)
-	DeferCleanup(func() { Expect(testCluster.Close()).To(Succeed()) })
 })
 
 var _ = Describe("Ontology", func() {
@@ -134,8 +133,7 @@ var _ = Describe("Ontology", func() {
 
 		Describe("OnChange", func() {
 			It("Should translate cluster changes into ontology changes when a node joins", func(ctx SpecContext) {
-				ephemeral := mock.ProvisionCluster(ctx, 1)
-				DeferCleanup(func() { Expect(ephemeral.Close()).To(Succeed()) })
+				ephemeral := mock.NewCluster(ctx, 1)
 				ephemeralSvc, _ := openTestService(ctx, ephemeral.Nodes[1].Cluster)
 
 				received := make(chan ontology.Change, 8)

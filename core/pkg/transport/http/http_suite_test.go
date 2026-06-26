@@ -35,8 +35,8 @@ func TestHTTP(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	cluster := DeferClose(distmock.ProvisionCluster(ctx, 1))
-	dist = DeferClose(cluster.Nodes[1].Layer)
+	node := distmock.NewNode(ctx)
+	dist = node.Layer
 	insecure := true
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: &insecure,
@@ -45,7 +45,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 		Distribution: dist,
 		Security:     sec,
-		Storage:      cluster.Nodes[1].Storage,
+		Storage:      node.Storage,
 	}))
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,

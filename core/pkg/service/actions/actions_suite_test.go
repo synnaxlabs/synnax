@@ -29,17 +29,16 @@ func TestActions(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	dist mock.Node
+	node mock.Node
 	sigs *signals.Provider
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	cluster := DeferClose(mock.NewCluster())
-	dist = DeferClose(cluster.Provision(ctx))
+	node = mock.NewNode(ctx)
 	sigs = MustSucceed(signals.New(signals.Config{
-		Channel: channel.Wrap(dist.Channel),
-		Framer:  framer.Wrap(dist.Framer),
+		Channel: channel.Wrap(node.Channel),
+		Framer:  framer.Wrap(node.Framer),
 	}))
 })
 

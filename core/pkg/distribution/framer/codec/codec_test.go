@@ -11,7 +11,6 @@ package codec_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -331,17 +330,16 @@ var _ = Describe("Codec", func() {
 	Describe("Dynamic Codec", Ordered, func() {
 		ShouldNotLeakGoroutinesPerSpec()
 		var (
-			builder    *mock.Cluster
+			node       mock.Node
 			channelSvc *channel.Service
 			idxCh      channel.Channel
 			dataCh     channel.Channel
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			builder = mock.NewCluster()
-			dist := builder.Provision(context.Background())
-			channelSvc = dist.Channel
-			w := dist.Channel.NewWriter(nil)
+			node = mock.NewNode(ctx)
+			channelSvc = node.Channel
+			w := node.Channel.NewWriter(nil)
 			idxCh = channel.Channel{
 				DataType: telem.TimeStampT,
 				Name:     "time",
@@ -354,9 +352,6 @@ var _ = Describe("Codec", func() {
 				LocalIndex: idxCh.Key().LocalKey(),
 			}
 			Expect(w.Create(ctx, &dataCh)).To(Succeed())
-		})
-		AfterAll(func() {
-			Expect(builder.Close()).To(Succeed())
 		})
 
 		It("Should allow the caller to update the list of channels", func(ctx SpecContext) {

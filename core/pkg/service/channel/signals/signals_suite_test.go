@@ -27,17 +27,16 @@ func TestSignals(t *testing.T) {
 	RunSpecs(t, "Service Channel Signals Suite")
 }
 
-var dist mock.Node
+var node mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	builder := DeferClose(mock.NewCluster())
-	dist = DeferClose(builder.Provision(ctx))
+	node = mock.NewNode(ctx)
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
-		Channel: channel.Wrap(dist.Channel),
-		Framer:  framer.Wrap(dist.Framer),
+		Channel: channel.Wrap(node.Channel),
+		Framer:  framer.Wrap(node.Framer),
 	}))
-	MustOpen(signals.Publish(ctx, sigs, dist.Channel.Observe()))
+	MustOpen(signals.Publish(ctx, sigs, node.Channel.Observe()))
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

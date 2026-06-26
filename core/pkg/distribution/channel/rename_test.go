@@ -10,7 +10,6 @@
 package channel_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,13 +23,10 @@ import (
 )
 
 var _ = Describe("Rename", Ordered, func() {
-	var mockCluster *mock.Cluster
+	var cluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		mockCluster = mock.ProvisionCluster(context.Background(), 3)
-	})
-	AfterAll(func() {
-		Expect(mockCluster.Close()).To(Succeed())
+		cluster = mock.NewCluster(ctx, 3)
 	})
 	Context("Single channel", func() {
 		var ch channel.Channel
@@ -38,15 +34,15 @@ var _ = Describe("Rename", Ordered, func() {
 			ch.Virtual = true
 			ch.Name = channel.NewRandomName()
 			ch.DataType = telem.Float64T
-			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(cluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 		})
 		Context("Node is local", func() {
 			BeforeEach(func() { ch.Leaseholder = 1 })
 			It("Should rename the channel without error", func(ctx SpecContext) {
 				name := channel.NewRandomName()
-				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
+				Expect(cluster.Nodes[1].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
-				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				Expect(cluster.Nodes[1].Channel.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Entry(&resCh).
 					Exec(ctx, nil)).To(Succeed())
@@ -57,9 +53,9 @@ var _ = Describe("Rename", Ordered, func() {
 			BeforeEach(func() { ch.Leaseholder = 2 })
 			It("Should rename the channel without error", func(ctx SpecContext) {
 				name := channel.NewRandomName()
-				Expect(mockCluster.Nodes[2].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
+				Expect(cluster.Nodes[2].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
-				Expect(mockCluster.Nodes[2].Channel.NewRetrieve().
+				Expect(cluster.Nodes[2].Channel.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Entry(&resCh).
 					Exec(ctx, nil)).To(Succeed())
@@ -68,7 +64,7 @@ var _ = Describe("Rename", Ordered, func() {
 		})
 		Context("new name is invalid", func() {
 			It("Should return an error", func(ctx SpecContext) {
-				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "invalid name", false)).To(MatchError(ContainSubstring("contains invalid characters")))
+				Expect(cluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "invalid name", false)).To(MatchError(ContainSubstring("contains invalid characters")))
 			})
 		})
 		Context("new name is a duplicate", func() {
@@ -78,8 +74,8 @@ var _ = Describe("Rename", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float64T,
 				}
-				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &secondCh)).To(Succeed())
-				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), secondCh.Name, false)).
+				Expect(cluster.Nodes[1].Channel.Create(ctx, &secondCh)).To(Succeed())
+				Expect(cluster.Nodes[1].Channel.Rename(ctx, ch.Key(), secondCh.Name, false)).
 					To(MatchError(ContainSubstring("channel with name '%s' already exists", secondCh.Name)))
 			})
 		})
@@ -104,17 +100,17 @@ var _ = Describe("Rename", Ordered, func() {
 					Virtual:     true,
 				},
 			}
-			Expect(mockCluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(cluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 			names := []string{channel.NewRandomName(), channel.NewRandomName(), channel.NewRandomName()}
-			Expect(mockCluster.Nodes[1].Channel.RenameMany(
+			Expect(cluster.Nodes[1].Channel.RenameMany(
 				ctx,
 				keys,
 				names,
 				false,
 			)).To(Succeed())
 			var resChannels []channel.Channel
-			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+			Expect(cluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 			Expect(channel.KeysFromChannels(resChannels)).To(Equal(keys))
 			Expect(resChannels[0].Name).To(Equal(names[0]))
 			Expect(resChannels[1].Name).To(Equal(names[1]))
@@ -142,21 +138,21 @@ var _ = Describe("Rename", Ordered, func() {
 				Virtual:     true,
 			}
 			channels := []channel.Channel{ch1, ch2, ch3}
-			Expect(mockCluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(cluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
 			nameMap := map[string]string{
 				ch1.Name: fmt.Sprintf("old_fermat_%s", id),
 				ch2.Name: fmt.Sprintf("old_laplace_%s", id),
 				ch3.Name: fmt.Sprintf("old_newton_%s", id),
 			}
-			Expect(mockCluster.Nodes[1].Channel.MapRename(ctx, nameMap, false)).To(Succeed())
+			Expect(cluster.Nodes[1].Channel.MapRename(ctx, nameMap, false)).To(Succeed())
 			var resChannels []channel.Channel
-			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+			Expect(cluster.Nodes[1].Channel.NewRetrieve().
 				Where(channel.MatchNames(lo.Keys(nameMap)...)).
 				Entries(&resChannels).
 				Exec(ctx, nil),
 			).To(Succeed())
 			Expect(resChannels).To(BeEmpty())
-			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+			Expect(cluster.Nodes[1].Channel.NewRetrieve().
 				Where(channel.MatchNames(lo.Values(nameMap)...)).
 				Entries(&resChannels).
 				Exec(ctx, nil),

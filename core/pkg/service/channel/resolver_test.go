@@ -29,7 +29,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Virtual:  true,
 			DataType: telem.Float32T,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(node.Channel.Create(ctx, ch)).To(Succeed())
 
 		sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_test_ch"))
 		Expect(sym.Name).To(Equal("resolver_test_ch"))
@@ -46,7 +46,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Internal: true,
 			DataType: telem.Float32T,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(node.Channel.Create(ctx, ch)).To(Succeed())
 
 		sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_internal_ch"))
 		Expect(sym.Renameable).To(BeFalse())
@@ -58,7 +58,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			Virtual:  true,
 			DataType: telem.Int64T,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(node.Channel.Create(ctx, ch)).To(Succeed())
 
 		sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, strconv.Itoa(int(ch.Key()))))
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
