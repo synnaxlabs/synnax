@@ -25,8 +25,8 @@ func NewNetwork() *Network {
 	return &Network{net: mock.NewNetwork[iterator.Request, iterator.Response]()}
 }
 
-// New provisions an in-memory iterator.Transport whose server is hosted at addr. buffers
-// sets the channel buffer sizes for the stream.
+// New provisions an in-memory iterator.Transport whose server is hosted at addr.
+// buffers sets the channel buffer sizes for the stream.
 func (n *Network) New(addr address.Address, buffers ...int) iterator.Transport {
 	return transport{
 		client: n.net.StreamClient(buffers...),
