@@ -48,12 +48,7 @@ type Transport struct {
 	server *server
 }
 
-var (
-	_ iterator.Server          = (*server)(nil)
-	_ iterator.Client          = (*client)(nil)
-	_ pb.IteratorServiceServer = (*server)(nil)
-	_ iterator.Transport       = Transport{}
-)
+var _ iterator.Transport = Transport{}
 
 // New creates a new gRPC iterator Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
