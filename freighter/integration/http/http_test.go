@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
@@ -153,6 +154,23 @@ var _ = Describe("flakyUnavailable", func() {
 			To(Equal(http.StatusServiceUnavailable))
 		Expect(post(app, ihttp.Message{Message: "flaky-a", ID: 1}).StatusCode).
 			To(Equal(http.StatusOK))
+	})
+})
+
+var _ = Describe("emptyResponse", func() {
+	It("Should respond with 200 OK and a genuinely empty body", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
+
+		body := MustSucceed(json.Marshal(ihttp.Message{Message: "x", ID: 1}))
+		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/emptyResponse", bytes.NewReader(body)))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+
+		resp := MustSucceed(app.Test(req))
+		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Expect(MustSucceed(io.ReadAll(resp.Body))).To(BeEmpty())
 	})
 })
 
