@@ -25,6 +25,8 @@ import (
 // node-to-node transports. Construct it with New; the zero value is not usable. It
 // implements the distribution.Transport interface.
 type Transport struct {
+	// ReportProvider provides a report for the transport.
+	alamos.ReportProvider
 	channel channel.Transport
 	framer  framer.Transport
 }
@@ -37,7 +39,11 @@ var (
 // New constructs the distribution layer's gRPC transports, opening connections from
 // pool.
 func New(pool *fgrpc.Pool) Transport {
-	return Transport{channel: channel.New(pool), framer: framer.New(pool)}
+	return Transport{
+		ReportProvider: fgrpc.Reporter,
+		channel:        channel.New(pool),
+		framer:         framer.New(pool),
+	}
 }
 
 // Channel implements distribution.Transport.
@@ -52,9 +58,6 @@ func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.channel.Use(middleware...)
 	t.framer.Use(middleware...)
 }
-
-// Report implements the alamos.ReportProvider interface.
-func (t Transport) Report() alamos.Report { return t.channel.Report() }
 
 // BindTo implements the grpc.BindableTransport interface, registering both the channel
 // and framer transports with the given gRPC service registrar.
