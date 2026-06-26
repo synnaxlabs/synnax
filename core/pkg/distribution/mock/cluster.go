@@ -17,7 +17,7 @@ import (
 	aspentransportmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	storagemock "github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
@@ -31,7 +31,7 @@ type Cluster struct {
 	storage *storagemock.Cluster
 	// Nodes maps each provisioned node's host key to its Node.
 	Nodes        map[node.Key]Node
-	transportNet *tmock.Network
+	transportNet *mock.Network
 	aspenNet     *aspentransportmock.Network
 	addrFactory  *address.Factory
 }
@@ -54,7 +54,7 @@ func NewCluster(ctx context.Context, n int) *Cluster {
 func OpenCluster(ctx context.Context, n int) *Cluster {
 	c := &Cluster{
 		storage:      storagemock.NewCluster(),
-		transportNet: tmock.NewNetwork(),
+		transportNet: mock.NewNetwork(),
 		aspenNet:     aspentransportmock.NewNetwork(),
 		addrFactory:  address.NewLocalFactory(0),
 		Nodes:        make(map[node.Key]Node),
