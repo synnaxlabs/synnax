@@ -58,7 +58,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.Open())
-	dist := DeferClose(mock.NewCluster().Provision(ctx))
+	node := mock.NewNode(ctx)
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -81,7 +81,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:                  db,
 		Ontology:            otg,
 		Group:               groupSvc,
-		HostProvider:        mock.StaticHostKeyProvider(1),
+		HostProvider:        mock.NewStaticHostProvider(1),
 		Status:              statSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
 		Search:              searchIdx,
@@ -97,7 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Channel:  channel.Wrap(dist.Channel),
+		Channel:  channel.Wrap(node.Channel),
 		Task:     taskSvc,
 		Search:   searchIdx,
 	}))

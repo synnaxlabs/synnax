@@ -7,10 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type numeric } from "@/numeric";
-
-export const clamp = <T extends numeric.Value>(value: T, min?: T, max?: T): T => {
-  if (min !== undefined && value < min) return min;
-  if (max !== undefined && value > max) return max;
-  return value;
-};
+export * as imex from "@/imex/client";

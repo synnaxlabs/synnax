@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, clamp, location } from "@synnaxlabs/x";
-import { clsx } from "clsx";
-import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import { bounds, box, location } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
@@ -18,93 +17,96 @@ import { Base, type BaseProps } from "@/resize/Base";
 /** Props for the {@link Single} component. */
 export interface SingleProps extends Omit<
   BaseProps,
-  "showHandle" | "size" | "onResize" | "onDragStart" | "ref"
+  "hideHandle" | "size" | "onResize" | "onDragStart" | "ref"
 > {
-  initialSize?: number;
-  minSize?: number;
-  maxSize?: number;
+  /**
+   * The size of the pane, in pixels. Acts as the source of truth whenever the handle is
+   * not being actively dragged; while a drag is in progress the pane renders its
+   * transient drag size instead. Defaults to 200.
+   */
+  size?: number;
+  sizeBounds?: Partial<bounds.Bounds>;
+  /**
+   * Called continuously while the handle is being dragged with the live size and the
+   * pane's box. Use for transient, per-frame side effects (e.g. repainting an overlay);
+   * do not persist from here, as it fires once per pointer move.
+   */
   onResize?: (size: number, box: box.Box) => void;
+  /**
+   * Called once when a drag gesture ends with the committed size and the pane's box.
+   * This is the callback to persist the new size to the source of truth.
+   */
+  onResizeEnd?: (size: number, box: box.Box) => void;
   collapseThreshold?: number;
   onCollapse?: () => void;
 }
 
 const COLLAPSED_SIZE = 2;
-const DEFAULT_MIN_SIZE = 100;
+const DEFAULT_SIZE = 200;
+const DEFAULT_SIZE_BOUNDS = { lower: 100 };
 
-/**
- * A panel that can be resized in one direction by dragging its handle.
- *
- * @param props - The component props. All unused props will be passed to the div
- * containing the content.
- * @param props.location - The the location of the panel. The drag handle will be on the opposite side.
- * @param props.minSize - The smallest size the panel can be resized to.
- * @param props.maxSize - The largest size the panel can be resized to.
- * @param props.onResize - A callback executed when the panel is resized.
- */
 export const Single = ({
   onCollapse,
   onResize,
-  location: location_ = "left",
-  minSize,
-  maxSize,
-  initialSize = 200,
+  onResizeEnd,
+  location: propsLoc = "left",
+  sizeBounds,
+  size = DEFAULT_SIZE,
   collapseThreshold = Infinity,
   className,
   ...rest
 }: SingleProps): ReactElement => {
-  const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));
-  const marker = useRef<number | null>(null);
-  const loc = location.construct(location_);
+  const fullSizeBounds = useMemo(
+    () =>
+      bounds.construct({
+        ...sizeBounds,
+        lower: sizeBounds?.lower ?? DEFAULT_SIZE_BOUNDS.lower,
+      }),
+    [sizeBounds?.lower, sizeBounds?.upper],
+  );
+  const clamped = bounds.clamp(fullSizeBounds, size);
+  const [dragSize, setDragSize] = useState<number | null>(null);
+  const rendered = dragSize ?? clamped;
+  const marker = useRef<number>(clamped);
+  const loc = location.construct(propsLoc);
+  const ref = useRef<HTMLDivElement>(null);
 
   const calcNextSize = useCallback(
     (b: box.Box) => {
-      if (marker.current === null) return 0;
-      const dim =
-        box.dim(b, location.direction(loc), true) *
-        (1 - 2 * Number(["bottom", "right"].includes(loc)));
+      const signedDim = box.dim(b, location.direction(loc), true);
+      const isInverted = loc === "bottom" || loc === "right";
+      const dim = isInverted ? -signedDim : signedDim;
       const rawNextSize = marker.current + dim;
-      const nextSize = clamp(rawNextSize, minSize, maxSize);
-      if ((nextSize - rawNextSize) / (minSize ?? DEFAULT_MIN_SIZE) > collapseThreshold)
+      const nextSize = bounds.clamp(fullSizeBounds, rawNextSize);
+      if ((nextSize - rawNextSize) / fullSizeBounds.lower > collapseThreshold)
         return COLLAPSED_SIZE;
       return nextSize;
     },
-    [loc, minSize, maxSize, collapseThreshold],
+    [loc, fullSizeBounds, collapseThreshold],
   );
 
-  const ref = useRef<HTMLDivElement>(null);
+  const handleStart = useCallback(() => {
+    marker.current = clamped;
+  }, [clamped]);
 
   const handleMove = useCallback(
     (dragRegion: box.Box) => {
       const nextSize = calcNextSize(dragRegion);
-      setSize(nextSize);
-      if (ref.current == null) return;
-      onResize?.(nextSize, box.construct(ref.current));
+      setDragSize(nextSize);
+      if (ref.current != null) onResize?.(nextSize, box.construct(ref.current));
     },
     [onResize, calcNextSize],
   );
 
-  const handleStart = useCallback(
-    () =>
-      setSize((prev) => {
-        marker.current = prev;
-        return prev;
-      }),
-    [setSize],
-  );
-
   const handleEnd = useCallback(
-    (box: box.Box) => calcNextSize(box) === COLLAPSED_SIZE && onCollapse?.(),
-    [onCollapse, calcNextSize],
+    (dragRegion: box.Box) => {
+      const nextSize = calcNextSize(dragRegion);
+      setDragSize(null);
+      if (nextSize === COLLAPSED_SIZE) return onCollapse?.();
+      if (ref.current != null) onResizeEnd?.(nextSize, box.construct(ref.current));
+    },
+    [onResizeEnd, onCollapse, calcNextSize],
   );
-
-  useEffect(() => {
-    if (minSize == null || maxSize == null) return;
-    setSize((prev) => {
-      const nextSize = clamp(prev, minSize, maxSize);
-      marker.current = nextSize;
-      return nextSize;
-    });
-  }, [minSize, maxSize]);
 
   const handleDragStart = useCursorDrag({
     onMove: handleMove,
@@ -116,9 +118,9 @@ export const Single = ({
     <Base
       ref={ref}
       location={loc}
-      size={size}
+      size={rendered}
       onDragStart={handleDragStart}
-      className={clsx(className, CSS.expanded(size !== COLLAPSED_SIZE))}
+      className={CSS(className, CSS.expanded(rendered !== COLLAPSED_SIZE))}
       {...rest}
     />
   );

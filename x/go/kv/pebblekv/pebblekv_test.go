@@ -34,6 +34,7 @@ var _ = Describe("PebbleKV", func() {
 		)
 
 		BeforeAll(func() {
+			ShouldNotLeakGoroutines()
 			dbPath = filepath.Join(os.TempDir(), "pebblekv-test")
 			pdb := MustSucceed(pebble.Open(dbPath, &pebble.Options{
 				Logger: pebblekv.NewNoopLogger(),
@@ -265,6 +266,7 @@ var _ = Describe("PebbleKV", func() {
 
 		Context("With observation enabled (default)", Ordered, func() {
 			BeforeAll(func() {
+				ShouldNotLeakGoroutines()
 				open(false)
 			})
 
@@ -367,6 +369,7 @@ var _ = Describe("PebbleKV", func() {
 
 		Context("With observation disabled", Ordered, func() {
 			BeforeAll(func() {
+				ShouldNotLeakGoroutines()
 				open(true)
 			})
 

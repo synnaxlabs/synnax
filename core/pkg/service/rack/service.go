@@ -163,7 +163,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		return nil, err
 	}
 	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
-	if s.localKeyCounter, err = kv.OpenCounter(ctx, cfg.DB, counterKey); !ok(err, nil) {
+	if s.localKeyCounter, err = kv.NewCounter(ctx, cfg.DB, counterKey); !ok(err, nil) {
 		return nil, err
 	}
 	if err = s.loadEmbeddedRack(ctx); !ok(err, nil) {

@@ -55,7 +55,7 @@ class TestSubject:
 
 class TestState:
     def test_create(self) -> None:
-        s = State(
+        s = State[str](
             subject=Subject(key="k", name="n"),
             resource="res-1",
             authority=100,
@@ -71,7 +71,7 @@ class TestTransfer:
         assert t.to is None
 
     def test_acquire_transfer(self) -> None:
-        state = State(
+        state = State[str](
             subject=Subject(key="k", name="n"),
             resource="ch-1",
             authority=255,
@@ -88,7 +88,7 @@ class TestUpdate:
         assert len(u.transfers) == 0
 
     def test_with_transfers(self) -> None:
-        state = State(
+        state = State[str](
             subject=Subject(key="k", name="n"),
             resource="ch-1",
             authority=1,

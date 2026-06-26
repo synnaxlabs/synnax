@@ -18,10 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 )
 
-var (
-	mockCluster *mock.Cluster
-	dist        *distribution.Layer
-)
+var dist *distribution.Layer
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -29,10 +26,5 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	mockCluster = mock.ProvisionCluster(ctx, 1)
-	dist = mockCluster.Nodes[1].Layer
-	DeferCleanup(func() {
-		Expect(dist.Close()).To(Succeed())
-		Expect(mockCluster.Close()).To(Succeed())
-	})
+	dist = mock.NewNode(ctx).Layer
 })
