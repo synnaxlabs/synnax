@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	grpctestutil "github.com/synnaxlabs/freighter/grpc/testutil"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	. "github.com/synnaxlabs/x/testutil"
@@ -96,7 +96,7 @@ var _ = Describe("Transport", func() {
 	Describe("Use", func() {
 		It("Should apply middleware to both the client and server endpoints", func(ctx SpecContext) {
 			var t channel.Transport
-			useAddr := grpctestutil.StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+			useAddr := StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 				t = channel.New(pool)
 				t.BindTo(reg)
 			}).Address

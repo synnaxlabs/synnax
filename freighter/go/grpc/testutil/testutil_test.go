@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	grpctestutil "github.com/synnaxlabs/freighter/grpc/testutil"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -32,7 +32,7 @@ func (echoServer) Exec(_ context.Context, req *v1.Request) (*v1.Response, error)
 
 var _ = Describe("StartServer", func() {
 	It("Should expose the address, pool, and server it created", func() {
-		srv := grpctestutil.StartServer(func(grpc.ServiceRegistrar, *fgrpc.Pool) {})
+		srv := StartServer(func(grpc.ServiceRegistrar, *fgrpc.Pool) {})
 		Expect(srv.Address).To(HavePrefix("127.0.0.1:"))
 		Expect(srv.Pool).ToNot(BeNil())
 		Expect(srv.Server).ToNot(BeNil())
@@ -43,7 +43,7 @@ var _ = Describe("StartServer", func() {
 			gotReg  grpc.ServiceRegistrar
 			gotPool *fgrpc.Pool
 		)
-		srv := grpctestutil.StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+		srv := StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 			gotReg, gotPool = reg, pool
 		})
 		Expect(gotReg).To(BeIdenticalTo(grpc.ServiceRegistrar(srv.Server)))
@@ -51,7 +51,7 @@ var _ = Describe("StartServer", func() {
 	})
 
 	It("Should serve registered services reachable through the pool", func(ctx SpecContext) {
-		srv := grpctestutil.StartServer(func(reg grpc.ServiceRegistrar, _ *fgrpc.Pool) {
+		srv := StartServer(func(reg grpc.ServiceRegistrar, _ *fgrpc.Pool) {
 			v1.RegisterTestUnaryServiceServer(reg, echoServer{})
 		})
 		conn := MustSucceed(srv.Pool.Acquire(srv.Address))
@@ -65,7 +65,7 @@ var _ = Describe("StartServer", func() {
 
 	It("Should forward server options to the underlying gRPC server", func(ctx SpecContext) {
 		var intercepted atomic.Bool
-		srv := grpctestutil.StartServer(
+		srv := StartServer(
 			func(reg grpc.ServiceRegistrar, _ *fgrpc.Pool) {
 				v1.RegisterTestUnaryServiceServer(reg, echoServer{})
 			},

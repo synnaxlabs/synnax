@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	grpctestutil "github.com/synnaxlabs/freighter/grpc/testutil"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
@@ -127,7 +127,7 @@ var _ = Describe("Transport", func() {
 		// operation, so a writer stream round-trip invokes it on both sides.
 		It("Should apply middleware to both the client and server endpoints", func(ctx SpecContext) {
 			var t framer.Transport
-			useAddr := grpctestutil.StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+			useAddr := StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 				t = framer.New(pool)
 				t.BindTo(reg)
 			}).Address

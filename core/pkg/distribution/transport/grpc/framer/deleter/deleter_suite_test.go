@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	grpctestutil "github.com/synnaxlabs/freighter/grpc/testutil"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/deleter"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,10 +32,9 @@ var (
 	addr      address.Address
 )
 
-var _ = ShouldNotLeakGoroutinesPerSpec()
-
-var _ = BeforeEach(func() {
-	addr = grpctestutil.StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
+	addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 		transport = deleter.New(pool)
 		transport.BindTo(reg)
 	}).Address

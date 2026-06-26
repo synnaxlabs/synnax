@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	grpctestutil "github.com/synnaxlabs/freighter/grpc/testutil"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
@@ -30,7 +30,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 	)
 
 	BeforeAll(func() {
-		addr = grpctestutil.StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+		addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 			uServer := &fgrpc.UnaryServer[
 				test.Request, *v1.Request,
 				test.Response, *v1.Response,

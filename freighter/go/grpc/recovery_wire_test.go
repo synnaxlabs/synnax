@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	grpctestutil "github.com/synnaxlabs/freighter/grpc/testutil"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	"github.com/synnaxlabs/freighter/recovery"
 	"github.com/synnaxlabs/freighter/test"
@@ -39,7 +39,7 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 
 	BeforeAll(func() {
 		ins := alamos.Instrumentation{}
-		addr = grpctestutil.StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+		addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 			uServer := &fgrpc.UnaryServer[
 				test.Request, *v1.Request,
 				test.Response, *v1.Response,
