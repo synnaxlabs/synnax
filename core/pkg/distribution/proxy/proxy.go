@@ -23,9 +23,9 @@ type Entry interface {
 }
 
 // BatchFactory partitions Entry values by their leaseholder relative to a fixed host
-// node, treating that host as the local node: Batch routes entries leased to it into the
-// gateway bucket and all other leased entries to peers. Construct one by converting a
-// host node.Key, e.g. BatchFactory[E](host), then call Batch.
+// node, treating that host as the local node: Batch routes entries leased to it into
+// the gateway bucket and all other leased entries to peers. Construct one by converting
+// a host node.Key, e.g. BatchFactory[E](host), then call Batch.
 type BatchFactory[E Entry] node.Key
 
 // Batch is the result of partitioning a set of Entry values by leaseholder. Every input
