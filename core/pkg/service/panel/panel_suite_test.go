@@ -31,7 +31,7 @@ func TestPanel(t *testing.T) {
 }
 
 var (
-	dist     mock.Node
+	node     mock.Node
 	db       *gorp.DB
 	otg      *ontology.Ontology
 	svc      *panel.Service
@@ -40,25 +40,24 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder := DeferClose(mock.NewCluster())
-	dist = DeferClose(builder.Provision(ctx))
-	db = dist.DB
-	otg = dist.Ontology
+	node = mock.NewNode(ctx)
+	db = node.DB
+	otg = node.Ontology
 	sigs := MustSucceed(signals.New(signals.Config{
-		Channel: channel.Wrap(dist.Channel),
-		Framer:  framer.Wrap(dist.Framer),
+		Channel: channel.Wrap(node.Channel),
+		Framer:  framer.Wrap(node.Framer),
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Search:   dist.Search,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Search:   node.Search,
 		Signals:  sigs,
 	}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Search:   dist.Search,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
 	}))
 	parent := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "panel-parent"}))
 	parentID = user.OntologyID(parent.Key)

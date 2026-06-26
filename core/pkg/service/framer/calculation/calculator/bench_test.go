@@ -25,19 +25,18 @@ import (
 
 type benchEnv struct {
 	ctx  context.Context
-	dist mock.Node
+	node mock.Node
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
 	ctx := context.Background()
-	distB := mock.NewCluster()
-	dist := distB.Provision(ctx)
-	return &benchEnv{ctx: ctx, dist: dist}
+	node := mock.OpenNode(ctx)
+	return &benchEnv{ctx: ctx, node: node}
 }
 
 func (e *benchEnv) close(b *testing.B) {
-	if err := e.dist.Close(); err != nil {
+	if err := e.node.Close(); err != nil {
 		b.Errorf("failed to close distribution: %v", err)
 	}
 }
@@ -48,7 +47,7 @@ func (e *benchEnv) openCalculator(
 	calc *channel.Channel,
 ) *calculator.Calculator {
 	if len(indexes) > 0 {
-		if err := e.dist.Channel.CreateMany(e.ctx, &indexes); err != nil {
+		if err := e.node.Channel.CreateMany(e.ctx, &indexes); err != nil {
 			b.Fatalf("failed to create index channels: %v", err)
 		}
 	}
@@ -64,15 +63,15 @@ func (e *benchEnv) openCalculator(
 			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
-		if err := e.dist.Channel.CreateMany(e.ctx, &bases); err != nil {
+		if err := e.node.Channel.CreateMany(e.ctx, &bases); err != nil {
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := e.dist.Channel.Create(e.ctx, calc); err != nil {
+	if err := e.node.Channel.Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
-		ChannelService: channel.Wrap(e.dist.Channel),
+		ChannelService: channel.Wrap(e.node.Channel),
 		Channel:        *calc,
 	})
 	if err != nil {
