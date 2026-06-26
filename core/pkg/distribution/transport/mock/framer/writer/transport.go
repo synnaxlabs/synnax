@@ -41,8 +41,6 @@ type transport struct {
 
 var _ writer.Transport = transport{}
 
-// Client implements the writer.Transport interface.
 func (t transport) Client() writer.Client { return t.client }
 
-// Server implements the writer.Transport interface.
 func (t transport) Server() writer.Server { return t.server }

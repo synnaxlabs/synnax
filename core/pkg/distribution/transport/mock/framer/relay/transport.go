@@ -41,8 +41,6 @@ type transport struct {
 
 var _ relay.Transport = transport{}
 
-// Client implements the relay.Transport interface.
 func (t transport) Client() relay.Client { return t.client }
 
-// Server implements the relay.Transport interface.
 func (t transport) Server() relay.Server { return t.server }

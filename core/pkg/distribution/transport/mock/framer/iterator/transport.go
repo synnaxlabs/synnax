@@ -41,8 +41,6 @@ type transport struct {
 
 var _ iterator.Transport = transport{}
 
-// Client implements the iterator.Transport interface.
 func (t transport) Client() iterator.Client { return t.client }
 
-// Server implements the iterator.Transport interface.
 func (t transport) Server() iterator.Server { return t.server }

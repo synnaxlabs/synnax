@@ -36,8 +36,6 @@ type (
 
 type server struct{ serverCore }
 
-// Write implements the pb.WriterServiceServer interface, dispatching the gRPC stream to
-// the registered freighter handler.
 func (s *server) Write(stream pb.WriterService_WriteServer) error {
 	return s.Handler(stream.Context(), stream)
 }

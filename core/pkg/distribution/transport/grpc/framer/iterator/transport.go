@@ -36,8 +36,6 @@ type (
 
 type server struct{ serverCore }
 
-// Iterate implements the pb.IteratorServiceServer interface, dispatching the gRPC
-// stream to the registered freighter handler.
 func (s *server) Iterate(stream pb.IteratorService_IterateServer) error {
 	return s.Handler(stream.Context(), stream)
 }

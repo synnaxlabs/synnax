@@ -63,14 +63,10 @@ type transport struct {
 
 var _ framer.Transport = transport{}
 
-// Deleter implements the framer.Transport interface.
 func (t transport) Deleter() deleter.Transport { return t.deleter }
 
-// Iterator implements the framer.Transport interface.
 func (t transport) Iterator() iterator.Transport { return t.iterator }
 
-// Relay implements the framer.Transport interface.
 func (t transport) Relay() relay.Transport { return t.relay }
 
-// Writer implements the framer.Transport interface.
 func (t transport) Writer() writer.Transport { return t.writer }

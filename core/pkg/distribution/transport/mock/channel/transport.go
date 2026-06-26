@@ -60,20 +60,14 @@ type transport struct {
 	renameServer channel.RenameServer
 }
 
-// CreateClient implements the channel.Transport interface.
 func (t transport) CreateClient() channel.CreateClient { return t.createClient }
 
-// CreateServer implements the channel.Transport interface.
 func (t transport) CreateServer() channel.CreateServer { return t.createServer }
 
-// DeleteClient implements the channel.Transport interface.
 func (t transport) DeleteClient() channel.DeleteClient { return t.deleteClient }
 
-// DeleteServer implements the channel.Transport interface.
 func (t transport) DeleteServer() channel.DeleteServer { return t.deleteServer }
 
-// RenameClient implements the channel.Transport interface.
 func (t transport) RenameClient() channel.RenameClient { return t.renameClient }
 
-// RenameServer implements the channel.Transport interface.
 func (t transport) RenameServer() channel.RenameServer { return t.renameServer }
