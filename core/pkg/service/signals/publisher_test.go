@@ -50,17 +50,17 @@ var _ = Describe("Publisher", Serial, func() {
 			Observable:    obs,
 		}
 		closer = MustSucceed(sigs.PublishFromObservable(ctx, cfg))
-		Expect(dist.Channel.NewRetrieve().
+		Expect(node.Channel.NewRetrieve().
 			Where(channel.MatchNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
-		Expect(dist.Channel.NewRetrieve().
+		Expect(node.Channel.NewRetrieve().
 			Where(channel.MatchNames(publisherDeleteChannelName)).
 			Entry(&cfg.DeleteChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
-		streamer = MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		streamer = MustSucceed(node.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{cfg.SetChannel.Key(), cfg.DeleteChannel.Key()},
 		}))
 		requests, responses = confluence.Attach(streamer, 2)

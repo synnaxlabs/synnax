@@ -56,12 +56,12 @@ var _ = Describe("PublishSignals", func() {
 			Name:     serviceName,
 		}))
 		DeferCleanup(func() { Expect(closer.Close()).To(Succeed()) })
-		Expect(dist.Channel.NewRetrieve().
+		Expect(node.Channel.NewRetrieve().
 			Where(channel.MatchNames(fmt.Sprintf("sy_%s_set", serviceName))).
 			Entry(&setChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
-		streamer = MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		streamer = MustSucceed(node.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{setChannel.Key()},
 		}))
 		requests, responses = confluence.Attach(streamer, 2)
