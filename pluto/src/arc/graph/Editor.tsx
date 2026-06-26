@@ -9,7 +9,6 @@
 
 import "@/arc/graph/Editor.css";
 
-import { type arc } from "@synnaxlabs/client";
 import { box, id, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
@@ -22,18 +21,19 @@ import {
 import { canDropHaulItem, filterHaulItems } from "@/arc/haul";
 import {
   useAddNode,
-  useDispatch,
   useRedo,
   useSelectEdges,
   useSelectNodes,
+  useSingleDispatch,
   useUndo,
 } from "@/arc/queries";
+import { Scope } from "@/arc/scope";
+import { useKey } from "@/arc/Suspended";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
-import { Key } from "@/key";
 import { Menu } from "@/menu";
 import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
@@ -53,13 +53,11 @@ export interface EditorProps extends Omit<
   BaseDiagram.DiagramProps,
   "nodes" | "edges" | "onNodesChange" | "onEdgesChange" | "onChange"
 > {
-  resourceKey: arc.Key;
   enableTriggers?: boolean | (() => boolean);
   extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
 }
 
 export const Editor = ({
-  resourceKey: key,
   viewport,
   className,
   selected,
@@ -70,24 +68,23 @@ export const Editor = ({
   children,
   ...props
 }: EditorProps): ReactElement => {
-  const nodes = useSelectNodes({ key });
+  const key = useKey();
+  const nodes = useSelectNodes();
   const nodesRef = useSyncedRef(nodes);
-  const edges = useSelectEdges({ key });
+  const edges = useSelectEdges();
   const edgesRef = useSyncedRef(edges);
-  const { dispatch } = useDispatch();
+  const dispatch = useSingleDispatch();
 
   const handleNodesChange = useCallback(
-    (changes: BaseDiagram.NodeChange[]) =>
-      dispatch({ key, actions: nodeChangesToActions(changes) }),
-    [key, dispatch],
+    (changes: BaseDiagram.NodeChange[]) => dispatch(nodeChangesToActions(changes)),
+    [dispatch],
   );
   const handleEdgesChange = useCallback(
-    (changes: BaseDiagram.EdgeChange[]) =>
-      dispatch({ key, actions: edgeChangesToActions(changes) }),
-    [key, dispatch],
+    (changes: BaseDiagram.EdgeChange[]) => dispatch(edgeChangesToActions(changes)),
+    [dispatch],
   );
 
-  const handleAddNode = useAddNode(key);
+  const handleAddNode = useAddNode();
   const ref = useRef<HTMLDivElement>(null);
   const viewportRef = useSyncedRef(viewport);
   const calculateCursorPosition = useCallback((cursor: xy.Crude) => {
@@ -131,8 +128,8 @@ export const Editor = ({
       ]),
     [onSelectionChange],
   );
-  const { undo, canUndo } = useUndo({ key });
-  const { redo, canRedo } = useRedo({ key });
+  const { undo, canUndo } = useUndo();
+  const { redo, canRedo } = useRedo();
 
   const { onCopy, onPaste } = useClipboard({
     key,
@@ -182,7 +179,7 @@ export const Editor = ({
   );
 
   return (
-    <Key.Provider value={key}>
+    <Scope.Provider value={key}>
       <Diagram
         ref={ref}
         className={CSS(className, CSS.B("arc"))}
@@ -206,6 +203,6 @@ export const Editor = ({
         {children}
         <Menu.ContextMenu {...contextMenu} menu={renderMenu} />
       </Diagram>
-    </Key.Provider>
+    </Scope.Provider>
   );
 };

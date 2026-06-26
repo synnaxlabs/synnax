@@ -10,7 +10,7 @@
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { TYPE as ARC_TYPE } from "@/arc/types";
+import { TYPE as ARC_TYPE } from "@/layered/service/arc/imex/migrations";
 import * as v1 from "@/layout/types/v1";
 import * as v8 from "@/layout/types/v8";
 

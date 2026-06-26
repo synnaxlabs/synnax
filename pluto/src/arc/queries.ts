@@ -20,6 +20,7 @@ import { useCallback } from "react";
 import z from "zod";
 
 import { Node } from "@/arc/graph/node";
+import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { type List } from "@/list";
@@ -81,7 +82,12 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [...undoableStoreConfig.listeners, DELETE_ARC_LISTENER],
 };
 
-export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+const {
+  useDispatch,
+  useUndo: useUndoBase,
+  useRedo: useRedoBase,
+  useSingleDispatch: useSingleDispatchBase,
+} = Flux.createDispatch<
   arc.Key,
   arc.Arc,
   arc.Action,
@@ -92,6 +98,11 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   send: ({ client, key, actions, dispatchKey }) =>
     client.arcs.dispatch(key, dispatchKey, actions),
 });
+
+export { useDispatch };
+export const useUndo = Scope.bindHook(useUndoBase);
+export const useRedo = Scope.bindHook(useRedoBase);
+export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
 
 export interface SelectKeyArgs {
   key: arc.Key;
@@ -107,27 +118,23 @@ const requireArc = (store: FluxSubStore, key: arc.Key): arc.Arc => {
 // nodes. graph.Node is a structural superset of Diagram.Node, so the stored array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated store updates.
-export const useSelectNodes = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  Diagram.Node[]
->({
-  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-  select: (store, { key }) => requireArc(store, key).graph.nodes,
-});
+export const useSelectNodes = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, Diagram.Node[]>({
+    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+    select: (store, { key }) => requireArc(store, key).graph.nodes,
+  }),
+);
 
 // useSelectEdges returns the graph edges of the Arc with the given key as diagram
 // edges. graph.Edge is a structural superset of Diagram.Edge, so the stored array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated store updates.
-export const useSelectEdges = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  Diagram.Edge[]
->({
-  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-  select: (store, { key }) => requireArc(store, key).graph.edges,
-});
+export const useSelectEdges = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, Diagram.Edge[]>({
+    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+    select: (store, { key }) => requireArc(store, key).graph.edges,
+  }),
+);
 
 export interface SelectNodePropsArgs {
   key: arc.Key;
@@ -136,36 +143,32 @@ export interface SelectNodePropsArgs {
 
 // useSelectNodeConfig returns the typed config for a single graph node. Returned by
 // reference, so the selection only re-runs when that node's config changes.
-export const useSelectNodeConfig = Flux.createSelector<
-  FluxSubStore,
-  SelectNodePropsArgs,
-  Node.Config
->({
-  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-  select: (store, { key, nodeKey }) =>
-    requireArc(store, key).graph.configs[nodeKey] as Node.Config,
-});
+export const useSelectNodeConfig = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectNodePropsArgs, Node.Config>({
+    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+    select: (store, { key, nodeKey }) =>
+      requireArc(store, key).graph.configs[nodeKey] as Node.Config,
+  }),
+);
 
 // useSelectMode returns the representation mode of the Arc with the given key,
 // or undefined when it has not yet loaded into the store.
-export const useSelectMode = Flux.createSelector<FluxSubStore, SelectKeyArgs, arc.Mode>(
-  {
+export const useSelectMode = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, arc.Mode>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key }) => requireArc(store, key).mode,
-  },
+  }),
 );
 
 // useSelectHasText reports whether the Arc with the given key has loaded into the store.
 // It returns a stable boolean, so an editor that drives its document imperatively re-renders
 // only when the document first becomes available, not on every subsequent edit.
-export const useSelectHasText = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  boolean
->({
-  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
-  select: (store, { key }) => store.arcs.get(key)?.text.doc != null,
-});
+export const useSelectHasText = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, boolean>({
+    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+    select: (store, { key }) => store.arcs.get(key)?.text.doc != null,
+  }),
+);
 
 export interface AddNodeProps {
   key: string;
@@ -174,8 +177,10 @@ export interface AddNodeProps {
 }
 
 // useAddNode returns a callback that appends a node of the given function type at
-// the given position, seeding its config from the type's default props.
-export const useAddNode = (key: arc.Key) => {
+// the given position, seeding its config from the type's default props. The Arc key
+// is resolved from the surrounding scope unless overridden.
+export const useAddNode = (keyOverride?: arc.Key) => {
+  const key = Scope.use(keyOverride);
   const theme = Theming.use();
   const { dispatch } = useDispatch();
   return useCallback(

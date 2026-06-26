@@ -1,0 +1,43 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { arc } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
+
+import { EXPLORER_LAYOUT } from "@/layered/service/arc/Explorer";
+import { useCreate } from "@/layered/service/arc/useCreate";
+import { Palette } from "@/palette";
+
+const useCreateVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+const useViewVisible = () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
+
+export const CreateCommand: Palette.Command = ({ rename, ...listProps }) => {
+  const create = useCreate();
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create an Arc automation"
+      icon={<Icon.Arc />}
+      onSelect={create}
+    />
+  );
+};
+CreateCommand.key = "create_arc";
+CreateCommand.commandName = "Create an Arc automation";
+CreateCommand.useVisible = useCreateVisible;
+
+export const OpenExplorerCommand = Palette.createSimpleCommand({
+  key: "open_arc_explorer",
+  name: "Open the Arc Explorer",
+  icon: <Icon.Explore />,
+  layout: EXPLORER_LAYOUT,
+  useVisible: useViewVisible,
+});
+
+export const COMMANDS = [CreateCommand, OpenExplorerCommand];
