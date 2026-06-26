@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package iterator_test
+package relay_test
 
 import (
 	"context"
@@ -15,8 +15,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	iteratormock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distrelay "github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/relay"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -28,12 +29,12 @@ const (
 
 var _ = Describe("Transport", func() {
 	var (
-		net    *iteratormock.Network
-		server iterator.Transport
-		client iterator.Transport
+		net    *relay.Network
+		server distrelay.Transport
+		client distrelay.Transport
 	)
 	BeforeEach(func() {
-		net = iteratormock.NewNetwork()
+		net = relay.NewNetwork()
 		server = net.New(leaseholder, 1)
 		client = net.New(gateway, 1)
 	})
@@ -41,17 +42,16 @@ var _ = Describe("Transport", func() {
 	It("Should round-trip a request through the streaming transport", func(ctx SpecContext) {
 		server.Server().BindHandler(func(
 			_ context.Context,
-			srv freighter.ServerStream[iterator.Request, iterator.Response],
+			srv freighter.ServerStream[distrelay.Request, distrelay.Response],
 		) error {
-			req, err := srv.Receive()
-			if err != nil {
+			if _, err := srv.Receive(); err != nil {
 				return err
 			}
-			return srv.Send(iterator.Response{SeqNum: req.SeqNum})
+			return srv.Send(distrelay.Response{Group: 43})
 		})
 		stream := MustSucceed(client.Client().Stream(ctx, leaseholder))
-		Expect(stream.Send(iterator.Request{SeqNum: 7})).To(Succeed())
-		Expect(MustSucceed(stream.Receive()).SeqNum).To(Equal(7))
+		Expect(stream.Send(distrelay.Request{Keys: channel.Keys{4, 5}})).To(Succeed())
+		Expect(MustSucceed(stream.Receive()).Group).To(Equal(uint32(43)))
 		Expect(stream.CloseSend()).To(Succeed())
 	})
 })

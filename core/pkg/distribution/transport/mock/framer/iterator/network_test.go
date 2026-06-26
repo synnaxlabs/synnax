@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package relay_test
+package iterator_test
 
 import (
 	"context"
@@ -15,9 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
-	relaymock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/relay"
+	distiterator "github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/iterator"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,12 +28,12 @@ const (
 
 var _ = Describe("Transport", func() {
 	var (
-		net    *relaymock.Network
-		server relay.Transport
-		client relay.Transport
+		net    *iterator.Network
+		server distiterator.Transport
+		client distiterator.Transport
 	)
 	BeforeEach(func() {
-		net = relaymock.NewNetwork()
+		net = iterator.NewNetwork()
 		server = net.New(leaseholder, 1)
 		client = net.New(gateway, 1)
 	})
@@ -42,16 +41,17 @@ var _ = Describe("Transport", func() {
 	It("Should round-trip a request through the streaming transport", func(ctx SpecContext) {
 		server.Server().BindHandler(func(
 			_ context.Context,
-			srv freighter.ServerStream[relay.Request, relay.Response],
+			srv freighter.ServerStream[distiterator.Request, distiterator.Response],
 		) error {
-			if _, err := srv.Receive(); err != nil {
+			req, err := srv.Receive()
+			if err != nil {
 				return err
 			}
-			return srv.Send(relay.Response{Group: 43})
+			return srv.Send(distiterator.Response{SeqNum: req.SeqNum})
 		})
 		stream := MustSucceed(client.Client().Stream(ctx, leaseholder))
-		Expect(stream.Send(relay.Request{Keys: channel.Keys{4, 5}})).To(Succeed())
-		Expect(MustSucceed(stream.Receive()).Group).To(Equal(uint32(43)))
+		Expect(stream.Send(distiterator.Request{SeqNum: 7})).To(Succeed())
+		Expect(MustSucceed(stream.Receive()).SeqNum).To(Equal(7))
 		Expect(stream.CloseSend()).To(Succeed())
 	})
 })

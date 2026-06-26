@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
-	deletermock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/deleter"
+	distdeleter "github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/deleter"
 	"github.com/synnaxlabs/x/address"
 )
 
@@ -28,12 +28,12 @@ const (
 
 var _ = Describe("Transport", func() {
 	var (
-		net    *deletermock.Network
-		server deleter.Transport
-		client deleter.Transport
+		net    *deleter.Network
+		server distdeleter.Transport
+		client distdeleter.Transport
 	)
 	BeforeEach(func() {
-		net = deletermock.NewNetwork()
+		net = deleter.NewNetwork()
 		server = net.New(leaseholder)
 		client = net.New(gateway)
 	})
@@ -41,12 +41,12 @@ var _ = Describe("Transport", func() {
 	It("Should round-trip a request through the unary transport", func(ctx SpecContext) {
 		var received channel.Keys
 		server.Server().BindHandler(
-			func(_ context.Context, req deleter.Request) (types.Nil, error) {
+			func(_ context.Context, req distdeleter.Request) (types.Nil, error) {
 				received = req.Keys
 				return types.Nil{}, nil
 			},
 		)
-		Expect(client.Client().Send(ctx, leaseholder, deleter.Request{
+		Expect(client.Client().Send(ctx, leaseholder, distdeleter.Request{
 			Keys: channel.Keys{4, 5},
 		})).To(Equal(types.Nil{}))
 		Expect(received).To(Equal(channel.Keys{4, 5}))

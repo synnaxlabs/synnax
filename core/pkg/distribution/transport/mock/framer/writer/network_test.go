@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	writermock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/writer"
+	distwriter "github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/framer/writer"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -28,12 +28,12 @@ const (
 
 var _ = Describe("Transport", func() {
 	var (
-		net    *writermock.Network
-		server writer.Transport
-		client writer.Transport
+		net    *writer.Network
+		server distwriter.Transport
+		client distwriter.Transport
 	)
 	BeforeEach(func() {
-		net = writermock.NewNetwork()
+		net = writer.NewNetwork()
 		server = net.New(leaseholder, 1)
 		client = net.New(gateway, 1)
 	})
@@ -41,18 +41,18 @@ var _ = Describe("Transport", func() {
 	It("Should round-trip a request through the streaming transport", func(ctx SpecContext) {
 		server.Server().BindHandler(func(
 			_ context.Context,
-			srv freighter.ServerStream[writer.Request, writer.Response],
+			srv freighter.ServerStream[distwriter.Request, distwriter.Response],
 		) error {
 			req, err := srv.Receive()
 			if err != nil {
 				return err
 			}
-			return srv.Send(writer.Response{SeqNum: req.SeqNum})
+			return srv.Send(distwriter.Response{SeqNum: req.SeqNum})
 		})
 		stream := MustSucceed(client.Client().Stream(ctx, leaseholder))
-		Expect(stream.Send(writer.Request{
+		Expect(stream.Send(distwriter.Request{
 			SeqNum:  42,
-			Command: writer.CommandWrite,
+			Command: distwriter.CommandWrite,
 		})).To(Succeed())
 		Expect(MustSucceed(stream.Receive()).SeqNum).To(Equal(42))
 		Expect(stream.CloseSend()).To(Succeed())

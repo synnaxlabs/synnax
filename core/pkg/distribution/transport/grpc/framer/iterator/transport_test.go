@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	distiterator "github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -24,16 +24,16 @@ var _ = Describe("Transport", func() {
 	It("Should round-trip a request over the wire", func(ctx SpecContext) {
 		transport.Server().BindHandler(func(
 			_ context.Context,
-			srv freighter.ServerStream[iterator.Request, iterator.Response],
+			srv freighter.ServerStream[distiterator.Request, distiterator.Response],
 		) error {
 			req, err := srv.Receive()
 			if err != nil {
 				return err
 			}
-			return srv.Send(iterator.Response{SeqNum: req.SeqNum})
+			return srv.Send(distiterator.Response{SeqNum: req.SeqNum})
 		})
 		stream := MustSucceed(transport.Client().Stream(ctx, addr))
-		Expect(stream.Send(iterator.Request{SeqNum: 42})).To(Succeed())
+		Expect(stream.Send(distiterator.Request{SeqNum: 42})).To(Succeed())
 		Expect(MustSucceed(stream.Receive()).SeqNum).To(Equal(42))
 		Expect(stream.CloseSend()).To(Succeed())
 	})
@@ -60,15 +60,15 @@ var _ = Describe("Transport", func() {
 			}))
 			transport.Server().BindHandler(func(
 				_ context.Context,
-				srv freighter.ServerStream[iterator.Request, iterator.Response],
+				srv freighter.ServerStream[distiterator.Request, distiterator.Response],
 			) error {
 				if _, err := srv.Receive(); err != nil {
 					return err
 				}
-				return srv.Send(iterator.Response{})
+				return srv.Send(distiterator.Response{})
 			})
 			stream := MustSucceed(transport.Client().Stream(ctx, addr))
-			Expect(stream.Send(iterator.Request{SeqNum: 1})).To(Succeed())
+			Expect(stream.Send(distiterator.Request{SeqNum: 1})).To(Succeed())
 			MustSucceed(stream.Receive())
 			Expect(stream.CloseSend()).To(Succeed())
 			Expect(clientCalls.Load()).To(Equal(int32(1)))

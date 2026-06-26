@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	distwriter "github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -24,19 +24,19 @@ var _ = Describe("Transport", func() {
 	It("Should round-trip a request over the wire", func(ctx SpecContext) {
 		transport.Server().BindHandler(func(
 			_ context.Context,
-			srv freighter.ServerStream[writer.Request, writer.Response],
+			srv freighter.ServerStream[distwriter.Request, distwriter.Response],
 		) error {
 			req, err := srv.Receive()
 			if err != nil {
 				return err
 			}
-			return srv.Send(writer.Response{SeqNum: 42, Command: req.Command})
+			return srv.Send(distwriter.Response{SeqNum: 42, Command: req.Command})
 		})
 		stream := MustSucceed(transport.Client().Stream(ctx, addr))
-		Expect(stream.Send(writer.Request{Command: writer.CommandWrite})).To(Succeed())
+		Expect(stream.Send(distwriter.Request{Command: distwriter.CommandWrite})).To(Succeed())
 		res := MustSucceed(stream.Receive())
 		Expect(res.SeqNum).To(Equal(42))
-		Expect(res.Command).To(Equal(writer.CommandWrite))
+		Expect(res.Command).To(Equal(distwriter.CommandWrite))
 		Expect(stream.CloseSend()).To(Succeed())
 	})
 
@@ -62,15 +62,15 @@ var _ = Describe("Transport", func() {
 			}))
 			transport.Server().BindHandler(func(
 				_ context.Context,
-				srv freighter.ServerStream[writer.Request, writer.Response],
+				srv freighter.ServerStream[distwriter.Request, distwriter.Response],
 			) error {
 				if _, err := srv.Receive(); err != nil {
 					return err
 				}
-				return srv.Send(writer.Response{})
+				return srv.Send(distwriter.Response{})
 			})
 			stream := MustSucceed(transport.Client().Stream(ctx, addr))
-			Expect(stream.Send(writer.Request{Command: writer.CommandWrite})).To(Succeed())
+			Expect(stream.Send(distwriter.Request{Command: distwriter.CommandWrite})).To(Succeed())
 			MustSucceed(stream.Receive())
 			Expect(stream.CloseSend()).To(Succeed())
 			Expect(clientCalls.Load()).To(Equal(int32(1)))
