@@ -39,10 +39,10 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	xservice "github.com/synnaxlabs/x/service"
-	xsignal "github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -341,7 +341,7 @@ func openWorkDir() (string, io.Closer, error) {
 		"workdir",
 		strconv.Itoa(os.Getpid()),
 	)
-	if err = os.MkdirAll(dir, xfs.UserRWX); err != nil {
+	if err = os.MkdirAll(dir, fs.UserRWX); err != nil {
 		return "", nil, err
 	}
 	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil
@@ -354,12 +354,12 @@ func runStartupSearchIndexing(
 	// Run indexing inside an isolated signal context, so that if we receive an early
 	// cancellation signal, we can ensure that we exit indexing before we close any
 	// resources that it depends on (notably storage KV).
-	searchIndexCtx, cancelIndexing := xsignal.WithCancel(ctx)
+	searchIndexCtx, cancelIndexing := signal.WithCancel(ctx)
 	searchIndexCtx.Go(
 		dist.Search.Initialize,
-		xsignal.WithKey("startup_search_indexing"),
+		signal.WithKey("startup_search_indexing"),
 	)
-	return xsignal.NewHardShutdown(searchIndexCtx, cancelIndexing)
+	return signal.NewHardShutdown(searchIndexCtx, cancelIndexing)
 }
 
 func parseIntegrations(enabled, disabled []string) []string {

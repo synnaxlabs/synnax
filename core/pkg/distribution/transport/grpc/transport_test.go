@@ -129,11 +129,11 @@ var _ = Describe("Transport", func() {
 					return types.Nil{}, nil
 				},
 			)
-			MustSucceed(t.Framer().Deleter().Client().Send(
+			Expect(t.Framer().Deleter().Client().Send(
 				ctx,
 				useAddr,
 				deleter.Request{Keys: channel.Keys{1}},
-			))
+			)).To(Equal(types.Nil{}))
 
 			Expect(clientCalls.Load()).To(Equal(int32(2)))
 			Expect(serverCalls.Load()).To(Equal(int32(2)))
