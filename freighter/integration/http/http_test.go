@@ -47,6 +47,7 @@ var _ = Describe("BindTo", func() {
 			"/unary/middlewareCheck",
 			"/unary/slamMessagesTimeoutCheck",
 			"/unary/flakyUnavailable",
+			"/unary/emptyResponse",
 		}
 		for _, path := range routes {
 			Expect(registered.Contains(path)).To(BeTrue())

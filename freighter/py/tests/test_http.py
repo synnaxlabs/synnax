@@ -156,6 +156,17 @@ class TestDownload:
         with pytest.raises(ValueError, match="unknownext"):
             client.download("/echo", Message(id=1, message="x"), out)
 
+    def test_empty_response_raises_and_preserves_dest(
+        self, client: HTTPClient, tmp_path: Path
+    ) -> None:
+        """A successful but empty response is rejected rather than written as a
+        zero-byte file, leaving any existing destination untouched."""
+        out = tmp_path / "out.json"
+        out.write_bytes(b'{"old": true}')
+        with pytest.raises(ValueError, match="empty"):
+            client.download("/emptyResponse", Message(id=1, message="x"), out)
+        assert out.read_bytes() == b'{"old": true}'
+
     def test_large_response_streams(self, client: HTTPClient, tmp_path: Path) -> None:
         big = "a" * (1024 * 1024)
         out = tmp_path / "big.json"

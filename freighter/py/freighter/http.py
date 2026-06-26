@@ -130,6 +130,8 @@ class HTTPClient(MiddlewareCollector):
         The body is streamed into a temporary file alongside dest and atomically renamed
         into place on success, so dest only ever holds the previous contents or the
         complete new contents — a mid-stream failure leaves any existing dest untouched.
+        An empty response body is rejected as an error rather than written as a zero-byte
+        file, so dest is left untouched in that case too.
         """
         url = self._build_url(target)
 
@@ -143,7 +145,7 @@ class HTTPClient(MiddlewareCollector):
                 preload_content=False,
             )
             try:
-                stream_to_file(http_res.stream(), dest)
+                stream_to_file(http_res.stream(), dest, allow_empty=False)
                 return out_ctx
             finally:
                 http_res.release_conn()

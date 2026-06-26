@@ -30,6 +30,32 @@ class TestStreamToFile:
         stream_to_file([b'{"new": true}'], dest)
         assert dest.read_bytes() == b'{"new": true}'
 
+    def test_empty_stream_allowed_by_default(self, tmp_path: Path) -> None:
+        """An empty stream writes a zero-byte file when allow_empty is left at default."""
+        dest = tmp_path / "out.json"
+        stream_to_file([], dest)
+        assert dest.read_bytes() == b""
+        assert list(tmp_path.glob("*.part")) == []
+
+    def test_empty_stream_rejected_when_disallowed(self, tmp_path: Path) -> None:
+        """An empty stream raises and writes nothing when allow_empty is False."""
+        dest = tmp_path / "out.json"
+        with pytest.raises(ValueError, match="empty stream"):
+            stream_to_file([], dest, allow_empty=False)
+        assert not dest.exists()
+        assert list(tmp_path.glob("*.part")) == []
+
+    def test_empty_stream_disallowed_preserves_existing_dest(
+        self, tmp_path: Path
+    ) -> None:
+        """Rejecting an empty stream leaves an existing dest untouched."""
+        dest = tmp_path / "out.json"
+        dest.write_bytes(b'{"old": true}')
+        with pytest.raises(ValueError, match="empty stream"):
+            stream_to_file([], dest, allow_empty=False)
+        assert dest.read_bytes() == b'{"old": true}'
+        assert list(tmp_path.glob("*.part")) == []
+
     def test_mid_stream_failure_preserves_dest(self, tmp_path: Path) -> None:
         """A failure partway through leaves an existing dest untouched and no temp file."""
         dest = tmp_path / "out.json"

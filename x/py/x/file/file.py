@@ -22,7 +22,9 @@ Equivalent to ``str | os.PathLike[str]`` — the same shape ``open()`` accepts f
 """
 
 
-def stream_to_file(chunks: Iterable[bytes], dest: FilePath) -> None:
+def stream_to_file(
+    chunks: Iterable[bytes], dest: FilePath, *, allow_empty: bool = True
+) -> None:
     """Writes a stream of byte chunks into dest atomically.
 
     The chunks are streamed into a temporary file alongside dest and the temp file is
@@ -34,15 +36,25 @@ def stream_to_file(chunks: Iterable[bytes], dest: FilePath) -> None:
 
     :param chunks: an iterable of byte chunks to write in order.
     :param dest: the destination file path.
+    :param allow_empty: when False, a stream that yields no bytes raises ValueError and
+        leaves any existing dest untouched, instead of replacing it with a zero-byte
+        file. Defaults to True.
+    :raises ValueError: if the stream is empty and allow_empty is False.
     """
     dest_path = pathlib.Path(os.fspath(dest))
     fd, tmp_name = tempfile.mkstemp(dir=dest_path.parent, suffix=".part")
     try:
+        written = 0
         with os.fdopen(fd, "wb") as out:
             for chunk in chunks:
                 out.write(chunk)
+                written += len(chunk)
             out.flush()
             os.fsync(out.fileno())
+        if not allow_empty and written == 0:
+            raise ValueError(
+                f"refusing to write an empty stream to {os.fspath(dest)!r}"
+            )
         os.replace(tmp_name, dest_path)
     except BaseException:
         os.unlink(tmp_name)

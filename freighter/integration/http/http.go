@@ -77,6 +77,14 @@ func BindTo(f *fiber.App) error {
 	// not, be retried).
 	f.Post("/unary/flakyUnavailable", flakyUnavailable)
 
+	// Bound as a raw fiber route so it can return a 200 with a genuinely empty body,
+	// which a freighter unary server would never produce; lets clients verify they
+	// reject an empty successful response rather than accepting it.
+	f.Post("/unary/emptyResponse", func(c fiber.Ctx) error {
+		c.Status(fiber.StatusOK)
+		return nil
+	})
+
 	return nil
 }
 
