@@ -22,11 +22,8 @@ import (
 // Transport can be provisioned per node, mirroring the gRPC channel.Transport that
 // bundles the same operations.
 type Network struct {
-	// create backs the unary channel create transport.
 	create *mock.Network[channel.CreateMessage, channel.CreateMessage]
-	// delete backs the unary channel delete transport.
 	delete *mock.Network[channel.DeleteRequest, types.Nil]
-	// rename backs the unary channel rename transport.
 	rename *mock.Network[channel.RenameRequest, types.Nil]
 }
 
