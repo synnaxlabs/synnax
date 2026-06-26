@@ -36,13 +36,13 @@ type (
 	]
 )
 
-var _ deleter.Transport = Transport{}
-
 // Transport is a gRPC-backed implementation of the deleter.Transport interface.
 type Transport struct {
 	client *client
 	server *server
 }
+
+var _ deleter.Transport = Transport{}
 
 // New creates a new gRPC deleter Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {

@@ -34,13 +34,6 @@ type (
 	]
 )
 
-var (
-	_ writer.Server          = (*server)(nil)
-	_ writer.Client          = (*client)(nil)
-	_ pb.WriterServiceServer = (*server)(nil)
-	_ writer.Transport       = Transport{}
-)
-
 type server struct{ serverCore }
 
 // Write implements the pb.WriterServiceServer interface, dispatching the gRPC
@@ -54,6 +47,13 @@ type Transport struct {
 	client *client
 	server *server
 }
+
+var (
+	_ writer.Server          = (*server)(nil)
+	_ writer.Client          = (*client)(nil)
+	_ pb.WriterServiceServer = (*server)(nil)
+	_ writer.Transport       = Transport{}
+)
 
 // New creates a new gRPC writer Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {

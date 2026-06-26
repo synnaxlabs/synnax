@@ -34,13 +34,6 @@ type (
 	]
 )
 
-var (
-	_ relay.Server          = (*server)(nil)
-	_ relay.Client          = (*client)(nil)
-	_ pb.RelayServiceServer = (*server)(nil)
-	_ relay.Transport       = Transport{}
-)
-
 type server struct{ serverCore }
 
 // Relay implements the pb.RelayServiceServer interface, dispatching the gRPC
@@ -54,6 +47,13 @@ type Transport struct {
 	client *client
 	server *server
 }
+
+var (
+	_ relay.Server          = (*server)(nil)
+	_ relay.Client          = (*client)(nil)
+	_ pb.RelayServiceServer = (*server)(nil)
+	_ relay.Transport       = Transport{}
+)
 
 // New creates a new gRPC relay Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
