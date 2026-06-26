@@ -75,7 +75,7 @@ export const Palette = ({
           className={CSS(CSS.BE("palette", "btn"))}
           variant="outlined"
           align="center"
-          size="medium"
+          size="large"
           justify="center"
           contrast={2}
           textColor={9}
@@ -83,10 +83,6 @@ export const Palette = ({
           full="x"
         >
           <Icon.Search />
-          {/* This span needs to remain so we properly hide it on small window sizes. */}
-          <Text.Text el="span" color={9}>
-            Search and Command
-          </Text.Text>
         </Button.Button>
         <Dialog.Dialog
           className={CSS.BE("palette", "content")}

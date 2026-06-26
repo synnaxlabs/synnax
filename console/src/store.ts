@@ -43,6 +43,7 @@ const ZERO_STATE: RootState = {
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
+  [Session.Nav.SLICE_NAME]: Session.Nav.ZERO_SLICE_STATE,
   [Session.Log.SLICE_NAME]: Session.Log.ZERO_SLICE_STATE,
   [Session.LinePlot.SLICE_NAME]: Session.LinePlot.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
@@ -59,6 +60,7 @@ const reducer = combineReducers({
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
+  [Session.Nav.SLICE_NAME]: Session.Nav.reducer,
   [Session.Log.SLICE_NAME]: Session.Log.reducer,
   [Session.LinePlot.SLICE_NAME]: Session.LinePlot.reducer,
   [Project.SLICE_NAME]: Project.reducer,
@@ -78,6 +80,7 @@ export interface RootState {
   [Session.Log.SLICE_NAME]: Session.Log.SliceState;
   [Session.LinePlot.SLICE_NAME]: Session.LinePlot.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
+  [Session.Nav.SLICE_NAME]: Session.Nav.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Session.Schematic.SLICE_NAME]: Session.Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
@@ -93,6 +96,7 @@ export type RootAction =
   | Layout.Action
   | Session.Log.Action
   | Session.LinePlot.Action
+  | Session.Nav.Action
   | Project.Action
   | Range.Action
   | Session.Schematic.Action
@@ -157,6 +161,7 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 
 const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
+  ...Session.Nav.MIDDLEWARE,
   ...Session.LinePlot.MIDDLEWARE,
   ...Arc.MIDDLEWARE,
 ];

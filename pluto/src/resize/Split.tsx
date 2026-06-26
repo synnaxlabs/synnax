@@ -18,8 +18,8 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { Flex } from "@/flex";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Base } from "@/resize/Base";
 
 /** Props for the {@link Split} component. */
@@ -90,19 +90,21 @@ export const Split = ({
   const [dragSize, setDragSize] = useState<number | null>(null);
   const rendered = dragSize ?? size;
   const start = useRef(size);
+  const parentSize = useRef(0);
   const [first, last] = Children.toArray(children);
 
   const handleStart = useCallback(() => {
     start.current = size;
-  }, [size]);
+    if (ref.current != null)
+      parentSize.current = box.dim(box.construct(ref.current), dir);
+  }, [size, dir]);
 
   const calcNextSize = useCallback(
     (region: box.Box): number | null => {
-      if (ref.current == null) return null;
-      const parentSize = box.dim(box.construct(ref.current), dir);
-      if (parentSize === 0) return null;
-      const min = Math.min(minSize / parentSize, 0.5);
-      const diff = box.dim(region, dir, true) / parentSize;
+      const total = parentSize.current;
+      if (total === 0) return null;
+      const min = Math.min(minSize / total, 0.5);
+      const diff = box.dim(region, dir, true) / total;
       return bounds.clamp({ lower: min, upper: 1 - min }, start.current + diff);
     },
     [dir, minSize],
@@ -127,7 +129,7 @@ export const Split = ({
     [calcNextSize, onResizeEnd],
   );
 
-  const handleDragStart = useCursorDrag({
+  const handleDragStart = Cursor.useDrag({
     onStart: handleStart,
     onMove: handleMove,
     onEnd: handleEnd,
@@ -148,7 +150,7 @@ export const Split = ({
         location={loc}
         size={rendered + offset}
         decimal
-        onDragStart={handleDragStart}
+        onPointerDown={handleDragStart}
       >
         {first}
       </Base>

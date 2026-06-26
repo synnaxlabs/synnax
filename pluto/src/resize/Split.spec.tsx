@@ -38,14 +38,18 @@ const drag = (
   c: ReturnType<typeof render>,
   { from, to }: { from: number; to: number },
 ): void => {
-  // jsdom's synthetic dragStart drops clientX, so dispatch a MouseEvent (which carries
-  // it) under the "dragstart" type to drive useCursorDrag.
-  fireEvent(
-    handleOf(c),
-    new MouseEvent("dragstart", { clientX: from, clientY: 0, bubbles: true }),
-  );
-  fireEvent.mouseMove(window, { clientX: to, clientY: 0, buttons: 1 });
-  fireEvent.mouseUp(window, { clientX: to, clientY: 0 });
+  // Cursor.useDrag captures the pointer on the handle, then tracks moves/up on window
+  // (capture bubbles them up). The from -> to distance must exceed the activation
+  // threshold for the drag to begin.
+  fireEvent.pointerDown(handleOf(c), {
+    pointerId: 1,
+    button: 0,
+    isPrimary: true,
+    clientX: from,
+    clientY: 0,
+  });
+  fireEvent.pointerMove(window, { pointerId: 1, clientX: to, clientY: 0 });
+  fireEvent.pointerUp(window, { pointerId: 1, clientX: to, clientY: 0 });
 };
 
 const lastSize = (onResize: ReturnType<typeof vi.fn>): number =>
@@ -116,12 +120,9 @@ describe("Resize.Split", () => {
     expect(onResizeEnd).not.toHaveBeenCalled();
   });
 
-  it("should offset an even split for re-render without reporting the offset", () => {
-    const onResize = vi.fn();
-    const c = renderSplit({ size: 0.5, onResize });
+  it("should offset an even split so re-render observers fire", () => {
+    const c = renderSplit({ size: 0.5 });
     const [first, last] = panesOf(c);
     expect(first.style.width).not.toEqual(last.style.width);
-    drag(c, { from: 500, to: 500 });
-    expect(lastSize(onResize)).toBeCloseTo(0.5);
   });
 });

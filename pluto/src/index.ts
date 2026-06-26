@@ -21,6 +21,7 @@ export { Color } from "@/color";
 export { Component } from "@/component";
 export { context } from "@/context";
 export * from "@/css";
+export { Cursor } from "@/cursor";
 export { Device } from "@/device";
 export { Dialog } from "@/dialog";
 export { Direction } from "@/direction";
