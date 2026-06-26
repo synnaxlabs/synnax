@@ -10,7 +10,7 @@
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
 import { state } from "@/state";
 import {

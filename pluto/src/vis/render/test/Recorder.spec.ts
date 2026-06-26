@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, xy } from "@synnaxlabs/x";
+import { box, scale, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { canvasTest } from "@/vis/render/test";
@@ -54,6 +54,23 @@ describe("canvasTest.record", () => {
         { op: "closePath", args: [] },
       ]);
       expect(r.lower2d.calls).toEqual([{ op: "fillRect", args: [0, 0, 10, 10] }]);
+    });
+
+    it("records applyScale and returns the same recording surface", () => {
+      const r = canvasTest.record();
+      const scaled = r.lower2d.applyScale(scale.XY.IDENTITY);
+      (scaled as unknown as DrawableCtx).fillRect(1, 1, 2, 2);
+      expect(scaled).toBe(r.lower2d);
+      expect(r.lower2d.calls).toEqual([
+        { op: "applyScale", args: [scale.XY.IDENTITY] },
+        { op: "fillRect", args: [1, 1, 2, 2] },
+      ]);
+    });
+
+    it("records textDimensions and returns a length-derived size", () => {
+      const r = canvasTest.record();
+      expect(r.lower2d.textDimensions("abcd")).toEqual({ width: 32, height: 12 });
+      expect(r.lower2d.calls).toEqual([{ op: "textDimensions", args: ["abcd"] }]);
     });
   });
 
