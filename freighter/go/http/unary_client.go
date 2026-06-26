@@ -130,7 +130,7 @@ func (u *unaryClient[RQ, RS]) Send(
 		},
 		freighter.FinalizerFunc(func(
 			inCtx freighter.Context,
-		) (freighter.Context, error) {
+		) (_ freighter.Context, err error) {
 			b, err := u.encoder.Encode(inCtx, req)
 			if err != nil {
 				return freighter.Context{}, err
@@ -152,6 +152,7 @@ func (u *unaryClient[RQ, RS]) Send(
 			if err != nil {
 				return freighter.Context{Target: target}, err
 			}
+			defer func() { err = errors.Combine(err, httpRes.Body.Close()) }()
 			outCtx := parseResponseCtx(httpRes, target, false)
 
 			decoder, err := u.resolveResponseDecoder(httpRes.Header.Get(fiber.HeaderContentType))
