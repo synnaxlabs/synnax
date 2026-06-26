@@ -67,10 +67,7 @@ describe("Imex", () => {
     });
     it("should throw an error if the log is not found", async () => {
       await expect(
-        client.imex.export(
-          { type: "log", key: uuid.create() },
-          { encoding: "JSON" },
-        ),
+        client.imex.export({ type: "log", key: uuid.create() }, { encoding: "JSON" }),
       ).rejects.toThrow("not found");
     });
   });
