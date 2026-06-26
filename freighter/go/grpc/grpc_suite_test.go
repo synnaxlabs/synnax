@@ -18,9 +18,12 @@ import (
 
 func TestGRPC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	// gRPC's internal transport goroutines (callback serializers and HTTP/2
-	// client/server transports) are not guaranteed to drain within a single spec's
-	// window, so per-spec goroutine-leak checking is not applicable to this suite.
+	// The suites here share a connection pool that lazily dials the server on the
+	// first RPC and caches the connection for the rest of the suite (the pool is
+	// closed in each container's teardown). The spec that first dials therefore
+	// registers a pooled connection that outlives it by design, so per-spec
+	// goroutine-leak checking is not applicable. Container-level leak checks in each
+	// BeforeAll still verify the pool and server are fully shut down at teardown.
 	//nolint:leaklint
 	RunSpecs(t, "GRPC Suite")
 }

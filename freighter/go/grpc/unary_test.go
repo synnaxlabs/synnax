@@ -33,10 +33,8 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		grpcServer *grpc.Server
 	)
 
-	// gRPC's internal transport goroutines do not drain within this container's
-	// lifetime, so a leak check here is not applicable.
-	//nolint:leaklint
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
 		addr = address.Address(lis.Addr().String())
 
@@ -54,10 +52,10 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		uServer.BindTo(grpcServer)
 		server = uServer
 
-		pool := fgrpc.NewPool(
+		pool := DeferClose(fgrpc.NewPool(
 			"",
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
+		))
 		client = &fgrpc.UnaryClient[
 			test.Request, *v1.Request,
 			test.Response, *v1.Response,
