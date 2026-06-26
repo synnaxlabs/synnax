@@ -61,8 +61,6 @@ type transport struct {
 	writer   writer.Transport
 }
 
-var _ framer.Transport = transport{}
-
 func (t transport) Deleter() deleter.Transport { return t.deleter }
 
 func (t transport) Iterator() iterator.Transport { return t.iterator }

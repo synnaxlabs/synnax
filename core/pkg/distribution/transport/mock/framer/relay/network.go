@@ -39,8 +39,6 @@ type transport struct {
 	server relay.Server
 }
 
-var _ relay.Transport = transport{}
-
 func (t transport) Client() relay.Client { return t.client }
 
 func (t transport) Server() relay.Server { return t.server }

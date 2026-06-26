@@ -39,8 +39,6 @@ type transport struct {
 	server iterator.Server
 }
 
-var _ iterator.Transport = transport{}
-
 func (t transport) Client() iterator.Client { return t.client }
 
 func (t transport) Server() iterator.Server { return t.server }

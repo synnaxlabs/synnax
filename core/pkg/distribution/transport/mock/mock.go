@@ -45,8 +45,6 @@ type transport struct {
 	framer  distframer.Transport
 }
 
-var _ distribution.Transport = transport{}
-
 func (t transport) Channel() distchannel.Transport { return t.channel }
 
 func (t transport) Framer() distframer.Transport { return t.framer }
