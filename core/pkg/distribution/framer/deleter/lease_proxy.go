@@ -32,7 +32,7 @@ func newLeaseProxy(
 ) (*leaseProxy, error) {
 	p := &leaseProxy{
 		ServiceConfig: cfg,
-		keyRouter:     proxy.NewBatchFactory[channel.Key](cfg.HostResolver.HostKey()),
+		keyRouter:     proxy.BatchFactory[channel.Key](cfg.HostResolver.HostKey()),
 	}
 	return p, nil
 }

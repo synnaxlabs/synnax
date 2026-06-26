@@ -34,7 +34,7 @@ func (e entry) Lease() node.Key { return e.lease }
 var _ = Describe("Batch", func() {
 	var factory proxy.BatchFactory[entry]
 	BeforeEach(func() {
-		factory = proxy.NewBatchFactory[entry](host)
+		factory = proxy.BatchFactory[entry](host)
 	})
 
 	It("Should route entries leased to the host into the gateway bucket", func() {

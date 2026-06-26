@@ -23,15 +23,10 @@ type Entry interface {
 }
 
 // BatchFactory partitions Entry values by their leaseholder relative to a fixed host
-// node. Construct one with NewBatchFactory, then call Batch.
-type BatchFactory[E Entry] struct{ host node.Key }
-
-// NewBatchFactory returns a BatchFactory that treats host as the local node: Batch
-// routes entries leased to host into the gateway bucket and all other leased entries to
-// peers.
-func NewBatchFactory[E Entry](host node.Key) BatchFactory[E] {
-	return BatchFactory[E]{host: host}
-}
+// node, treating that host as the local node: Batch routes entries leased to it into the
+// gateway bucket and all other leased entries to peers. Construct one by converting a
+// host node.Key, e.g. BatchFactory[E](host), then call Batch.
+type BatchFactory[E Entry] node.Key
 
 // Batch is the result of partitioning a set of Entry values by leaseholder. Every input
 // entry appears in exactly one of the three buckets.
@@ -50,12 +45,13 @@ type Batch[E Entry] struct {
 // grouped into Peers by their leaseholder key. The relative order of entries is
 // preserved within each bucket.
 func (f BatchFactory[E]) Batch(entries []E) Batch[E] {
+	host := node.Key(f)
 	b := Batch[E]{Peers: make(map[node.Key][]E)}
 	for _, entry := range entries {
 		lease := entry.Lease()
 		if lease.IsFree() {
 			b.Free = append(b.Free, entry)
-		} else if lease == f.host {
+		} else if lease == host {
 			b.Gateway = append(b.Gateway, entry)
 		} else {
 			b.Peers[lease] = append(b.Peers[lease], entry)
