@@ -9,13 +9,12 @@
 
 import "@/layered/service/nav/Nav.css";
 
-import { CSS as PCSS, Eraser, Errors, Resize } from "@synnaxlabs/pluto";
+import { Eraser, Errors, Nav, type Resize } from "@synnaxlabs/pluto";
 import { box, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type MouseEvent as ReactMouseEvent,
   type ReactElement,
   useCallback,
-  useState,
 } from "react";
 
 import { CSS } from "@/css";
@@ -23,7 +22,7 @@ import { CSS } from "@/css";
 const X_THRESHOLD = { x: 36, y: 24 };
 const Y_THRESHOLD = xy.swap(X_THRESHOLD);
 
-interface DrawerProps extends Omit<Resize.SingleProps, "onResize"> {
+interface DrawerProps extends Omit<Nav.DrawerProps, "onResize"> {
   location: location.Location;
   hover: boolean;
   visible: boolean;
@@ -38,11 +37,13 @@ export const Drawer = ({
   visible,
   onStopHover,
   children,
-  collapseThreshold = 0.65,
   ...rest
 }: DrawerProps): ReactElement => {
   const { erase } = Eraser.use({ enabled: !hover });
-  const handleResize = useCallback((_: number, b: box.Box) => erase(b), [erase]);
+  const handleResize = useCallback(
+    (_: number, { box }: Resize.HandlerExtra) => erase(box),
+    [erase],
+  );
   const handleMouseLeave = useCallback(
     (e: ReactMouseEvent) => {
       const threshold = direction.isY(loc) ? Y_THRESHOLD : X_THRESHOLD;
@@ -66,13 +67,12 @@ export const Drawer = ({
     [loc, onStopHover],
   );
   return (
-    <Resize.Single
+    <Nav.Drawer
       location={loc}
-      className={CSS(CLASS, PCSS.visible(visible), hover && CSS.M("hover"))}
+      className={CSS(CLASS, hover && CSS.M("hover"))}
       collapsed={!visible}
       onMouseLeave={handleMouseLeave}
       onResize={handleResize}
-      collapseThreshold={collapseThreshold}
       background={0}
       rounded={1}
       bordered
@@ -80,6 +80,6 @@ export const Drawer = ({
       {...rest}
     >
       <Errors.Boundary>{visible ? children : null}</Errors.Boundary>
-    </Resize.Single>
+    </Nav.Drawer>
   );
 };

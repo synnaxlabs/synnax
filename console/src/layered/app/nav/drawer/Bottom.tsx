@@ -17,15 +17,15 @@ import { Session } from "@/layered/session";
 export const Bottom = (): ReactElement | null => {
   const { visible, hover, size } = Session.Nav.useSelectBottom();
   const dispatch = useDispatch();
-  const onResizeEnd = useCallback(
+  const handleResizeEnd = useCallback(
     (size: number) => dispatch(Session.Nav.resizeBottom({ size })),
     [dispatch],
   );
-  const onCollapse = useCallback(() => {
+  const handleCollapse = useCallback(() => {
     if (hover) dispatch(Session.Nav.stopBottomHover({}));
     else dispatch(Session.Nav.selectBottom({}));
   }, [dispatch, hover]);
-  const onStopHover = useCallback(
+  const handleStopHover = useCallback(
     () => dispatch(Session.Nav.stopBottomHover({})),
     [dispatch],
   );
@@ -37,9 +37,9 @@ export const Bottom = (): ReactElement | null => {
       sizeBounds={sizeBounds}
       hover={hover}
       visible={visible}
-      onResizeEnd={onResizeEnd}
-      onCollapse={onCollapse}
-      onStopHover={onStopHover}
+      onResizeEnd={handleResizeEnd}
+      onCollapse={handleCollapse}
+      onStopHover={handleStopHover}
     >
       {content}
     </Service.Nav.Drawer>

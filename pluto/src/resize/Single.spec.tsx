@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type box, type xy } from "@synnaxlabs/x";
+import { type xy } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -26,9 +26,9 @@ const ControlledSingle = ({
   return (
     <Resize.Single
       size={size}
-      onResizeEnd={(s: number, b: box.Box) => {
+      onResizeEnd={(s: number, extra: Resize.HandlerExtra) => {
         setSize(s);
-        onResizeEnd?.(s, b);
+        onResizeEnd?.(s, extra);
       }}
       {...props}
     >
@@ -156,67 +156,6 @@ describe("Resize.Single", () => {
       const c = renderSingle({ location: "left", size: 200, onResize });
       drag(c, { x: 500, y: 0 }, { x: 540, y: 0 });
       expect(onResize).toHaveBeenCalledWith(expect.any(Number), expect.anything());
-    });
-
-    it("should clamp to the lower bound without collapsing past it", () => {
-      const onResize = vi.fn();
-      const onCollapse = vi.fn();
-      const c = renderSingle({
-        location: "left",
-        size: 200,
-        sizeBounds: { lower: 100 },
-        onResize,
-        onCollapse,
-      });
-      drag(c, { x: 500, y: 0 }, { x: 300, y: 0 });
-      expect(lastSize(onResize)).toEqual(100);
-      expect(paneOf(c).style.width).toEqual("100px");
-      expect(onCollapse).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("collapse", () => {
-    it("should collapse and fire onCollapse when dragged past the threshold", () => {
-      const onCollapse = vi.fn();
-      const onResizeEnd = vi.fn();
-      const c = renderSingle({
-        location: "left",
-        size: 200,
-        sizeBounds: { lower: 100 },
-        collapseThreshold: 0.5,
-        onCollapse,
-        onResizeEnd,
-      });
-      // The collapsed size renders only during the drag; releasing past the threshold
-      // fires onCollapse and hands rendering back to the controlled size, so assert the
-      // collapsed pane mid-gesture before releasing.
-      fireEvent(
-        handleOf(c),
-        new MouseEvent("dragstart", { clientX: 500, clientY: 0, bubbles: true }),
-      );
-      fireEvent.mouseMove(window, { clientX: 300, clientY: 0, buttons: 1 });
-      expect(paneOf(c).style.width).toEqual("2px");
-      expect(paneOf(c).className).toContain("pluto--collapsed");
-      fireEvent.mouseUp(window, { clientX: 300, clientY: 0 });
-      expect(onCollapse).toHaveBeenCalledTimes(1);
-      expect(onResizeEnd).not.toHaveBeenCalled();
-    });
-
-    it("should mark the pane expanded while above the collapsed size", () => {
-      const c = renderSingle({ location: "left", size: 200 });
-      expect(paneOf(c).className).toContain("pluto--expanded");
-    });
-
-    it("should render at the collapsed size when controlled collapsed", () => {
-      const c = renderSingle({ location: "left", size: 200, collapsed: true });
-      expect(paneOf(c).style.width).toEqual("2px");
-      expect(paneOf(c).className).toContain("pluto--collapsed");
-    });
-
-    it("should render the expanded size when not collapsed", () => {
-      const c = renderSingle({ location: "left", size: 200, collapsed: false });
-      expect(paneOf(c).style.width).toEqual("200px");
-      expect(paneOf(c).className).toContain("pluto--expanded");
     });
   });
 });

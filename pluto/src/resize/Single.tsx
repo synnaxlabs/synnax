@@ -14,6 +14,11 @@ import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Base, type BaseProps } from "@/resize/Base";
 
+export interface HandlerExtra {
+  box: box.Box;
+  dragSize: number;
+}
+
 /** Props for the {@link Single} component. */
 export interface SingleProps extends Omit<
   BaseProps,
@@ -21,9 +26,8 @@ export interface SingleProps extends Omit<
 > {
   size?: number;
   sizeBounds?: Partial<bounds.Bounds>;
-  onResize?: (size: number, box: box.Box) => void;
-  onResizeEnd?: (size: number, box: box.Box) => void;
-  onDrag?: (region: box.Box) => void;
+  onResize?: (size: number, extra: HandlerExtra) => void;
+  onResizeEnd?: (size: number, extra: HandlerExtra) => void;
 }
 
 const COLLAPSED_SIZE = 2;
@@ -49,23 +53,21 @@ export const Single = ({
   );
   const clamped = bounds.clamp(fullSizeBounds, size);
   const [dragSize, setDragSize] = useState<number | null>(null);
-  const rendered = dragSize ?? (collapsed ? COLLAPSED_SIZE : clamped);
+  const rendered = dragSize ?? clamped;
   const marker = useRef<number>(clamped);
   const loc = location.construct(propsLoc);
   const ref = useRef<HTMLDivElement>(null);
 
   const calcNextSize = useCallback(
-    (b: box.Box) => {
-      const signedDim = box.dim(b, location.direction(loc), true);
+    (dragRegion: box.Box) => {
+      const signedDim = box.dim(dragRegion, location.direction(loc), true);
       const isInverted = loc === "bottom" || loc === "right";
       const dim = isInverted ? -signedDim : signedDim;
       const rawNextSize = marker.current + dim;
       const nextSize = bounds.clamp(fullSizeBounds, rawNextSize);
-      if ((nextSize - rawNextSize) / fullSizeBounds.lower > collapseThreshold)
-        return COLLAPSED_SIZE;
-      return nextSize;
+      return [nextSize, rawNextSize];
     },
-    [loc, fullSizeBounds, collapseThreshold],
+    [loc, fullSizeBounds],
   );
 
   const handleStart = useCallback(() => {
@@ -74,21 +76,25 @@ export const Single = ({
 
   const handleMove = useCallback(
     (dragRegion: box.Box) => {
-      const nextSize = calcNextSize(dragRegion);
+      const [nextSize, rawNextSize] = calcNextSize(dragRegion);
       setDragSize(nextSize);
-      if (ref.current != null) onResize?.(nextSize, box.construct(ref.current));
+      if (ref.current != null)
+        onResize?.(nextSize, {
+          box: box.construct(ref.current),
+          dragSize: rawNextSize,
+        });
     },
     [onResize, calcNextSize],
   );
 
   const handleEnd = useCallback(
     (dragRegion: box.Box) => {
-      const nextSize = calcNextSize(dragRegion);
+      const [nextSize, dragSize] = calcNextSize(dragRegion);
       setDragSize(null);
-      if (nextSize === COLLAPSED_SIZE) return onCollapse?.();
-      if (ref.current != null) onResizeEnd?.(nextSize, box.construct(ref.current));
+      if (ref.current != null)
+        onResizeEnd?.(nextSize, { box: box.construct(ref.current), dragSize });
     },
-    [onResizeEnd, onCollapse, calcNextSize],
+    [onResizeEnd, calcNextSize],
   );
 
   const handleDragStart = useCursorDrag({
