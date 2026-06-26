@@ -11,6 +11,12 @@
 		<Item Name="Synnax Client.lvclass" Type="LVClass" URL="../classes/Client/Synnax Client.lvclass"/>
 		<Item Name="Synnax Writer.lvclass" Type="LVClass" URL="../classes/Synnax Writer.lvclass"/>
 	</Item>
+	<Item Name="Examples" Type="Folder">
+		<Item Name="1 Channel 1 Sample - Auto Indexing.vi" Type="VI" URL="../../../examples/1 Channel 1 Sample - Auto Indexing.vi"/>
+		<Item Name="1 Channel 1 Sample - Manual Timestamp.vi" Type="VI" URL="../../../examples/1 Channel 1 Sample - Manual Timestamp.vi"/>
+		<Item Name="N Channel N Samples - Auto Indexing.vi" Type="VI" URL="../../../examples/N Channel N Samples - Auto Indexing.vi"/>
+		<Item Name="N Channel N Samples - Manual Timestamp.vi" Type="VI" URL="../../../examples/N Channel N Samples - Manual Timestamp.vi"/>
+	</Item>
 	<Item Name="private" Type="Folder">
 		<Item Name="err_bytes_preallocate.vi" Type="VI" URL="../private/err_bytes_preallocate.vi"/>
 		<Item Name="err_bytes_read.vi" Type="VI" URL="../private/err_bytes_read.vi"/>

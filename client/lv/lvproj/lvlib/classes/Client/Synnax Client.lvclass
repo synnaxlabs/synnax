@@ -48,21 +48,22 @@
 		</Item>
 	</Item>
 	<Item Name="Private" Type="Folder">
+		<Property Name="NI.LibItem.Scope" Type="Int">2</Property>
 		<Item Name="synnax channel retrieve keys Array.vi" Type="VI" URL="../Private/synnax channel retrieve keys Array.vi">
 			<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
-			<Property Name="NI.ClassItem.Flags" Type="Int">150995072</Property>
+			<Property Name="NI.ClassItem.Flags" Type="Int">134217888</Property>
 			<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
-			<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
+			<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">268972562</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">1082130962</Property>
 		</Item>
 		<Item Name="synnax channel retrieve keys Single.vi" Type="VI" URL="../Private/synnax channel retrieve keys Single.vi">
 			<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
-			<Property Name="NI.ClassItem.Flags" Type="Int">150995072</Property>
+			<Property Name="NI.ClassItem.Flags" Type="Int">134217888</Property>
 			<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
-			<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
+			<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">268972562</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">1082130962</Property>
 		</Item>
 		<Item Name="synnax channel retrieve keys.vi" Type="VI" URL="../Private/synnax channel retrieve keys.vi">
 			<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -70,8 +71,7 @@
 			<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 			<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">1082138640</Property>
-			<Property Name="NI.LibItem.Scope" Type="Int">2</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">268972562</Property>
 		</Item>
 		<Item Name="synnax client close.vi" Type="VI" URL="../Private/synnax client close.vi">
 			<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -79,8 +79,7 @@
 			<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 			<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">1082138640</Property>
-			<Property Name="NI.LibItem.Scope" Type="Int">2</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">268972562</Property>
 		</Item>
 		<Item Name="synnax client open.vi" Type="VI" URL="../Private/synnax client open.vi">
 			<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -88,11 +87,11 @@
 			<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 			<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">1352671248</Property>
-			<Property Name="NI.LibItem.Scope" Type="Int">2</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">268972562</Property>
 		</Item>
 	</Item>
 	<Item Name="Public" Type="Folder">
+		<Property Name="NI.LibItem.Scope" Type="Int">1</Property>
 		<Item Name="Close.vi" Type="VI" URL="../Public/Close.vi">
 			<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
 			<Property Name="NI.ClassItem.Flags" Type="Int">150995072</Property>
@@ -123,7 +122,7 @@
 			<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 			<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">1082138640</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">268972560</Property>
 		</Item>
 	</Item>
 </LVClass>
