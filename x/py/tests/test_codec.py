@@ -12,7 +12,7 @@ import json
 import msgpack
 from pydantic import BaseModel, ConfigDict, Field
 
-from freighter import JSONCodec, MsgPackCodec
+from x.codec import JSONCodec, MessagePackCodec
 
 
 class PayloadWithAlias(BaseModel):
@@ -54,10 +54,10 @@ class TestJSONCodec:
         assert data["from"] == "source"
 
 
-class TestMsgPackCodec:
+class TestMessagePackCodec:
     def test_encode_decode_basic(self) -> None:
         """Should encode and decode a basic payload."""
-        codec = MsgPackCodec()
+        codec = MessagePackCodec()
         original = PayloadWithAlias(from_="source", to="destination")
         encoded = codec.encode(original)
         decoded = codec.decode(encoded, PayloadWithAlias)
@@ -67,7 +67,7 @@ class TestMsgPackCodec:
     def test_encode_uses_alias(self) -> None:
         """Should serialize field with alias name, not Python attribute name."""
 
-        codec = MsgPackCodec()
+        codec = MessagePackCodec()
         payload = PayloadWithAlias(from_="source", to="destination")
         encoded = codec.encode(payload)
         data = msgpack.unpackb(encoded)
