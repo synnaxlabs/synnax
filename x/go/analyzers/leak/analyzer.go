@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package leaklint
+package leak
 
 import (
 	"go/ast"
@@ -34,7 +34,7 @@ const (
 var setupNodes = set.New("BeforeSuite", "BeforeAll")
 
 var Analyzer = &analysis.Analyzer{
-	Name: "leaklint",
+	Name: "leak",
 	Doc: `enforces goroutine-leak checks in Ginkgo suites.
 
 This analyzer enforces two conventions from github.com/synnaxlabs/x/testutil:
@@ -47,7 +47,7 @@ This analyzer enforces two conventions from github.com/synnaxlabs/x/testutil:
      fixtures and the matching AfterSuite/AfterAll teardown is verified to release them.
 
 A node that legitimately needs to opt out (e.g. a suite that deliberately leaves a
-process-global daemon running) can be exempted with a //nolint:leaklint comment.`,
+process-global daemon running) can be exempted with a //nolint:leak comment.`,
 	Run: run,
 }
 

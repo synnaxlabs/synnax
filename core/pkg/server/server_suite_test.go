@@ -21,6 +21,6 @@ func TestServer(t *testing.T) {
 	// The server suite starts a fasthttp/fiber HTTP server whose worker-pool and
 	// monitor goroutines are not guaranteed to drain within a spec's window, so
 	// per-spec goroutine-leak checking is not applicable to this suite.
-	//nolint:leaklint
+	//nolint:leak
 	RunSpecs(t, "Server Suite")
 }

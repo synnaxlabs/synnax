@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package leaklint_test
+package leak_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestLeaklint(t *testing.T) {
+func TestLeak(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Analyzers LeakLint Suite")
+	RunSpecs(t, "Analyzers Leak Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

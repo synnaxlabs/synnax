@@ -22,6 +22,6 @@ func TestHTTP(t *testing.T) {
 	// fasthttp server-worker goroutines alive past a spec's end; they are not
 	// guaranteed to drain within the per-spec window, so per-spec goroutine-leak
 	// checking is not applicable to this suite.
-	//nolint:leaklint
+	//nolint:leak
 	RunSpecs(t, "HTTP Suite")
 }

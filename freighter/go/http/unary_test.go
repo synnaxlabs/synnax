@@ -60,7 +60,7 @@ func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
 // The suite-wide fiber (fasthttp) server started here keeps server-worker goroutines
 // alive for the lifetime of the process, so a BeforeSuite leak check is not applicable.
 //
-//nolint:leaklint
+//nolint:leak
 var _ = BeforeSuite(func() {
 	unaryAddr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 	unaryApp = fiber.New(fiber.Config{})

@@ -7,11 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package main
+package set_test
 
 import (
-	"github.com/synnaxlabs/x/analyzers/leaklint"
-	"golang.org/x/tools/go/analysis/singlechecker"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-func main() { singlechecker.Main(leaklint.Analyzer) }
+func TestSet(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Analyzers Set Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

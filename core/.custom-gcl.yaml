@@ -1,11 +1,11 @@
 version: "v2.12.2"
 plugins:
   - module: "github.com/synnaxlabs/x"
-    import: "github.com/synnaxlabs/x/analyzers/mustsucceedlint"
+    import: "github.com/synnaxlabs/x/analyzers/must"
     path: ../x/go
   - module: "github.com/synnaxlabs/x"
-    import: "github.com/synnaxlabs/x/analyzers/setlint"
+    import: "github.com/synnaxlabs/x/analyzers/set"
     path: ../x/go
   - module: "github.com/synnaxlabs/x"
-    import: "github.com/synnaxlabs/x/analyzers/leaklint"
+    import: "github.com/synnaxlabs/x/analyzers/leak"
     path: ../x/go

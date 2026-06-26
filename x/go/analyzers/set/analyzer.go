@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package setlint
+package set
 
 import (
 	"bytes"
@@ -20,13 +20,13 @@ import (
 )
 
 var Analyzer = &analysis.Analyzer{
-	Name: "setlint",
+	Name: "set",
 	Doc: `detects map[T]struct{} and map[T]bool patterns that should use set.Set[T].
 
 This analyzer finds type expressions where a map is used as a set (with struct{} or bool
 values) and reports that they should be replaced with set.Set[T] from
 github.com/synnaxlabs/x/set. If the map[T]bool{} genuinely needs a three-state
-representation, this linter can be disabled with a //nolint:setlint comment.`,
+representation, this linter can be disabled with a //nolint:set comment.`,
 	Run: run,
 }
 
