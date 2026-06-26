@@ -9,7 +9,15 @@
 
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// AuxTop only renders the controls toggle on macOS/Windows, so pin the detected OS to
+// keep the controls assertions deterministic across host platforms (Linux CI included).
+vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  const OS = actual.OS as Record<string, unknown>;
+  return { ...actual, OS: { ...OS, use: () => "macOS" } };
+});
 
 import { AuxTop } from "@/layered/app/nav/bar/AuxTop";
 import { renderBar, TIMEOUT, withActiveProject } from "@/layered/app/nav/bar/testutil";
