@@ -22,7 +22,6 @@ type LeakOption func(*leakConfig)
 
 type leakConfig struct {
 	timeout time.Duration
-	polling time.Duration
 	filters []any
 }
 
@@ -31,12 +30,6 @@ type leakConfig struct {
 // for suites with intentionally slow shutdown paths.
 func LeakWithin(d time.Duration) LeakOption {
 	return func(c *leakConfig) { c.timeout = d }
-}
-
-// LeakPolling sets the interval at which the leak assertion re-checks for stragglers.
-// The default matches Gomega's Eventually default (10ms).
-func LeakPolling(d time.Duration) LeakOption {
-	return func(c *leakConfig) { c.polling = d }
 }
 
 // LeakIgnoring adds gleak filter matchers (e.g. gleak.IgnoringTopFunction,
@@ -93,9 +86,6 @@ func assertNoLeakedGoroutines(snapshot []gleak.Goroutine, cfg leakConfig) {
 	assertion := gomega.Eventually(gleak.Goroutines)
 	if cfg.timeout > 0 {
 		assertion = assertion.WithTimeout(cfg.timeout)
-	}
-	if cfg.polling > 0 {
-		assertion = assertion.WithPolling(cfg.polling)
 	}
 	assertion.ShouldNot(gleak.HaveLeaked(args...))
 }
