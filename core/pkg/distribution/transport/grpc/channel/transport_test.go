@@ -12,19 +12,17 @@ package channel_test
 import (
 	"context"
 	"go/types"
-	"net"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	grpctestutil "github.com/synnaxlabs/freighter/grpc/testutil"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
-	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 var _ = Describe("Transport", func() {
@@ -97,19 +95,11 @@ var _ = Describe("Transport", func() {
 	// middleware does not leak into the shared transport used by the other specs.
 	Describe("Use", func() {
 		It("Should apply middleware to both the client and server endpoints", func(ctx SpecContext) {
-			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
-			useAddr := address.Address(lis.Addr().String())
-			grpcServer := grpc.NewServer()
-			pool := DeferClose(fgrpc.OpenPool(
-				"", grpc.WithTransportCredentials(insecure.NewCredentials()),
-			))
-			t := channel.New(pool)
-			t.BindTo(grpcServer)
-			go func() {
-				defer GinkgoRecover()
-				Expect(grpcServer.Serve(lis)).To(Succeed())
-			}()
-			DeferCleanup(grpcServer.GracefulStop)
+			var t channel.Transport
+			useAddr := grpctestutil.StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+				t = channel.New(pool)
+				t.BindTo(reg)
+			}).Address
 
 			var clientCalls, serverCalls atomic.Int32
 			t.Use(freighter.MiddlewareFunc(func(
