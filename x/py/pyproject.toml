@@ -42,6 +42,7 @@ known-first-party = ["x"]
 
 [tool.mypy]
 mypy_path = "stubs"
+plugins = ["pydantic.mypy"]
 strict = true
 
 [tool.pytest.ini_options]
