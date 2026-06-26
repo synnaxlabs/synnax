@@ -45,7 +45,7 @@
 				<Property Name="Source[1].preventRename" Type="Bool">true</Property>
 				<Property Name="Source[1].sourceInclusion" Type="Str">TopLevel</Property>
 				<Property Name="Source[1].type" Type="Str">Library</Property>
-				<Property Name="Source[10].itemID" Type="Ref">/My Computer/synnax_lib.lvlib/classes/Synnax Client.lvclass/Private/synnax channel retrieve keys Single.vi</Property>
+				<Property Name="Source[10].itemID" Type="Ref">/My Computer/synnax_lib.lvlib/classes/Synnax Client.lvclass/Private/synnax channel retrieve keys - Single.vi</Property>
 				<Property Name="Source[10].properties[0].type" Type="Str">Remove front panel</Property>
 				<Property Name="Source[10].properties[0].value" Type="Bool">false</Property>
 				<Property Name="Source[10].properties[1].type" Type="Str">Remove block diagram</Property>
@@ -190,7 +190,7 @@
 				<Property Name="Source[8].properties[1].value" Type="Bool">false</Property>
 				<Property Name="Source[8].propertiesCount" Type="Int">2</Property>
 				<Property Name="Source[8].type" Type="Str">VI</Property>
-				<Property Name="Source[9].itemID" Type="Ref">/My Computer/synnax_lib.lvlib/classes/Synnax Client.lvclass/Private/synnax channel retrieve keys Array.vi</Property>
+				<Property Name="Source[9].itemID" Type="Ref">/My Computer/synnax_lib.lvlib/classes/Synnax Client.lvclass/Private/synnax channel retrieve keys - Batch.vi</Property>
 				<Property Name="Source[9].properties[0].type" Type="Str">Remove front panel</Property>
 				<Property Name="Source[9].properties[0].value" Type="Bool">false</Property>
 				<Property Name="Source[9].properties[1].type" Type="Str">Remove block diagram</Property>
