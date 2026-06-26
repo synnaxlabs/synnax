@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
+import { afterEach } from "vitest";
 import { type z } from "zod";
 
 import { type aether } from "@/aether/aether";
@@ -18,7 +19,6 @@ import {
   type MountedProviders,
   type ProviderOptions,
 } from "@/testutil/providers";
-import { type canvasTest } from "@/vis/render/test";
 
 /** Initial state for a child mounted under the component under test. */
 export interface MountChild {
@@ -66,9 +66,9 @@ export interface Handle<C extends ComponentClass> {
   child<T extends aether.Component = aether.Component>(key: string): T;
   /** Provider instances in the stack, exposed for direct manipulation. */
   readonly providers: MountedProviders;
-  /** The render recorder, if `render` was enabled; otherwise `null`. */
-  readonly recorder: canvasTest.Recorder | null;
-  /** Delete the entire tree and release references. */
+  /** Tear down the tree early. Mounts are torn down automatically after each test, so
+   * this is only needed to assert teardown behavior or to release before the test ends.
+   * Idempotent. */
   unmount(): void;
 }
 
@@ -83,6 +83,17 @@ export interface RenderAetherOptions<C extends ComponentClass> extends ProviderO
   children?: Record<string, MountChild>;
 }
 
+// Active mounts awaiting teardown. Each renderAether registers its disposer here and the
+// afterEach below tears them all down, so tests never leak provider trees or telem
+// subscriptions (mirrors @testing-library/react's auto-cleanup). h.unmount() disposes
+// early and deregisters.
+const pendingTeardowns = new Set<() => void>();
+
+afterEach(() => {
+  for (const teardown of pendingTeardowns) teardown();
+  pendingTeardowns.clear();
+});
+
 /**
  * Mount an aether component on the worker side, wrapped in a Synnax provider stack.
  *
@@ -90,6 +101,10 @@ export interface RenderAetherOptions<C extends ComponentClass> extends ProviderO
  * <component>`, including only the providers enabled in {@link ProviderOptions} (all on
  * by default except `render`). Every level runs its real `afterUpdate` lifecycle and
  * propagates context the way production does; the test never wires `parent` by hand.
+ *
+ * The mount is torn down automatically after each test. To assert on draw calls, create
+ * a recorder and pass it as `render`, then assert on that reference — the same fixture
+ * pattern as `telemTest.sink()` / `source()`.
  *
  * For tests that exercise the React + worker boundary, use `render` instead.
  */
@@ -117,6 +132,15 @@ export const renderAether = <C extends ComponentClass>(
     stack.driver.update([...componentPath, childKey], child.type, child.state);
 
   const component = stack.driver.find<InstanceType<C>>(componentPath);
+
+  let disposed = false;
+  const unmount = (): void => {
+    if (disposed) return;
+    disposed = true;
+    pendingTeardowns.delete(unmount);
+    stack.driver.delete([aetherTest.ROOT_KEY]);
+  };
+  pendingTeardowns.add(unmount);
 
   return {
     component,
@@ -147,9 +171,6 @@ export const renderAether = <C extends ComponentClass>(
       return found as T;
     },
     providers: stack.providers,
-    recorder: stack.recorder,
-    unmount(): void {
-      stack.driver.delete([aetherTest.ROOT_KEY]);
-    },
+    unmount,
   };
 };

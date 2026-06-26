@@ -1026,9 +1026,9 @@ describe("log/aether/Log", () => {
   describe("afterDelete", () => {
     it("should clean up telem and erase render region", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
-      const { log, source, recorder } = setup(entries);
+      const { h, source, recorder } = setup(entries);
       const cleanupSpy = vi.spyOn(source, "cleanup");
-      log.afterDelete();
+      h.unmount();
       expect(cleanupSpy).toHaveBeenCalled();
       expect(recorder.eraseCalls.length).toBeGreaterThan(0);
     });

@@ -412,16 +412,16 @@ describe("value/aether/Value", () => {
 
   describe("afterDelete", () => {
     it("should clean up the telem source", () => {
-      const { component, source } = setup({ value: "1" });
+      const { h, source } = setup({ value: "1" });
       const cleanupSpy = vi.spyOn(source, "cleanup");
-      component.afterDelete();
+      h.unmount();
       expect(cleanupSpy).toHaveBeenCalled();
     });
 
     it("should erase its render region on delete", () => {
-      const { component, recorder } = setup({ value: "1" });
+      const { h, recorder } = setup({ value: "1" });
       recorder.clear();
-      component.afterDelete();
+      h.unmount();
       expect(recorder.eraseCalls.length).toBeGreaterThan(0);
     });
   });

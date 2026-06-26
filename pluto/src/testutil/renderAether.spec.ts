@@ -132,4 +132,25 @@ describe("renderAether", () => {
       expect(h.child("c1")).toBeInstanceOf(CustomLeaf);
     });
   });
+
+  describe("automatic teardown", () => {
+    let mounted: aetherTest.TestLeaf;
+
+    it("leaves the mount alive during the test", () => {
+      const h = renderAether(TestLeaf, { state: { value: 1 } });
+      mounted = h.component;
+      expect(mounted.deleteCallCount).toBe(0);
+    });
+
+    it("tears the previous mount down after the test, without an explicit unmount", () => {
+      expect(mounted.deleteCallCount).toBe(1);
+    });
+
+    it("is idempotent with an explicit unmount", () => {
+      const h = renderAether(TestLeaf, { state: { value: 1 } });
+      h.unmount();
+      h.unmount();
+      expect(h.component.deleteCallCount).toBe(1);
+    });
+  });
 });
