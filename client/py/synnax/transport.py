@@ -16,7 +16,6 @@ from freighter import (
     AsyncWebsocketClient,
     FileTransport,
     HTTPClient,
-    JSONCodec,
     Middleware,
     UnaryClient,
     WebsocketClient,
@@ -24,6 +23,7 @@ from freighter import (
     instrumentation_middleware,
 )
 from synnax.telem import Size, TimeSpan
+from x.codec import JSONCodec
 
 
 class Transport:

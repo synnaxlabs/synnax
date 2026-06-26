@@ -8,12 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 import msgpack
 from pydantic import BaseModel
 
-from freighter.transport import P
+P = TypeVar("P", bound=BaseModel)
 
 
 class Codec(Protocol):

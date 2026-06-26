@@ -14,7 +14,7 @@ import pytest
 from pydantic import BaseModel
 
 import freighter.exceptions
-from freighter.codec import Codec, JSONCodec, MessagePackCodec
+from x.codec import Codec, JSONCodec, MessagePackCodec
 from freighter.context import Context
 from freighter.http import HTTPClient
 from freighter.transport import AsyncNext, Next, P

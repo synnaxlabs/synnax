@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from x.file import stream_to_file
+from x.fs import stream_to_file
 
 
 class TestStreamToFile:

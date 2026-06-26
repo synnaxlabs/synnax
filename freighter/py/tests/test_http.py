@@ -13,7 +13,8 @@ from pathlib import Path
 import pytest
 from urllib3 import Retry
 
-from freighter import URL, JSONCodec
+from freighter import URL
+from x.codec import JSONCodec
 from freighter.context import Context
 from freighter.http import HTTPClient
 from freighter.transport import Next

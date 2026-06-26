@@ -13,7 +13,6 @@ from freighter.alamos import (
     async_instrumentation_middleware,
     instrumentation_middleware,
 )
-from freighter.codec import Codec, JSONCodec, MessagePackCodec
 from freighter.context import Context, Role
 from freighter.exceptions import EOF, StreamClosed, Unreachable
 from freighter.file import FileTransport
@@ -54,7 +53,6 @@ __all__ = [
     "AsyncWebsocketClient",
     "AsyncWebsocketStream",
     "async_instrumentation_middleware",
-    "Codec",
     "Context",
     "Role",
     "decode_exception",
@@ -66,10 +64,8 @@ __all__ = [
     "Finalizer",
     "HTTPClient",
     "instrumentation_middleware",
-    "JSONCodec",
     "Middleware",
     "MiddlewareCollector",
-    "MessagePackCodec",
     "Next",
     "register_exception",
     "Stream",

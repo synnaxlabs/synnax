@@ -12,7 +12,7 @@ import json
 import msgpack
 from pydantic import BaseModel, ConfigDict, Field
 
-from freighter import JSONCodec, MessagePackCodec
+from x.codec import JSONCodec, MessagePackCodec
 
 
 class PayloadWithAlias(BaseModel):

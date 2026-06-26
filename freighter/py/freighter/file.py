@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from freighter.transport import RQ, RS, Transport
-from x.file import FilePath
+from x.fs import FilePath
 
 __all__ = ["FileTransport"]
 

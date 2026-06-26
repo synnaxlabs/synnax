@@ -10,7 +10,7 @@
 
 from freighter import FileTransport
 from synnax import ontology
-from x.file import FilePath
+from x.fs import FilePath
 
 
 class Client:

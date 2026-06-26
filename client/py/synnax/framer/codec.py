@@ -12,8 +12,7 @@ from __future__ import annotations
 import struct
 
 import synnax.channel.payload as channel
-from freighter import JSONCodec
-from freighter.codec import Codec as FreighterCodec
+from x.codec import Codec as FreighterCodec, JSONCodec
 from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import Alignment, DataType, Series, TimeRange

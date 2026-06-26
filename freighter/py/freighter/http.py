@@ -17,13 +17,13 @@ from urllib3 import PoolManager, Retry
 from urllib3.exceptions import MaxRetryError
 from urllib3.response import BaseHTTPResponse
 
-from freighter.codec import Codec
+from x.codec import Codec
 from freighter.context import Context
 from freighter.exceptions import Unreachable
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.url import URL
 from x.exceptions import ExceptionPayload, decode_exception
-from x.file import FilePath, stream_to_file
+from x.fs import FilePath, stream_to_file
 
 _FILE_CONTENT_TYPES: dict[str, str] = {"json": "application/json"}
 
@@ -226,7 +226,7 @@ class HTTPClient(MiddlewareCollector):
                     payload = self._codec.decode(http_res.data, ExceptionPayload)
                 except Exception as e:
                     raise ValueError(
-                        f"undecodable error response: {http_res.data!r}"
+                        f"failed to decode error response: {http_res.data!r}"
                     ) from e
                 decoded = decode_exception(payload)
                 if decoded is None:
