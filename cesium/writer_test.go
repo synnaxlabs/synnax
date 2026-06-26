@@ -47,7 +47,9 @@ var _ = Describe("Writer Behavior", func() {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = openDBOnFS(ctx, fs)
-				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "sy_cesium_control")).To(Succeed())
+				Expect(db.ConfigureControlUpdateChannel(
+					ctx, controlKey, "sy_cesium_control",
+				)).To(Succeed())
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
