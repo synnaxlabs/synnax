@@ -54,7 +54,7 @@
 			<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 			<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">1084235792</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">268972562</Property>
 		</Item>
 		<Item Name="synnax channel retrieve keys Single.vi" Type="VI" URL="../Private/synnax channel retrieve keys Single.vi">
 			<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -62,7 +62,7 @@
 			<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 			<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">1084235792</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">268972562</Property>
 		</Item>
 		<Item Name="synnax channel retrieve keys.vi" Type="VI" URL="../Private/synnax channel retrieve keys.vi">
 			<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -99,7 +99,7 @@
 			<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 			<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">1084235792</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">268972562</Property>
 		</Item>
 		<Item Name="Open.vi" Type="VI" URL="../Public/Open.vi">
 			<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -107,7 +107,7 @@
 			<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 			<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-			<Property Name="NI.ClassItem.State" Type="Int">41943056</Property>
+			<Property Name="NI.ClassItem.State" Type="Int">268972562</Property>
 		</Item>
 		<Item Name="Retrieve.vi" Type="VI" URL="../Public/Retrieve.vi">
 			<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -125,13 +125,5 @@
 			<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
 			<Property Name="NI.ClassItem.State" Type="Int">1082138640</Property>
 		</Item>
-	</Item>
-	<Item Name="err_bytes_preallocate.vi" Type="VI" URL="../../../private/err_bytes_preallocate.vi">
-		<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
-		<Property Name="NI.ClassItem.Flags" Type="Int">150995072</Property>
-		<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
-		<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
-		<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-		<Property Name="NI.ClassItem.State" Type="Int">1342709760</Property>
 	</Item>
 </LVClass>
