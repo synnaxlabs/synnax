@@ -73,8 +73,8 @@ func BindTo(f *fiber.App) error {
 
 	// Bound as a raw fiber route rather than a freighter unary server because freighter
 	// maps every handler error to 400, and this endpoint needs to return 503 to model a
-	// transient, retryable transport failure (a 400 validation error would not, and must
-	// not, be retried).
+	// transient, retryable transport failure (a 400 validation error would not, and
+	// must not, be retried).
 	f.Post("/unary/flakyUnavailable", flakyUnavailable)
 
 	// Bound as a raw fiber route so it can return a 200 with a genuinely empty body,
