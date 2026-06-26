@@ -25,7 +25,6 @@ const Y_THRESHOLD = xy.swap(X_THRESHOLD);
 interface DrawerProps extends Omit<Nav.DrawerProps, "onResize"> {
   location: location.Location;
   hover: boolean;
-  visible: boolean;
   onStopHover: () => void;
 }
 
@@ -34,7 +33,7 @@ const CLASS = CSS.BE("nav", "drawer");
 export const Drawer = ({
   location: loc,
   hover,
-  visible,
+  collapsed,
   onStopHover,
   children,
   ...rest
@@ -70,7 +69,7 @@ export const Drawer = ({
     <Nav.Drawer
       location={loc}
       className={CSS(CLASS, hover && CSS.M("hover"))}
-      collapsed={!visible}
+      collapsed={collapsed}
       onMouseLeave={handleMouseLeave}
       onResize={handleResize}
       background={0}
@@ -79,7 +78,7 @@ export const Drawer = ({
       borderColor={5}
       {...rest}
     >
-      <Errors.Boundary>{visible ? children : null}</Errors.Boundary>
+      <Errors.Boundary>{collapsed ? null : children}</Errors.Boundary>
     </Nav.Drawer>
   );
 };

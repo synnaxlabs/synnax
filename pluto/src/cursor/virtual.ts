@@ -8,11 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { box, xy } from "@synnaxlabs/x";
-import { type DragEvent, useEffect } from "react";
+import { type RefObject, useEffect } from "react";
 
+import { type UseDragProps } from "@/cursor/drag";
 import { useStateRef } from "@/hooks/ref";
-import { type UseVirtualCursorDragProps } from "@/hooks/useCursorDrag/types";
 import { Triggers } from "@/triggers";
+
+export interface UseVirtualDragProps extends UseDragProps {
+  ref: RefObject<HTMLElement | null>;
+}
 
 interface RefState {
   start: xy.XY;
@@ -24,18 +28,23 @@ const INITIAL_STATE: RefState = {
   mouseKey: "MouseLeft",
 };
 
-export const useVirtualCursorDragWebKit = ({
+/**
+ * A variant of {@link useDrag} that attaches its own `pointerdown` listener to a ref'd
+ * element, for cases where the gesture initiator cannot receive an `onPointerDown` prop
+ * directly. Activates immediately on press (no movement threshold).
+ */
+export const useVirtualDrag = ({
   ref,
   onMove,
   onStart,
   onEnd,
-}: UseVirtualCursorDragProps): void => {
+}: UseVirtualDragProps): void => {
   const [stateRef, setRef] = useStateRef<RefState>(INITIAL_STATE);
   useEffect(() => {
     if (ref.current == null) return;
     const { current: el } = ref;
 
-    const handleMove = (e: MouseEvent): void => {
+    const handleMove = (e: PointerEvent): void => {
       const next = xy.construct(e);
       const { mouseKey, start } = stateRef.current;
       onMove?.(box.construct(start, next), mouseKey, e);
@@ -47,7 +56,7 @@ export const useVirtualCursorDragWebKit = ({
       const start = xy.construct(e);
       const mouseKey = Triggers.eventKey(e);
       setRef({ start, mouseKey });
-      onStart?.(start, mouseKey, e as unknown as DragEvent);
+      onStart?.(start, mouseKey, el);
       el.addEventListener("pointerup", handleUp, { once: true });
     };
     el.addEventListener("pointerdown", handleDown);

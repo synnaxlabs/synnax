@@ -10,8 +10,7 @@
 import { bounds, box, location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
-import { CSS } from "@/css";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { Cursor } from "@/cursor";
 import { Base, type BaseProps } from "@/resize/Base";
 
 export interface HandlerExtra {
@@ -22,7 +21,7 @@ export interface HandlerExtra {
 /** Props for the {@link Single} component. */
 export interface SingleProps extends Omit<
   BaseProps,
-  "hideHandle" | "size" | "onResize" | "onDragStart" | "ref"
+  "hideHandle" | "size" | "onResize" | "onPointerDown" | "ref"
 > {
   size?: number;
   sizeBounds?: Partial<bounds.Bounds>;
@@ -30,7 +29,6 @@ export interface SingleProps extends Omit<
   onResizeEnd?: (size: number, extra: HandlerExtra) => void;
 }
 
-const COLLAPSED_SIZE = 2;
 const DEFAULT_SIZE = 200;
 const DEFAULT_SIZE_BOUNDS = { lower: 100 };
 
@@ -59,13 +57,12 @@ export const Single = ({
   const ref = useRef<HTMLDivElement>(null);
 
   const calcNextSize = useCallback(
-    (dragRegion: box.Box) => {
+    (dragRegion: box.Box): [clamped: number, raw: number] => {
       const signedDim = box.dim(dragRegion, location.direction(loc), true);
       const isInverted = loc === "bottom" || loc === "right";
       const dim = isInverted ? -signedDim : signedDim;
       const rawNextSize = marker.current + dim;
-      const nextSize = bounds.clamp(fullSizeBounds, rawNextSize);
-      return [nextSize, rawNextSize];
+      return [bounds.clamp(fullSizeBounds, rawNextSize), rawNextSize];
     },
     [loc, fullSizeBounds],
   );
@@ -97,7 +94,7 @@ export const Single = ({
     [onResizeEnd, calcNextSize],
   );
 
-  const handleDragStart = useCursorDrag({
+  const handleDragStart = Cursor.useDrag({
     onMove: handleMove,
     onStart: handleStart,
     onEnd: handleEnd,
@@ -108,8 +105,8 @@ export const Single = ({
       ref={ref}
       location={loc}
       size={rendered}
-      onDragStart={handleDragStart}
-      className={CSS(className, CSS.expanded(rendered !== COLLAPSED_SIZE))}
+      onPointerDown={handleDragStart}
+      className={className}
       {...rest}
     />
   );

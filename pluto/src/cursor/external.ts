@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type RefObject } from "react";
-
-import { type UseCursorDragProps } from "@/hooks/useCursorDrag/useCursorDrag";
-
-export interface UseVirtualCursorDragProps extends UseCursorDragProps {
-  ref: RefObject<HTMLElement | null>;
-}
+export * from "@/cursor/cursor";
+export * from "@/cursor/drag";
+export * from "@/cursor/virtual";

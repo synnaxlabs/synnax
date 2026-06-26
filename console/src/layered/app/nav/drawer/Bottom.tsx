@@ -36,7 +36,7 @@ export const Bottom = (): ReactElement | null => {
       size={size ?? initialSize}
       sizeBounds={sizeBounds}
       hover={hover}
-      visible={visible}
+      collapsed={!visible}
       onResizeEnd={handleResizeEnd}
       onCollapse={handleCollapse}
       onStopHover={handleStopHover}

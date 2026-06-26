@@ -53,14 +53,18 @@ const handleOf = (c: ReturnType<typeof render>): HTMLElement => {
 };
 
 const drag = (c: ReturnType<typeof render>, from: xy.XY, to: xy.XY): void => {
-  // jsdom's synthetic dragStart drops clientX/Y, so dispatch a MouseEvent (which carries
-  // them) under the "dragstart" type to drive useCursorDrag.
-  fireEvent(
-    handleOf(c),
-    new MouseEvent("dragstart", { clientX: from.x, clientY: from.y, bubbles: true }),
-  );
-  fireEvent.mouseMove(window, { clientX: to.x, clientY: to.y, buttons: 1 });
-  fireEvent.mouseUp(window, { clientX: to.x, clientY: to.y });
+  // Cursor.useDrag captures the pointer on the handle, then tracks moves/up on window
+  // (capture bubbles them up). The from -> to distance must exceed the activation
+  // threshold for the drag to begin.
+  fireEvent.pointerDown(handleOf(c), {
+    pointerId: 1,
+    button: 0,
+    isPrimary: true,
+    clientX: from.x,
+    clientY: from.y,
+  });
+  fireEvent.pointerMove(window, { pointerId: 1, clientX: to.x, clientY: to.y });
+  fireEvent.pointerUp(window, { pointerId: 1, clientX: to.x, clientY: to.y });
 };
 
 const lastSize = (onResize: ReturnType<typeof vi.fn>): number =>
@@ -72,9 +76,9 @@ describe("Resize.Single", () => {
     expect(c.getByText("Hello")).toBeTruthy();
   });
 
-  it("should render a draggable handle", () => {
+  it("should render a resize handle", () => {
     const c = renderSingle({ location: "left" });
-    expect(handleOf(c).draggable).toBe(true);
+    expect(handleOf(c)).toBeTruthy();
   });
 
   describe("initial size", () => {
@@ -151,11 +155,31 @@ describe("Resize.Single", () => {
       },
     );
 
-    it("should pass the panel box as the second argument to onResize", () => {
+    it("should pass the pane box and raw drag size as the second argument", () => {
       const onResize = vi.fn();
       const c = renderSingle({ location: "left", size: 200, onResize });
       drag(c, { x: 500, y: 0 }, { x: 540, y: 0 });
-      expect(onResize).toHaveBeenCalledWith(expect.any(Number), expect.anything());
+      const extra = onResize.mock.lastCall?.[1] as Resize.HandlerExtra;
+      expect(extra.box).toBeDefined();
+      expect(extra.dragSize).toBe(240);
+    });
+
+    it("should not start a drag for movement below the activation threshold", () => {
+      const onResize = vi.fn();
+      const onResizeEnd = vi.fn();
+      const c = renderSingle({ location: "left", size: 200, onResize, onResizeEnd });
+      const handle = handleOf(c);
+      fireEvent.pointerDown(handle, {
+        pointerId: 1,
+        button: 0,
+        isPrimary: true,
+        clientX: 500,
+        clientY: 0,
+      });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 502, clientY: 0 });
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 502, clientY: 0 });
+      expect(onResize).not.toHaveBeenCalled();
+      expect(onResizeEnd).not.toHaveBeenCalled();
     });
   });
 });

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/nav/Drawer.css";
+
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/css";
@@ -22,7 +24,7 @@ export interface DrawerProps extends Resize.SingleProps {
 export const Drawer = ({
   onCollapse,
   collapsed = false,
-  collapseThreshold = 65,
+  collapseThreshold = 100,
   onResize,
   onResizeEnd,
   className,
@@ -55,7 +57,11 @@ export const Drawer = ({
   );
   return (
     <Resize.Single
-      className={CSS(CSS.visible(!(collapsed || dragCollapsed)), className)}
+      className={CSS(
+        CSS.B("nav-drawer"),
+        CSS.visible(!(collapsed || dragCollapsed)),
+        className,
+      )}
       onResize={handleResize}
       onResizeEnd={handleResizeEnd}
       {...rest}

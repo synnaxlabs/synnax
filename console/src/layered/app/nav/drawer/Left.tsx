@@ -37,7 +37,7 @@ export const Left = (): ReactElement => {
       size={size ?? initialSize}
       sizeBounds={sizeBounds}
       hover={hover}
-      visible={item != null}
+      collapsed={item == null}
       onResizeEnd={handleResizeEnd}
       onCollapse={handleCollapse}
       onStopHover={handleStopHover}
