@@ -8,20 +8,19 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 import msgpack
 from pydantic import BaseModel
 
-from alamos import Instrumentation, trace
-from freighter.transport import P
+P = TypeVar("P", bound=BaseModel)
 
 
 class Codec(Protocol):
     """Protocol for an entity that encodes and decodes values from binary."""
 
     def content_type(self) -> str:
-        """:returns: the HTTP content type of the encoder"""
+        """:returns: the MIME content type of the Codec"""
         ...
 
     def encode(self, data: BaseModel) -> bytes:
@@ -29,7 +28,7 @@ class Codec(Protocol):
         Encodes the given data into a binary representation.
 
         :param data: The data to encode.
-        :returns: The binary representation of the data.
+        :returns: The bytes of the encoded data.
         """
         ...
 
@@ -38,19 +37,25 @@ class Codec(Protocol):
         Decodes the given binary into a type checked payload.
 
         :param data: The binary to decode.
-        :param pld_t: The type of the payload to decode into.
+        :param pld_t: The Pydantic model type to decode into.
+        :returns: The decoded payload.
         """
         ...
 
 
-class MsgPackCodec(Codec):
-    """A Msgpack implementation of Codec."""
+class MessagePackCodec(Codec):
+    """A MessagePack implementation of Codec."""
 
     def content_type(self) -> str:
         return "application/msgpack"
 
     def encode(self, payload: BaseModel) -> bytes:
-        return msgpack.packb(payload.model_dump(by_alias=True))  # type: ignore[return-value]
+        packed = msgpack.packb(payload.model_dump(by_alias=True))
+        if not isinstance(packed, bytes):
+            raise ValueError(
+                f"MessagePack failed to encode payload of type {type(payload).__name__}"
+            )
+        return packed
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         return pld_t.model_validate(msgpack.unpackb(data))
@@ -59,8 +64,6 @@ class MsgPackCodec(Codec):
 class JSONCodec(Codec):
     """A JSON implementation of Codec."""
 
-    STRING_ENCODING = "utf-8"
-
     def content_type(self) -> str:
         return "application/json"
 
@@ -68,31 +71,4 @@ class JSONCodec(Codec):
         return payload.model_dump_json(by_alias=True).encode()
 
     def decode(self, data: bytes, pld_t: type[P]) -> P:
-        return pld_t.model_validate(json.loads(data.decode(JSONCodec.STRING_ENCODING)))
-
-
-CODECS: list[Codec] = [
-    JSONCodec(),
-    MsgPackCodec(),
-]
-
-
-class TracingCodec(Codec):
-    """Injects tracing information into the context of a request."""
-
-    wrapped: Codec
-    instrumentation: Instrumentation
-
-    def __init__(self, wrapped: Codec):
-        self.wrapped = wrapped
-
-    def content_type(self) -> str:
-        return self.wrapped.content_type()
-
-    @trace("debug")
-    def encode(self, payload: BaseModel) -> bytes:
-        return self.wrapped.encode(payload)
-
-    @trace("debug")
-    def decode(self, data: bytes, pld_t: type[P]) -> P:
-        return self.wrapped.decode(data, pld_t)
+        return pld_t.model_validate(json.loads(data.decode()))
