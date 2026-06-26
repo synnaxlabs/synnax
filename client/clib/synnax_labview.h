@@ -64,12 +64,13 @@ SYNNAX_EXPORT int32_t synnax_channel_retrieve_keys(
 
 SYNNAX_EXPORT int32_t synnax_channel_create(
     SynnaxClient client,
-    const char *name,
-    const char *data_type,
-    int32_t is_index,
-    uint32_t index,
-    int32_t is_virtual,
-    uint32_t *out_key,
+    const char *names,
+    const char *data_types,
+    const uint8_t *is_index,
+    const uint32_t *index,
+    const uint8_t *is_virtual,
+    uint64_t count,
+    uint32_t *out_keys,
     uint8_t *err
 );
 

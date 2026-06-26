@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <exception>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -38,12 +37,7 @@ int32_t synnax_channel_retrieve_keys(
         // LabVIEW's CLFN has no array-of-C-string-pointers type, so names arrives as a
         // single '\n'-delimited string (Array To Spreadsheet String); split it back
         // out.
-        std::vector<std::string> req;
-        req.reserve(name_count);
-        std::stringstream ss(str_or(names, ""));
-        std::string token;
-        while (std::getline(ss, token, '\n'))
-            req.push_back(token);
+        const std::vector<std::string> req = split_newlines(names);
         if (req.size() != name_count) {
             set_err(
                 err,
@@ -114,32 +108,52 @@ int32_t synnax_channel_retrieve_keys(
 
 int32_t synnax_channel_create(
     SynnaxClient *client,
-    const char *name,
-    const char *data_type,
-    const int32_t is_index,
-    const uint32_t index,
-    const int32_t is_virtual,
-    uint32_t *out_key,
+    const char *names,
+    const char *data_types,
+    const uint8_t *is_index,
+    const uint32_t *index,
+    const uint8_t *is_virtual,
+    const size_t count,
+    uint32_t *out_keys,
     SynnaxError *err
 ) {
     clear_err(err);
-    if (client == nullptr || out_key == nullptr) {
-        set_err(err, CODE_INTERNAL, "sy.validation", "null client");
+    if (client == nullptr || out_keys == nullptr) {
+        set_err(err, CODE_INTERNAL, "sy.validation", "null client or out_keys");
         return CODE_INTERNAL;
     }
     try {
-        synnax::channel::Channel ch;
-        ch.name = str_or(name, "");
-        ch.data_type = x::telem::DataType{str_or(data_type, "")};
-        ch.is_index = is_index != 0;
-        ch.index = index;
-        ch.is_virtual = is_virtual != 0;
-        const auto c_err = client->client.channels.create(ch);
+        const std::vector<std::string> name_list = split_newlines(names);
+        const std::vector<std::string> dtype_list = split_newlines(data_types);
+        if (name_list.size() != count || dtype_list.size() != count) {
+            set_err(
+                err,
+                CODE_INTERNAL,
+                "sy.validation",
+                "parsed " + std::to_string(name_list.size()) + " names and " +
+                    std::to_string(dtype_list.size()) + " data types but count is " +
+                    std::to_string(count)
+            );
+            return CODE_INTERNAL;
+        }
+        std::vector<synnax::channel::Channel> chans;
+        chans.reserve(count);
+        for (size_t i = 0; i < count; i++) {
+            synnax::channel::Channel ch;
+            ch.name = name_list[i];
+            ch.data_type = x::telem::DataType{dtype_list[i]};
+            ch.is_index = is_index != nullptr && is_index[i] != 0;
+            ch.index = index != nullptr ? index[i] : 0;
+            ch.is_virtual = is_virtual != nullptr && is_virtual[i] != 0;
+            chans.push_back(std::move(ch));
+        }
+        const auto c_err = client->client.channels.create(chans);
         if (!c_err.ok()) {
             set_err(err, CODE_ERROR, c_err.type, c_err.data);
             return CODE_ERROR;
         }
-        *out_key = ch.key;
+        for (size_t i = 0; i < count; i++)
+            out_keys[i] = chans[i].key;
         return CODE_OK;
     } catch (const std::exception &e) {
         set_err(err, CODE_INTERNAL, "sy.internal", e.what());
