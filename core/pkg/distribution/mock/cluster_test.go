@@ -23,14 +23,14 @@ var _ = Describe("Cluster", func() {
 	ShouldNotLeakGoroutinesPerSpec()
 	Describe("Provision", func() {
 		It("Should open a three node memory backed distribution layer", func(ctx SpecContext) {
-			mockCluster := mock.OpenCluster(ctx, 0)
-			coreOne := mockCluster.Provision(ctx)
-			coreTwo := mockCluster.Provision(ctx)
-			coreThree := mockCluster.Provision(ctx)
+			cluster := mock.NewCluster(ctx, 0)
+			nodeOne := cluster.Provision(ctx)
+			nodeTwo := cluster.Provision(ctx)
+			nodeThree := cluster.Provision(ctx)
 
-			Expect(coreOne.Cluster.HostKey()).To(Equal(node.Key(1)))
-			Expect(coreTwo.Cluster.HostKey()).To(Equal(node.Key(2)))
-			Expect(coreThree.Cluster.HostKey()).To(Equal(node.Key(3)))
+			Expect(nodeOne.Cluster.HostKey()).To(Equal(node.Key(1)))
+			Expect(nodeTwo.Cluster.HostKey()).To(Equal(node.Key(2)))
+			Expect(nodeThree.Cluster.HostKey()).To(Equal(node.Key(3)))
 
 			ch := channel.Channel{
 				Name:        "SG_01",
@@ -39,14 +39,14 @@ var _ = Describe("Cluster", func() {
 				Leaseholder: 1,
 			}
 
-			ch = MustSucceed(coreOne.Channel.Create(ctx, []channel.Channel{ch}))[0]
+			ch = MustSucceed(nodeOne.Channel.Create(ctx, []channel.Channel{ch}))[0]
 			Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 
-			chs := MustSucceed(coreOne.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()))
+			chs := MustSucceed(nodeOne.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()))
 			Expect(chs).To(HaveLen(1))
 			Expect(chs[0].Key).To(Equal(ch.Key().StorageKey()))
 
-			Expect(mockCluster.Close()).To(Succeed())
+			Expect(cluster.Close()).To(Succeed())
 		})
 	})
 })

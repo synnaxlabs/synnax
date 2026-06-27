@@ -16,14 +16,8 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	controlpb "github.com/synnaxlabs/x/control/pb"
+	control "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/telem"
-)
-
-type (
-	createMessageTranslator struct{}
-	deleteRequestTranslator struct{}
-	renameMessageTranslator struct{}
 )
 
 var (
@@ -32,13 +26,16 @@ var (
 	RenameMessageTranslator grpc.Translator[channel.RenameRequest, *RenameRequest] = renameMessageTranslator{}
 )
 
+type createMessageTranslator struct{}
+
 func (createMessageTranslator) Forward(
 	_ context.Context,
 	msg channel.CreateMessage,
 ) (*CreateMessage, error) {
-	channels, err := lo.MapErr(msg.Channels,
+	channels, err := lo.MapErr(
+		msg.Channels,
 		func(c channel.Channel, _ int) (*Channel, error) {
-			concurrency, err := controlpb.ConcurrencyToPB(c.Concurrency)
+			concurrency, err := control.ConcurrencyToPB(c.Concurrency)
 			if err != nil {
 				return nil, err
 			}
@@ -63,12 +60,13 @@ func (createMessageTranslator) Backward(
 	_ context.Context,
 	msg *CreateMessage,
 ) (channel.CreateMessage, error) {
-	channels, err := lo.MapErr(msg.Channels,
+	channels, err := lo.MapErr(
+		msg.Channels,
 		func(c *Channel, _ int) (channel.Channel, error) {
 			if c == nil {
 				return channel.Channel{}, nil
 			}
-			concurrency, err := controlpb.ConcurrencyFromPB(c.Concurrency)
+			concurrency, err := control.ConcurrencyFromPB(c.Concurrency)
 			if err != nil {
 				return channel.Channel{}, err
 			}
@@ -96,12 +94,16 @@ func (deleteRequestTranslator) Forward(
 	return &DeleteRequest{Keys: req.Keys.Uint32()}, nil
 }
 
+type deleteRequestTranslator struct{}
+
 func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	req *DeleteRequest,
 ) (channel.DeleteRequest, error) {
 	return channel.DeleteRequest{Keys: channel.KeysFromUint32(req.Keys)}, nil
 }
+
+type renameMessageTranslator struct{}
 
 func (renameMessageTranslator) Forward(
 	_ context.Context,

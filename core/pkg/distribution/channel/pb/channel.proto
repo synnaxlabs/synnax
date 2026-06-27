@@ -51,10 +51,20 @@ message CreateMessage {
   repeated Channel channels = 1;
 }
 
+// CreateService allocates channels and creates their storage on the leaseholder.
+service CreateService {
+  rpc Exec(CreateMessage) returns (CreateMessage) {}
+}
+
 // DeleteRequest is the cluster-internal request to delete the storage for a set of
 // channel keys.
 message DeleteRequest {
   repeated uint32 keys = 1;
+}
+
+// DeleteService deletes channel storage on the leaseholder.
+service DeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
 }
 
 // RenameRequest is the cluster-internal request to rename the storage for a set of
@@ -62,16 +72,6 @@ message DeleteRequest {
 message RenameRequest {
   repeated uint32 keys = 1;
   repeated string names = 2;
-}
-
-// CreateService allocates channels and creates their storage on the leaseholder.
-service CreateService {
-  rpc Exec(CreateMessage) returns (CreateMessage) {}
-}
-
-// DeleteService deletes channel storage on the leaseholder.
-service DeleteService {
-  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
 }
 
 // RenameService renames channel storage on the leaseholder.
