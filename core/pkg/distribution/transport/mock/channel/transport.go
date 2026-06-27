@@ -17,9 +17,10 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-// Network backs the in-memory channel transports for a cluster of nodes. It holds the
-// shared per-operation freighter networks (create, delete, rename) so that a Transport
-// provisioned for one node can reach the servers bound by another.
+// Network backs the in-memory channel transports for a cluster of nodes. It aggregates
+// the per-operation freighter networks (create, delete, rename) so that a single
+// Transport can be provisioned per node, mirroring the gRPC channel.Transport that
+// bundles the same operations.
 type Network struct {
 	create *mock.Network[channel.CreateMessage, channel.CreateMessage]
 	delete *mock.Network[channel.DeleteRequest, types.Nil]
@@ -35,7 +36,7 @@ func NewNetwork() *Network {
 	}
 }
 
-// New provisions an in-memory channel.Transport whose servers are hosted at addr.
+// New provisions an in-memory channel.Transport for the node at addr.
 func (n *Network) New(addr address.Address) channel.Transport {
 	return transport{
 		createClient: n.create.UnaryClient(),
@@ -48,36 +49,22 @@ func (n *Network) New(addr address.Address) channel.Transport {
 }
 
 type transport struct {
-	createClient channel.CreateTransportClient
-	createServer channel.CreateTransportServer
-	deleteClient channel.DeleteTransportClient
-	deleteServer channel.DeleteTransportServer
-	renameClient channel.RenameTransportClient
-	renameServer channel.RenameTransportServer
+	createClient channel.CreateClient
+	createServer channel.CreateServer
+	deleteClient channel.DeleteClient
+	deleteServer channel.DeleteServer
+	renameClient channel.RenameClient
+	renameServer channel.RenameServer
 }
 
-var _ channel.Transport = transport{}
+func (t transport) CreateClient() channel.CreateClient { return t.createClient }
 
-func (t transport) CreateClient() channel.CreateTransportClient {
-	return t.createClient
-}
+func (t transport) CreateServer() channel.CreateServer { return t.createServer }
 
-func (t transport) CreateServer() channel.CreateTransportServer {
-	return t.createServer
-}
+func (t transport) DeleteClient() channel.DeleteClient { return t.deleteClient }
 
-func (t transport) DeleteClient() channel.DeleteTransportClient {
-	return t.deleteClient
-}
+func (t transport) DeleteServer() channel.DeleteServer { return t.deleteServer }
 
-func (t transport) DeleteServer() channel.DeleteTransportServer {
-	return t.deleteServer
-}
+func (t transport) RenameClient() channel.RenameClient { return t.renameClient }
 
-func (t transport) RenameClient() channel.RenameTransportClient {
-	return t.renameClient
-}
-
-func (t transport) RenameServer() channel.RenameTransportServer {
-	return t.renameServer
-}
+func (t transport) RenameServer() channel.RenameServer { return t.renameServer }

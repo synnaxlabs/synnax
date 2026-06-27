@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -25,37 +25,37 @@ import (
 type (
 	createClient = fgrpc.UnaryClient[
 		channel.CreateMessage,
-		*channelpb.CreateMessage,
+		*pb.CreateMessage,
 		channel.CreateMessage,
-		*channelpb.CreateMessage,
+		*pb.CreateMessage,
 	]
 	createServer = fgrpc.UnaryServer[
 		channel.CreateMessage,
-		*channelpb.CreateMessage,
+		*pb.CreateMessage,
 		channel.CreateMessage,
-		*channelpb.CreateMessage,
+		*pb.CreateMessage,
 	]
 	deleteClient = fgrpc.UnaryClient[
 		channel.DeleteRequest,
-		*channelpb.DeleteRequest,
+		*pb.DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	deleteServer = fgrpc.UnaryServer[
 		channel.DeleteRequest,
-		*channelpb.DeleteRequest,
+		*pb.DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	renameClient = fgrpc.UnaryClient[
 		channel.RenameRequest,
-		*channelpb.RenameRequest,
+		*pb.RenameRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	renameServer = fgrpc.UnaryServer[
 		channel.RenameRequest,
-		*channelpb.RenameRequest,
+		*pb.RenameRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
@@ -63,6 +63,7 @@ type (
 
 // Transport is a gRPC-backed implementation of the channel.Transport interface.
 type Transport struct {
+	// ReportProvider provides a report for the transport.
 	alamos.ReportProvider
 	createClient *createClient
 	createServer *createServer
@@ -78,32 +79,32 @@ var (
 )
 
 // CreateClient implements the channel.Transport interface.
-func (t Transport) CreateClient() channel.CreateTransportClient {
+func (t Transport) CreateClient() channel.CreateClient {
 	return t.createClient
 }
 
 // CreateServer implements the channel.Transport interface.
-func (t Transport) CreateServer() channel.CreateTransportServer {
+func (t Transport) CreateServer() channel.CreateServer {
 	return t.createServer
 }
 
 // DeleteClient implements the channel.Transport interface.
-func (t Transport) DeleteClient() channel.DeleteTransportClient {
+func (t Transport) DeleteClient() channel.DeleteClient {
 	return t.deleteClient
 }
 
 // DeleteServer implements the channel.Transport interface.
-func (t Transport) DeleteServer() channel.DeleteTransportServer {
+func (t Transport) DeleteServer() channel.DeleteServer {
 	return t.deleteServer
 }
 
 // RenameClient implements the channel.Transport interface.
-func (t Transport) RenameClient() channel.RenameTransportClient {
+func (t Transport) RenameClient() channel.RenameClient {
 	return t.renameClient
 }
 
 // RenameServer implements the channel.Transport interface.
-func (t Transport) RenameServer() channel.RenameTransportServer {
+func (t Transport) RenameServer() channel.RenameServer {
 	return t.renameServer
 }
 
@@ -118,60 +119,60 @@ func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
 func New(pool *fgrpc.Pool) Transport {
 	createClient := &createClient{
 		Pool:               pool,
-		RequestTranslator:  channelpb.CreateMessageTranslator,
-		ResponseTranslator: channelpb.CreateMessageTranslator,
+		RequestTranslator:  pb.CreateMessageTranslator,
+		ResponseTranslator: pb.CreateMessageTranslator,
 		Exec: func(
 			ctx context.Context,
 			conn grpc.ClientConnInterface,
-			req *channelpb.CreateMessage,
-		) (*channelpb.CreateMessage, error) {
-			return channelpb.NewCreateServiceClient(conn).Exec(ctx, req)
+			req *pb.CreateMessage,
+		) (*pb.CreateMessage, error) {
+			return pb.NewCreateServiceClient(conn).Exec(ctx, req)
 		},
-		ServiceDesc: &channelpb.CreateService_ServiceDesc,
+		ServiceDesc: &pb.CreateService_ServiceDesc,
 	}
 	createServer := &createServer{
 		Internal:           true,
-		RequestTranslator:  channelpb.CreateMessageTranslator,
-		ResponseTranslator: channelpb.CreateMessageTranslator,
-		ServiceDesc:        &channelpb.CreateService_ServiceDesc,
+		RequestTranslator:  pb.CreateMessageTranslator,
+		ResponseTranslator: pb.CreateMessageTranslator,
+		ServiceDesc:        &pb.CreateService_ServiceDesc,
 	}
 	deleteClient := &deleteClient{
 		Pool:               pool,
-		RequestTranslator:  channelpb.DeleteRequestTranslator,
+		RequestTranslator:  pb.DeleteRequestTranslator,
 		ResponseTranslator: fgrpc.EmptyTranslator{},
 		Exec: func(
 			ctx context.Context,
 			conn grpc.ClientConnInterface,
-			req *channelpb.DeleteRequest,
+			req *pb.DeleteRequest,
 		) (*emptypb.Empty, error) {
-			return channelpb.NewDeleteServiceClient(conn).Exec(ctx, req)
+			return pb.NewDeleteServiceClient(conn).Exec(ctx, req)
 		},
-		ServiceDesc: &channelpb.DeleteService_ServiceDesc,
+		ServiceDesc: &pb.DeleteService_ServiceDesc,
 	}
 	deleteServer := &deleteServer{
 		Internal:           true,
-		RequestTranslator:  channelpb.DeleteRequestTranslator,
+		RequestTranslator:  pb.DeleteRequestTranslator,
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &channelpb.DeleteService_ServiceDesc,
+		ServiceDesc:        &pb.DeleteService_ServiceDesc,
 	}
 	renameClient := &renameClient{
 		Pool:               pool,
-		RequestTranslator:  channelpb.RenameMessageTranslator,
+		RequestTranslator:  pb.RenameMessageTranslator,
 		ResponseTranslator: fgrpc.EmptyTranslator{},
 		Exec: func(
 			ctx context.Context,
 			conn grpc.ClientConnInterface,
-			req *channelpb.RenameRequest,
+			req *pb.RenameRequest,
 		) (*emptypb.Empty, error) {
-			return channelpb.NewRenameServiceClient(conn).Exec(ctx, req)
+			return pb.NewRenameServiceClient(conn).Exec(ctx, req)
 		},
-		ServiceDesc: &channelpb.RenameService_ServiceDesc,
+		ServiceDesc: &pb.RenameService_ServiceDesc,
 	}
 	renameServer := &renameServer{
 		Internal:           true,
-		RequestTranslator:  channelpb.RenameMessageTranslator,
+		RequestTranslator:  pb.RenameMessageTranslator,
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &channelpb.RenameService_ServiceDesc,
+		ServiceDesc:        &pb.RenameService_ServiceDesc,
 	}
 	return Transport{
 		ReportProvider: fgrpc.Reporter,

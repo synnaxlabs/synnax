@@ -15,66 +15,73 @@ import (
 	"github.com/synnaxlabs/freighter"
 )
 
-// CreateMessage is the cluster-internal allocation request/response. It carries the
-// channels to allocate local keys for and create storage for on the leaseholder, and
-// returns those channels with their assigned keys.
+// CreateMessage is the request and response payload for a channel create operation. As
+// a request it carries the channels to create; as a response it carries those same
+// channels populated with their assigned keys.
 type CreateMessage struct {
-	// Channels is the set of channels being allocated. On a request it holds the
-	// channels to create; on the response it holds those same channels populated with
-	// their assigned keys.
+	// Channels are the channels to create on the request, and the created channels with
+	// their assigned keys on the response.
 	Channels []Channel
 }
 
-// DeleteRequest is the cluster-internal request to delete channels on their
-// leaseholder.
+type (
+	// CreateClient issues channel create requests to a remote Core and returns the
+	// created channels.
+	CreateClient = freighter.UnaryClient[CreateMessage, CreateMessage]
+	// CreateServer handles incoming channel create requests from a remote Core.
+	CreateServer = freighter.UnaryServer[CreateMessage, CreateMessage]
+)
+
+// DeleteRequest is the payload for a channel delete operation.
 type DeleteRequest struct {
 	// Keys identifies the channels to delete.
 	Keys Keys
 }
 
-// RenameRequest is the cluster-internal request to rename channels on their
-// leaseholder. Keys and Names are parallel: the channel identified by Keys[i] is
-// renamed to Names[i], so the two slices must have equal length.
+type (
+	// DeleteClient issues channel delete requests to a remote Core.
+	DeleteClient = freighter.UnaryClient[DeleteRequest, types.Nil]
+	// DeleteServer handles incoming channel delete requests from a remote Core.
+	DeleteServer = freighter.UnaryServer[DeleteRequest, types.Nil]
+)
+
+// RenameRequest is the payload for a channel rename operation. Keys and Names are
+// positional: the channel at Keys[i] is renamed to Names[i], so both slices must have
+// the same length.
 type RenameRequest struct {
-	// Keys identifies the channels to rename, parallel to Names.
+	// Keys identifies the channels to rename.
 	Keys Keys
-	// Names holds the new name for each channel, parallel to Keys.
+	// Names holds the new name for each channel in Keys, by position.
 	Names []string
 }
 
 type (
-	// CreateTransportClient sends channel allocation requests to a leaseholder and
-	// receives the created channels, populated with their keys, in response.
-	CreateTransportClient = freighter.UnaryClient[CreateMessage, CreateMessage]
-	// CreateTransportServer handles channel allocation requests on the leaseholder,
-	// returning the created channels populated with their keys.
-	CreateTransportServer = freighter.UnaryServer[CreateMessage, CreateMessage]
-	// DeleteTransportClient sends channel deletion requests to a leaseholder.
-	DeleteTransportClient = freighter.UnaryClient[DeleteRequest, types.Nil]
-	// DeleteTransportServer handles channel deletion requests on the leaseholder.
-	DeleteTransportServer = freighter.UnaryServer[DeleteRequest, types.Nil]
-	// RenameTransportServer handles channel rename requests on the leaseholder.
-	RenameTransportServer = freighter.UnaryServer[RenameRequest, types.Nil]
-	// RenameTransportClient sends channel rename requests to a leaseholder.
-	RenameTransportClient = freighter.UnaryClient[RenameRequest, types.Nil]
+	// RenameClient issues channel rename requests to a remote Core.
+	RenameClient = freighter.UnaryClient[RenameRequest, types.Nil]
+	// RenameServer handles incoming channel rename requests from a remote Core.
+	RenameServer = freighter.UnaryServer[RenameRequest, types.Nil]
 )
 
-// Transport bundles the unary client and server endpoints used to forward channel
-// create, rename, and delete operations from a gateway node to the leaseholder that
-// owns the channels. Implementations bind these endpoints over a concrete protocol
-// (e.g. gRPC, or an in-memory mock for tests).
+// Transport bundles the node-to-node transports used to forward channel create, delete,
+// and rename operations to a remote Core that owns the affected channels and handle
+// incoming requests from remote Cores.
 type Transport interface {
-	// CreateClient returns the client used to send allocation requests to a
-	// leaseholder.
-	CreateClient() CreateTransportClient
-	// CreateServer returns the server that handles allocation requests on this node.
-	CreateServer() CreateTransportServer
-	// DeleteClient returns the client used to send deletion requests to a leaseholder.
-	DeleteClient() DeleteTransportClient
-	// DeleteServer returns the server that handles deletion requests on this node.
-	DeleteServer() DeleteTransportServer
-	// RenameClient returns the client used to send rename requests to a leaseholder.
-	RenameClient() RenameTransportClient
-	// RenameServer returns the server that handles rename requests on this node.
-	RenameServer() RenameTransportServer
+	// CreateClient returns the client-side interface for sending channel create
+	// requests.
+	CreateClient() CreateClient
+	// CreateServer returns the server-side interface for handling channel create
+	// requests.
+	CreateServer() CreateServer
+	// DeleteClient returns the client-side interface for sending channel delete
+	// requests.
+	DeleteClient() DeleteClient
+	// DeleteServer returns the server-side interface for handling channel delete
+	// requests.
+	DeleteServer() DeleteServer
+	// RenameClient returns the client-side interface for sending channel rename
+	// requests.
+	RenameClient() RenameClient
+	// RenameServer returns the server-side interface for handling channel rename
+	// requests.
+	RenameServer() RenameServer
 }

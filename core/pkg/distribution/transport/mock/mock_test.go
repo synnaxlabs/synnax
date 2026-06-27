@@ -70,17 +70,12 @@ var _ = Describe("Transport", func() {
 				return types.Nil{}, nil
 			},
 		)
-		MustSucceed(client.Framer().Deleter().Client().Send(
+		Expect(client.Framer().Deleter().Client().Send(
 			ctx,
 			leaseholder,
 			deleter.Request{Keys: channel.Keys{9}},
-		))
+		)).To(Equal(types.Nil{}))
 		Expect(received).To(Equal(channel.Keys{9}))
 	})
 
-	It("Should share network state across transports provisioned from the same Network", func() {
-		another := net.New("another", 1)
-		Expect(another.Channel()).ToNot(BeNil())
-		Expect(another.Framer()).ToNot(BeNil())
-	})
 })

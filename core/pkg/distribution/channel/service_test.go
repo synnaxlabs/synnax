@@ -24,12 +24,12 @@ type stubTransport struct{}
 
 var _ channel.Transport = stubTransport{}
 
-func (stubTransport) CreateClient() channel.CreateTransportClient { return nil }
-func (stubTransport) CreateServer() channel.CreateTransportServer { return nil }
-func (stubTransport) DeleteClient() channel.DeleteTransportClient { return nil }
-func (stubTransport) DeleteServer() channel.DeleteTransportServer { return nil }
-func (stubTransport) RenameClient() channel.RenameTransportClient { return nil }
-func (stubTransport) RenameServer() channel.RenameTransportServer { return nil }
+func (stubTransport) CreateClient() channel.CreateClient { return nil }
+func (stubTransport) CreateServer() channel.CreateServer { return nil }
+func (stubTransport) DeleteClient() channel.DeleteClient { return nil }
+func (stubTransport) DeleteServer() channel.DeleteServer { return nil }
+func (stubTransport) RenameClient() channel.RenameClient { return nil }
+func (stubTransport) RenameServer() channel.RenameServer { return nil }
 
 var _ = Describe("Service", func() {
 	Describe("ServiceConfig", func() {
