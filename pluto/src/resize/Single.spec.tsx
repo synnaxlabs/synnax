@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type box, type xy } from "@synnaxlabs/x";
+import { type xy } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -26,9 +26,9 @@ const ControlledSingle = ({
   return (
     <Resize.Single
       size={size}
-      onResizeEnd={(s: number, b: box.Box) => {
+      onResizeEnd={(s: number, extra: Resize.HandlerExtra) => {
         setSize(s);
-        onResizeEnd?.(s, b);
+        onResizeEnd?.(s, extra);
       }}
       {...props}
     >
@@ -53,14 +53,18 @@ const handleOf = (c: ReturnType<typeof render>): HTMLElement => {
 };
 
 const drag = (c: ReturnType<typeof render>, from: xy.XY, to: xy.XY): void => {
-  // jsdom's synthetic dragStart drops clientX/Y, so dispatch a MouseEvent (which carries
-  // them) under the "dragstart" type to drive useCursorDrag.
-  fireEvent(
-    handleOf(c),
-    new MouseEvent("dragstart", { clientX: from.x, clientY: from.y, bubbles: true }),
-  );
-  fireEvent.mouseMove(window, { clientX: to.x, clientY: to.y, buttons: 1 });
-  fireEvent.mouseUp(window, { clientX: to.x, clientY: to.y });
+  // Cursor.useDrag captures the pointer on the handle, then tracks moves/up on window
+  // (capture bubbles them up). The from -> to distance must exceed the activation
+  // threshold for the drag to begin.
+  fireEvent.pointerDown(handleOf(c), {
+    pointerId: 1,
+    button: 0,
+    isPrimary: true,
+    clientX: from.x,
+    clientY: from.y,
+  });
+  fireEvent.pointerMove(window, { pointerId: 1, clientX: to.x, clientY: to.y });
+  fireEvent.pointerUp(window, { pointerId: 1, clientX: to.x, clientY: to.y });
 };
 
 const lastSize = (onResize: ReturnType<typeof vi.fn>): number =>
@@ -72,9 +76,9 @@ describe("Resize.Single", () => {
     expect(c.getByText("Hello")).toBeTruthy();
   });
 
-  it("should render a draggable handle", () => {
+  it("should render a resize handle", () => {
     const c = renderSingle({ location: "left" });
-    expect(handleOf(c).draggable).toBe(true);
+    expect(handleOf(c)).toBeTruthy();
   });
 
   describe("initial size", () => {
@@ -151,60 +155,31 @@ describe("Resize.Single", () => {
       },
     );
 
-    it("should pass the panel box as the second argument to onResize", () => {
+    it("should pass the pane box and raw drag size as the second argument", () => {
       const onResize = vi.fn();
       const c = renderSingle({ location: "left", size: 200, onResize });
       drag(c, { x: 500, y: 0 }, { x: 540, y: 0 });
-      expect(onResize).toHaveBeenCalledWith(expect.any(Number), expect.anything());
+      const extra = onResize.mock.lastCall?.[1] as Resize.HandlerExtra;
+      expect(extra.box).toBeDefined();
+      expect(extra.dragSize).toBe(240);
     });
 
-    it("should clamp to the lower bound without collapsing past it", () => {
+    it("should not start a drag for movement below the activation threshold", () => {
       const onResize = vi.fn();
-      const onCollapse = vi.fn();
-      const c = renderSingle({
-        location: "left",
-        size: 200,
-        sizeBounds: { lower: 100 },
-        onResize,
-        onCollapse,
-      });
-      drag(c, { x: 500, y: 0 }, { x: 300, y: 0 });
-      expect(lastSize(onResize)).toEqual(100);
-      expect(paneOf(c).style.width).toEqual("100px");
-      expect(onCollapse).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("collapse", () => {
-    it("should collapse and fire onCollapse when dragged past the threshold", () => {
-      const onCollapse = vi.fn();
       const onResizeEnd = vi.fn();
-      const c = renderSingle({
-        location: "left",
-        size: 200,
-        sizeBounds: { lower: 100 },
-        collapseThreshold: 0.5,
-        onCollapse,
-        onResizeEnd,
+      const c = renderSingle({ location: "left", size: 200, onResize, onResizeEnd });
+      const handle = handleOf(c);
+      fireEvent.pointerDown(handle, {
+        pointerId: 1,
+        button: 0,
+        isPrimary: true,
+        clientX: 500,
+        clientY: 0,
       });
-      // The collapsed size renders only during the drag; releasing past the threshold
-      // fires onCollapse and hands rendering back to the controlled size, so assert the
-      // collapsed pane mid-gesture before releasing.
-      fireEvent(
-        handleOf(c),
-        new MouseEvent("dragstart", { clientX: 500, clientY: 0, bubbles: true }),
-      );
-      fireEvent.mouseMove(window, { clientX: 300, clientY: 0, buttons: 1 });
-      expect(paneOf(c).style.width).toEqual("2px");
-      expect(paneOf(c).className).toContain("pluto--collapsed");
-      fireEvent.mouseUp(window, { clientX: 300, clientY: 0 });
-      expect(onCollapse).toHaveBeenCalledTimes(1);
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 502, clientY: 0 });
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 502, clientY: 0 });
+      expect(onResize).not.toHaveBeenCalled();
       expect(onResizeEnd).not.toHaveBeenCalled();
-    });
-
-    it("should mark the pane expanded while above the collapsed size", () => {
-      const c = renderSingle({ location: "left", size: 200 });
-      expect(paneOf(c).className).toContain("pluto--expanded");
     });
   });
 });

@@ -181,9 +181,7 @@ const handleSelect: Ontology.HandleSelect = ({
   handleError(async () => {
     const proj = await client.projects.retrieve(selection[0].id.key);
     store.dispatch(setActive(proj));
-    store.dispatch(
-      Layout.setProject({ slice: proj.layout as Layout.SliceState, keepNav: false }),
-    );
+    store.dispatch(Layout.setProject({ slice: proj.layout as Layout.SliceState }));
   }, `Failed to select ${names}`);
 };
 
