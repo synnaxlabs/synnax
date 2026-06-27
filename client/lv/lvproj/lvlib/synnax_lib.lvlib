@@ -26,12 +26,16 @@
 		<Item Name="Timestamp Conversion Single.vi" Type="VI" URL="../private/Timestamp Conversion Single.vi"/>
 	</Item>
 	<Item Name="public" Type="Folder">
+		<Item Name="Build Error.vi" Type="VI" URL="../Public/Build Error.vi"/>
 		<Item Name="Generate UID.vi" Type="VI" URL="../Public/Generate UID.vi"/>
+		<Item Name="Ignore Error.vi" Type="VI" URL="../Public/Ignore Error.vi"/>
+		<Item Name="No Error Const.vi" Type="VI" URL="../Public/No Error Const.vi"/>
 		<Item Name="Timestamp Conversion.vi" Type="VI" URL="../Public/Timestamp Conversion.vi"/>
 	</Item>
 	<Item Name="typedefs" Type="Folder">
 		<Item Name="connection_config.ctl" Type="VI" URL="../typedefs/connection_config.ctl"/>
 		<Item Name="data_type.ctl" Type="VI" URL="../typedefs/data_type.ctl"/>
+		<Item Name="error_type.ctl" Type="VI" URL="../typedefs/error_type.ctl"/>
 		<Item Name="tls_config.ctl" Type="VI" URL="../typedefs/tls_config.ctl"/>
 		<Item Name="writer_mode.ctl" Type="VI" URL="../typedefs/writer_mode.ctl"/>
 	</Item>
