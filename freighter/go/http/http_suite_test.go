@@ -15,16 +15,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
-	// Per-spec leak checking is not registered: several specs stand up their own
-	// per-spec fiber server and exchange websocket streams, whose connections cannot be
-	// guaranteed to drain within the per-spec window. The BeforeSuite and BeforeAll
-	// container-level checks still verify that the suite-wide servers are fully torn
-	// down at teardown.
-	//nolint:leak
 	RunSpecs(t, "HTTP Suite")
 }
 

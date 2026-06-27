@@ -14,13 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
 
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	// The server suite starts a fasthttp/fiber HTTP server whose worker-pool and
-	// monitor goroutines are not guaranteed to drain within a spec's window, so
-	// per-spec goroutine-leak checking is not applicable to this suite.
-	//nolint:leak
 	RunSpecs(t, "Server Suite")
 }
