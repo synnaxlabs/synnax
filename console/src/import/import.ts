@@ -87,12 +87,7 @@ const importComponent = ({
       if (client == null) throw new DisconnectedError();
       const proj = await client.projects.retrieve(projectKey);
       store.dispatch(Project.setActive(proj));
-      store.dispatch(
-        Layout.setProject({
-          slice: proj.layout as Layout.SliceState,
-          keepNav: false,
-        }),
-      );
+      store.dispatch(Layout.setProject({ slice: proj.layout as Layout.SliceState }));
     }
     const activeProjectKeyAfter = Project.selectActiveKey(store.getState());
     files.forEach((file) =>

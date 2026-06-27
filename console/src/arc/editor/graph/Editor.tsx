@@ -22,6 +22,7 @@ import {
   setViewportMode,
 } from "@/arc/slice";
 import { ContextMenu as CMenu, Controls as BaseControls } from "@/components";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
@@ -65,8 +66,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }): ReactElement =>
     [dispatch],
   );
   const handleDoubleClick = useCallback(() => {
-    if (!state.graph.editable) return;
-    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+    dispatch(Session.Nav.showBottom({}));
   }, [state.graph.editable, dispatch]);
 
   const renderExtraMenuItems = useCallback(

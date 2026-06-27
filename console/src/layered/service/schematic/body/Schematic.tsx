@@ -62,8 +62,7 @@ const Internal: Layout.Renderer = ({ visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    if (isCurrentlyEditable)
-      dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+    if (isCurrentlyEditable) dispatch(Session.Nav.showBottom({}));
   }, [isCurrentlyEditable, dispatch]);
 
   const handleNodeClickAction = useHandleNodeClickAction(key);

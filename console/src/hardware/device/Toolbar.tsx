@@ -12,7 +12,7 @@ import { Access, Device, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Toolbar } from "@/components";
-import { type Layout } from "@/layout";
+import { type Service } from "@/layered/service";
 import { Ontology } from "@/ontology";
 
 const Content = (): ReactElement => {
@@ -27,7 +27,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "device",
   icon: <Icon.Device />,
   content: <Content />,

@@ -19,19 +19,33 @@ import (
 )
 
 //go:generate stringer -type=Command
+
+// Command is an operation that can be executed on a remote Iterator.
 type Command uint8
 
+// AutoSpan instructs Next and Prev to automatically size each chunk so the iterator
+// returns all data in the current view in a single step.
 const AutoSpan = ts.AutoSpan
 
 const (
+	// CommandNext advances the iterator forward by a span and returns the data in
+	// range.
 	CommandNext Command = iota + 1
+	// CommandPrev moves the iterator backward by a span and returns the data in range.
 	CommandPrev
+	// CommandSeekFirst positions the iterator at the first sample.
 	CommandSeekFirst
+	// CommandSeekLast positions the iterator at the last sample.
 	CommandSeekLast
+	// CommandSeekLE positions the iterator at the last sample at or before a timestamp.
 	CommandSeekLE
+	// CommandSeekGE positions the iterator at the first sample at or after a timestamp.
 	CommandSeekGE
+	// CommandValid reports whether the iterator is currently positioned on valid data.
 	CommandValid
+	// CommandError returns any error accumulated by the iterator.
 	CommandError
+	// CommandSetBounds sets the time bounds the iterator operates over.
 	CommandSetBounds
 )
 
@@ -50,14 +64,16 @@ type Request struct {
 	// DownsampleFactor should only be set when opening the Iterator.
 	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
 	// SeqNum is the sequence number of the request (starting at 0). This is used to
-	// match responses to requests. Each request should increment the sequence number
-	// by 1.
+	// match responses to requests. Each request should increment the sequence number by
+	// 1.
 	SeqNum int
 	// Command is the command to execute on the Iterator.
 	Command Command `json:"command" msgpack:"command"`
 }
 
 //go:generate stringer -type=ResponseVariant
+
+// ResponseVariant is the kind of Response returned by a remote Iterator.
 type ResponseVariant uint8
 
 const (
@@ -71,32 +87,44 @@ const (
 
 // Response is a response from a remote Iterator.
 type Response struct {
-	// Error is only relevant for variant AckResponse. It is an error returned during a call to
-	// Iterator.Error
+	// Error is only relevant for variant AckResponse. It is an error returned during a
+	// call to Iterator.Error
 	Error error `json:"error" msgpack:"error"`
 	// Frame is only relevant for DataResponse. It is the data returned by the Iterator.
 	Frame frame.Frame `json:"frame" msgpack:"frame"`
-	// SeqNum
+	// SeqNum matches the response to the Request.SeqNum that triggered it.
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
 	// NodeKey is the node Name where the remote Iterator lives.
 	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// Variant is the type of response returned.
 	Variant ResponseVariant `json:"variant" msgpack:"variant"`
-	// Command is non-zero when the
+	// Command is the command that produced this response. It is non-zero only for
+	// acknowledgement responses.
 	Command Command `json:"command" msgpack:"command"`
-	// Ack is only relevant for variant AckResponse. Is true if the Iterator successfully
-	// executed the request.
+	// Ack is only relevant for variant AckResponse. Is true if the Iterator
+	// successfully executed the request.
 	Ack bool `json:"ack" msgpack:"ack"`
 }
 
 type (
-	ServerStream    = freighter.ServerStream[Request, Response]
-	ClientStream    = freighter.ClientStream[Request, Response]
-	TransportServer = freighter.StreamServer[Request, Response]
-	TransportClient = freighter.StreamClient[Request, Response]
+	// ClientStream is the client-side of an iterator stream, sending Requests to and
+	// receiving Responses from a remote Core.
+	ClientStream = freighter.ClientStream[Request, Response]
+	// ServerStream is the server-side of an iterator stream, receiving Requests from
+	// and sending Responses to a remote Core.
+	ServerStream = freighter.ServerStream[Request, Response]
+	// Client is the client-side interface for opening an iterator stream to a remote
+	// Core.
+	Client = freighter.StreamClient[Request, Response]
+	// Server is the server-side interface for handling iterator streams from a remote
+	// Core.
+	Server = freighter.StreamServer[Request, Response]
 )
 
+// Transport is the interface for the iterator transport.
 type Transport interface {
-	Server() TransportServer
-	Client() TransportClient
+	// Client returns the client-side interface for opening iterator streams.
+	Client() Client
+	// Server returns the server-side interface for handling iterator streams.
+	Server() Server
 }

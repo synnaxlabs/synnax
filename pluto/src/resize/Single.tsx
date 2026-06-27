@@ -10,49 +10,34 @@
 import { bounds, box, location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
-import { CSS } from "@/css";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { Cursor } from "@/cursor";
 import { Base, type BaseProps } from "@/resize/Base";
+
+export interface HandlerExtra {
+  box: box.Box;
+  dragSize: number;
+}
 
 /** Props for the {@link Single} component. */
 export interface SingleProps extends Omit<
   BaseProps,
-  "hideHandle" | "size" | "onResize" | "onDragStart" | "ref"
+  "hideHandle" | "size" | "onResize" | "onPointerDown" | "ref"
 > {
-  /**
-   * The size of the pane, in pixels. Acts as the source of truth whenever the handle is
-   * not being actively dragged; while a drag is in progress the pane renders its
-   * transient drag size instead. Defaults to 200.
-   */
   size?: number;
   sizeBounds?: Partial<bounds.Bounds>;
-  /**
-   * Called continuously while the handle is being dragged with the live size and the
-   * pane's box. Use for transient, per-frame side effects (e.g. repainting an overlay);
-   * do not persist from here, as it fires once per pointer move.
-   */
-  onResize?: (size: number, box: box.Box) => void;
-  /**
-   * Called once when a drag gesture ends with the committed size and the pane's box.
-   * This is the callback to persist the new size to the source of truth.
-   */
-  onResizeEnd?: (size: number, box: box.Box) => void;
-  collapseThreshold?: number;
-  onCollapse?: () => void;
+  onResize?: (size: number, extra: HandlerExtra) => void;
+  onResizeEnd?: (size: number, extra: HandlerExtra) => void;
 }
 
-const COLLAPSED_SIZE = 2;
 const DEFAULT_SIZE = 200;
 const DEFAULT_SIZE_BOUNDS = { lower: 100 };
 
 export const Single = ({
-  onCollapse,
   onResize,
   onResizeEnd,
   location: propsLoc = "left",
   sizeBounds,
   size = DEFAULT_SIZE,
-  collapseThreshold = Infinity,
   className,
   ...rest
 }: SingleProps): ReactElement => {
@@ -72,17 +57,14 @@ export const Single = ({
   const ref = useRef<HTMLDivElement>(null);
 
   const calcNextSize = useCallback(
-    (b: box.Box) => {
-      const signedDim = box.dim(b, location.direction(loc), true);
+    (dragRegion: box.Box): [clamped: number, raw: number] => {
+      const signedDim = box.dim(dragRegion, location.direction(loc), true);
       const isInverted = loc === "bottom" || loc === "right";
       const dim = isInverted ? -signedDim : signedDim;
       const rawNextSize = marker.current + dim;
-      const nextSize = bounds.clamp(fullSizeBounds, rawNextSize);
-      if ((nextSize - rawNextSize) / fullSizeBounds.lower > collapseThreshold)
-        return COLLAPSED_SIZE;
-      return nextSize;
+      return [bounds.clamp(fullSizeBounds, rawNextSize), rawNextSize];
     },
-    [loc, fullSizeBounds, collapseThreshold],
+    [loc, fullSizeBounds],
   );
 
   const handleStart = useCallback(() => {
@@ -91,24 +73,28 @@ export const Single = ({
 
   const handleMove = useCallback(
     (dragRegion: box.Box) => {
-      const nextSize = calcNextSize(dragRegion);
+      const [nextSize, rawNextSize] = calcNextSize(dragRegion);
       setDragSize(nextSize);
-      if (ref.current != null) onResize?.(nextSize, box.construct(ref.current));
+      if (ref.current != null)
+        onResize?.(nextSize, {
+          box: box.construct(ref.current),
+          dragSize: rawNextSize,
+        });
     },
     [onResize, calcNextSize],
   );
 
   const handleEnd = useCallback(
     (dragRegion: box.Box) => {
-      const nextSize = calcNextSize(dragRegion);
+      const [nextSize, dragSize] = calcNextSize(dragRegion);
       setDragSize(null);
-      if (nextSize === COLLAPSED_SIZE) return onCollapse?.();
-      if (ref.current != null) onResizeEnd?.(nextSize, box.construct(ref.current));
+      if (ref.current != null)
+        onResizeEnd?.(nextSize, { box: box.construct(ref.current), dragSize });
     },
-    [onResizeEnd, onCollapse, calcNextSize],
+    [onResizeEnd, calcNextSize],
   );
 
-  const handleDragStart = useCursorDrag({
+  const handleDragStart = Cursor.useDrag({
     onMove: handleMove,
     onStart: handleStart,
     onEnd: handleEnd,
@@ -119,8 +105,8 @@ export const Single = ({
       ref={ref}
       location={loc}
       size={rendered}
-      onDragStart={handleDragStart}
-      className={CSS(className, CSS.expanded(rendered !== COLLAPSED_SIZE))}
+      onPointerDown={handleDragStart}
+      className={className}
       {...rest}
     />
   );

@@ -16,11 +16,6 @@ import (
 	"github.com/synnaxlabs/aspen"
 	aspentransportmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	storagemock "github.com/synnaxlabs/synnax/pkg/storage/mock"
@@ -36,11 +31,7 @@ type Cluster struct {
 	storage *storagemock.Cluster
 	// Nodes maps each provisioned node's host key to its Node.
 	Nodes       map[node.Key]Node
-	writerNet   *mock.FramerWriterNetwork
-	iterNet     *mock.FramerIteratorNetwork
-	channelNet  *mock.ChannelNetwork
-	relayNet    *mock.FramerRelayNetwork
-	deleteNet   *mock.FramerDeleterNetwork
+	distNet     *mock.Network
 	aspenNet    *aspentransportmock.Network
 	addrFactory *address.Factory
 }
@@ -63,11 +54,7 @@ func NewCluster(ctx context.Context, n int) *Cluster {
 func OpenCluster(ctx context.Context, n int) *Cluster {
 	c := &Cluster{
 		storage:     storagemock.NewCluster(),
-		writerNet:   mock.NewWriterNetwork(),
-		iterNet:     mock.NewIteratorNetwork(),
-		channelNet:  mock.NewChannelNetwork(),
-		relayNet:    mock.NewRelayNetwork(),
-		deleteNet:   mock.NewDeleterNetwork(),
+		distNet:     mock.NewNetwork(),
 		aspenNet:    aspentransportmock.NewNetwork(),
 		addrFactory: address.NewLocalFactory(0),
 		Nodes:       make(map[node.Key]Node),
@@ -89,14 +76,8 @@ func (c *Cluster) Provision(
 		addr         = c.addrFactory.Next()
 		storageLayer = c.storage.Provision(ctx)
 		cfg          = distribution.LayerConfig{
-			Storage: storageLayer,
-			FrameTransport: mockFramerTransport{
-				iter:    c.iterNet.New(addr, 1),
-				writer:  c.writerNet.New(addr, 1),
-				relay:   c.relayNet.New(addr, 1),
-				deleter: c.deleteNet.New(addr),
-			},
-			ChannelTransport: c.channelNet.New(addr),
+			Storage:          storageLayer,
+			Transport:        c.distNet.New(addr, 1),
 			AspenTransport:   c.aspenNet.NewTransport(),
 			AdvertiseAddress: addr,
 			PeerAddresses:    peers,
@@ -126,20 +107,3 @@ func (c *Cluster) Close() error {
 	}
 	return errors.Join(err, c.storage.Close())
 }
-
-type mockFramerTransport struct {
-	iter    iterator.Transport
-	writer  writer.Transport
-	relay   relay.Transport
-	deleter deleter.Transport
-}
-
-var _ framer.Transport = (*mockFramerTransport)(nil)
-
-func (m mockFramerTransport) Iterator() iterator.Transport { return m.iter }
-
-func (m mockFramerTransport) Writer() writer.Transport { return m.writer }
-
-func (m mockFramerTransport) Relay() relay.Transport { return m.relay }
-
-func (m mockFramerTransport) Deleter() deleter.Transport { return m.deleter }

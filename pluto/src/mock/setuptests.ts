@@ -23,6 +23,10 @@ beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+  // jsdom does not implement the pointer capture APIs that Cursor.useDrag relies on.
+  HTMLElement.prototype.setPointerCapture = () => {};
+  HTMLElement.prototype.releasePointerCapture = () => {};
+  HTMLElement.prototype.hasPointerCapture = () => false;
 });
 
 afterAll(() => {
