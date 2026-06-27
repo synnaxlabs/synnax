@@ -22,8 +22,7 @@ import {
   Icon,
   type Menu,
   Mosaic as Base,
-  Nav as PNav,
-  OS,
+  Nav,
   type Pluto,
   Portal,
   Status,
@@ -46,13 +45,12 @@ import { useDispatch, useStore } from "react-redux";
 import { ContextMenu as CMenu } from "@/components";
 import { CSS } from "@/css";
 import { Import } from "@/import";
+import { App } from "@/layered/app";
 import { LinePlot } from "@/layered/service/lineplot";
+import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import { Controls } from "@/layout/Controls";
-import { Nav } from "@/layouts/nav";
 import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { Ontology } from "@/ontology";
-import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
 import { Runtime } from "@/runtime";
 import { type RootState, type RootStore } from "@/store";
@@ -129,7 +127,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
         full
         className={CSS(CSS.B(caseconv.toKebab(layout.type)), CSS.B("mosaic-modal"))}
       >
-        <PNav.Bar
+        <Nav.Bar
           location="top"
           size="5rem"
           className={CSS(
@@ -144,15 +142,15 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
            */}
           {focused && (
             <>
-              <PNav.Bar.Start>
+              <Nav.Bar.Start>
                 <Breadcrumb.Breadcrumb>
                   <Breadcrumb.Segment>
                     {Icon.resolve(layout.icon)}
                     {layout.name}
                   </Breadcrumb.Segment>
                 </Breadcrumb.Breadcrumb>
-              </PNav.Bar.Start>
-              <PNav.Bar.End pack>
+              </Nav.Bar.Start>
+              <Nav.Bar.End pack>
                 {Runtime.ENGINE === "tauri" && (
                   <Button.Button
                     onClick={handleOpenInNewWindow}
@@ -165,10 +163,10 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
                 <Button.Button onClick={handleClose} size="small" textColor={9}>
                   <Icon.Subtract />
                 </Button.Button>
-              </PNav.Bar.End>
+              </Nav.Bar.End>
             </>
           )}
-        </PNav.Bar>
+        </Nav.Bar>
         <Portal.Out node={node} />
       </Dialog.Dialog>
     </Dialog.Frame>
@@ -393,77 +391,17 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 };
 
-const NavTop = (): ReactElement | null => {
-  const os = OS.use();
-  const isWindowsOS = os === "Windows";
-  const { onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
-  const activeName = Layout.useSelectActiveMosaicTabName();
-  const activeProjectName = Project.useSelectActiveName();
-  const button = (
-    <Button.Button
-      variant="outlined"
-      className={CSS.BE("mosaic", "controls-button")}
-      onClick={() => onSelect("visualization")}
-      justify="center"
-      size="small"
-      contrast={2}
-      color={9}
-      weight={450}
-      triggerIndicator={["V"]}
-    >
-      <Icon.Visualize />
-      Controls
-    </Button.Button>
-  );
-  return (
-    <Layout.Nav.Bar
-      location="top"
-      size="6rem"
-      data-tauri-drag-region
-      bordered={false}
-      className={CSS.BE("mosaic", "bar")}
-    >
-      <PNav.Bar.Start data-tauri-drag-region align="center">
-        <Controls visibleIfOS="macOS" forceOS={os} />
-        {isWindowsOS && <Logo />}
-        {isWindowsOS && button}
-      </PNav.Bar.Start>
-      <PNav.Bar.AbsoluteCenter>
-        <Text.Text
-          level="small"
-          weight={500}
-          color={10}
-          data-tauri-drag-region
-          style={{ cursor: "default" }}
-        >
-          {activeName} {activeProjectName && `- ${activeProjectName}`}
-        </Text.Text>
-      </PNav.Bar.AbsoluteCenter>
-      <PNav.Bar.End data-tauri-drag-region align="center" justify="end">
-        {isWindowsOS ? <Controls visibleIfOS="Windows" forceOS={os} /> : button}
-      </PNav.Bar.End>
-    </Layout.Nav.Bar>
-  );
-};
-
 export const MosaicWindow = memo<Layout.Renderer>(
   ({ layoutKey }: Layout.RendererProps) => {
     const dispatch = useDispatch();
     const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
-      dispatch(
-        Layout.setNavDrawer({
-          windowKey: layoutKey,
-          location: "bottom",
-          menuItems: ["visualization"],
-          activeItem: "visualization",
-        }),
-      );
+      dispatch(Session.Nav.showBottom({}));
     }, [layoutKey]);
     if (windowKey == null || mosaic == null) return null;
     return (
       <>
-        <NavTop />
+        <App.Nav.Bar.AuxTop />
         <Flex.Box
           y
           gap="tiny"
@@ -472,7 +410,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
           style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
         >
           <Internal windowKey={windowKey} mosaic={mosaic} />
-          <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
+          <App.Nav.Drawer.Bottom />
         </Flex.Box>
       </>
     );

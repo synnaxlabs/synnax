@@ -15,7 +15,6 @@ import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
-import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
 import { Icon } from "@/icon";
 import { type Control } from "@/input/types";
 import { preventDefault } from "@/util/event";
@@ -101,7 +100,7 @@ export const DragButton = ({
     [dragThreshold],
   );
 
-  useVirtualCursorDragWebKit({
+  Cursor.useVirtualDrag({
     ref: elRef,
     onMove: useCallback(
       (b: box.Box) => {

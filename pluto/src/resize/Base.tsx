@@ -13,8 +13,8 @@ import { direction, location } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { Flex } from "@/flex";
-import { preventDefault } from "@/util/event";
 
 export interface BaseProps extends Omit<
   Flex.BoxProps,
@@ -33,7 +33,7 @@ export const Base = ({
   size,
   className,
   children,
-  onDragStart,
+  onPointerDown,
   decimal = false,
   hideHandle = false,
   ...rest
@@ -47,7 +47,8 @@ export const Base = ({
   }, [decimal, size, dir, propsStyle]);
   return (
     <Flex.Box
-      className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), className)}
+      className={CSS(CSS.B("resize"), CSS.loc(parsedLocation), CSS.dir(dir), className)}
+      full={direction.swap(dir)}
       style={style}
       ref={ref}
       direction={dir}
@@ -57,14 +58,12 @@ export const Base = ({
       {children}
       {!hideHandle && (
         <div
-          draggable
           className={CSS(
             CSS.BE("resize", "handle"),
             CSS.bordered(location.swap(parsedLocation)),
+            Cursor.DRAG_CLASS,
           )}
-          onDragStart={onDragStart}
-          onDrag={preventDefault}
-          onDragEnd={preventDefault}
+          onPointerDown={onPointerDown}
         />
       )}
     </Flex.Box>

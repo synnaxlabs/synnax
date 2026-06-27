@@ -62,9 +62,7 @@ export const Selector = (): ReactElement | null => {
       const proj = getItem(key);
       if (proj == null) throw new UnexpectedError(`Project ${key} not found`);
       dispatch(setActive(proj));
-      dispatch(
-        Layout.setProject({ slice: proj.layout as Layout.SliceState, keepNav: false }),
-      );
+      dispatch(Layout.setProject({ slice: proj.layout as Layout.SliceState }));
       setDialogVisible(false);
     },
     [dispatch, getItem],

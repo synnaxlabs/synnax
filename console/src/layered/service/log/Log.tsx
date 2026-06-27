@@ -32,7 +32,7 @@ const Internal: Layout.Renderer = ({ visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+    dispatch(Session.Nav.showBottom({}));
   }, [dispatch]);
 
   const handleConfigureChannels = useCallback(() => {

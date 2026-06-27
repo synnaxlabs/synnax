@@ -152,7 +152,7 @@ const config: Linter.Config[] = [
         typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
         node: { extensions: [".js", ".jsx", ".ts", ".tsx"] },
       },
-      react: { version: "^18.0.0" },
+      react: { version: "19.0.0" },
     },
   },
   {

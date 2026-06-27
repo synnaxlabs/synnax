@@ -136,6 +136,45 @@ class Tree:
         root.click()
         caret.wait_for(state="visible", timeout=5000)
 
+    def expand_named(self, prefix: str, name: str) -> None:
+        """Expand the root-level tree node with the given prefix and display name.
+
+        Unlike expand_root, which expands whichever node sorts first, this
+        targets a specific node by name. When several root nodes share a prefix
+        (e.g. one project per concurrently-running test), expand_root would
+        expand an arbitrary sibling; this expands the intended one.
+
+        :param prefix: The ID prefix (e.g., 'project:').
+        :param name: The exact display name of the node to expand.
+        """
+        self.page.locator(f"div[id^='{prefix}']").first.wait_for(
+            state="visible", timeout=5000
+        )
+        item = (
+            self.page.locator(f"div[id^='{prefix}']")
+            .filter(has=self.page.get_by_text(name, exact=True))
+            .first
+        )
+        item.wait_for(state="visible", timeout=5000)
+        # An expanded node's caret carries pluto--location-bottom (caret down);
+        # collapsed is pluto--location-right. The drawer remounts the tree each
+        # time it is reopened, so an expand click issued before the freshly
+        # mounted tree settles is silently dropped; retry until the caret flips.
+        caret = item.locator(".pluto--location-bottom")
+        for _ in range(4):
+            try:
+                caret.wait_for(state="visible", timeout=500)
+                return
+            except PlaywrightTimeoutError:
+                pass
+            item.click()
+            try:
+                caret.wait_for(state="visible", timeout=3000)
+                return
+            except PlaywrightTimeoutError:
+                continue
+        caret.wait_for(state="visible", timeout=5000)
+
     def expand(self, item: Locator) -> None:
         """Expand a tree node to show its children.
 
