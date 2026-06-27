@@ -35,11 +35,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		app    *fiber.App
 	)
 
-	// freighter's HTTP transport keeps net/http idle keep-alive connections and
-	// fasthttp server-worker goroutines alive past this container's lifetime, so a
-	// leak check here is not applicable.
-	//nolint:leak
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		addr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 		app = fiber.New(fiber.Config{})
 		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
@@ -60,8 +57,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			})).To(Succeed())
 		}()
 		Eventually(func(g Gomega) {
-			_, err := http.Get("http://" + addr.String() + "/health")
-			g.Expect(err).To(Succeed())
+			g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
 		}).WithPolling(1 * time.Millisecond).Should(Succeed())
 	})
 

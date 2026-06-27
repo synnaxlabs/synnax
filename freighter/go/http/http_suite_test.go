@@ -10,6 +10,7 @@
 package http_test
 
 import (
+	"net/http"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,10 +19,22 @@ import (
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
-	// freighter's HTTP transport keeps net/http idle keep-alive connections and
-	// fasthttp server-worker goroutines alive past a spec's end; they are not
-	// guaranteed to drain within the per-spec window, so per-spec goroutine-leak
-	// checking is not applicable to this suite.
+	// Per-spec leak checking is not registered: several specs stand up their own
+	// per-spec fiber server and exchange websocket streams, whose connections cannot be
+	// guaranteed to drain within the per-spec window. The BeforeSuite and BeforeAll
+	// container-level checks still verify that the suite-wide servers are fully torn
+	// down at teardown.
 	//nolint:leak
 	RunSpecs(t, "HTTP Suite")
+}
+
+// pollHealth issues a GET to url and closes the response body, returning any error. The
+// Eventually health-check loops use it so their polling connections are released rather
+// than left pinned in net/http's idle pool.
+func pollHealth(url string) error {
+	res, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	return res.Body.Close()
 }

@@ -11,7 +11,6 @@ package http_test
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -51,8 +50,7 @@ var _ = Describe("Recovery (wire)", func() {
 		}()
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		Eventually(func(g Gomega) {
-			_, err := http.Get("http://" + addr.String() + "/health")
-			g.Expect(err).To(Succeed())
+			g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
 		}).WithPolling(time.Millisecond).Should(Succeed())
 
 		client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())

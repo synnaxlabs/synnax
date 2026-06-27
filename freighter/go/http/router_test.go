@@ -11,7 +11,6 @@ package http_test
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -109,7 +108,7 @@ var _ = Describe("Router", func() {
 	Describe("BindTo", func() {
 		It("should register a unary route on the bound fiber app", func(specCtx SpecContext) {
 			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := fiber.New(fiber.Config{})
+			app := fiber.New(fiber.Config{DisableKeepalive: true})
 			router := MustSucceed(fhttp.NewRouter())
 			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
 			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
@@ -125,8 +124,7 @@ var _ = Describe("Router", func() {
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 
 			Eventually(func(g Gomega) {
-				_, err := http.Get("http://" + addr.String() + "/echo")
-				g.Expect(err).To(Succeed())
+				g.Expect(pollHealth("http://" + addr.String() + "/echo")).To(Succeed())
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
@@ -166,8 +164,7 @@ var _ = Describe("Router", func() {
 			}()
 
 			Eventually(func(g Gomega) {
-				_, err := http.Get("http://" + addr.String() + "/anything")
-				g.Expect(err).To(Succeed())
+				g.Expect(pollHealth("http://" + addr.String() + "/anything")).To(Succeed())
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
@@ -185,7 +182,7 @@ var _ = Describe("Router", func() {
 	Describe("Use", func() {
 		It("should install middleware on every server registered before the call", func(specCtx SpecContext) {
 			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := fiber.New(fiber.Config{})
+			app := fiber.New(fiber.Config{DisableKeepalive: true})
 			router := MustSucceed(fhttp.NewRouter())
 
 			var calls int
@@ -210,8 +207,7 @@ var _ = Describe("Router", func() {
 			}()
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 			Eventually(func(g Gomega) {
-				_, err := http.Get("http://" + addr.String() + "/anything")
-				g.Expect(err).To(Succeed())
+				g.Expect(pollHealth("http://" + addr.String() + "/anything")).To(Succeed())
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
@@ -226,7 +222,7 @@ var _ = Describe("Router", func() {
 
 		It("should not install middleware on servers registered after the call", func(specCtx SpecContext) {
 			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := fiber.New(fiber.Config{})
+			app := fiber.New(fiber.Config{DisableKeepalive: true})
 			router := MustSucceed(fhttp.NewRouter())
 
 			var calls int
@@ -251,8 +247,7 @@ var _ = Describe("Router", func() {
 			}()
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 			Eventually(func(g Gomega) {
-				_, err := http.Get("http://" + addr.String() + "/anything")
-				g.Expect(err).To(Succeed())
+				g.Expect(pollHealth("http://" + addr.String() + "/anything")).To(Succeed())
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
@@ -270,7 +265,7 @@ var _ = Describe("Router", func() {
 
 		It("should chain multiple middlewares in registration order", func(specCtx SpecContext) {
 			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := fiber.New(fiber.Config{})
+			app := fiber.New(fiber.Config{DisableKeepalive: true})
 			router := MustSucceed(fhttp.NewRouter())
 
 			var order []string
@@ -305,8 +300,7 @@ var _ = Describe("Router", func() {
 			}()
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 			Eventually(func(g Gomega) {
-				_, err := http.Get("http://" + addr.String() + "/anything")
-				g.Expect(err).To(Succeed())
+				g.Expect(pollHealth("http://" + addr.String() + "/anything")).To(Succeed())
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
