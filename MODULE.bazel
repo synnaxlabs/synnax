@@ -30,6 +30,13 @@ single_version_override(
         # public headers from :ssl, so layering_check rejects the include. Disable
         # layering_check on grpc's library macro, matching how grpc builds upstream.
         "//patches:grpc-disable-layering-check.patch",
+        # grpc puts its checked-in src/core/ext/{upb-gen,upbdefs-gen} dirs on the
+        # include path but no target owns those files, so strict header-inclusion
+        # checking (parse_headers, set on the //src/core package) rejects every
+        # grpc_cc_library that includes a well-known-type upb header. Declare the
+        # checked-in headers as inputs so the inclusion check passes.
+        "//patches:grpc-declare-upb-gen-headers.patch",
+        "//patches:grpc-add-upb-gen-headers-dep.patch",
     ],
 )
 

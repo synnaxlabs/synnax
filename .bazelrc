@@ -92,6 +92,7 @@ build:windows --copt=/wd4458  # declaration hides class member
 build:windows --copt=/wd4388  # signed/unsigned mismatch
 build:windows --copt=/wd4389  # signed/unsigned mismatch
 build:windows --copt=/wd4582  # constructor not implicitly called
+build:windows --copt=/wd4583  # destructor not implicitly called (abseil StatusOr<grpc TLS options>)
 build:windows --copt=/wd4623  # default constructor implicitly deleted
 build:windows --copt=/wd4100  # unreferenced formal parameter
 build:windows --copt=/wd4800  # implicit conversion to bool

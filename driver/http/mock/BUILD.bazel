@@ -14,7 +14,8 @@ cc_library(
     srcs = ["server.cpp"],
     hdrs = ["server.h"],
     copts = select({
-        "@platforms//os:windows": ["/wd4191"],
+        # cpp-httplib >= 0.46 hard-errors unless _WIN32_WINNT targets Windows 10+.
+        "@platforms//os:windows": ["/wd4191", "/D_WIN32_WINNT=0x0A00"],
         "//conditions:default": [],
     }),
     defines = ["CPPHTTPLIB_OPENSSL_SUPPORT"],
@@ -39,7 +40,8 @@ cc_test(
     name = "server_test",
     srcs = ["server_test.cpp"],
     copts = select({
-        "@platforms//os:windows": ["/wd4191"],
+        # cpp-httplib >= 0.46 hard-errors unless _WIN32_WINNT targets Windows 10+.
+        "@platforms//os:windows": ["/wd4191", "/D_WIN32_WINNT=0x0A00"],
         "//conditions:default": [],
     }),
     data = [
