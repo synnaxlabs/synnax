@@ -33,7 +33,7 @@ import (
 
 var _ = Describe("Control", func() {
 	Describe("EncodeControlUpdate / DecodeControlUpdate", func() {
-		It("Should round-trip a control update with transfers", func(ctx SpecContext) {
+		It("Should round-trip a control update with transfers", func() {
 			original := cesium.ControlUpdate{
 				Transfers: []control.Transfer{
 					{
@@ -50,7 +50,7 @@ var _ = Describe("Control", func() {
 					},
 				},
 			}
-			encoded := MustSucceed(cesium.EncodeControlUpdate(ctx, original))
+			encoded := MustSucceed(cesium.EncodeControlUpdate(context.Background(), original))
 			Expect(encoded.DataType).To(Equal(telem.StringT))
 			Expect(encoded.Len()).To(Equal(int64(1)))
 			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
@@ -60,7 +60,7 @@ var _ = Describe("Control", func() {
 			Expect(decoded.Transfers[0].To.Authority).To(Equal(xcontrol.Authority(200)))
 		})
 
-		It("Should round-trip a control update with an acquire (nil From)", func(ctx SpecContext) {
+		It("Should round-trip a control update with an acquire (nil From)", func() {
 			original := cesium.ControlUpdate{
 				Transfers: []control.Transfer{
 					{
@@ -72,16 +72,16 @@ var _ = Describe("Control", func() {
 					},
 				},
 			}
-			encoded := MustSucceed(cesium.EncodeControlUpdate(ctx, original))
+			encoded := MustSucceed(cesium.EncodeControlUpdate(context.Background(), original))
 			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
 			Expect(decoded.Transfers).To(HaveLen(1))
 			Expect(decoded.Transfers[0].From).To(BeNil())
 			Expect(decoded.Transfers[0].To.Subject.Name).To(Equal("Writer"))
 		})
 
-		It("Should round-trip an empty control update", func(ctx SpecContext) {
+		It("Should round-trip an empty control update", func() {
 			original := cesium.ControlUpdate{Transfers: []control.Transfer{}}
-			encoded := MustSucceed(cesium.EncodeControlUpdate(ctx, original))
+			encoded := MustSucceed(cesium.EncodeControlUpdate(context.Background(), original))
 			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
 			Expect(decoded.Transfers).To(BeEmpty())
 		})

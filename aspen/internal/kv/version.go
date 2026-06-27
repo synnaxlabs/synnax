@@ -44,12 +44,9 @@ type versionAssigner struct {
 
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
 	c, err := kv.NewCounter(ctx, cfg.Engine, []byte(versionCounterKey))
-	if err != nil {
-		return nil, err
-	}
 	v := &versionAssigner{Config: cfg, counter: c}
 	v.Transform = v.assign
-	return v, nil
+	return v, err
 }
 
 func (va *versionAssigner) assign(ctx context.Context, br TxRequest) (TxRequest, bool, error) {

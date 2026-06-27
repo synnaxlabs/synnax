@@ -7,47 +7,145 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package testutil_test
+package testutil
 
 import (
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gleak"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
-// holdUntilSignal is the named function we leak in test cases so it can be matched by
-// IgnoringTopFunction. Defined at package scope to give it a stable fully qualified
-// name.
+// holdUntilSignal is the named function we leak in test cases so it can be
+// matched by IgnoringTopFunction. Defined at package scope to give it a stable
+// fully qualified name.
 func holdUntilSignal(done <-chan struct{}) { <-done }
 
-const holdUntilSignalName = "github.com/synnaxlabs/x/testutil_test.holdUntilSignal"
+const holdUntilSignalName = "github.com/synnaxlabs/x/testutil.holdUntilSignal"
 
 var _ = Describe("Leak", func() {
+	Describe("buildLeakConfig", func() {
+		It("returns a zero config when no options are supplied", func() {
+			cfg := buildLeakConfig(nil)
+			Expect(cfg.timeout).To(BeZero())
+			Expect(cfg.polling).To(BeZero())
+			Expect(cfg.filters).To(BeEmpty())
+		})
+
+		It("applies LeakWithin to the timeout field", func() {
+			cfg := buildLeakConfig([]LeakOption{LeakWithin(2 * time.Second)})
+			Expect(cfg.timeout).To(Equal(2 * time.Second))
+		})
+
+		It("applies LeakPolling to the polling field", func() {
+			cfg := buildLeakConfig([]LeakOption{LeakPolling(50 * time.Millisecond)})
+			Expect(cfg.polling).To(Equal(50 * time.Millisecond))
+		})
+
+		It("accumulates filters from multiple LeakIgnoring calls", func() {
+			cfg := buildLeakConfig([]LeakOption{
+				LeakIgnoring(gleak.IgnoringTopFunction("foo.bar")),
+				LeakIgnoring(gleak.IgnoringTopFunction("baz.qux")),
+			})
+			Expect(cfg.filters).To(HaveLen(2))
+		})
+
+		It("composes options in order", func() {
+			cfg := buildLeakConfig([]LeakOption{
+				LeakWithin(1 * time.Second),
+				LeakPolling(10 * time.Millisecond),
+				LeakIgnoring(gleak.IgnoringTopFunction("foo")),
+			})
+			Expect(cfg.timeout).To(Equal(1 * time.Second))
+			Expect(cfg.polling).To(Equal(10 * time.Millisecond))
+			Expect(cfg.filters).To(HaveLen(1))
+		})
+	})
+
+	Describe("assertNoLeakedGoroutines", func() {
+		It("passes when no goroutines have leaked", func() {
+			snapshot := gleak.Goroutines()
+			assertNoLeakedGoroutines(snapshot, leakConfig{})
+		})
+
+		It("passes when a forked goroutine has joined before the check runs", func() {
+			snapshot := gleak.Goroutines()
+			var wg sync.WaitGroup
+			wg.Go(func() {})
+			wg.Wait()
+			assertNoLeakedGoroutines(snapshot, leakConfig{})
+		})
+
+		It("fails when a forked goroutine has not exited", func() {
+			snapshot := gleak.Goroutines()
+			done := make(chan struct{})
+			defer close(done)
+			go holdUntilSignal(done)
+			Eventually(gleak.Goroutines).Should(ContainElement(
+				HaveField("TopFunction", holdUntilSignalName),
+			))
+
+			failures := InterceptGomegaFailures(func() {
+				assertNoLeakedGoroutines(snapshot, leakConfig{
+					timeout: 100 * time.Millisecond,
+					polling: 10 * time.Millisecond,
+				})
+			})
+			Expect(failures).ToNot(BeEmpty())
+		})
+
+		It("ignores leaked goroutines that match a LeakIgnoring filter", func() {
+			snapshot := gleak.Goroutines()
+			done := make(chan struct{})
+			defer close(done)
+			go holdUntilSignal(done)
+			Eventually(gleak.Goroutines).Should(ContainElement(
+				HaveField("TopFunction", holdUntilSignalName),
+			))
+
+			cfg := buildLeakConfig([]LeakOption{
+				LeakWithin(100 * time.Millisecond),
+				LeakIgnoring(gleak.IgnoringTopFunction(holdUntilSignalName)),
+			})
+			assertNoLeakedGoroutines(snapshot, cfg)
+		})
+
+		It("respects LeakWithin when polling for drain", func() {
+			snapshot := gleak.Goroutines()
+			done := make(chan struct{})
+			go func() {
+				time.Sleep(50 * time.Millisecond)
+				close(done)
+			}()
+			go holdUntilSignal(done)
+			Eventually(gleak.Goroutines).Should(ContainElement(
+				HaveField("TopFunction", holdUntilSignalName),
+			))
+
+			assertNoLeakedGoroutines(snapshot, leakConfig{
+				timeout: 1 * time.Second,
+				polling: 10 * time.Millisecond,
+			})
+		})
+	})
+
 	Describe("ShouldNotLeakGoroutines", func() {
-		It("does not fail a spec that forks and joins a goroutine", func() {
+		It("does not fail a clean spec", func() {
 			ShouldNotLeakGoroutines()
 			var wg sync.WaitGroup
 			wg.Go(func() {})
 			wg.Wait()
 		})
 
-		// The leak check is registered after the close(done) cleanup, so it runs first
-		// (LIFO) while holdUntilSignal is still parked. The spec only passes if the
-		// check sees the live goroutine and the LeakIgnoring filter suppresses it,
-		// exercising detection and filtering end to end.
-		It("ignores a goroutine still running when the check fires", func() {
+		It("does not fail when LeakIgnoring suppresses an intentional leak", func() {
 			done := make(chan struct{})
 			DeferCleanup(func() { close(done) })
-			ShouldNotLeakGoroutines(LeakIgnoring(
-				gleak.IgnoringTopFunction(holdUntilSignalName),
-			))
+			ShouldNotLeakGoroutines(LeakIgnoring(gleak.IgnoringTopFunction(
+				"github.com/synnaxlabs/x/testutil.holdUntilSignal",
+			)))
 			go holdUntilSignal(done)
-			Eventually(gleak.Goroutines).Should(ContainElement(
-				HaveField("TopFunction", holdUntilSignalName),
-			))
 		})
 	})
 
@@ -61,24 +159,6 @@ var _ = Describe("Leak", func() {
 				var wg sync.WaitGroup
 				wg.Go(func() {})
 				wg.Wait()
-			})
-		})
-
-		// The goroutine is started in the spec and torn down in AfterAll (not a
-		// per-spec cleanup), so it is still running when the per-spec check fires and
-		// is only tolerated because it matches the LeakIgnoring filter.
-		Context("with an ignored leak", Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec(LeakIgnoring(
-				gleak.IgnoringTopFunction(holdUntilSignalName),
-			))
-			done := make(chan struct{})
-			AfterAll(func() { close(done) })
-
-			It("does not flag a goroutine matched by the ignore filter", func() {
-				go holdUntilSignal(done)
-				Eventually(gleak.Goroutines).Should(ContainElement(
-					HaveField("TopFunction", holdUntilSignalName),
-				))
 			})
 		})
 	})
