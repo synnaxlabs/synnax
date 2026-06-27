@@ -36,7 +36,7 @@ catalog:
   compromise-dates: ^3.7.1
   eslint: ^10.4.0
   immer: ^11.1.8
-  jsdom: ^27.4.0
+  jsdom: ^29.1.1
   madge: ^8.0.0
   pluralize: ^8.0.0
   react: ^19.2.6

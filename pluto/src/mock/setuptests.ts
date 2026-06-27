@@ -10,6 +10,8 @@
 import { ResizeObserver } from "@juggle/resize-observer";
 import { afterAll, beforeAll, vi } from "vitest";
 
+import { installTestWebSocket } from "@/testutil/websocket";
+
 class MockIntersectionObserver {
   observe = vi.fn();
   disconnect = vi.fn();
@@ -17,6 +19,7 @@ class MockIntersectionObserver {
 }
 
 beforeAll(() => {
+  installTestWebSocket();
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
