@@ -25,9 +25,6 @@ func TestHTTP(t *testing.T) {
 	RunSpecs(t, "HTTP Suite")
 }
 
-// pollHealth issues a GET to url and closes the response body, returning any error. The
-// Eventually health-check loops use it so their polling connections are released rather
-// than left pinned in net/http's idle pool.
 func pollHealth(url string) error {
 	res, err := http.Get(url)
 	if err != nil {
