@@ -28,12 +28,9 @@ const TABS = [
   { tabKey: "properties", name: "Properties" },
 ];
 
-interface NotEditableContentProps {
-  name: string;
-}
-
-const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => {
+const NotEditableContent = (): ReactElement => {
   const key = Arc.useKey();
+  const name = Arc.useSelectName();
   const dispatch = useDispatch();
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(key));
   const isEditable = hasUpdatePermission;
@@ -63,13 +60,13 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
 export const Toolbar = (): ReactElement | null => {
   const key = Arc.useKey();
   const dispatch = useDispatch();
-  const { name } = Layout.useSelectRequired(key);
   const toolbar = Session.Arc.useSelectToolbar();
   const editMode = Session.Arc.useSelectEditable();
   const handleExport = useExport();
   const selected = Session.Arc.useSelectSelected();
   const singleNodeKey = selected.length === 1 ? selected[0] : "";
   const singleConfig = Arc.useSelectNodeConfig({ nodeKey: singleNodeKey });
+  const name = Arc.useSelectName();
   const selectedName =
     singleConfig != null
       ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
@@ -78,7 +75,7 @@ export const Toolbar = (): ReactElement | null => {
   const canEdit = hasUpdatePermission && editMode;
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (!canEdit) return <NotEditableContent name={name} />;
+      if (!canEdit) return <NotEditableContent />;
       switch (tabKey) {
         case "stages":
           return <Stages />;
@@ -86,11 +83,13 @@ export const Toolbar = (): ReactElement | null => {
           return <Properties />;
       }
     },
-    [canEdit, name],
+    [canEdit],
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
-      dispatch(Session.Arc.selectToolbarTab({ key, tab: tabKey as Session.Arc.ToolbarTab }));
+      dispatch(
+        Session.Arc.selectToolbarTab({ key, tab: tabKey as Session.Arc.ToolbarTab }),
+      );
     },
     [key, dispatch],
   );

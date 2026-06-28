@@ -1039,6 +1039,12 @@ describe("Arc queries", () => {
       const { result } = renderHook(() => Arc.useSelectMode({ key }), { wrapper });
       expect(result.current).toBe("text");
     });
+
+    it("useSelectName returns the arc's name", async () => {
+      const { key, name } = await createAndLoadArc();
+      const { result } = renderHook(() => Arc.useSelectName({ key }), { wrapper });
+      expect(result.current).toBe(name);
+    });
   });
 
   describe("selector memoization & stability", () => {
@@ -1197,6 +1203,43 @@ describe("Arc queries", () => {
         expect(result.current.config).not.toBe(initial);
         expect(result.current.config).toEqual({ type: "constant", value: 42 });
       });
+    });
+
+    it("useSelectName keeps its value when an unrelated change occurs", async () => {
+      const isolated = await createAndLoadArc();
+      const { result } = renderHook(
+        () => ({
+          name: Arc.useSelectName({ key: isolated.key }),
+          dispatch: Arc.useDispatch(),
+        }),
+        { wrapper },
+      );
+      const initial = result.current.name;
+      expect(initial).toBe(isolated.name);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [arc.setNodePosition({ key: "n1", position: { x: 13, y: 13 } })],
+        });
+      });
+      expect(result.current.name).toBe(initial);
+    });
+
+    it("useSelectName reflects a live rename", async () => {
+      const isolated = await createAndLoadArc();
+      const { result } = renderHook(
+        () => ({
+          name: Arc.useSelectName({ key: isolated.key }),
+          rename: Arc.useRename(),
+        }),
+        { wrapper },
+      );
+      expect(result.current.name).toBe(isolated.name);
+      const newName = `renamed_${id.create()}`;
+      await act(async () => {
+        await result.current.rename.updateAsync({ key: isolated.key, name: newName });
+      });
+      await waitFor(() => expect(result.current.name).toBe(newName));
     });
   });
 

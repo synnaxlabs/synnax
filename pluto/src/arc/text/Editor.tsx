@@ -10,7 +10,7 @@
 import { useCallback, useMemo } from "react";
 
 import { NAME } from "@/arc/language";
-import { type FluxSubStore, useSelectHasText, useSingleDispatch } from "@/arc/queries";
+import { type FluxSubStore, useSelectName, useSingleDispatch } from "@/arc/queries";
 import { useKey } from "@/arc/Suspended";
 import { changesToDiffs, CollabText, type TextChange } from "@/arc/text/collab";
 import { Code } from "@/code";
@@ -20,7 +20,7 @@ export const Editor = () => {
   const resourceKey = useKey();
   const store = Flux.useStore<FluxSubStore>();
   const dispatch = useSingleDispatch();
-  const hasText = useSelectHasText();
+  const hasText = useSelectName();
 
   // text is the working CRDT replica. It is bootstrapped once the document loads and lives
   // for the editor's lifetime, materializing the value and translating edits to operations.

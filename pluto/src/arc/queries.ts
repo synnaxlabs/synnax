@@ -191,6 +191,13 @@ export const useSelectHasText = Scope.bindHook(
   }),
 );
 
+export const useSelectName = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+    subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+    select: (store, { key }) => requireArc(store, key).name,
+  }),
+);
+
 export interface AddNodeProps {
   key: string;
   type: string;
