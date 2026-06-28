@@ -12,7 +12,7 @@ import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { SHOULD_IGNORE_KEY as SHOULD_IGNORE_LINK_KEY } from "@/link/types";
+import { SHOULD_IGNORE_KEY as SHOULD_IGNORE_LINK_KEY } from "@/layered/service/link/types";
 
 export const ReloadConsoleItem = (): ReactElement => {
   const dispatch = useDispatch();

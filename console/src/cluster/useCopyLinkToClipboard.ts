@@ -12,7 +12,7 @@ import { Status } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useSelectActiveKey } from "@/cluster/selectors";
-import { Link } from "@/link";
+import { Link } from "@/layered/service/link";
 
 export interface CopyLinkToClipboardArgs {
   name: string;

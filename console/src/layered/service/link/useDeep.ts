@@ -11,24 +11,22 @@ import { Drift } from "@synnaxlabs/drift";
 import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
-import { Layout } from "@/layout";
 import {
-  type ClusterHandler,
+  type ClusterConnect,
   type Handler,
   PREFIX,
   SHOULD_IGNORE_KEY,
-} from "@/link/types";
+} from "@/layered/service/link/types";
 import { Runtime } from "@/runtime";
-import { type RootState } from "@/store";
 
 const BASE_LINK = `${PREFIX}<cluster-key>`;
 
 const INCORRECT_FORMAT_ERROR_MESSAGE = `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>`;
 
 export const useDeep = (
-  clusterHandler: ClusterHandler,
+  connect: ClusterConnect,
   handlers: Record<string, Handler>,
 ): void => {
   // While early returns are usually bad in hooks, this is fine because IS_TAURI is a
@@ -36,8 +34,6 @@ export const useDeep = (
   if (Runtime.ENGINE !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = useDispatch();
-  const placeLayout = Layout.usePlacer();
-  const store = useStore<RootState>();
   const urlHandler = async (urls: string[]) => {
     try {
       dispatch(Drift.focusWindow({}));
@@ -50,7 +46,7 @@ export const useDeep = (
         throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
 
       const clusterKey = urlParts[0];
-      const client = await clusterHandler({ store, key: clusterKey });
+      const client = await connect(clusterKey);
       if (urlParts.length === 1) return;
 
       const resource = urlParts[1];
@@ -58,7 +54,7 @@ export const useDeep = (
       const handle = handlers[resource];
       if (handle == null)
         throw new Error(`Resource type "${resource}" is unknown to Synnax`);
-      await handle({ client, dispatch, key: resourceKey, placeLayout, store });
+      await handle({ client, key: resourceKey });
     } catch (e) {
       handleError(e, `Failed to open ${(strings.naturalLanguageJoin(urls), "link")}`);
     }
