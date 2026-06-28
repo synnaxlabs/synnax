@@ -32,7 +32,8 @@ export const useLink = (): Link.ClusterConnect => {
   const store = useStore<RootState>();
   return useCallback(
     async (key) => {
-      const cluster = Cluster.select(store.getState(), key);
+      const state = store.getState();
+      const cluster = Cluster.select(state, key);
       if (cluster == null) throw new Error(`Core with key ${key} not found`);
       const current = stateRef.current;
       if (
@@ -41,18 +42,26 @@ export const useLink = (): Link.ClusterConnect => {
         current.connState.clusterKey === key
       )
         return current.client;
+      // When switching to a different cluster, the provider tears down the current
+      // client and constructs a fresh one. Until that new client exists, connState
+      // still describes the previous cluster - including a stale "failed" - so we must
+      // not treat a terminal state as belonging to the target yet.
+      const switching = Cluster.selectActiveKey(state) !== key;
+      const priorClient = current.client;
       dispatch(Cluster.setActive(key));
       const deadline = Date.now() + CONNECT_TIMEOUT.milliseconds;
       for (;;) {
         await sleep.sleep(POLL_INTERVAL);
         const { client, connState } = stateRef.current;
+        const attemptStarted = !switching || client !== priorClient;
         if (
+          attemptStarted &&
           connState.status === "connected" &&
           connState.clusterKey === key &&
           client != null
         )
           return client;
-        if (connState.status === "failed")
+        if (attemptStarted && connState.status === "failed")
           throw new Error(connState.message ?? `Failed to connect to cluster ${key}`);
         if (Date.now() > deadline)
           throw new Error(`Timed out connecting to cluster ${key}`);
