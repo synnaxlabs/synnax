@@ -48,7 +48,7 @@ const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
   placeholder: "localhost",
 };
 
-export const useOpenConnect = Modals.create<ConnectClusterArgs>(
+export const useConnectModal = Modals.create<ConnectClusterArgs>(
   ({ args: { clusterKey }, close }) => {
     const dispatch = useDispatch();
     const isEdit = clusterKey != null;

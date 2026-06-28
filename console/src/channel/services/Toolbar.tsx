@@ -11,15 +11,15 @@ import { channel, group } from "@synnaxlabs/client";
 import { Access, Channel, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useOpenCalculated } from "@/channel/Calculated";
-import { useOpenCreate } from "@/channel/Create";
+import { useCalculatedModal } from "@/channel/Calculated";
+import { useCreateModal } from "@/channel/Create";
 import { EmptyAction, Toolbar } from "@/components";
 import { type Service } from "@/layered/service";
 import { Ontology } from "@/ontology";
 
 const Actions = (): ReactElement | null => {
-  const openCreate = useOpenCreate();
-  const openCalculated = useOpenCalculated();
+  const openCreate = useCreateModal();
+  const openCalculated = useCalculatedModal();
   const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
@@ -54,7 +54,7 @@ const Content = (): ReactElement => {
 };
 
 const EmptyContent = (): ReactElement => {
-  const openCreate = useOpenCreate();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction

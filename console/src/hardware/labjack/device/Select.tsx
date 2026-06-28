@@ -10,11 +10,11 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
-import { useConfigure } from "@/hardware/labjack/device/Configure";
+import { useConfigureModal } from "@/hardware/labjack/device/Configure";
 import { MAKE } from "@/hardware/labjack/device/types";
 
 export const Select = () => {
-  const configure = useConfigure();
+  const configure = useConfigureModal();
   return (
     <Common.Device.Select
       onConfigure={(deviceKey) => configure({ deviceKey })}

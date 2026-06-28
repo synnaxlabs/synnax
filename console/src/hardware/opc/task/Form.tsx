@@ -202,7 +202,7 @@ export const Form = <C extends Channel>({
   contextMenuItems,
 }: FormProps<C>) => {
   const isSnapshot = Common.Task.useIsSnapshot();
-  const connect = Device.useConnect();
+  const connect = Device.useConnectModal();
   return (
     <Common.Device.Provider
       canConfigure={!isSnapshot}

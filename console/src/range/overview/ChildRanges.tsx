@@ -10,7 +10,7 @@
 import { Button, Flex, Header, Icon, Ranger } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { useOpenCreate } from "@/range/Create";
+import { useCreateModal } from "@/range/Create";
 import { List } from "@/range/list/List";
 
 export interface ChildRangesProps {
@@ -18,7 +18,7 @@ export interface ChildRangesProps {
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const openCreate = useOpenCreate();
+  const openCreate = useCreateModal();
   const { data, getItem, subscribe, retrieve } = Ranger.useListChildren({
     initialQuery: { key: rangeKey },
   });

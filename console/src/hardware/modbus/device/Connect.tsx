@@ -101,7 +101,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnect = Modals.create<ConnectArgs>(({ args, close }) => {
+export const useConnectModal = Modals.create<ConnectArgs>(({ args, close }) => {
   const {
     form,
     save,

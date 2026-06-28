@@ -11,11 +11,11 @@ import { Dialog, Icon } from "@synnaxlabs/pluto";
 
 import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
-import { useConnect } from "@/hardware/opc/device/Connect";
+import { useConnectModal } from "@/hardware/opc/device/Connect";
 import { MAKE } from "@/hardware/opc/device/types";
 
 const EmptyContent = () => {
-  const connect = useConnect();
+  const connect = useConnectModal();
   const { close } = Dialog.useContext();
   return (
     <EmptyAction
@@ -31,7 +31,7 @@ const EmptyContent = () => {
 };
 
 export const Select = () => {
-  const connect = useConnect();
+  const connect = useConnectModal();
   return (
     <Common.Device.Select
       onConfigure={(deviceKey) => connect({ deviceKey })}

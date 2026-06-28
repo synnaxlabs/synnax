@@ -49,7 +49,7 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   full: "x",
 };
 
-export const useOpenRegister = Modals.create<void>(({ close }) => {
+export const useRegisterModal = Modals.create<void>(({ close }) => {
   const client = Synnax.use();
   const { form, save, variant } = User.useForm({
     query: {},

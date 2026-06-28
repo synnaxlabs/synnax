@@ -23,7 +23,7 @@ import {
 import React, { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
-import { useOpenEdit } from "@/layered/service/schematic/symbols/edit/Edit";
+import { useSymbolModal } from "@/layered/service/schematic/symbols/edit/Edit";
 
 const SELECT_GROUP_STYLE: React.CSSProperties = { maxWidth: "60rem" };
 
@@ -34,7 +34,7 @@ const SELECT_GROUP_STYLE: React.CSSProperties = { maxWidth: "60rem" };
 /// parented under, matching the groups the Schematic Symbols toolbar exposes.
 export const MissingSymbolForm = (): ReactElement => {
   const form = Form.useContext();
-  const openEdit = useOpenEdit();
+  const openEdit = useSymbolModal();
   const symbolGroup = Schematic.Symbol.useRetrieveGroup({ query: {} });
   const [createGroupKey, setCreateGroupKey] = useState<group.Key | undefined>(
     undefined,

@@ -12,11 +12,11 @@ import { Access, Icon, Status } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Palette } from "@/palette";
-import { useOpenCreate } from "@/status/Create";
+import { useCreateModal } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 
 const CreateCommand: Palette.Command = (listProps) => {
-  const open = useOpenCreate();
+  const open = useCreateModal();
   const handleSelect = useCallback(() => open({}), [open]);
   return (
     <Palette.CommandListItem

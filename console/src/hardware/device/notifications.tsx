@@ -10,7 +10,7 @@
 import { type device } from "@synnaxlabs/client";
 import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
-import { getIcon, getMake, type Make, useConfigure } from "@/hardware/device/make";
+import { getIcon, getMake, type Make, useConfigureModal } from "@/hardware/device/make";
 import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";
 import { type Notifications } from "@/notifications";
 
@@ -42,7 +42,7 @@ interface ConfigureButtonProps {
 }
 
 const ConfigureButton = ({ make, deviceKey }: ConfigureButtonProps) => {
-  const configure = useConfigure();
+  const configure = useConfigureModal();
   return (
     <Button.Button
       variant="outlined"

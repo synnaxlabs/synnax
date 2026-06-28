@@ -12,10 +12,10 @@ import { Access, User as PUser } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Palette } from "@/palette";
-import { useOpenRegister } from "@/user/Register";
+import { useRegisterModal } from "@/user/Register";
 
 const RegisterCommand: Palette.Command = (listProps) => {
-  const open = useOpenRegister();
+  const open = useRegisterModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem

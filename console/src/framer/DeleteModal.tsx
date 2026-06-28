@@ -71,7 +71,7 @@ export const DeleteModal = ({
   );
 };
 
-export const useOpenDeleteModal = Modals.create(DeleteModal);
+export const useDeleteDataModal = Modals.create(DeleteModal);
 
 interface FormStepProps {
   onNext: () => void;

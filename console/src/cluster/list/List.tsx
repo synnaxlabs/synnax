@@ -22,7 +22,7 @@ import {
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { useOpenConnect } from "@/cluster/Connect";
+import { useConnectModal } from "@/cluster/Connect";
 import { Item } from "@/cluster/list/Item";
 import { useSelectMany } from "@/cluster/selectors";
 import { changeKey, remove } from "@/cluster/slice";
@@ -68,7 +68,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
 
   const handleLink = Link.useCopyToClipboard();
 
-  const openConnect = useOpenConnect();
+  const openConnect = useConnectModal();
 
   const handleRetest = (key: string): void => {
     const cluster = allClusters.find((c) => c.key === key);

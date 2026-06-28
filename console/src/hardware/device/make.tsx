@@ -45,22 +45,22 @@ export const getIcon = (make: Make | null) =>
   make ? MAKE_ICONS[make] : <Icon.Device />;
 
 /**
- * useConfigure returns an opener that launches the configure/connect modal for a device
+ * useConfigureModal returns an opener that launches the configure/connect modal for a device
  * of the given make. Every integration's modal hook is called unconditionally so the
  * returned opener can dispatch to any make at call time without violating the rules of
  * hooks.
  */
-export const useConfigure = (): ((
+export const useConfigureModal = (): ((
   make: Make,
   deviceKey?: string,
   title?: string,
 ) => void) => {
-  const ethercat = EtherCAT.Device.useConfigure();
-  const http = HTTP.Device.useConnect();
-  const labjack = LabJack.Device.useConfigure();
-  const modbus = Modbus.Device.useConnect();
-  const ni = NI.Device.useConfigure();
-  const opc = OPC.Device.useConnect();
+  const ethercat = EtherCAT.Device.useConfigureModal();
+  const http = HTTP.Device.useConnectModal();
+  const labjack = LabJack.Device.useConfigureModal();
+  const modbus = Modbus.Device.useConnectModal();
+  const ni = NI.Device.useConfigureModal();
+  const opc = OPC.Device.useConnectModal();
   return useCallback(
     (make, deviceKey, title) => {
       const openers: Record<

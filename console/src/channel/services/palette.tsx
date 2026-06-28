@@ -11,14 +11,14 @@ import { channel } from "@synnaxlabs/client";
 import { Access, Channel as PChannel } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useOpenCalculated } from "@/channel/Calculated";
-import { useOpenCreate } from "@/channel/Create";
+import { useCalculatedModal } from "@/channel/Calculated";
+import { useCreateModal } from "@/channel/Create";
 import { Palette } from "@/palette";
 
 const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
 
 const CreateCommand: Palette.Command = (listProps) => {
-  const open = useOpenCreate();
+  const open = useCreateModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
@@ -34,7 +34,7 @@ CreateCommand.commandName = "Create a channel";
 CreateCommand.useVisible = useVisible;
 
 const CreateCalculatedCommand: Palette.Command = (listProps) => {
-  const open = useOpenCalculated();
+  const open = useCalculatedModal();
   const handleSelect = useCallback(() => open({}), [open]);
   return (
     <Palette.CommandListItem

@@ -45,7 +45,7 @@ import {
 import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
-import { useOpenEdit } from "@/layered/service/schematic/symbols/edit/Edit";
+import { useSymbolModal } from "@/layered/service/schematic/symbols/edit/Edit";
 import { MissingSymbolForm } from "@/layered/service/schematic/toolbar/MissingSymbolForm";
 import { Session } from "@/layered/session";
 import { type RootState } from "@/store";
@@ -91,7 +91,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     { ctx: formMethods, optional: true },
   );
   const isCustom = schematic.symbol.keyZ.safeParse(specKey).success && specKey != null;
-  const openEdit = useOpenEdit();
+  const openEdit = useSymbolModal();
   let actions: ReactNode = null;
   if (isCustom)
     actions = (

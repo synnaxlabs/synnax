@@ -181,7 +181,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
 
 const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
   const isSnapshot = Common.Task.useIsSnapshot();
-  const configure = Device.useConfigure();
+  const configure = Device.useConfigureModal();
   return (
     <Common.Device.Provider
       canConfigure={!isSnapshot}

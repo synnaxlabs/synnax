@@ -18,7 +18,7 @@ import { Triggers } from "@/triggers";
 
 export type CreateLayoutArgs = Partial<z.infer<typeof Status.formSchema>>;
 
-export const useOpenCreate = Modals.create<CreateLayoutArgs>(({ args, close }) => {
+export const useCreateModal = Modals.create<CreateLayoutArgs>(({ args, close }) => {
   const { form, save, variant } = Status.useForm({
     query: { key: args?.key },
     autoSave: false,

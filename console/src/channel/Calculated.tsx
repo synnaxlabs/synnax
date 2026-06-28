@@ -41,7 +41,7 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   placeholder: "Name",
 };
 
-export const useOpenCalculated = Modals.create<CalculatedLayoutArgs>(
+export const useCalculatedModal = Modals.create<CalculatedLayoutArgs>(
   ({ args, close }) => {
     const isEdit = args?.channelKey !== 0;
     const {

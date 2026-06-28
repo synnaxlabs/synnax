@@ -12,7 +12,7 @@ import { Form } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { useConfigure } from "@/hardware/ethercat/device/Configure";
+import { useConfigureModal } from "@/hardware/ethercat/device/Configure";
 import { useCommonNetwork } from "@/hardware/ethercat/device/queries";
 import {
   MAKE,
@@ -37,7 +37,7 @@ export const SelectSlave = ({
 }: SelectSlaveProps): ReactElement => {
   const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
   const network = useCommonNetwork(channels);
-  const configure = useConfigure();
+  const configure = useConfigureModal();
   const filter = useCallback(
     (d: device.Device) => filterByNetwork(d, network),
     [network],

@@ -33,7 +33,7 @@ import { ContextMenu, EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Modals } from "@/layered/service/modals";
-import { useOpenEdit } from "@/layered/service/schematic/symbols/edit/Edit";
+import { useSymbolModal } from "@/layered/service/schematic/symbols/edit/Edit";
 import {
   useExport as useExportSymbol,
   useExportGroup,
@@ -183,7 +183,7 @@ const RemoteSymbolListContextMenu = (
     type: "Schematic.Symbol",
     icon: "Schematic",
   });
-  const openEdit = useOpenEdit();
+  const openEdit = useSymbolModal();
   const renameModal = Modals.useRename();
   const exportSymbol = useExportSymbol();
   const rename = Schematic.Symbol.useRename({
@@ -228,7 +228,7 @@ const RemoteSymbolListContextMenu = (
 };
 
 const useCreateSymbol = (selectedGroup: string) => {
-  const openEdit = useOpenEdit();
+  const openEdit = useSymbolModal();
   const handleCreateSymbol = useCallback(() => {
     openEdit({ parent: group.ontologyID(selectedGroup) });
   }, [openEdit, selectedGroup]);
@@ -330,7 +330,7 @@ const Actions = ({
   const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
-  const openEdit = useOpenEdit();
+  const openEdit = useSymbolModal();
   const importSymbol = useImportSymbol(selectedGroup);
   const importGroup = useImportGroup();
   const hasCreateGroupPermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);

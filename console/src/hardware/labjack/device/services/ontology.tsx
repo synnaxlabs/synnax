@@ -29,7 +29,7 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
   ];
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
-  const configure = Device.useConfigure();
+  const configure = Device.useConfigureModal();
   const onConfigure = (deviceKey: string) => configure({ deviceKey });
   return (
     <>

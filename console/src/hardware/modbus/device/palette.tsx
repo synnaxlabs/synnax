@@ -11,11 +11,11 @@ import { device } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useConnect } from "@/hardware/modbus/device/Connect";
+import { useConnectModal } from "@/hardware/modbus/device/Connect";
 import { Palette } from "@/palette";
 
 const ConnectServerCommand: Palette.Command = (listProps) => {
-  const connect = useConnect();
+  const connect = useConnectModal();
   const handleSelect = useCallback(() => connect({}), [connect]);
   return (
     <Palette.CommandListItem

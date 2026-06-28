@@ -167,8 +167,8 @@ export const useDeleteAlias = ({
   );
 };
 
-const useOpenCalculated = () => {
-  const open = Channel.useOpenCalculated();
+const useEditCalculated = () => {
+  const open = Channel.useCalculatedModal();
   return ({
     selection: { ids },
     state: { getResource },
@@ -216,7 +216,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleRename = useRename(props);
 
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const openCalculated = useOpenCalculated();
+  const openCalculated = useEditCalculated();
   const singleResource = resources.length === 1;
 
   const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);

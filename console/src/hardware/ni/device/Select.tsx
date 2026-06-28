@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
-import { useConfigure } from "@/hardware/ni/device/Configure";
+import { useConfigureModal } from "@/hardware/ni/device/Configure";
 import { MAKE } from "@/hardware/ni/device/types";
 
 export interface SelectProps extends Omit<
@@ -19,7 +19,7 @@ export interface SelectProps extends Omit<
 > {}
 
 export const Select = (props: SelectProps) => {
-  const configure = useConfigure();
+  const configure = useConfigureModal();
   return (
     <Common.Device.Select
       {...props}

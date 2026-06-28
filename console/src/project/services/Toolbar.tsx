@@ -14,10 +14,10 @@ import { type ReactElement } from "react";
 import { EmptyAction, Toolbar } from "@/components";
 import { type Service } from "@/layered/service";
 import { Ontology } from "@/ontology";
-import { useOpenCreate } from "@/project/Create";
+import { useCreateModal } from "@/project/Create";
 
 const Actions = (): ReactElement | null => {
-  const openCreate = useOpenCreate();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
@@ -43,7 +43,7 @@ const Content = (): ReactElement => {
 };
 
 const EmptyContent = () => {
-  const openCreate = useOpenCreate();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const handleClick = () => openCreate();
   return (

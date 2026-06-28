@@ -51,7 +51,7 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
 const DEFAULT_REGION_KEY = "default";
 
-export const useOpenEdit = Modals.create<CreateLayoutArgs>(
+export const useSymbolModal = Modals.create<CreateLayoutArgs>(
   ({ args: { key, parent, createKey }, close }): ReactElement => {
     const isCreate = key == null;
     const theme = Theming.use();

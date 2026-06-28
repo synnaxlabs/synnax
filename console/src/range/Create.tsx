@@ -38,7 +38,7 @@ export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,
 });
 
-export const useOpenCreate = Modals.create<CreateLayoutArgs>(({ args, close }) => {
+export const useCreateModal = Modals.create<CreateLayoutArgs>(({ args, close }) => {
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const dispatch = useDispatch();
 

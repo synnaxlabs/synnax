@@ -11,11 +11,11 @@ import { framer } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useOpenDeleteModal } from "@/framer/DeleteModal";
+import { useDeleteDataModal } from "@/framer/DeleteModal";
 import { Palette } from "@/palette";
 
 const DeleteDataCommand: Palette.Command = (listProps) => {
-  const open = useOpenDeleteModal();
+  const open = useDeleteDataModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem

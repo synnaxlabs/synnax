@@ -13,10 +13,10 @@ import { useCallback } from "react";
 
 import { Palette } from "@/palette";
 import { Range } from "@/range";
-import { useOpenCreate } from "@/range/Create";
+import { useCreateModal } from "@/range/Create";
 
 export const CreateCommand: Palette.Command = (listProps) => {
-  const open = useOpenCreate();
+  const open = useCreateModal();
   const handleSelect = useCallback(() => open({}), [open]);
   return (
     <Palette.CommandListItem

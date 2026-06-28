@@ -18,7 +18,7 @@ import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { CreateChildRangeIcon } from "@/range/ContextMenu";
-import { useOpenCreate } from "@/range/Create";
+import { useCreateModal } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelectKeys } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
@@ -34,7 +34,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const placeLayout = Layout.usePlacer();
-  const openCreate = useOpenCreate();
+  const openCreate = useCreateModal();
   const favoriteKeys = useSelectKeys();
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
   const someAreNotFavorites = ranges.some((r) => !favoriteKeys.includes(r.key));

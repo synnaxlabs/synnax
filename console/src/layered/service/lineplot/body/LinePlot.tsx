@@ -101,7 +101,7 @@ const ContextMenuContent = ({
 }: ContextMenuContentProps): ReactElement => {
   const name = Base.useSelectName({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
-  const openCreateRange = Range.useOpenCreate();
+  const openCreateRange = Range.useCreateModal();
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const getTimeRange = useCallback(async (): Promise<TimeRange> => {

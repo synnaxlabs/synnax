@@ -17,7 +17,7 @@ import { useSelectOptionalActiveKey } from "@/project/selectors";
 import { setActive } from "@/project/slice";
 import { Triggers } from "@/triggers";
 
-export const useOpenCreate = Modals.create<void>(({ close }) => {
+export const useCreateModal = Modals.create<void>(({ close }) => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const active = useSelectOptionalActiveKey();

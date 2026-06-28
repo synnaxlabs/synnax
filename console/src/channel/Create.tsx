@@ -25,7 +25,7 @@ import { Triggers } from "@/triggers";
 
 const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
 
-export const useOpenCreate = Modals.create<void>(({ close }) => {
+export const useCreateModal = Modals.create<void>(({ close }) => {
   const [createMore, setCreateMore] = useState(false);
   const { form, variant, save } = Channel.useForm({
     query: {},

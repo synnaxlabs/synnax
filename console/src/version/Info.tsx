@@ -92,7 +92,7 @@ const { useUpdate } = Flux.createUpdate<
   },
 });
 
-export const useOpenInfo = Modals.create<void>(() => {
+export const useInfoModal = Modals.create<void>(() => {
   const version = use();
   const availableQuery = useRetrieveUpdateAvailable({});
   const updateQuery = useUpdate();

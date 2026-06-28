@@ -29,7 +29,7 @@ import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { useOpenCreate } from "@/project/Create";
+import { useCreateModal } from "@/project/Create";
 import { useSelectActive } from "@/project/selectors";
 import { setActive } from "@/project/slice";
 
@@ -52,7 +52,7 @@ export const Selector = (): ReactElement | null => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const active = useSelectActive();
-  const openCreate = useOpenCreate();
+  const openCreate = useCreateModal();
   const [dialogVisible, setDialogVisible] = useState(false);
   const { data, retrieve, getItem, subscribe } = Project.useList();
   const [search, setSearch] = useState("");

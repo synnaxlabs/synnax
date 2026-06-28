@@ -11,11 +11,11 @@ import { Dialog } from "@synnaxlabs/pluto";
 
 import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
-import { useConnect } from "@/hardware/modbus/device/Connect";
+import { useConnectModal } from "@/hardware/modbus/device/Connect";
 import { MAKE } from "@/hardware/modbus/device/types";
 
 const EmptyContent = () => {
-  const connect = useConnect();
+  const connect = useConnectModal();
   const { close: closeDialog } = Dialog.useContext();
   return (
     <EmptyAction
@@ -30,7 +30,7 @@ const EmptyContent = () => {
 };
 
 export const Select = () => {
-  const connect = useConnect();
+  const connect = useConnectModal();
   return (
     <Common.Device.Select
       onConfigure={(deviceKey) => connect({ deviceKey })}

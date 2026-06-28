@@ -152,7 +152,7 @@ const LabelListItem = ({
 
 const listItem = Component.renderProp(LabelListItem);
 
-export const useOpenEdit = Modals.create<void>(() => {
+export const useEditModal = Modals.create<void>(() => {
   const { data, getItem, retrieve, subscribe } = Label.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);

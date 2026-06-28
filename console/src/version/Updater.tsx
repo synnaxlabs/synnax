@@ -18,7 +18,7 @@ import { check } from "@tauri-apps/plugin-updater";
 
 import { type Notifications } from "@/notifications";
 import { Runtime } from "@/runtime";
-import { useOpenInfo } from "@/version/Info";
+import { useInfoModal } from "@/version/Info";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
 
@@ -58,7 +58,7 @@ export const notificationAdapter: Notifications.Adapter = (status) => {
 };
 
 export const OpenUpdateDialogAction = () => {
-  const openInfo = useOpenInfo();
+  const openInfo = useInfoModal();
   return (
     <Button.Button variant="outlined" size="small" onClick={() => openInfo()}>
       Update

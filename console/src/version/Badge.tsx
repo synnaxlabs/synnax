@@ -13,13 +13,13 @@ import { Button } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Runtime } from "@/runtime";
-import { useOpenInfo } from "@/version/Info";
+import { useInfoModal } from "@/version/Info";
 import { useCheckForUpdates } from "@/version/Updater";
 import { use } from "@/version/use";
 
 export const Badge = (): ReactElement => {
   const version = use();
-  const openInfo = useOpenInfo();
+  const openInfo = useInfoModal();
   const updateAvailable = useCheckForUpdates();
   return (
     <Button.Button

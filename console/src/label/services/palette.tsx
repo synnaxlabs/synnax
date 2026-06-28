@@ -11,13 +11,13 @@ import { label } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useOpenEdit } from "@/label/Edit";
+import { useEditModal } from "@/label/Edit";
 import { Palette } from "@/palette";
 
 const useVisible = () => Access.useUpdateGranted(label.TYPE_ONTOLOGY_ID);
 
 export const EditCommand: Palette.Command = (listProps) => {
-  const open = useOpenEdit();
+  const open = useEditModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem

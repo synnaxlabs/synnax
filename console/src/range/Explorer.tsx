@@ -16,7 +16,7 @@ import { useCallback } from "react";
 
 import { Label } from "@/label";
 import { type Layout } from "@/layout";
-import { useOpenCreate } from "@/range/Create";
+import { useCreateModal } from "@/range/Create";
 import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item } from "@/range/list/Item";
 import { View } from "@/view";
@@ -46,7 +46,7 @@ const Internal = () => {
     initialQuery: View.useContext().getInitialView().query,
     sort: Ranger.sortByStage,
   });
-  const openCreate = useOpenCreate();
+  const openCreate = useCreateModal();
   const handleCreate = useCallback(() => openCreate({}), [openCreate]);
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (

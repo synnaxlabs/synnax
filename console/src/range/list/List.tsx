@@ -26,7 +26,7 @@ import {
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { EmptyAction } from "@/components";
-import { useOpenCreate } from "@/range/Create";
+import { useCreateModal } from "@/range/Create";
 import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/range/list/Item";
 import { Filters, SelectFilters } from "@/range/list/SelectFilters";
@@ -46,7 +46,7 @@ export interface ListProps
 }
 
 const EmptyContent = () => {
-  const openCreate = useOpenCreate();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
@@ -174,7 +174,7 @@ const contextMenu = Component.renderProp<Menu.ContextMenuMenuProps>((p) => (
 ));
 
 const AddButton = (): ReactElement | null => {
-  const openCreate = useOpenCreate();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (

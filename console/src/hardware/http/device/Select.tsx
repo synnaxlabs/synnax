@@ -12,11 +12,11 @@ import { useCallback } from "react";
 
 import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
-import { useConnect } from "@/hardware/http/device/Connect";
+import { useConnectModal } from "@/hardware/http/device/Connect";
 import { MAKE } from "@/hardware/http/device/types";
 
 const EmptyContent = () => {
-  const connect = useConnect();
+  const connect = useConnectModal();
   const { close } = Dialog.useContext();
   const handleClick = useCallback(() => {
     connect({});
@@ -34,7 +34,7 @@ const EmptyContent = () => {
 const emptyContent = <EmptyContent />;
 
 export const Select = () => {
-  const connect = useConnect();
+  const connect = useConnectModal();
   return (
     <Common.Device.Select
       onConfigure={(deviceKey) => connect({ deviceKey })}

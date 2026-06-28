@@ -9,11 +9,11 @@
 
 import { useCallback } from "react";
 
-import { getMake, useConfigure } from "@/hardware/device/make";
+import { getMake, useConfigureModal } from "@/hardware/device/make";
 import { type Link } from "@/layered/service/link";
 
 export const useLink = (): Link.Handler => {
-  const configure = useConfigure();
+  const configure = useConfigureModal();
   return useCallback(
     async ({ client, key }) => {
       const device = await client.devices.retrieve({ key });

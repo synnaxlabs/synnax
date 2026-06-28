@@ -14,11 +14,11 @@ import { type ReactElement } from "react";
 import { EmptyAction, Toolbar } from "@/components";
 import { type Service } from "@/layered/service";
 import { Ontology } from "@/ontology";
-import { useOpenRegister } from "@/user/Register";
+import { useRegisterModal } from "@/user/Register";
 
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
-  const openRegister = useOpenRegister();
+  const openRegister = useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
@@ -38,7 +38,7 @@ const Content = (): ReactElement => {
 };
 
 const EmptyContent = (): ReactElement => {
-  const openRegister = useOpenRegister();
+  const openRegister = useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction

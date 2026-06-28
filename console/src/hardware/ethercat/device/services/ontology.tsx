@@ -35,7 +35,7 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const keys = props.selection.ids.map((id) => id.key);
   const store = Flux.useStore<PlutoDevice.FluxSubStore>();
   const { update: toggleEnabled } = useToggleEnabled();
-  const configure = Device.useConfigure();
+  const configure = Device.useConfigureModal();
   const onConfigure = (deviceKey: string) => configure({ deviceKey });
 
   const { allDisabled, allEnabled } = useMemo(() => {

@@ -20,7 +20,7 @@ const useCreateVisible = () => Access.useCreateGranted(project.TYPE_ONTOLOGY_ID)
 const useViewVisible = () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
 
 const CreateCommand: Palette.Command = (listProps) => {
-  const open = Project.useOpenCreate();
+  const open = Project.useCreateModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem

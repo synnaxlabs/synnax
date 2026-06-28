@@ -11,12 +11,12 @@ import { Button, Dialog, Icon, Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction } from "@/components";
-import { useOpenEdit } from "@/label/Edit";
+import { useEditModal } from "@/label/Edit";
 
 export interface SelectSingleProps extends Label.SelectSingleProps {}
 
 const useAdd = (): (() => void) => {
-  const openEdit = useOpenEdit();
+  const openEdit = useEditModal();
   const { close } = Dialog.useContext();
   return () => {
     close();
