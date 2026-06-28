@@ -18,11 +18,13 @@ import { type Layout } from "@/layout";
 
 export const Graph: Layout.Renderer = ({ visible }): ReactElement => {
   const key = Base.useKey();
-  const state = Session.Arc.useSelect();
+  const viewport = Session.Arc.useSelectViewport();
+  const fitViewOnResize = Session.Arc.useSelectFitViewOnResize();
   const dispatch = useDispatch();
   const { canEdit, isCurrentlyEditable } = Session.Arc.useSelectEditable();
   const selected = Session.Arc.useSelectSelected();
   const viewportMode = Session.Arc.useSelectViewportMode();
+
   const triggers = useMemo(
     () => Viewport.DEFAULT_TRIGGERS[viewportMode],
     [viewportMode],
@@ -50,9 +52,10 @@ export const Graph: Layout.Renderer = ({ visible }): ReactElement => {
     (mode: Viewport.Mode) => dispatch(Session.Arc.setViewportMode({ key, mode })),
     [key, dispatch],
   );
-  const handleDoubleClick = useCallback(() => {
-    dispatch(Session.Nav.showBottom({}));
-  }, [dispatch]);
+  const handleDoubleClick = useCallback(
+    () => dispatch(Session.Nav.showBottom({})),
+    [dispatch],
+  );
 
   const renderExtraMenuItems = useCallback(
     (): ReactElement => (
@@ -69,7 +72,7 @@ export const Graph: Layout.Renderer = ({ visible }): ReactElement => {
     <>
       <Base.Graph.Editor
         extraMenuItems={renderExtraMenuItems}
-        viewport={state.graph.viewport}
+        viewport={viewport}
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}
@@ -79,7 +82,7 @@ export const Graph: Layout.Renderer = ({ visible }): ReactElement => {
         editable={isCurrentlyEditable}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
-        fitViewOnResize={state.graph.fitViewOnResize}
+        fitViewOnResize={fitViewOnResize}
         setFitViewOnResize={handleSetFitViewOnResize}
         visible={visible}
       >

@@ -55,17 +55,22 @@ export const selectToolbar = (params: KeyedSelectorParams): ToolbarState =>
 export const selectViewportMode = (state: KeyedSelectorParams): Viewport.Mode =>
   selectGraph(state).viewport.mode;
 
+const selectFitViewOnResize = (state: KeyedSelectorParams): boolean =>
+  selectGraph(state).fitViewOnResize;
+
 export const useSelect = createSelector(selectState);
 export const useSelectSelected = createSelector(selectSelected);
-const useSelectEditableBase = createSelector(selectEditable);
 export const useSelectViewport = createSelector(selectViewport);
 export const useSelectViewportMode = createSelector(selectViewportMode);
 export const useSelectToolbar = createSelector(selectToolbar);
+export const useSelectFitViewOnResize = createSelector(selectFitViewOnResize);
 
 export interface UseSelectEditableReturn {
   isCurrentlyEditable: boolean;
   canEdit: boolean;
 }
+
+const useSelectEditableBase = createSelector(selectEditable);
 
 export const useSelectEditable = (args?: {
   key?: arc.Key;
