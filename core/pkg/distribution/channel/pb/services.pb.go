@@ -31,10 +31,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// CreateOptions controls how a create request behaves when a channel with the same name
+// already exists.
 type CreateOptions struct {
-	state                 protoimpl.MessageState `protogen:"open.v1"`
-	RetrieveIfNameExists  bool                   `protobuf:"varint,1,opt,name=retrieve_if_name_exists,json=retrieveIfNameExists,proto3" json:"retrieve_if_name_exists,omitempty"`
-	OverwriteIfNameExists bool                   `protobuf:"varint,2,opt,name=overwrite_if_name_exists,json=overwriteIfNameExists,proto3" json:"overwrite_if_name_exists,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// retrieve_if_name_exists returns the existing channel instead of creating a new one
+	// when a channel with the same name already exists.
+	RetrieveIfNameExists bool `protobuf:"varint,1,opt,name=retrieve_if_name_exists,json=retrieveIfNameExists,proto3" json:"retrieve_if_name_exists,omitempty"`
+	// overwrite_if_name_exists overwrites the existing channel when a channel with the
+	// same name already exists.
+	OverwriteIfNameExists bool `protobuf:"varint,2,opt,name=overwrite_if_name_exists,json=overwriteIfNameExists,proto3" json:"overwrite_if_name_exists,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -83,10 +89,16 @@ func (x *CreateOptions) GetOverwriteIfNameExists() bool {
 	return false
 }
 
+// CreateMessage is the request and response payload for a channel create operation. On
+// the request the channels carry no keys; on the response they are populated with their
+// assigned keys.
 type CreateMessage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Channels      []*Channel             `protobuf:"bytes,1,rep,name=channels,proto3" json:"channels,omitempty"`
-	Opts          *CreateOptions         `protobuf:"bytes,2,opt,name=opts,proto3" json:"opts,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// channels are the channels to create on the request, and the created channels with
+	// their assigned keys on the response.
+	Channels []*Channel `protobuf:"bytes,1,rep,name=channels,proto3" json:"channels,omitempty"`
+	// opts controls create behavior on name collisions.
+	Opts          *CreateOptions `protobuf:"bytes,2,opt,name=opts,proto3" json:"opts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -135,9 +147,11 @@ func (x *CreateMessage) GetOpts() *CreateOptions {
 	return nil
 }
 
+// DeleteRequest is the payload for a channel delete operation.
 type DeleteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// keys identifies the channels to delete.
+	Keys          []uint32 `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -179,10 +193,14 @@ func (x *DeleteRequest) GetKeys() []uint32 {
 	return nil
 }
 
+// RenameRequest is the payload for a channel rename operation. keys and names are
+// positional: the channel at keys[i] is renamed to names[i].
 type RenameRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// keys identifies the channels to rename.
+	Keys []uint32 `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	// names holds the new name for each channel in keys, by position.
+	Names         []string `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -246,12 +264,12 @@ const file_core_pkg_distribution_channel_pb_services_proto_rawDesc = "" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\"9\n" +
 	"\rRenameRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names2p\n" +
-	"\x14ChannelCreateService\x12X\n" +
-	"\x04Exec\x12&.distribution.channel.pb.CreateMessage\x1a&.distribution.channel.pb.CreateMessage\"\x002`\n" +
-	"\x14ChannelDeleteService\x12H\n" +
-	"\x04Exec\x12&.distribution.channel.pb.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002`\n" +
-	"\x14ChannelRenameService\x12H\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names2i\n" +
+	"\rCreateService\x12X\n" +
+	"\x04Exec\x12&.distribution.channel.pb.CreateMessage\x1a&.distribution.channel.pb.CreateMessage\"\x002Y\n" +
+	"\rDeleteService\x12H\n" +
+	"\x04Exec\x12&.distribution.channel.pb.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002Y\n" +
+	"\rRenameService\x12H\n" +
 	"\x04Exec\x12&.distribution.channel.pb.RenameRequest\x1a\x16.google.protobuf.Empty\"\x00B\xe4\x01\n" +
 	"\x1bcom.distribution.channel.pbB\rServicesProtoP\x01Z8github.com/synnaxlabs/synnax/pkg/distribution/channel/pb\xa2\x02\x03DCP\xaa\x02\x17Distribution.Channel.Pb\xca\x02\x17Distribution\\Channel\\Pb\xe2\x02#Distribution\\Channel\\Pb\\GPBMetadata\xea\x02\x19Distribution::Channel::Pbb\x06proto3"
 
@@ -279,12 +297,12 @@ var file_core_pkg_distribution_channel_pb_services_proto_goTypes = []any{
 var file_core_pkg_distribution_channel_pb_services_proto_depIdxs = []int32{
 	4, // 0: distribution.channel.pb.CreateMessage.channels:type_name -> distribution.channel.pb.Channel
 	0, // 1: distribution.channel.pb.CreateMessage.opts:type_name -> distribution.channel.pb.CreateOptions
-	1, // 2: distribution.channel.pb.ChannelCreateService.Exec:input_type -> distribution.channel.pb.CreateMessage
-	2, // 3: distribution.channel.pb.ChannelDeleteService.Exec:input_type -> distribution.channel.pb.DeleteRequest
-	3, // 4: distribution.channel.pb.ChannelRenameService.Exec:input_type -> distribution.channel.pb.RenameRequest
-	1, // 5: distribution.channel.pb.ChannelCreateService.Exec:output_type -> distribution.channel.pb.CreateMessage
-	5, // 6: distribution.channel.pb.ChannelDeleteService.Exec:output_type -> google.protobuf.Empty
-	5, // 7: distribution.channel.pb.ChannelRenameService.Exec:output_type -> google.protobuf.Empty
+	1, // 2: distribution.channel.pb.CreateService.Exec:input_type -> distribution.channel.pb.CreateMessage
+	2, // 3: distribution.channel.pb.DeleteService.Exec:input_type -> distribution.channel.pb.DeleteRequest
+	3, // 4: distribution.channel.pb.RenameService.Exec:input_type -> distribution.channel.pb.RenameRequest
+	1, // 5: distribution.channel.pb.CreateService.Exec:output_type -> distribution.channel.pb.CreateMessage
+	5, // 6: distribution.channel.pb.DeleteService.Exec:output_type -> google.protobuf.Empty
+	5, // 7: distribution.channel.pb.RenameService.Exec:output_type -> google.protobuf.Empty
 	5, // [5:8] is the sub-list for method output_type
 	2, // [2:5] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

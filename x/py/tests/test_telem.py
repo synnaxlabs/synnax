@@ -652,7 +652,7 @@ class TestAlignment:
 
         # Should also accept int
         packed_value = (5 << 32) | 10
-        model2 = TestModel(alignment=packed_value)  # type: ignore[arg-type]
+        model2 = TestModel(alignment=packed_value)
         assert model2.alignment.domain_index == 5
         assert model2.alignment.sample_index == 10
 
