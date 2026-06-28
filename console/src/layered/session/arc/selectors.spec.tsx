@@ -8,13 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import {
+  access,
+  arc,
+  channel,
+  createTestClient,
+  createTestClientWithPolicy,
+  framer,
+  type Synnax,
+  user,
+} from "@synnaxlabs/client";
 import { Arc as PlutoArc } from "@synnaxlabs/pluto";
-import { act, renderHook } from "@testing-library/react";
+import { id } from "@synnaxlabs/x";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/layered/session/arc";
+import { createConsoleWrapper } from "@/testUtils";
 
 const KEY = "arc-1";
 
@@ -134,13 +146,6 @@ describe("arc selector hooks", () => {
     expect(result.current).toEqual(["a", "b"]);
   });
 
-  it("should return the editable flag", () => {
-    const { result } = renderHook(() => Arc.useSelectEditable(), {
-      wrapper: wrapperFor(store(), KEY),
-    });
-    expect(result.current).toBe(false);
-  });
-
   it("should return the viewport", () => {
     const { result } = renderHook(() => Arc.useSelectViewport(), {
       wrapper: wrapperFor(store(), KEY),
@@ -220,5 +225,71 @@ describe("arc selector stability under dispatch", () => {
     expect(result.current.selectedTab).toBe("properties");
     rerender({ key: "arc-2" });
     expect(result.current.selectedTab).toBe("stages");
+  });
+});
+
+const client = createTestClient();
+
+const TIMEOUT = { timeout: 5000 };
+
+const baseObjects = [
+  channel.TYPE_ONTOLOGY_ID,
+  framer.TYPE_ONTOLOGY_ID,
+  user.TYPE_ONTOLOGY_ID,
+  access.role.TYPE_ONTOLOGY_ID,
+  access.policy.TYPE_ONTOLOGY_ID,
+];
+
+interface SetupArgs {
+  editable: boolean;
+  userClient?: Synnax;
+}
+
+const setup = async ({ editable, userClient = client }: SetupArgs) => {
+  const store = storeWith({
+    version: 0,
+    arcs: { [KEY]: Arc.stateZ.parse({ graph: { editable } }) },
+  });
+  const { wrapper: Wrapper } = await createConsoleWrapper({
+    client: userClient,
+    store,
+  });
+  const ScopedWrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Wrapper>
+      <PlutoArc.Scope.Provider value={KEY}>{children}</PlutoArc.Scope.Provider>
+    </Wrapper>
+  );
+  const { result } = renderHook(() => Arc.useSelectEditable(), {
+    wrapper: ScopedWrapper,
+  });
+  return result;
+};
+
+describe("useSelectEditable", () => {
+  it("permits editing when the user can update and edit mode is on", async () => {
+    const result = await setup({ editable: true });
+    await waitFor(() => {
+      expect(result.current.canEdit).toBe(true);
+      expect(result.current.isCurrentlyEditable).toBe(true);
+    }, TIMEOUT);
+  });
+
+  it("keeps canEdit but clears isCurrentlyEditable when edit mode is off", async () => {
+    const result = await setup({ editable: false });
+    await waitFor(() => expect(result.current.canEdit).toBe(true), TIMEOUT);
+    expect(result.current.isCurrentlyEditable).toBe(false);
+  });
+
+  it("blocks editing when the user lacks update permission", async () => {
+    const userClient = await createTestClientWithPolicy(client, {
+      name: id.create(),
+      objects: [arc.TYPE_ONTOLOGY_ID, ...baseObjects],
+      actions: ["retrieve"],
+    });
+    const result = await setup({ editable: true, userClient });
+    await waitFor(() => {
+      expect(result.current.canEdit).toBe(false);
+      expect(result.current.isCurrentlyEditable).toBe(false);
+    }, TIMEOUT);
   });
 });

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc } from "@synnaxlabs/client";
-import { Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
+import { arc } from "@synnaxlabs/client";
+import { Access, Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
@@ -57,7 +57,23 @@ export const selectViewportMode = (state: KeyedSelectorParams): Viewport.Mode =>
 
 export const useSelect = createSelector(selectState);
 export const useSelectSelected = createSelector(selectSelected);
-export const useSelectEditable = createSelector(selectEditable);
+const useSelectEditableBase = createSelector(selectEditable);
 export const useSelectViewport = createSelector(selectViewport);
 export const useSelectViewportMode = createSelector(selectViewportMode);
 export const useSelectToolbar = createSelector(selectToolbar);
+
+export interface UseSelectEditableReturn {
+  isCurrentlyEditable: boolean;
+  canEdit: boolean;
+}
+
+export const useSelectEditable = (args?: {
+  key?: arc.Key;
+}): UseSelectEditableReturn => {
+  const key = Arc.useKey(args?.key);
+  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(key));
+  const editable = useSelectEditableBase(args);
+  const canEdit = hasUpdatePermission;
+  const isCurrentlyEditable = hasUpdatePermission && editable;
+  return { canEdit, isCurrentlyEditable };
+};

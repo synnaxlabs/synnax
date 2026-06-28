@@ -19,8 +19,8 @@ export interface ToolbarProps {
 
 const Internal = (): ReactElement | null => {
   const mode = Arc.useSelectMode();
-  if (mode === "text") return <TextToolbar />;
-  return <GraphToolbar />;
+  const C = mode === "text" ? TextToolbar : GraphToolbar;
+  return <C />;
 };
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (

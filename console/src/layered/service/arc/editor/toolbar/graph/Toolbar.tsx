@@ -10,7 +10,7 @@
 import "@/layered/service/arc/editor/toolbar/graph/Toolbar.css";
 
 import { arc } from "@synnaxlabs/client";
-import { Access, Arc, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
+import { Arc, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -21,7 +21,6 @@ import { Stages } from "@/layered/service/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/layered/service/arc/editor/toolbar/graph/Properties";
 import { useExport } from "@/layered/service/arc/imex/export";
 import { Session } from "@/layered/session";
-import { Layout } from "@/layout";
 
 const TABS = [
   { tabKey: "stages", name: "Stages" },
@@ -32,15 +31,14 @@ const NotEditableContent = (): ReactElement => {
   const key = Arc.useKey();
   const name = Arc.useSelectName();
   const dispatch = useDispatch();
-  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(key));
-  const isEditable = hasUpdatePermission;
+  const { canEdit } = Session.Arc.useSelectEditable();
   return (
     <Flex.Box x gap="small" center>
       <Text.Text status="disabled">
         {name} is not editable.
-        {isEditable ? " To make changes," : ""}
+        {canEdit ? " To make changes," : ""}
       </Text.Text>
-      {isEditable && (
+      {canEdit && (
         <Text.Text
           onClick={(e) => {
             e.stopPropagation();
@@ -61,7 +59,7 @@ export const Toolbar = (): ReactElement | null => {
   const key = Arc.useKey();
   const dispatch = useDispatch();
   const toolbar = Session.Arc.useSelectToolbar();
-  const editMode = Session.Arc.useSelectEditable();
+  const { canEdit, isCurrentlyEditable } = Session.Arc.useSelectEditable();
   const handleExport = useExport();
   const selected = Session.Arc.useSelectSelected();
   const singleNodeKey = selected.length === 1 ? selected[0] : "";
@@ -71,11 +69,9 @@ export const Toolbar = (): ReactElement | null => {
     singleConfig != null
       ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
       : null;
-  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(key));
-  const canEdit = hasUpdatePermission && editMode;
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (!canEdit) return <NotEditableContent />;
+      if (!isCurrentlyEditable) return <NotEditableContent />;
       switch (tabKey) {
         case "stages":
           return <Stages />;
@@ -83,7 +79,7 @@ export const Toolbar = (): ReactElement | null => {
           return <Properties />;
       }
     },
-    [canEdit],
+    [isCurrentlyEditable],
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
@@ -124,9 +120,7 @@ export const Toolbar = (): ReactElement | null => {
               ontologyID={arc.ontologyID(key)}
             />
           </Flex.Box>
-          {hasUpdatePermission && (
-            <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />
-          )}
+          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />}
         </Flex.Box>
       </Base.Header>
       <Tabs.Content />

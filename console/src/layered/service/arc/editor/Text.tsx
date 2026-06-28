@@ -12,7 +12,7 @@ import { Arc } from "@synnaxlabs/pluto";
 import { Controls } from "@/layered/service/arc/editor/Controls";
 import { type Layout } from "@/layout";
 
-export const Editor: Layout.Renderer = () => (
+export const Text: Layout.Renderer = () => (
   <>
     <Arc.Text.Editor />
     <Controls />

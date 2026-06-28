@@ -7,25 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Arc as Base } from "@synnaxlabs/pluto";
+import { Arc } from "@synnaxlabs/pluto";
 
-import { Editor as GraphEditor } from "@/layered/service/arc/editor/graph/Editor";
-import { Editor as TextEditor } from "@/layered/service/arc/editor/text/Editor";
+import { Graph } from "@/layered/service/arc/editor/Graph";
+import { Text } from "@/layered/service/arc/editor/Text";
 import { Layout } from "@/layout";
 
 const Internal: Layout.Renderer = (props) => {
-  const mode = Base.useSelectMode();
-  if (mode === "graph") return <GraphEditor {...props} />;
-  return <TextEditor {...props} />;
+  const mode = Arc.useSelectMode();
+  const C = mode === "graph" ? Graph : Text;
+  return <C {...props} />;
 };
 
 export const Editor: Layout.Renderer = (props) => (
-  <Base.Suspended arcKey={props.layoutKey}>
+  <Arc.Suspended arcKey={props.layoutKey}>
     <Internal {...props} />
-  </Base.Suspended>
+  </Arc.Suspended>
 );
 
-Editor.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-);
+Editor.useName = Layout.createUseFluxName(Arc.useRename, Arc.useRetrieveObservableName);

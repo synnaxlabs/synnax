@@ -16,13 +16,11 @@ import { useCreate } from "@/layered/service/arc/useCreate";
 import { Selector } from "@/selector";
 
 export const Selectable: Selector.Selectable = ({ layoutKey }) => {
-  const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
-  const createArc = useCreate();
+  const create = useCreate();
   const handleClick = useCallback(
-    () => createArc({ key: layoutKey }),
-    [createArc, layoutKey],
+    () => create({ key: layoutKey }),
+    [create, layoutKey],
   );
-  if (!hasCreatePermission) return null;
   return (
     <Selector.Item title="Arc Automation" icon={<Icon.Arc />} onClick={handleClick} />
   );

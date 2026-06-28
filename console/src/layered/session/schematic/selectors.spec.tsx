@@ -8,14 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import {
+  access,
+  channel,
+  createTestClient,
+  createTestClientWithPolicy,
+  framer,
+  schematic,
+  type Synnax,
+  user,
+} from "@synnaxlabs/client";
 import { Schematic as PlutoSchematic } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
-import { act, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { color, id, uuid } from "@synnaxlabs/x";
+import { act, render, renderHook, waitFor, within } from "@testing-library/react";
+import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 import { Provider } from "react-redux";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/layered/session/schematic";
+import { createConsoleWrapper } from "@/testUtils";
 
 const KEY = "schematic-1";
 
@@ -310,5 +321,129 @@ describe("schematic selector stability under dispatch", () => {
     expect(result.current).toBe("valves");
     rerender({ key: "schematic-2" });
     expect(result.current).toBe("pumps");
+  });
+});
+
+const client = createTestClient();
+
+const TIMEOUT = { timeout: 5000 };
+
+const baseObjects = [
+  channel.TYPE_ONTOLOGY_ID,
+  framer.TYPE_ONTOLOGY_ID,
+  user.TYPE_ONTOLOGY_ID,
+  access.role.TYPE_ONTOLOGY_ID,
+  access.policy.TYPE_ONTOLOGY_ID,
+];
+
+const sessionStore = (key: string, editable: boolean): ReturnType<typeof storeWith> =>
+  storeWith({ schematics: { [key]: Schematic.stateZ.parse({ editable }) } });
+
+const loadSchematic = async (
+  Wrapper: FC<PropsWithChildren>,
+  key: string,
+): Promise<void> => {
+  const Bootstrap = (): ReactElement => {
+    PlutoSchematic.useEnsureRetrieved({ key });
+    return <div data-testid="loaded" />;
+  };
+  let utils!: ReturnType<typeof render>;
+  await act(async () => {
+    utils = render(
+      <Suspense fallback={null}>
+        <Bootstrap />
+      </Suspense>,
+      { wrapper: Wrapper },
+    );
+  });
+  await within(utils.container).findByTestId("loaded");
+};
+
+interface SetupArgs {
+  editable: boolean;
+  snapshot?: boolean;
+  userClient?: Synnax;
+  scoped?: boolean;
+}
+
+const setup = async ({
+  editable,
+  snapshot = false,
+  userClient = client,
+  scoped = true,
+}: SetupArgs) => {
+  const created = await client.schematics.create(projectKey, {
+    key: uuid.create(),
+    name: id.create(),
+    snapshot,
+  });
+  const store = sessionStore(created.key, editable);
+  const { wrapper: Wrapper } = await createConsoleWrapper({
+    client: userClient,
+    store,
+  });
+  await loadSchematic(Wrapper, created.key);
+  const ScopedWrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Wrapper>
+      <PlutoSchematic.Scope.Provider value={created.key}>
+        {children}
+      </PlutoSchematic.Scope.Provider>
+    </Wrapper>
+  );
+  const { result } = renderHook(
+    () => Schematic.useSelectEditable(scoped ? undefined : { key: created.key }),
+    { wrapper: scoped ? ScopedWrapper : Wrapper },
+  );
+  return result;
+};
+
+let projectKey: string;
+
+describe("useSelectEditable", () => {
+  beforeAll(async () => {
+    projectKey = (await client.projects.create({ name: id.create(), layout: {} })).key;
+  });
+
+  it("permits editing when the user can update and edit mode is on", async () => {
+    const result = await setup({ editable: true });
+    await waitFor(() => {
+      expect(result.current.canEdit).toBe(true);
+      expect(result.current.isCurrentlyEditable).toBe(true);
+    }, TIMEOUT);
+  });
+
+  it("keeps canEdit but clears isCurrentlyEditable when edit mode is off", async () => {
+    const result = await setup({ editable: false });
+    await waitFor(() => expect(result.current.canEdit).toBe(true), TIMEOUT);
+    expect(result.current.isCurrentlyEditable).toBe(false);
+  });
+
+  it("blocks editing of a snapshot even with permission and edit mode on", async () => {
+    const result = await setup({ editable: true, snapshot: true });
+    await waitFor(() => {
+      expect(result.current.canEdit).toBe(false);
+      expect(result.current.isCurrentlyEditable).toBe(false);
+    }, TIMEOUT);
+  });
+
+  it("blocks editing when the user lacks update permission", async () => {
+    const userClient = await createTestClientWithPolicy(client, {
+      name: id.create(),
+      objects: [schematic.TYPE_ONTOLOGY_ID, ...baseObjects],
+      actions: ["retrieve"],
+    });
+    const result = await setup({ editable: true, userClient });
+    await waitFor(() => {
+      expect(result.current.canEdit).toBe(false);
+      expect(result.current.isCurrentlyEditable).toBe(false);
+    }, TIMEOUT);
+  });
+
+  it("honors an explicit key override for the snapshot check without a scope", async () => {
+    const result = await setup({ editable: true, snapshot: true, scoped: false });
+    await waitFor(() => {
+      expect(result.current.canEdit).toBe(false);
+      expect(result.current.isCurrentlyEditable).toBe(false);
+    }, TIMEOUT);
   });
 });

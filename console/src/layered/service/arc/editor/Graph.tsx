@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
-import { Access, Arc as Base, Diagram, Menu, Viewport } from "@synnaxlabs/pluto";
+import { Arc as Base, Diagram, Menu, Viewport } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -17,12 +16,11 @@ import { Controls } from "@/layered/service/arc/editor/Controls";
 import { Session } from "@/layered/session";
 import { type Layout } from "@/layout";
 
-export const Editor: Layout.Renderer = ({ visible }): ReactElement => {
+export const Graph: Layout.Renderer = ({ visible }): ReactElement => {
   const key = Base.useKey();
   const state = Session.Arc.useSelect();
   const dispatch = useDispatch();
-  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(key));
-  const canEdit = hasUpdatePermission && state.graph.editable;
+  const { canEdit, isCurrentlyEditable } = Session.Arc.useSelectEditable();
   const selected = Session.Arc.useSelectSelected();
   const viewportMode = Session.Arc.useSelectViewportMode();
   const triggers = useMemo(
@@ -59,12 +57,12 @@ export const Editor: Layout.Renderer = ({ visible }): ReactElement => {
   const renderExtraMenuItems = useCallback(
     (): ReactElement => (
       <>
-        {hasUpdatePermission && <Diagram.Menu.ToggleEditItem />}
+        {canEdit && <Diagram.Menu.ToggleEditItem />}
         <Menu.Divider />
         <CMenu.ReloadConsoleItem />
       </>
     ),
-    [hasUpdatePermission],
+    [canEdit],
   );
 
   return (
@@ -78,7 +76,7 @@ export const Editor: Layout.Renderer = ({ visible }): ReactElement => {
         selected={selected}
         onSelectionChange={handleSelectionChange}
         onEditableChange={handleEditableChange}
-        editable={canEdit}
+        editable={isCurrentlyEditable}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
         fitViewOnResize={state.graph.fitViewOnResize}
@@ -88,7 +86,7 @@ export const Editor: Layout.Renderer = ({ visible }): ReactElement => {
         <Diagram.Background />
         <BaseControls x>
           <Diagram.Controls.FitView />
-          {hasUpdatePermission && <Diagram.Controls.ToggleEdit />}
+          {canEdit && <Diagram.Controls.ToggleEdit />}
         </BaseControls>
       </Base.Graph.Editor>
       <Controls />

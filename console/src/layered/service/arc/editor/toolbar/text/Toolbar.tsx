@@ -15,11 +15,10 @@ import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { Export } from "@/export";
 import { useExport } from "@/layered/service/arc/imex/export";
-import { Layout } from "@/layout";
 
 export const Toolbar = (): ReactElement => {
-  const layoutKey = Arc.useKey();
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const key = Arc.useKey();
+  const name = Arc.useSelectName(key);
   const handleExport = useExport();
   return (
     <>
@@ -31,11 +30,8 @@ export const Toolbar = (): ReactElement => {
           </Breadcrumb.Segment>
         </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty style={{ height: "100%", width: 66 }}>
-          <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
-          <Cluster.CopyLinkToolbarButton
-            name={name}
-            ontologyID={arc.ontologyID(layoutKey)}
-          />
+          <Export.ToolbarButton onExport={() => void handleExport(key)} />
+          <Cluster.CopyLinkToolbarButton name={name} ontologyID={arc.ontologyID(key)} />
         </Flex.Box>
       </Base.Header>
       <Flex.Box center>

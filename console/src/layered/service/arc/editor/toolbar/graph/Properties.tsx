@@ -18,8 +18,8 @@ import {
   Input,
   Status,
 } from "@synnaxlabs/pluto";
-import { box, type direction, location, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback } from "react";
+import { box, deep, type direction, location, xy } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { Session } from "@/layered/session";
 
@@ -43,13 +43,15 @@ interface IndividualConfigProps {
 
 const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | null => {
   const config = Arc.useSelectNodeConfig({ nodeKey });
+  const initialValues = useMemo(() => deep.copy(config), [config]);
   const dispatch = Arc.useSingleDispatch();
   const formMethods = Form.use<typeof Arc.Graph.Node.configZ>({
-    values: structuredClone(config),
+    schema: Arc.Graph.Node.configZ,
+    values: initialValues,
     sync: true,
     onChange: useCallback(
       ({ values: config }: Form.OnChangeArgs<typeof Arc.Graph.Node.configZ>) =>
-        dispatch(arc.setNodeConfig({ key: nodeKey, config })),
+        dispatch(arc.setNodeConfig({ key: nodeKey, config: deep.copy(config) })),
       [dispatch, nodeKey],
     ),
   });
