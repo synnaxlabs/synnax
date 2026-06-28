@@ -13,11 +13,14 @@ import { Common } from "@/hardware/common";
 import { useConfigure } from "@/hardware/labjack/device/Configure";
 import { MAKE } from "@/hardware/labjack/device/types";
 
-export const Select = () => (
-  <Common.Device.Select
-    configureModal={useConfigure}
-    emptyContent="No LabJack devices connected."
-    make={MAKE}
-    icon={<Icon.Logo.LabJack />}
-  />
-);
+export const Select = () => {
+  const configure = useConfigure();
+  return (
+    <Common.Device.Select
+      onConfigure={(deviceKey) => configure({ deviceKey })}
+      emptyContent="No LabJack devices connected."
+      make={MAKE}
+      icon={<Icon.Logo.LabJack />}
+    />
+  );
+};

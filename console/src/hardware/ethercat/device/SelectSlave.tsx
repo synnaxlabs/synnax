@@ -37,6 +37,7 @@ export const SelectSlave = ({
 }: SelectSlaveProps): ReactElement => {
   const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
   const network = useCommonNetwork(channels);
+  const configure = useConfigure();
   const filter = useCallback(
     (d: device.Device) => filterByNetwork(d, network),
     [network],
@@ -45,7 +46,7 @@ export const SelectSlave = ({
     <Common.Device.Select
       path={path}
       label="Slave Device"
-      configureModal={useConfigure}
+      onConfigure={(deviceKey) => configure({ deviceKey })}
       emptyContent="No EtherCAT slaves discovered."
       make={MAKE}
       model={SLAVE_MODEL}

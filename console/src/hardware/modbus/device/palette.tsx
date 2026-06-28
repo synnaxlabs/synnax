@@ -14,8 +14,9 @@ import { useCallback } from "react";
 import { useConnect } from "@/hardware/modbus/device/Connect";
 import { Palette } from "@/palette";
 
-const ConnectServerCommand: Palette.Command = ({ placeModal, ...listProps }) => {
-  const handleSelect = useCallback(() => placeModal.open(useConnect, {}), [placeModal]);
+const ConnectServerCommand: Palette.Command = (listProps) => {
+  const connect = useConnect();
+  const handleSelect = useCallback(() => connect({}), [connect]);
   return (
     <Palette.CommandListItem
       {...listProps}

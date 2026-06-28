@@ -220,10 +220,11 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
 
 const Form: FC<Common.Task.FormProps<ReadSchemas>> = (props) => {
   const isSnapshot = Common.Task.useIsSnapshot();
+  const configure = Device.useConfigure();
   return (
     <Common.Device.Provider
       canConfigure={!isSnapshot}
-      configureModal={Device.useConfigure}
+      onConfigure={(deviceKey) => configure({ deviceKey })}
       schemas={Device.SCHEMAS}
     >
       {({ device }) => <ChannelsForm device={device} {...props} />}

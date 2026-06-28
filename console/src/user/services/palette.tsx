@@ -14,11 +14,9 @@ import { useCallback } from "react";
 import { Palette } from "@/palette";
 import { useOpenRegister } from "@/user/Register";
 
-const RegisterCommand: Palette.Command = ({ placeModal, ...listProps }) => {
-  const handleSelect = useCallback(
-    () => placeModal.open(useOpenRegister),
-    [placeModal],
-  );
+const RegisterCommand: Palette.Command = (listProps) => {
+  const open = useOpenRegister();
+  const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}

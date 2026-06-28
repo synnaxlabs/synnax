@@ -14,5 +14,4 @@ export {
   modalStore,
   type Renderer,
   type RenderProps,
-  type Size,
 } from "@/layered/session/modals/store";

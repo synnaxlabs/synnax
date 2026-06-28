@@ -15,15 +15,18 @@ import { MAKE } from "@/hardware/ni/device/types";
 
 export interface SelectProps extends Omit<
   Common.Device.SelectProps,
-  "configureModal" | "emptyContent" | "make"
+  "onConfigure" | "emptyContent" | "make"
 > {}
 
-export const Select = (props: SelectProps) => (
-  <Common.Device.Select
-    {...props}
-    configureModal={useConfigure}
-    emptyContent="No NI devices connected."
-    make={MAKE}
-    icon={<Icon.Logo.NI />}
-  />
-);
+export const Select = (props: SelectProps) => {
+  const configure = useConfigure();
+  return (
+    <Common.Device.Select
+      {...props}
+      onConfigure={(deviceKey) => configure({ deviceKey })}
+      emptyContent="No NI devices connected."
+      make={MAKE}
+      icon={<Icon.Logo.NI />}
+    />
+  );
+};

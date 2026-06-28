@@ -49,71 +49,68 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   full: "x",
 };
 
-export const useOpenRegister = Modals.create<void>(
-  { size: { height: 425, width: 650 } },
-  ({ close }) => {
-    const client = Synnax.use();
-    const { form, save, variant } = User.useForm({
-      query: {},
-      afterSave: useCallback(() => close(), [close]),
-    });
+export const useOpenRegister = Modals.create<void>(({ close }) => {
+  const client = Synnax.use();
+  const { form, save, variant } = User.useForm({
+    query: {},
+    afterSave: useCallback(() => close(), [close]),
+  });
 
-    return (
-      <Flex.Box grow empty>
-        <Modals.Header name="User.Register" icon="User" />
-        <Flex.Box
-          className="console-form"
-          justify="center"
-          style={{ padding: "1rem 3rem" }}
-          grow
-        >
-          <Form.Form<typeof User.formSchema> {...form}>
-            <Flex.Box y>
-              <Flex.Box x grow>
-                <Form.TextField
-                  path="firstName"
-                  label="First"
-                  inputProps={FIRST_NAME_INPUT_PROPS}
-                />
-                <Form.TextField
-                  path="lastName"
-                  label="Last"
-                  inputProps={LAST_NAME_INPUT_PROPS}
-                />
-              </Flex.Box>
+  return (
+    <Flex.Box grow empty>
+      <Modals.Header name="User.Register" icon="User" />
+      <Flex.Box
+        className="console-form"
+        justify="center"
+        style={{ padding: "1rem 3rem" }}
+        grow
+      >
+        <Form.Form<typeof User.formSchema> {...form}>
+          <Flex.Box y>
+            <Flex.Box x grow>
               <Form.TextField
-                path="username"
-                label="Username"
-                inputProps={USERNAME_INPUT_PROPS}
+                path="firstName"
+                label="First"
+                inputProps={FIRST_NAME_INPUT_PROPS}
               />
               <Form.TextField
-                path="password"
-                label="Password"
-                inputProps={PASSWORD_INPUT_PROPS}
+                path="lastName"
+                label="Last"
+                inputProps={LAST_NAME_INPUT_PROPS}
               />
-              <Form.Field<access.role.Key> path="role" label="Role">
-                {({ value, onChange }) => (
-                  <Access.Role.Select value={value} onChange={onChange} />
-                )}
-              </Form.Field>
             </Flex.Box>
-          </Form.Form>
-        </Flex.Box>
-        <Modals.BottomNavBar>
-          <Triggers.SaveHelpText action="Register" />
-          <Nav.Bar.End style={{ paddingRight: "2rem" }}>
-            <Button.Button
-              onClick={() => save()}
-              status={status.keepVariants(variant, "loading")}
-              disabled={client == null}
-              trigger={Triggers.SAVE}
-              variant="filled"
-            >
-              Register
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modals.BottomNavBar>
+            <Form.TextField
+              path="username"
+              label="Username"
+              inputProps={USERNAME_INPUT_PROPS}
+            />
+            <Form.TextField
+              path="password"
+              label="Password"
+              inputProps={PASSWORD_INPUT_PROPS}
+            />
+            <Form.Field<access.role.Key> path="role" label="Role">
+              {({ value, onChange }) => (
+                <Access.Role.Select value={value} onChange={onChange} />
+              )}
+            </Form.Field>
+          </Flex.Box>
+        </Form.Form>
       </Flex.Box>
-    );
-  },
-);
+      <Modals.BottomNavBar>
+        <Triggers.SaveHelpText action="Register" />
+        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
+          <Button.Button
+            onClick={() => save()}
+            status={status.keepVariants(variant, "loading")}
+            disabled={client == null}
+            trigger={Triggers.SAVE}
+            variant="filled"
+          >
+            Register
+          </Button.Button>
+        </Nav.Bar.End>
+      </Modals.BottomNavBar>
+    </Flex.Box>
+  );
+});

@@ -17,8 +17,9 @@ import { Palette } from "@/palette";
 
 const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
 
-const CreateCommand: Palette.Command = ({ placeModal, ...listProps }) => {
-  const handleSelect = useCallback(() => placeModal.open(useOpenCreate), [placeModal]);
+const CreateCommand: Palette.Command = (listProps) => {
+  const open = useOpenCreate();
+  const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}
@@ -32,11 +33,9 @@ CreateCommand.key = "create-channel";
 CreateCommand.commandName = "Create a channel";
 CreateCommand.useVisible = useVisible;
 
-const CreateCalculatedCommand: Palette.Command = ({ placeModal, ...listProps }) => {
-  const handleSelect = useCallback(
-    () => placeModal.open(useOpenCalculated),
-    [placeModal],
-  );
+const CreateCalculatedCommand: Palette.Command = (listProps) => {
+  const open = useOpenCalculated();
+  const handleSelect = useCallback(() => open({}), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}

@@ -92,95 +92,92 @@ const { useUpdate } = Flux.createUpdate<
   },
 });
 
-export const useOpenInfo = Modals.create<void>(
-  { size: { width: 500, height: 325 } },
-  () => {
-    const version = use();
-    const availableQuery = useRetrieveUpdateAvailable({});
-    const updateQuery = useUpdate();
-    let totalSize: Size = Size.bytes(0);
-    let amountDownloaded: Size = Size.bytes(0);
-    if (updateQuery.status.variant !== "error") {
-      totalSize = updateQuery.status.details.total;
-      amountDownloaded = updateQuery.status.details.progress;
-    }
+export const useOpenInfo = Modals.create<void>(() => {
+  const version = use();
+  const availableQuery = useRetrieveUpdateAvailable({});
+  const updateQuery = useUpdate();
+  let totalSize: Size = Size.bytes(0);
+  let amountDownloaded: Size = Size.bytes(0);
+  if (updateQuery.status.variant !== "error") {
+    totalSize = updateQuery.status.details.total;
+    amountDownloaded = updateQuery.status.details.progress;
+  }
 
-    const progressPercent = (amountDownloaded.valueOf() / totalSize.valueOf()) * 100;
+  const progressPercent = (amountDownloaded.valueOf() / totalSize.valueOf()) * 100;
 
-    let updateContent = (
-      <Status.Summary level="h4" weight={350} variant="loading" gap="medium">
-        Checking for updates
-      </Status.Summary>
-    );
-    if (availableQuery.variant === "error")
-      updateContent = <Status.Summary level="h4" status={availableQuery.status} />;
-    else if (updateQuery.variant === "error")
-      updateContent = <Status.Summary level="h4" status={updateQuery.status} />;
-    else if (updateQuery.variant === "loading")
-      if (progressPercent === 100)
-        updateContent = (
-          <Status.Summary level="h4" variant="loading" gap="medium">
-            Update downloaded. Restarting
+  let updateContent = (
+    <Status.Summary level="h4" weight={350} variant="loading" gap="medium">
+      Checking for updates
+    </Status.Summary>
+  );
+  if (availableQuery.variant === "error")
+    updateContent = <Status.Summary level="h4" status={availableQuery.status} />;
+  else if (updateQuery.variant === "error")
+    updateContent = <Status.Summary level="h4" status={updateQuery.status} />;
+  else if (updateQuery.variant === "loading")
+    if (progressPercent === 100)
+      updateContent = (
+        <Status.Summary level="h4" variant="loading" gap="medium">
+          Update downloaded. Restarting
+        </Status.Summary>
+      );
+    else
+      updateContent = (
+        <Flex.Box y gap="medium">
+          <Status.Summary variant="loading" level="h4" gap="medium">
+            Downloading update
           </Status.Summary>
-        );
-      else
-        updateContent = (
-          <Flex.Box y gap="medium">
-            <Status.Summary variant="loading" level="h4" gap="medium">
-              Downloading update
-            </Status.Summary>
-            <Flex.Box x gap="medium" align="center" justify="center">
-              <Progress.Progress value={progressPercent} />
-              <Text.Text color={10} overflow="ellipsis">
-                {Math.ceil(amountDownloaded.megabytes)} /{" "}
-                {Math.ceil(totalSize.megabytes)} MB
-              </Text.Text>
-            </Flex.Box>
-          </Flex.Box>
-        );
-    else if (availableQuery.variant == "success")
-      if (availableQuery.data != null) {
-        const update = availableQuery.data;
-        updateContent = (
-          <>
-            <Status.Summary level="h4" variant="success">
-              Version {update.version} available
-            </Status.Summary>
-            <Button.Button variant="filled" onClick={() => updateQuery.update(update)}>
-              Update & Restart
-            </Button.Button>
-          </>
-        );
-      } else
-        updateContent = (
-          <Status.Summary level="h4" variant="success">
-            Up to date
-          </Status.Summary>
-        );
-
-    return (
-      <>
-        <Modals.Header name="About.Version" icon="Info" />
-        <Flex.Box align="center" y gap="large" style={{ paddingTop: "6rem" }}>
-          <Flex.Box y gap="small" justify="center" align="center">
-            <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
-              <Logo variant="title" style={{ height: "10rem" }} />
-            </a>
-            <Text.Text level="h3" weight={350}>
-              Console v{version}
+          <Flex.Box x gap="medium" align="center" justify="center">
+            <Progress.Progress value={progressPercent} />
+            <Text.Text color={10} overflow="ellipsis">
+              {Math.ceil(amountDownloaded.megabytes)} / {Math.ceil(totalSize.megabytes)}{" "}
+              MB
             </Text.Text>
           </Flex.Box>
-          {updateContent}
-          <Text.Text
-            level="small"
-            color={10}
-            weight={350}
-            style={{ position: "absolute", bottom: "3rem" }}
-          >
-            © 2022-2026 Synnax Labs, Inc. All rights reserved
+        </Flex.Box>
+      );
+  else if (availableQuery.variant == "success")
+    if (availableQuery.data != null) {
+      const update = availableQuery.data;
+      updateContent = (
+        <>
+          <Status.Summary level="h4" variant="success">
+            Version {update.version} available
+          </Status.Summary>
+          <Button.Button variant="filled" onClick={() => updateQuery.update(update)}>
+            Update & Restart
+          </Button.Button>
+        </>
+      );
+    } else
+      updateContent = (
+        <Status.Summary level="h4" variant="success">
+          Up to date
+        </Status.Summary>
+      );
+
+  return (
+    <>
+      <Modals.Header name="About.Version" icon="Info" />
+      <Flex.Box align="center" y gap="large" style={{ paddingTop: "6rem" }}>
+        <Flex.Box y gap="small" justify="center" align="center">
+          <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
+            <Logo variant="title" style={{ height: "10rem" }} />
+          </a>
+          <Text.Text level="h3" weight={350}>
+            Console v{version}
           </Text.Text>
         </Flex.Box>
-      </>
-    );
-  },
-);
+        {updateContent}
+        <Text.Text
+          level="small"
+          color={10}
+          weight={350}
+          style={{ position: "absolute", bottom: "3rem" }}
+        >
+          © 2022-2026 Synnax Labs, Inc. All rights reserved
+        </Text.Text>
+      </Flex.Box>
+    </>
+  );
+});

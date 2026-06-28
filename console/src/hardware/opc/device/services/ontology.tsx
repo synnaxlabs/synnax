@@ -20,17 +20,21 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
     { itemKey: "opc.writeTask", label: "Create write task", layout: Task.WRITE_LAYOUT },
   ];
 
-export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
-  <>
-    <Common.DeviceServices.EditConnectionMenuItem
-      {...props}
-      configureModal={Device.useConnect}
-    />
-    <Menu.Divider />
-    <Common.DeviceServices.TaskContextMenuItems
-      {...props}
-      configureModal={Device.useConnect}
-      taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
-    />
-  </>
-);
+export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
+  const connect = Device.useConnect();
+  const onConfigure = (deviceKey: string) => connect({ deviceKey });
+  return (
+    <>
+      <Common.DeviceServices.EditConnectionMenuItem
+        {...props}
+        onConfigure={onConfigure}
+      />
+      <Menu.Divider />
+      <Common.DeviceServices.TaskContextMenuItems
+        {...props}
+        onConfigure={onConfigure}
+        taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+      />
+    </>
+  );
+};

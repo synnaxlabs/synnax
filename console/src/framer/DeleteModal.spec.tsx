@@ -13,13 +13,10 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useOpenDeleteModal } from "@/framer/DeleteModal";
-import { Modals } from "@/layered/service/modals";
+import { DeleteModal } from "@/framer/DeleteModal";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 const NullWrapper = createSynnaxWrapper({ client: null });
-
-const DeleteModal = Modals.renderer(useOpenDeleteModal);
 
 const renderModal = (
   Wrapper: FC<PropsWithChildren> = NullWrapper,

@@ -18,67 +18,64 @@ import { Triggers } from "@/triggers";
 
 export type CreateLayoutArgs = Partial<z.infer<typeof Status.formSchema>>;
 
-export const useOpenCreate = Modals.create<CreateLayoutArgs>(
-  { size: { height: 440, width: 700 } },
-  ({ args, close }) => {
-    const { form, save, variant } = Status.useForm({
-      query: { key: args?.key },
-      autoSave: false,
-      initialValues: {
-        ...args,
-        key: "",
-        message: "",
-        time: TimeStamp.now(),
-        name: "",
-        description: "",
-        variant: "success",
-        labels: [],
-      },
-      afterSave: () => close(),
-    });
+export const useOpenCreate = Modals.create<CreateLayoutArgs>(({ args, close }) => {
+  const { form, save, variant } = Status.useForm({
+    query: { key: args?.key },
+    autoSave: false,
+    initialValues: {
+      ...args,
+      key: "",
+      message: "",
+      time: TimeStamp.now(),
+      name: "",
+      description: "",
+      variant: "success",
+      labels: [],
+    },
+    afterSave: () => close(),
+  });
 
-    return (
-      <Flex.Box grow empty>
-        <Modals.Header name="Status.Create" icon="Status" />
-        <Flex.Box grow empty style={{ padding: "2rem 3rem" }}>
-          <Form.Form<typeof Status.formSchema> {...form}>
-            <Form.TextField
-              path="name"
-              inputProps={{
-                autoFocus: true,
-                level: "h2",
-                variant: "text",
-                placeholder: "Name",
-              }}
-            />
-            <Form.Field<status.Variant> path="variant" label="Variant">
-              {(props) => <Status.SelectVariant {...props} />}
-            </Form.Field>
-            <Form.TextField
-              path="message"
-              label="Message"
-              inputProps={{ placeholder: "Message" }}
-            />
-            <Form.Field<string[]> path="labels" required={false}>
-              {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
-            </Form.Field>
-          </Form.Form>
-        </Flex.Box>
-        <Modals.BottomNavBar>
-          <Triggers.SaveHelpText action="Save" />
-          <Nav.Bar.End>
-            <Button.Button
-              variant="filled"
-              onClick={() => save()}
-              tooltipLocation="bottom"
-              status={variant}
-              trigger={Triggers.SAVE}
-            >
-              Create
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modals.BottomNavBar>
+  return (
+    <Flex.Box grow empty>
+      <Modals.Header name="Status.Create" icon="Status" />
+      <Flex.Box grow empty style={{ padding: "2rem 3rem" }}>
+        <Form.Form<typeof Status.formSchema> {...form}>
+          <Form.TextField
+            path="name"
+            inputProps={{
+              autoFocus: true,
+              level: "h2",
+              variant: "text",
+              placeholder: "Name",
+            }}
+          />
+          <Form.Field<status.Variant> path="variant" label="Variant">
+            {(props) => <Status.SelectVariant {...props} />}
+          </Form.Field>
+          <Form.TextField
+            path="message"
+            label="Message"
+            inputProps={{ placeholder: "Message" }}
+          />
+          <Form.Field<string[]> path="labels" required={false}>
+            {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
+          </Form.Field>
+        </Form.Form>
       </Flex.Box>
-    );
-  },
-);
+      <Modals.BottomNavBar>
+        <Triggers.SaveHelpText action="Save" />
+        <Nav.Bar.End>
+          <Button.Button
+            variant="filled"
+            onClick={() => save()}
+            tooltipLocation="bottom"
+            status={variant}
+            trigger={Triggers.SAVE}
+          >
+            Create
+          </Button.Button>
+        </Nav.Bar.End>
+      </Modals.BottomNavBar>
+    </Flex.Box>
+  );
+});

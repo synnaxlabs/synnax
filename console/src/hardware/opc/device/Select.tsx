@@ -30,12 +30,15 @@ const EmptyContent = () => {
   );
 };
 
-export const Select = () => (
-  <Common.Device.Select
-    configureModal={useConnect}
-    emptyContent={<EmptyContent />}
-    label="OPC UA Server"
-    make={MAKE}
-    icon={<Icon.Logo.OPC />}
-  />
-);
+export const Select = () => {
+  const connect = useConnect();
+  return (
+    <Common.Device.Select
+      onConfigure={(deviceKey) => connect({ deviceKey })}
+      emptyContent={<EmptyContent />}
+      label="OPC UA Server"
+      make={MAKE}
+      icon={<Icon.Logo.OPC />}
+    />
+  );
+};

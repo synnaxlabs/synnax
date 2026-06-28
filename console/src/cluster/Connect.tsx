@@ -49,7 +49,6 @@ const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
 };
 
 export const useOpenConnect = Modals.create<ConnectClusterArgs>(
-  { size: { height: 300, width: 650 } },
   ({ args: { clusterKey }, close }) => {
     const dispatch = useDispatch();
     const isEdit = clusterKey != null;

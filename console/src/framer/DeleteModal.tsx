@@ -49,28 +49,29 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to delete",
 };
 
-export const useOpenDeleteModal = Modals.create<void>(
-  { size: { height: 350, width: 700 } },
-  ({ close }) => {
-    const [step, setStep] = useState<"form" | "confirm">("form");
-    const methods = Form.use({
-      schema: formSchema,
-      values: { channels: [], timeRange: TimeRange.MAX.numeric },
-    });
-    return (
-      <Form.Form<typeof formSchema> {...methods}>
-        <Flex.Box align="stretch" direction="y" empty grow>
-          <Modals.Header name="Data.Delete" icon="Channel" />
-          {step === "form" ? (
-            <FormStep onNext={() => setStep("confirm")} />
-          ) : (
-            <ConfirmStep onBack={() => setStep("form")} onClose={close} />
-          )}
-        </Flex.Box>
-      </Form.Form>
-    );
-  },
-);
+export const DeleteModal = ({
+  close,
+}: Modals.RenderProps<void, void>): ReactElement => {
+  const [step, setStep] = useState<"form" | "confirm">("form");
+  const methods = Form.use({
+    schema: formSchema,
+    values: { channels: [], timeRange: TimeRange.MAX.numeric },
+  });
+  return (
+    <Form.Form<typeof formSchema> {...methods}>
+      <Flex.Box align="stretch" direction="y" empty grow>
+        <Modals.Header name="Data.Delete" icon="Channel" />
+        {step === "form" ? (
+          <FormStep onNext={() => setStep("confirm")} />
+        ) : (
+          <ConfirmStep onBack={() => setStep("form")} onClose={close} />
+        )}
+      </Flex.Box>
+    </Form.Form>
+  );
+};
+
+export const useOpenDeleteModal = Modals.create(DeleteModal);
 
 interface FormStepProps {
   onNext: () => void;

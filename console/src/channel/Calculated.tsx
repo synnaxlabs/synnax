@@ -42,7 +42,6 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
 };
 
 export const useOpenCalculated = Modals.create<CalculatedLayoutArgs>(
-  { size: { height: 600, width: 1000 } },
   ({ args, close }) => {
     const isEdit = args?.channelKey !== 0;
     const {

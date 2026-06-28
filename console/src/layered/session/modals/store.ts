@@ -9,12 +9,6 @@
 
 import { type ComponentType } from "react";
 
-/** The fixed maximum dimensions of a modal dialog, applied by the modal frame. */
-export interface Size {
-  width?: number;
-  height?: number;
-}
-
 /**
  * The props handed to every modal renderer. A renderer receives its typed args and a
  * single close callback; calling close with a result resolves the caller's promise (for
@@ -43,8 +37,6 @@ export interface Entry<Args = unknown, Result = unknown> {
   key: string;
   /** The component that renders this modal. */
   render: Renderer<Args, Result>;
-  /** The fixed maximum dimensions of the dialog. */
-  size?: Size;
   /** The typed arguments handed to the renderer. */
   args: Args;
   /**

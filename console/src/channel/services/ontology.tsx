@@ -167,20 +167,20 @@ export const useDeleteAlias = ({
   );
 };
 
-const useOpenCalculated =
-  () =>
-  ({
+const useOpenCalculated = () => {
+  const open = Channel.useOpenCalculated();
+  return ({
     selection: { ids },
-    placeModal,
     state: { getResource },
   }: Ontology.TreeContextMenuProps) => {
     if (ids.length !== 1) return;
     const resource = getResource(ids[0]);
-    placeModal.open(Channel.useOpenCalculated, {
+    open({
       channelKey: Number(resource.id.key),
       title: `${resource.name}.Edit`,
     });
   };
+};
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {

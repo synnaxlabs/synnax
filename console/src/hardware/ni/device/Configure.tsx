@@ -11,15 +11,14 @@ import { Common } from "@/hardware/common";
 import { ZERO_PROPERTIES } from "@/hardware/ni/device/types";
 import { Modals } from "@/layered/service/modals";
 
-export const useConfigure = Modals.create<{
-  deviceKey?: string;
-  title?: string;
-}>({ size: { height: 325, width: 800 } }, ({ args, close }) => (
-  <Common.Device.Configure
-    deviceKey={args.deviceKey ?? ""}
-    close={close}
-    icon="Logo.NI"
-    title={args.title}
-    initialProperties={ZERO_PROPERTIES}
-  />
-));
+export const useConfigure = Modals.create<{ deviceKey?: string; title?: string }>(
+  ({ args, close }) => (
+    <Common.Device.Configure
+      deviceKey={args.deviceKey ?? ""}
+      close={close}
+      icon="Logo.NI"
+      title={args.title}
+      initialProperties={ZERO_PROPERTIES}
+    />
+  ),
+);

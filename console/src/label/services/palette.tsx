@@ -16,8 +16,9 @@ import { Palette } from "@/palette";
 
 const useVisible = () => Access.useUpdateGranted(label.TYPE_ONTOLOGY_ID);
 
-export const EditCommand: Palette.Command = ({ placeModal, ...listProps }) => {
-  const handleSelect = useCallback(() => placeModal.open(useOpenEdit), [placeModal]);
+export const EditCommand: Palette.Command = (listProps) => {
+  const open = useOpenEdit();
+  const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}

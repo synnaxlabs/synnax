@@ -10,23 +10,18 @@
 import "@/layered/app/modals/Modal.css";
 
 import { Dialog, Errors } from "@synnaxlabs/pluto";
-import { type CSSProperties, type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { DismissProvider } from "@/layered/service/modals/Dismiss";
 import { useStore } from "@/layered/session/modals/Provider";
-import { type Entry, type Size } from "@/layered/session/modals/store";
-
-const sizeCSS = (size?: Size): CSSProperties => ({
-  maxWidth: size?.width,
-  maxHeight: size?.height,
-});
+import { type Entry } from "@/layered/session/modals/store";
 
 interface ModalProps {
   entry: Entry;
 }
 
 export const Modal = ({ entry }: ModalProps): ReactElement => {
-  const { key, render: Renderer, size, args } = entry;
+  const { key, render: Renderer, args } = entry;
   const store = useStore();
   const dismiss = useCallback(() => store.close(key), [store, key]);
   const close = useCallback(
@@ -41,7 +36,7 @@ export const Modal = ({ entry }: ModalProps): ReactElement => {
       onVisibleChange={dismiss}
       background={0}
     >
-      <Dialog.Dialog style={sizeCSS(size)} full>
+      <Dialog.Dialog full>
         <Errors.SuspenseBoundary>
           <DismissProvider value={dismiss}>
             <Renderer args={args} close={close} />

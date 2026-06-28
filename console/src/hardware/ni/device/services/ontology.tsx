@@ -43,18 +43,19 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
     },
   ];
 
-export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
-  <>
-    <Common.DeviceServices.ConfigureMenuItem
-      {...props}
-      configureModal={Device.useConfigure}
-    />
-    <Common.DeviceServices.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
-    <Menu.Divider />
-    <Common.DeviceServices.TaskContextMenuItems
-      {...props}
-      configureModal={Device.useConfigure}
-      taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
-    />
-  </>
-);
+export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
+  const configure = Device.useConfigure();
+  const onConfigure = (deviceKey: string) => configure({ deviceKey });
+  return (
+    <>
+      <Common.DeviceServices.ConfigureMenuItem {...props} onConfigure={onConfigure} />
+      <Common.DeviceServices.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
+      <Menu.Divider />
+      <Common.DeviceServices.TaskContextMenuItems
+        {...props}
+        onConfigure={onConfigure}
+        taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+      />
+    </>
+  );
+};

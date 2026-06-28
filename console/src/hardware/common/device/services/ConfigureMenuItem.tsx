@@ -10,27 +10,25 @@
 import { device } from "@synnaxlabs/client";
 import { Access, Icon, Menu } from "@synnaxlabs/pluto";
 
-import { Modals } from "@/layered/service/modals";
 import { type Ontology } from "@/ontology";
 
 export interface ConfigureMenuItemProps extends Pick<
   Ontology.TreeContextMenuProps,
   "selection" | "state"
 > {
-  configureModal: Modals.OpenHook<{ deviceKey?: string; title?: string }>;
+  onConfigure: (deviceKey: string) => void;
 }
 
 export const ConfigureMenuItem = ({
-  configureModal,
+  onConfigure,
   selection: { ids },
   state: { getResource },
 }: ConfigureMenuItemProps) => {
-  const { open } = Modals.use();
   const first = getResource(ids[0]);
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
   if (ids.length !== 1 || first.data?.configured === true || !hasUpdatePermission)
     return null;
-  const handleClick = () => open(configureModal, { deviceKey: first.id.key });
+  const handleClick = () => onConfigure(first.id.key);
   return (
     <Menu.Item itemKey="configure" onClick={handleClick}>
       <Icon.Hardware />

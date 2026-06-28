@@ -44,7 +44,6 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
-import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
 import { DefaultContextMenu } from "@/ontology/DefaultContextMenu";
 import { MultipleSelectionContextMenu } from "@/ontology/MultipleSelectionContextMenu";
@@ -360,7 +359,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
 
   const placeLayout = Layout.usePlacer();
-  const placeModal = Modals.use();
   const removeLayout = Layout.useRemover();
   const addStatus = Status.useAdder();
   const store = useStore<RootState, RootAction>();
@@ -372,13 +370,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       client,
       store,
       placeLayout,
-      placeModal,
       removeLayout,
       addStatus,
       handleError,
       services,
     }),
-    [store, placeLayout, placeModal, removeLayout, addStatus, handleError, services],
+    [store, placeLayout, removeLayout, addStatus, handleError, services],
   );
 
   const handleDrop = useCallback(

@@ -52,7 +52,6 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 const DEFAULT_REGION_KEY = "default";
 
 export const useOpenEdit = Modals.create<CreateLayoutArgs>(
-  { size: { width: 1200, height: 800 } },
   ({ args: { key, parent, createKey }, close }): ReactElement => {
     const isCreate = key == null;
     const theme = Theming.use();

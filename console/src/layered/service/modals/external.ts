@@ -11,12 +11,9 @@ export {
   create,
   type Opener,
   type OpenHook,
-  type Options,
   type Prompt,
   prompt,
   type PromptHook,
-  renderer,
-  type Spec,
 } from "@/layered/service/modals/Base";
 export * from "@/layered/service/modals/BottomNavBar";
 export {
@@ -32,9 +29,4 @@ export {
   type PromptRenameLayoutArgs,
   useRename,
 } from "@/layered/service/modals/Rename";
-export { type Placer, use } from "@/layered/service/modals/use";
-export {
-  type Renderer,
-  type RenderProps,
-  type Size,
-} from "@/layered/session/modals/store";
+export { type Renderer, type RenderProps } from "@/layered/session/modals/store";

@@ -47,7 +47,6 @@ import { CSS } from "@/css";
 import { Import } from "@/import";
 import { App } from "@/layered/app";
 import { LinePlot } from "@/layered/service/lineplot";
-import { Modals } from "@/layered/service/modals";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
@@ -235,7 +234,6 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const activeTab = Layout.useSelectActiveMosaicTabState();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
-  const placeModal = Modals.use();
   const removeLayout = Layout.useRemover();
   const dispatch = useDispatch();
   const addStatus = Status.useAdder();
@@ -270,7 +268,6 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             nodeKey: mosaicKey,
             location,
             placeLayout,
-            placeModal,
             addStatus,
             handleError,
             removeLayout,
@@ -279,16 +276,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         } else placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
       });
     },
-    [
-      placeLayout,
-      placeModal,
-      store,
-      client,
-      addStatus,
-      handleError,
-      removeLayout,
-      services,
-    ],
+    [placeLayout, store, client, addStatus, handleError, removeLayout, services],
   );
 
   LinePlot.useTriggerHold();

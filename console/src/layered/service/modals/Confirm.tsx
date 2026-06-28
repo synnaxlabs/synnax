@@ -32,7 +32,6 @@ export interface PromptConfirmLayoutArgs {
 export interface PromptConfirm extends Prompt<boolean, PromptConfirmLayoutArgs> {}
 
 export const useConfirm = prompt<boolean, PromptConfirmLayoutArgs>(
-  { size: { width: 700, height: 250 } },
   ({
     args: { message, description, confirm = {}, cancel = {}, title = "Confirm", icon },
     close,

@@ -35,6 +35,8 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const keys = props.selection.ids.map((id) => id.key);
   const store = Flux.useStore<PlutoDevice.FluxSubStore>();
   const { update: toggleEnabled } = useToggleEnabled();
+  const configure = Device.useConfigure();
+  const onConfigure = (deviceKey: string) => configure({ deviceKey });
 
   const { allDisabled, allEnabled } = useMemo(() => {
     const devices = store.devices.get(keys) as SlaveDevice[];
@@ -55,15 +57,12 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
 
   return (
     <>
-      <Common.DeviceServices.ConfigureMenuItem
-        {...props}
-        configureModal={Device.useConfigure}
-      />
+      <Common.DeviceServices.ConfigureMenuItem {...props} onConfigure={onConfigure} />
       <Common.DeviceServices.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
       <Menu.Divider />
       <Common.DeviceServices.TaskContextMenuItems
         {...props}
-        configureModal={Device.useConfigure}
+        onConfigure={onConfigure}
         taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
       />
       <Menu.Divider />

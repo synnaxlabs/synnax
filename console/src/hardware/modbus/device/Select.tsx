@@ -29,11 +29,14 @@ const EmptyContent = () => {
   );
 };
 
-export const Select = () => (
-  <Common.Device.Select
-    configureModal={useConnect}
-    emptyContent={<EmptyContent />}
-    label="Modbus Server"
-    make={MAKE}
-  />
-);
+export const Select = () => {
+  const connect = useConnect();
+  return (
+    <Common.Device.Select
+      onConfigure={(deviceKey) => connect({ deviceKey })}
+      emptyContent={<EmptyContent />}
+      label="Modbus Server"
+      make={MAKE}
+    />
+  );
+};

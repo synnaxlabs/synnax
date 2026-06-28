@@ -33,11 +33,14 @@ const EmptyContent = () => {
 
 const emptyContent = <EmptyContent />;
 
-export const Select = () => (
-  <Common.Device.Select
-    configureModal={useConnect}
-    emptyContent={emptyContent}
-    label="HTTP server"
-    make={MAKE}
-  />
-);
+export const Select = () => {
+  const connect = useConnect();
+  return (
+    <Common.Device.Select
+      onConfigure={(deviceKey) => connect({ deviceKey })}
+      emptyContent={emptyContent}
+      label="HTTP server"
+      make={MAKE}
+    />
+  );
+};

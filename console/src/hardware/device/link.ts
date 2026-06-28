@@ -9,22 +9,18 @@
 
 import { useCallback } from "react";
 
-import { CONFIGURE_MODALS, getMake } from "@/hardware/device/make";
+import { getMake, useConfigure } from "@/hardware/device/make";
 import { type Link } from "@/layered/service/link";
-import { Modals } from "@/layered/service/modals";
 
 export const useLink = (): Link.Handler => {
-  const placeModal = Modals.use();
+  const configure = useConfigure();
   return useCallback(
     async ({ client, key }) => {
       const device = await client.devices.retrieve({ key });
       const make = getMake(device.make);
       if (make == null) return;
-      placeModal.open(CONFIGURE_MODALS[make], {
-        deviceKey: device.key,
-        title: device.name,
-      });
+      configure(make, device.key, device.name);
     },
-    [placeModal],
+    [configure],
   );
 };

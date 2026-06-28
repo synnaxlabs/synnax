@@ -49,7 +49,6 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
 export interface PromptDownload extends Modals.Prompt<void, DownloadModalArgs> {}
 
 export const useDownloadModal = Modals.prompt<void, DownloadModalArgs>(
-  { size: { height: 475, width: 700 } },
   ({ args: { timeRange, channels, name, channelNames, icon }, close }) => {
     const form = Form.use<typeof formSchema>({
       schema: formSchema,

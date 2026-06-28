@@ -18,7 +18,6 @@ import {
 import { type location } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { type Modals } from "@/layered/service/modals";
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
 
@@ -43,7 +42,6 @@ export interface BaseProps {
   client: Synnax;
   store: RootStore;
   placeLayout: Layout.Placer;
-  placeModal: Modals.Placer;
   removeLayout: Layout.Remover;
   services: Services;
   addStatus: Status.Adder;

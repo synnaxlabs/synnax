@@ -18,7 +18,6 @@ export interface AssignRoleLayoutArgs extends Access.Role.RetrieveQuery {
 }
 
 export const useOpenAssignRole = Modals.create<AssignRoleLayoutArgs>(
-  { size: { height: 200, width: 500 } },
   ({ args, close }) => {
     const client = Synnax.use();
     const { form, save, variant } = Access.Role.useChangeRoleForm({

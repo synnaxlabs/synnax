@@ -9,23 +9,21 @@
 
 import { Icon, Menu } from "@synnaxlabs/pluto";
 
-import { Modals } from "@/layered/service/modals";
 import { type Ontology } from "@/ontology";
 
 export interface EditConnectionMenuItemProps extends Pick<
   Ontology.TreeContextMenuProps,
   "selection"
 > {
-  configureModal: Modals.OpenHook<{ deviceKey?: string; title?: string }>;
+  onConfigure: (deviceKey: string) => void;
 }
 
 export const EditConnectionMenuItem = ({
-  configureModal,
+  onConfigure,
   selection: { ids },
 }: EditConnectionMenuItemProps) => {
-  const { open } = Modals.use();
   if (ids.length !== 1) return null;
-  const handleClick = () => open(configureModal, { deviceKey: ids[0].key });
+  const handleClick = () => onConfigure(ids[0].key);
   return (
     <Menu.Item itemKey="editConnection" onClick={handleClick}>
       <Icon.Edit />

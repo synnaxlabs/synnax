@@ -25,7 +25,6 @@ export interface PromptRenameLayoutArgs {
 export interface PromptRename extends Prompt<string, PromptRenameLayoutArgs> {}
 
 export const useRename = prompt<string, PromptRenameLayoutArgs>(
-  { size: { width: 700, height: 250 } },
   ({
     args: { allowEmpty = false, label = "Name", initialValue, title = "Name", icon },
     close,

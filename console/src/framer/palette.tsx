@@ -14,11 +14,9 @@ import { useCallback } from "react";
 import { useOpenDeleteModal } from "@/framer/DeleteModal";
 import { Palette } from "@/palette";
 
-const DeleteDataCommand: Palette.Command = ({ placeModal, ...listProps }) => {
-  const handleSelect = useCallback(
-    () => placeModal.open(useOpenDeleteModal),
-    [placeModal],
-  );
+const DeleteDataCommand: Palette.Command = (listProps) => {
+  const open = useOpenDeleteModal();
+  const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}

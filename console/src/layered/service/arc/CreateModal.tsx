@@ -68,7 +68,6 @@ const ArcModeSelectButton = ({
 };
 
 export const useCreateModal = prompt<CreateArcResult, CreateArcArgs>(
-  { size: { height: 350, width: 650 } },
   ({ args: { initialName, initialMode }, close }) => {
     const [name, setName] = useState(initialName ?? "");
     const [mode, setMode] = useState<arc.Mode>(initialMode ?? "graph");
