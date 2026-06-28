@@ -27,21 +27,17 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { identifierZ, nameZ } from "@/hardware/common/device/types";
-import { type Layout } from "@/layout";
+import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
-
-export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type"> = {
-  icon: "Device",
-  location: "modal",
-  name: "Configure",
-  window: { resizable: false, size: { height: 325, width: 800 }, navTop: true },
-};
 
 interface InternalProps<
   Properties extends z.ZodType<record.Unknown>,
   Make extends z.ZodType<string>,
   Model extends z.ZodType<string>,
-> extends Pick<Layout.RendererProps, "onClose"> {
+> {
+  close: () => void;
+  icon: Icon.ReactElement | string;
+  title?: string;
   device: device.Device<Properties, Make, Model>;
   initialProperties: z.infer<Properties>;
 }
@@ -56,7 +52,9 @@ const Internal = <
 >({
   device,
   device: { name },
-  onClose,
+  close,
+  icon,
+  title,
   initialProperties,
 }: InternalProps<Properties, Make, Model>) => {
   const methods = Form.use<ConfigurablePropertiesZ>({
@@ -93,11 +91,12 @@ const Internal = <
       if (!methods.validate("identifier")) return false;
       return deviceToCreate();
     }, [isNameStep, methods, setStep, setRecommendedIds, identifierRef]),
-    afterSuccess: useCallback(() => onClose(), [onClose]),
+    afterSuccess: useCallback(() => close(), [close]),
   });
 
   return (
     <Flex.Box align="stretch" className={CSS.B("configure")} empty>
+      <Modals.Header name={title ?? "Device.Configure"} icon={icon} />
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
         <Flex.Box
           align="stretch"
@@ -179,20 +178,22 @@ export interface ConfigureProps<
   Properties extends z.ZodType<record.Unknown>,
   Make extends z.ZodType<string>,
   Model extends z.ZodType<string>,
->
-  extends
-    Layout.RendererProps,
-    Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
+> extends Pick<
+  InternalProps<Properties, Make, Model>,
+  "close" | "icon" | "title" | "initialProperties"
+> {
+  deviceKey: string;
+}
 
 export const Configure = <
   Properties extends z.ZodType<record.Unknown>,
   Make extends z.ZodType<string>,
   Model extends z.ZodType<string>,
 >({
-  layoutKey,
+  deviceKey,
   ...rest
 }: ConfigureProps<Properties, Make, Model>) => {
-  const { data, status, variant } = Device.useRetrieve({ key: layoutKey });
+  const { data, status, variant } = Device.useRetrieve({ key: deviceKey });
   if (variant !== "success") return <Status.Summary status={status} />;
   return <Internal device={data} {...rest} />;
 };

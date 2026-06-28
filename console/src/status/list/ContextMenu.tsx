@@ -13,7 +13,7 @@ import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/components";
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectFavoriteSet } from "@/status/selectors";
 import { addFavorites, removeFavorites } from "@/status/slice";
@@ -36,10 +36,11 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const rename = Status.useRename({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<Status.RenameParams>) => {
-        const renamed = await renameModal(
-          { initialValue: data.name },
-          { icon: "Status", name: "Status.Rename" },
-        );
+        const renamed = await renameModal({
+          initialValue: data.name,
+          title: "Status.Rename",
+          icon: "Status",
+        });
         if (renamed == null) return false;
         return { ...data, name: renamed };
       },

@@ -22,7 +22,7 @@ import {
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { CONNECT_LAYOUT, CONNECT_LAYOUT_TYPE } from "@/cluster/Connect";
+import { useOpenConnect } from "@/cluster/Connect";
 import { Item } from "@/cluster/list/Item";
 import { useSelectMany } from "@/cluster/selectors";
 import { changeKey, remove } from "@/cluster/slice";
@@ -68,7 +68,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
 
   const handleLink = Link.useCopyToClipboard();
 
-  const placeLayout = Layout.usePlacer();
+  const openConnect = useOpenConnect();
 
   const handleRetest = (key: string): void => {
     const cluster = allClusters.find((c) => c.key === key);
@@ -102,7 +102,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   };
 
   const handleEdit = (key: string): void => {
-    placeLayout({ ...CONNECT_LAYOUT, key, type: CONNECT_LAYOUT_TYPE });
+    openConnect({ clusterKey: key });
   };
 
   const contextMenu = useCallback(
@@ -150,7 +150,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             <Icon.Cluster />
             Cores
           </Header.Title>
-          <Button.Button onClick={() => placeLayout(CONNECT_LAYOUT)} variant="filled">
+          <Button.Button onClick={() => openConnect({})} variant="filled">
             <Icon.Add />
           </Button.Button>
         </Header.Header>
@@ -159,7 +159,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             <EmptyAction
               message="No Cores added."
               action="Add a Core"
-              onClick={() => placeLayout(CONNECT_LAYOUT)}
+              onClick={() => openConnect({})}
             />
           ) : (
             keys.map((key, i) => (

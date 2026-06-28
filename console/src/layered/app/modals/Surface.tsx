@@ -7,21 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layout/Modals.css";
-
 import { type ReactElement } from "react";
 
-import { Modal } from "@/layout/Modal";
-import { useSelectWindowModals } from "@/layout/selectors";
-import { useRemover } from "@/layout/useRemover";
+import { Modal } from "@/layered/app/modals/Modal";
+import { useStack } from "@/layered/session/modals/Provider";
 
-export const Modals = (): ReactElement => {
-  const layouts = useSelectWindowModals();
-  const remove = useRemover();
+export const Surface = (): ReactElement => {
+  const stack = useStack();
   return (
     <>
-      {layouts.map((l) => (
-        <Modal key={l.key} state={l} remove={remove} />
+      {stack.map((entry) => (
+        <Modal key={entry.key} entry={entry} />
       ))}
     </>
   );

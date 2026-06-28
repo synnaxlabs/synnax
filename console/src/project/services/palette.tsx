@@ -19,13 +19,23 @@ import { import_ } from "@/project/services/import";
 const useCreateVisible = () => Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
 
-const CreateCommand = Palette.createSimpleCommand({
-  key: "project-create",
-  name: "Create a project",
-  icon: <PProject.CreateIcon />,
-  layout: Project.CREATE_LAYOUT,
-  useVisible: useCreateVisible,
-});
+const CreateCommand: Palette.Command = ({ placeModal, ...listProps }) => {
+  const handleSelect = useCallback(
+    () => placeModal.open(Project.useOpenCreate),
+    [placeModal],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create a project"
+      icon={<PProject.CreateIcon />}
+      onSelect={handleSelect}
+    />
+  );
+};
+CreateCommand.key = "project-create";
+CreateCommand.commandName = "Create a project";
+CreateCommand.useVisible = useCreateVisible;
 
 const ImportProjectCommand: Palette.Command = ({
   placeLayout,

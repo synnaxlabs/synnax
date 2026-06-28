@@ -10,9 +10,9 @@
 import { type device } from "@synnaxlabs/client";
 import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
-import { CONFIGURE_LAYOUTS, getIcon, getMake, type Make } from "@/hardware/device/make";
+import { CONFIGURE_MODALS, getIcon, getMake, type Make } from "@/hardware/device/make";
 import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";
-import { Layout } from "@/layout";
+import { Modals } from "@/layered/service/modals";
 import { type Notifications } from "@/notifications";
 
 const shouldShowConfigureButton = (make: Make): boolean =>
@@ -33,18 +33,25 @@ const notificationAdapter: Notifications.Adapter<ReturnType<typeof device.device
     </Text.Text>
   );
   if (make != null && shouldShowConfigureButton(make))
-    sugared.actions = <ConfigureButton layout={{ ...CONFIGURE_LAYOUTS[make], key }} />;
+    sugared.actions = (
+      <ConfigureButton modal={CONFIGURE_MODALS[make]} deviceKey={key} />
+    );
   return sugared;
 };
 
 interface ConfigureButtonProps {
-  layout: Layout.BaseState;
+  modal: Modals.OpenHook<{ deviceKey?: string; title?: string }>;
+  deviceKey: string;
 }
 
-const ConfigureButton = ({ layout }: ConfigureButtonProps) => {
-  const placeLayout = Layout.usePlacer();
+const ConfigureButton = ({ modal, deviceKey }: ConfigureButtonProps) => {
+  const { open } = Modals.use();
   return (
-    <Button.Button variant="outlined" size="tiny" onClick={() => placeLayout(layout)}>
+    <Button.Button
+      variant="outlined"
+      size="tiny"
+      onClick={() => open(modal, { deviceKey })}
+    >
       <Icon.Hardware />
       Configure
     </Button.Button>

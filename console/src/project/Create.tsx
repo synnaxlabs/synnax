@@ -9,85 +9,77 @@
 
 import { status, UnexpectedError } from "@synnaxlabs/client";
 import { Button, Flex, Form, Input, Nav, Project, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
+import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 import { useSelectOptionalActiveKey } from "@/project/selectors";
 import { setActive } from "@/project/slice";
 import { Triggers } from "@/triggers";
 
-export const CREATE_LAYOUT_TYPE = "createProject";
+export const useOpenCreate = Modals.create<void>(
+  { size: { height: 225, width: 625 } },
+  ({ close }) => {
+    const client = Synnax.use();
+    const dispatch = useDispatch();
+    const active = useSelectOptionalActiveKey();
 
-export const CREATE_LAYOUT: Layout.BaseState = {
-  key: CREATE_LAYOUT_TYPE,
-  type: CREATE_LAYOUT_TYPE,
-  name: "Project.Create",
-  icon: "Project",
-  location: "modal",
-  window: { resizable: false, size: { height: 225, width: 625 }, navTop: true },
-};
+    const { form, save, variant } = Project.useForm({
+      query: {},
+      initialValues: {
+        name: "",
+        layout: Layout.ZERO_SLICE_STATE,
+      },
+      afterSave: ({ value }) => {
+        const { key, name, layout } = value();
+        if (key == null) throw new UnexpectedError("Project key is null");
+        dispatch(setActive({ key, name }));
+        if (active != null)
+          dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
+        close();
+      },
+    });
 
-export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
-  const client = Synnax.use();
-  const dispatch = useDispatch();
-  const active = useSelectOptionalActiveKey();
-
-  const { form, save, variant } = Project.useForm({
-    query: {},
-    initialValues: {
-      name: "",
-      layout: Layout.ZERO_SLICE_STATE,
-    },
-    afterSave: ({ value }) => {
-      const { key, name, layout } = value();
-      if (key == null) throw new UnexpectedError("Project key is null");
-      dispatch(setActive({ key, name }));
-      if (active != null)
-        dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
-      onClose();
-    },
-  });
-
-  return (
-    <Flex.Box style={{ height: "100%" }}>
-      <Flex.Box
-        className="console-form"
-        style={{ padding: "1rem 3rem" }}
-        justify="center"
-        grow
-      >
-        <Form.Form<typeof Project.formSchema> {...form}>
-          <Form.Field<string> path="name">
-            {(p) => (
-              <Input.Text
-                placeholder="Project Name"
-                variant="text"
-                autoFocus
-                level="h3"
-                {...p}
-              />
-            )}
-          </Form.Field>
-        </Form.Form>
+    return (
+      <Flex.Box style={{ height: "100%" }}>
+        <Modals.Header name="Project.Create" icon="Project" />
+        <Flex.Box
+          className="console-form"
+          style={{ padding: "1rem 3rem" }}
+          justify="center"
+          grow
+        >
+          <Form.Form<typeof Project.formSchema> {...form}>
+            <Form.Field<string> path="name">
+              {(p) => (
+                <Input.Text
+                  placeholder="Project Name"
+                  variant="text"
+                  autoFocus
+                  level="h3"
+                  {...p}
+                />
+              )}
+            </Form.Field>
+          </Form.Form>
+        </Flex.Box>
+        <Modals.BottomNavBar>
+          <Triggers.SaveHelpText action="Create" />
+          <Nav.Bar.End>
+            <Button.Button
+              type="submit"
+              variant="filled"
+              form="create-project"
+              status={status.keepVariants(variant, "loading")}
+              disabled={client == null}
+              onClick={() => save()}
+              trigger={Triggers.SAVE}
+            >
+              Create
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modals.BottomNavBar>
       </Flex.Box>
-      <Modals.BottomNavBar>
-        <Triggers.SaveHelpText action="Create" />
-        <Nav.Bar.End>
-          <Button.Button
-            type="submit"
-            variant="filled"
-            form="create-project"
-            status={status.keepVariants(variant, "loading")}
-            disabled={client == null}
-            onClick={() => save()}
-            trigger={Triggers.SAVE}
-          >
-            Create
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modals.BottomNavBar>
-    </Flex.Box>
-  );
-};
+    );
+  },
+);

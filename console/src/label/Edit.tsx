@@ -30,7 +30,7 @@ import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import { Modals } from "@/layered/service/modals";
 
 interface LabelListItemProps extends List.ItemProps<label.Key> {
   isCreate?: boolean;
@@ -150,81 +150,74 @@ const LabelListItem = ({
   );
 };
 
-export const EDIT_LAYOUT_TYPE = "editLabels";
-
-export const EDIT_LAYOUT: Layout.BaseState = {
-  key: EDIT_LAYOUT_TYPE,
-  type: EDIT_LAYOUT_TYPE,
-  name: "Labels.Edit",
-  location: "modal",
-  icon: "Label",
-  window: { navTop: true, size: { height: 700, width: 450 } },
-};
-
 const listItem = Component.renderProp(LabelListItem);
 
-export const Edit: Layout.Renderer = () => {
-  const { data, getItem, retrieve, subscribe } = Label.useList();
-  const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
-  const [newFormVisible, setNewFormVisible] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  return (
-    <Flex.Box y grow empty className={CSS.BE("label", "edit")}>
-      <List.Frame<label.Key, label.Label>
-        data={data}
-        getItem={getItem}
-        onFetchMore={fetchMore}
-        subscribe={subscribe}
-      >
-        <Flex.Box x justify="between" className={CSS.BE("label", "edit-header")}>
-          <Input.Text
-            placeholder={
-              <>
-                <Icon.Search />
-                Search labels
-              </>
-            }
-            value={searchTerm}
-            onChange={(v) => {
-              setSearchTerm(v);
-              search(v);
-            }}
-          />
-          <Button.Button
-            variant="filled"
-            className={CSS.BE("label", "add-btn")}
-            gap="small"
-            onClick={() => setNewFormVisible(true)}
-          >
-            <Icon.Add />
-          </Button.Button>
-        </Flex.Box>
-        <Divider.Divider x />
-        <Flex.Box y className={CSS.BE("label", "items-container")} empty>
-          <LabelListItem
-            key="form"
-            index={0}
-            itemKey=""
-            isCreate
-            visible={newFormVisible}
-            onClose={() => setNewFormVisible(false)}
-          />
-          <List.Items
-            grow
-            emptyContent={
-              !newFormVisible && (
-                <Flex.Box center>
-                  <Text.Text level="h4" color={8}>
-                    No labels created
-                  </Text.Text>
-                </Flex.Box>
-              )
-            }
-          >
-            {listItem}
-          </List.Items>
-        </Flex.Box>
-      </List.Frame>
-    </Flex.Box>
-  );
-};
+export const useOpenEdit = Modals.create<void>(
+  { size: { height: 700, width: 450 } },
+  () => {
+    const { data, getItem, retrieve, subscribe } = Label.useList();
+    const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
+    const [newFormVisible, setNewFormVisible] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    return (
+      <Flex.Box y grow empty className={CSS.BE("label", "edit")}>
+        <Modals.Header name="Labels.Edit" icon="Label" />
+        <List.Frame<label.Key, label.Label>
+          data={data}
+          getItem={getItem}
+          onFetchMore={fetchMore}
+          subscribe={subscribe}
+        >
+          <Flex.Box x justify="between" className={CSS.BE("label", "edit-header")}>
+            <Input.Text
+              placeholder={
+                <>
+                  <Icon.Search />
+                  Search labels
+                </>
+              }
+              value={searchTerm}
+              onChange={(v) => {
+                setSearchTerm(v);
+                search(v);
+              }}
+            />
+            <Button.Button
+              variant="filled"
+              className={CSS.BE("label", "add-btn")}
+              gap="small"
+              onClick={() => setNewFormVisible(true)}
+            >
+              <Icon.Add />
+            </Button.Button>
+          </Flex.Box>
+          <Divider.Divider x />
+          <Flex.Box y className={CSS.BE("label", "items-container")} empty>
+            <LabelListItem
+              key="form"
+              index={0}
+              itemKey=""
+              isCreate
+              visible={newFormVisible}
+              onClose={() => setNewFormVisible(false)}
+            />
+            <List.Items
+              grow
+              emptyContent={
+                !newFormVisible && (
+                  <Flex.Box center>
+                    <Text.Text level="h4" color={8}>
+                      No labels created
+                    </Text.Text>
+                  </Flex.Box>
+                )
+              }
+            >
+              {listItem}
+            </List.Items>
+          </Flex.Box>
+        </List.Frame>
+      </Flex.Box>
+    );
+  },
+);

@@ -9,16 +9,27 @@
 
 import { framer } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { DELETE_LAYOUT } from "@/framer/DeleteModal";
+import { useOpenDeleteModal } from "@/framer/DeleteModal";
 import { Palette } from "@/palette";
 
-const DeleteDataCommand = Palette.createSimpleCommand({
-  key: "delete_data",
-  name: "Delete data",
-  icon: <Icon.Delete />,
-  layout: DELETE_LAYOUT,
-  useVisible: () => Access.useDeleteGranted(framer.TYPE_ONTOLOGY_ID),
-});
+const DeleteDataCommand: Palette.Command = ({ placeModal, ...listProps }) => {
+  const handleSelect = useCallback(
+    () => placeModal.open(useOpenDeleteModal),
+    [placeModal],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Delete data"
+      icon={<Icon.Delete />}
+      onSelect={handleSelect}
+    />
+  );
+};
+DeleteDataCommand.key = "delete_data";
+DeleteDataCommand.commandName = "Delete data";
+DeleteDataCommand.useVisible = () => Access.useDeleteGranted(framer.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS: Palette.Command[] = [DeleteDataCommand];

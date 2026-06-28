@@ -9,18 +9,26 @@
 
 import { status } from "@synnaxlabs/client";
 import { Access, Icon, Status } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { Palette } from "@/palette";
-import { CREATE_LAYOUT } from "@/status/Create";
+import { useOpenCreate } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 
-const CreateCommand = Palette.createSimpleCommand({
-  key: "create_status",
-  name: "Create a status",
-  icon: <Status.CreateIcon />,
-  layout: CREATE_LAYOUT,
-  useVisible: () => Access.useCreateGranted(status.TYPE_ONTOLOGY_ID),
-});
+const CreateCommand: Palette.Command = ({ placeModal, ...listProps }) => {
+  const handleSelect = useCallback(() => placeModal.open(useOpenCreate), [placeModal]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create a status"
+      icon={<Status.CreateIcon />}
+      onSelect={handleSelect}
+    />
+  );
+};
+CreateCommand.key = "create_status";
+CreateCommand.commandName = "Create a status";
+CreateCommand.useVisible = () => Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
 
 const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open_status_explorer",

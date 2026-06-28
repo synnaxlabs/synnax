@@ -9,16 +9,25 @@
 
 import { device } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { CONNECT_LAYOUT } from "@/hardware/modbus/device/Connect";
+import { useConnect } from "@/hardware/modbus/device/Connect";
 import { Palette } from "@/palette";
 
-const ConnectServerCommand = Palette.createSimpleCommand({
-  key: "modbus-connect-server",
-  name: "Connect a Modbus server",
-  icon: <Icon.Logo.Modbus />,
-  layout: CONNECT_LAYOUT,
-  useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),
-});
+const ConnectServerCommand: Palette.Command = ({ placeModal, ...listProps }) => {
+  const handleSelect = useCallback(() => placeModal.open(useConnect, {}), [placeModal]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Connect a Modbus server"
+      icon={<Icon.Logo.Modbus />}
+      onSelect={handleSelect}
+    />
+  );
+};
+ConnectServerCommand.key = "modbus-connect-server";
+ConnectServerCommand.commandName = "Connect a Modbus server";
+ConnectServerCommand.useVisible = () =>
+  Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS = [ConnectServerCommand];

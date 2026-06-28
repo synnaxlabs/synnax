@@ -7,31 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Input, Nav } from "@synnaxlabs/pluto";
+import { Button, type Icon, Input, Nav } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
-import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
-import { ModalContentLayout } from "@/modals/layout";
+import { type Prompt, prompt } from "@/layered/service/modals/Base";
+import { ModalContentLayout } from "@/layered/service/modals/layout";
 import { Triggers } from "@/triggers";
 
-export interface PromptRenameLayoutArgs extends BaseArgs<string> {
+export interface PromptRenameLayoutArgs {
   allowEmpty?: boolean;
   initialValue?: string;
   label?: string;
+  title?: string;
+  icon?: Icon.ReactElement | string;
 }
-
-export const RENAME_LAYOUT_TYPE = "rename";
 
 export interface PromptRename extends Prompt<string, PromptRenameLayoutArgs> {}
 
-export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
-  "Name",
-  RENAME_LAYOUT_TYPE,
+export const useRename = prompt<string, PromptRenameLayoutArgs>(
+  { size: { width: 700, height: 250 } },
   ({
-    value: { result, allowEmpty = false, label = "Name", initialValue },
-    onFinish,
+    args: { allowEmpty = false, label = "Name", initialValue, title = "Name", icon },
+    close,
   }) => {
-    const [name, setName] = useState(result ?? initialValue ?? "");
+    const [name, setName] = useState(initialValue ?? "");
     const [error, setError] = useState<string | undefined>(undefined);
     const footer = (
       <>
@@ -42,10 +41,10 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
             disabled={!allowEmpty && name.length === 0}
             variant="filled"
             onClick={() => {
-              if (allowEmpty && name.length === 0) return onFinish(null);
+              if (allowEmpty && name.length === 0) return close();
               if (!allowEmpty && name.length === 0)
                 return setError(`${label} is required`);
-              return onFinish(name);
+              return close(name);
             }}
             trigger={Triggers.SAVE}
           >
@@ -56,7 +55,7 @@ export const [useRename, Rename] = createBase<string, PromptRenameLayoutArgs>(
     );
 
     return (
-      <ModalContentLayout footer={footer}>
+      <ModalContentLayout title={title} icon={icon} footer={footer}>
         <Input.Item
           label={label}
           required={!allowEmpty}

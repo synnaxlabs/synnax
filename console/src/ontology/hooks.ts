@@ -11,7 +11,7 @@ import { TimeSpan } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 
 interface UseConfirmDeleteProps {
   type: string;
@@ -36,19 +36,18 @@ export const useConfirmDelete = ({
     if (items.length === 1)
       message = `Are you sure you want to delete ${items[0].name}?`;
     return (
-      (await confirm(
-        {
-          message,
-          description,
-          confirm: {
-            variant: "error",
-            label: "Delete",
-            delay: CONFIRM_DELETE_DELAY.milliseconds,
-          },
-          cancel: { label: "Cancel" },
+      (await confirm({
+        message,
+        description,
+        confirm: {
+          variant: "error",
+          label: "Delete",
+          delay: CONFIRM_DELETE_DELAY.milliseconds,
         },
-        { name: `${type}.Delete`, icon: icon ?? type },
-      )) ?? false
+        cancel: { label: "Cancel" },
+        title: `${type}.Delete`,
+        icon: icon ?? type,
+      })) ?? false
     );
   };
 };

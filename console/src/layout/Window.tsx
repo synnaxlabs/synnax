@@ -18,8 +18,8 @@ import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
+import { Modals } from "@/layered/app/modals";
 import { Content } from "@/layout/Content";
-import { Modals } from "@/layout/Modals";
 import { useSelect } from "@/layout/selectors";
 import { Runtime } from "@/runtime";
 
@@ -70,7 +70,7 @@ const WindowInternal = (): ReactElement | null => {
       onDragOver={handleDragOver}
       onContextMenu={menuProps.open}
     >
-      <Modals />
+      <Modals.Surface />
       <Menu.ContextMenu menu={menu} {...menuProps}>
         <Content layoutKey={layout.key} />
       </Menu.ContextMenu>

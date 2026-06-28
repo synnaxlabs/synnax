@@ -11,19 +11,18 @@ import { Dialog } from "@synnaxlabs/pluto";
 
 import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
-import { CONNECT_LAYOUT } from "@/hardware/modbus/device/Connect";
+import { useConnect } from "@/hardware/modbus/device/Connect";
 import { MAKE } from "@/hardware/modbus/device/types";
-import { Layout } from "@/layout";
 
 const EmptyContent = () => {
-  const placeLayout = Layout.usePlacer();
+  const connect = useConnect();
   const { close: closeDialog } = Dialog.useContext();
   return (
     <EmptyAction
       message="No Modbus servers connected."
       action="Connect a new server"
       onClick={() => {
-        placeLayout(CONNECT_LAYOUT);
+        connect({});
         closeDialog();
       }}
     />
@@ -32,7 +31,7 @@ const EmptyContent = () => {
 
 export const Select = () => (
   <Common.Device.Select
-    configureLayout={CONNECT_LAYOUT}
+    configureModal={useConnect}
     emptyContent={<EmptyContent />}
     label="Modbus Server"
     make={MAKE}

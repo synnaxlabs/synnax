@@ -28,17 +28,17 @@ import {
 import { z } from "zod";
 
 import { useDownload } from "@/csv/useDownload";
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
 
-export interface DownloadModalArgs extends Modals.BaseArgs<void> {
+export interface DownloadModalArgs {
   channelNames?: Record<channel.Key, string>;
   timeRange: CrudeTimeRange;
   channels: channel.Key[];
   name: string;
+  icon?: Icon.ReactElement | string;
 }
 
-export const DOWNLOAD_MODAL_LAYOUT_TYPE = "downloadCSV";
 const NON_VIRTUAL_CHANNEL_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
   virtual: false,
 };
@@ -48,13 +48,9 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
 
 export interface PromptDownload extends Modals.Prompt<void, DownloadModalArgs> {}
 
-export const [useDownloadModal, DownloadModal] = Modals.createBase<
-  void,
-  DownloadModalArgs
->(
-  "Download.CSV",
-  DOWNLOAD_MODAL_LAYOUT_TYPE,
-  ({ value: { timeRange, channels, name, channelNames }, onFinish }) => {
+export const useDownloadModal = Modals.prompt<void, DownloadModalArgs>(
+  { size: { height: 475, width: 700 } },
+  ({ args: { timeRange, channels, name, channelNames, icon }, close }) => {
     const form = Form.use<typeof formSchema>({
       schema: formSchema,
       values: {
@@ -69,13 +65,18 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
       <>
         <Triggers.SaveHelpText action="Download" />
         <Nav.Bar.End x align="center">
-          <DownloadButton handleFinish={onFinish} />
+          <DownloadButton handleFinish={close} />
         </Nav.Bar.End>
       </>
     );
     return (
       <Form.Form<typeof formSchema> {...form}>
-        <Modals.ModalContentLayout footer={footer} gap="huge">
+        <Modals.ModalContentLayout
+          title="Download.CSV"
+          icon={icon}
+          footer={footer}
+          gap="huge"
+        >
           <Text.Text level="h3" weight={450}>
             Download data for {name} to a CSV
           </Text.Text>
@@ -121,7 +122,6 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
       </Form.Form>
     );
   },
-  { window: { resizable: false, size: { height: 475, width: 700 }, navTop: true } },
 );
 
 const DownsampleFactorField = Form.buildNumericField({

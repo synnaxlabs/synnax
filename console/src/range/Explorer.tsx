@@ -15,8 +15,8 @@ import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Label } from "@/label";
-import { Layout } from "@/layout";
-import { CREATE_LAYOUT } from "@/range/Create";
+import { type Layout } from "@/layout";
+import { useOpenCreate } from "@/range/Create";
 import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item } from "@/range/list/Item";
 import { View } from "@/view";
@@ -46,8 +46,8 @@ const Internal = () => {
     initialQuery: View.useContext().getInitialView().query,
     sort: Ranger.sortByStage,
   });
-  const placeLayout = Layout.usePlacer();
-  const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
+  const openCreate = useOpenCreate();
+  const handleCreate = useCallback(() => openCreate({}), [openCreate]);
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <View.Form {...listProps}>

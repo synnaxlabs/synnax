@@ -12,8 +12,8 @@ import { Arc, type Flux, type List, Task } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 
 export interface UseTaskReturn {
   running: boolean;

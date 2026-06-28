@@ -17,7 +17,7 @@ import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/layered/service/modals";
 import { type Ontology } from "@/ontology";
 
 export const makeZ = z.enum([
@@ -45,13 +45,16 @@ const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
 export const getIcon = (make: Make | null) =>
   make ? MAKE_ICONS[make] : <Icon.Device />;
 
-export const CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
-  [EtherCAT.Device.MAKE]: EtherCAT.Device.CONFIGURE_LAYOUT,
-  [HTTP.Device.MAKE]: HTTP.Device.CONNECT_LAYOUT,
-  [LabJack.Device.MAKE]: LabJack.Device.CONFIGURE_LAYOUT,
-  [Modbus.Device.MAKE]: Modbus.Device.CONNECT_LAYOUT,
-  [NI.Device.MAKE]: NI.Device.CONFIGURE_LAYOUT,
-  [OPC.Device.MAKE]: OPC.Device.CONNECT_LAYOUT,
+export const CONFIGURE_MODALS: Record<
+  Make,
+  Modals.OpenHook<{ deviceKey?: string; title?: string }>
+> = {
+  [EtherCAT.Device.MAKE]: EtherCAT.Device.useConfigure,
+  [HTTP.Device.MAKE]: HTTP.Device.useConnect,
+  [LabJack.Device.MAKE]: LabJack.Device.useConfigure,
+  [Modbus.Device.MAKE]: Modbus.Device.useConnect,
+  [NI.Device.MAKE]: NI.Device.useConfigure,
+  [OPC.Device.MAKE]: OPC.Device.useConnect,
 };
 
 const CONTEXT_MENU_ITEMS: Partial<

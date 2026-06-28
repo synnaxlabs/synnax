@@ -31,13 +31,14 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
+import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 import { type UseListReturn } from "@/palette/list";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 
 export interface CommandProps extends List.ItemProps<string> {
   placeLayout: Layout.Placer;
+  placeModal: Modals.Placer;
   confirm: Modals.PromptConfirm;
   rename: Modals.PromptRename;
   handleError: Status.ErrorHandler;
@@ -173,12 +174,14 @@ export const useCommandList = (): UseListReturn<Command> => {
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const placeLayout = Layout.usePlacer();
+  const placeModal = Modals.use();
   const confirm = Modals.useConfirm();
   const rename = Modals.useRename();
 
   const commandProps = useMemo(
     () => ({
       placeLayout,
+      placeModal,
       confirm,
       rename,
       handleError,
@@ -187,7 +190,17 @@ export const useCommandList = (): UseListReturn<Command> => {
       fluxStore,
       client,
     }),
-    [placeLayout, confirm, rename, handleError, addStatus, store, fluxStore, client],
+    [
+      placeLayout,
+      placeModal,
+      confirm,
+      rename,
+      handleError,
+      addStatus,
+      store,
+      fluxStore,
+      client,
+    ],
   );
 
   const commandMap = useMemo(

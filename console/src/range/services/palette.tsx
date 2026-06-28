@@ -9,17 +9,26 @@
 
 import { ranger } from "@synnaxlabs/client";
 import { Access, Icon, Ranger } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { Palette } from "@/palette";
 import { Range } from "@/range";
+import { useOpenCreate } from "@/range/Create";
 
-export const CreateCommand = Palette.createSimpleCommand({
-  key: "define-range",
-  name: "Create a range",
-  icon: <Ranger.CreateIcon />,
-  layout: Range.CREATE_LAYOUT,
-  useVisible: () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
-});
+export const CreateCommand: Palette.Command = ({ placeModal, ...listProps }) => {
+  const handleSelect = useCallback(() => placeModal.open(useOpenCreate), [placeModal]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create a range"
+      icon={<Ranger.CreateIcon />}
+      onSelect={handleSelect}
+    />
+  );
+};
+CreateCommand.key = "define-range";
+CreateCommand.commandName = "Create a range";
+CreateCommand.useVisible = () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open-explorer",

@@ -223,7 +223,7 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = (props) => {
   return (
     <Common.Device.Provider
       canConfigure={!isSnapshot}
-      configureLayout={Device.CONFIGURE_LAYOUT}
+      configureModal={Device.useConfigure}
       schemas={Device.SCHEMAS}
     >
       {({ device }) => <ChannelsForm device={device} {...props} />}

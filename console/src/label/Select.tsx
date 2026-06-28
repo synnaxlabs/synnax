@@ -11,17 +11,16 @@ import { Button, Dialog, Icon, Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction } from "@/components";
-import { EDIT_LAYOUT } from "@/label/Edit";
-import { Layout } from "@/layout";
+import { useOpenEdit } from "@/label/Edit";
 
 export interface SelectSingleProps extends Label.SelectSingleProps {}
 
 const useAdd = (): (() => void) => {
-  const placeLayout = Layout.usePlacer();
+  const openEdit = useOpenEdit();
   const { close } = Dialog.useContext();
   return () => {
     close();
-    placeLayout(EDIT_LAYOUT);
+    openEdit();
   };
 };
 

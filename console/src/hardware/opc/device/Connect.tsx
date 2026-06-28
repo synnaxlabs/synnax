@@ -38,20 +38,13 @@ import {
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
 import { TEST_CONNECTION_COMMAND_TYPE } from "@/hardware/opc/task/types";
-import { type Layout } from "@/layout";
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
 
-export const CONNECT_LAYOUT_TYPE = "configureOPCServer";
-
-export const CONNECT_LAYOUT: Layout.BaseState = {
-  key: CONNECT_LAYOUT_TYPE,
-  type: CONNECT_LAYOUT_TYPE,
-  name: "Server.Connect",
-  icon: "Logo.OPC",
-  location: "modal",
-  window: { resizable: false, size: { height: 720, width: 915 }, navTop: true },
-};
+export interface ConnectArgs {
+  deviceKey?: string;
+  title?: string;
+}
 
 const useForm = PDevice.createForm(SCHEMAS);
 
@@ -106,114 +99,118 @@ const beforeSave = async ({
   return true;
 };
 
-export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const {
-    form,
-    save,
-    status: stat,
-    variant,
-  } = useForm({
-    query: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
-    initialValues: INITIAL_VALUES,
-    beforeValidate,
-    beforeSave,
-    afterSave: useCallback(() => onClose(), [onClose]),
-  });
+export const useConnect = Modals.create<ConnectArgs>(
+  { size: { height: 720, width: 915 } },
+  ({ args, close }) => {
+    const {
+      form,
+      save,
+      status: stat,
+      variant,
+    } = useForm({
+      query: { key: args.deviceKey ?? "" },
+      initialValues: INITIAL_VALUES,
+      beforeValidate,
+      beforeSave,
+      afterSave: useCallback(() => close(), [close]),
+    });
 
-  const hasSecurity =
-    Form.useFieldValue<SecurityMode, SecurityMode, typeof PDevice.formSchema>(
-      "properties.connection.securityMode",
-      { ctx: form },
-    ) != NO_SECURITY_MODE;
-  return (
-    <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
-      <Flex.Box className={CSS.B("content")} grow gap="small">
-        <Form.Form<typeof PDevice.formSchema> {...form}>
-          <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-          <Form.Field<rack.Key> path="rack" label="Connect From" required>
-            {selectRackRenderProp}
-          </Form.Field>
-          <Form.TextField
-            path="properties.connection.endpoint"
-            inputProps={ENDPOINT_INPUT_PROPS}
-          />
-          <Divider.Divider x padded="bottom" />
-          <Flex.Box x justify="between">
+    const hasSecurity =
+      Form.useFieldValue<SecurityMode, SecurityMode, typeof PDevice.formSchema>(
+        "properties.connection.securityMode",
+        { ctx: form },
+      ) != NO_SECURITY_MODE;
+    return (
+      <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
+        <Modals.Header name="Server.Connect" icon="Logo.OPC" />
+        <Flex.Box className={CSS.B("content")} grow gap="small">
+          <Form.Form<typeof PDevice.formSchema> {...form}>
+            <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
+            <Form.Field<rack.Key> path="rack" label="Connect From" required>
+              {selectRackRenderProp}
+            </Form.Field>
             <Form.TextField
-              grow
-              path="properties.connection.username"
-              inputProps={USERNAME_INPUT_PROPS}
+              path="properties.connection.endpoint"
+              inputProps={ENDPOINT_INPUT_PROPS}
             />
-            <Form.TextField
-              grow
-              path="properties.connection.password"
-              inputProps={PASSWORD_INPUT_PROPS}
-            />
-            <Form.Field<SecurityMode>
-              label="Security Mode"
-              path="properties.connection.securityMode"
+            <Divider.Divider x padded="bottom" />
+            <Flex.Box x justify="between">
+              <Form.TextField
+                grow
+                path="properties.connection.username"
+                inputProps={USERNAME_INPUT_PROPS}
+              />
+              <Form.TextField
+                grow
+                path="properties.connection.password"
+                inputProps={PASSWORD_INPUT_PROPS}
+              />
+              <Form.Field<SecurityMode>
+                label="Security Mode"
+                path="properties.connection.securityMode"
+              >
+                {({ value, onChange }) => (
+                  <SelectSecurityMode value={value} onChange={onChange} />
+                )}
+              </Form.Field>
+            </Flex.Box>
+            <Divider.Divider x padded="bottom" />
+            <Form.Field<SecurityPolicy>
+              grow={!hasSecurity}
+              path="properties.connection.securityPolicy"
+              label="Security Policy"
             >
               {({ value, onChange }) => (
-                <SelectSecurityMode value={value} onChange={onChange} />
+                <SelectSecurityPolicy value={value} onChange={onChange} />
               )}
             </Form.Field>
-          </Flex.Box>
-          <Divider.Divider x padded="bottom" />
-          <Form.Field<SecurityPolicy>
-            grow={!hasSecurity}
-            path="properties.connection.securityPolicy"
-            label="Security Policy"
-          >
-            {({ value, onChange }) => (
-              <SelectSecurityPolicy value={value} onChange={onChange} />
+            {hasSecurity && (
+              <>
+                <Form.Field<string>
+                  label="Client Certificate"
+                  path="properties.connection.clientCertificate"
+                >
+                  {FS.InputFilePath}
+                </Form.Field>
+                <Form.Field<string>
+                  label="Client Private Key"
+                  path="properties.connection.clientPrivateKey"
+                >
+                  {FS.InputFilePath}
+                </Form.Field>
+                <Form.Field<string>
+                  grow
+                  label="Server Certificate"
+                  path="properties.connection.serverCertificate"
+                >
+                  {FS.InputFilePath}
+                </Form.Field>
+              </>
             )}
-          </Form.Field>
-          {hasSecurity && (
-            <>
-              <Form.Field<string>
-                label="Client Certificate"
-                path="properties.connection.clientCertificate"
-              >
-                {FS.InputFilePath}
-              </Form.Field>
-              <Form.Field<string>
-                label="Client Private Key"
-                path="properties.connection.clientPrivateKey"
-              >
-                {FS.InputFilePath}
-              </Form.Field>
-              <Form.Field<string>
-                grow
-                label="Server Certificate"
-                path="properties.connection.serverCertificate"
-              >
-                {FS.InputFilePath}
-              </Form.Field>
-            </>
-          )}
-        </Form.Form>
+          </Form.Form>
+        </Flex.Box>
+        <Modals.BottomNavBar>
+          <Nav.Bar.Start gap="small">
+            {variant == "success" ? (
+              <Triggers.SaveHelpText action="Test Connection" noBar />
+            ) : (
+              <Status.Summary variant={variant} message={stat.description} />
+            )}
+          </Nav.Bar.Start>
+          <Nav.Bar.End>
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => save()}
+              variant="filled"
+            >
+              Connect
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modals.BottomNavBar>
       </Flex.Box>
-      <Modals.BottomNavBar>
-        <Nav.Bar.Start gap="small">
-          {variant == "success" ? (
-            <Triggers.SaveHelpText action="Test Connection" noBar />
-          ) : (
-            <Status.Summary variant={variant} message={stat.description} />
-          )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End>
-          <Button.Button
-            status={status.keepVariants(variant, "loading")}
-            onClick={() => save()}
-            variant="filled"
-          >
-            Connect
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modals.BottomNavBar>
-    </Flex.Box>
-  );
-};
+    );
+  },
+);
 
 const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "opc" };
 

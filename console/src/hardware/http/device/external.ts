@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Connect, CONNECT_LAYOUT_TYPE } from "@/hardware/http/device/Connect";
-import { type Layout } from "@/layout";
-
 export * from "@/hardware/http/device/Connect";
 export * from "@/hardware/http/device/palette";
 export * from "@/hardware/http/device/Select";
 export * from "@/hardware/http/device/types";
-
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [CONNECT_LAYOUT_TYPE]: Connect,
-};

@@ -14,6 +14,7 @@ import { act, type PropsWithChildren } from "react";
 import { Provider, useStore } from "react-redux";
 import { describe, expect, it } from "vitest";
 
+import { modalStore } from "@/layered/session/modals/store";
 import { Layout } from "@/layout";
 import { select } from "@/layout/selectors";
 
@@ -174,24 +175,22 @@ describe("layout hooks", () => {
         layoutKey: "test-tab",
       });
 
-      // Place a modal
+      // Open a modal in the independent modal store
       act(() => {
-        result.current.placer({
+        modalStore.push({
           key: "test-modal",
-          location: "modal",
-          type: "dog",
-          name: "Test Modal",
-          window: {
-            title: "modal",
-          },
+          render: () => null,
+          args: undefined,
+          resolve: () => {},
         });
       });
 
-      // Now the active tab should be null because a modal is open
+      // The active tab is now blurred because a modal is open
       expect(result.current.activeTab).toEqual({
         blurred: true,
         layoutKey: "test-tab",
       });
+      modalStore.clear();
     });
   });
 });

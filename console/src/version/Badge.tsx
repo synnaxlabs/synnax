@@ -12,19 +12,18 @@ import "@/version/Badge.css";
 import { Button } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Layout } from "@/layout";
 import { Runtime } from "@/runtime";
-import { INFO_LAYOUT } from "@/version/Info";
+import { useOpenInfo } from "@/version/Info";
 import { useCheckForUpdates } from "@/version/Updater";
 import { use } from "@/version/use";
 
 export const Badge = (): ReactElement => {
   const version = use();
-  const placeLayout = Layout.usePlacer();
+  const openInfo = useOpenInfo();
   const updateAvailable = useCheckForUpdates();
   return (
     <Button.Button
-      onClick={() => placeLayout(INFO_LAYOUT)}
+      onClick={() => openInfo()}
       preventClick={Runtime.ENGINE !== "tauri"}
       variant="text"
       size="small"

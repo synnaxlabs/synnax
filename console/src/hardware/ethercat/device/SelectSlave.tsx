@@ -12,7 +12,7 @@ import { Form } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { CONFIGURE_LAYOUT } from "@/hardware/ethercat/device/Configure";
+import { useConfigure } from "@/hardware/ethercat/device/Configure";
 import { useCommonNetwork } from "@/hardware/ethercat/device/queries";
 import {
   MAKE,
@@ -45,7 +45,7 @@ export const SelectSlave = ({
     <Common.Device.Select
       path={path}
       label="Slave Device"
-      configureLayout={CONFIGURE_LAYOUT}
+      configureModal={useConfigure}
       emptyContent="No EtherCAT slaves discovered."
       make={MAKE}
       model={SLAVE_MODEL}

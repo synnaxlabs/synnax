@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Button, Nav, Text } from "@synnaxlabs/pluto";
+import { Button, type Icon, Nav, Text } from "@synnaxlabs/pluto";
 
-import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
-import { ModalContentLayout } from "@/modals/layout";
+import { type Prompt, prompt } from "@/layered/service/modals/Base";
+import { ModalContentLayout } from "@/layered/service/modals/layout";
 import { Triggers } from "@/triggers";
 
 interface ConfirmButtonProps {
@@ -20,21 +20,23 @@ interface ConfirmButtonProps {
   delay?: number;
 }
 
-export interface PromptConfirmLayoutArgs extends BaseArgs<boolean> {
+export interface PromptConfirmLayoutArgs {
   message: string;
   description: string;
   confirm?: ConfirmButtonProps;
   cancel?: ConfirmButtonProps;
+  title?: string;
+  icon?: Icon.ReactElement | string;
 }
-
-export const CONFIRM_LAYOUT_TYPE = "confirm";
 
 export interface PromptConfirm extends Prompt<boolean, PromptConfirmLayoutArgs> {}
 
-export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs>(
-  "Confirm",
-  CONFIRM_LAYOUT_TYPE,
-  ({ value: { message, description, confirm = {}, cancel = {} }, onFinish }) => {
+export const useConfirm = prompt<boolean, PromptConfirmLayoutArgs>(
+  { size: { width: 700, height: 250 } },
+  ({
+    args: { message, description, confirm = {}, cancel = {}, title = "Confirm", icon },
+    close,
+  }) => {
     const {
       variant: confirmVariant = "error",
       label: confirmLabel = "Confirm",
@@ -51,7 +53,7 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
         <Nav.Bar.End x align="center">
           <Button.Button
             status={cancelVariant}
-            onClick={() => onFinish(false)}
+            onClick={() => close(false)}
             onClickDelay={cancelDelay}
           >
             {cancelLabel}
@@ -59,7 +61,7 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
           <Button.Button
             variant="filled"
             status={confirmVariant}
-            onClick={() => onFinish(true)}
+            onClick={() => close(true)}
             trigger={Triggers.SAVE}
             onClickDelay={confirmDelay}
           >
@@ -70,7 +72,7 @@ export const [useConfirm, Confirm] = createBase<boolean, PromptConfirmLayoutArgs
     );
 
     return (
-      <ModalContentLayout footer={footer}>
+      <ModalContentLayout title={title} icon={icon} footer={footer}>
         <Text.Text level="h3" weight={450}>
           {message}
         </Text.Text>

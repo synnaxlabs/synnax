@@ -16,10 +16,9 @@ import {
 import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
 
-import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 import { Runtime } from "@/runtime";
-import { INFO_LAYOUT } from "@/version/Info";
+import { useOpenInfo } from "@/version/Info";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
 
@@ -59,13 +58,9 @@ export const notificationAdapter: Notifications.Adapter = (status) => {
 };
 
 export const OpenUpdateDialogAction = () => {
-  const placeLayout = Layout.usePlacer();
+  const openInfo = useOpenInfo();
   return (
-    <Button.Button
-      variant="outlined"
-      size="small"
-      onClick={() => placeLayout(INFO_LAYOUT)}
-    >
+    <Button.Button variant="outlined" size="small" onClick={() => openInfo()}>
       Update
     </Button.Button>
   );

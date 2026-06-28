@@ -32,7 +32,8 @@ import { useDispatch } from "react-redux";
 import { ContextMenu, EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
-import { createEditLayout } from "@/layered/service/schematic/symbols/edit/Edit";
+import { Modals } from "@/layered/service/modals";
+import { useOpenEdit } from "@/layered/service/schematic/symbols/edit/Edit";
 import {
   useExport as useExportSymbol,
   useExportGroup,
@@ -43,8 +44,6 @@ import {
 } from "@/layered/service/schematic/symbols/import";
 import { useDeleteSymbolGroup } from "@/layered/service/schematic/symbols/useDeleteSymbolGroup";
 import { Session } from "@/layered/session";
-import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 const HAUL_DRAG_PROPS: Haul.UseDragProps = {
@@ -184,24 +183,20 @@ const RemoteSymbolListContextMenu = (
     type: "Schematic.Symbol",
     icon: "Schematic",
   });
-  const placeLayout = Layout.usePlacer();
+  const openEdit = useOpenEdit();
   const renameModal = Modals.useRename();
   const exportSymbol = useExportSymbol();
   const rename = Schematic.Symbol.useRename({
     beforeUpdate: async ({ data }) => {
       const { name } = data;
       if (item == null) return false;
-      const newName = await renameModal(
-        {
-          initialValue: name,
-          allowEmpty: false,
-          label: "Symbol Name",
-        },
-        {
-          name: "Schematic.Symbols.Rename",
-          icon: "Schematic",
-        },
-      );
+      const newName = await renameModal({
+        initialValue: name,
+        allowEmpty: false,
+        label: "Symbol Name",
+        title: "Schematic.Symbols.Rename",
+        icon: "Schematic",
+      });
       if (newName == null) return false;
       return { ...data, name: newName };
     },
@@ -213,11 +208,7 @@ const RemoteSymbolListContextMenu = (
     },
   });
   const handleEdit = () => {
-    placeLayout(
-      createEditLayout({
-        args: { key: firstKey, parent: group.ontologyID(props.groupKey) },
-      }),
-    );
+    openEdit({ key: firstKey, parent: group.ontologyID(props.groupKey) });
   };
   return (
     <ContextMenu.Menu>
@@ -237,14 +228,10 @@ const RemoteSymbolListContextMenu = (
 };
 
 const useCreateSymbol = (selectedGroup: string) => {
-  const placeLayout = Layout.usePlacer();
+  const openEdit = useOpenEdit();
   const handleCreateSymbol = useCallback(() => {
-    placeLayout(
-      createEditLayout({
-        args: { parent: group.ontologyID(selectedGroup) },
-      }),
-    );
-  }, [placeLayout, selectedGroup]);
+    openEdit({ parent: group.ontologyID(selectedGroup) });
+  }, [openEdit, selectedGroup]);
   return handleCreateSymbol;
 };
 
@@ -343,7 +330,7 @@ const Actions = ({
   const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
-  const placeLayout = Layout.usePlacer();
+  const openEdit = useOpenEdit();
   const importSymbol = useImportSymbol(selectedGroup);
   const importGroup = useImportGroup();
   const hasCreateGroupPermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
@@ -354,18 +341,13 @@ const Actions = ({
   const handleCreateGroup = useCallback(() => {
     handleError(async () => {
       if (symbolGroupID == null) return;
-      const result = await rename(
-        {
-          initialValue: "",
-          allowEmpty: false,
-          label: "Group Name",
-        },
-        {
-          key: "create-group",
-          name: "Schematic.Symbols.Create Group",
-          icon: "Group",
-        },
-      );
+      const result = await rename({
+        initialValue: "",
+        allowEmpty: false,
+        label: "Group Name",
+        title: "Schematic.Symbols.Create Group",
+        icon: "Group",
+      });
       if (result == null || result.length === 0) return;
       await updateAsync({
         key: uuid.create(),
@@ -379,12 +361,8 @@ const Actions = ({
 
   const handleCreateSymbol = useCallback(() => {
     if (!isRemoteGroup || symbolGroupID == null) return;
-    placeLayout(
-      createEditLayout({
-        args: { parent: group.ontologyID(selectedGroup) },
-      }),
-    );
-  }, [isRemoteGroup, placeLayout, selectedGroup]);
+    openEdit({ parent: group.ontologyID(selectedGroup) });
+  }, [isRemoteGroup, openEdit, selectedGroup, symbolGroupID]);
 
   if (symbolGroupID == null) return null;
 
@@ -453,13 +431,13 @@ const GroupListContextMenu = ({
     beforeUpdate: async ({ data }) => {
       const { name } = data;
       if (item == null) return false;
-      const newName = await renameModal(
-        { initialValue: name, allowEmpty: false, label: "Group Name" },
-        {
-          name: "Schematic.Symbols.Rename Group",
-          icon: "Group",
-        },
-      );
+      const newName = await renameModal({
+        initialValue: name,
+        allowEmpty: false,
+        label: "Group Name",
+        title: "Schematic.Symbols.Rename Group",
+        icon: "Group",
+      });
       if (newName == null) return false;
       return { ...data, name: newName };
     },

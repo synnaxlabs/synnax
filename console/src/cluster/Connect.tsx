@@ -19,20 +19,12 @@ import { type z } from "zod";
 import { useSelect, useSelectAllNames } from "@/cluster/selectors";
 import { changeKey, clusterZ, set } from "@/cluster/slice";
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
 
-export const CONNECT_LAYOUT_TYPE = "connectCluster";
-
-export const CONNECT_LAYOUT: Layout.BaseState = {
-  key: CONNECT_LAYOUT_TYPE,
-  type: CONNECT_LAYOUT_TYPE,
-  name: "Core.Connect",
-  icon: "Cluster",
-  location: "modal",
-  window: { resizable: false, size: { height: 300, width: 650 }, navTop: true },
-};
+export interface ConnectClusterArgs {
+  clusterKey?: string;
+}
 
 const baseFormSchema = clusterZ.pick({
   name: true,
@@ -56,118 +48,122 @@ const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
   placeholder: "localhost",
 };
 
-export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const dispatch = useDispatch();
-  const isEdit = layoutKey !== CONNECT_LAYOUT_TYPE;
-  const existing = useSelect(isEdit ? layoutKey : undefined);
-  const [connState, setConnState] = useState<connection.State | null>(null);
-  const [loading, setLoading] = useState<"test" | "submit" | null>(null);
-  const names = useSelectAllNames();
-  const formSchema = baseFormSchema.check(({ value: { name }, issues }) => {
-    const isDuplicate = names.some(
-      (n) => n === name && (!isEdit || existing?.name !== name),
-    );
-    if (isDuplicate)
-      issues.push({
-        input: name,
-        code: "custom",
-        path: ["name"],
-        message: `${name} is already in use.`,
-      });
-  });
-  const handleError = Status.useErrorHandler();
-  const methods = Form.use<typeof formSchema>({
-    schema: formSchema,
-    values:
-      isEdit && existing != null
-        ? {
-            name: existing.name,
-            host: existing.host,
-            port: existing.port,
-            secure: existing.secure,
-          }
-        : { ...ZERO_VALUES },
-  });
+export const useOpenConnect = Modals.create<ConnectClusterArgs>(
+  { size: { height: 300, width: 650 } },
+  ({ args: { clusterKey }, close }) => {
+    const dispatch = useDispatch();
+    const isEdit = clusterKey != null;
+    const existing = useSelect(clusterKey);
+    const [connState, setConnState] = useState<connection.State | null>(null);
+    const [loading, setLoading] = useState<"test" | "submit" | null>(null);
+    const names = useSelectAllNames();
+    const formSchema = baseFormSchema.check(({ value: { name }, issues }) => {
+      const isDuplicate = names.some(
+        (n) => n === name && (!isEdit || existing?.name !== name),
+      );
+      if (isDuplicate)
+        issues.push({
+          input: name,
+          code: "custom",
+          path: ["name"],
+          message: `${name} is already in use.`,
+        });
+    });
+    const handleError = Status.useErrorHandler();
+    const methods = Form.use<typeof formSchema>({
+      schema: formSchema,
+      values:
+        isEdit && existing != null
+          ? {
+              name: existing.name,
+              host: existing.host,
+              port: existing.port,
+              secure: existing.secure,
+            }
+          : { ...ZERO_VALUES },
+    });
 
-  const handleSubmit = (): void =>
-    handleError(async () => {
-      if (!methods.validate()) return;
-      const data = methods.value();
-      setConnState(null);
-      setLoading("submit");
-      const state = await checkConnection(data);
-      setLoading(null);
-      setConnState(state);
-      if (isEdit && existing != null) {
-        dispatch(
-          set({
-            ...data,
-            key: layoutKey,
-            username: existing.username,
-            password: existing.password,
-          }),
-        );
-        if (state.clusterKey && state.clusterKey !== layoutKey)
-          dispatch(changeKey({ oldKey: layoutKey, newKey: state.clusterKey }));
-      } else {
-        const key = state.clusterKey || uuid.create();
-        dispatch(set({ ...data, key, username: "", password: "" }));
-      }
-      onClose();
-    }, "Failed to connect to cluster");
+    const handleSubmit = (): void =>
+      handleError(async () => {
+        if (!methods.validate()) return;
+        const data = methods.value();
+        setConnState(null);
+        setLoading("submit");
+        const state = await checkConnection(data);
+        setLoading(null);
+        setConnState(state);
+        if (isEdit && existing != null && clusterKey != null) {
+          dispatch(
+            set({
+              ...data,
+              key: clusterKey,
+              username: existing.username,
+              password: existing.password,
+            }),
+          );
+          if (state.clusterKey && state.clusterKey !== clusterKey)
+            dispatch(changeKey({ oldKey: clusterKey, newKey: state.clusterKey }));
+        } else {
+          const key = state.clusterKey || uuid.create();
+          dispatch(set({ ...data, key, username: "", password: "" }));
+        }
+        close();
+      }, "Failed to connect to cluster");
 
-  return (
-    <Flex.Box grow className={CSS.B("connect-cluster")}>
-      <Form.Form<typeof formSchema> {...methods}>
-        <Flex.Box
-          className="console-form"
-          grow
-          gap="tiny"
-          justify="center"
-          align="stretch"
-        >
-          <Form.TextField
-            path="name"
-            inputProps={{
-              autoFocus: true,
-              variant: "text",
-              level: "h2",
-              placeholder: "Synnax Core",
-              grow: true,
-            }}
-          />
-          <Flex.Box x align="stretch">
-            <Form.TextField path="host" grow inputProps={HOST_FIELD_PROPS} />
-            <Form.TextField path="port" inputProps={PORT_FIELD_PROPS} />
-            <Form.SwitchField path="secure" />
-          </Flex.Box>
-        </Flex.Box>
-      </Form.Form>
-      <Modals.BottomNavBar>
-        <Nav.Bar.Start gap="small">
-          {connState != null ? (
-            <Status.Summary
-              variant={Synnax.CONNECTION_STATE_VARIANTS[connState.status]}
-            >
-              {connState.status === "connected"
-                ? caseconv.capitalize(connState.status)
-                : connState.message}
-            </Status.Summary>
-          ) : (
-            <Triggers.SaveHelpText action={isEdit ? "Save" : "Connect"} noBar />
-          )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End>
-          <Button.Button
-            onClick={handleSubmit}
-            status={loading === "submit" ? "loading" : undefined}
-            trigger={Triggers.SAVE}
-            variant="filled"
+    return (
+      <Flex.Box grow className={CSS.B("connect-cluster")}>
+        <Modals.Header name="Core.Connect" icon="Cluster" />
+        <Form.Form<typeof formSchema> {...methods}>
+          <Flex.Box
+            className="console-form"
+            grow
+            gap="tiny"
+            justify="center"
+            align="stretch"
           >
-            {isEdit ? "Save" : "Connect"}
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modals.BottomNavBar>
-    </Flex.Box>
-  );
-};
+            <Form.TextField
+              path="name"
+              inputProps={{
+                autoFocus: true,
+                variant: "text",
+                level: "h2",
+                placeholder: "Synnax Core",
+                grow: true,
+              }}
+            />
+            <Flex.Box x align="stretch">
+              <Form.TextField path="host" grow inputProps={HOST_FIELD_PROPS} />
+              <Form.TextField path="port" inputProps={PORT_FIELD_PROPS} />
+              <Form.SwitchField path="secure" />
+            </Flex.Box>
+          </Flex.Box>
+        </Form.Form>
+        <Modals.BottomNavBar>
+          <Nav.Bar.Start gap="small">
+            {connState != null ? (
+              <Status.Summary
+                variant={Synnax.CONNECTION_STATE_VARIANTS[connState.status]}
+              >
+                {connState.status === "connected"
+                  ? caseconv.capitalize(connState.status)
+                  : connState.message}
+              </Status.Summary>
+            ) : (
+              <Triggers.SaveHelpText action={isEdit ? "Save" : "Connect"} noBar />
+            )}
+          </Nav.Bar.Start>
+          <Nav.Bar.End>
+            <Button.Button
+              onClick={handleSubmit}
+              status={loading === "submit" ? "loading" : undefined}
+              trigger={Triggers.SAVE}
+              variant="filled"
+            >
+              {isEdit ? "Save" : "Connect"}
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modals.BottomNavBar>
+      </Flex.Box>
+    );
+  },
+);

@@ -14,8 +14,8 @@ import { Button, CSS as PCSS, Icon, Input, Nav, Select, Text } from "@synnaxlabs
 import { useState } from "react";
 
 import { CSS } from "@/css";
-import { type BaseArgs, createBase } from "@/modals/Base";
-import { ModalContentLayout } from "@/modals/layout";
+import { prompt } from "@/layered/service/modals/Base";
+import { ModalContentLayout } from "@/layered/service/modals/layout";
 import { Triggers } from "@/triggers";
 
 export interface CreateArcResult {
@@ -23,12 +23,10 @@ export interface CreateArcResult {
   mode: arc.Mode;
 }
 
-export interface CreateArcArgs extends BaseArgs<CreateArcResult> {
+export interface CreateArcArgs {
   initialName?: string;
   initialMode?: arc.Mode;
 }
-
-export const CREATE_ARC_LAYOUT_TYPE = "arc_create_modal";
 
 const MODE_KEYS: arc.Mode[] = ["graph", "text"];
 
@@ -69,17 +67,16 @@ const ArcModeSelectButton = ({
   );
 };
 
-export const [useCreateModal, CreateModal] = createBase<CreateArcResult, CreateArcArgs>(
-  "Arc.Create Automation",
-  CREATE_ARC_LAYOUT_TYPE,
-  ({ value: { result, initialName, initialMode }, onFinish }) => {
-    const [name, setName] = useState(result?.name ?? initialName ?? "");
-    const [mode, setMode] = useState<arc.Mode>(result?.mode ?? initialMode ?? "graph");
+export const useCreateModal = prompt<CreateArcResult, CreateArcArgs>(
+  { size: { height: 350, width: 650 } },
+  ({ args: { initialName, initialMode }, close }) => {
+    const [name, setName] = useState(initialName ?? "");
+    const [mode, setMode] = useState<arc.Mode>(initialMode ?? "graph");
     const [error, setError] = useState<string | undefined>(undefined);
 
     const handleSave = () => {
       if (name.length === 0) return setError("Name is required");
-      onFinish({ name, mode });
+      close({ name, mode });
     };
 
     const footer = (
@@ -100,7 +97,12 @@ export const [useCreateModal, CreateModal] = createBase<CreateArcResult, CreateA
     );
 
     return (
-      <ModalContentLayout footer={footer} className={CSS.B("arc-create-modal")}>
+      <ModalContentLayout
+        title="Arc.Create Automation"
+        icon="Arc"
+        footer={footer}
+        className={CSS.B("arc-create-modal")}
+      >
         <Input.Item
           label="Name"
           required
@@ -144,5 +146,4 @@ export const [useCreateModal, CreateModal] = createBase<CreateArcResult, CreateA
       </ModalContentLayout>
     );
   },
-  { window: { size: { height: 350, width: 650 }, navTop: true }, icon: "Arc" },
 );

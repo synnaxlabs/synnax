@@ -9,7 +9,6 @@
 
 import { type Export } from "@/export";
 import { type Import } from "@/import";
-import { CREATE_ARC_LAYOUT_TYPE, CreateModal } from "@/layered/service/arc/CreateModal";
 import { Editor } from "@/layered/service/arc/editor";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/layered/service/arc/Explorer";
 import { extract } from "@/layered/service/arc/imex/export";
@@ -40,7 +39,6 @@ export const FILE_INGESTERS: Import.FileIngesters = { [EDITOR_LAYOUT_TYPE]: inge
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
   [EDITOR_LAYOUT_TYPE]: Editor.Editor,
-  [CREATE_ARC_LAYOUT_TYPE]: CreateModal,
 };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];

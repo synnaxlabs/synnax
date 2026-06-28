@@ -11,6 +11,7 @@ import { task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Task } from "@/hardware/common/task";
+import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
@@ -24,23 +25,24 @@ export interface TaskContextMenuItemsProps extends Pick<
   Ontology.TreeContextMenuProps,
   "selection" | "state"
 > {
-  configureLayout: Layout.BaseState;
+  configureModal: Modals.OpenHook<{ deviceKey?: string; title?: string }>;
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];
 }
 
 export const TaskContextMenuItems = ({
-  configureLayout,
+  configureModal,
   state: { getResource },
   selection: { ids },
   taskContextMenuItemConfigs,
 }: TaskContextMenuItemsProps) => {
   const placeLayout = Layout.usePlacer();
+  const { open } = Modals.use();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const firstID = ids[0];
   const first = getResource(firstID);
   const key = first.id.key;
   const maybeConfigure = () => {
-    if (first.data?.configured !== true) placeLayout({ ...configureLayout, key });
+    if (first.data?.configured !== true) open(configureModal, { deviceKey: key });
   };
   if (!hasCreatePermission) return null;
   return (

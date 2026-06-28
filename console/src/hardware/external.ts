@@ -29,7 +29,6 @@ export const EXTRACTORS: Export.Extractors = Task.EXTRACTORS;
 export const FILE_INGESTERS: Import.FileIngesters = Task.FILE_INGESTERS;
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  ...Device.LAYOUTS,
   ...Task.LAYOUTS,
 };
 

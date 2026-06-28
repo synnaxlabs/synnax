@@ -32,13 +32,13 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
   <>
     <Common.DeviceServices.ConfigureMenuItem
       {...props}
-      configureLayout={Device.CONFIGURE_LAYOUT}
+      configureModal={Device.useConfigure}
     />
     <Common.DeviceServices.ChangeIdentifierMenuItem {...props} icon="Logo.LabJack" />
     <Menu.Divider />
     <Common.DeviceServices.TaskContextMenuItems
       {...props}
-      configureLayout={Device.CONFIGURE_LAYOUT}
+      configureModal={Device.useConfigure}
       taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
     />
   </>

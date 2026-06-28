@@ -15,7 +15,7 @@ import { type z } from "zod";
 
 import { EmptyAction } from "@/components";
 import { use } from "@/hardware/common/device/use";
-import { Layout } from "@/layout";
+import { Modals } from "@/layered/service/modals";
 
 const DEFAULT_NONE_SELECTED_CONTENT = (
   <Text.Text center color={8}>
@@ -38,7 +38,7 @@ export interface ProviderProps<
 > {
   canConfigure: boolean;
   children: (props: ProviderChildProps<Properties, Make, Model>) => ReactElement;
-  configureLayout: Layout.BaseState;
+  configureModal: Modals.OpenHook<{ deviceKey?: string; title?: string }>;
   noneSelectedContent?: ReactElement;
   schemas?: device.DeviceSchemas<Properties, Make, Model>;
 }
@@ -50,16 +50,16 @@ export const Provider = <
 >({
   canConfigure,
   children,
-  configureLayout,
+  configureModal,
   noneSelectedContent = DEFAULT_NONE_SELECTED_CONTENT,
   schemas,
 }: ProviderProps<Properties, Make, Model>) => {
   const device = use<Properties, Make, Model>(schemas);
-  const placeLayout = Layout.usePlacer();
+  const { open } = Modals.use();
   if (device == null) return noneSelectedContent;
   if (!device.configured) {
     const { name } = device;
-    const handleConfigure = () => placeLayout({ ...configureLayout, key: device.key });
+    const handleConfigure = () => open(configureModal, { deviceKey: device.key });
     return (
       <EmptyAction
         message={`${name} is not configured.`}

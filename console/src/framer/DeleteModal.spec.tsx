@@ -13,10 +13,13 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DeleteModal } from "@/framer/DeleteModal";
+import { useOpenDeleteModal } from "@/framer/DeleteModal";
+import { Modals } from "@/layered/service/modals";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 const NullWrapper = createSynnaxWrapper({ client: null });
+
+const DeleteModal = Modals.renderer(useOpenDeleteModal);
 
 const renderModal = (
   Wrapper: FC<PropsWithChildren> = NullWrapper,
@@ -24,7 +27,7 @@ const renderModal = (
 ) => ({
   result: render(
     <Wrapper>
-      <DeleteModal layoutKey="test" onClose={onClose} visible focused />
+      <DeleteModal args={undefined} close={onClose} />
     </Wrapper>,
   ),
   onClose,
@@ -153,8 +156,12 @@ describe("DeleteModal", () => {
       });
       expect(c.getByText("This action is irreversible.")).toBeTruthy();
 
-      // Press and hold the Delete button past the onClickDelay
-      const deleteButton = c.getByText("Delete").closest<HTMLButtonElement>("button");
+      // Press and hold the Delete button past the onClickDelay. "Delete" also appears
+      // as a breadcrumb segment in the modal header, so select the one inside a button.
+      const deleteButton = c
+        .getAllByText("Delete")
+        .map((el) => el.closest<HTMLButtonElement>("button"))
+        .find((b) => b != null);
       if (deleteButton == null) throw new Error("Delete button not found");
       await act(async () => {
         fireEvent.click(deleteButton);

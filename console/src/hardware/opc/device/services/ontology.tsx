@@ -24,12 +24,12 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
   <>
     <Common.DeviceServices.EditConnectionMenuItem
       {...props}
-      configureLayout={Device.CONNECT_LAYOUT}
+      configureModal={Device.useConnect}
     />
     <Menu.Divider />
     <Common.DeviceServices.TaskContextMenuItems
       {...props}
-      configureLayout={Device.CONNECT_LAYOUT}
+      configureModal={Device.useConnect}
       taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
     />
   </>

@@ -9,18 +9,26 @@
 
 import { label } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { Label } from "@/label";
+import { useOpenEdit } from "@/label/Edit";
 import { Palette } from "@/palette";
 
 const useVisible = () => Access.useUpdateGranted(label.TYPE_ONTOLOGY_ID);
 
-export const EditCommand = Palette.createSimpleCommand({
-  key: "edit-labels",
-  name: "Edit labels",
-  icon: <Icon.Label />,
-  layout: Label.EDIT_LAYOUT,
-  useVisible,
-});
+export const EditCommand: Palette.Command = ({ placeModal, ...listProps }) => {
+  const handleSelect = useCallback(() => placeModal.open(useOpenEdit), [placeModal]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Edit labels"
+      icon={<Icon.Label />}
+      onSelect={handleSelect}
+    />
+  );
+};
+EditCommand.key = "edit-labels";
+EditCommand.commandName = "Edit labels";
+EditCommand.useVisible = useVisible;
 
 export const COMMANDS = [EditCommand];

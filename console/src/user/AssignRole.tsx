@@ -11,61 +11,50 @@ import { type access, status } from "@synnaxlabs/client";
 import { Access, Button, Flex, Form, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Layout } from "@/layout";
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 
-export const ASSIGN_ROLE_LAYOUT_TYPE = "user_assign_role";
+export interface AssignRoleLayoutArgs extends Access.Role.RetrieveQuery {
+  title?: string;
+}
 
-export interface AssignRoleLayoutArgs extends Access.Role.RetrieveQuery {}
-
-export const ASSIGN_ROLE_LAYOUT: Layout.BaseState = {
-  key: ASSIGN_ROLE_LAYOUT_TYPE,
-  type: ASSIGN_ROLE_LAYOUT_TYPE,
-  icon: "User",
-  location: "modal",
-  name: "Assign Role",
-  window: {
-    resizable: false,
-    size: { height: 200, width: 500 },
-    navTop: true,
-  },
-};
-
-export const AssignRole: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const client = Synnax.use();
-  const args = Layout.useSelectArgs<AssignRoleLayoutArgs>(layoutKey);
-  const { form, save, variant } = Access.Role.useChangeRoleForm({
-    query: args,
-    afterSave: useCallback(() => onClose(), [onClose]),
-  });
-  return (
-    <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
-      <Flex.Box grow empty>
-        <Flex.Box
-          className="console-form"
-          justify="center"
-          style={{ padding: "1rem 3rem" }}
-          grow
-        >
-          <Form.Field<access.role.Key> path="role" label="Role">
-            {(props) => <Access.Role.Select {...props} />}
-          </Form.Field>
+export const useOpenAssignRole = Modals.create<AssignRoleLayoutArgs>(
+  { size: { height: 200, width: 500 } },
+  ({ args, close }) => {
+    const client = Synnax.use();
+    const { form, save, variant } = Access.Role.useChangeRoleForm({
+      query: args,
+      afterSave: useCallback(() => close(), [close]),
+    });
+    return (
+      <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
+        <Flex.Box grow empty>
+          <Modals.Header name={args.title ?? "Assign Role"} icon="User" />
+          <Flex.Box
+            className="console-form"
+            justify="center"
+            style={{ padding: "1rem 3rem" }}
+            grow
+          >
+            <Form.Field<access.role.Key> path="role" label="Role">
+              {(props) => <Access.Role.Select {...props} />}
+            </Form.Field>
+          </Flex.Box>
+          <Modals.BottomNavBar>
+            <Nav.Bar.End style={{ paddingRight: "2rem" }}>
+              <Button.Button
+                onClick={() => save()}
+                variant="filled"
+                disabled={client == null}
+                status={status.keepVariants(variant, "loading")}
+                tooltip={client == null ? "No Core connected" : undefined}
+                tooltipLocation="bottom"
+              >
+                Assign
+              </Button.Button>
+            </Nav.Bar.End>
+          </Modals.BottomNavBar>
         </Flex.Box>
-        <Modals.BottomNavBar>
-          <Nav.Bar.End style={{ paddingRight: "2rem" }}>
-            <Button.Button
-              onClick={() => save()}
-              variant="filled"
-              disabled={client == null}
-              status={status.keepVariants(variant, "loading")}
-              tooltip={client == null ? "No Core connected" : undefined}
-              tooltipLocation="bottom"
-            >
-              Assign
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modals.BottomNavBar>
-      </Flex.Box>
-    </Form.Form>
-  );
-};
+      </Form.Form>
+    );
+  },
+);

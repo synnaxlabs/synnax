@@ -184,7 +184,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
   return (
     <Common.Device.Provider
       canConfigure={!isSnapshot}
-      configureLayout={Device.CONFIGURE_LAYOUT}
+      configureModal={Device.useConfigure}
       schemas={Device.SCHEMAS}
     >
       {({ device }) => <ChannelList device={device} />}

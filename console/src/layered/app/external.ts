@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/layered/app/links";
+export * from "@/layered/app/modals";
 export * from "@/layered/app/nav";

@@ -34,17 +34,8 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
-
-export const DELETE_LAYOUT: Layout.BaseState = {
-  type: "delete_data",
-  location: "modal",
-  icon: "Channel",
-  name: "Data.Delete",
-  window: { resizable: false, size: { height: 350, width: 700 }, navTop: true },
-};
 
 const formSchema = z.object({
   channels: channel.keyZ.array().min(1, "Select at least one channel"),
@@ -58,24 +49,28 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to delete",
 };
 
-export const DeleteModal: Layout.Renderer = ({ onClose }) => {
-  const [step, setStep] = useState<"form" | "confirm">("form");
-  const methods = Form.use({
-    schema: formSchema,
-    values: { channels: [], timeRange: TimeRange.MAX.numeric },
-  });
-  return (
-    <Form.Form<typeof formSchema> {...methods}>
-      <Flex.Box align="stretch" direction="y" empty grow>
-        {step === "form" ? (
-          <FormStep onNext={() => setStep("confirm")} />
-        ) : (
-          <ConfirmStep onBack={() => setStep("form")} onClose={onClose} />
-        )}
-      </Flex.Box>
-    </Form.Form>
-  );
-};
+export const useOpenDeleteModal = Modals.create<void>(
+  { size: { height: 350, width: 700 } },
+  ({ close }) => {
+    const [step, setStep] = useState<"form" | "confirm">("form");
+    const methods = Form.use({
+      schema: formSchema,
+      values: { channels: [], timeRange: TimeRange.MAX.numeric },
+    });
+    return (
+      <Form.Form<typeof formSchema> {...methods}>
+        <Flex.Box align="stretch" direction="y" empty grow>
+          <Modals.Header name="Data.Delete" icon="Channel" />
+          {step === "form" ? (
+            <FormStep onNext={() => setStep("confirm")} />
+          ) : (
+            <ConfirmStep onBack={() => setStep("form")} onClose={close} />
+          )}
+        </Flex.Box>
+      </Form.Form>
+    );
+  },
+);
 
 interface FormStepProps {
   onNext: () => void;

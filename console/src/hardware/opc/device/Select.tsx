@@ -11,12 +11,11 @@ import { Dialog, Icon } from "@synnaxlabs/pluto";
 
 import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
-import { CONNECT_LAYOUT } from "@/hardware/opc/device/Connect";
+import { useConnect } from "@/hardware/opc/device/Connect";
 import { MAKE } from "@/hardware/opc/device/types";
-import { Layout } from "@/layout";
 
 const EmptyContent = () => {
-  const placeLayout = Layout.usePlacer();
+  const connect = useConnect();
   const { close } = Dialog.useContext();
   return (
     <EmptyAction
@@ -24,7 +23,7 @@ const EmptyContent = () => {
       action="Connect a new server"
       full="y"
       onClick={() => {
-        placeLayout(CONNECT_LAYOUT);
+        connect({});
         close();
       }}
     />
@@ -33,7 +32,7 @@ const EmptyContent = () => {
 
 export const Select = () => (
   <Common.Device.Select
-    configureLayout={CONNECT_LAYOUT}
+    configureModal={useConnect}
     emptyContent={<EmptyContent />}
     label="OPC UA Server"
     make={MAKE}

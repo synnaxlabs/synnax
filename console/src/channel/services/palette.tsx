@@ -9,26 +9,45 @@
 
 import { channel } from "@synnaxlabs/client";
 import { Access, Channel as PChannel } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { Channel } from "@/channel";
+import { useOpenCalculated } from "@/channel/Calculated";
+import { useOpenCreate } from "@/channel/Create";
 import { Palette } from "@/palette";
 
 const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
 
-const CreateCommand = Palette.createSimpleCommand({
-  key: "create-channel",
-  name: "Create a channel",
-  icon: <PChannel.CreateIcon />,
-  layout: Channel.CREATE_LAYOUT,
-  useVisible,
-});
+const CreateCommand: Palette.Command = ({ placeModal, ...listProps }) => {
+  const handleSelect = useCallback(() => placeModal.open(useOpenCreate), [placeModal]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create a channel"
+      icon={<PChannel.CreateIcon />}
+      onSelect={handleSelect}
+    />
+  );
+};
+CreateCommand.key = "create-channel";
+CreateCommand.commandName = "Create a channel";
+CreateCommand.useVisible = useVisible;
 
-const CreateCalculatedCommand = Palette.createSimpleCommand({
-  key: "create-calculated-channel",
-  name: "Create a calculated channel",
-  icon: <PChannel.CreateCalculatedIcon />,
-  layout: Channel.CALCULATED_LAYOUT,
-  useVisible,
-});
+const CreateCalculatedCommand: Palette.Command = ({ placeModal, ...listProps }) => {
+  const handleSelect = useCallback(
+    () => placeModal.open(useOpenCalculated),
+    [placeModal],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create a calculated channel"
+      icon={<PChannel.CreateCalculatedIcon />}
+      onSelect={handleSelect}
+    />
+  );
+};
+CreateCalculatedCommand.key = "create-calculated-channel";
+CreateCalculatedCommand.commandName = "Create a calculated channel";
+CreateCalculatedCommand.useVisible = useVisible;
 
 export const COMMANDS = [CreateCommand, CreateCalculatedCommand];

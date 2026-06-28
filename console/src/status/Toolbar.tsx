@@ -30,7 +30,7 @@ import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
-import { CREATE_LAYOUT } from "@/status/Create";
+import { useOpenCreate } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 import { contextMenu } from "@/status/list/ContextMenu";
 import { useSelectFavorites } from "@/status/selectors";
@@ -137,16 +137,14 @@ const Content = (): ReactElement => (
 
 const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
+  const openCreate = useOpenCreate();
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
       {hasCreatePermission && (
-        <Toolbar.Action
-          tooltip="Create status"
-          onClick={() => placeLayout(CREATE_LAYOUT)}
-        >
+        <Toolbar.Action tooltip="Create status" onClick={() => openCreate({})}>
           <Icon.Add />
         </Toolbar.Action>
       )}

@@ -12,10 +12,10 @@ import { Device, Form, type Icon, Status, Synnax } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type JSX, useCallback, useMemo } from "react";
 
-import { Layout } from "@/layout";
+import { Modals } from "@/layered/service/modals";
 
 export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
-  configureLayout: Layout.BaseState;
+  configureModal: Modals.OpenHook<{ deviceKey?: string; title?: string }>;
   emptyContent?: string | JSX.Element;
   label?: string;
   make: string;
@@ -25,7 +25,7 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
 }
 
 export const Select = ({
-  configureLayout,
+  configureModal,
   emptyContent = "No devices connected.",
   filter: filterProp,
   label = "Device",
@@ -35,7 +35,7 @@ export const Select = ({
   icon,
 }: SelectProps) => {
   const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
+  const { open } = Modals.use();
   const handleError = Status.useErrorHandler();
   const handleDeviceChange = useCallback(
     (key: device.Key, { set }: Form.ContextValue) => {
@@ -44,10 +44,10 @@ export const Select = ({
         const { configured, rack } = await client.devices.retrieve({ key });
         set("rackKey", rack);
         if (configured) return;
-        placeLayout({ ...configureLayout, key });
+        open(configureModal, { deviceKey: key });
       }, "Failed to retrieve device");
     },
-    [client, placeLayout, configureLayout, handleError],
+    [client, open, configureModal, handleError],
   );
   const filter = useMemo(() => {
     const baseFilter = (d: device.Device) =>

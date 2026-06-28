@@ -12,7 +12,7 @@ import { Access, Device, Icon, Menu } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 
 import { useChangeIdentifier } from "@/hardware/common/device/services/useChangeIdentifier";
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 import { type Ontology } from "@/ontology";
 
 export interface ChangeIdentifierMenuItemProps extends Pick<
@@ -42,10 +42,13 @@ export const ChangeIdentifierMenuItem = ({
   const handleClick = () =>
     handleError(async () => {
       try {
-        const newIdentifier = await rename(
-          { initialValue: identifier, allowEmpty: false, label: "Identifier" },
-          { icon, name: "Device.Identifier" },
-        );
+        const newIdentifier = await rename({
+          initialValue: identifier,
+          allowEmpty: false,
+          label: "Identifier",
+          title: "Device.Identifier",
+          icon,
+        });
         if (newIdentifier == null) return;
         await updateAsync({ key: first.id.key, identifier: newIdentifier });
       } catch (e) {

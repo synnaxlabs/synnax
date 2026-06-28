@@ -166,14 +166,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               textColor={9}
               onClick={() =>
                 handleError(async () => {
-                  await promptDownloadCSVModal(
-                    {
-                      timeRange: form.get<NumericTimeRange>("timeRange").value,
-                      name,
-                      channels: [],
-                    },
-                    { icon: "Range" },
-                  );
+                  await promptDownloadCSVModal({
+                    timeRange: form.get<NumericTimeRange>("timeRange").value,
+                    name,
+                    channels: [],
+                    icon: "Range",
+                  });
                 }, "Failed to download CSV")
               }
             >

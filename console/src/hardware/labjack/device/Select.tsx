@@ -10,12 +10,12 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
-import { CONFIGURE_LAYOUT } from "@/hardware/labjack/device/Configure";
+import { useConfigure } from "@/hardware/labjack/device/Configure";
 import { MAKE } from "@/hardware/labjack/device/types";
 
 export const Select = () => (
   <Common.Device.Select
-    configureLayout={CONFIGURE_LAYOUT}
+    configureModal={useConfigure}
     emptyContent="No LabJack devices connected."
     make={MAKE}
     icon={<Icon.Logo.LabJack />}

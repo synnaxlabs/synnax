@@ -45,10 +45,9 @@ import {
 import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
-import { createEditLayout } from "@/layered/service/schematic/symbols/edit/Edit";
+import { useOpenEdit } from "@/layered/service/schematic/symbols/edit/Edit";
 import { MissingSymbolForm } from "@/layered/service/schematic/toolbar/MissingSymbolForm";
 import { Session } from "@/layered/session";
-import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 
 export const Properties = memo((): ReactElement => {
@@ -92,7 +91,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     { ctx: formMethods, optional: true },
   );
   const isCustom = schematic.symbol.keyZ.safeParse(specKey).success && specKey != null;
-  const placeLayout = Layout.usePlacer();
+  const openEdit = useOpenEdit();
   let actions: ReactNode = null;
   if (isCustom)
     actions = (
@@ -100,7 +99,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
         variant="filled"
         size="tiny"
         className={CSS.BE("schematic", "properties", "edit")}
-        onClick={() => placeLayout(createEditLayout({ args: { key: specKey } }))}
+        onClick={() => openEdit({ key: specKey })}
       >
         <Icon.Edit />
       </Button.Button>

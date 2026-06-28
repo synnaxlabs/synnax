@@ -41,10 +41,12 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
       const timeRange = TimeRange.merge(...timeRanges);
       handleError(
         async () =>
-          await openDownloadCSVModal(
-            { timeRange: timeRange.numeric, name, channels },
-            { icon: "LinePlot" },
-          ),
+          await openDownloadCSVModal({
+            timeRange: timeRange.numeric,
+            name,
+            channels,
+            icon: "LinePlot",
+          }),
         `Failed to download CSV data for ${name}`,
       );
     },

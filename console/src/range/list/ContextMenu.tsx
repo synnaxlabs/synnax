@@ -14,11 +14,11 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/components";
 import { Link } from "@/layered/service/link";
+import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { CreateChildRangeIcon } from "@/range/ContextMenu";
-import { createCreateLayout } from "@/range/Create";
+import { useOpenCreate } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelectKeys } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
@@ -34,6 +34,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const placeLayout = Layout.usePlacer();
+  const openCreate = useOpenCreate();
   const favoriteKeys = useSelectKeys();
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
   const someAreNotFavorites = ranges.some((r) => !favoriteKeys.includes(r.key));
@@ -46,7 +47,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const { update: del } = Ranger.useDelete();
   const { update: renameRange } = Ranger.useRename();
   const handleAddChildRange = () => {
-    placeLayout(createCreateLayout({ parent: ranges[0].key }));
+    openCreate({ parent: ranges[0].key });
   };
   const handleFavorite = () => {
     dispatch(add({ ranges: fromClientRange(ranges) }));
@@ -62,10 +63,11 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   };
   const handleRename = () => {
     handleError(async () => {
-      const renamed = await renameModal(
-        { initialValue: ranges[0].name },
-        { icon: "Range", name: "Range.Rename" },
-      );
+      const renamed = await renameModal({
+        initialValue: ranges[0].name,
+        title: "Range.Rename",
+        icon: "Range",
+      });
       if (renamed == null) return;
       renameRange({ key: ranges[0].key, name: renamed });
     }, "Failed to rename range");

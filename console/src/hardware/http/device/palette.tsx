@@ -9,16 +9,25 @@
 
 import { device } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { CONNECT_LAYOUT } from "@/hardware/http/device/Connect";
+import { useConnect } from "@/hardware/http/device/Connect";
 import { Palette } from "@/palette";
 
-const ConnectServerCommand = Palette.createSimpleCommand({
-  key: "http_connect_server",
-  name: "Connect an HTTP server",
-  icon: <Icon.Logo.HTTP />,
-  layout: CONNECT_LAYOUT,
-  useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),
-});
+const ConnectServerCommand: Palette.Command = ({ placeModal, ...listProps }) => {
+  const handleSelect = useCallback(() => placeModal.open(useConnect, {}), [placeModal]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Connect an HTTP server"
+      icon={<Icon.Logo.HTTP />}
+      onSelect={handleSelect}
+    />
+  );
+};
+ConnectServerCommand.key = "http_connect_server";
+ConnectServerCommand.commandName = "Connect an HTTP server";
+ConnectServerCommand.useVisible = () =>
+  Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS = [ConnectServerCommand];

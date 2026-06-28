@@ -20,6 +20,7 @@ import {
 import { isValidElement, useCallback } from "react";
 import { useStore } from "react-redux";
 
+import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { type UseListReturn } from "@/palette/list";
@@ -56,6 +57,7 @@ export const useResourceList = (): UseListReturn<ontology.Resource> => {
   const store = useStore<RootState, RootAction>();
   const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
+  const placeModal = Modals.use();
   const removeLayout = Layout.useRemover();
   const handleError = Status.useErrorHandler();
 
@@ -68,13 +70,23 @@ export const useResourceList = (): UseListReturn<ontology.Resource> => {
         store,
         addStatus,
         placeLayout,
+        placeModal,
         removeLayout,
         handleError,
         client,
         selection: getItem([key]),
       });
     },
-    [client, services, store, addStatus, placeLayout, removeLayout, handleError],
+    [
+      client,
+      services,
+      store,
+      addStatus,
+      placeLayout,
+      placeModal,
+      removeLayout,
+      handleError,
+    ],
   );
 
   return { data, getItem, subscribe, handleSelect, listItem, retrieve };

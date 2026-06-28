@@ -46,20 +46,13 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/hardware/http/task/types";
-import { type Layout } from "@/layout";
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
 
-export const CONNECT_LAYOUT_TYPE = "configureHTTPServer";
-
-export const CONNECT_LAYOUT: Layout.BaseState = {
-  key: CONNECT_LAYOUT_TYPE,
-  type: CONNECT_LAYOUT_TYPE,
-  name: "Server.Connect",
-  icon: "Logo.HTTP",
-  location: "modal",
-  window: { resizable: true, size: { height: 900, width: 700 }, navTop: true },
-};
+export interface ConnectArgs {
+  deviceKey?: string;
+  title?: string;
+}
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -118,321 +111,325 @@ const beforeSave = async ({
   return true;
 };
 
-export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const {
-    form,
-    save,
-    status: stat,
-    variant,
-  } = useForm({
-    query: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
-    initialValues: INITIAL_VALUES,
-    beforeSave,
-    afterSave: useCallback(() => onClose(), [onClose]),
-  });
+export const useConnect = Modals.create<ConnectArgs>(
+  { size: { height: 900, width: 700 } },
+  ({ args, close }) => {
+    const {
+      form,
+      save,
+      status: stat,
+      variant,
+    } = useForm({
+      query: { key: args.deviceKey ?? "" },
+      initialValues: INITIAL_VALUES,
+      beforeSave,
+      afterSave: useCallback(() => close(), [close]),
+    });
 
-  const authType = Form.useFieldValue<AuthType, AuthType, typeof PDevice.formSchema>(
-    "properties.auth.type",
-    { ctx: form },
-  );
+    const authType = Form.useFieldValue<AuthType, AuthType, typeof PDevice.formSchema>(
+      "properties.auth.type",
+      { ctx: form },
+    );
 
-  const sendAs = Form.useFieldValue<string, string, typeof PDevice.formSchema>(
-    "properties.auth.sendAs",
-    { ctx: form, optional: true },
-  );
+    const sendAs = Form.useFieldValue<string, string, typeof PDevice.formSchema>(
+      "properties.auth.sendAs",
+      { ctx: form, optional: true },
+    );
 
-  const healthCheckMethod = Form.useFieldValue<
-    HealthCheckMethod,
-    HealthCheckMethod,
-    typeof PDevice.formSchema
-  >("properties.healthCheck.method", { ctx: form });
+    const healthCheckMethod = Form.useFieldValue<
+      HealthCheckMethod,
+      HealthCheckMethod,
+      typeof PDevice.formSchema
+    >("properties.healthCheck.method", { ctx: form });
 
-  const validateResponse = Form.useFieldValue<
-    boolean,
-    boolean,
-    typeof PDevice.formSchema
-  >("properties.healthCheck.validateResponse", { ctx: form });
+    const validateResponse = Form.useFieldValue<
+      boolean,
+      boolean,
+      typeof PDevice.formSchema
+    >("properties.healthCheck.validateResponse", { ctx: form });
 
-  const expectedValueType = Form.useFieldValue<
-    json.PrimitiveType,
-    json.PrimitiveType,
-    typeof PDevice.formSchema
-  >("properties.healthCheck.response.expectedValueType", {
-    ctx: form,
-    optional: true,
-  });
+    const expectedValueType = Form.useFieldValue<
+      json.PrimitiveType,
+      json.PrimitiveType,
+      typeof PDevice.formSchema
+    >("properties.healthCheck.response.expectedValueType", {
+      ctx: form,
+      optional: true,
+    });
 
-  const handleValidateResponseChange = useCallback(
-    (value: boolean) => {
-      form.set("properties.healthCheck.validateResponse", value);
-      form.set("properties.healthCheck.response", value ? ZERO_RESPONSE : undefined);
-    },
-    [form.set],
-  );
+    const handleValidateResponseChange = useCallback(
+      (value: boolean) => {
+        form.set("properties.healthCheck.validateResponse", value);
+        form.set("properties.healthCheck.response", value ? ZERO_RESPONSE : undefined);
+      },
+      [form.set],
+    );
 
-  const renderExpectedValueType = useCallback(
-    ({
-      onChange,
-      ...rest
-    }: SelectExpectedValueTypeProps & {
-      onChange: (v: json.PrimitiveType) => void;
-    }) => {
-      const handleChange = (value: json.PrimitiveType) => {
-        form.set(
-          "properties.healthCheck.response.expectedValue",
-          json.ZERO_PRIMITIVES[value],
-        );
-        onChange(value);
-      };
-      return <SelectExpectedValueType {...rest} onChange={handleChange} />;
-    },
-    [form.set],
-  );
+    const renderExpectedValueType = useCallback(
+      ({
+        onChange,
+        ...rest
+      }: SelectExpectedValueTypeProps & {
+        onChange: (v: json.PrimitiveType) => void;
+      }) => {
+        const handleChange = (value: json.PrimitiveType) => {
+          form.set(
+            "properties.healthCheck.response.expectedValue",
+            json.ZERO_PRIMITIVES[value],
+          );
+          onChange(value);
+        };
+        return <SelectExpectedValueType {...rest} onChange={handleChange} />;
+      },
+      [form.set],
+    );
 
-  const renderAuthType = useCallback(
-    ({
-      onChange,
-      ...rest
-    }: SelectAuthTypeProps & { onChange: (v: AuthType) => void }) => {
-      const handleChange = (value: AuthType) => {
-        form.set("properties.auth", ZERO_AUTH_CONFIGS[value]);
-        onChange(value);
-      };
-      return <SelectAuthType {...rest} onChange={handleChange} />;
-    },
-    [form.set],
-  );
+    const renderAuthType = useCallback(
+      ({
+        onChange,
+        ...rest
+      }: SelectAuthTypeProps & { onChange: (v: AuthType) => void }) => {
+        const handleChange = (value: AuthType) => {
+          form.set("properties.auth", ZERO_AUTH_CONFIGS[value]);
+          onChange(value);
+        };
+        return <SelectAuthType {...rest} onChange={handleChange} />;
+      },
+      [form.set],
+    );
 
-  const renderHealthCheckMethod = useCallback(
-    ({
-      onChange,
-      ...rest
-    }: Omit<Select.ButtonsProps<HealthCheckMethod>, "keys"> & {
-      onChange: (v: HealthCheckMethod) => void;
-    }) => {
-      const handleChange = (method: HealthCheckMethod) => {
-        onChange(method);
-        form.set("properties.healthCheck.body", method === "POST" ? "" : undefined);
-      };
-      return <SelectHealthCheckMethod {...rest} onChange={handleChange} />;
-    },
-    [form.set],
-  );
+    const renderHealthCheckMethod = useCallback(
+      ({
+        onChange,
+        ...rest
+      }: Omit<Select.ButtonsProps<HealthCheckMethod>, "keys"> & {
+        onChange: (v: HealthCheckMethod) => void;
+      }) => {
+        const handleChange = (method: HealthCheckMethod) => {
+          onChange(method);
+          form.set("properties.healthCheck.body", method === "POST" ? "" : undefined);
+        };
+        return <SelectHealthCheckMethod {...rest} onChange={handleChange} />;
+      },
+      [form.set],
+    );
 
-  const renderSendAs = useCallback(
-    ({
-      onChange,
-      ...rest
-    }: SelectSendAsProps & { onChange: (v: APIKeyAuthConfigSendAs) => void }) => {
-      const handleChange = (value: APIKeyAuthConfigSendAs) => {
-        if (value === "header") form.set("properties.auth.header", "");
-        else form.set("properties.auth.parameter", "");
-        onChange(value);
-      };
-      return <SelectSendAs {...rest} onChange={handleChange} />;
-    },
-    [form.set],
-  );
+    const renderSendAs = useCallback(
+      ({
+        onChange,
+        ...rest
+      }: SelectSendAsProps & { onChange: (v: APIKeyAuthConfigSendAs) => void }) => {
+        const handleChange = (value: APIKeyAuthConfigSendAs) => {
+          if (value === "header") form.set("properties.auth.header", "");
+          else form.set("properties.auth.parameter", "");
+          onChange(value);
+        };
+        return <SelectSendAs {...rest} onChange={handleChange} />;
+      },
+      [form.set],
+    );
 
-  return (
-    <Flex.Box grow className={CSS.B("http-connect")}>
-      <Flex.Box className={CSS.B("content")} grow gap="large">
-        <Form.Form<typeof PDevice.formSchema> {...form}>
-          <Flex.Box gap="small">
-            <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
-            <Form.Field<rack.Key> path="rack" label="Connect from" required>
-              {selectRackRenderProp}
-            </Form.Field>
-            <Flex.Box x align="end">
-              <Form.TextField
-                grow
-                path="location"
-                label="Host"
-                inputProps={HOST_INPUT_PROPS}
-              />
-              <Form.SwitchField path="properties.secure" label="HTTPS" />
-              <Form.SwitchField path="properties.verifySsl" label="Verify SSL" />
-            </Flex.Box>
-            <Form.NumericField
-              path="properties.timeoutMs"
-              label="Expected response time"
-              inputProps={TIMEOUT_INPUT_PROPS}
-            />
-            <Divider.Divider x />
-          </Flex.Box>
-          <Flex.Box gap="small">
-            <Form.Field<AuthType> path="properties.auth.type" label="Authentication">
-              {renderAuthType}
-            </Form.Field>
-            {authType === "bearer" && (
-              <Form.TextField
-                path="properties.auth.token"
-                label="Token"
-                inputProps={AUTH_TOKEN_INPUT_PROPS}
-              />
-            )}
-            {authType === "api_key" && (
-              <>
-                <Form.Field<APIKeyAuthConfigSendAs>
-                  path="properties.auth.sendAs"
-                  label="Send as"
-                >
-                  {renderSendAs}
-                </Form.Field>
-                <Flex.Box x justify="between">
-                  {sendAs === "query_param" ? (
-                    <Form.TextField
-                      grow
-                      path="properties.auth.parameter"
-                      label="Name"
-                      inputProps={AUTH_PARAM_INPUT_PROPS}
-                    />
-                  ) : (
-                    <Form.TextField
-                      grow
-                      path="properties.auth.header"
-                      label="Name"
-                      inputProps={AUTH_HEADER_INPUT_PROPS}
-                    />
-                  )}
-                  <Form.TextField
-                    grow
-                    path="properties.auth.key"
-                    label="API Key"
-                    inputProps={AUTH_KEY_INPUT_PROPS}
-                  />
-                </Flex.Box>
-              </>
-            )}
-            {authType === "basic" && (
-              <Flex.Box x justify="between">
-                <Form.TextField
-                  grow
-                  path="properties.auth.username"
-                  label="Username"
-                  inputProps={AUTH_USERNAME_INPUT_PROPS}
-                />
-                <Form.TextField
-                  grow
-                  path="properties.auth.password"
-                  label="Password"
-                  inputProps={AUTH_PASSWORD_INPUT_PROPS}
-                />
-              </Flex.Box>
-            )}
-            <Divider.Divider x />
-          </Flex.Box>
-          <Flex.Box gap="large">
-            <Text.Text level="h4" weight={500}>
-              Health Check
-            </Text.Text>
+    return (
+      <Flex.Box grow className={CSS.B("http-connect")}>
+        <Modals.Header name="Server.Connect" icon="Logo.HTTP" />
+        <Flex.Box className={CSS.B("content")} grow gap="large">
+          <Form.Form<typeof PDevice.formSchema> {...form}>
             <Flex.Box gap="small">
+              <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
+              <Form.Field<rack.Key> path="rack" label="Connect from" required>
+                {selectRackRenderProp}
+              </Form.Field>
               <Flex.Box x align="end">
-                <Form.Field<HealthCheckMethod>
-                  path="properties.healthCheck.method"
-                  label="Method"
-                >
-                  {renderHealthCheckMethod}
-                </Form.Field>
                 <Form.TextField
                   grow
-                  path="properties.healthCheck.path"
-                  label="Path"
-                  inputProps={HEALTH_PATH_INPUT_PROPS}
+                  path="location"
+                  label="Host"
+                  inputProps={HOST_INPUT_PROPS}
                 />
+                <Form.SwitchField path="properties.secure" label="HTTPS" />
+                <Form.SwitchField path="properties.verifySsl" label="Verify SSL" />
               </Flex.Box>
-              {healthCheckMethod === "POST" && (
+              <Form.NumericField
+                path="properties.timeoutMs"
+                label="Expected response time"
+                inputProps={TIMEOUT_INPUT_PROPS}
+              />
+              <Divider.Divider x />
+            </Flex.Box>
+            <Flex.Box gap="small">
+              <Form.Field<AuthType> path="properties.auth.type" label="Authentication">
+                {renderAuthType}
+              </Form.Field>
+              {authType === "bearer" && (
                 <Form.TextField
-                  path="properties.healthCheck.body"
-                  label="Body"
-                  inputProps={HEALTH_BODY_INPUT_PROPS}
+                  path="properties.auth.token"
+                  label="Token"
+                  inputProps={AUTH_TOKEN_INPUT_PROPS}
                 />
               )}
-              <KeyValueEditor
-                path="properties.healthCheck.headers"
-                label="Headers"
-                keyField="name"
-                keyPlaceholder="Name"
-                valuePlaceholder="Value"
-              />
-              <KeyValueEditor
-                path="properties.healthCheck.queryParams"
-                label="Query parameters"
-                keyField="parameter"
-                keyPlaceholder="Parameter"
-                valuePlaceholder="Value"
-              />
-            </Flex.Box>
-            <Flex.Box>
-              <Form.SwitchField
-                path="properties.healthCheck.validateResponse"
-                label="Validate response body"
-                align="start"
-                onChange={handleValidateResponseChange}
-              />
-              {validateResponse && (
+              {authType === "api_key" && (
                 <>
-                  <Form.TextField
-                    grow
-                    path="properties.healthCheck.response.pointer"
-                    label="JSON pointer"
-                    inputProps={HEALTH_POINTER_INPUT_PROPS}
-                  />
-
-                  <Flex.Box x align="end">
-                    <Form.Field<json.PrimitiveType>
-                      path="properties.healthCheck.response.expectedValueType"
-                      label="Value type"
-                    >
-                      {renderExpectedValueType}
-                    </Form.Field>
-                    {expectedValueType === "string" && (
+                  <Form.Field<APIKeyAuthConfigSendAs>
+                    path="properties.auth.sendAs"
+                    label="Send as"
+                  >
+                    {renderSendAs}
+                  </Form.Field>
+                  <Flex.Box x justify="between">
+                    {sendAs === "query_param" ? (
                       <Form.TextField
-                        path="properties.healthCheck.response.expectedValue"
-                        label="Expected value"
-                        inputProps={HEALTH_EXPECTED_STRING_INPUT_PROPS}
+                        grow
+                        path="properties.auth.parameter"
+                        label="Name"
+                        inputProps={AUTH_PARAM_INPUT_PROPS}
+                      />
+                    ) : (
+                      <Form.TextField
+                        grow
+                        path="properties.auth.header"
+                        label="Name"
+                        inputProps={AUTH_HEADER_INPUT_PROPS}
                       />
                     )}
-                    {expectedValueType === "number" && (
-                      <Form.NumericField
-                        path="properties.healthCheck.response.expectedValue"
-                        label="Expected value"
-                      />
-                    )}
-                    {expectedValueType === "boolean" && (
-                      <Form.SwitchField
-                        path="properties.healthCheck.response.expectedValue"
-                        label="Expected value"
-                      />
-                    )}
+                    <Form.TextField
+                      grow
+                      path="properties.auth.key"
+                      label="API Key"
+                      inputProps={AUTH_KEY_INPUT_PROPS}
+                    />
                   </Flex.Box>
                 </>
               )}
+              {authType === "basic" && (
+                <Flex.Box x justify="between">
+                  <Form.TextField
+                    grow
+                    path="properties.auth.username"
+                    label="Username"
+                    inputProps={AUTH_USERNAME_INPUT_PROPS}
+                  />
+                  <Form.TextField
+                    grow
+                    path="properties.auth.password"
+                    label="Password"
+                    inputProps={AUTH_PASSWORD_INPUT_PROPS}
+                  />
+                </Flex.Box>
+              )}
+              <Divider.Divider x />
             </Flex.Box>
-          </Flex.Box>
-        </Form.Form>
+            <Flex.Box gap="large">
+              <Text.Text level="h4" weight={500}>
+                Health Check
+              </Text.Text>
+              <Flex.Box gap="small">
+                <Flex.Box x align="end">
+                  <Form.Field<HealthCheckMethod>
+                    path="properties.healthCheck.method"
+                    label="Method"
+                  >
+                    {renderHealthCheckMethod}
+                  </Form.Field>
+                  <Form.TextField
+                    grow
+                    path="properties.healthCheck.path"
+                    label="Path"
+                    inputProps={HEALTH_PATH_INPUT_PROPS}
+                  />
+                </Flex.Box>
+                {healthCheckMethod === "POST" && (
+                  <Form.TextField
+                    path="properties.healthCheck.body"
+                    label="Body"
+                    inputProps={HEALTH_BODY_INPUT_PROPS}
+                  />
+                )}
+                <KeyValueEditor
+                  path="properties.healthCheck.headers"
+                  label="Headers"
+                  keyField="name"
+                  keyPlaceholder="Name"
+                  valuePlaceholder="Value"
+                />
+                <KeyValueEditor
+                  path="properties.healthCheck.queryParams"
+                  label="Query parameters"
+                  keyField="parameter"
+                  keyPlaceholder="Parameter"
+                  valuePlaceholder="Value"
+                />
+              </Flex.Box>
+              <Flex.Box>
+                <Form.SwitchField
+                  path="properties.healthCheck.validateResponse"
+                  label="Validate response body"
+                  align="start"
+                  onChange={handleValidateResponseChange}
+                />
+                {validateResponse && (
+                  <>
+                    <Form.TextField
+                      grow
+                      path="properties.healthCheck.response.pointer"
+                      label="JSON pointer"
+                      inputProps={HEALTH_POINTER_INPUT_PROPS}
+                    />
+
+                    <Flex.Box x align="end">
+                      <Form.Field<json.PrimitiveType>
+                        path="properties.healthCheck.response.expectedValueType"
+                        label="Value type"
+                      >
+                        {renderExpectedValueType}
+                      </Form.Field>
+                      {expectedValueType === "string" && (
+                        <Form.TextField
+                          path="properties.healthCheck.response.expectedValue"
+                          label="Expected value"
+                          inputProps={HEALTH_EXPECTED_STRING_INPUT_PROPS}
+                        />
+                      )}
+                      {expectedValueType === "number" && (
+                        <Form.NumericField
+                          path="properties.healthCheck.response.expectedValue"
+                          label="Expected value"
+                        />
+                      )}
+                      {expectedValueType === "boolean" && (
+                        <Form.SwitchField
+                          path="properties.healthCheck.response.expectedValue"
+                          label="Expected value"
+                        />
+                      )}
+                    </Flex.Box>
+                  </>
+                )}
+              </Flex.Box>
+            </Flex.Box>
+          </Form.Form>
+        </Flex.Box>
+        <Modals.BottomNavBar>
+          <Nav.Bar.Start gap="small">
+            {variant == "success" ? (
+              <Triggers.SaveHelpText action="Connect" noBar />
+            ) : (
+              <Status.Summary variant={variant} message={stat.description} />
+            )}
+          </Nav.Bar.Start>
+          <Nav.Bar.End>
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => save()}
+              variant="filled"
+            >
+              Connect
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modals.BottomNavBar>
       </Flex.Box>
-      <Modals.BottomNavBar>
-        <Nav.Bar.Start gap="small">
-          {variant == "success" ? (
-            <Triggers.SaveHelpText action="Connect" noBar />
-          ) : (
-            <Status.Summary variant={variant} message={stat.description} />
-          )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End>
-          <Button.Button
-            status={status.keepVariants(variant, "loading")}
-            onClick={() => save()}
-            variant="filled"
-          >
-            Connect
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modals.BottomNavBar>
-    </Flex.Box>
-  );
-};
+    );
+  },
+);
 
 const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "http" };
 

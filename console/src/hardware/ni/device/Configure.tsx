@@ -9,18 +9,17 @@
 
 import { Common } from "@/hardware/common";
 import { ZERO_PROPERTIES } from "@/hardware/ni/device/types";
-import { type Layout } from "@/layout";
+import { Modals } from "@/layered/service/modals";
 
-export const CONFIGURE_LAYOUT_TYPE = "configure_NI";
-
-export const CONFIGURE_LAYOUT: Layout.BaseState = {
-  ...Common.Device.CONFIGURE_LAYOUT,
-  name: "Device.Configure",
-  icon: "Logo.NI",
-  type: CONFIGURE_LAYOUT_TYPE,
-  key: CONFIGURE_LAYOUT_TYPE,
-};
-
-export const Configure: Layout.Renderer = (props) => (
-  <Common.Device.Configure {...props} initialProperties={ZERO_PROPERTIES} />
-);
+export const useConfigure = Modals.create<{
+  deviceKey?: string;
+  title?: string;
+}>({ size: { height: 325, width: 800 } }, ({ args, close }) => (
+  <Common.Device.Configure
+    deviceKey={args.deviceKey ?? ""}
+    close={close}
+    icon="Logo.NI"
+    title={args.title}
+    initialProperties={ZERO_PROPERTIES}
+  />
+));

@@ -12,11 +12,8 @@ import { Text, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";
 
-import {
-  selectActiveMosaicTabState,
-  selectFocused,
-  selectModals,
-} from "@/layout/selectors";
+import { modalStore } from "@/layered/session/modals/store";
+import { selectActiveMosaicTabState, selectFocused } from "@/layout/selectors";
 import { setFocus } from "@/layout/slice";
 import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { usePlacer } from "@/layout/usePlacer";
@@ -63,9 +60,8 @@ export const useTriggers = (): void => {
           }
           return;
         }
+        if (modalStore.isAnyOpen()) return modalStore.closeTop();
         const state = store.getState();
-        const modals = selectModals(state);
-        if (modals.length !== 0) return remove(modals[0].key);
         const { layoutKey: active } = selectActiveMosaicTabState(state);
         if (active != null) return remove(active);
         closeWindowTimeout.current = setTimeout(

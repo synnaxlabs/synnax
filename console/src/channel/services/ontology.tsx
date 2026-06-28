@@ -171,17 +171,15 @@ const useOpenCalculated =
   () =>
   ({
     selection: { ids },
-    placeLayout,
+    placeModal,
     state: { getResource },
   }: Ontology.TreeContextMenuProps) => {
     if (ids.length !== 1) return;
     const resource = getResource(ids[0]);
-    return placeLayout(
-      Channel.createCalculatedLayout({
-        key: Number(resource.id.key),
-        name: resource.name,
-      }),
-    );
+    placeModal.open(Channel.useOpenCalculated, {
+      channelKey: Number(resource.id.key),
+      title: `${resource.name}.Edit`,
+    });
   };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
