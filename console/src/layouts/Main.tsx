@@ -11,13 +11,13 @@ import { Drift } from "@synnaxlabs/drift";
 import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { ArcServices } from "@/arc/services";
 import { Auth } from "@/auth";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
 import { App } from "@/layered/app";
+import { Arc } from "@/layered/service/arc";
 import { LinePlot } from "@/layered/service/lineplot";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
@@ -34,7 +34,7 @@ import { RangeServices } from "@/range/services";
 import { Status } from "@/status";
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
-  arc: ArcServices.handleLink,
+  arc: Arc.handleLink,
   channel: ChannelServices.handleLink,
   ...Hardware.LINK_HANDLERS,
   lineplot: LinePlot.handleLink,

@@ -7,23 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc } from "@synnaxlabs/client";
 import { useCallback, useMemo } from "react";
 
 import { NAME } from "@/arc/language";
-import { type FluxSubStore, useDispatch, useSelectHasText } from "@/arc/queries";
+import { type FluxSubStore, useSelectName, useSingleDispatch } from "@/arc/queries";
+import { useKey } from "@/arc/Suspended";
 import { changesToDiffs, CollabText, type TextChange } from "@/arc/text/collab";
 import { Code } from "@/code";
 import { Flux } from "@/flux";
 
-export interface EditorProps {
-  resourceKey: arc.Key;
-}
-
-export const Editor = ({ resourceKey }: EditorProps) => {
+export const Editor = () => {
+  const resourceKey = useKey();
   const store = Flux.useStore<FluxSubStore>();
-  const { dispatch } = useDispatch();
-  const hasText = useSelectHasText({ key: resourceKey });
+  const dispatch = useSingleDispatch();
+  const hasText = useSelectName();
 
   // text is the working CRDT replica. It is bootstrapped once the document loads and lives
   // for the editor's lifetime, materializing the value and translating edits to operations.
@@ -36,9 +33,9 @@ export const Editor = ({ resourceKey }: EditorProps) => {
     (edits: readonly TextChange[]) => {
       if (text == null) return;
       const actions = text.applyChanges(changesToDiffs(text.value(), edits));
-      if (actions.length > 0) void dispatch({ key: resourceKey, actions });
+      if (actions.length > 0) dispatch(actions);
     },
-    [text, dispatch, resourceKey],
+    [text, dispatch],
   );
 
   // connect subscribes the editor to operations from other editors: each store update for

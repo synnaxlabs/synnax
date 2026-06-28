@@ -150,7 +150,7 @@ describe("Schematic Slice", () => {
   describe("toolbar", () => {
     it("should set the active toolbar tab", () => {
       store.dispatch(Schematic.internalCreate({ key: KEY }));
-      store.dispatch(Schematic.setActiveToolbarTab({ key: KEY, tab: "properties" }));
+      store.dispatch(Schematic.selectToolbarTab({ key: KEY, tab: "properties" }));
       expect(select(Schematic.selectActiveToolbarTab)).toBe("properties");
     });
 
