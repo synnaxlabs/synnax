@@ -49,8 +49,8 @@ export const Editor: Layout.Renderer = ({ visible }): ReactElement => {
     [key, dispatch],
   );
   const handleViewportModeChange = useCallback(
-    (mode: Viewport.Mode) => dispatch(Session.Arc.setViewportMode({ mode })),
-    [dispatch],
+    (mode: Viewport.Mode) => dispatch(Session.Arc.setViewportMode({ key, mode })),
+    [key, dispatch],
   );
   const handleDoubleClick = useCallback(() => {
     dispatch(Session.Nav.showBottom({}));

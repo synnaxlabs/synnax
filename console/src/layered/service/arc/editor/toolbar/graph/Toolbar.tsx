@@ -61,9 +61,9 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
 };
 
 export const Toolbar = (): ReactElement | null => {
-  const layoutKey = Arc.useKey();
+  const key = Arc.useKey();
   const dispatch = useDispatch();
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const { name } = Layout.useSelectRequired(key);
   const toolbar = Session.Arc.useSelectToolbar();
   const editMode = Session.Arc.useSelectEditable();
   const handleExport = useExport();
@@ -74,7 +74,7 @@ export const Toolbar = (): ReactElement | null => {
     singleConfig != null
       ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
       : null;
-  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
+  const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(key));
   const canEdit = hasUpdatePermission && editMode;
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
@@ -90,20 +90,18 @@ export const Toolbar = (): ReactElement | null => {
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
-      dispatch(
-        Session.Arc.setActiveToolbarTab({ tab: tabKey as Session.Arc.ToolbarTab }),
-      );
+      dispatch(Session.Arc.selectToolbarTab({ key, tab: tabKey as Session.Arc.ToolbarTab }));
     },
-    [dispatch],
+    [key, dispatch],
   );
   const contextValue = useMemo(
     () => ({
       tabs: TABS,
-      selected: toolbar.activeTab,
+      selected: toolbar.selectedTab,
       onSelect: handleTabSelect,
       content,
     }),
-    [toolbar.activeTab, content, handleTabSelect],
+    [toolbar.selectedTab, content, handleTabSelect],
   );
   return (
     <Tabs.Provider value={contextValue}>
@@ -121,10 +119,10 @@ export const Toolbar = (): ReactElement | null => {
         </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty>
           <Flex.Box x empty style={{ height: "100%", width: 66 }}>
-            <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
+            <Export.ToolbarButton onExport={() => void handleExport(key)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
-              ontologyID={arc.ontologyID(layoutKey)}
+              ontologyID={arc.ontologyID(key)}
             />
           </Flex.Box>
           {hasUpdatePermission && (

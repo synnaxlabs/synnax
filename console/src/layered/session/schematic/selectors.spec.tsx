@@ -275,7 +275,7 @@ describe("schematic selector stability under dispatch", () => {
     });
     const first = result.current;
     act(() => {
-      s.dispatch(Schematic.setActiveToolbarTab({ key: KEY, tab: "symbols" }));
+      s.dispatch(Schematic.selectToolbarTab({ key: KEY, tab: "symbols" }));
     });
     expect(result.current).not.toBe(first);
     expect(result.current.selectedTab).toBe("symbols");
@@ -289,7 +289,7 @@ describe("schematic selector stability under dispatch", () => {
     const first = result.current;
     act(() => {
       s.dispatch(Schematic.internalCreate({ key: "schematic-2" }));
-      s.dispatch(Schematic.setActiveToolbarTab({ key: "schematic-2", tab: "symbols" }));
+      s.dispatch(Schematic.selectToolbarTab({ key: "schematic-2", tab: "symbols" }));
     });
     expect(result.current).toBe(first);
   });

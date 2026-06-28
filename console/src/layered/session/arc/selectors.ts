@@ -49,18 +49,15 @@ export const selectEditable = (params: KeyedSelectorParams): boolean =>
 export const selectViewport = (params: KeyedSelectorParams): Diagram.Viewport =>
   selectGraph(params).viewport;
 
+export const selectToolbar = (params: KeyedSelectorParams): ToolbarState =>
+  selectState(params).toolbar;
+
+export const selectViewportMode = (state: KeyedSelectorParams): Viewport.Mode =>
+  selectGraph(state).viewport.mode;
+
 export const useSelect = createSelector(selectState);
 export const useSelectSelected = createSelector(selectSelected);
 export const useSelectEditable = createSelector(selectEditable);
 export const useSelectViewport = createSelector(selectViewport);
-
-export const selectToolbar = (state: StoreState): ToolbarState =>
-  selectSliceState(state).toolbar;
-
-export const useSelectToolbar = (): ToolbarState => useMemoSelect(selectToolbar, []);
-
-export const selectViewportMode = (state: StoreState): Viewport.Mode =>
-  selectSliceState(state).mode;
-
-export const useSelectViewportMode = (): Viewport.Mode =>
-  useMemoSelect(selectViewportMode, []);
+export const useSelectViewportMode = createSelector(selectViewportMode);
+export const useSelectToolbar = createSelector(selectToolbar);

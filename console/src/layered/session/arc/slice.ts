@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { type arc } from "@synnaxlabs/client";
 import { type Diagram, Viewport } from "@synnaxlabs/pluto";
 import { xy } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -15,25 +16,27 @@ import { z } from "zod";
 export const toolbarTabZ = z.enum(["stages", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 
-export const toolbarStateZ = z.object({ activeTab: toolbarTabZ.default("stages") });
+export const toolbarStateZ = z.object({ selectedTab: toolbarTabZ.default("stages") });
 export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
 
-export const viewportZ = z.object({
+export const viewportStateZ = z.object({
   position: xy.xyZ.default({ x: 0, y: 0 }),
   zoom: z.number().default(1),
+  mode: Viewport.modeZ.default("select"),
 });
 
-// graphStateZ holds only the session UI state for the graph view. The graph document
-// itself (nodes, edges, configs) lives in the flux store, server-synced via Arc actions.
 export const graphStateZ = z.object({
   editable: z.boolean().default(true),
   fitViewOnResize: z.boolean().default(false),
-  viewport: viewportZ.prefault({}),
+  viewport: viewportStateZ.prefault({}),
   selected: z.array(z.string()).default([]),
 });
 export interface GraphState extends z.infer<typeof graphStateZ> {}
 
-export const stateZ = z.object({ graph: graphStateZ.prefault({}) });
+export const stateZ = z.object({
+  graph: graphStateZ.prefault({}),
+  toolbar: toolbarStateZ.prefault({}),
+});
 export interface State extends z.infer<typeof stateZ> {}
 export interface NewState extends z.input<typeof stateZ> {}
 
@@ -41,8 +44,7 @@ export const ZERO_STATE = stateZ.parse({});
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
-  mode: Viewport.modeZ.default("select"),
-  toolbar: toolbarStateZ.prefault({}),
+
   arcs: z.record(z.string(), stateZ).default({}),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
@@ -57,44 +59,38 @@ export interface StoreState {
 
 export const PERSIST_EXCLUDE = [];
 
-export interface CreatePayload extends NewState {
-  key: string;
+interface KeyedPayload {
+  key: arc.Key;
 }
+
+export interface CreatePayload extends KeyedPayload, NewState {}
 
 export interface RemovePayload {
   keys: string[];
 }
 
-export interface SetViewportPayload {
-  key: string;
+export interface SetViewportPayload extends KeyedPayload {
   viewport: Diagram.Viewport;
 }
 
-export interface SetEditablePayload {
-  key: string;
+export interface SetEditablePayload extends KeyedPayload {
   editable: boolean;
 }
 
-export interface SetFitViewOnResizePayload {
-  key: string;
+export interface SetFitViewOnResizePayload extends KeyedPayload {
   fitViewOnResize: boolean;
 }
 
-export interface SetActiveToolbarTabPayload {
+export interface SelectToolbarTabPayload extends KeyedPayload {
   tab: ToolbarTab;
 }
 
-export interface SetSelectedPayload {
-  key: string;
+export interface SetSelectedPayload extends KeyedPayload {
   selected: string[];
 }
 
-export interface SetViewportModePayload {
+export interface SetViewportModePayload extends KeyedPayload {
   mode: Viewport.Mode;
-}
-
-interface KeyedPayload {
-  key: string;
 }
 
 const withSelectedState =
@@ -120,37 +116,26 @@ export const { actions, reducer } = createSlice({
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       if (payload.key in state.arcs) return;
       state.arcs[payload.key] = stateZ.parse(payload);
-      state.toolbar.activeTab = "stages";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.arcs[key]);
     },
-    setSelected: (state, { payload }: PayloadAction<SetSelectedPayload>) => {
-      const { key, selected } = payload;
-      let s = state.arcs[key];
-      if (s == null) {
-        s = stateZ.parse({});
-        state.arcs[key] = s;
-      }
-      s.graph.selected = selected;
-      if (selected.length > 0) {
-        if (state.toolbar.activeTab !== "properties")
-          Object.keys(state.arcs).forEach((other) => {
-            if (other === key) return;
-            state.arcs[other].graph.selected = [];
-          });
-        state.toolbar.activeTab = "properties";
-      } else state.toolbar.activeTab = "stages";
-    },
-    setActiveToolbarTab: (
-      state,
-      { payload: { tab } }: PayloadAction<SetActiveToolbarTabPayload>,
-    ) => {
-      state.toolbar.activeTab = tab;
-    },
+    setSelected: withSelectedState(
+      (state, { payload }: PayloadAction<SetSelectedPayload>) => {
+        const { selected } = payload;
+        state.graph.selected = selected;
+        if (selected.length > 0) state.toolbar.selectedTab = "properties";
+        else state.toolbar.selectedTab = "stages";
+      },
+    ),
+    selectToolbarTab: withSelectedState(
+      (state, { payload: { tab } }: PayloadAction<SelectToolbarTabPayload>) => {
+        state.toolbar.selectedTab = tab;
+      },
+    ),
     setViewport: withSelectedState(
       (state, { payload: { viewport } }: PayloadAction<SetViewportPayload>) => {
-        state.graph.viewport = viewport;
+        state.graph.viewport = { ...state.graph.viewport, ...viewport };
       },
     ),
     setEditable: withSelectedState(
@@ -167,12 +152,11 @@ export const { actions, reducer } = createSlice({
         state.graph.fitViewOnResize = fitViewOnResize;
       },
     ),
-    setViewportMode: (
-      state,
-      { payload: { mode } }: PayloadAction<SetViewportModePayload>,
-    ) => {
-      state.mode = mode;
-    },
+    setViewportMode: withSelectedState(
+      (state, { payload: { mode } }: PayloadAction<SetViewportModePayload>) => {
+        state.graph.viewport.mode = mode;
+      },
+    ),
   },
 });
 
@@ -181,7 +165,7 @@ export const {
   setSelected,
   setFitViewOnResize,
   create: internalCreate,
-  setActiveToolbarTab,
+  selectToolbarTab,
   setViewport,
   setEditable,
   setViewportMode,

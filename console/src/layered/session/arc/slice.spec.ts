@@ -38,10 +38,9 @@ describe("Arc Slice", () => {
       expect(select(Arc.selectState)).toEqual(Arc.ZERO_STATE);
     });
 
-    it("should reset the active toolbar tab to stages", () => {
-      store.dispatch(Arc.setActiveToolbarTab({ tab: "properties" }));
+    it("should default the toolbar tab to stages", () => {
       store.dispatch(Arc.internalCreate({ key: KEY }));
-      expect(Arc.selectToolbar(store.getState()).activeTab).toBe("stages");
+      expect(select(Arc.selectToolbar).selectedTab).toBe("stages");
     });
 
     it("should create multiple arcs independently", () => {
@@ -73,22 +72,23 @@ describe("Arc Slice", () => {
     it("should switch the toolbar to properties when selecting", () => {
       store.dispatch(Arc.internalCreate({ key: KEY }));
       store.dispatch(Arc.setSelected({ key: KEY, selected: ["a"] }));
-      expect(Arc.selectToolbar(store.getState()).activeTab).toBe("properties");
+      expect(select(Arc.selectToolbar).selectedTab).toBe("properties");
     });
 
     it("should switch the toolbar back to stages when clearing", () => {
       store.dispatch(Arc.internalCreate({ key: KEY }));
       store.dispatch(Arc.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Arc.setSelected({ key: KEY, selected: [] }));
-      expect(Arc.selectToolbar(store.getState()).activeTab).toBe("stages");
+      expect(select(Arc.selectToolbar).selectedTab).toBe("stages");
     });
 
-    it("should clear other arcs' selections when entering the properties tab", () => {
+    it("should track selection and toolbar per arc independently", () => {
       store.dispatch(Arc.internalCreate({ key: "arc-1", graph: { selected: ["a"] } }));
       store.dispatch(Arc.internalCreate({ key: "arc-2" }));
       store.dispatch(Arc.setSelected({ key: "arc-2", selected: ["b"] }));
-      expect(select(Arc.selectSelected, "arc-1")).toEqual([]);
+      expect(select(Arc.selectSelected, "arc-1")).toEqual(["a"]);
       expect(select(Arc.selectSelected, "arc-2")).toEqual(["b"]);
+      expect(select(Arc.selectToolbar, "arc-2").selectedTab).toBe("properties");
     });
 
     it("should lazily create the entry when the key does not exist", () => {
@@ -97,18 +97,49 @@ describe("Arc Slice", () => {
     });
   });
 
-  describe("setViewport", () => {
-    it("should set the per-arc viewport", () => {
+  describe("selectToolbarTab", () => {
+    it("should set the active toolbar tab", () => {
       store.dispatch(Arc.internalCreate({ key: KEY }));
-      const viewport = { position: { x: 5, y: 6 }, zoom: 2 };
-      store.dispatch(Arc.setViewport({ key: KEY, viewport }));
-      expect(select(Arc.selectViewport)).toEqual(viewport);
+      store.dispatch(Arc.selectToolbarTab({ key: KEY, tab: "properties" }));
+      expect(select(Arc.selectToolbar).selectedTab).toBe("properties");
     });
 
     it("should lazily create the entry when the key does not exist", () => {
-      const viewport = { position: { x: 1, y: 2 }, zoom: 3 };
-      store.dispatch(Arc.setViewport({ key: KEY, viewport }));
-      expect(select(Arc.selectViewport)).toEqual(viewport);
+      store.dispatch(Arc.selectToolbarTab({ key: KEY, tab: "properties" }));
+      expect(select(Arc.selectToolbar).selectedTab).toBe("properties");
+    });
+  });
+
+  describe("setViewport", () => {
+    it("should merge the viewport over the existing one", () => {
+      store.dispatch(Arc.internalCreate({ key: KEY }));
+      store.dispatch(
+        Arc.setViewport({ key: KEY, viewport: { position: { x: 5, y: 6 }, zoom: 2 } }),
+      );
+      const viewport = select(Arc.selectViewport);
+      expect(viewport.position).toEqual({ x: 5, y: 6 });
+      expect(viewport.zoom).toBe(2);
+      expect(select(Arc.selectViewportMode)).toBe(Arc.ZERO_STATE.graph.viewport.mode);
+    });
+
+    it("should lazily create the entry when the key does not exist", () => {
+      store.dispatch(
+        Arc.setViewport({ key: KEY, viewport: { position: { x: 1, y: 2 }, zoom: 3 } }),
+      );
+      const viewport = select(Arc.selectViewport);
+      expect(viewport.position).toEqual({ x: 1, y: 2 });
+      expect(viewport.zoom).toBe(3);
+    });
+  });
+
+  describe("setViewportMode", () => {
+    it("should set the per-arc viewport mode without touching position or zoom", () => {
+      store.dispatch(Arc.internalCreate({ key: KEY }));
+      store.dispatch(Arc.setViewportMode({ key: KEY, mode: "pan" }));
+      expect(select(Arc.selectViewportMode)).toBe("pan");
+      expect(select(Arc.selectViewport).position).toEqual(
+        Arc.ZERO_STATE.graph.viewport.position,
+      );
     });
   });
 
@@ -132,13 +163,6 @@ describe("Arc Slice", () => {
       store.dispatch(Arc.internalCreate({ key: KEY }));
       store.dispatch(Arc.setFitViewOnResize({ key: KEY, fitViewOnResize: true }));
       expect(select(Arc.selectState).graph.fitViewOnResize).toBe(true);
-    });
-  });
-
-  describe("setViewportMode", () => {
-    it("should set the global viewport mode", () => {
-      store.dispatch(Arc.setViewportMode({ mode: "pan" }));
-      expect(Arc.selectViewportMode(store.getState())).toBe("pan");
     });
   });
 
@@ -174,12 +198,17 @@ describe("Arc Slice", () => {
       expect(() => Arc.stateZ.parse(Arc.ZERO_STATE)).not.toThrow();
     });
 
-    it("should apply defaults when fields are missing", () => {
+    it("should apply prefaulted defaults when nested objects are missing", () => {
       const parsed = Arc.stateZ.parse({});
       expect(parsed.graph.editable).toBe(true);
       expect(parsed.graph.fitViewOnResize).toBe(false);
       expect(parsed.graph.selected).toEqual([]);
-      expect(parsed.graph.viewport).toEqual({ position: { x: 0, y: 0 }, zoom: 1 });
+      expect(parsed.graph.viewport).toEqual({
+        position: { x: 0, y: 0 },
+        zoom: 1,
+        mode: "select",
+      });
+      expect(parsed.toolbar.selectedTab).toBe("stages");
     });
   });
 
@@ -189,10 +218,8 @@ describe("Arc Slice", () => {
       expect(Arc.ZERO_SLICE_STATE.version).toBe(0);
     });
 
-    it("should default the global mode and toolbar tab", () => {
-      const parsed = Arc.sliceStateZ.parse({});
-      expect(parsed.mode).toBe("select");
-      expect(parsed.toolbar.activeTab).toBe("stages");
+    it("should default the arcs record to empty", () => {
+      expect(Arc.sliceStateZ.parse({}).arcs).toEqual({});
     });
   });
 });
