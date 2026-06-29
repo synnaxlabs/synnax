@@ -37,6 +37,20 @@ SYNNAX_EXPORT int32_t synnax_channel_retrieve_keys(
     SynnaxError *err
 );
 
+/// @brief creates count channels, writing their keys to out_keys. names and data_types
+/// are '\n'-delimited (count each); is_index/index/is_virtual are arrays of count.
+SYNNAX_EXPORT int32_t synnax_channel_create(
+    SynnaxClient *client,
+    const char *names,
+    const char *data_types,
+    const uint8_t *is_index,
+    const uint32_t *index,
+    const uint8_t *is_virtual,
+    size_t count,
+    uint32_t *out_keys,
+    SynnaxError *err
+);
+
 #ifdef __cplusplus
 }
 #endif
