@@ -7,32 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { TimeRange } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { createTestClient } from "@synnaxlabs/client";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
 
 import { Layout } from "@/layout";
 import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
 import { renderLinkHook } from "@/testUtils";
 
+const client = createTestClient();
+
 describe("RangeServices.useLink", () => {
   it("should add, activate, and place the retrieved range", async () => {
-    const key = "range-1";
-    const retrieve = vi.fn(async () => ({
-      key,
+    const range = await client.ranges.create({
       name: "Burn Test",
-      timeRange: TimeRange.ZERO,
-    }));
-    const client = { ranges: { retrieve } } as unknown as Client;
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+    });
     const { handler, store } = renderLinkHook(RangeServices.useLink, {
       [Range.SLICE_NAME]: Range.reducer,
     });
-    await handler({ client, key });
-    expect(retrieve).toHaveBeenCalledWith(key);
+    await handler({ client, key: range.key });
     const state = store.getState();
-    expect(Range.selectActiveKey(state)).toBe(key);
-    expect(Range.select(state, key)?.name).toBe("Burn Test");
-    expect(Layout.select(state, key)?.name).toBe("Burn Test");
+    expect(Range.selectActiveKey(state)).toBe(range.key);
+    expect(Range.select(state, range.key)?.name).toBe("Burn Test");
+    expect(Layout.select(state, range.key)?.name).toBe("Burn Test");
   });
 });

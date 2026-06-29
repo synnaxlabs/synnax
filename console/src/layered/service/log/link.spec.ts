@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { createTestClient } from "@synnaxlabs/client";
+import { id } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
 
 import { Log } from "@/layered/service/log";
 import { Layout } from "@/layout";
 import { renderLinkHook } from "@/testUtils";
 
+const client = createTestClient();
+
 describe("Log.useLink", () => {
   it("should place a log layout for the retrieved log", async () => {
-    const key = uuid.create();
-    const retrieve = vi.fn(async () => ({ key, name: "Event Log" }));
-    const client = { logs: { retrieve } } as unknown as Client;
+    const project = await client.projects.create({ name: id.create(), layout: {} });
+    const log = await client.logs.create(project.key, { name: "Event Log" });
     const { handler, store } = renderLinkHook(Log.useLink);
-    await handler({ client, key });
-    expect(retrieve).toHaveBeenCalledWith({ key });
-    expect(Layout.select(store.getState(), key)?.name).toBe("Event Log");
+    await handler({ client, key: log.key });
+    expect(Layout.select(store.getState(), log.key)?.name).toBe("Event Log");
   });
 });

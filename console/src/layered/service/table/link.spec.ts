@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { createTestClient } from "@synnaxlabs/client";
+import { id } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
 
 import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
 import { renderLinkHook } from "@/testUtils";
 
+const client = createTestClient();
+
 describe("Table.useLink", () => {
   it("should place a table layout for the retrieved table", async () => {
-    const key = uuid.create();
-    const retrieve = vi.fn(async () => ({ key, name: "Sensor Table" }));
-    const client = { tables: { retrieve } } as unknown as Client;
+    const project = await client.projects.create({ name: id.create(), layout: {} });
+    const table = await client.tables.create(project.key, { name: "Sensor Table" });
     const { handler, store } = renderLinkHook(Table.useLink);
-    await handler({ client, key });
-    expect(retrieve).toHaveBeenCalledWith({ key });
-    expect(Layout.select(store.getState(), key)?.name).toBe("Sensor Table");
+    await handler({ client, key: table.key });
+    expect(Layout.select(store.getState(), table.key)?.name).toBe("Sensor Table");
   });
 });

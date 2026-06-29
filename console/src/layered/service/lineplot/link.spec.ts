@@ -7,22 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { createTestClient } from "@synnaxlabs/client";
+import { id } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/layered/service/lineplot";
 import { Layout } from "@/layout";
 import { renderLinkHook } from "@/testUtils";
 
+const client = createTestClient();
+
 describe("LinePlot.useLink", () => {
   it("should place a line plot layout for the retrieved line plot", async () => {
-    const key = uuid.create();
-    const retrieve = vi.fn(async () => ({ key, name: "Tank Pressure" }));
-    const client = { lineplots: { retrieve } } as unknown as Client;
+    const project = await client.projects.create({ name: id.create(), layout: {} });
+    const linePlot = await client.lineplots.create(project.key, {
+      name: "Tank Pressure",
+    });
     const { handler, store } = renderLinkHook(LinePlot.useLink);
-    await handler({ client, key });
-    expect(retrieve).toHaveBeenCalledWith({ key });
-    expect(Layout.select(store.getState(), key)?.name).toBe("Tank Pressure");
+    await handler({ client, key: linePlot.key });
+    expect(Layout.select(store.getState(), linePlot.key)?.name).toBe("Tank Pressure");
   });
 });

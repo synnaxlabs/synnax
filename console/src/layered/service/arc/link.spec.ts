@@ -7,22 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { createTestClient } from "@synnaxlabs/client";
+import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/layered/service/arc";
 import { Layout } from "@/layout";
 import { renderLinkHook } from "@/testUtils";
 
+const client = createTestClient();
+
 describe("Arc.useLink", () => {
   it("should place an arc layout for the retrieved arc", async () => {
-    const key = uuid.create();
-    const retrieve = vi.fn(async () => ({ key, name: "Control Sequence" }));
-    const client = { arcs: { retrieve } } as unknown as Client;
+    const arc = await client.arcs.create({
+      name: "Control Sequence",
+      mode: "graph",
+      graph: { nodes: [], edges: [] },
+    });
     const { handler, store } = renderLinkHook(Arc.useLink);
-    await handler({ client, key });
-    expect(retrieve).toHaveBeenCalledWith({ key });
-    expect(Layout.select(store.getState(), key)?.name).toBe("Control Sequence");
+    await handler({ client, key: arc.key });
+    expect(Layout.select(store.getState(), arc.key)?.name).toBe("Control Sequence");
   });
 });

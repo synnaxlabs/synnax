@@ -7,28 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { describe, expect, it, vi } from "vitest";
+import { createTestClient } from "@synnaxlabs/client";
+import { describe, expect, it } from "vitest";
 
-import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
 import { renderLinkHook } from "@/testUtils";
 
+const client = createTestClient();
+
 describe("ProjectServices.useLink", () => {
   it("should load the project layout and set it active", async () => {
-    const key = "p1";
-    const retrieve = vi.fn(async () => ({
-      key,
+    const project = await client.projects.create({
       name: "Engine Project",
-      layout: Layout.ZERO_SLICE_STATE,
-    }));
-    const client = { projects: { retrieve } } as unknown as Client;
+      layout: {},
+    });
     const { handler, store } = renderLinkHook(ProjectServices.useLink, {
       [Project.SLICE_NAME]: Project.reducer,
     });
-    await handler({ client, key });
-    expect(retrieve).toHaveBeenCalledWith(key);
-    expect(Project.selectActiveKey(store.getState())).toBe(key);
+    await handler({ client, key: project.key });
+    expect(Project.selectActiveKey(store.getState())).toBe(project.key);
   });
 });
