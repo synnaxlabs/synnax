@@ -13,8 +13,8 @@ import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/components";
+import { Link } from "@/layered/service/link";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { CreateChildRangeIcon } from "@/range/ContextMenu";

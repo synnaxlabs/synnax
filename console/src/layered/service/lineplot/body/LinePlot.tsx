@@ -260,7 +260,7 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
     [dispatch, key],
   );
   const handleDoubleClick = useCallback(() => {
-    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+    dispatch(Session.Nav.showBottom({}));
     dispatch(Session.LinePlot.setActiveToolbarTab({ key, tab: "data" }));
   }, [dispatch, key]);
 

@@ -28,6 +28,8 @@ import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
+import { Nav as ServiceNav } from "@/layered/service/nav";
+import { Window as ServiceWindow } from "@/layered/service/window";
 import { Layout } from "@/layout";
 import { setActive } from "@/project/slice";
 import { Triggers } from "@/triggers";
@@ -49,15 +51,15 @@ const listItem = Component.renderProp(
 const SplashNav = (): ReactElement => {
   const os = OS.use();
   return (
-    <Layout.Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
+    <ServiceNav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
       <Nav.Bar.Start data-tauri-drag-region>
-        <Layout.Controls visibleIfOS="macOS" forceOS={os} />
+        <ServiceWindow.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>
       <Nav.Bar.End data-tauri-drag-region justify="end">
         <Version.Badge />
-        <Layout.Controls visibleIfOS="Windows" forceOS={os} />
+        <ServiceWindow.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
-    </Layout.Nav.Bar>
+    </ServiceNav.Bar>
   );
 };
 
@@ -79,9 +81,7 @@ export const Splash = (): ReactElement => {
       const p = getItem(key);
       if (p == null) throw new UnexpectedError(`Project ${key} not found`);
       dispatch(setActive(p));
-      dispatch(
-        Layout.setProject({ slice: p.layout as Layout.SliceState, keepNav: false }),
-      );
+      dispatch(Layout.setProject({ slice: p.layout as Layout.SliceState }));
     },
     [dispatch, getItem],
   );

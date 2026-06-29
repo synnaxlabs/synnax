@@ -21,41 +21,33 @@ import {
   selectFocused,
   selectHauling,
   selectMosaic,
-  selectNavDrawer,
   selectSliceState,
 } from "@/layout/selectors";
 import {
   clearProject,
-  hideAllNavDrawers,
   moveMosaicTab,
   place,
   reducer,
   remove,
   rename,
   resizeMosaicTab,
-  resizeNavDrawer,
   selectMosaicTab,
   setAltKey,
   setArgs,
   setColorContext,
   setFocus,
   setHauled,
-  setNavDrawer,
-  setNavDrawerVisible,
   setProject,
   setUnsavedChanges,
   SLICE_NAME,
   splitMosaicNode,
-  startNavHover,
   type State,
-  stopNavHover,
-  toggleNavHover,
   ZERO_SLICE_STATE,
 } from "@/layout/slice";
 
 const rootReducer = combineReducers({
   [SLICE_NAME]: reducer,
-  drift: Drift.reducer,
+  [Drift.SLICE_NAME]: Drift.reducer,
 });
 
 type TestState = ReturnType<typeof rootReducer>;
@@ -353,192 +345,6 @@ describe("Layout Slice", () => {
     });
   });
 
-  describe("setNavDrawer", () => {
-    it("should overwrite the drawer entry at a location", () => {
-      store.dispatch(
-        setNavDrawer({
-          windowKey: MAIN_WINDOW,
-          location: "left",
-          activeItem: "channel",
-          menuItems: ["channel"],
-          size: 320,
-        }),
-      );
-      expect(selectNavDrawer(state(), "left")).toEqual({
-        activeItem: "channel",
-        menuItems: ["channel"],
-        size: 320,
-      });
-    });
-
-    it("should create nav state for an unknown window", () => {
-      store.dispatch(
-        setNavDrawer({
-          windowKey: "popup",
-          location: "right",
-          activeItem: null,
-          menuItems: ["x"],
-        }),
-      );
-      expect(selectSliceState(state()).nav.popup.drawers.right?.menuItems).toEqual([
-        "x",
-      ]);
-    });
-  });
-
-  describe("resizeNavDrawer", () => {
-    it("should set the size of an existing drawer", () => {
-      store.dispatch(
-        resizeNavDrawer({
-          windowKey: MAIN_WINDOW,
-          location: "left",
-          size: 480,
-        }),
-      );
-      expect(selectNavDrawer(state(), "left")?.size).toBe(480);
-    });
-
-    it("should ignore a window or location without a drawer", () => {
-      store.dispatch(
-        resizeNavDrawer({ windowKey: "absent", location: "left", size: 100 }),
-      );
-      expect(selectSliceState(state()).nav.absent).toBeUndefined();
-    });
-  });
-
-  describe("setNavDrawerVisible", () => {
-    it("should throw when windowKey is missing", () => {
-      expect(() =>
-        store.dispatch(setNavDrawerVisible({ key: "visualization" })),
-      ).toThrow(/windowKey/);
-    });
-
-    it("should throw when neither key nor location is provided", () => {
-      expect(() =>
-        store.dispatch(setNavDrawerVisible({ windowKey: MAIN_WINDOW })),
-      ).toThrow(/key or location/);
-    });
-
-    it("should activate a menu item by key", () => {
-      store.dispatch(
-        setNavDrawerVisible({ windowKey: MAIN_WINDOW, key: "visualization" }),
-      );
-      expect(selectNavDrawer(state(), "bottom")?.activeItem).toBe("visualization");
-    });
-
-    it("should clear the active item when the same key is dispatched again", () => {
-      store.dispatch(
-        setNavDrawerVisible({ windowKey: MAIN_WINDOW, key: "visualization" }),
-      );
-      store.dispatch(
-        setNavDrawerVisible({ windowKey: MAIN_WINDOW, key: "visualization" }),
-      );
-      expect(selectNavDrawer(state(), "bottom")?.activeItem).toBeNull();
-    });
-
-    it("should respect an explicit value=false", () => {
-      store.dispatch(
-        setNavDrawerVisible({ windowKey: MAIN_WINDOW, key: "visualization" }),
-      );
-      store.dispatch(
-        setNavDrawerVisible({
-          windowKey: MAIN_WINDOW,
-          location: "bottom",
-          value: false,
-        }),
-      );
-      expect(selectNavDrawer(state(), "bottom")?.activeItem).toBeNull();
-    });
-
-    it("should activate the first menu item when location is provided with value=true", () => {
-      store.dispatch(
-        setNavDrawerVisible({
-          windowKey: MAIN_WINDOW,
-          location: "left",
-          value: true,
-        }),
-      );
-      expect(selectNavDrawer(state(), "left")?.activeItem).toBe("channel");
-    });
-  });
-
-  describe("startNavHover", () => {
-    it("should set hover and active item on an empty drawer", () => {
-      store.dispatch(
-        startNavHover({
-          windowKey: MAIN_WINDOW,
-          location: "left",
-          key: "channel",
-        }),
-      );
-      expect(selectNavDrawer(state(), "left")).toMatchObject({
-        hover: true,
-        activeItem: "channel",
-      });
-    });
-
-    it("should ignore an already-active drawer that is not in hover mode", () => {
-      store.dispatch(
-        setNavDrawerVisible({ windowKey: MAIN_WINDOW, key: "visualization" }),
-      );
-      store.dispatch(
-        startNavHover({
-          windowKey: MAIN_WINDOW,
-          location: "bottom",
-          key: "channel",
-        }),
-      );
-      expect(selectNavDrawer(state(), "bottom")?.activeItem).toBe("visualization");
-      expect(selectNavDrawer(state(), "bottom")?.hover).toBeFalsy();
-    });
-  });
-
-  describe("toggleNavHover", () => {
-    it("should enter hover mode on an empty drawer that contains the key", () => {
-      store.dispatch(toggleNavHover({ windowKey: MAIN_WINDOW, key: "channel" }));
-      expect(selectNavDrawer(state(), "left")).toMatchObject({
-        hover: true,
-        activeItem: "channel",
-      });
-    });
-  });
-
-  describe("stopNavHover", () => {
-    it("should clear hover and active item when in hover mode", () => {
-      store.dispatch(
-        startNavHover({
-          windowKey: MAIN_WINDOW,
-          location: "left",
-          key: "channel",
-        }),
-      );
-      store.dispatch(stopNavHover({ windowKey: MAIN_WINDOW, location: "left" }));
-      expect(selectNavDrawer(state(), "left")).toMatchObject({
-        hover: false,
-        activeItem: null,
-      });
-    });
-  });
-
-  describe("hideAllNavDrawers", () => {
-    it("should clear active item and hover for every drawer in every window", () => {
-      store.dispatch(
-        setNavDrawerVisible({ windowKey: MAIN_WINDOW, key: "visualization" }),
-      );
-      store.dispatch(
-        startNavHover({
-          windowKey: MAIN_WINDOW,
-          location: "left",
-          key: "channel",
-        }),
-      );
-      store.dispatch(hideAllNavDrawers());
-      expect(selectNavDrawer(state(), "bottom")?.activeItem).toBeNull();
-      expect(selectNavDrawer(state(), "left")?.activeItem).toBeNull();
-      expect(selectNavDrawer(state(), "left")?.hover).toBe(false);
-    });
-  });
-
   describe("setProject", () => {
     it("should preserve window-located layouts when applying a project", () => {
       store.dispatch(place(windowLayout("popup-1")));
@@ -583,26 +389,6 @@ describe("Layout Slice", () => {
       expect(select(state(), "stale-window-tab")?.windowKey).toBe(MAIN_WINDOW);
       const [, root] = selectMosaic(state());
       expect(Mosaic.findTabNode(root!, "stale-window-tab")).toBeDefined();
-    });
-
-    it("should adopt the project's nav state when keepNav is false", () => {
-      const proj = {
-        ...ZERO_SLICE_STATE,
-        nav: {
-          ...ZERO_SLICE_STATE.nav,
-          main: {
-            drawers: {
-              ...ZERO_SLICE_STATE.nav.main.drawers,
-              left: {
-                ...ZERO_SLICE_STATE.nav.main.drawers.left,
-                activeItem: "task",
-              },
-            },
-          },
-        },
-      };
-      store.dispatch(setProject({ slice: proj, keepNav: false }));
-      expect(selectNavDrawer(state(), "left")?.activeItem).toBe("task");
     });
   });
 

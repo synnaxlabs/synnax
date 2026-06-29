@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Icon, useCursorDrag } from "@synnaxlabs/pluto";
+import { Cursor, Icon } from "@synnaxlabs/pluto";
 import { box, location, scale, xy } from "@synnaxlabs/x";
 import { useRef } from "react";
 
@@ -30,7 +30,7 @@ const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProp
     .pos(handle.position);
   const isSelected = selectedHandle === handle.key;
   const positionRef = useRef(handle.position);
-  const onDragStart = useCursorDrag({
+  const onPointerDown = Cursor.useDrag({
     onStart: () => (positionRef.current = handle.position),
     onMove: (b) => {
       const box1 = box.construct(xy.ZERO, box.dims(svgBox));
@@ -67,10 +67,11 @@ const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProp
   return (
     <div
       key={handle.key}
-      onDragStart={onDragStart}
+      onPointerDown={onPointerDown}
       className={CSS(
         CSS.BE("schematic", "handle", "preview"),
         isSelected && CSS.M("selected"),
+        Cursor.DRAG_CLASS,
       )}
       style={{
         position: "absolute",
@@ -78,7 +79,6 @@ const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProp
         top: `${pos.y}%`,
       }}
       data-orientation={orientation}
-      draggable
       onMouseDown={(e) => {
         e.stopPropagation();
         onSelect(handle.key);

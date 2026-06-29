@@ -11,10 +11,10 @@ import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Access } from "@/access";
-import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { GroupServices } from "@/group/services";
 import { Hardware } from "@/hardware";
+import { Arc } from "@/layered/service/arc";
 import { LinePlot } from "@/layered/service/lineplot";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
@@ -55,7 +55,7 @@ export const SERVICES: Ontology.Services = {
   table: Table.ONTOLOGY_SERVICE,
   panel: createEmptyService("panel"),
   status: createEmptyService("status", <Icon.Status />),
-  arc: ArcServices.ONTOLOGY_SERVICE,
+  arc: Arc.ONTOLOGY_SERVICE,
   view: createEmptyService("view"),
   role: Access.Role.ONTOLOGY_SERVICE,
 };

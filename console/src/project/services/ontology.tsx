@@ -34,11 +34,11 @@ import { Export } from "@/export";
 import { Group } from "@/group";
 import { Import } from "@/import";
 import { LinePlot } from "@/layered/service/lineplot";
+import { Link } from "@/layered/service/link";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -181,9 +181,7 @@ const handleSelect: Ontology.HandleSelect = ({
   handleError(async () => {
     const proj = await client.projects.retrieve(selection[0].id.key);
     store.dispatch(setActive(proj));
-    store.dispatch(
-      Layout.setProject({ slice: proj.layout as Layout.SliceState, keepNav: false }),
-    );
+    store.dispatch(Layout.setProject({ slice: proj.layout as Layout.SliceState }));
   }, `Failed to select ${names}`);
 };
 

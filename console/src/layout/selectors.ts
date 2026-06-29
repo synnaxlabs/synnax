@@ -12,8 +12,6 @@ import { Color, type Haul, type Mosaic } from "@synnaxlabs/pluto";
 
 import { selectByKeys, useMemoSelect } from "@/hooks";
 import {
-  type NavDrawerEntryState,
-  type NavDrawerLocation,
   SLICE_NAME,
   type SliceState,
   type State,
@@ -178,24 +176,6 @@ export const selectMany = (state: StoreState, keys?: string[]): State[] =>
  */
 export const useSelectMany = (keys?: string[]): State[] =>
   useMemoSelect((state: StoreState) => selectMany(state, keys), [keys]);
-
-export const selectNavDrawer = (
-  state: StoreState & Drift.StoreState,
-  loc: NavDrawerLocation,
-): NavDrawerEntryState | null => {
-  const winKey = selectWindowKey(state) as string;
-  const navState = selectSliceState(state).nav[winKey];
-  if (navState == null) return null;
-  return navState.drawers[loc] ?? null;
-};
-
-export const useSelectNavDrawer = (
-  loc: NavDrawerLocation,
-): NavDrawerEntryState | null =>
-  useMemoSelect(
-    (state: StoreState & Drift.StoreState) => selectNavDrawer(state, loc),
-    [loc],
-  );
 
 export interface SelectActiveMosaicTabState {
   layoutKey: string | null;

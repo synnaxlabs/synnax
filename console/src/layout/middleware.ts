@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Middleware } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW, selectWindowKey } from "@synnaxlabs/drift";
 import { Mosaic } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
@@ -22,7 +21,6 @@ import {
   type PlacePayload,
   remove,
   type RemovePayload,
-  setNavDrawerVisible,
   setProject,
   type SetProjectPayload,
   type StoreState,
@@ -144,22 +142,7 @@ const deleteLayoutsOnMosaicCloseEffect: MiddlewareEffect<
   store.dispatch(remove({ keys: layoutKeys }));
 };
 
-/**
- * Injects the current window key into setNavDrawerVisible actions whose payload
- * omits one. Lets call sites dispatch the action without selecting the window key
- * themselves; the reducer still requires a windowKey to be present.
- */
-const injectNavDrawerWindowKey: Middleware<{}, StoreState & Drift.StoreState> =
-  (store) => (next) => (action) => {
-    if (!setNavDrawerVisible.match(action) || action.payload.windowKey != null)
-      return next(action);
-    const windowKey = selectWindowKey(store.getState());
-    if (windowKey == null) return next(action);
-    return next(setNavDrawerVisible({ ...action.payload, windowKey }));
-  };
-
 export const MIDDLEWARE = [
-  injectNavDrawerWindowKey,
   effectMiddleware(
     [moveMosaicTab.type, remove.type, clearProject.type, setProject.type],
     [closeWindowOnEmptyMosaicEffect],

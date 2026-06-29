@@ -7,12 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { combineReducers, configureStore, type EnhancedStore } from "@reduxjs/toolkit";
+import {
+  combineReducers,
+  configureStore,
+  type EnhancedStore,
+  type Reducer,
+} from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Aether, Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
-import { aether, flux, status, synnax } from "@synnaxlabs/pluto/ether";
-import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
+import { aether, eraser, flux, status, synnax } from "@synnaxlabs/pluto/ether";
+import {
+  render,
+  renderHook,
+  type RenderHookOptions,
+  type RenderHookResult,
+  type RenderOptions,
+  type RenderResult,
+} from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
 import { Provider } from "react-redux";
 
@@ -27,6 +39,7 @@ const consoleReducer = combineReducers({
   [Session.Log.SLICE_NAME]: Session.Log.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
+  [Session.Nav.SLICE_NAME]: Session.Nav.reducer,
 });
 
 export type ConsolePreloadedState = {
@@ -34,6 +47,7 @@ export type ConsolePreloadedState = {
   [Session.Log.SLICE_NAME]?: Session.Log.SliceState;
   [Project.SLICE_NAME]?: Project.SliceState;
   [Cluster.SLICE_NAME]?: Cluster.SliceState;
+  [Session.Nav.SLICE_NAME]?: Session.Nav.SliceState;
 };
 
 export interface ConsoleTestProviderOptions {
@@ -47,12 +61,14 @@ export const createTestStore = (
   return configureStore({
     reducer: consoleReducer,
     preloadedState,
+    middleware: (getDefault) => getDefault().concat(Session.Nav.MIDDLEWARE),
   });
 };
 
 const AETHER_REGISTRY: aether.ComponentRegistry = {
   ...synnax.REGISTRY,
   ...status.REGISTRY,
+  ...eraser.REGISTRY,
   ...flux.createRegistry({ storeConfig: {} }),
 };
 
@@ -118,6 +134,56 @@ export const renderWithConsole = (
     </ConsoleTestProvider>
   );
   return { ...render(ui, { wrapper: Wrapper, ...rest }), store };
+};
+
+/**
+ * Renders a deep-link resource hook against a minimal Redux store. The store always
+ * carries the layout and drift slices that Layout.usePlacer depends on; pass
+ * extraReducers for any additional slices the hook reads or writes. Returns the hook's
+ * value (the link handler) and the store so the spec can assert on placed layouts and
+ * dispatched state.
+ */
+export const renderLinkHook = <H,>(
+  useHook: () => H,
+  extraReducers: Record<string, Reducer> = {},
+): { handler: H; store: EnhancedStore } => {
+  const store = configureStore({
+    reducer: combineReducers({
+      [Layout.SLICE_NAME]: Layout.reducer,
+      [Drift.SLICE_NAME]: Drift.reducer,
+      ...extraReducers,
+    }),
+  });
+  const Wrapper = ({ children }: PropsWithChildren) => (
+    <Provider store={store}>{children}</Provider>
+  );
+  const { result } = renderHook(useHook, { wrapper: Wrapper });
+  return { handler: result.current, store };
+};
+
+export interface RenderHookWithConsoleOptions<Props> extends RenderHookOptions<Props> {
+  preloadedState?: ConsolePreloadedState;
+  store?: EnhancedStore;
+  client?: Client | null;
+}
+
+export const renderHookWithConsole = <Result, Props>(
+  cb: (props: Props) => Result,
+  options: RenderHookWithConsoleOptions<Props> = {},
+): RenderHookResult<Result, Props> & { store: EnhancedStore } => {
+  const {
+    preloadedState,
+    store = createTestStore({ preloadedState }),
+    client = null,
+    ...rest
+  } = options;
+  const fluxClient = createFluxClient(client);
+  const Wrapper = ({ children }: PropsWithChildren) => (
+    <ConsoleTestProvider store={store} client={client} fluxClient={fluxClient}>
+      {children}
+    </ConsoleTestProvider>
+  );
+  return { ...renderHook(cb, { wrapper: Wrapper, ...rest }), store };
 };
 
 export interface CreateConsoleWrapperArgs {

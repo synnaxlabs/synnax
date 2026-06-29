@@ -308,7 +308,7 @@ describe("Arc queries", () => {
     it("does not replace a loaded arc's store entry when the list refetches", async () => {
       const a = await createAndLoadArc();
       const { result } = renderHook(
-        () => ({ list: Arc.useList({}), nodes: Arc.useSelectNodes({ key: a.key }) }),
+        () => ({ list: Arc.useList({}), nodes: Arc.useSelectAllNodes({ key: a.key }) }),
         { wrapper },
       );
       const initialNodes = result.current.nodes;
@@ -985,15 +985,31 @@ describe("Arc queries", () => {
       arcKey = (await createAndLoadArc()).key;
     });
 
-    it("useSelectNodes returns the graph nodes", () => {
-      const { result } = renderHook(() => Arc.useSelectNodes({ key: arcKey }), {
+    it("useSelectAllNodes returns the graph nodes", () => {
+      const { result } = renderHook(() => Arc.useSelectAllNodes({ key: arcKey }), {
         wrapper,
       });
       expect(result.current.map((n) => n.key)).toEqual(["n1", "n2"]);
     });
 
-    it("useSelectEdges returns the keyed diagram edges", () => {
-      const { result } = renderHook(() => Arc.useSelectEdges({ key: arcKey }), {
+    it("useSelectNodes returns only the nodes matching the given keys", () => {
+      const { result } = renderHook(
+        () => Arc.useSelectNodes({ key: arcKey, keys: ["n1"] }),
+        { wrapper },
+      );
+      expect(result.current.map((n) => n.key)).toEqual(["n1"]);
+    });
+
+    it("useSelectNodes returns an empty array when no keys are given", () => {
+      const { result } = renderHook(
+        () => Arc.useSelectNodes({ key: arcKey, keys: [] }),
+        { wrapper },
+      );
+      expect(result.current).toEqual([]);
+    });
+
+    it("useSelectAllEdges returns the keyed diagram edges", () => {
+      const { result } = renderHook(() => Arc.useSelectAllEdges({ key: arcKey }), {
         wrapper,
       });
       expect(result.current).toHaveLength(1);
@@ -1023,14 +1039,20 @@ describe("Arc queries", () => {
       const { result } = renderHook(() => Arc.useSelectMode({ key }), { wrapper });
       expect(result.current).toBe("text");
     });
+
+    it("useSelectName returns the arc's name", async () => {
+      const { key, name } = await createAndLoadArc();
+      const { result } = renderHook(() => Arc.useSelectName({ key }), { wrapper });
+      expect(result.current).toBe(name);
+    });
   });
 
   describe("selector memoization & stability", () => {
-    it("useSelectNodes keeps its reference when an unrelated change occurs", async () => {
+    it("useSelectAllNodes keeps its reference when an unrelated change occurs", async () => {
       const isolated = await createAndLoadArc();
       const { result } = renderHook(
         () => ({
-          nodes: Arc.useSelectNodes({ key: isolated.key }),
+          nodes: Arc.useSelectAllNodes({ key: isolated.key }),
           dispatch: Arc.useDispatch(),
         }),
         { wrapper },
@@ -1046,11 +1068,31 @@ describe("Arc queries", () => {
       expect(result.current.nodes).toBe(initial);
     });
 
-    it("useSelectNodes returns a new array when a node moves", async () => {
+    it("useSelectNodes keeps its reference when an unselected node moves", async () => {
       const isolated = await createAndLoadArc();
       const { result } = renderHook(
         () => ({
-          nodes: Arc.useSelectNodes({ key: isolated.key }),
+          nodes: Arc.useSelectNodes({ key: isolated.key, keys: ["n1"] }),
+          dispatch: Arc.useDispatch(),
+        }),
+        { wrapper },
+      );
+      const initial = result.current.nodes;
+      expect(initial.map((n) => n.key)).toEqual(["n1"]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [arc.setNodePosition({ key: "n2", position: { x: 50, y: 50 } })],
+        });
+      });
+      expect(result.current.nodes).toBe(initial);
+    });
+
+    it("useSelectAllNodes returns a new array when a node moves", async () => {
+      const isolated = await createAndLoadArc();
+      const { result } = renderHook(
+        () => ({
+          nodes: Arc.useSelectAllNodes({ key: isolated.key }),
           dispatch: Arc.useDispatch(),
         }),
         { wrapper },
@@ -1071,11 +1113,11 @@ describe("Arc queries", () => {
       });
     });
 
-    it("useSelectEdges keeps its transformed reference when a node moves", async () => {
+    it("useSelectAllEdges keeps its transformed reference when a node moves", async () => {
       const isolated = await createAndLoadArc();
       const { result } = renderHook(
         () => ({
-          edges: Arc.useSelectEdges({ key: isolated.key }),
+          edges: Arc.useSelectAllEdges({ key: isolated.key }),
           dispatch: Arc.useDispatch(),
         }),
         { wrapper },
@@ -1091,11 +1133,11 @@ describe("Arc queries", () => {
       expect(result.current.edges).toBe(initial);
     });
 
-    it("useSelectEdges returns a new array when an edge is added", async () => {
+    it("useSelectAllEdges returns a new array when an edge is added", async () => {
       const isolated = await createAndLoadArc();
       const { result } = renderHook(
         () => ({
-          edges: Arc.useSelectEdges({ key: isolated.key }),
+          edges: Arc.useSelectAllEdges({ key: isolated.key }),
           dispatch: Arc.useDispatch(),
         }),
         { wrapper },
@@ -1162,13 +1204,50 @@ describe("Arc queries", () => {
         expect(result.current.config).toEqual({ type: "constant", value: 42 });
       });
     });
+
+    it("useSelectName keeps its value when an unrelated change occurs", async () => {
+      const isolated = await createAndLoadArc();
+      const { result } = renderHook(
+        () => ({
+          name: Arc.useSelectName({ key: isolated.key }),
+          dispatch: Arc.useDispatch(),
+        }),
+        { wrapper },
+      );
+      const initial = result.current.name;
+      expect(initial).toBe(isolated.name);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [arc.setNodePosition({ key: "n1", position: { x: 13, y: 13 } })],
+        });
+      });
+      expect(result.current.name).toBe(initial);
+    });
+
+    it("useSelectName reflects a live rename", async () => {
+      const isolated = await createAndLoadArc();
+      const { result } = renderHook(
+        () => ({
+          name: Arc.useSelectName({ key: isolated.key }),
+          rename: Arc.useRename(),
+        }),
+        { wrapper },
+      );
+      expect(result.current.name).toBe(isolated.name);
+      const newName = `renamed_${id.create()}`;
+      await act(async () => {
+        await result.current.rename.updateAsync({ key: isolated.key, name: newName });
+      });
+      await waitFor(() => expect(result.current.name).toBe(newName));
+    });
   });
 
   describe("useDispatch", () => {
     it("applies an action and updates the store", async () => {
       const isolated = await createAndLoadArc();
       const { result: nodes } = renderHook(
-        () => Arc.useSelectNodes({ key: isolated.key }),
+        () => Arc.useSelectAllNodes({ key: isolated.key }),
         { wrapper },
       );
       expect(nodes.current.find((n) => n.key === "n1")?.position).toEqual({
@@ -1196,7 +1275,7 @@ describe("Arc queries", () => {
       const isolated = await createAndLoadArc();
       const { result } = renderHook(
         () => ({
-          nodes: Arc.useSelectNodes({ key: isolated.key }),
+          nodes: Arc.useSelectAllNodes({ key: isolated.key }),
           config: Arc.useSelectNodeConfig({ key: isolated.key, nodeKey: "n3" }),
           dispatch: Arc.useDispatch(),
         }),
@@ -1226,7 +1305,7 @@ describe("Arc queries", () => {
       await loadArc(isolated.key, wrapperB);
 
       const { result: nodesB } = renderHook(
-        () => Arc.useSelectNodes({ key: isolated.key }),
+        () => Arc.useSelectAllNodes({ key: isolated.key }),
         { wrapper: wrapperB },
       );
       const { result: dispatchHook } = renderHook(() => Arc.useDispatch(), {
@@ -1254,7 +1333,7 @@ describe("Arc queries", () => {
       const isolated = await createAndLoadArc();
       const { result } = renderHook(
         () => ({
-          nodes: Arc.useSelectNodes({ key: isolated.key }),
+          nodes: Arc.useSelectAllNodes({ key: isolated.key }),
           dispatch: Arc.useDispatch(),
           undo: Arc.useUndo({ key: isolated.key }),
         }),
@@ -1287,7 +1366,7 @@ describe("Arc queries", () => {
       const isolated = await createAndLoadArc();
       const { result } = renderHook(
         () => ({
-          nodes: Arc.useSelectNodes({ key: isolated.key }),
+          nodes: Arc.useSelectAllNodes({ key: isolated.key }),
           dispatch: Arc.useDispatch(),
           undo: Arc.useUndo({ key: isolated.key }),
         }),
@@ -1326,7 +1405,7 @@ describe("Arc queries", () => {
       const isolated = await createAndLoadArc();
       const { result } = renderHook(
         () => ({
-          nodes: Arc.useSelectNodes({ key: isolated.key }),
+          nodes: Arc.useSelectAllNodes({ key: isolated.key }),
           dispatch: Arc.useDispatch(),
           undo: Arc.useUndo({ key: isolated.key }),
           redo: Arc.useRedo({ key: isolated.key }),
@@ -1391,7 +1470,7 @@ describe("Arc queries", () => {
       const { result } = renderHook(
         () => ({
           add: Arc.useAddNode(isolated.key),
-          nodes: Arc.useSelectNodes({ key: isolated.key }),
+          nodes: Arc.useSelectAllNodes({ key: isolated.key }),
           config: Arc.useSelectNodeConfig({ key: isolated.key, nodeKey: "added" }),
         }),
         { wrapper },
@@ -1417,7 +1496,7 @@ describe("Arc queries", () => {
       const { result } = renderHook(
         () => ({
           add: Arc.useAddNode(isolated.key),
-          nodes: Arc.useSelectNodes({ key: isolated.key }),
+          nodes: Arc.useSelectAllNodes({ key: isolated.key }),
         }),
         { wrapper },
       );
@@ -1433,9 +1512,12 @@ describe("Arc queries", () => {
   describe("useEnsureRetrieved", () => {
     it("populates the store so selectors resolve", async () => {
       const isolated = await createAndLoadArc();
-      const { result } = renderHook(() => Arc.useSelectNodes({ key: isolated.key }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => Arc.useSelectAllNodes({ key: isolated.key }),
+        {
+          wrapper,
+        },
+      );
       expect(result.current.map((n) => n.key)).toEqual(["n1", "n2"]);
     });
   });

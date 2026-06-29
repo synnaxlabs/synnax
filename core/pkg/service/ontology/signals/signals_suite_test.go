@@ -31,18 +31,17 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	dist mock.Node
+	node mock.Node
 	svc  *changeService
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder := DeferClose(mock.NewCluster())
-	dist = DeferClose(builder.Provision(ctx))
+	node = mock.NewNode(ctx)
 	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
-	dist.Ontology.RegisterService(svc)
+	node.Ontology.RegisterService(svc)
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
-		Channel: channel.Wrap(dist.Channel),
-		Framer:  framer.Wrap(dist.Framer),
+		Channel: channel.Wrap(node.Channel),
+		Framer:  framer.Wrap(node.Framer),
 	}))
-	MustOpen(signals.Publish(ctx, sigs, dist.Ontology))
+	MustOpen(signals.Publish(ctx, sigs, node.Ontology))
 })

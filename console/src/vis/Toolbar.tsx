@@ -10,8 +10,9 @@
 import { Errors, Icon } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
-import { Arc } from "@/arc";
 import { EmptyAction, Toolbar } from "@/components";
+import { type Service } from "@/layered/service";
+import { Arc } from "@/layered/service/arc";
 import { LinePlot } from "@/layered/service/lineplot";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
@@ -29,7 +30,7 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
   [Log.LAYOUT_TYPE]: Log.Toolbar,
   [Schematic.LAYOUT_TYPE]: Schematic.Toolbar,
   [Table.LAYOUT_TYPE]: Table.Toolbar,
-  [Arc.EDITOR_LAYOUT_TYPE]: Arc.Editor.Toolbar,
+  [Arc.LAYOUT_TYPE]: Arc.Editor.Toolbar,
 };
 
 const NoVis = (): ReactElement => {
@@ -70,12 +71,11 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "visualization",
   content: <Content />,
   tooltip: "Visualize",
   icon: <Icon.Visualize />,
-  minSize: 160,
-  maxSize: 300,
+  sizeBounds: { lower: 160, upper: 300 },
   trigger: ["V"],
 };

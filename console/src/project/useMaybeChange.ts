@@ -24,6 +24,6 @@ export const useMaybeChange = (): ((key: string) => Promise<void>) => {
     if (client == null) throw new DisconnectedError();
     const { layout, ...proj } = await client.projects.retrieve(key);
     dispatch(setActive(proj));
-    dispatch(Layout.setProject({ slice: layout as Layout.SliceState, keepNav: false }));
+    dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
   };
 };
