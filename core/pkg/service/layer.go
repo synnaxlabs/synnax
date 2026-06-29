@@ -505,7 +505,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{
 		Instrumentation: cfg.Child("arc.task"),
 		Channel:         l.Channel,
-		Framer:          cfg.Distribution.Framer,
+		Framer:          l.Framer,
 		Status:          l.Status,
 		GetProgram:      l.Arc.CompileProgram,
 	})
@@ -524,7 +524,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Rack:            l.Rack,
 		Task:            l.Task,
-		Framer:          cfg.Distribution.Framer,
+		Framer:          l.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
 		Factories:       []driver.Factory{arcFactory, pdFactory},
