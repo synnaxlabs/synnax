@@ -11,10 +11,10 @@ import { Common } from "@/hardware/common";
 import { ZERO_PROPERTIES } from "@/hardware/ni/device/types";
 import { Modals } from "@/layered/service/modals";
 
-export const useConfigureModal = Modals.create<Common.Device.ModalParams>(
-  ({ params, close }) => (
+export const useConfigureModal = Modals.create<Common.Device.ConfigureParams>(
+  ({ params: { deviceKey }, close }) => (
     <Common.Device.Configure
-      deviceKey={params.deviceKey ?? ""}
+      deviceKey={deviceKey}
       close={close}
       icon="Logo.NI"
       initialProperties={ZERO_PROPERTIES}

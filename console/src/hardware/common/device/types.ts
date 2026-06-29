@@ -11,11 +11,19 @@ import { channel, device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 /**
- * Params for opening a device configure/connect modal: the device to edit, absent when
- * creating a new one.
+ * Params for opening a device connect modal: the device to edit, or absent to create a
+ * new connection.
  */
 export interface ModalParams {
   deviceKey?: device.Key;
+}
+
+/**
+ * Params for opening a device configure modal. A configure modal always acts on an
+ * existing, already-discovered device, so the key is required.
+ */
+export interface ConfigureParams {
+  deviceKey: device.Key;
 }
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
