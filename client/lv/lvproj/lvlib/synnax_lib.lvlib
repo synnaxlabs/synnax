@@ -13,7 +13,8 @@
 	</Item>
 	<Item Name="Examples" Type="Folder">
 		<Item Name="1 Channel 1 Sample - Auto Indexing.vi" Type="VI" URL="../../../examples/1 Channel 1 Sample - Auto Indexing.vi"/>
-		<Item Name="1 Channel 1 Sample - Manual Timestamp.vi" Type="VI" URL="../../../examples/1 Channel 1 Sample - Manual Timestamp.vi"/>
+		<Item Name="Create Channel - Auto Index and Timestamp.vi" Type="VI" URL="../../../examples/Create Channel - Auto Index and Timestamp.vi"/>
+		<Item Name="Create Channel - Manual Index and Timestamp.vi" Type="VI" URL="../../../examples/Create Channel - Manual Index and Timestamp.vi"/>
 		<Item Name="N Channel N Samples - Auto Indexing.vi" Type="VI" URL="../../../examples/N Channel N Samples - Auto Indexing.vi"/>
 		<Item Name="N Channel N Samples - Manual Timestamp.vi" Type="VI" URL="../../../examples/N Channel N Samples - Manual Timestamp.vi"/>
 	</Item>
