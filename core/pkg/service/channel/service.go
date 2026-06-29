@@ -24,46 +24,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type (
-	Key           = channel.Key
-	Keys          = channel.Keys
-	LocalKey      = channel.LocalKey
-	Channel       = channel.Channel
-	Operation     = channel.Operation
-	OperationType = channel.OperationType
-	CreateOption  = channel.CreateOption
-	Retrieve      = channel.Retrieve
-)
-
-const (
-	OperationTypeMin        = channel.OperationTypeMin
-	OperationTypeMax        = channel.OperationTypeMax
-	OperationTypeAvg        = channel.OperationTypeAvg
-	OperationTypeNone       = channel.OperationTypeNone
-	OperationTypeDerivative = channel.OperationTypeDerivative
-)
-
-var (
-	RetrieveIfNameExists                        = channel.RetrieveIfNameExists
-	OverwriteIfNameExistsAndDifferentProperties = channel.OverwriteIfNameExistsAndDifferentProperties
-	CreateWithoutGroupRelationship              = channel.CreateWithoutGroupRelationship
-	ParseKey                                    = channel.ParseKey
-	OntologyID                                  = channel.OntologyID
-	MatchKeys                                   = channel.MatchKeys
-	MatchNames                                  = channel.MatchNames
-	OntologyIDsFromChannels                     = channel.OntologyIDsFromChannels
-	KeysFromChannels                            = channel.KeysFromChannels
-	MatchLeaseholders                           = channel.MatchLeaseholders
-	MatchDataTypes                              = channel.MatchDataTypes
-	MatchVirtual                                = channel.MatchVirtual
-	MatchIsIndex                                = channel.MatchIsIndex
-	MatchInternal                               = channel.MatchInternal
-	ToPayload                                   = channel.ToPayload
-	MatchCalculated                             = channel.MatchCalculated
-	Not                                         = channel.Not
-	NewRandomName                               = channel.NewRandomName
-)
-
 // ServiceConfig configures a channel Service.
 type ServiceConfig struct {
 	// DB is the underlying database for transactional operations.
