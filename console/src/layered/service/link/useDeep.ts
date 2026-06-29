@@ -10,6 +10,7 @@
 import { Drift } from "@synnaxlabs/drift";
 import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
+import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { useDispatch } from "react-redux";
 
@@ -17,7 +18,6 @@ import {
   type ClusterConnect,
   type Handler,
   PREFIX,
-  SHOULD_IGNORE_KEY,
 } from "@/layered/service/link/types";
 import { Runtime } from "@/runtime";
 
@@ -25,13 +25,38 @@ const BASE_LINK = `${PREFIX}<cluster-key>`;
 
 const INCORRECT_FORMAT_ERROR_MESSAGE = `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>`;
 
+// The ignore flag lives in localStorage rather than Redux because a hard reload fires
+// before Redux finishes persisting, and the flag must survive that reload so the
+// relaunched window does not re-open the link it was opened from.
+const SHOULD_IGNORE_KEY = "shouldIgnoreLink";
+
+// markNextIgnored flags the next deep link to be skipped. Call it before triggering a
+// hard reload so the relaunched window ignores the link that triggered the reload.
+export const markNextIgnored = (): void =>
+  localStorage.setItem(SHOULD_IGNORE_KEY, "true");
+
+// Deps are the runtime bindings useDeep relies on. They default to the live Tauri
+// deep-link plugin and runtime engine; tests inject fakes to drive links without Tauri.
+export interface Deps {
+  engine: Runtime.Engine;
+  getCurrentURLs: () => Promise<string[] | null>;
+  onOpenURL: (handler: (urls: string[]) => void) => Promise<UnlistenFn>;
+}
+
+const DEFAULT_DEPS: Deps = {
+  engine: Runtime.ENGINE,
+  getCurrentURLs: getCurrent,
+  onOpenURL: onOpenUrl,
+};
+
 export const useDeep = (
   connect: ClusterConnect,
   handlers: Record<string, Handler>,
+  deps: Deps = DEFAULT_DEPS,
 ): void => {
-  // While early returns are usually bad in hooks, this is fine because IS_TAURI is a
+  // While early returns are usually bad in hooks, this is fine because the engine is a
   // constant and so the hook will be the exact same for a given runtime.
-  if (Runtime.ENGINE !== "tauri") return;
+  if (deps.engine !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = useDispatch();
   const urlHandler = async (urls: string[]) => {
@@ -62,14 +87,9 @@ export const useDeep = (
 
   // Handles the case where the app is opened from a link
   useAsyncEffect(async (signal) => {
-    const urls = await getCurrent();
-    // We need to use this SHOULD_IGNORE_KEY because triggering a hard reload will mean
-    // that this useAsyncEffect will run again and receive the same link. We need to
-    // ignore the link the second time around. Redux is also too slow to store it in
-    // there, as the hard reload gets triggered before Redux finishes updating the
-    // global store.
-    const shouldIgnore = localStorage.getItem(SHOULD_IGNORE_KEY) === "true";
-    if (shouldIgnore) {
+    const urls = await deps.getCurrentURLs();
+    // A hard reload re-runs this effect with the same launch link; skip it once.
+    if (localStorage.getItem(SHOULD_IGNORE_KEY) === "true") {
       localStorage.setItem(SHOULD_IGNORE_KEY, "false");
       return;
     }
@@ -78,5 +98,5 @@ export const useDeep = (
   }, []);
 
   // Handles the case where the app is open and a link gets called
-  useAsyncEffect(async () => await onOpenUrl((urls) => void urlHandler(urls)), []);
+  useAsyncEffect(async () => await deps.onOpenURL((urls) => void urlHandler(urls)), []);
 };
