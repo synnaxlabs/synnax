@@ -78,35 +78,87 @@ var (
 	_ fgrpc.BindableTransport = (*Transport)(nil)
 )
 
-// CreateClient implements the channel.Transport interface.
-func (t Transport) CreateClient() channel.CreateClient {
-	return t.createClient
+// New creates a new gRPC Transport that opens connections from the given pool.
+func New(pool *fgrpc.Pool) Transport {
+	return Transport{
+		ReportProvider: fgrpc.Reporter,
+		createClient: &createClient{
+			Pool:               pool,
+			RequestTranslator:  pb.CreateMessageTranslator,
+			ResponseTranslator: pb.CreateMessageTranslator,
+			Exec: func(
+				ctx context.Context,
+				conn grpc.ClientConnInterface,
+				req *pb.CreateMessage,
+			) (*pb.CreateMessage, error) {
+				return pb.NewCreateServiceClient(conn).Exec(ctx, req)
+			},
+			ServiceDesc: &pb.CreateService_ServiceDesc,
+		},
+		createServer: &createServer{
+			Internal:           true,
+			RequestTranslator:  pb.CreateMessageTranslator,
+			ResponseTranslator: pb.CreateMessageTranslator,
+			ServiceDesc:        &pb.CreateService_ServiceDesc,
+		},
+		deleteClient: &deleteClient{
+			Pool:               pool,
+			RequestTranslator:  pb.DeleteRequestTranslator,
+			ResponseTranslator: fgrpc.EmptyTranslator{},
+			Exec: func(
+				ctx context.Context,
+				conn grpc.ClientConnInterface,
+				req *pb.DeleteRequest,
+			) (*emptypb.Empty, error) {
+				return pb.NewDeleteServiceClient(conn).Exec(ctx, req)
+			},
+			ServiceDesc: &pb.DeleteService_ServiceDesc,
+		},
+		deleteServer: &deleteServer{
+			Internal:           true,
+			RequestTranslator:  pb.DeleteRequestTranslator,
+			ResponseTranslator: fgrpc.EmptyTranslator{},
+			ServiceDesc:        &pb.DeleteService_ServiceDesc,
+		},
+		renameClient: &renameClient{
+			Pool:               pool,
+			RequestTranslator:  pb.RenameMessageTranslator,
+			ResponseTranslator: fgrpc.EmptyTranslator{},
+			Exec: func(
+				ctx context.Context,
+				conn grpc.ClientConnInterface,
+				req *pb.RenameRequest,
+			) (*emptypb.Empty, error) {
+				return pb.NewRenameServiceClient(conn).Exec(ctx, req)
+			},
+			ServiceDesc: &pb.RenameService_ServiceDesc,
+		},
+		renameServer: &renameServer{
+			Internal:           true,
+			RequestTranslator:  pb.RenameMessageTranslator,
+			ResponseTranslator: fgrpc.EmptyTranslator{},
+			ServiceDesc:        &pb.RenameService_ServiceDesc,
+		},
+	}
 }
+
+// CreateClient implements the channel.Transport interface.
+func (t Transport) CreateClient() channel.CreateClient { return t.createClient }
 
 // CreateServer implements the channel.Transport interface.
-func (t Transport) CreateServer() channel.CreateServer {
-	return t.createServer
-}
+func (t Transport) CreateServer() channel.CreateServer { return t.createServer }
 
 // DeleteClient implements the channel.Transport interface.
-func (t Transport) DeleteClient() channel.DeleteClient {
-	return t.deleteClient
-}
+func (t Transport) DeleteClient() channel.DeleteClient { return t.deleteClient }
 
 // DeleteServer implements the channel.Transport interface.
-func (t Transport) DeleteServer() channel.DeleteServer {
-	return t.deleteServer
-}
+func (t Transport) DeleteServer() channel.DeleteServer { return t.deleteServer }
 
 // RenameClient implements the channel.Transport interface.
-func (t Transport) RenameClient() channel.RenameClient {
-	return t.renameClient
-}
+func (t Transport) RenameClient() channel.RenameClient { return t.renameClient }
 
 // RenameServer implements the channel.Transport interface.
-func (t Transport) RenameServer() channel.RenameServer {
-	return t.renameServer
-}
+func (t Transport) RenameServer() channel.RenameServer { return t.renameServer }
 
 // BindTo implements the fgrpc.BindableTransport interface.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
@@ -115,76 +167,7 @@ func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
 	t.renameServer.BindTo(reg)
 }
 
-// New creates a new grpc Transport that opens connections from the given pool.
-func New(pool *fgrpc.Pool) Transport {
-	createClient := &createClient{
-		Pool:               pool,
-		RequestTranslator:  pb.CreateMessageTranslator,
-		ResponseTranslator: pb.CreateMessageTranslator,
-		Exec: func(
-			ctx context.Context,
-			conn grpc.ClientConnInterface,
-			req *pb.CreateMessage,
-		) (*pb.CreateMessage, error) {
-			return pb.NewCreateServiceClient(conn).Exec(ctx, req)
-		},
-		ServiceDesc: &pb.CreateService_ServiceDesc,
-	}
-	createServer := &createServer{
-		Internal:           true,
-		RequestTranslator:  pb.CreateMessageTranslator,
-		ResponseTranslator: pb.CreateMessageTranslator,
-		ServiceDesc:        &pb.CreateService_ServiceDesc,
-	}
-	deleteClient := &deleteClient{
-		Pool:               pool,
-		RequestTranslator:  pb.DeleteRequestTranslator,
-		ResponseTranslator: fgrpc.EmptyTranslator{},
-		Exec: func(
-			ctx context.Context,
-			conn grpc.ClientConnInterface,
-			req *pb.DeleteRequest,
-		) (*emptypb.Empty, error) {
-			return pb.NewDeleteServiceClient(conn).Exec(ctx, req)
-		},
-		ServiceDesc: &pb.DeleteService_ServiceDesc,
-	}
-	deleteServer := &deleteServer{
-		Internal:           true,
-		RequestTranslator:  pb.DeleteRequestTranslator,
-		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &pb.DeleteService_ServiceDesc,
-	}
-	renameClient := &renameClient{
-		Pool:               pool,
-		RequestTranslator:  pb.RenameMessageTranslator,
-		ResponseTranslator: fgrpc.EmptyTranslator{},
-		Exec: func(
-			ctx context.Context,
-			conn grpc.ClientConnInterface,
-			req *pb.RenameRequest,
-		) (*emptypb.Empty, error) {
-			return pb.NewRenameServiceClient(conn).Exec(ctx, req)
-		},
-		ServiceDesc: &pb.RenameService_ServiceDesc,
-	}
-	renameServer := &renameServer{
-		Internal:           true,
-		RequestTranslator:  pb.RenameMessageTranslator,
-		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &pb.RenameService_ServiceDesc,
-	}
-	return Transport{
-		ReportProvider: fgrpc.Reporter,
-		createClient:   createClient,
-		createServer:   createServer,
-		deleteClient:   deleteClient,
-		deleteServer:   deleteServer,
-		renameClient:   renameClient,
-		renameServer:   renameServer,
-	}
-}
-
+// Use implements the freighter.Transport interface.
 func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.createClient.Use(middleware...)
 	t.createServer.Use(middleware...)

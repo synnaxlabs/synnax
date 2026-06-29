@@ -26,6 +26,7 @@ import (
 const (
 	leaseholder = address.Address("leaseholder")
 	gateway     = address.Address("gateway")
+	peer        = address.Address("peer")
 )
 
 var _ = Describe("Transport", func() {
