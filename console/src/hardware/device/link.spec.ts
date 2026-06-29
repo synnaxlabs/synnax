@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import { Device } from "@/hardware/device";
 import { NI } from "@/hardware/ni";
-import { Layout } from "@/layout";
 import { renderLinkHook } from "@/testUtils";
 
 const client = createTestClient();
@@ -32,17 +31,18 @@ const createDevice = async (make: string, name: string) => {
 };
 
 describe("Device.useLink", () => {
-  it("should place a configure layout for a device with a known make", async () => {
+  it("should open the configure modal for a device with a known make", async () => {
     const device = await createDevice(NI.Device.MAKE, "cDAQ Chassis");
-    const { handler, store } = renderLinkHook(Device.useLink);
+    const { handler, modals } = renderLinkHook(Device.useLink);
+    expect(modals.isAnyOpen()).toBe(false);
     await handler({ client, key: device.key });
-    expect(Layout.select(store.getState(), device.key)?.name).toBe("cDAQ Chassis");
+    expect(modals.getState()).toHaveLength(1);
   });
 
-  it("should place nothing for a device with an unrecognized make", async () => {
+  it("should open nothing for a device with an unrecognized make", async () => {
     const device = await createDevice("not-a-real-make", "Mystery Device");
-    const { handler, store } = renderLinkHook(Device.useLink);
+    const { handler, modals } = renderLinkHook(Device.useLink);
     await handler({ client, key: device.key });
-    expect(Layout.select(store.getState(), device.key)).toBeUndefined();
+    expect(modals.isAnyOpen()).toBe(false);
   });
 });
