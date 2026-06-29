@@ -15,7 +15,7 @@ import { ContextMenu } from "@/components";
 import { ContextMenuItem } from "@/group/ContextMenuItem";
 import { useCreateEmpty } from "@/group/useCreateEmpty";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
-import { Link } from "@/link";
+import { Link } from "@/layered/service/link";
 import { Ontology } from "@/ontology";
 import { createUseRename } from "@/ontology/createUseRename";
 

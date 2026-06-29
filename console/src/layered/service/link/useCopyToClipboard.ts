@@ -11,7 +11,7 @@ import { type ontology } from "@synnaxlabs/client";
 import { useCallback } from "react";
 
 import { useCopyToClipboard as useCopy } from "@/hooks/useCopyToClipboard";
-import { PREFIX } from "@/link/types";
+import { PREFIX } from "@/layered/service/link/types";
 
 export interface CopyToClipboardArgs {
   clusterKey: string;
