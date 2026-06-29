@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Synnax, useSyncedRef } from "@synnaxlabs/pluto";
-import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { breaker, TimeSpan } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -18,6 +18,11 @@ import { type RootState } from "@/store";
 
 const CONNECT_TIMEOUT = TimeSpan.seconds(10);
 const POLL_INTERVAL = TimeSpan.milliseconds(50);
+const POLL_BREAKER_CONFIG: breaker.Config = {
+  baseInterval: POLL_INTERVAL,
+  scale: 1,
+  maxRetries: Math.ceil(CONNECT_TIMEOUT.milliseconds / POLL_INTERVAL.milliseconds),
+};
 
 // useLink returns a connect function that resolves a cluster key to a connected client.
 // If the cluster is already active and connected, the managed client is returned
@@ -49,9 +54,8 @@ export const useLink = (): Link.ClusterConnect => {
       const switching = Cluster.selectActiveKey(state) !== key;
       const priorClient = current.client;
       dispatch(Cluster.setActive(key));
-      const deadline = Date.now() + CONNECT_TIMEOUT.milliseconds;
-      for (;;) {
-        await sleep.sleep(POLL_INTERVAL);
+      const poll = new breaker.Breaker(POLL_BREAKER_CONFIG);
+      while (true) {
         const { client, connState } = stateRef.current;
         const attemptStarted = !switching || client !== priorClient;
         if (
@@ -63,7 +67,7 @@ export const useLink = (): Link.ClusterConnect => {
           return client;
         if (attemptStarted && connState.status === "failed")
           throw new Error(connState.message ?? `Failed to connect to cluster ${key}`);
-        if (Date.now() > deadline)
+        if (!(await poll.wait()))
           throw new Error(`Timed out connecting to cluster ${key}`);
       }
     },
