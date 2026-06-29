@@ -37,7 +37,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(({ params, close 
 
   return (
     <Flex.Box grow empty>
-      <Modals.Header name="Status.Create" icon="Status" />
+      <Modals.Header title="Status.Create" icon="Status" />
       <Flex.Box grow empty style={{ padding: "2rem 3rem" }}>
         <Form.Form<typeof Status.formSchema> {...form}>
           <Form.TextField
@@ -62,7 +62,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(({ params, close 
           </Form.Field>
         </Form.Form>
       </Flex.Box>
-      <Modals.BottomNavBar>
+      <Modals.Footer>
         <Triggers.SaveHelpText action="Save" />
         <Nav.Bar.End>
           <Button.Button
@@ -75,7 +75,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(({ params, close 
             Create
           </Button.Button>
         </Nav.Bar.End>
-      </Modals.BottomNavBar>
+      </Modals.Footer>
     </Flex.Box>
   );
 });

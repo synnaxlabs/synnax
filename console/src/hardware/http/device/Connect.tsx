@@ -226,7 +226,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
 
     return (
       <Flex.Box grow className={CSS.B("http-connect")}>
-        <Modals.Header name="Server.Connect" icon="Logo.HTTP" />
+        <Modals.Header title="Server.Connect" icon="Logo.HTTP" />
         <Flex.Box className={CSS.B("content")} grow gap="large">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Flex.Box gap="small">
@@ -403,7 +403,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
             </Flex.Box>
           </Form.Form>
         </Flex.Box>
-        <Modals.BottomNavBar>
+        <Modals.Footer>
           <Nav.Bar.Start gap="small">
             {variant == "success" ? (
               <Triggers.SaveHelpText action="Connect" noBar />
@@ -420,7 +420,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
               Connect
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.BottomNavBar>
+        </Modals.Footer>
       </Flex.Box>
     );
   },

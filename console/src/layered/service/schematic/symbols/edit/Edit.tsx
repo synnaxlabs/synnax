@@ -165,7 +165,7 @@ export const useSymbolModal = Modals.create<SymbolModalParams>(
           y
         >
           <Modals.Header
-            name={isCreate ? CREATE_NAME : EDIT_SYMBOL_NAME}
+            title={isCreate ? CREATE_NAME : EDIT_SYMBOL_NAME}
             icon="Schematic"
           />
           <Flex.Box className="console-form" grow full y>
@@ -272,14 +272,14 @@ export const useSymbolModal = Modals.create<SymbolModalParams>(
             </Flex.Box>
           </Flex.Box>
           {hasSVG && (
-            <Modals.BottomNavBar background={0}>
+            <Modals.Footer background={0}>
               <Triggers.SaveHelpText action={createSaveText} />
               <Nav.Bar.End>
                 <Button.Button variant="filled" onClick={() => save()}>
                   {createSaveText}
                 </Button.Button>
               </Nav.Bar.End>
-            </Modals.BottomNavBar>
+            </Modals.Footer>
           )}
         </Flex.Box>
       </Form.Form>

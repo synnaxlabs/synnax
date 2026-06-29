@@ -98,7 +98,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(({ params, close 
 
   return (
     <Flex.Box className={CSS.B("range-create-layout")} grow empty>
-      <Modals.Header name="Range.Create" icon="Range" />
+      <Modals.Header title="Range.Create" icon="Range" />
       <Flex.Box
         className="console-form"
         justify="center"
@@ -157,7 +157,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(({ params, close 
           </Flex.Box>
         </Form.Form>
       </Flex.Box>
-      <Modals.BottomNavBar>
+      <Modals.Footer>
         <Triggers.SaveHelpText action={saveName} />
         <Nav.Bar.End>
           <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
@@ -173,7 +173,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(({ params, close 
             {saveName}
           </Button.Button>
         </Nav.Bar.End>
-      </Modals.BottomNavBar>
+      </Modals.Footer>
     </Flex.Box>
   );
 });

@@ -7,18 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/layered/service/modals/BottomNavBar.css";
+
+import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Modal } from "@/layered/app/modals/Modal";
-import { useStack } from "@/layered/session/modals/Provider";
+import { CSS } from "@/css";
 
-export const Surface = (): ReactElement => {
-  const stack = useStack();
-  return (
-    <>
-      {stack.map((entry) => (
-        <Modal key={entry.key} entry={entry} />
-      ))}
-    </>
-  );
-};
+export interface BottomNavBarProps extends Nav.BarProps {}
+
+export const Footer = ({ className, ...rest }: BottomNavBarProps): ReactElement => (
+  <Nav.Bar
+    location="bottom"
+    size="8rem"
+    className={CSS(CSS.B("bottom-nav-bar"), className)}
+    bordered
+    {...rest}
+  />
+);

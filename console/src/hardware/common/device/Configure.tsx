@@ -94,7 +94,7 @@ const Internal = <
 
   return (
     <Flex.Box align="stretch" className={CSS.B("configure")} empty>
-      <Modals.Header name={name || "Device.Configure"} icon={icon} />
+      <Modals.Header title={name || "Device.Configure"} icon={icon} />
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
         <Flex.Box
           align="stretch"

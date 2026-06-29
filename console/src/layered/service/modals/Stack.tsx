@@ -7,11 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { StoreContext, useStack, useStore } from "@/layered/session/modals/Provider";
-export {
-  type Entry,
-  ModalStore,
-  modalStore,
-  type Content as Renderer,
-  type ContentProps as RenderProps,
-} from "@/layered/session/modals/store";
+import { type ReactElement } from "react";
+
+import { Modal } from "@/layered/service/modals/Modal";
+import { useStack } from "@/layered/session/modals/Provider";
+
+export const Surface = (): ReactElement => {
+  const stack = useStack();
+  return (
+    <>
+      {stack.map((entry) => (
+        <Modal key={entry.key} entry={entry} />
+      ))}
+    </>
+  );
+};

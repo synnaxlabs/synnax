@@ -7,16 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb, Button, Icon, Nav } from "@synnaxlabs/pluto";
+import { Breadcrumb, Button, Dialog, Icon, Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useDismiss } from "@/layered/service/modals/Dismiss";
-
-export interface HeaderProps extends Omit<Nav.BarProps, "location" | "size"> {
-  /** The dotted display name; each segment renders as a breadcrumb crumb. */
-  name: string;
-  /** The leading icon, resolved from the icon registry when a string. */
-  icon?: Icon.ReactElement | string;
+export interface HeaderProps extends Omit<Nav.BarProps, "location" | "size" | "children"> {
+  children: string;
+  icon?: Icon.ReactElement;
 }
 
 /**
@@ -25,16 +21,14 @@ export interface HeaderProps extends Omit<Nav.BarProps, "location" | "size"> {
  * their own Header so that title and icon stay static presentation owned by the renderer
  * rather than dynamic state on the open-modal entry.
  */
-export const Header = ({ name, icon, ...rest }: HeaderProps): ReactElement => {
-  const dismiss = useDismiss();
+export const Header = ({ icon, children, ...rest }: HeaderProps): ReactElement => {
+  const { close } = Dialog.useContext();
   return (
     <Nav.Bar location="top" size="6rem" bordered {...rest}>
       <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
         <Breadcrumb.Breadcrumb gap="tiny">
-          {icon != null && (
-            <Breadcrumb.Segment color={9}>{Icon.resolve(icon)}</Breadcrumb.Segment>
-          )}
-          {name.split(".").map((segment) => (
+          {icon != null && <Breadcrumb.Segment color={9}>{icon}</Breadcrumb.Segment>}
+          {children.split(".").map((segment) => (
             <Breadcrumb.Segment color={9} key={segment} weight={400}>
               {segment}
             </Breadcrumb.Segment>
@@ -42,7 +36,7 @@ export const Header = ({ name, icon, ...rest }: HeaderProps): ReactElement => {
         </Breadcrumb.Breadcrumb>
       </Nav.Bar.Start>
       <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-        <Button.Button onClick={dismiss} size="small" variant="text" textColor={9}>
+        <Button.Button onClick={close} size="small" variant="text" textColor={9}>
           <Icon.Close />
         </Button.Button>
       </Nav.Bar.End>

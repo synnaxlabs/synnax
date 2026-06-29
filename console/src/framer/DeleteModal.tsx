@@ -51,7 +51,7 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
 
 export const DeleteModal = ({
   close,
-}: Modals.RenderProps<void, void>): ReactElement => {
+}: Modals.ContentProps<void, void>): ReactElement => {
   const [step, setStep] = useState<"form" | "confirm">("form");
   const methods = Form.use({
     schema: formSchema,
@@ -60,7 +60,7 @@ export const DeleteModal = ({
   return (
     <Form.Form<typeof formSchema> {...methods}>
       <Flex.Box align="stretch" direction="y" empty grow>
-        <Modals.Header name="Data.Delete" icon="Channel" />
+        <Modals.Header title="Data.Delete" icon="Channel" />
         {step === "form" ? (
           <FormStep onNext={() => setStep("confirm")} />
         ) : (
@@ -103,7 +103,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
     </>
   );
   return (
-    <Modals.ModalContentLayout footer={footer} gap="large" justify="start">
+    <Modals.Body footer={footer} gap="large" justify="start">
       <Text.Text level="h3" weight={450}>
         Delete Data
       </Text.Text>
@@ -157,7 +157,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
           </Flex.Box>
         </Flex.Box>
       </Flex.Box>
-    </Modals.ModalContentLayout>
+    </Modals.Body>
   );
 };
 
@@ -234,7 +234,7 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
     </>
   );
   return (
-    <Modals.ModalContentLayout footer={footer} gap="large">
+    <Modals.Body footer={footer} gap="large">
       <Text.Text level="h3" weight={450}>
         Are you sure you want to delete this data?
       </Text.Text>
@@ -247,6 +247,6 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
           This action is irreversible.
         </Text.Text>
       </Flex.Box>
-    </Modals.ModalContentLayout>
+    </Modals.Body>
   );
 };

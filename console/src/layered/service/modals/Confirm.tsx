@@ -10,9 +10,14 @@
 import { type status } from "@synnaxlabs/client";
 import { Button, type Icon, Nav, Text } from "@synnaxlabs/pluto";
 
-import { type Prompt, prompt } from "@/layered/service/modals/Base";
-import { ModalContentLayout } from "@/layered/service/modals/layout";
+import { Body } from "@/layered/service/modals/Body";
+import { createPrompt, type Prompt } from "@/layered/service/modals/factory";
+import { type ContentProps } from "@/layered/session/modals/store";
 import { Triggers } from "@/triggers";
+
+import { Footer } from "./Footer";
+import { Frame } from "./Frame";
+import { Header } from "./Header";
 
 interface ConfirmButtonProps {
   variant?: status.Variant;
@@ -26,35 +31,40 @@ export interface ConfirmParams {
   confirm?: ConfirmButtonProps;
   cancel?: ConfirmButtonProps;
   title?: string;
-  icon?: Icon.ReactElement | string;
+  icon?: Icon.ReactElement;
 }
 
 export interface PromptConfirm extends Prompt<boolean, ConfirmParams> {}
 
-export const useConfirm = prompt<boolean, ConfirmParams>(
-  ({
-    params: {
-      message,
-      description,
-      confirm = {},
-      cancel = {},
-      title = "Confirm",
-      icon,
-    },
-    close,
-  }) => {
-    const {
-      variant: confirmVariant = "error",
-      label: confirmLabel = "Confirm",
-      delay: confirmDelay = 0,
-    } = confirm;
-    const {
-      variant: cancelVariant,
-      label: cancelLabel = "Cancel",
-      delay: cancelDelay = 0,
-    } = cancel;
-    const footer = (
-      <>
+const Confirm = ({
+  message,
+  description,
+  confirm = {},
+  cancel = {},
+  title = "Confirm",
+  icon,
+  close,
+}: ContentProps<ConfirmParams, boolean>) => {
+  const {
+    variant: confirmVariant = "error",
+    label: confirmLabel = "Confirm",
+    delay: confirmDelay = 0,
+  } = confirm;
+  const {
+    variant: cancelVariant,
+    label: cancelLabel = "Cancel",
+    delay: cancelDelay = 0,
+  } = cancel;
+  return (
+    <Frame>
+      <Header icon={icon}>{title}</Header>
+      <Body>
+        <Text.Text level="h3" weight={450}>
+          {message}
+        </Text.Text>
+        <Text.Text weight={450}>{description}</Text.Text>
+      </Body>
+      <Footer>
         <Triggers.SaveHelpText action={confirmLabel} />
         <Nav.Bar.End x align="center">
           <Button.Button
@@ -74,16 +84,9 @@ export const useConfirm = prompt<boolean, ConfirmParams>(
             {confirmLabel}
           </Button.Button>
         </Nav.Bar.End>
-      </>
-    );
+      </Footer>
+    </Frame>
+  );
+};
 
-    return (
-      <ModalContentLayout title={title} icon={icon} footer={footer}>
-        <Text.Text level="h3" weight={450}>
-          {message}
-        </Text.Text>
-        <Text.Text weight={450}>{description}</Text.Text>
-      </ModalContentLayout>
-    );
-  },
-);
+export const useConfirm = createPrompt<boolean, ConfirmParams>(Confirm);

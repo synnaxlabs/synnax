@@ -117,7 +117,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
       ) != NO_SECURITY_MODE;
     return (
       <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
-        <Modals.Header name="Server.Connect" icon="Logo.OPC" />
+        <Modals.Header title="Server.Connect" icon="Logo.OPC" />
         <Flex.Box className={CSS.B("content")} grow gap="small">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
@@ -184,7 +184,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
             )}
           </Form.Form>
         </Flex.Box>
-        <Modals.BottomNavBar>
+        <Modals.Footer>
           <Nav.Bar.Start gap="small">
             {variant == "success" ? (
               <Triggers.SaveHelpText action="Test Connection" noBar />
@@ -201,7 +201,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
               Connect
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.BottomNavBar>
+        </Modals.Footer>
       </Flex.Box>
     );
   },

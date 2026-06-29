@@ -42,7 +42,7 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
 };
 
 export const useCalculatedModal = Modals.create<CalculatedModalParams>(
-  ({ params: { channelKey }, close }) => {
+  ({ channelKey, close }) => {
     const isEdit = primitive.isNonZero(channelKey);
     const {
       form,
@@ -75,7 +75,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
     return (
       <Flex.Box className={CSS.B("channel", "edit", "calculated")} grow empty>
         <Modals.Header
-          name={isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
+          title={isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
           icon="Channel"
         />
         <Flex.Box className={CSS.B("form")} style={{ padding: "3rem" }} grow>
@@ -145,7 +145,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
             </Flex.Box>
           </Form.Form>
         </Flex.Box>
-        <Modals.BottomNavBar>
+        <Modals.Footer>
           <Nav.Bar.Start>
             {variant == "success" ? (
               <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
@@ -171,7 +171,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
               </Button.Button>
             </Flex.Box>
           </Nav.Bar.End>
-        </Modals.BottomNavBar>
+        </Modals.Footer>
       </Flex.Box>
     );
   },

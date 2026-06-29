@@ -114,7 +114,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
 
     return (
       <Flex.Box align="start" className={CSS.B("modbus-connect")} justify="center">
-        <Modals.Header name="Server.Connect" icon="Logo.Modbus" />
+        <Modals.Header title="Server.Connect" icon="Logo.Modbus" />
         <Flex.Box className={CSS.B("content")} grow size="small">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
@@ -144,7 +144,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
             </Flex.Box>
           </Form.Form>
         </Flex.Box>
-        <Modals.BottomNavBar>
+        <Modals.Footer>
           <Nav.Bar.Start gap="small">
             {variant == "success" ? (
               <Triggers.SaveHelpText action="Connect" noBar />
@@ -161,7 +161,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
               Connect
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.BottomNavBar>
+        </Modals.Footer>
       </Flex.Box>
     );
   },

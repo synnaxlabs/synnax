@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Button, type Icon, Input, Nav } from "@synnaxlabs/pluto";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
-import { type Prompt, prompt } from "@/layered/service/modals/Base";
-import { ModalContentLayout } from "@/layered/service/modals/layout";
+import { Body } from "@/layered/service/modals/Body";
+import { createPrompt, type Prompt } from "@/layered/service/modals/factory";
+import { Footer } from "@/layered/service/modals/Footer";
+import { Frame } from "@/layered/service/modals/Frame";
+import { Header } from "@/layered/service/modals/Header";
+import { type ContentProps } from "@/layered/session/modals/store";
 import { Triggers } from "@/triggers";
 
 export interface RenameParams {
@@ -19,42 +23,30 @@ export interface RenameParams {
   initialValue?: string;
   label?: string;
   title?: string;
-  icon?: Icon.ReactElement | string;
+  icon?: Icon.ReactElement;
 }
 
 export interface PromptRename extends Prompt<string, RenameParams> {}
 
-export const useRename = prompt<string, RenameParams>(
-  ({
-    params: { allowEmpty = false, label = "Name", initialValue, title = "Name", icon },
-    close,
-  }) => {
-    const [name, setName] = useState(initialValue ?? "");
-    const [error, setError] = useState<string | undefined>(undefined);
-    const footer = (
-      <>
-        <Triggers.SaveHelpText action="Save" trigger={Triggers.SAVE} />
-        <Nav.Bar.End x align="center">
-          <Button.Button
-            status="success"
-            disabled={!allowEmpty && name.length === 0}
-            variant="filled"
-            onClick={() => {
-              if (allowEmpty && name.length === 0) return close();
-              if (!allowEmpty && name.length === 0)
-                return setError(`${label} is required`);
-              return close(name);
-            }}
-            trigger={Triggers.SAVE}
-          >
-            Save
-          </Button.Button>
-        </Nav.Bar.End>
-      </>
-    );
-
-    return (
-      <ModalContentLayout title={title} icon={icon} footer={footer}>
+const Rename = ({
+  allowEmpty = false,
+  label = "Name",
+  title = "Name",
+  initialValue,
+  icon,
+  close,
+}: ContentProps<RenameParams, string>) => {
+  const [name, setName] = useState(initialValue ?? "");
+  const [error, setError] = useState<string | undefined>(undefined);
+  const handleClick = useCallback(() => {
+    if (allowEmpty && name.length === 0) return close();
+    if (!allowEmpty && name.length === 0) return setError(`${label} is required`);
+    return close(name);
+  }, [close, setError, name, allowEmpty]);
+  return (
+    <Frame>
+      <Header icon={icon}>{title}</Header>
+      <Body>
         <Input.Item
           label={label}
           required={!allowEmpty}
@@ -72,7 +64,23 @@ export const useRename = prompt<string, RenameParams>(
             selectOnFocus
           />
         </Input.Item>
-      </ModalContentLayout>
-    );
-  },
-);
+      </Body>
+      <Footer>
+        <Triggers.SaveHelpText action="Save" trigger={Triggers.SAVE} />
+        <Nav.Bar.End x align="center">
+          <Button.Button
+            status="success"
+            disabled={!allowEmpty && name.length === 0}
+            variant="filled"
+            onClick={handleClick}
+            trigger={Triggers.SAVE}
+          >
+            Save
+          </Button.Button>
+        </Nav.Bar.End>
+      </Footer>
+    </Frame>
+  );
+};
+
+export const useRename = createPrompt<string, RenameParams>(Rename);

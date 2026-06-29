@@ -27,7 +27,7 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
     return (
       <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
         <Flex.Box grow empty>
-          <Modals.Header name={params.title ?? "Assign Role"} icon="User" />
+          <Modals.Header title={params.title ?? "Assign Role"} icon="User" />
           <Flex.Box
             className="console-form"
             justify="center"
@@ -38,7 +38,7 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
               {(props) => <Access.Role.Select {...props} />}
             </Form.Field>
           </Flex.Box>
-          <Modals.BottomNavBar>
+          <Modals.Footer>
             <Nav.Bar.End style={{ paddingRight: "2rem" }}>
               <Button.Button
                 onClick={() => save()}
@@ -51,7 +51,7 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
                 Assign
               </Button.Button>
             </Nav.Bar.End>
-          </Modals.BottomNavBar>
+          </Modals.Footer>
         </Flex.Box>
       </Form.Form>
     );

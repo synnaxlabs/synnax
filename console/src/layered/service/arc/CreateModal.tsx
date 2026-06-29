@@ -14,8 +14,8 @@ import { Button, CSS as PCSS, Icon, Input, Nav, Select, Text } from "@synnaxlabs
 import { useState } from "react";
 
 import { CSS } from "@/css";
-import { prompt } from "@/layered/service/modals/Base";
-import { ModalContentLayout } from "@/layered/service/modals/layout";
+import { Body } from "@/layered/service/modals/Body";
+import { createPrompt } from "@/layered/service/modals/factory";
 import { Triggers } from "@/triggers";
 
 export interface CreateModalResult {
@@ -67,7 +67,7 @@ const ArcModeSelectButton = ({
   );
 };
 
-export const useCreateModal = prompt<CreateModalResult, CreateModalParams>(
+export const useCreateModal = createPrompt<CreateModalResult, CreateModalParams>(
   ({ params: { initialName, initialMode }, close }) => {
     const [name, setName] = useState(initialName ?? "");
     const [mode, setMode] = useState<arc.Mode>(initialMode ?? "graph");
@@ -96,7 +96,7 @@ export const useCreateModal = prompt<CreateModalResult, CreateModalParams>(
     );
 
     return (
-      <ModalContentLayout
+      <Body
         title="Arc.Create Automation"
         icon="Arc"
         footer={footer}
@@ -142,7 +142,7 @@ export const useCreateModal = prompt<CreateModalResult, CreateModalParams>(
             />
           </Select.Buttons>
         </Input.Item>
-      </ModalContentLayout>
+      </Body>
     );
   },
 );

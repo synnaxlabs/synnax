@@ -11,7 +11,7 @@ import { id, type optional } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { useStore } from "@/layered/session/modals/Provider";
-import { type RenderProps } from "@/layered/session/modals/store";
+import { type ContentProps } from "@/layered/session/modals/store";
 
 /**
  * A typed fire-and-forget opener: opens a modal and returns immediately. Its params
@@ -46,10 +46,9 @@ export interface PromptHook<Params, Result> {
  * dismisses itself). It returns the open hook directly; the hook's function takes the
  * modal's typed params.
  */
-export const create = <Params = void>(
-  Component: FC<RenderProps<Params, void>>,
-): OpenHook<Params> => {
-  const useOpen = (): Opener<Params> => {
+export const create =
+  <Params = void>(Component: FC<ContentProps<Params, void>>): OpenHook<Params> =>
+  (): Opener<Params> => {
     const store = useStore();
     return useCallback(
       (params?: Params) =>
@@ -62,18 +61,17 @@ export const create = <Params = void>(
       [store],
     );
   };
-  return useOpen;
-};
 
 /**
  * prompt defines a result-returning modal. It returns the prompt hook directly; the
  * hook's function takes the modal's typed params and resolves with the renderer's result
  * (or null on dismissal).
  */
-export const prompt = <Result, Params = void>(
-  Component: FC<RenderProps<Params, Result>>,
-): PromptHook<Params, Result> => {
-  const usePrompt = (): Prompt<Result, Params> => {
+export const createPrompt =
+  <Result, Params = void>(
+    Component: FC<ContentProps<Params, Result>>,
+  ): PromptHook<Params, Result> =>
+  (): Prompt<Result, Params> => {
     const store = useStore();
     return useCallback(
       (params?: Params) =>
@@ -88,5 +86,3 @@ export const prompt = <Result, Params = void>(
       [store],
     );
   };
-  return usePrompt;
-};

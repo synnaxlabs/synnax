@@ -44,7 +44,7 @@ export const useCreateModal = Modals.create<void>(({ close }) => {
   );
   return (
     <Flex.Box grow empty>
-      <Modals.Header name="Channel.Create" icon="Channel" />
+      <Modals.Header title="Channel.Create" icon="Channel" />
       <Flex.Box className="console-form" style={{ padding: "3rem" }} grow>
         <Form.Form<typeof Channel.formSchema> {...form}>
           <Form.Field<string> path="name" label="Name">
@@ -99,7 +99,7 @@ export const useCreateModal = Modals.create<void>(({ close }) => {
           </Form.Field>
         </Form.Form>
       </Flex.Box>
-      <Modals.BottomNavBar>
+      <Modals.Footer>
         <Triggers.SaveHelpText />
         <Nav.Bar.End align="center" gap="large">
           <Flex.Box x align="center" gap="small">
@@ -115,7 +115,7 @@ export const useCreateModal = Modals.create<void>(({ close }) => {
             Create
           </Button.Button>
         </Nav.Bar.End>
-      </Modals.BottomNavBar>
+      </Modals.Footer>
     </Flex.Box>
   );
 });

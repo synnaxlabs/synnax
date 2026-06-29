@@ -159,7 +159,7 @@ export const useEditModal = Modals.create<void>(() => {
   const [searchTerm, setSearchTerm] = useState("");
   return (
     <Flex.Box y grow empty className={CSS.BE("label", "edit")}>
-      <Modals.Header name="Labels.Edit" icon="Label" />
+      <Modals.Header title="Labels.Edit" icon="Label" />
       <List.Frame<label.Key, label.Label>
         data={data}
         getItem={getItem}

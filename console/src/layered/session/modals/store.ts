@@ -15,14 +15,13 @@ import { type ComponentType } from "react";
  * prompts) and dismisses the modal. Calling close with no argument dismisses without a
  * result.
  */
-export interface RenderProps<Params = unknown, Result = unknown> {
-  params: Params;
+export type ContentProps<Params = unknown, Result = unknown> = Params & {
   close: (result?: Result) => void;
-}
+};
 
 /** A component that renders a modal's body (and its own header) of a particular type. */
-export type Renderer<Params = unknown, Result = unknown> = ComponentType<
-  RenderProps<Params, Result>
+export type Content<Params = unknown, Result = unknown> = ComponentType<
+  ContentProps<Params, Result>
 >;
 
 /**
@@ -30,13 +29,13 @@ export type Renderer<Params = unknown, Result = unknown> = ComponentType<
  * modal resolves via {@link ModalStore.close}. Both the render component and the resolve
  * closure are held directly on the entry rather than round-tripped through serializable
  * state, which is why the stack cannot live in Redux. All presentation (title, icon) is
- * owned by {@link Renderer}; the entry carries only the dynamic, per-open core.
+ * owned by {@link Content}; the entry carries only the dynamic, per-open core.
  */
 export interface Entry<Params = unknown, Result = unknown> {
   /** A unique identity for the open modal, used to address it for close. */
   key: string;
   /** The component that renders this modal. */
-  Renderer: Renderer<Params, Result>;
+  Renderer: Content<Params, Result>;
   /** The typed params handed to the renderer. */
   params: Params;
   /**

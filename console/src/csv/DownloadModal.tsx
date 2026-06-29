@@ -70,12 +70,7 @@ export const useDownloadModal = Modals.prompt<void, DownloadModalParams>(
     );
     return (
       <Form.Form<typeof formSchema> {...form}>
-        <Modals.ModalContentLayout
-          title="Download.CSV"
-          icon={icon}
-          footer={footer}
-          gap="huge"
-        >
+        <Modals.Body title="Download.CSV" icon={icon} footer={footer} gap="huge">
           <Text.Text level="h3" weight={450}>
             Download data for {name} to a CSV
           </Text.Text>
@@ -117,7 +112,7 @@ export const useDownloadModal = Modals.prompt<void, DownloadModalParams>(
               </Text.Text>
             )}
           </Flex.Box>
-        </Modals.ModalContentLayout>
+        </Modals.Body>
       </Form.Form>
     );
   },

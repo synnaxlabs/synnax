@@ -40,7 +40,7 @@ export const useCreateModal = Modals.create<void>(({ close }) => {
 
   return (
     <Flex.Box style={{ height: "100%" }}>
-      <Modals.Header name="Project.Create" icon="Project" />
+      <Modals.Header title="Project.Create" icon="Project" />
       <Flex.Box
         className="console-form"
         style={{ padding: "1rem 3rem" }}
@@ -61,7 +61,7 @@ export const useCreateModal = Modals.create<void>(({ close }) => {
           </Form.Field>
         </Form.Form>
       </Flex.Box>
-      <Modals.BottomNavBar>
+      <Modals.Footer>
         <Triggers.SaveHelpText action="Create" />
         <Nav.Bar.End>
           <Button.Button
@@ -76,7 +76,7 @@ export const useCreateModal = Modals.create<void>(({ close }) => {
             Create
           </Button.Button>
         </Nav.Bar.End>
-      </Modals.BottomNavBar>
+      </Modals.Footer>
     </Flex.Box>
   );
 });

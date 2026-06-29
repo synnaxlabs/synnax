@@ -58,7 +58,7 @@ export const useRegisterModal = Modals.create<void>(({ close }) => {
 
   return (
     <Flex.Box grow empty>
-      <Modals.Header name="User.Register" icon="User" />
+      <Modals.Header title="User.Register" icon="User" />
       <Flex.Box
         className="console-form"
         justify="center"
@@ -97,7 +97,7 @@ export const useRegisterModal = Modals.create<void>(({ close }) => {
           </Flex.Box>
         </Form.Form>
       </Flex.Box>
-      <Modals.BottomNavBar>
+      <Modals.Footer>
         <Triggers.SaveHelpText action="Register" />
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
           <Button.Button
@@ -110,7 +110,7 @@ export const useRegisterModal = Modals.create<void>(({ close }) => {
             Register
           </Button.Button>
         </Nav.Bar.End>
-      </Modals.BottomNavBar>
+      </Modals.Footer>
     </Flex.Box>
   );
 });

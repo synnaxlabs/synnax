@@ -158,7 +158,7 @@ export const useInfoModal = Modals.create<void>(() => {
 
   return (
     <>
-      <Modals.Header name="About.Version" icon="Info" />
+      <Modals.Header title="About.Version" icon="Info" />
       <Flex.Box align="center" y gap="large" style={{ paddingTop: "6rem" }}>
         <Flex.Box y gap="small" justify="center" align="center">
           <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">

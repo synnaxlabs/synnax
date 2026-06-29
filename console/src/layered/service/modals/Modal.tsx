@@ -12,7 +12,6 @@ import "@/layered/app/modals/Modal.css";
 import { Dialog, Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useCallback } from "react";
 
-import { DismissProvider } from "@/layered/service/modals/Dismiss";
 import { useStore } from "@/layered/session/modals/Provider";
 import { type Entry } from "@/layered/session/modals/store";
 
@@ -36,13 +35,9 @@ export const Modal = memo(({ entry }: ModalProps): ReactElement => {
       onVisibleChange={dismiss}
       background={0}
     >
-      <Dialog.Dialog full>
-        <Errors.SuspenseBoundary>
-          <DismissProvider value={dismiss}>
-            <Renderer params={params} close={close} />
-          </DismissProvider>
-        </Errors.SuspenseBoundary>
-      </Dialog.Dialog>
+      <Errors.SuspenseBoundary>
+        <Renderer params={params} close={close} />
+      </Errors.SuspenseBoundary>
     </Dialog.Frame>
   );
 });

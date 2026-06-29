@@ -111,7 +111,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
 
     return (
       <Flex.Box grow className={CSS.B("connect-cluster")}>
-        <Modals.Header name="Core.Connect" icon="Cluster" />
+        <Modals.Header title="Core.Connect" icon="Cluster" />
         <Form.Form<typeof formSchema> {...methods}>
           <Flex.Box
             className="console-form"
@@ -137,7 +137,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
             </Flex.Box>
           </Flex.Box>
         </Form.Form>
-        <Modals.BottomNavBar>
+        <Modals.Footer>
           <Nav.Bar.Start gap="small">
             {connState != null ? (
               <Status.Summary
@@ -161,7 +161,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
               {isEdit ? "Save" : "Connect"}
             </Button.Button>
           </Nav.Bar.End>
-        </Modals.BottomNavBar>
+        </Modals.Footer>
       </Flex.Box>
     );
   },
