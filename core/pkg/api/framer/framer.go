@@ -18,13 +18,11 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/address"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -176,7 +174,10 @@ func (s *Service) openIterator(ctx context.Context, srv IteratorStream) (framer.
 	if err != nil {
 		return nil, err
 	}
-	return iter, srv.Send(framer.IteratorResponse{Variant: iterator.ResponseVariantAck, Ack: true})
+	return iter, srv.Send(framer.IteratorResponse{
+		Variant: framer.IteratorResponseVariantAck,
+		Ack:     true,
+	})
 }
 
 type (
@@ -266,7 +267,7 @@ type WriterConfig struct {
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
 	// [OPTIONAL]
-	Mode writer.Mode `json:"mode" msgpack:"mode"`
+	Mode framer.WriterMode `json:"mode" msgpack:"mode"`
 	// ErrOnUnauthorized controls whether the writer will return an error when
 	// attempting to write to a channel that it does not have authority over.
 	// In non-control scenarios, this value should be set to true. In scenarios
@@ -293,21 +294,20 @@ type WriterConfig struct {
 
 // WriterRequest represents a request to write CreateNet data for a set of channels.
 type WriterRequest struct {
-	Config  WriterConfig  `json:"config" msgpack:"config"`
-	Frame   Frame         `json:"frame" msgpack:"frame"`
-	Command WriterCommand `json:"command" msgpack:"command"`
+	Config  WriterConfig         `json:"config" msgpack:"config"`
+	Frame   Frame                `json:"frame" msgpack:"frame"`
+	Command framer.WriterCommand `json:"command" msgpack:"command"`
 }
 
 type WriterResponse struct {
-	Err        errors.Payload  `json:"err" msgpack:"err"`
-	End        telem.TimeStamp `json:"end" msgpack:"end"`
-	Command    writer.Command  `json:"command" msgpack:"command"`
-	Authorized bool            `json:"authorized" msgpack:"authorized"`
+	Err        errors.Payload       `json:"err" msgpack:"err"`
+	End        telem.TimeStamp      `json:"end" msgpack:"end"`
+	Command    framer.WriterCommand `json:"command" msgpack:"command"`
+	Authorized bool                 `json:"authorized" msgpack:"authorized"`
 }
 
 type (
-	WriterCommand = writer.Command
-	WriterStream  = freighter.ServerStream[WriterRequest, WriterResponse]
+	WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]
 )
 
 const (
@@ -356,7 +356,7 @@ func (s *Service) Write(_ctx context.Context, stream WriterStream) error {
 		Receiver: stream,
 		Transform: func(_ context.Context, req WriterRequest) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
-			if r.Command == writer.CommandSetAuthority {
+			if r.Command == framer.WriterCommandSetAuthority {
 				// We decode like this because msgpack has a tough time decoding slices of uint8.
 				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
 				for i, a := range req.Config.Authorities {
@@ -416,7 +416,7 @@ func (s *Service) openWriter(
 		authorities[i] = control.Authority(a)
 	}
 
-	w, err := s.internal.NewStreamWriter(ctx, writer.Config{
+	w, err := s.internal.NewStreamWriter(ctx, framer.WriterConfig{
 		ControlSubject:           req.Config.ControlSubject,
 		Start:                    req.Config.Start,
 		Keys:                     req.Config.Keys,
@@ -433,7 +433,7 @@ func (s *Service) openWriter(
 
 	// Let the client know the writer is ready to receive segments.
 	return w, srv.Send(WriterResponse{
-		Command: writer.CommandOpen,
+		Command: framer.WriterCommandOpen,
 		Err:     errors.Encode(ctx, nil, false),
 	})
 }

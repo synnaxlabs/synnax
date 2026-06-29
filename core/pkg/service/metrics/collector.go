@@ -61,7 +61,7 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if err := signal.SendUnderContext(
 					ctx,
 					c.Out.Inlet(),
-					framer.WriterRequest{Command: framer.CommandWrite, Frame: fr},
+					framer.WriterRequest{Command: framer.WriterCommandWrite, Frame: fr},
 				); err != nil {
 					return err
 				}

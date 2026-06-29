@@ -37,25 +37,28 @@ type (
 	IteratorResponse = iterator.Response
 	StreamIterator   = iterator.StreamIterator
 	Writer           = writer.Writer
+	WriterCommand    = writer.Command
+	WriterConfig     = writer.Config
+	WriterMode       = writer.Mode
 	WriterRequest    = writer.Request
 	WriterResponse   = writer.Response
 	StreamWriter     = writer.StreamWriter
-	WriterConfig     = writer.Config
 	IteratorConfig   = iterator.Config
 	StreamerConfig   = streamer.Config
 	StreamerRequest  = streamer.Request
 	StreamerResponse = streamer.Response
 	Streamer         = streamer.Streamer
-	Command          = writer.Command
 )
 
 // Writer command constants re-exported from the distribution-layer writer package so
 // callers can drive a writer without importing it directly.
 const (
-	CommandOpen         = writer.CommandOpen
-	CommandWrite        = writer.CommandWrite
-	CommandCommit       = writer.CommandCommit
-	CommandSetAuthority = writer.CommandSetAuthority
+	IteratorResponseVariantAck  = iterator.ResponseVariantAck
+	IteratorResponseVariantData = iterator.ResponseVariantData
+	WriterCommandOpen           = writer.CommandOpen
+	WriterCommandWrite          = writer.CommandWrite
+	WriterCommandCommit         = writer.CommandCommit
+	WriterCommandSetAuthority   = writer.CommandSetAuthority
 )
 
 // Frame constructors re-exported from the distribution-layer frame package so callers

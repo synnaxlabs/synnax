@@ -413,7 +413,7 @@ func (d *dataRuntime) next(
 	if fr, changed := d.state.channel.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
 		req := framer.WriterRequest{
 			Frame:   framer.NewFromStorage(fr),
-			Command: framer.CommandWrite,
+			Command: framer.WriterCommandWrite,
 		}
 		return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 	}
@@ -437,7 +437,7 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 			}
 		}
 	}
-	req := framer.WriterRequest{Command: framer.CommandSetAuthority, Config: cfg}
+	req := framer.WriterRequest{Command: framer.WriterCommandSetAuthority, Config: cfg}
 	return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 }
 
