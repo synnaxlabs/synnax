@@ -26,6 +26,7 @@ import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import { FS } from "@/fs";
+import { type Common } from "@/hardware/common";
 import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
@@ -40,11 +41,6 @@ import {
 import { TEST_CONNECTION_COMMAND_TYPE } from "@/hardware/opc/task/types";
 import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
-
-export interface ConnectModalParams {
-  deviceKey?: string;
-  title?: string;
-}
 
 const useForm = PDevice.createForm(SCHEMAS);
 
@@ -99,7 +95,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<ConnectModalParams>(
+export const useConnectModal = Modals.create<Common.Device.ModalParams>(
   ({ params, close }) => {
     const {
       form,

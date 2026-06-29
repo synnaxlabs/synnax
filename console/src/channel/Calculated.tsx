@@ -30,7 +30,7 @@ import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
 
 export interface CalculatedModalParams {
-  channelKey?: number;
+  channelKey?: channel.Key;
   title?: string;
 }
 

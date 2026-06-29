@@ -25,6 +25,7 @@ import {
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
+import { type Common } from "@/hardware/common";
 import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/hardware/modbus/device/types";
 import {
   SCAN_SCHEMAS,
@@ -33,11 +34,6 @@ import {
 } from "@/hardware/modbus/task/types";
 import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
-
-export interface ConnectModalParams {
-  deviceKey?: string;
-  title?: string;
-}
 
 const useForm = PDevice.createForm(SCHEMAS);
 
@@ -101,7 +97,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<ConnectModalParams>(
+export const useConnectModal = Modals.create<Common.Device.ModalParams>(
   ({ params, close }) => {
     const {
       form,
