@@ -7,31 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, type optional } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { useStore } from "@/layered/session/modals/Provider";
 import { type RenderProps } from "@/layered/session/modals/store";
 
 /**
- * The opener's parameter list for a given params type: empty when the modal takes no
- * params, optional when every field is optional, and required otherwise.
+ * A typed fire-and-forget opener: opens a modal and returns immediately. Its params
+ * argument is omittable when every field is optional and required otherwise.
  */
-export type ParamList<Params> = void extends Params
-  ? []
-  : {} extends Params
-    ? [params?: Params]
-    : [params: Params];
+export type Opener<Params> = optional.Arg<Params, void>;
 
-/** A typed fire-and-forget opener: opens a modal and returns immediately. */
-export interface Opener<Params> {
-  (...params: ParamList<Params>): void;
-}
-
-/** A typed prompt opener: opens a modal and resolves with its result, or null. */
-export interface Prompt<Result, Params> {
-  (...params: ParamList<Params>): Promise<Result | null>;
-}
+/**
+ * A typed prompt opener: opens a modal and resolves with its result, or null. Its params
+ * argument is omittable when every field is optional and required otherwise.
+ */
+export type Prompt<Result, Params> = optional.Arg<Params, Promise<Result | null>>;
 
 /**
  * A fire-and-forget modal. Calling the hook returns an opener that pushes the modal and
@@ -60,11 +52,11 @@ export const create = <Params = void>(
   const useOpen = (): Opener<Params> => {
     const store = useStore();
     return useCallback(
-      (...params: ParamList<Params>) =>
+      (params?: Params) =>
         store.push({
           key: id.create(),
           render: Component,
-          params: (params[0] ?? {}) as Params,
+          params: (params ?? {}) as Params,
           resolve: () => {},
         }),
       [store],
@@ -84,12 +76,12 @@ export const prompt = <Result, Params = void>(
   const usePrompt = (): Prompt<Result, Params> => {
     const store = useStore();
     return useCallback(
-      (...params: ParamList<Params>) =>
+      (params?: Params) =>
         new Promise<Result | null>((resolve) =>
           store.push({
             key: id.create(),
             render: Component,
-            params: (params[0] ?? {}) as Params,
+            params: (params ?? {}) as Params,
             resolve,
           }),
         ),
