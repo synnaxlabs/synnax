@@ -215,8 +215,8 @@ TEST(ClibChannel, testRetrievesWithNullOptionalOutputs) {
     synnax_client_close(client);
 }
 
-/// @brief it should fill a raw 644-byte buffer, as LabVIEW passes it, so the code, type,
-/// and message can be read back at their fixed offsets.
+/// @brief it should fill a raw 644-byte buffer, as LabVIEW passes it, so the code,
+/// type, and message can be read back at their fixed offsets.
 TEST(ClibChannel, testRetrieveFillsErrorByteBufferForLabVIEW) {
     uint8_t buf[644] = {0};
     uint32_t keys[1] = {0};
@@ -324,8 +324,8 @@ TEST(ClibChannel, testCreateManyIndexChannels) {
     SynnaxClient *client = open_test_client(&err);
     ASSERT_NE(client, nullptr) << err.message;
 
-    const std::string names =
-        make_unique_channel_name("idx") + "\n" + make_unique_channel_name("idx");
+    const std::string names = make_unique_channel_name("idx") + "\n" +
+                              make_unique_channel_name("idx");
     uint32_t keys[2] = {0, 0};
     const uint8_t is_index[2] = {1, 1};
     const uint32_t index[2] = {0, 0};

@@ -26,8 +26,9 @@ extern "C" {
 #define SYNNAX_EXPORT
 
 // Opaque handles as void* so the wizard maps them to UPtr instead of empty clusters.
-// SynnaxError is a 644-byte struct (i32 code, char type[128], char message[512]); error-
-// returning functions take a uint8_t* (Array Data Pointer) to it: allocate U8[644].
+// SynnaxError is a 644-byte struct (i32 code, char type[128], char message[512]);
+// error- returning functions take a uint8_t* (Array Data Pointer) to it: allocate
+// U8[644].
 typedef void *SynnaxClient;
 typedef void *SynnaxWriter;
 typedef void *SynnaxError;
