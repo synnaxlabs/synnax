@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -203,7 +202,7 @@ func (p *Provider) PublishFromObservable(
 			if len(sets.Data) == 0 && len(deletes.Data) == 0 {
 				return framer.WriterRequest{}, false, nil
 			}
-			return framer.WriterRequest{Command: writer.CommandWrite, Frame: frame},
+			return framer.WriterRequest{Command: framer.CommandWrite, Frame: frame},
 				true, nil
 		},
 	}

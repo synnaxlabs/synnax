@@ -33,12 +33,13 @@ func TestPanel(t *testing.T) {
 }
 
 var (
-	node     mock.Node
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	svc      *panel.Service
-	parentID ontology.ID
-	tx       gorp.Tx
+	node      mock.Node
+	db        *gorp.DB
+	otg       *ontology.Ontology
+	svc       *panel.Service
+	framerSvc *framer.Service
+	parentID  ontology.ID
+	tx        gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -63,7 +64,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Distribution: node.Channel,
 		Status:       statusSvc,
 	}))
-	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		DB:      node.DB,
 		Framer:  node.Framer,
 		Channel: channelSvc,

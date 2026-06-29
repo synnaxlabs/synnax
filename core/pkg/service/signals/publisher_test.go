@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/change"
@@ -60,7 +60,7 @@ var _ = Describe("Publisher", Serial, func() {
 			Entry(&cfg.DeleteChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
-		streamer = MustSucceed(node.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		streamer = MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{cfg.SetChannel.Key(), cfg.DeleteChannel.Key()},
 		}))
 		requests, responses = confluence.Attach(streamer, 2)

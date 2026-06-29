@@ -15,8 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -372,12 +370,12 @@ var _ = Describe("Metrics", func() {
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(channelSvc.Create(ctx, dataCh, channel.RetrieveIfNameExists())).To(Succeed())
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, distFramer.WriterConfig{
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{indexCh.Key(), dataCh.Key()},
 			}))
 			now := telem.Now()
-			fr := frame.NewUnary(indexCh.Key(), telem.NewSeriesV(now, now+telem.MillisecondTS, now+2*telem.MillisecondTS)).
+			fr := framer.NewUnary(indexCh.Key(), telem.NewSeriesV(now, now+telem.MillisecondTS, now+2*telem.MillisecondTS)).
 				Append(dataCh.Key(), telem.NewSeriesV[float32](1.0, 2.0, 3.0))
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())

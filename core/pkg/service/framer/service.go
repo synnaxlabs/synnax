@@ -46,6 +46,24 @@ type (
 	StreamerRequest  = streamer.Request
 	StreamerResponse = streamer.Response
 	Streamer         = streamer.Streamer
+	Command          = writer.Command
+)
+
+// Writer command constants re-exported from the distribution-layer writer package so
+// callers can drive a writer without importing it directly.
+const (
+	CommandOpen         = writer.CommandOpen
+	CommandWrite        = writer.CommandWrite
+	CommandCommit       = writer.CommandCommit
+	CommandSetAuthority = writer.CommandSetAuthority
+)
+
+// Frame constructors re-exported from the distribution-layer frame package so callers
+// can build frames without importing it directly.
+var (
+	NewUnary       = frame.NewUnary
+	NewMulti       = frame.NewMulti
+	NewFromStorage = frame.NewFromStorage
 )
 
 type ServiceConfig struct {
