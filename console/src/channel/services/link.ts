@@ -8,20 +8,31 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
+import { useCallback } from "react";
+import { useStore } from "react-redux";
 
 import { LinePlot } from "@/layered/service/lineplot";
-import { type Link } from "@/link";
+import { type Link } from "@/layered/service/link";
+import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { Range } from "@/range";
+import { type RootState } from "@/store";
 
-export const handleLink: Link.Handler = async ({ client, key, placeLayout, store }) => {
-  const channel = await client.channels.retrieve(key);
-  const project = Project.selectOptionalActiveKey(store.getState()) ?? uuid.ZERO;
-  const activeRange = Range.selectActiveKey(store.getState()) ?? Range.RECENT_KEY;
-  const { key: plotKey, name } = await client.lineplots.create(project, {
-    name: `${channel.name} Plot`,
-    channels: { y1: [channel.key] },
-    ranges: { x1: [activeRange] },
-  });
-  placeLayout(LinePlot.create({ key: plotKey, name }));
+export const useLink = (): Link.Handler => {
+  const store = useStore<RootState>();
+  const placeLayout = Layout.usePlacer();
+  return useCallback(
+    async ({ client, key }) => {
+      const channel = await client.channels.retrieve(key);
+      const project = Project.selectOptionalActiveKey(store.getState()) ?? uuid.ZERO;
+      const activeRange = Range.selectActiveKey(store.getState()) ?? Range.RECENT_KEY;
+      const { key: plotKey, name } = await client.lineplots.create(project, {
+        name: `${channel.name} Plot`,
+        channels: { y1: [channel.key] },
+        ranges: { x1: [activeRange] },
+      });
+      placeLayout(LinePlot.create({ key: plotKey, name }));
+    },
+    [store, placeLayout],
+  );
 };
