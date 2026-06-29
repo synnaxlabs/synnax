@@ -16,8 +16,8 @@ export const Stack = (): ReactElement => {
   const stack = useStack();
   return (
     <>
-      {stack.map((entry) => (
-        <Modal key={entry.key} entry={entry} />
+      {stack.map(({ key, ...rest }) => (
+        <Modal key={key} {...rest} />
       ))}
     </>
   );

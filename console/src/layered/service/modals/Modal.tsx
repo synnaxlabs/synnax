@@ -8,24 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { Dialog, Errors } from "@synnaxlabs/pluto";
-import { memo, type ReactElement } from "react";
+import { memo, type ReactElement, useCallback } from "react";
 
 import { type Entry } from "@/layered/session/modals/Context";
 
-interface ModalProps {
-  entry: Entry;
-}
+interface ModalProps extends Entry {}
 
-export const Modal = memo(
-  ({ entry }: ModalProps): ReactElement => (
+export const Modal = memo(({ dismiss, render }: ModalProps): ReactElement => {
+  const handleDismiss = useCallback(() => dismiss(), [dismiss]);
+  return (
     <Dialog.Frame
       variant="modal"
       visible
-      onVisibleChange={entry.dismiss}
+      onVisibleChange={handleDismiss}
       background={0}
     >
-      <Errors.SuspenseBoundary>{entry.render()}</Errors.SuspenseBoundary>
+      <Errors.SuspenseBoundary>{render()}</Errors.SuspenseBoundary>
     </Dialog.Frame>
-  ),
-);
+  );
+});
 Modal.displayName = "Modal";

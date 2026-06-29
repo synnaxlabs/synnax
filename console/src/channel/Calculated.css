@@ -11,12 +11,24 @@
 
 .console-modal.console-channel-edit-calculated {
     width: 145rem;
-    height: 75vh;
+    height: 100rem;
+    max-height: 80vh;
 
     & .pluto-field__expression {
         height: 0;
         min-height: 0;
     }
+
+    .console-calculated-editor {
+        position: relative;
+        min-height: 0;
+
+        .pluto-editor {
+            position: absolute;
+            inset: 0;
+        }
+    }
+
     .console-operations {
         height: 13rem;
     }

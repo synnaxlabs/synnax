@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { act, render, renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Modals } from "@/layered/session/modals";
@@ -43,6 +44,39 @@ describe("Store", () => {
       closeOf(store)();
       expect(resolve).toHaveBeenCalledWith(null);
     });
+
+    it("should generate a unique key for each pushed modal", () => {
+      const store = new Modals.Store();
+      store.push(Noop, undefined, () => {});
+      store.push(Noop, undefined, () => {});
+      const [a, b] = store.getState();
+      expect(a.key).not.toEqual(b.key);
+    });
+
+    it("should bind an empty object when params are omitted", () => {
+      const store = new Modals.Store();
+      let received: Modals.ContentProps | undefined;
+      const Probe: Modals.Content = (props) => {
+        received = props;
+        return null;
+      };
+      store.push(Probe, undefined, () => {});
+      render(<>{store.getState()[0].render()}</>);
+      expect(received).toBeDefined();
+      expect(Object.keys(received as object)).toEqual(["close"]);
+    });
+
+    it("should bind the provided params onto the content", () => {
+      const store = new Modals.Store();
+      let received: { label?: string } | undefined;
+      const Probe: Modals.Content<{ label: string }> = (props) => {
+        received = props;
+        return null;
+      };
+      store.push(Probe, { label: "hello" }, () => {});
+      render(<>{store.getState()[0].render()}</>);
+      expect(received?.label).toEqual("hello");
+    });
   });
 
   describe("dismiss", () => {
@@ -67,6 +101,12 @@ describe("Store", () => {
       expect(store.getState()).toHaveLength(1);
       expect(resolveB).toHaveBeenCalledWith(null);
       expect(resolveA).not.toHaveBeenCalled();
+    });
+
+    it("should be a no-op when the stack is empty", () => {
+      const store = new Modals.Store();
+      expect(() => store.closeTop()).not.toThrow();
+      expect(store.isAnyOpen()).toBe(false);
     });
   });
 
@@ -96,5 +136,55 @@ describe("Store", () => {
       store.push(Noop, undefined, () => {});
       expect(listener).toHaveBeenCalledTimes(2);
     });
+
+    it("should notify every subscribed listener", () => {
+      const store = new Modals.Store();
+      const a = vi.fn();
+      const b = vi.fn();
+      store.subscribe(a);
+      store.subscribe(b);
+      store.push(Noop, undefined, () => {});
+      expect(a).toHaveBeenCalledTimes(1);
+      expect(b).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+const wrapper = ({ children }: PropsWithChildren) => (
+  <Modals.Provider>{children}</Modals.Provider>
+);
+
+describe("Provider", () => {
+  it("should throw when useStore is used outside a Provider", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => renderHook(() => Modals.useStore("test"))).toThrow();
+    consoleError.mockRestore();
+  });
+
+  it("should provide a stable store across re-renders", () => {
+    const { result, rerender } = renderHook(() => Modals.useStore("test"), {
+      wrapper,
+    });
+    const first = result.current;
+    rerender();
+    expect(result.current).toBe(first);
+  });
+});
+
+describe("useStack", () => {
+  it("should reactively reflect pushes and dismissals", () => {
+    const { result } = renderHook(
+      () => ({ stack: Modals.useStack(), store: Modals.useStore("test") }),
+      { wrapper },
+    );
+    expect(result.current.stack).toHaveLength(0);
+    act(() => result.current.store.push(Noop, undefined, () => {}));
+    expect(result.current.stack).toHaveLength(1);
+    act(() => result.current.store.push(Noop, undefined, () => {}));
+    expect(result.current.stack).toHaveLength(2);
+    act(() => result.current.store.closeTop());
+    expect(result.current.stack).toHaveLength(1);
+    act(() => result.current.store.clear());
+    expect(result.current.stack).toHaveLength(0);
   });
 });

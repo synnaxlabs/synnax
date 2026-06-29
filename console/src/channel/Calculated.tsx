@@ -78,20 +78,22 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
         <Modals.Header icon={<Icon.Channel />}>
           {isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
         </Modals.Header>
-        <Modals.Body>
+        <Modals.Body justify="start" gap="large">
           <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
             <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
             {initialLoaded.current && (
               <Form.Field<string> path="expression" grow>
                 {({ value, onChange }) => (
-                  <Code.Editor
-                    initialValue={value}
-                    language={Arc.NAME}
-                    onValueChange={onChange}
-                    isBlock
-                    bordered
-                    rounded
-                  />
+                  <Flex.Box grow className={CSS.B("calculated", "editor")}>
+                    <Code.Editor
+                      initialValue={value}
+                      language={Arc.NAME}
+                      onValueChange={onChange}
+                      isBlock
+                      bordered
+                      rounded
+                    />
+                  </Flex.Box>
                 )}
               </Form.Field>
             )}
