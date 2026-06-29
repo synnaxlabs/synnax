@@ -8,16 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status, UnexpectedError } from "@synnaxlabs/client";
-import {
-  Button,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  Project,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { Button, Form, Icon, Input, Nav, Project, Synnax } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Modals } from "@/layered/service/modals";
@@ -48,14 +39,9 @@ export const useCreateModal = Modals.create(({ close }) => {
   });
 
   return (
-    <Modals.Frame style={{ height: "100%" }}>
+    <Modals.Frame>
       <Modals.Header icon={<Icon.Project />}>Project.Create</Modals.Header>
-      <Flex.Box
-        className="console-form"
-        style={{ padding: "1rem 3rem" }}
-        justify="center"
-        grow
-      >
+      <Modals.Body>
         <Form.Form<typeof Project.formSchema> {...form}>
           <Form.Field<string> path="name">
             {(p) => (
@@ -69,7 +55,7 @@ export const useCreateModal = Modals.create(({ close }) => {
             )}
           </Form.Field>
         </Form.Form>
-      </Flex.Box>
+      </Modals.Body>
       <Modals.Footer>
         <Triggers.SaveHelpText action="Create" />
         <Nav.Bar.End>

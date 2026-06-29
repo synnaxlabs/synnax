@@ -9,6 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-modal-content-layout {
-    padding: 5rem;
+.console-modal__body {
+    padding: 8rem 5rem;
 }

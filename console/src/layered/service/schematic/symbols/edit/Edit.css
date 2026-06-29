@@ -15,7 +15,23 @@
         padding: 2rem;
     }
 
-    .console-form {
+    .console-schematic__sidebar {
+        box-shadow: var(--pluto-shadow-v2);
+        min-width: 300px;
+        max-width: 300px;
+        overflow-y: scroll;
+    }
+
+    .console-schematic__name {
+        padding: 2rem 2rem 0 2rem;
+    }
+
+    .console-schematic__states,
+    .console-schematic__properties {
+        padding: 0 2rem;
+    }
+
+    .console-modal__body {
         padding: 2rem;
         overflow: hidden;
         max-height: 100%;

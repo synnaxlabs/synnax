@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/layered/service/modals/Header.css";
+
 import { Breadcrumb, Button, Dialog, Icon, Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-export interface HeaderProps extends Omit<Nav.BarProps, "location" | "size" | "children"> {
+import { CSS } from "@/css";
+
+export interface HeaderProps extends Omit<
+  Nav.BarProps,
+  "location" | "size" | "children"
+> {
   children: string;
   icon?: Icon.ReactElement;
 }
@@ -21,11 +28,22 @@ export interface HeaderProps extends Omit<Nav.BarProps, "location" | "size" | "c
  * their own Header so that title and icon stay static presentation owned by the renderer
  * rather than dynamic state on the open-modal entry.
  */
-export const Header = ({ icon, children, ...rest }: HeaderProps): ReactElement => {
+export const Header = ({
+  icon,
+  children,
+  className,
+  ...rest
+}: HeaderProps): ReactElement => {
   const { close } = Dialog.useContext();
   return (
-    <Nav.Bar location="top" size="6rem" bordered {...rest}>
-      <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+    <Nav.Bar
+      location="top"
+      size="6rem"
+      bordered
+      className={CSS(CSS.BE("modal", "header"), className)}
+      {...rest}
+    >
+      <Nav.Bar.Start>
         <Breadcrumb.Breadcrumb gap="tiny">
           {icon != null && <Breadcrumb.Segment color={9}>{icon}</Breadcrumb.Segment>}
           {children.split(".").map((segment) => (
@@ -35,7 +53,7 @@ export const Header = ({ icon, children, ...rest }: HeaderProps): ReactElement =
           ))}
         </Breadcrumb.Breadcrumb>
       </Nav.Bar.Start>
-      <Nav.Bar.End style={{ paddingRight: "1rem" }}>
+      <Nav.Bar.End>
         <Button.Button onClick={close} size="small" variant="text" textColor={9}>
           <Icon.Close />
         </Button.Button>

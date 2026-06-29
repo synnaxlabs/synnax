@@ -60,12 +60,7 @@ export const useRegisterModal = Modals.create(({ close }) => {
   return (
     <Modals.Frame>
       <Modals.Header icon={<Icon.User />}>User.Register</Modals.Header>
-      <Flex.Box
-        className="console-form"
-        justify="center"
-        style={{ padding: "1rem 3rem" }}
-        grow
-      >
+      <Modals.Body>
         <Form.Form<typeof User.formSchema> {...form}>
           <Flex.Box y>
             <Flex.Box x grow>
@@ -97,10 +92,10 @@ export const useRegisterModal = Modals.create(({ close }) => {
             </Form.Field>
           </Flex.Box>
         </Form.Form>
-      </Flex.Box>
+      </Modals.Body>
       <Modals.Footer>
         <Triggers.SaveHelpText action="Register" />
-        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
+        <Nav.Bar.End>
           <Button.Button
             onClick={() => save()}
             status={status.keepVariants(variant, "loading")}

@@ -78,7 +78,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
         <Modals.Header icon={<Icon.Channel />}>
           {isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
         </Modals.Header>
-        <Flex.Box className={CSS.B("form")} style={{ padding: "3rem" }} grow>
+        <Modals.Body>
           <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
             <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
             {initialLoaded.current && (
@@ -144,7 +144,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
               )}
             </Flex.Box>
           </Form.Form>
-        </Flex.Box>
+        </Modals.Body>
         <Modals.Footer>
           <Nav.Bar.Start>
             {variant == "success" ? (

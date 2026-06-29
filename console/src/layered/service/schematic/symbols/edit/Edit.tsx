@@ -165,23 +165,18 @@ export const useSymbolModal = Modals.create<SymbolModalParams>(
           <Modals.Header icon={<Icon.Schematic />}>
             {isCreate ? CREATE_NAME : EDIT_SYMBOL_NAME}
           </Modals.Header>
-          <Flex.Box className="console-form" grow full y>
+          <Modals.Body full>
             <Flex.Box x grow>
               {hasSVG && (
                 <Flex.Box
+                  className={CSS.BE("schematic", "sidebar")}
                   y
                   rounded={1}
                   background={0}
                   bordered
                   borderColor={5}
-                  style={{
-                    boxShadow: "var(--pluto-shadow-v2)",
-                    minWidth: 300,
-                    maxWidth: 300,
-                    overflowY: "scroll",
-                  }}
                 >
-                  <Flex.Box style={{ padding: "2rem 2rem 0 2rem" }}>
+                  <Flex.Box className={CSS.BE("schematic", "name")}>
                     <Form.TextField
                       path="name"
                       inputProps={{
@@ -198,7 +193,7 @@ export const useSymbolModal = Modals.create<SymbolModalParams>(
                         States
                       </Header.Title>
                     </Header.Header>
-                    <Flex.Box style={{ padding: "0 2rem" }}>
+                    <Flex.Box className={CSS.BE("schematic", "states")}>
                       <SelectVariantField onSelectState={setSelectedState} />
                       <StateList value={selectedState} onChange={setSelectedState} />
                     </Flex.Box>
@@ -226,7 +221,7 @@ export const useSymbolModal = Modals.create<SymbolModalParams>(
                         Properties
                       </Header.Title>
                     </Header.Header>
-                    <Flex.Box style={{ padding: "0 2rem" }}>
+                    <Flex.Box className={CSS.BE("schematic", "properties")}>
                       <Form.Field<number>
                         path="data.scale"
                         helpText="Sets the default scale when added to a schematic"
@@ -267,7 +262,7 @@ export const useSymbolModal = Modals.create<SymbolModalParams>(
                 )}
               </Form.Field>
             </Flex.Box>
-          </Flex.Box>
+          </Modals.Body>
           {hasSVG && (
             <Modals.Footer background={0}>
               <Triggers.SaveHelpText action={createSaveText} />

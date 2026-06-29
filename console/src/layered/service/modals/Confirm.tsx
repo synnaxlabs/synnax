@@ -38,7 +38,7 @@ export interface PromptConfirm extends Prompt<boolean, ConfirmParams> {}
 interface InternalButtonProps
   extends ButtonProps, Omit<Button.ButtonProps, "variant"> {}
 
-const DEFAULT_CONFIRM_LABEL = "Confirm"
+const DEFAULT_CONFIRM_LABEL = "Confirm";
 
 const ConfirmButton = ({
   label = DEFAULT_CONFIRM_LABEL,
@@ -64,7 +64,7 @@ const CancelButton = ({
   ...rest
 }: InternalButtonProps) => (
   <Button.Button
-    variant="filled"
+    variant="outlined"
     status={variant}
     trigger={Triggers.SAVE}
     onClickDelay={delay}

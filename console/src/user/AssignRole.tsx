@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type access, status } from "@synnaxlabs/client";
-import { Access, Button, Flex, Form, Icon, Nav, Synnax } from "@synnaxlabs/pluto";
+import { Access, Button, Form, Icon, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Modals } from "@/layered/service/modals";
@@ -28,18 +28,13 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
       <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
         <Modals.Frame>
           <Modals.Header icon={<Icon.User />}>{title ?? "Assign Role"}</Modals.Header>
-          <Flex.Box
-            className="console-form"
-            justify="center"
-            style={{ padding: "1rem 3rem" }}
-            grow
-          >
+          <Modals.Body>
             <Form.Field<access.role.Key> path="role" label="Role">
               {(props) => <Access.Role.Select {...props} />}
             </Form.Field>
-          </Flex.Box>
+          </Modals.Body>
           <Modals.Footer>
-            <Nav.Bar.End style={{ paddingRight: "2rem" }}>
+            <Nav.Bar.End>
               <Button.Button
                 onClick={() => save()}
                 variant="filled"

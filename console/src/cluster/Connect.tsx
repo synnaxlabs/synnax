@@ -122,13 +122,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
       <Modals.Frame className={CSS.B("connect-cluster")}>
         <Modals.Header icon={<Icon.Cluster />}>Core.Connect</Modals.Header>
         <Form.Form<typeof formSchema> {...methods}>
-          <Flex.Box
-            className="console-form"
-            grow
-            gap="tiny"
-            justify="center"
-            align="stretch"
-          >
+          <Modals.Body gap="tiny" align="stretch">
             <Form.TextField
               path="name"
               inputProps={{
@@ -144,7 +138,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
               <Form.TextField path="port" inputProps={PORT_FIELD_PROPS} />
               <Form.SwitchField path="secure" />
             </Flex.Box>
-          </Flex.Box>
+          </Modals.Body>
         </Form.Form>
         <Modals.Footer>
           <Nav.Bar.Start gap="small">

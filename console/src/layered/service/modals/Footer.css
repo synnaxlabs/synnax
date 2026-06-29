@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-bottom-nav-bar {
+.console-modal__footer {
     .pluto-navbar__content {
         &.pluto--start {
             padding-left: 1.75rem;

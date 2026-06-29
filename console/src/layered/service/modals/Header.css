@@ -9,15 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-modal.console-channel-edit-calculated {
-    width: 145rem;
-    height: 75vh;
-
-    & .pluto-field__expression {
-        height: 0;
-        min-height: 0;
-    }
-    .console-operations {
-        height: 13rem;
+.console-modal__header {
+    .pluto-navbar__content {
+        &.pluto--start {
+            padding-left: 2rem;
+        }
+        &.pluto--end {
+            padding-right: 1rem;
+        }
     }
 }

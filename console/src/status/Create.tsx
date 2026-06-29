@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, Nav, Status } from "@synnaxlabs/pluto";
+import { Button, Form, Icon, Nav, Status } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
 import { type z } from "zod";
 
@@ -39,7 +39,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
     return (
       <Modals.Frame>
         <Modals.Header icon={<Icon.Status />}>Status.Create</Modals.Header>
-        <Flex.Box grow empty style={{ padding: "2rem 3rem" }}>
+        <Modals.Body>
           <Form.Form<typeof Status.formSchema> {...form}>
             <Form.TextField
               path="name"
@@ -62,7 +62,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
           </Form.Form>
-        </Flex.Box>
+        </Modals.Body>
         <Modals.Footer>
           <Triggers.SaveHelpText action="Save" />
           <Nav.Bar.End>

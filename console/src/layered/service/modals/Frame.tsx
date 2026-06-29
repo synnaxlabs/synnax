@@ -7,8 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/layered/service/modals/Frame.css";
+
 import { Dialog } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
 
 export interface FrameProps extends Dialog.DialogProps {}
 
-export const Frame = (props: FrameProps) => <Dialog.Dialog full {...props} />;
+export const Frame = ({ className, ...rest }: FrameProps): ReactElement => (
+  <Dialog.Dialog className={CSS(CSS.B("modal"), className)} {...rest} />
+);

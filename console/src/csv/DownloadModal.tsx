@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/csv/DownloadModal.css";
+
 import { channel } from "@synnaxlabs/client";
 import {
   Button,
@@ -27,6 +29,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { CSS } from "@/css";
 import { useDownload } from "@/csv/useDownload";
 import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
@@ -70,7 +73,7 @@ export const useDownloadModal = Modals.createPrompt<void, DownloadModalParams>(
     );
     return (
       <Form.Form<typeof formSchema> {...form}>
-        <Modals.Frame>
+        <Modals.Frame className={CSS.B("download-csv")}>
           <Modals.Header icon={icon}>Download.CSV</Modals.Header>
           <Modals.Body gap="huge">
             <Text.Text level="h3" weight={450}>
@@ -87,7 +90,10 @@ export const useDownloadModal = Modals.createPrompt<void, DownloadModalParams>(
                     <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
                   )}
                 </Form.Field>
-                <Icon.Arrow.Right style={{ width: "3rem", height: "3rem" }} color={9} />
+                <Icon.Arrow.Right
+                  className={CSS.BE("download-csv", "arrow")}
+                  color={9}
+                />
                 <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
                   {(p) => (
                     <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
@@ -126,7 +132,7 @@ export const useDownloadModal = Modals.createPrompt<void, DownloadModalParams>(
 );
 
 const DownsampleFactorField = Form.buildNumericField({
-  inputProps: { style: { width: "15rem" } },
+  inputProps: { className: CSS.BE("download-csv", "downsample-factor") },
 });
 
 interface DownloadButtonProps {

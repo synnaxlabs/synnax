@@ -100,12 +100,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
     return (
       <Modals.Frame className={CSS.B("range-create-layout")}>
         <Modals.Header icon={<Icon.Range />}>Range.Create</Modals.Header>
-        <Flex.Box
-          className="console-form"
-          justify="center"
-          style={{ padding: "1rem 3rem" }}
-          grow
-        >
+        <Modals.Body>
           <Form.Form<typeof Ranger.formSchema> {...form}>
             <Form.Field<string> path="name">
               {(p) => (
@@ -122,7 +117,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               {(p) => (
                 <Ranger.SelectStage
                   {...Ranger.wrapNumericTimeRangeToStage(p)}
-                  style={{ width: 150 }}
+                  className={CSS.BE("range-create-layout", "stage")}
                   triggerProps={{ variant: "outlined" }}
                 />
               )}
@@ -142,7 +137,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               <Form.Field<string> path="parent" visible padHelpText={false}>
                 {({ onChange, value }) => (
                   <Ranger.Select
-                    style={{ width: "fit-content" }}
+                    className={CSS.BE("range-create-layout", "parent")}
                     zIndex={-1}
                     filter={recursiveParentFilter}
                     value={value}
@@ -157,7 +152,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               </Form.Field>
             </Flex.Box>
           </Form.Form>
-        </Flex.Box>
+        </Modals.Body>
         <Modals.Footer>
           <Triggers.SaveHelpText action={saveName} />
           <Nav.Bar.End>

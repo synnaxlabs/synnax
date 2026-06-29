@@ -20,7 +20,7 @@ export const Footer = ({ className, ...rest }: FooterProps): ReactElement => (
   <Nav.Bar
     location="bottom"
     size="8rem"
-    className={CSS(CSS.B("bottom-nav-bar"), className)}
+    className={CSS(CSS.BE("modal", "footer"), className)}
     bordered
     {...rest}
   />

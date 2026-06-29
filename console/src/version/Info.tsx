@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/version/Info.css";
+
 import { Logo } from "@synnaxlabs/media";
 import { Button, Flex, Flux, Icon, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
@@ -14,6 +16,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { z } from "zod";
 
+import { CSS } from "@/css";
 import { Modals } from "@/layered/service/modals";
 import { Runtime } from "@/runtime";
 import { use } from "@/version/use";
@@ -157,12 +160,17 @@ export const useInfoModal = Modals.create(() => {
       );
 
   return (
-    <Modals.Frame>
+    <Modals.Frame className={CSS.B("version-info")}>
       <Modals.Header icon={<Icon.Info />}>About.Version</Modals.Header>
-      <Flex.Box align="center" y gap="large" style={{ paddingTop: "6rem" }}>
+      <Flex.Box
+        className={CSS.BE("version-info", "content")}
+        align="center"
+        y
+        gap="large"
+      >
         <Flex.Box y gap="small" justify="center" align="center">
           <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
-            <Logo variant="title" style={{ height: "10rem" }} />
+            <Logo variant="title" className={CSS.BE("version-info", "logo")} />
           </a>
           <Text.Text level="h3" weight={350}>
             Console v{version}
@@ -170,10 +178,10 @@ export const useInfoModal = Modals.create(() => {
         </Flex.Box>
         {updateContent}
         <Text.Text
+          className={CSS.BE("version-info", "footer-note")}
           level="small"
           color={10}
           weight={350}
-          style={{ position: "absolute", bottom: "3rem" }}
         >
           © 2022-2026 Synnax Labs, Inc. All rights reserved
         </Text.Text>

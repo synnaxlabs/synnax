@@ -96,13 +96,7 @@ const Internal = <
     <Modals.Frame className={CSS.B("configure")}>
       <Modals.Header icon={icon}>{name || "Device.Configure"}</Modals.Header>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
-        <Flex.Box
-          align="stretch"
-          justify="center"
-          grow
-          gap="large"
-          style={{ padding: "5rem" }}
-        >
+        <Modals.Body align="stretch" gap="large">
           {isNameStep ? (
             <>
               <Text.Text>
@@ -152,7 +146,7 @@ const Internal = <
               </Flex.Box>
             </>
           )}
-        </Flex.Box>
+        </Modals.Body>
       </Form.Form>
       <Nav.Bar location="bottom" size={48} bordered>
         <Triggers.SaveHelpText action={triggerAction} />

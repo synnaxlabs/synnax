@@ -10,6 +10,11 @@
  */
 
 .console-range-create-layout {
-    padding-top: 2rem;
-    height: 100%;
+    .console-range-create-layout__stage {
+        width: 150px;
+    }
+
+    .console-range-create-layout__parent {
+        width: fit-content;
+    }
 }

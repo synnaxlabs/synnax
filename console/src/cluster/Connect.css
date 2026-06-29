@@ -10,7 +10,7 @@
  */
 
 .console-connect-cluster {
-    .console-form {
+    .console-modal__body {
         padding: 0 4rem;
     }
 }
