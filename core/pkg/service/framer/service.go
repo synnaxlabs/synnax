@@ -33,6 +33,7 @@ import (
 type (
 	Frame            = frame.Frame
 	Iterator         = iterator.Iterator
+	IteratorCommand  = iterator.Command
 	IteratorRequest  = iterator.Request
 	IteratorResponse = iterator.Response
 	StreamIterator   = iterator.StreamIterator

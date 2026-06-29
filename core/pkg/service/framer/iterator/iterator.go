@@ -21,6 +21,7 @@ import (
 )
 
 type (
+	Command        = framer.IteratorCommand
 	StreamIterator = framer.StreamIterator
 	Request        = framer.IteratorRequest
 	Response       = framer.IteratorResponse
