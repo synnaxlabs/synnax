@@ -231,7 +231,7 @@ func (t frameIteratorResponseTranslator) Forward(
 	}
 	if t.codec != nil &&
 		t.codec.Initialized() &&
-		msg.Variant == framer.IteratorResponseVariantAck &&
+		msg.Variant == framer.IteratorResponseVariantData &&
 		!msg.Frame.Empty() {
 		buf, err := t.codec.Encode(ctx, msg.Frame)
 		if err != nil {
