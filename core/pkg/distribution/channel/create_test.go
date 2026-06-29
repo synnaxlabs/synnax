@@ -72,6 +72,11 @@ var _ = Describe("Create", Ordered, func() {
 			MatchError(query.ErrNotFound),
 		)
 	})
+	It("Should return an error when the leaseholder is not in the cluster", func(ctx SpecContext) {
+		Expect(n.Channel.Create(ctx, []channel.Channel{
+			{Name: "unresolvable", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: node.Key(99)},
+		})).Error().To(MatchError(query.ErrNotFound))
+	})
 
 	Context("Multi Node", Ordered, func() {
 		var (
@@ -96,6 +101,46 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(gateway.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Error().To(
 				MatchError(query.ErrNotFound),
 			)
+		})
+		It("Should set the local index to its own key for a remote index channel", func(ctx SpecContext) {
+			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "remote-index", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+			}))
+			Expect(out[0].LocalIndex).To(Equal(out[0].LocalKey))
+			stored := MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey()))
+			Expect(stored.IsIndex).To(BeTrue())
+		})
+		It("Should create a virtual channel on the leaseholder", func(ctx SpecContext) {
+			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "remote-virtual", DataType: telem.JSONT, Leaseholder: peer.Cluster.HostKey(), Virtual: true},
+			}))
+			Expect(out[0].Key().Lease()).To(Equal(peer.Cluster.HostKey()))
+			stored := MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey()))
+			Expect(stored.Virtual).To(BeTrue())
+			Expect(stored.DataType).To(Equal(telem.JSONT))
+		})
+		It("Should route a mixed batch to each channel's leaseholder", func(ctx SpecContext) {
+			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "mixed-gateway", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
+				{Name: "mixed-peer", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+			}))
+			Expect(out[0].Key().Lease()).To(Equal(gateway.Cluster.HostKey()))
+			Expect(out[1].Key().Lease()).To(Equal(peer.Cluster.HostKey()))
+			gatewayStored := MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey()))
+			Expect(gatewayStored.Name).To(Equal("mixed-gateway"))
+			peerStored := MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, out[1].Key().StorageKey()))
+			Expect(peerStored.Name).To(Equal("mixed-peer"))
+			Expect(peer.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
+			Expect(gateway.Storage.TS.RetrieveChannel(ctx, out[1].Key().StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
+		})
+		It("Should return an error when the leaseholder is not in the cluster", func(ctx SpecContext) {
+			Expect(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "remote-unresolvable", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: node.Key(99)},
+			})).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 })

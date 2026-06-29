@@ -109,9 +109,25 @@ func (s *Service) Delete(
 }
 
 type (
-	IteratorRequest  = framer.IteratorRequest
-	IteratorResponse = framer.IteratorResponse
-	IteratorStream   = freighter.ServerStream[IteratorRequest, IteratorResponse]
+	IteratorCommand         = framer.IteratorCommand
+	IteratorResponseVariant = framer.IteratorResponseVariant
+	IteratorRequest         = framer.IteratorRequest
+	IteratorResponse        = framer.IteratorResponse
+	IteratorStream          = freighter.ServerStream[IteratorRequest, IteratorResponse]
+)
+
+const (
+	IteratorResponseVariantAck  = framer.IteratorResponseVariantAck
+	IteratorResponseVariantData = framer.IteratorResponseVariantData
+	IteratorCommandNext         = framer.IteratorCommandNext
+	IteratorCommandPrev         = framer.IteratorCommandPrev
+	IteratorCommandSeekFirst    = framer.IteratorCommandSeekFirst
+	IteratorCommandSeekLast     = framer.IteratorCommandSeekLast
+	IteratorCommandSeekLE       = framer.IteratorCommandSeekLE
+	IteratorCommandSeekGE       = framer.IteratorCommandSeekGE
+	IteratorCommandValid        = framer.IteratorCommandValid
+	IteratorCommandError        = framer.IteratorCommandError
+	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
 )
 
 const (
@@ -234,6 +250,9 @@ func (s *Service) openStreamer(
 	return reader, stream.Send(framer.StreamerResponse{})
 }
 
+type WriterCommand = framer.WriterCommand
+type WriterMode = framer.WriterMode
+
 type WriterConfig struct {
 	// ControlSubject is an identifier for the writer.
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
@@ -295,14 +314,11 @@ type WriterRequest struct {
 type WriterResponse struct {
 	Err        errors.Payload  `json:"err" msgpack:"err"`
 	End        telem.TimeStamp `json:"end" msgpack:"end"`
-	Command    writer.Command  `json:"command" msgpack:"command"`
+	Command    WriterCommand   `json:"command" msgpack:"command"`
 	Authorized bool            `json:"authorized" msgpack:"authorized"`
 }
 
-type (
-	WriterCommand = writer.Command
-	WriterStream  = freighter.ServerStream[WriterRequest, WriterResponse]
-)
+type WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]
 
 const (
 	writerResponseBufferSize = 2

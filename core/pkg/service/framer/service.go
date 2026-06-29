@@ -36,21 +36,43 @@ import (
 )
 
 type (
-	Frame            = frame.Frame
-	Iterator         = iterator.Iterator
-	IteratorRequest  = iterator.Request
-	IteratorResponse = iterator.Response
-	StreamIterator   = iterator.StreamIterator
-	Writer           = writer.Writer
-	WriterRequest    = writer.Request
-	WriterResponse   = writer.Response
-	StreamWriter     = writer.StreamWriter
-	WriterConfig     = writer.Config
-	IteratorConfig   = iterator.Config
-	StreamerConfig   = streamer.Config
-	StreamerRequest  = streamer.Request
-	StreamerResponse = streamer.Response
-	Streamer         = streamer.Streamer
+	Frame                   = frame.Frame
+	IteratorCommand         = iterator.Command
+	IteratorResponseVariant = iterator.ResponseVariant
+	Iterator                = iterator.Iterator
+	IteratorRequest         = iterator.Request
+	IteratorResponse        = iterator.Response
+	StreamIterator          = iterator.StreamIterator
+	Writer                  = writer.Writer
+	WriterMode              = writer.Mode
+	WriterCommand           = writer.Command
+	WriterRequest           = writer.Request
+	WriterResponse          = writer.Response
+	StreamWriter            = writer.StreamWriter
+	WriterConfig            = writer.Config
+	IteratorConfig          = iterator.Config
+	StreamerConfig          = streamer.Config
+	StreamerRequest         = streamer.Request
+	StreamerResponse        = streamer.Response
+	Streamer                = streamer.Streamer
+)
+
+const (
+	IteratorResponseVariantAck  = iterator.ResponseVariantAck
+	IteratorResponseVariantData = iterator.ResponseVariantData
+	IteratorCommandNext         = iterator.CommandNext
+	IteratorCommandPrev         = iterator.CommandPrev
+	IteratorCommandSeekFirst    = iterator.CommandSeekFirst
+	IteratorCommandSeekLast     = iterator.CommandSeekLast
+	IteratorCommandSeekLE       = iterator.CommandSeekLE
+	IteratorCommandSeekGE       = iterator.CommandSeekGE
+	IteratorCommandValid        = iterator.CommandValid
+	IteratorCommandError        = iterator.CommandError
+	IteratorCommandSetBounds    = iterator.CommandSetBounds
+	WriterCommandOpen           = writer.CommandOpen
+	WriterCommandWrite          = writer.CommandWrite
+	WriterCommandCommit         = writer.CommandCommit
+	WriterCommandSetAuthority   = writer.CommandSetAuthority
 )
 
 // ServiceConfig is the configuration for opening a framer Service. All fields are

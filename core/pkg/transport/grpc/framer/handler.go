@@ -18,8 +18,6 @@ import (
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
@@ -115,7 +113,7 @@ func (t frameWriterRequestTranslator) Backward(
 	if msg == nil {
 		return framer.WriterRequest{}, nil
 	}
-	r := framer.WriterRequest{Command: writer.Command(msg.Command)}
+	r := framer.WriterRequest{Command: framer.WriterCommand(msg.Command)}
 	if msg.Config != nil {
 		subj, err := controlpb.SubjectFromPB(msg.Config.ControlSubject)
 		if err != nil {
@@ -125,7 +123,7 @@ func (t frameWriterRequestTranslator) Backward(
 		r.Config = framer.WriterConfig{
 			Keys:                     keys,
 			Start:                    telem.TimeStamp(msg.Config.Start),
-			Mode:                     writer.Mode(msg.Config.Mode),
+			Mode:                     framer.WriterMode(msg.Config.Mode),
 			Authorities:              msg.Config.Authorities,
 			EnableAutoCommit:         msg.Config.EnableAutoCommit,
 			AutoIndexPersistInterval: telem.TimeSpan(msg.Config.AutoIndexPersistInterval),
@@ -171,7 +169,7 @@ func (frameWriterResponseTranslator) Backward(
 	msg *WriterResponse,
 ) (framer.WriterResponse, error) {
 	return framer.WriterResponse{
-		Command: writer.Command(msg.Command),
+		Command: framer.WriterCommand(msg.Command),
 		End:     telem.TimeStamp(msg.End),
 		Err:     errors.TranslatePayloadBackward(msg.Error),
 	}, nil
@@ -210,7 +208,7 @@ func (t frameIteratorRequestTranslator) Backward(
 		}
 	}
 	return framer.IteratorRequest{
-		Command:   iterator.Command(msg.Command),
+		Command:   framer.IteratorCommand(msg.Command),
 		Span:      telem.TimeSpan(msg.Span),
 		Bounds:    tr,
 		Keys:      keys,
@@ -233,7 +231,7 @@ func (t frameIteratorResponseTranslator) Forward(
 	}
 	if t.codec != nil &&
 		t.codec.Initialized() &&
-		msg.Variant == iterator.ResponseVariantData &&
+		msg.Variant == framer.IteratorResponseVariantData &&
 		!msg.Frame.Empty() {
 		buf, err := t.codec.Encode(ctx, msg.Frame)
 		if err != nil {
@@ -255,8 +253,8 @@ func (t frameIteratorResponseTranslator) Backward(
 	msg *IteratorResponse,
 ) (framer.IteratorResponse, error) {
 	res := framer.IteratorResponse{
-		Variant: iterator.ResponseVariant(msg.Variant),
-		Command: iterator.Command(msg.Command),
+		Variant: framer.IteratorResponseVariant(msg.Variant),
+		Command: framer.IteratorCommand(msg.Command),
 		NodeKey: node.Key(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.SeqNum),

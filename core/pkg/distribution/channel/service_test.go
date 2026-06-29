@@ -60,7 +60,7 @@ var _ = Describe("ServiceConfig", Ordered, func() {
 	})
 })
 
-var _ = Describe("Service", Ordered, Focus, func() {
+var _ = Describe("Service", Ordered, func() {
 	var valid channel.ServiceConfig
 	BeforeAll(func(ctx SpecContext) { valid = validServiceConfig(ctx) })
 

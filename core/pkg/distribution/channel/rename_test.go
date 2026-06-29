@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Rename", Ordered, func() {
@@ -40,6 +41,15 @@ var _ = Describe("Rename", Ordered, func() {
 			{Name: "free-rename", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
 		}))
 		Expect(n.Channel.Rename(ctx, channel.Keys{out[0].Key()}, []string{"ignored"})).To(Succeed())
+	})
+	It("Should return an error when the keys and names are not the same length", func(ctx SpecContext) {
+		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
+			{Name: "old-name", DataType: telem.TimeStampT, IsIndex: true},
+		}))
+		key := out[0].Key()
+		Expect(n.Channel.Rename(
+			ctx, channel.Keys{key}, []string{"new-name", "new-name-2"},
+		)).To(MatchError(validate.ErrValidation))
 	})
 
 	Context("Multi Node", Ordered, func() {
