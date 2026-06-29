@@ -1,0 +1,68 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/*
+ * As of Astro 7, syntax-highlighted code fences are emitted as raw `<pre class="astro-code">`
+ * HTML that bypasses the MDX `pre` component override (Block.astro), so the styles that
+ * used to live on `.astro-code-wrapper` no longer apply. These rules target the bare
+ * highlighted `<pre>` directly so code blocks keep their box styling site-wide.
+ */
+
+pre.astro-code {
+    position: relative;
+    margin: 5rem 1.5rem;
+    padding: 3rem;
+    border: var(--pluto-border);
+    border-radius: 1rem;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+
+    &::-webkit-scrollbar {
+        height: 0.75rem;
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        background-color: var(--pluto-gray-l4);
+        border-radius: 0.5rem;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+        background-color: var(--pluto-gray-l5);
+    }
+}
+
+.error pre.astro-code {
+    border: 1px solid var(--pluto-error-z);
+    background-color: var(--pluto-error-z-15) !important;
+}
+
+.warning pre.astro-code {
+    border: 1px solid var(--pluto-warning-z);
+    background-color: var(--pluto-warning-z-15) !important;
+}
+
+.pluto-pack pre.astro-code {
+    margin: 0;
+    border: none;
+}
+
+table pre.astro-code {
+    margin: 0;
+    padding: 0.5rem 1rem;
+    border-radius: var(--pluto-border-radius);
+}
+
+@media (max-width: 800px) {
+    pre.astro-code {
+        margin: 5rem 0;
+    }
+}
