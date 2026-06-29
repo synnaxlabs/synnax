@@ -95,7 +95,7 @@ const Internal = (): ReactElement | null => {
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(
-        Session.Schematic.setActiveToolbarTab({
+        Session.Schematic.selectToolbarTab({
           key,
           tab: tabKey as Session.Schematic.ToolbarTab,
         }),
