@@ -106,7 +106,6 @@ var (
 			Status:       statSvc,
 		}))
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			DB:      node.DB,
 			Framer:  node.Framer,
 			Channel: channelSvc,
 			Status:  statSvc,

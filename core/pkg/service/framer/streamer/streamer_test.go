@@ -58,11 +58,9 @@ var _ = Describe("Streamer", Ordered, func() {
 			Status:       statusSvc,
 		}))
 		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-			DB:                node.DB,
-			Framer:            node.Framer,
-			Channel:           channelSvc,
-			ChannelObservable: channelSvc.Observe(),
-			Status:            statusSvc,
+			Framer:  node.Framer,
+			Channel: channelSvc,
+			Status:  statusSvc,
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
 			DistFramer:  node.Framer,

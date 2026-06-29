@@ -117,11 +117,9 @@ var _ = Describe("Calculation", Ordered, func() {
 			Status:       statusSvc,
 		}))
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-			DB:                dist.DB,
-			Framer:            dist.Framer,
-			Channel:           channelSvc,
-			ChannelObservable: channelSvc.Observe(),
-			Status:            statusSvc,
+			Framer:  dist.Framer,
+			Channel: channelSvc,
+			Status:  statusSvc,
 		}))
 	})
 

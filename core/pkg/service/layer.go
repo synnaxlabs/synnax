@@ -238,7 +238,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ctx,
 		framer.ServiceConfig{
 			Instrumentation: cfg.Child("framer"),
-			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			Status:          l.Status,

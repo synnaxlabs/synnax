@@ -98,7 +98,6 @@ var _ = Describe("Task", Ordered, func() {
 			Status:       statusSvc,
 		}))
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			DB:      node.DB,
 			Framer:  node.Framer,
 			Channel: channelSvc,
 			Status:  statusSvc,
