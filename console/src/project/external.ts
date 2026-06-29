@@ -18,5 +18,4 @@ export * from "@/project/Splash";
 export * from "@/project/types";
 export * from "@/project/useCheckCore";
 export * from "@/project/useMaybeChange";
-export * from "@/project/useSyncComponent";
 export * from "@/project/useSyncLayout";
