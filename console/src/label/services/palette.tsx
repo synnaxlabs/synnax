@@ -16,20 +16,22 @@ import { Palette } from "@/palette";
 
 const useVisible = () => Access.useUpdateGranted(label.TYPE_ONTOLOGY_ID);
 
+const COMMAND_NAME = "Edit labels";
+
 export const EditCommand: Palette.Command = (listProps) => {
   const open = useEditModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Edit labels"
+      name={COMMAND_NAME}
       icon={<Icon.Label />}
       onSelect={handleSelect}
     />
   );
 };
 EditCommand.key = "edit_labels";
-EditCommand.commandName = "Edit labels";
+EditCommand.commandName = COMMAND_NAME;
 EditCommand.useVisible = useVisible;
 
 export const COMMANDS = [EditCommand];

@@ -14,20 +14,22 @@ import { useCallback } from "react";
 import { useCreate } from "@/layered/service/schematic/useCreate";
 import { Palette } from "@/palette";
 
+const COMMAND_NAME = "Create a schematic";
+
 const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
   const create = useCreate({});
   const handleSelect = useCallback(() => create(), [create]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a schematic"
+      name={COMMAND_NAME}
       icon={<PSchematic.CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create_schematic";
-CreateCommand.commandName = "Create a schematic";
+CreateCommand.commandName = COMMAND_NAME;
 CreateCommand.useVisible = () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS = [CreateCommand];

@@ -15,20 +15,22 @@ import { Palette } from "@/palette";
 import { Range } from "@/range";
 import { useCreateModal } from "@/range/Create";
 
+const COMMAND_NAME = "Create a range";
+
 export const CreateCommand: Palette.Command = (listProps) => {
   const open = useCreateModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a range"
+      name={COMMAND_NAME}
       icon={<Ranger.CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "define_range";
-CreateCommand.commandName = "Create a range";
+CreateCommand.commandName = COMMAND_NAME;
 CreateCommand.useVisible = () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({

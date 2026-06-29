@@ -14,20 +14,22 @@ import { useCallback } from "react";
 import { useConnectModal } from "@/hardware/modbus/device/Connect";
 import { Palette } from "@/palette";
 
+const COMMAND_NAME = "Connect a Modbus server";
+
 const ConnectServerCommand: Palette.Command = (listProps) => {
   const connect = useConnectModal();
   const handleSelect = useCallback(() => connect(), [connect]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Connect a Modbus server"
+      name={COMMAND_NAME}
       icon={<Icon.Logo.Modbus />}
       onSelect={handleSelect}
     />
   );
 };
 ConnectServerCommand.key = "modbus_connect_server";
-ConnectServerCommand.commandName = "Connect a Modbus server";
+ConnectServerCommand.commandName = COMMAND_NAME;
 ConnectServerCommand.useVisible = () =>
   Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
 

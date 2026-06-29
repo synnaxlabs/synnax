@@ -14,20 +14,22 @@ import { useCallback } from "react";
 import { Palette } from "@/palette";
 import { useRegisterModal } from "@/user/Register";
 
+const COMMAND_NAME = "Register a user";
+
 const RegisterCommand: Palette.Command = (listProps) => {
   const open = useRegisterModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Register a user"
+      name={COMMAND_NAME}
       icon={<PUser.CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 RegisterCommand.key = "register_user";
-RegisterCommand.commandName = "Register a user";
+RegisterCommand.commandName = COMMAND_NAME;
 RegisterCommand.useVisible = () => Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS = [RegisterCommand];

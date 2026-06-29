@@ -13,18 +13,20 @@ import { useCallback } from "react";
 import { logout } from "@/cluster/services/logout";
 import { Palette } from "@/palette";
 
+const COMMAND_NAME = "Log out";
+
 export const LogoutCommand: Palette.Command = ({ store, ...listProps }) => {
   const handleSelect = useCallback(() => logout(store.dispatch), [store]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Log out"
+      name={COMMAND_NAME}
       icon={<Icon.Logout />}
       onSelect={handleSelect}
     />
   );
 };
 LogoutCommand.key = "logout";
-LogoutCommand.commandName = "Log out";
+LogoutCommand.commandName = COMMAND_NAME;
 
 export const COMMANDS = [LogoutCommand];

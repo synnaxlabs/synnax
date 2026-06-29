@@ -14,20 +14,22 @@ import { useCallback } from "react";
 import { useConnectModal } from "@/hardware/http/device/Connect";
 import { Palette } from "@/palette";
 
+const COMMAND_NAME = "Connect an HTTP server";
+
 const ConnectServerCommand: Palette.Command = (listProps) => {
   const connect = useConnectModal();
   const handleSelect = useCallback(() => connect(), [connect]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Connect an HTTP server"
+      name={COMMAND_NAME}
       icon={<Icon.Logo.HTTP />}
       onSelect={handleSelect}
     />
   );
 };
 ConnectServerCommand.key = "http_connect_server";
-ConnectServerCommand.commandName = "Connect an HTTP server";
+ConnectServerCommand.commandName = COMMAND_NAME;
 ConnectServerCommand.useVisible = () =>
   Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
 

@@ -15,20 +15,22 @@ import { Palette } from "@/palette";
 import { useCreateModal } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 
+const COMMAND_NAME = "Create a status";
+
 const CreateCommand: Palette.Command = (listProps) => {
   const open = useCreateModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a status"
+      name={COMMAND_NAME}
       icon={<Status.CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create_status";
-CreateCommand.commandName = "Create a status";
+CreateCommand.commandName = COMMAND_NAME;
 CreateCommand.useVisible = () => Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
 
 const OpenExplorerCommand = Palette.createSimpleCommand({

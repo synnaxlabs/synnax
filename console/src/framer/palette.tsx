@@ -14,20 +14,22 @@ import { useCallback } from "react";
 import { useDeleteDataModal } from "@/framer/DeleteModal";
 import { Palette } from "@/palette";
 
+const COMMAND_NAME = "Delete data";
+
 const DeleteDataCommand: Palette.Command = (listProps) => {
   const open = useDeleteDataModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Delete data"
+      name={COMMAND_NAME}
       icon={<Icon.Delete />}
       onSelect={handleSelect}
     />
   );
 };
 DeleteDataCommand.key = "delete_data";
-DeleteDataCommand.commandName = "Delete data";
+DeleteDataCommand.commandName = COMMAND_NAME;
 DeleteDataCommand.useVisible = () => Access.useDeleteGranted(framer.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS: Palette.Command[] = [DeleteDataCommand];

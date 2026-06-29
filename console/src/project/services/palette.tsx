@@ -19,21 +19,25 @@ import { import_ } from "@/project/services/import";
 const useCreateVisible = () => Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
 
+const CREATE_COMMAND_NAME = "Create a project";
+
 const CreateCommand: Palette.Command = (listProps) => {
   const open = Project.useCreateModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a project"
+      name={CREATE_COMMAND_NAME}
       icon={<PProject.CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "project_create";
-CreateCommand.commandName = "Create a project";
+CreateCommand.commandName = CREATE_COMMAND_NAME;
 CreateCommand.useVisible = useCreateVisible;
+
+const IMPORT_COMMAND_NAME = "Import a project";
 
 const ImportProjectCommand: Palette.Command = ({
   placeLayout,
@@ -52,16 +56,18 @@ const ImportProjectCommand: Palette.Command = ({
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Import a project"
+      name={IMPORT_COMMAND_NAME}
       icon={<PProject.ImportIcon />}
       onSelect={handleSelect}
     />
   );
 };
 ImportProjectCommand.key = "project_import";
-ImportProjectCommand.commandName = "Import a project";
+ImportProjectCommand.commandName = IMPORT_COMMAND_NAME;
 ImportProjectCommand.sortOrder = -1;
 ImportProjectCommand.useVisible = useCreateVisible;
+
+const EXPORT_COMMAND_NAME = "Export current project";
 
 const ExportProjectCommand: Palette.Command = (listProps) => {
   const handleExport = Project.useExport();
@@ -69,14 +75,14 @@ const ExportProjectCommand: Palette.Command = (listProps) => {
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Export current project"
+      name={EXPORT_COMMAND_NAME}
       icon={<PProject.ExportIcon />}
       onSelect={handleSelect}
     />
   );
 };
 ExportProjectCommand.key = "project_export";
-ExportProjectCommand.commandName = "Export current project";
+ExportProjectCommand.commandName = EXPORT_COMMAND_NAME;
 ExportProjectCommand.sortOrder = -1;
 ExportProjectCommand.useVisible = useViewVisible;
 

@@ -14,6 +14,8 @@ import { useCallback } from "react";
 import { Palette } from "@/palette";
 import { CLEAR_STATE } from "@/persist/state";
 
+const COMMAND_NAME = "Clear local storage";
+
 export const ClearCommand: Palette.Command = ({
   store,
   confirm,
@@ -36,13 +38,13 @@ export const ClearCommand: Palette.Command = ({
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Clear local storage"
+      name={COMMAND_NAME}
       icon={<Icon.Close />}
       onSelect={handleSelect}
     />
   );
 };
 ClearCommand.key = "clear_local_storage";
-ClearCommand.commandName = "Clear local storage";
+ClearCommand.commandName = COMMAND_NAME;
 
 export const COMMANDS = [ClearCommand];

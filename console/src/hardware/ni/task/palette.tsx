@@ -61,6 +61,8 @@ const CreateDigitalReadCommand = Palette.createSimpleCommand({
   useVisible,
 });
 
+const TOGGLE_SCANNER_COMMAND_NAME = "Toggle the NI Device Scanner";
+
 const ToggleScannerCommand: Palette.Command = ({
   client,
   addStatus,
@@ -94,14 +96,14 @@ const ToggleScannerCommand: Palette.Command = ({
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Toggle the NI Device Scanner"
+      name={TOGGLE_SCANNER_COMMAND_NAME}
       icon={<Icon.Logo.NI />}
       onSelect={handleSelect}
     />
   );
 };
 ToggleScannerCommand.key = "ni_toggle_scan_task";
-ToggleScannerCommand.commandName = "Toggle the NI Device Scanner";
+ToggleScannerCommand.commandName = TOGGLE_SCANNER_COMMAND_NAME;
 ToggleScannerCommand.useVisible = () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS = [

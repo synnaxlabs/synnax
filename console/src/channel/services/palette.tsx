@@ -17,21 +17,25 @@ import { Palette } from "@/palette";
 
 const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
 
+const CREATE_COMMAND_NAME = "Create a channel";
+
 const CreateCommand: Palette.Command = (listProps) => {
   const open = useCreateModal();
   const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a channel"
+      name={CREATE_COMMAND_NAME}
       icon={<PChannel.CreateIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create_channel";
-CreateCommand.commandName = "Create a channel";
+CreateCommand.commandName = CREATE_COMMAND_NAME;
 CreateCommand.useVisible = useVisible;
+
+const CREATE_CALCULATED_COMMAND_NAME = "Create a calculated channel";
 
 const CreateCalculatedCommand: Palette.Command = (listProps) => {
   const open = useCalculatedModal();
@@ -39,14 +43,14 @@ const CreateCalculatedCommand: Palette.Command = (listProps) => {
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a calculated channel"
+      name={CREATE_CALCULATED_COMMAND_NAME}
       icon={<PChannel.CreateCalculatedIcon />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCalculatedCommand.key = "create_calculated_channel";
-CreateCalculatedCommand.commandName = "Create a calculated channel";
+CreateCalculatedCommand.commandName = CREATE_CALCULATED_COMMAND_NAME;
 CreateCalculatedCommand.useVisible = useVisible;
 
 export const COMMANDS = [CreateCommand, CreateCalculatedCommand];
