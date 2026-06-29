@@ -22,19 +22,17 @@ import (
 
 var _ = Describe("Create", Ordered, func() {
 	var (
-		builder *mock.Cluster
-		n       mock.Node
-		host    node.Key
+		n    mock.Node
+		host node.Key
 	)
 	BeforeAll(func(ctx SpecContext) {
-		builder = mock.NewCluster(ctx, 1)
-		n = builder.Nodes[node.KeyBootstrapper]
+		n = mock.NewNode(ctx)
 		host = n.Cluster.HostKey()
 	})
 
 	It("Should assign a local key and create storage for a gateway channel", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
-			{Name: "gateway", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: host},
+			{Name: "gateway", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: n.Cluster.HostKey()},
 		}))
 		Expect(out[0].LocalKey).ToNot(BeZero())
 		Expect(out[0].Key().Lease()).To(Equal(host))
@@ -119,6 +117,19 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(stored.Virtual).To(BeTrue())
 			Expect(stored.DataType).To(Equal(telem.JSONT))
 		})
+		It("Should allocate a free virtual channel through a non-bootstrapper node", func(ctx SpecContext) {
+			out := MustSucceed(peer.Channel.Create(ctx, []channel.Channel{
+				{Name: "remote-free", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
+			}))
+			Expect(out[0].LocalKey).ToNot(BeZero())
+			Expect(out[0].Key().Lease()).To(Equal(node.KeyFree))
+			Expect(peer.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
+			Expect(gateway.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
+		})
 		It("Should route a mixed batch to each channel's leaseholder", func(ctx SpecContext) {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
 				{Name: "mixed-gateway", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
@@ -134,6 +145,27 @@ var _ = Describe("Create", Ordered, func() {
 				MatchError(query.ErrNotFound),
 			)
 			Expect(gateway.Storage.TS.RetrieveChannel(ctx, out[1].Key().StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
+		})
+		It("Should route a mixed batch of local, remote, and free channels from a peer", func(ctx SpecContext) {
+			out := MustSucceed(peer.Channel.Create(ctx, []channel.Channel{
+				{Name: "mb-local", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+				{Name: "mb-remote", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
+				{Name: "mb-free", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
+			}))
+			Expect(out[0].Key().Lease()).To(Equal(peer.Cluster.HostKey()))
+			Expect(MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Name).
+				To(Equal("mb-local"))
+			Expect(out[1].Key().Lease()).To(Equal(gateway.Cluster.HostKey()))
+			Expect(MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, out[1].Key().StorageKey())).Name).
+				To(Equal("mb-remote"))
+			Expect(out[2].Key().Lease()).To(Equal(node.KeyFree))
+			Expect(out[2].LocalKey).ToNot(BeZero())
+			Expect(peer.Storage.TS.RetrieveChannel(ctx, out[2].Key().StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
+			Expect(gateway.Storage.TS.RetrieveChannel(ctx, out[2].Key().StorageKey())).Error().To(
 				MatchError(query.ErrNotFound),
 			)
 		})

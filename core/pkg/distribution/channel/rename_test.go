@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -51,6 +52,11 @@ var _ = Describe("Rename", Ordered, func() {
 			ctx, channel.Keys{key}, []string{"new-name", "new-name-2"},
 		)).To(MatchError(validate.ErrValidation))
 	})
+	It("Should return an error when a key's leaseholder is not in the cluster", func(ctx SpecContext) {
+		Expect(n.Channel.Rename(
+			ctx, channel.Keys{channel.NewKey(node.Key(99), 1)}, []string{"unresolvable"},
+		)).To(MatchError(query.ErrNotFound))
+	})
 
 	Context("Multi Node", Ordered, func() {
 		var (
@@ -85,6 +91,23 @@ var _ = Describe("Rename", Ordered, func() {
 			Expect(stored.Name).To(Equal("gateway-new"))
 			stored = MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey()))
 			Expect(stored.Name).To(Equal("peer-new"))
+		})
+		It("Should route a mixed-batch rename to each key's leaseholder", func(ctx SpecContext) {
+			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "mb-gateway-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
+				{Name: "mb-peer-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+			}))
+			gatewayKey := out[0].Key()
+			peerKey := out[1].Key()
+			Expect(gateway.Channel.Rename(
+				ctx,
+				channel.Keys{gatewayKey, peerKey},
+				[]string{"mb-gateway-new", "mb-peer-new"},
+			)).To(Succeed())
+			Expect(MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey())).Name).
+				To(Equal("mb-gateway-new"))
+			Expect(MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey())).Name).
+				To(Equal("mb-peer-new"))
 		})
 	})
 })

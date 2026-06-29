@@ -15,10 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -59,9 +59,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       node.Search,
 		Status:       statusSvc,
 	}))
-	apiChannelSvc = MustSucceed(apichannel.NewService(apicfg.LayerConfig{
+	apiChannelSvc = MustSucceed(apichannel.NewService(config.LayerConfig{
 		Distribution: &distribution.Layer{DB: node.DB},
-		Service:      &svc.Layer{Channel: channelSvc},
+		Service:      &service.Layer{Channel: channelSvc},
 	}))
 })
 

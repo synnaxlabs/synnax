@@ -127,10 +127,9 @@ func (s *Service) allocateGateway(ctx context.Context, out []Channel, indices []
 	return nil
 }
 
-func (s *Service) allocateFree(ctx context.Context, out []Channel, indices []int) error {
-	if s.freeCounter == nil {
-		panic("[channel.Service] - tried to assign free virtual keys on non-bootstrapper")
-	}
+func (s *Service) allocateFree(
+	ctx context.Context, out []Channel, indices []int,
+) error {
 	chs := pick(out, indices)
 	if err := assignKeys(ctx, s.freeCounter, chs); err != nil {
 		return err

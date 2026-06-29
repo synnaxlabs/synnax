@@ -17,8 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -177,7 +175,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewDynamic(apiChannelSvc)
 			t := frameIteratorRequestTranslator{codec: cdec}
 			req := framer.IteratorRequest{
-				Command:   iterator.CommandSeekFirst,
+				Command:   framer.IteratorCommandSeekFirst,
 				Keys:      keys,
 				ChunkSize: 100,
 				Bounds:    telem.TimeRangeMax,
@@ -187,7 +185,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			out := MustSucceed(t.Backward(ctx, pb))
 			Expect(channel.Keys(out.Keys)).To(Equal(keys))
-			Expect(out.Command).To(Equal(iterator.CommandSeekFirst))
+			Expect(out.Command).To(Equal(framer.IteratorCommandSeekFirst))
 			Expect(cdec.Initialized()).To(BeTrue())
 		})
 
@@ -195,11 +193,11 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewDynamic(apiChannelSvc)
 			t := frameIteratorRequestTranslator{codec: cdec}
 			pb := MustSucceed(t.Forward(ctx, framer.IteratorRequest{
-				Command: iterator.CommandNext,
+				Command: framer.IteratorCommandNext,
 				Span:    telem.Second,
 			}))
 			out := MustSucceed(t.Backward(ctx, pb))
-			Expect(out.Command).To(Equal(iterator.CommandNext))
+			Expect(out.Command).To(Equal(framer.IteratorCommandNext))
 			Expect(out.Span).To(Equal(telem.Second))
 			Expect(cdec.Initialized()).To(BeFalse())
 		})
@@ -222,7 +220,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			Expect(pb.Frame).To(BeNil())
 
 			out := MustSucceed(t.Backward(ctx, pb))
-			Expect(out.Variant).To(Equal(iterator.ResponseVariantData))
+			Expect(out.Variant).To(Equal(framer.IteratorResponseVariantData))
 			Expect(channel.Keys(out.Frame.KeysSlice())).To(Equal(keys))
 			Expect(out.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
@@ -232,8 +230,8 @@ var _ = Describe("gRPC Framer Translators", func() {
 			Expect(cdec.Update(ctx, channel.Keys{})).To(Succeed())
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantAck,
-				Command: iterator.CommandNext,
+				Variant: framer.IteratorResponseVariantAck,
+				Command: framer.IteratorCommandNext,
 				Ack:     true,
 				SeqNum:  7,
 			}
@@ -241,7 +239,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			Expect(pb.Buffer).To(BeEmpty())
 
 			out := MustSucceed(t.Backward(ctx, pb))
-			Expect(out.Variant).To(Equal(iterator.ResponseVariantAck))
+			Expect(out.Variant).To(Equal(framer.IteratorResponseVariantAck))
 			Expect(out.Ack).To(BeTrue())
 			Expect(out.SeqNum).To(Equal(7))
 		})
@@ -253,9 +251,9 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
-				Frame:   frame.Frame{},
+				Variant: framer.IteratorResponseVariantData,
+				Command: framer.IteratorCommandNext,
+				Frame:   framer.Frame{},
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
 			Expect(pb.Buffer).To(BeEmpty())
@@ -269,8 +267,8 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewDynamic(apiChannelSvc)
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
+				Variant: framer.IteratorResponseVariantData,
+				Command: framer.IteratorCommandNext,
 				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
@@ -286,8 +284,8 @@ var _ = Describe("gRPC Framer Translators", func() {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
 			t := frameIteratorResponseTranslator{}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
+				Variant: framer.IteratorResponseVariantData,
+				Command: framer.IteratorCommandNext,
 				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](4, 5, 6)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
@@ -302,7 +300,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
 			t := frameIteratorResponseTranslator{codec: cdec}
 			pb := &IteratorResponse{
-				Variant: int32(iterator.ResponseVariantData),
+				Variant: int32(framer.IteratorResponseVariantData),
 				Buffer:  []byte{0x01, 0x02, 0x03},
 			}
 			Expect(t.Backward(ctx, pb)).Error().To(HaveOccurred())
@@ -311,7 +309,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 		It("Should not panic when the proto Error field is nil", func(ctx SpecContext) {
 			t := frameIteratorResponseTranslator{}
 			pb := &IteratorResponse{
-				Variant: int32(iterator.ResponseVariantAck),
+				Variant: int32(framer.IteratorResponseVariantAck),
 				Ack:     true,
 			}
 			out := MustSucceed(t.Backward(ctx, pb))
@@ -325,7 +323,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
 			t := frameIteratorRequestTranslator{}
 			pb := MustSucceed(t.Forward(ctx, framer.IteratorRequest{
-				Command: iterator.CommandSeekFirst,
+				Command: framer.IteratorCommandSeekFirst,
 				Keys:    keys,
 			}))
 			out := MustSucceed(t.Backward(ctx, pb))
@@ -375,7 +373,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewDynamic(apiChannelSvc)
 			t := frameWriterRequestTranslator{codec: cdec}
 			pb := &WriterRequest{
-				Command: int32(writer.CommandOpen),
+				Command: int32(framer.WriterCommandOpen),
 				Config:  &WriterConfig{Keys: keys.Uint32(), ControlSubject: nil},
 			}
 			MustSucceed(t.Backward(ctx, pb))
@@ -392,14 +390,14 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
 			t := frameWriterRequestTranslator{codec: cdec}
 			out := MustSucceed(t.Backward(ctx, nil))
-			Expect(out.Command).To(Equal(writer.Command(0)))
+			Expect(out.Command).To(Equal(framer.WriterCommand(0)))
 		})
 
 		It("Should not panic and not call Update when the codec is nil", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
 			t := frameWriterRequestTranslator{}
 			pb := &WriterRequest{
-				Command: int32(writer.CommandOpen),
+				Command: int32(framer.WriterCommandOpen),
 				Config:  &WriterConfig{Keys: keys.Uint32(), ControlSubject: nil},
 			}
 			out := MustSucceed(t.Backward(ctx, pb))
