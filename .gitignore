@@ -257,6 +257,7 @@ assets
 
 # |||| LABVIEW ||||
 client/lv/**/builds/
+!client/lv/**/Ignore Error.vi
 *.lvlibp
 *.aliases
 *.lvlps
