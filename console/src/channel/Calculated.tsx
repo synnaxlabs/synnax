@@ -23,6 +23,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { useRef, useState } from "react";
 
 import { CSS } from "@/css";
@@ -31,7 +32,6 @@ import { Triggers } from "@/triggers";
 
 export interface CalculatedModalParams {
   channelKey?: channel.Key;
-  title?: string;
 }
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
@@ -43,14 +43,14 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
 
 export const useCalculatedModal = Modals.create<CalculatedModalParams>(
   ({ params, close }) => {
-    const isEdit = params?.channelKey !== 0;
+    const isEdit = primitive.isNonZero(params.channelKey);
     const {
       form,
       variant,
       save,
       status: stat,
     } = Channel.useCalculatedForm({
-      query: { key: params?.channelKey },
+      query: { key: params.channelKey },
       afterSave: ({ reset }) => {
         if (createMore) reset();
         else close();
@@ -67,10 +67,15 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
     });
     const initialLoaded = useRef(false);
     if (!initialLoaded.current && variant !== "loading") initialLoaded.current = true;
+    const name = Form.useFieldValue<
+      string,
+      string,
+      typeof Channel.calculatedFormSchema
+    >("name", { ctx: form });
     return (
       <Flex.Box className={CSS.B("channel", "edit", "calculated")} grow empty>
         <Modals.Header
-          name={params?.title ?? "Channel.Create.Calculated"}
+          name={isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
           icon="Channel"
         />
         <Flex.Box className={CSS.B("form")} style={{ padding: "3rem" }} grow>

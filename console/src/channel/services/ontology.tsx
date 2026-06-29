@@ -175,10 +175,7 @@ const useEditCalculated = () => {
   }: Ontology.TreeContextMenuProps) => {
     if (ids.length !== 1) return;
     const resource = getResource(ids[0]);
-    open({
-      channelKey: Number(resource.id.key),
-      title: `${resource.name}.Edit`,
-    });
+    open({ channelKey: Number(resource.id.key) });
   };
 };
 

@@ -11,12 +11,11 @@ import { channel, device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 /**
- * Params for opening a device configure/connect modal: the device to edit (absent when
- * creating a new one) and an optional title override.
+ * Params for opening a device configure/connect modal: the device to edit, absent when
+ * creating a new one.
  */
 export interface ModalParams {
   deviceKey?: device.Key;
-  title?: string;
 }
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";

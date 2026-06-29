@@ -17,7 +17,6 @@ export const useConfigureModal = Modals.create<Common.Device.ModalParams>(
       deviceKey={params.deviceKey ?? ""}
       close={close}
       icon="Logo.EtherCAT"
-      title={params.title}
       initialProperties={ZERO_SLAVE_PROPERTIES}
     />
   ),

@@ -50,11 +50,7 @@ export const getIcon = (make: Make | null) =>
  * returned opener can dispatch to any make at call time without violating the rules of
  * hooks.
  */
-export const useConfigureModal = (): ((
-  make: Make,
-  deviceKey?: string,
-  title?: string,
-) => void) => {
+export const useConfigureModal = (): ((make: Make, deviceKey?: string) => void) => {
   const ethercat = EtherCAT.Device.useConfigureModal();
   const http = HTTP.Device.useConnectModal();
   const labjack = LabJack.Device.useConfigureModal();
@@ -62,11 +58,8 @@ export const useConfigureModal = (): ((
   const ni = NI.Device.useConfigureModal();
   const opc = OPC.Device.useConnectModal();
   return useCallback(
-    (make, deviceKey, title) => {
-      const openers: Record<
-        Make,
-        (args: { deviceKey?: string; title?: string }) => void
-      > = {
+    (make, deviceKey) => {
+      const openers: Record<Make, (args: { deviceKey?: string }) => void> = {
         [EtherCAT.Device.MAKE]: ethercat,
         [HTTP.Device.MAKE]: http,
         [LabJack.Device.MAKE]: labjack,
@@ -74,7 +67,7 @@ export const useConfigureModal = (): ((
         [NI.Device.MAKE]: ni,
         [OPC.Device.MAKE]: opc,
       };
-      openers[make]({ deviceKey, title });
+      openers[make]({ deviceKey });
     },
     [ethercat, http, labjack, modbus, ni, opc],
   );

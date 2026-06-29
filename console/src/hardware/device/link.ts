@@ -19,7 +19,7 @@ export const useLink = (): Link.Handler => {
       const device = await client.devices.retrieve({ key });
       const make = getMake(device.make);
       if (make == null) return;
-      configure(make, device.key, device.name);
+      configure(make, device.key);
     },
     [configure],
   );

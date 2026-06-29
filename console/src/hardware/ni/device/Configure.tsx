@@ -17,7 +17,6 @@ export const useConfigureModal = Modals.create<Common.Device.ModalParams>(
       deviceKey={params.deviceKey ?? ""}
       close={close}
       icon="Logo.NI"
-      title={params.title}
       initialProperties={ZERO_PROPERTIES}
     />
   ),
