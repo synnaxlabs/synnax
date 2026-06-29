@@ -47,6 +47,7 @@ var (
 	MatchVirtual                                = channel.MatchVirtual
 	MatchIsIndex                                = channel.MatchIsIndex
 	MatchInternal                               = channel.MatchInternal
+	ToPayload                                   = channel.ToPayload
 	MatchCalculated                             = channel.MatchCalculated
 	Not                                         = channel.Not
 	NewRandomName                               = channel.NewRandomName
