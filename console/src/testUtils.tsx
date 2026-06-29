@@ -7,12 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { combineReducers, configureStore, type EnhancedStore } from "@reduxjs/toolkit";
+import {
+  combineReducers,
+  configureStore,
+  type EnhancedStore,
+  type Reducer,
+} from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Aether, Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
 import { aether, eraser, flux, status, synnax } from "@synnaxlabs/pluto/ether";
-import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
+import {
+  render,
+  renderHook,
+  type RenderHookOptions,
+  type RenderHookResult,
+  type RenderOptions,
+  type RenderResult,
+} from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
 import { Provider } from "react-redux";
 
@@ -122,6 +134,56 @@ export const renderWithConsole = (
     </ConsoleTestProvider>
   );
   return { ...render(ui, { wrapper: Wrapper, ...rest }), store };
+};
+
+/**
+ * Renders a deep-link resource hook against a minimal Redux store. The store always
+ * carries the layout and drift slices that Layout.usePlacer depends on; pass
+ * extraReducers for any additional slices the hook reads or writes. Returns the hook's
+ * value (the link handler) and the store so the spec can assert on placed layouts and
+ * dispatched state.
+ */
+export const renderLinkHook = <H,>(
+  useHook: () => H,
+  extraReducers: Record<string, Reducer> = {},
+): { handler: H; store: EnhancedStore } => {
+  const store = configureStore({
+    reducer: combineReducers({
+      [Layout.SLICE_NAME]: Layout.reducer,
+      [Drift.SLICE_NAME]: Drift.reducer,
+      ...extraReducers,
+    }),
+  });
+  const Wrapper = ({ children }: PropsWithChildren) => (
+    <Provider store={store}>{children}</Provider>
+  );
+  const { result } = renderHook(useHook, { wrapper: Wrapper });
+  return { handler: result.current, store };
+};
+
+export interface RenderHookWithConsoleOptions<Props> extends RenderHookOptions<Props> {
+  preloadedState?: ConsolePreloadedState;
+  store?: EnhancedStore;
+  client?: Client | null;
+}
+
+export const renderHookWithConsole = <Result, Props>(
+  cb: (props: Props) => Result,
+  options: RenderHookWithConsoleOptions<Props> = {},
+): RenderHookResult<Result, Props> & { store: EnhancedStore } => {
+  const {
+    preloadedState,
+    store = createTestStore({ preloadedState }),
+    client = null,
+    ...rest
+  } = options;
+  const fluxClient = createFluxClient(client);
+  const Wrapper = ({ children }: PropsWithChildren) => (
+    <ConsoleTestProvider store={store} client={client} fluxClient={fluxClient}>
+      {children}
+    </ConsoleTestProvider>
+  );
+  return { ...renderHook(cb, { wrapper: Wrapper, ...rest }), store };
 };
 
 export interface CreateConsoleWrapperArgs {
