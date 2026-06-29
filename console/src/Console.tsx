@@ -24,8 +24,6 @@ import {
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Access } from "@/access";
-import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { COMMANDS } from "@/commands";
 import { Docs } from "@/docs";
@@ -44,7 +42,6 @@ import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
-import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { SERVICES } from "@/services";
@@ -56,7 +53,6 @@ import WorkerURL from "@/worker?worker&url";
 import { Session } from "./layered/session";
 
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
-  ...Channel.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Hardware.LAYOUTS,
   ...Layouts.LAYOUTS,
@@ -66,10 +62,8 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Schematic.LAYOUTS,
   ...Table.LAYOUTS,
   ...Vis.LAYOUTS,
-  ...Project.LAYOUTS,
   ...Arc.LAYOUTS,
   ...Status.LAYOUTS,
-  ...Access.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
