@@ -12,12 +12,11 @@ import { Button, type Icon, Nav, Text } from "@synnaxlabs/pluto";
 
 import { Body } from "@/layered/service/modals/Body";
 import { createPrompt, type Prompt } from "@/layered/service/modals/factory";
+import { Footer } from "@/layered/service/modals/Footer";
+import { Frame } from "@/layered/service/modals/Frame";
+import { Header } from "@/layered/service/modals/Header";
 import { type ContentProps } from "@/layered/session/modals/Context";
 import { Triggers } from "@/triggers";
-
-import { Footer } from "./Footer";
-import { Frame } from "./Frame";
-import { Header } from "./Header";
 
 interface ButtonProps {
   variant?: status.Variant;
