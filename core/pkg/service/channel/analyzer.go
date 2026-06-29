@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package analyzer
+package channel
 
 import (
 	"context"
@@ -27,7 +27,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type resolver struct {
+// cachingResolver wraps a symbol resolver, caching symbols for channels analyzed so far
+// so later expressions in the same batch can reference them by name or key without
+// hitting the backing resolver.
+type cachingResolver struct {
 	arc.SymbolResolver
 	temp struct {
 		names map[string]*symbol.Symbol
@@ -40,19 +43,19 @@ type resolver struct {
 // previously analyzed channels so that later expressions can reference them by
 // name without hitting the backing symbol resolver.
 type Analyzer struct {
-	resolver *resolver
+	resolver *cachingResolver
 }
 
-// New returns an Analyzer that falls back to symbolResolver for symbols not yet
+// NewAnalyzer returns an Analyzer that falls back to resolver for symbols not yet
 // in the internal cache.
-func New(symbolResolver arc.SymbolResolver) *Analyzer {
-	r := &resolver{SymbolResolver: symbolResolver}
+func NewAnalyzer(resolver arc.SymbolResolver) *Analyzer {
+	r := &cachingResolver{SymbolResolver: resolver}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
 	return &Analyzer{resolver: r}
 }
 
-func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
+func (r *cachingResolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
 	i, err := strconv.Atoi(name)
 	if err == nil {
 		if s, ok := r.temp.keys[i]; ok {
@@ -70,9 +73,9 @@ func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, er
 	return sym, resolveErr
 }
 
-// Result holds the output of an analysis. On error, Unresolved may be populated
+// AnalysisResult holds the output of an analysis. On error, Unresolved may be populated
 // even though ChanDataType and Deps are zero-valued.
-type Result struct {
+type AnalysisResult struct {
 	// ChanDataType is the inferred type of the expression when combined
 	// with operations. For example, a derivative operation will convert the
 	// channels return type to Float64.
@@ -88,16 +91,16 @@ type Result struct {
 // Analyze parses the channel's expression, infers its return type, and extracts
 // the set of channel dependencies. The analyzed channel is cached so that
 // subsequent calls can reference it by name or key.
-func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, error) {
+func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (AnalysisResult, error) {
 	a.resolver.unresolved = make(set.Set[string])
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression))
 	if err != nil {
-		return Result{}, err
+		return AnalysisResult{}, err
 	}
 	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver))
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
-		return Result{Unresolved: a.resolver.unresolved.Slice()}, aCtx.Diagnostics
+		return AnalysisResult{Unresolved: a.resolver.unresolved.Slice()}, aCtx.Diagnostics
 	}
 	s := &symbol.Symbol{
 		Name: ch.Name,
@@ -122,7 +125,7 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, err
 		ch.Operations[len(ch.Operations)-1].Type == channel.OperationTypeDerivative {
 		inferredDataType = telem.Float64T
 	}
-	return Result{
+	return AnalysisResult{
 		ChanDataType:         inferredDataType,
 		Deps:                 deps,
 		ExpressionReturnType: dataType,

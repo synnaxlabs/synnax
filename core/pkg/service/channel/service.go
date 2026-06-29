@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -24,12 +23,21 @@ import (
 )
 
 type (
-	Key          = channel.Key
-	Keys         = channel.Keys
-	LocalKey     = channel.LocalKey
-	Channel      = channel.Channel
-	Operation    = channel.Operation
-	CreateOption = channel.CreateOption
+	Key           = channel.Key
+	Keys          = channel.Keys
+	LocalKey      = channel.LocalKey
+	Channel       = channel.Channel
+	Operation     = channel.Operation
+	OperationType = channel.OperationType
+	CreateOption  = channel.CreateOption
+)
+
+const (
+	OperationTypeMin        = channel.OperationTypeMin
+	OperationTypeMax        = channel.OperationTypeMax
+	OperationTypeAvg        = channel.OperationTypeAvg
+	OperationTypeNone       = channel.OperationTypeNone
+	OperationTypeDerivative = channel.OperationTypeDerivative
 )
 
 var (
@@ -112,7 +120,7 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 // delegating to the distribution-layer writer.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
-	w.analyzer = analyzer.New(s.NewArcSymbolResolver(tx))
+	w.analyzer = NewAnalyzer(s.NewArcSymbolResolver(tx))
 	return w
 }
 

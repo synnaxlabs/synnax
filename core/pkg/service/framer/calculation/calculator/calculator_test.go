@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -956,7 +955,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			Expect(channelSvc.CreateMany(ctx, bases)).To(Succeed())
-			res := MustSucceed(channelanalyzer.New(channelSvc.NewArcSymbolResolver(nil)).
+			res := MustSucceed(channel.NewAnalyzer(channelSvc.NewArcSymbolResolver(nil)).
 				Analyze(ctx, *calc))
 			calc.DataType = res.ChanDataType
 			Expect(channelSvc.Create(ctx, calc)).To(Succeed())

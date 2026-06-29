@@ -13,14 +13,13 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 )
 
 // Writer wraps the distribution-layer channel writer, adding DataType inference
 // for calculated channels before persisting.
 type Writer struct {
 	channel.Writer
-	analyzer *analyzer.Analyzer
+	analyzer *Analyzer
 }
 
 // Create creates a single channel, inferring the DataType if it is calculated.
