@@ -26,12 +26,17 @@ import (
 
 // ServiceConfig configures a channel Service.
 type ServiceConfig struct {
-	// DB is the underlying database for transactional operations.
-	DB *gorp.DB
-	// Distribution is the distribution-layer channel service.
-	Distribution *channel.Service
+	// Channel is the distribution-layer channel service.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
 	// Status is used to publish error/clear statuses for calculated channels.
+	//
+	// [REQUIRED]
 	Status *status.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
@@ -39,16 +44,14 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "distribution", c.Distribution)
+	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.DB = override.Nil(c.DB, other.DB)
-	c.Distribution = override.Nil(c.Distribution, other.Distribution)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
@@ -79,24 +82,20 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 // NewWriter returns a Writer that infers DataTypes for calculated channels before
 // delegating to the distribution-layer writer.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	w := Writer{writer: s.cfg.Distribution.NewWriter(tx)}
+	w := Writer{writer: s.cfg.Channel.NewWriter(tx)}
 	w.analyzer = NewAnalyzer(s.NewArcSymbolResolver(tx))
 	return w
 }
 
 // NewRetrieve opens a query to retrieve channels from the cluster.
-func (s *Service) NewRetrieve() Retrieve {
-	return s.cfg.Distribution.NewRetrieve()
-}
+func (s *Service) NewRetrieve() Retrieve { return s.cfg.Channel.NewRetrieve() }
 
 // Group returns the ontology group that channels are created under.
-func (s *Service) Group() group.Group {
-	return s.cfg.Distribution.Group()
-}
+func (s *Service) Group() group.Group { return s.cfg.Channel.Group() }
 
 // Observe returns an observable that notifies callers of changes to channel entries.
 func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
-	return s.cfg.Distribution.Observe()
+	return s.cfg.Channel.Observe()
 }
 
 // Create creates a single channel, inferring the DataType for calculated channels.
@@ -144,6 +143,8 @@ func (s *Service) MapRename(ctx context.Context, names map[string]string, allowI
 	return s.NewWriter(nil).MapRename(ctx, names, allowInternal)
 }
 
+// CountExternalNonVirtual returns the number of external non-virtual channels in the
+// service.
 func (s *Service) CountExternalNonVirtual() uint32 {
-	return s.cfg.Distribution.CountExternalNonVirtual()
+	return s.cfg.Channel.CountExternalNonVirtual()
 }

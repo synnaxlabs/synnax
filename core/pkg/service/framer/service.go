@@ -32,24 +32,25 @@ import (
 )
 
 type (
-	Frame            = framer.Frame
-	Iterator         = iterator.Iterator
-	IteratorCommand  = iterator.Command
-	IteratorRequest  = iterator.Request
-	IteratorResponse = iterator.Response
-	StreamIterator   = iterator.StreamIterator
-	Writer           = framer.Writer
-	WriterCommand    = framer.WriterCommand
-	WriterConfig     = framer.WriterConfig
-	WriterMode       = framer.WriterMode
-	WriterRequest    = framer.WriterRequest
-	WriterResponse   = framer.WriterResponse
-	StreamWriter     = framer.StreamWriter
-	IteratorConfig   = iterator.Config
-	StreamerConfig   = streamer.Config
-	StreamerRequest  = streamer.Request
-	StreamerResponse = streamer.Response
-	Streamer         = streamer.Streamer
+	Frame                   = framer.Frame
+	Iterator                = iterator.Iterator
+	IteratorCommand         = framer.IteratorCommand
+	IteratorResponseVariant = framer.IteratorResponseVariant
+	IteratorRequest         = iterator.Request
+	IteratorResponse        = iterator.Response
+	StreamIterator          = iterator.StreamIterator
+	Writer                  = framer.Writer
+	WriterCommand           = framer.WriterCommand
+	WriterConfig            = framer.WriterConfig
+	WriterMode              = framer.WriterMode
+	WriterRequest           = framer.WriterRequest
+	WriterResponse          = framer.WriterResponse
+	StreamWriter            = framer.StreamWriter
+	IteratorConfig          = iterator.Config
+	StreamerConfig          = streamer.Config
+	StreamerRequest         = streamer.Request
+	StreamerResponse        = streamer.Response
+	Streamer                = streamer.Streamer
 )
 
 const (

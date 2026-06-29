@@ -95,9 +95,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 	}))
 	channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		DB:           node.DB,
-		Distribution: node.Channel,
-		Status:       statSvc,
+		Channel: node.Channel,
+		Status:  statSvc,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,

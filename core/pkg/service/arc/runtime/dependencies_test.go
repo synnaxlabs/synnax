@@ -46,9 +46,8 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Search:   node.Search,
 		}))
 		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-			DB:           node.DB,
-			Distribution: node.Channel,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			Status:  statusSvc,
 		}))
 	})
 

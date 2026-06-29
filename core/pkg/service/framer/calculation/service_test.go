@@ -112,9 +112,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			Search:   dist.Search,
 		}))
 		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-			DB:           dist.DB,
-			Distribution: dist.Channel,
-			Status:       statusSvc,
+			Channel: dist.Channel,
+			Status:  statusSvc,
 		}))
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			Framer:  dist.Framer,

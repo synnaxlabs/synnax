@@ -107,9 +107,11 @@ func (s *Service) Delete(
 }
 
 type (
-	IteratorRequest  = framer.IteratorRequest
-	IteratorResponse = framer.IteratorResponse
-	IteratorStream   = freighter.ServerStream[IteratorRequest, IteratorResponse]
+	IteratorCommand         = framer.IteratorCommand
+	IteratorResponseVariant = framer.IteratorResponseVariant
+	IteratorRequest         = framer.IteratorRequest
+	IteratorResponse        = framer.IteratorResponse
+	IteratorStream          = freighter.ServerStream[IteratorRequest, IteratorResponse]
 )
 
 const (

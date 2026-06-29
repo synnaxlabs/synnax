@@ -101,9 +101,8 @@ var (
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-			DB:           node.DB,
-			Distribution: node.Channel,
-			Status:       statSvc,
+			Channel: node.Channel,
+			Status:  statSvc,
 		}))
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 			Framer:  node.Framer,

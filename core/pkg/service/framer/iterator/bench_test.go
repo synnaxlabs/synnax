@@ -45,7 +45,10 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
 	}
-	channelSvc, err := channel.NewService(ctx, channel.ServiceConfig{DB: node.DB, Distribution: node.Channel, Status: statusSvc})
+	channelSvc, err := channel.NewService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		Status:  statusSvc,
+	})
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}

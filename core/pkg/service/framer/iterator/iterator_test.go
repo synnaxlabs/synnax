@@ -48,9 +48,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Search:   node.Search,
 		}))
 		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-			DB:           node.DB,
-			Distribution: node.Channel,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			Status:  statusSvc,
 		}))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			Framer:  node.Framer,

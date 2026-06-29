@@ -53,9 +53,8 @@ var _ = Describe("Streamer", Ordered, func() {
 			Search:   searchIdx,
 		}))
 		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-			DB:           node.DB,
-			Distribution: node.Channel,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			Status:  statusSvc,
 		}))
 		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			Framer:  node.Framer,

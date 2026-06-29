@@ -54,9 +54,8 @@ var _ = Describe("Alias", Ordered, func() {
 			Search:   node.Search,
 		}))
 		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-			DB:           node.DB,
-			Distribution: node.Channel,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			Status:  statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
