@@ -103,7 +103,7 @@ export interface SetLegendVisiblePayload extends KeyedPayload {
   visible: boolean;
 }
 
-export interface SetActiveToolbarTabPayload extends KeyedPayload {
+export interface SelectToolbarTabPayload extends KeyedPayload {
   tab: ToolbarTab;
 }
 
@@ -193,8 +193,8 @@ export const { actions, reducer } = createSlice({
         state.legend.visible = visible;
       },
     ),
-    setActiveToolbarTab: withSelectedState(
-      (state, { payload: { tab } }: PayloadAction<SetActiveToolbarTabPayload>) => {
+    selectToolbarTab: withSelectedState(
+      (state, { payload: { tab } }: PayloadAction<SelectToolbarTabPayload>) => {
         state.toolbar.selectedTab = tab;
       },
     ),
@@ -241,7 +241,7 @@ export const {
   setLegendColors,
   moveLegend,
   setLegendVisible,
-  setActiveToolbarTab,
+  selectToolbarTab,
   setSelectedSymbolGroup,
   setEditable,
   setFitViewOnResize,

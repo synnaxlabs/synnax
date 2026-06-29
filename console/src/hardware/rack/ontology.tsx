@@ -11,9 +11,9 @@ import { arc, rack } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Rack, Text, Tree } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
-import { Arc } from "@/arc";
 import { ContextMenu } from "@/components";
 import { Group } from "@/group";
+import { Arc } from "@/layered/service/arc";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -72,7 +72,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const create = Arc.Editor.useCreate();
+  const create = Arc.useCreate();
   const isSingle = ids.length === 1;
   const handleCreate = useCallback(() => create(), [create]);
   return (

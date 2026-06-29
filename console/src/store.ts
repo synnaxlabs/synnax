@@ -18,7 +18,6 @@ import {
 import { Drift } from "@synnaxlabs/drift";
 import { type deep, type record } from "@synnaxlabs/x";
 
-import { Arc } from "@/arc";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Session } from "@/layered/session";
@@ -31,6 +30,7 @@ import { Status } from "@/status";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
+  ...Session.Arc.PERSIST_EXCLUDE,
   ...Session.LinePlot.PERSIST_EXCLUDE,
   ...Session.Log.PERSIST_EXCLUDE,
   ...Session.Schematic.PERSIST_EXCLUDE,
@@ -38,7 +38,7 @@ const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootSta
 ];
 
 const ZERO_STATE: RootState = {
-  [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
+  [Session.Arc.SLICE_NAME]: Session.Arc.ZERO_SLICE_STATE,
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
@@ -55,7 +55,7 @@ const ZERO_STATE: RootState = {
 };
 
 const reducer = combineReducers({
-  [Arc.SLICE_NAME]: Arc.reducer,
+  [Session.Arc.SLICE_NAME]: Session.Arc.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
@@ -72,7 +72,7 @@ const reducer = combineReducers({
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
-  [Arc.SLICE_NAME]: Arc.SliceState;
+  [Session.Arc.SLICE_NAME]: Session.Arc.SliceState;
   [Cluster.SLICE_NAME]: Cluster.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
@@ -89,7 +89,7 @@ export interface RootState {
 }
 
 export type RootAction =
-  | Arc.Action
+  | Session.Arc.Action
   | Cluster.Action
   | Docs.Action
   | Drift.Action
@@ -113,7 +113,6 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
 
 export const migrateState = (prev: RootState): RootState => {
   console.group("Migrating State");
-  const arc = Arc.migrateSlice(prev.arc);
   const cluster = Cluster.migrateSlice(prev.cluster);
   const docs = Docs.migrateSlice(prev.docs);
   const layout = Layout.migrateSlice(prev.layout);
@@ -127,7 +126,6 @@ export const migrateState = (prev: RootState): RootState => {
   console.groupEnd();
   return {
     ...prev,
-    arc,
     cluster,
     docs,
     layout,
@@ -163,7 +161,6 @@ const BASE_MIDDLEWARE = [
   ...Layout.MIDDLEWARE,
   ...Session.Nav.MIDDLEWARE,
   ...Session.LinePlot.MIDDLEWARE,
-  ...Arc.MIDDLEWARE,
 ];
 
 const createStore = async (): Promise<RootStore> => {
