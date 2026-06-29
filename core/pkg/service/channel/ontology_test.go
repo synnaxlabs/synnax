@@ -17,8 +17,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/change"
@@ -61,30 +59,19 @@ var _ = Describe("Ontology Helpers", func() {
 })
 
 var _ = Describe("Ontology", Ordered, func() {
-	var (
-		mockCluster *mock.Cluster
-		services    map[node.Key]*channel.Service
-	)
-	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.NewCluster(ctx, 1)
-		services = make(map[node.Key]*channel.Service)
-		for k, n := range mockCluster.Nodes {
-			services[k] = openService(ctx, n)
-		}
-	})
 	Describe("OntologyID", func() {
 		It("Should correctly return the ontology.ID for the specified channel", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
-			Expect(services[1].Create(ctx, ch)).To(Succeed())
+			Expect(svc.Create(ctx, ch)).To(Succeed())
 			Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
 		})
 	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func(ctx SpecContext) {
-			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true})).To(Succeed())
-			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG02", DataType: telem.Int64T, Virtual: true})).To(Succeed())
-			Expect(services[1].Create(ctx, &channel.Channel{Name: "SG03", DataType: telem.Int64T, Virtual: true})).To(Succeed())
-			n, closer := MustSucceed2(services[1].OpenNexter(ctx))
+			Expect(svc.Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(svc.Create(ctx, &channel.Channel{Name: "SG02", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(svc.Create(ctx, &channel.Channel{Name: "SG03", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			n, closer := MustSucceed2(svc.OpenNexter(ctx))
 			defer func() {
 				GinkgoRecover()
 				Expect(closer.Close()).To(Succeed())
@@ -99,7 +86,7 @@ var _ = Describe("Ontology", Ordered, func() {
 		Context("Create", func() {
 			It("Should correctly propagate a create change", func(ctx SpecContext) {
 				changes := make(chan []ontology.Change, 5)
-				dc := services[1].OnChange(func(ctx context.Context, nexter iter.Seq[ontology.Change]) {
+				dc := svc.OnChange(func(ctx context.Context, nexter iter.Seq[ontology.Change]) {
 					changesSlice := make([]ontology.Change, 0)
 					for ch := range nexter {
 						changesSlice = append(changesSlice, ch)
@@ -108,7 +95,7 @@ var _ = Describe("Ontology", Ordered, func() {
 				})
 				defer dc()
 				ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
-				Expect(services[1].Create(ctx, ch)).To(Succeed())
+				Expect(svc.Create(ctx, ch)).To(Succeed())
 				Eventually(func(g Gomega) {
 					c := <-changes
 					g.Expect(c).To(HaveLen(1))
@@ -122,8 +109,8 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("RetrieveResource", func() {
 		It("Should correctly retrieve a resource", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
-			Expect(services[1].Create(ctx, ch)).To(Succeed())
-			r := MustSucceed(services[1].RetrieveResource(ctx, ch.Key().String(), nil))
+			Expect(svc.Create(ctx, ch)).To(Succeed())
+			r := MustSucceed(svc.RetrieveResource(ctx, ch.Key().String(), nil))
 			Expect(r.Name).To(Equal(ch.Name))
 		})
 	})

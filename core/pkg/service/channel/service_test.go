@@ -16,8 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -45,22 +43,14 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("Observe", Ordered, func() {
-		var services map[node.Key]*channel.Service
-		BeforeAll(func(ctx SpecContext) {
-			mockCluster := mock.NewCluster(ctx, 1)
-			services = make(map[node.Key]*channel.Service)
-			for k, n := range mockCluster.Nodes {
-				services[k] = openService(ctx, n)
-			}
-		})
+	Describe("Observe", func() {
 		It("Should return a non-nil observable", func(ctx SpecContext) {
 			obs := svc.Observe()
 			Expect(obs).ToNot(BeNil())
 		})
 		It("Should notify when a channel is created", func(ctx SpecContext) {
 			var called atomic.Bool
-			disconnect := services[1].Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
+			disconnect := svc.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
 				called.Store(true)
 			})
 			DeferCleanup(disconnect)
@@ -70,7 +60,7 @@ var _ = Describe("Service", func() {
 				IsIndex:     true,
 				Leaseholder: 1,
 			}
-			Expect(services[1].Create(ctx, &ch)).To(Succeed())
+			Expect(svc.Create(ctx, &ch)).To(Succeed())
 			Eventually(called.Load).Should(BeTrue())
 		})
 	})

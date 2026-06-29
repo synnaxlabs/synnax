@@ -46,7 +46,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			t := frameWriterRequestTranslator{codec: cdec}
 			req := framer.WriterRequest{
-				Command: writer.CommandWrite,
+				Command: framer.WriterCommandWrite,
 				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, req))
@@ -64,7 +64,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			t := frameWriterRequestTranslator{codec: cdec}
 			req := framer.WriterRequest{
-				Command: writer.CommandWrite,
+				Command: framer.WriterCommandWrite,
 				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](4, 5, 6)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, req))
@@ -76,7 +76,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
 			t := frameWriterRequestTranslator{}
 			req := framer.WriterRequest{
-				Command: writer.CommandWrite,
+				Command: framer.WriterCommandWrite,
 				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](7, 8, 9)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, req))
@@ -90,7 +90,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 
 			t := frameWriterRequestTranslator{codec: cdec}
-			req := framer.WriterRequest{Command: writer.CommandWrite}
+			req := framer.WriterRequest{Command: framer.WriterCommandWrite}
 			pb := MustSucceed(t.Forward(ctx, req))
 			Expect(pb.Buffer).To(BeEmpty())
 		})
@@ -98,12 +98,12 @@ var _ = Describe("gRPC Framer Translators", func() {
 		It("Should round-trip a writer response", func(ctx SpecContext) {
 			t := frameWriterResponseTranslator{}
 			res := framer.WriterResponse{
-				Command: writer.CommandWrite,
+				Command: framer.WriterCommandWrite,
 				End:     telem.TimeStamp(123),
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
 			out := MustSucceed(t.Backward(ctx, pb))
-			Expect(out.Command).To(Equal(writer.CommandWrite))
+			Expect(out.Command).To(Equal(framer.WriterCommandWrite))
 			Expect(out.End).To(Equal(telem.TimeStamp(123)))
 		})
 	})

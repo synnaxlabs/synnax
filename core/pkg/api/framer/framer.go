@@ -253,6 +253,13 @@ func (s *Service) openStreamer(
 type WriterCommand = framer.WriterCommand
 type WriterMode = framer.WriterMode
 
+const (
+	WriterCommandOpen         = framer.WriterCommandOpen
+	WriterCommandWrite        = framer.WriterCommandWrite
+	WriterCommandCommit       = framer.WriterCommandCommit
+	WriterCommandSetAuthority = framer.WriterCommandSetAuthority
+)
+
 type WriterConfig struct {
 	// ControlSubject is an identifier for the writer.
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`

@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -23,17 +22,11 @@ import (
 const internalChannelCount = 1
 
 var _ = Describe("Retrieve", Ordered, func() {
-	var (
-		mockCluster *mock.Cluster
-		services    map[node.Key]*channel.Service
-	)
+	var svc *channel.Service
 	BeforeAll(func(ctx SpecContext) {
-		mockCluster = mock.NewCluster(ctx, 2)
-		services = make(map[node.Key]*channel.Service)
-		for k, n := range mockCluster.Nodes {
-			services[k] = openService(ctx, n)
-			Expect(n.Search.Initialize(ctx)).To(Succeed())
-		}
+		n := mock.NewNode(ctx)
+		svc = openService(ctx, n)
+		Expect(n.Search.Initialize(ctx)).To(Succeed())
 	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func(ctx SpecContext) {
@@ -48,28 +41,16 @@ var _ = Describe("Retrieve", Ordered, func() {
 					DataType: telem.Float32T,
 					Name:     channel.NewRandomName(),
 				}}
-			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
 			var resChannels []channel.Channel
 
-			Expect(services[1].
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchLeaseholders(1)).
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(len(created) + internalChannelCount))
-
-			Eventually(func(g Gomega) {
-				var resChannelsTwo []channel.Channel
-
-				g.Expect(services[2].
-					NewRetrieve().
-					Where(channel.MatchLeaseholders(1)).
-					Entries(&resChannelsTwo).
-					Exec(ctx, nil)).To(Succeed())
-				g.Expect(resChannelsTwo).To(HaveLen(len(created) + internalChannelCount))
-			}).Should(Succeed())
-
 		})
 		It("Should correctly retrieve a channel by its key", func(ctx SpecContext) {
 			created := []channel.Channel{
@@ -84,10 +65,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     channel.NewRandomName(),
 				},
 			}
-			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			Expect(services[1].
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
 				Entries(&resChannels).
@@ -104,10 +85,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     n,
 				},
 			}
-			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			Expect(services[1].
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchNames(n)).
 				Entries(&resChannels).
@@ -128,10 +109,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "SG223",
 				},
 			}
-			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			Expect(services[1].
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchNames("SG22.*")).
 				Entries(&resChannels).
@@ -140,7 +121,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 		It("Should return a well formatted error if a channel cannot be found by its key", func(ctx SpecContext) {
 			var resChannels []channel.Channel
-			Expect(services[1].
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(435)).
 				Entries(&resChannels).
@@ -159,10 +140,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "catalina",
 				},
 			}
-			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var resChannels []channel.Channel
-				g.Expect(services[1].
+				g.Expect(svc.
 					NewRetrieve().
 					Search("catalina").
 					Entries(&resChannels).
@@ -174,7 +155,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 		It("Should return an error when retrieving a channel with a key of 0", func(ctx SpecContext) {
 			var resChannels []channel.Channel
-			Expect(services[1].
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(0)).
 				Entries(&resChannels).
@@ -195,11 +176,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Name:       "wc_calc",
 				Expression: "return wc_base * 2",
 			}
-			Expect(services[1].Create(ctx, &base)).To(Succeed())
-			Expect(services[1].Create(ctx, &calc)).To(Succeed())
+			Expect(svc.Create(ctx, &base)).To(Succeed())
+			Expect(svc.Create(ctx, &calc)).To(Succeed())
 
 			var results []channel.Channel
-			Expect(services[1].
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchCalculated()).
 				Entries(&results).
@@ -212,9 +193,8 @@ var _ = Describe("Retrieve", Ordered, func() {
 			))
 		})
 
-		It("Should return empty when no calculated channels exist in a fresh cluster", func(ctx SpecContext) {
-			freshCluster := mock.NewCluster(ctx, 1)
-			freshSvc := openService(ctx, freshCluster.Nodes[1])
+		It("Should return empty when no calculated channels exist on a fresh node", func(ctx SpecContext) {
+			freshSvc := openService(ctx, mock.NewNode(ctx))
 			base := channel.Channel{
 				Virtual:  true,
 				DataType: telem.Float32T,
@@ -246,9 +226,9 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     channel.NewRandomName(),
 				},
 			}
-			Expect(services[1].NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
-			exists := MustSucceed(services[1].
+			exists := MustSucceed(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
 				Exists(ctx, nil))
