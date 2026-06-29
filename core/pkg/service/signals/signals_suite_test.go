@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,14 +28,12 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	node       mock.Node
-	sigs       *signals.Provider
-	framerSvc  *framer.Service
 	channelSvc *channel.Service
+	framerSvc  *framer.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node = mock.NewNode(ctx)
+	node := mock.NewNode(ctx)
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: node.Ontology,
@@ -58,9 +55,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:  node.Framer,
 		Channel: channelSvc,
 		Status:  statusSvc,
-	}))
-	sigs = MustSucceed(signals.New(signals.Config{
-		Channel: channelSvc,
-		Framer:  framerSvc,
 	}))
 })

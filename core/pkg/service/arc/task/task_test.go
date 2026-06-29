@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
@@ -531,9 +532,9 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  []channel.Key{ch.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(w.Write(framer.NewUnary(ch.Key(), telem.NewSeriesV[float32](20)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](20)))).To(BeTrue())
 			time.Sleep(20 * time.Millisecond)
-			Expect(w.Write(framer.NewUnary(ch.Key(), telem.NewSeriesV[float32](25)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](25)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
 				var stat status.Status[svcarc.StatusDetails]
@@ -579,7 +580,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  []channel.Key{trig.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(w.Write(framer.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			byName := func(name string) status.Status[svcarc.StatusDetails] {
@@ -652,7 +653,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  []channel.Key{ch.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(fw.Write(framer.NewUnary(ch.Key(), telem.NewSeriesV[float32](1)))).To(BeTrue())
+			Expect(fw.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1)))).To(BeTrue())
 			Expect(fw.Close()).To(Succeed())
 
 			taskKey := task.OntologyID(svcTask.Key).String()
@@ -745,7 +746,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  channel.Keys{inputCh.Key()},
 			}))
 			defer func() { Expect(w.Close()).To(Succeed()) }()
-			Expect(w.Write(framer.NewUnary(inputCh.Key(), telem.NewSeriesV[float32](99.5)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[float32](99.5)))).To(BeTrue())
 
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
@@ -905,7 +906,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(w.Write(framer.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](7)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](7)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			var gotTrigger bool
@@ -997,7 +998,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w.Close()).To(Succeed()) }()
-			Expect(w.Write(framer.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 		})
 
 		It("Should block lower-authority competing writers", func(ctx SpecContext) {
@@ -1029,7 +1030,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w.Close()).To(Succeed()) }()
-			Expect(w.Write(framer.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 		})
 
 		It("Should default to absolute authority without authority block", func(ctx SpecContext) {
@@ -1060,7 +1061,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w.Close()).To(Succeed()) }()
-			Expect(w.Write(framer.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 		})
 
 		It("Should apply per-channel authority overrides", func(ctx SpecContext) {
@@ -1094,7 +1095,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(wA.Close()).To(Succeed()) }()
-			Expect(wA.Write(framer.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+			Expect(wA.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 
 			wB := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
@@ -1103,7 +1104,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(wB.Close()).To(Succeed()) }()
-			Expect(wB.Write(framer.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+			Expect(wB.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 		})
 
 		It("Should write data with non-default authority", func(ctx SpecContext) {
@@ -1168,7 +1169,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(trigW.Write(framer.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(trigW.Write(frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(trigW.Close()).To(Succeed())
 
 			// Receive data frames to ensure the runtime has processed the trigger
@@ -1182,7 +1183,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w.Close()).To(Succeed()) }()
-			Expect(w.Write(framer.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+			Expect(w.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 		})
 
 		It("Should dynamically de-escalate authority via set_authority", func(ctx SpecContext) {
@@ -1224,14 +1225,14 @@ var _ = Describe("Task", Ordered, func() {
 				Authorities: []control.Authority{control.Authority(100)},
 				Sync:        new(true),
 			}))
-			Expect(wBefore.Write(framer.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
+			Expect(wBefore.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 			Expect(wBefore.Close()).To(Succeed())
 
 			trigW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(trigW.Write(framer.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(trigW.Write(frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(trigW.Close()).To(Succeed())
 
 			// Receive data frames to ensure the runtime has processed the trigger
@@ -1245,7 +1246,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(wAfter.Close()).To(Succeed()) }()
-			Expect(wAfter.Write(framer.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+			Expect(wAfter.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 		})
 
 		It("Should continue writing data after dynamic authority change", func(ctx SpecContext) {
@@ -1285,7 +1286,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(trigW.Write(framer.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(trigW.Write(frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(trigW.Close()).To(Succeed())
 
 			Eventually(responses).Should(Receive(&fr))
@@ -1311,7 +1312,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  channel.Keys{startSignal.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(startW.Write(framer.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(startW.Write(frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(startW.Close()).To(Succeed())
 
 			var fr framer.StreamerResponse
@@ -1321,7 +1322,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  channel.Keys{startSignal.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(clearW.Write(framer.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](0)))).To(BeTrue())
+			Expect(clearW.Write(frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](0)))).To(BeTrue())
 			Expect(clearW.Close()).To(Succeed())
 			time.Sleep(100 * time.Millisecond)
 
@@ -1329,7 +1330,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  channel.Keys{stopSignal.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(stopW.Write(framer.NewUnary(stopSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(stopW.Write(frame.NewUnary(stopSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(stopW.Close()).To(Succeed())
 
 			time.Sleep(300 * time.Millisecond)
@@ -1341,7 +1342,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w1.Close()).To(Succeed()) }()
-			Expect(w1.Write(framer.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 
 			w2 := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
@@ -1350,7 +1351,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w2.Close()).To(Succeed()) }()
-			Expect(w2.Write(framer.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 		})
 
 		It("Should release authority on both channels when entering yield, ignoring stale virtual start signal", func(ctx SpecContext) {
@@ -1371,7 +1372,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  channel.Keys{startSignal.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(startW.Write(framer.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(startW.Write(frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(startW.Close()).To(Succeed())
 
 			var fr framer.StreamerResponse
@@ -1381,7 +1382,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  channel.Keys{stopSignal.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(stopW.Write(framer.NewUnary(stopSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(stopW.Write(frame.NewUnary(stopSignal.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(stopW.Close()).To(Succeed())
 
 			time.Sleep(300 * time.Millisecond)
@@ -1393,7 +1394,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w1.Close()).To(Succeed()) }()
-			Expect(w1.Write(framer.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 
 			w2 := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
@@ -1402,7 +1403,7 @@ var _ = Describe("Task", Ordered, func() {
 				Sync:        new(true),
 			}))
 			defer func() { Expect(w2.Close()).To(Succeed()) }()
-			Expect(w2.Write(framer.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
+			Expect(w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 		})
 	})
 
@@ -1438,7 +1439,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  []channel.Key{inputCh.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(w.Write(framer.NewUnary(inputCh.Key(), telem.NewSeriesV[int32](0)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[int32](0)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -1496,7 +1497,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  []channel.Key{maxCh.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(wMax.Write(framer.NewUnary(maxCh.Key(), telem.NewSeriesV[float32](5.0)))).To(BeTrue())
+			Expect(wMax.Write(frame.NewUnary(maxCh.Key(), telem.NewSeriesV[float32](5.0)))).To(BeTrue())
 			Expect(wMax.Close()).To(Succeed())
 
 			time.Sleep(20 * time.Millisecond)
@@ -1506,9 +1507,9 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  []channel.Key{inputCh.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(wInput.Write(framer.NewUnary(inputCh.Key(), telem.NewSeriesV[uint8](0)))).To(BeTrue())
+			Expect(wInput.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[uint8](0)))).To(BeTrue())
 			time.Sleep(20 * time.Millisecond)
-			Expect(wInput.Write(framer.NewUnary(inputCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(wInput.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(wInput.Close()).To(Succeed())
 
 			// The counter should have picked up the max value (5.0) and then
@@ -1561,7 +1562,7 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  []channel.Key{inputCh.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(w.Write(framer.NewUnary(inputCh.Key(), telem.NewSeriesV[int32](0)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[int32](0)))).To(BeTrue())
 
 			Eventually(func(g Gomega) {
 				var stat task.Status
@@ -1572,7 +1573,7 @@ var _ = Describe("Task", Ordered, func() {
 				g.Expect(stat.Description).To(ContainSubstring("integer divide by zero"))
 			}).Should(Succeed())
 
-			Expect(w.Write(framer.NewUnary(inputCh.Key(), telem.NewSeriesV[int32](2)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[int32](2)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			var foundValid bool

@@ -27,12 +27,10 @@ import (
 )
 
 var _ = Describe("Calculator", Ordered, func() {
-	var (
-		node       mock.Node
-		channelSvc *channel.Service
-	)
+	var channelSvc *channel.Service
+
 	BeforeAll(func(ctx SpecContext) {
-		node = mock.NewNode(ctx)
+		node := mock.NewNode(ctx)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: node.Ontology,

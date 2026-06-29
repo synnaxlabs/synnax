@@ -34,13 +34,12 @@ var _ = Describe("Alias", Ordered, func() {
 		node       mock.Node
 		rangerSvc  *ranger.Service
 		aliasSvc   *alias.Service
-		labelSvc   *label.Service
 		channelSvc *channel.Service
 		tx         gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
 		node = mock.NewNode(ctx)
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: node.Ontology,
 			Group:    node.Group,
@@ -74,10 +73,7 @@ var _ = Describe("Alias", Ordered, func() {
 		Expect(node.Search.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func() {
-		tx = node.DB.OpenTx()
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
+		tx = DeferClose(node.DB.OpenTx())
 	})
 
 	channelCount := 0

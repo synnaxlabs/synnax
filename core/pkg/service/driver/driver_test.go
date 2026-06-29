@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -66,7 +67,7 @@ var _ = Describe("Driver", func() {
 			Start: telem.Now(),
 		}))
 		defer func() { Expect(w.Close()).To(Succeed()) }()
-		Expect(w.Write(framer.NewUnary(
+		Expect(w.Write(frame.NewUnary(
 			taskService.CommandChannelKey(),
 			MustSucceed(telem.NewJSONSeriesV(cmd)),
 		))).To(BeTrue())
@@ -787,7 +788,7 @@ var _ = Describe("Driver", func() {
 				Keys:  channel.Keys{taskService.CommandChannelKey()},
 				Start: telem.Now(),
 			}))
-			Expect(w.Write(framer.NewUnary(
+			Expect(w.Write(frame.NewUnary(
 				taskService.CommandChannelKey(),
 				MustSucceed(telem.NewJSONSeriesV(
 					map[string]any{"task": "not-a-number", "type": "start"},

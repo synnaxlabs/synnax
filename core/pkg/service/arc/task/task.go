@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/wasm"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
@@ -412,7 +413,7 @@ func (d *dataRuntime) next(
 	d.state.strings.Clear()
 	if fr, changed := d.state.channel.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
 		req := framer.WriterRequest{
-			Frame:   framer.NewFromStorage(fr),
+			Frame:   frame.NewFromStorage(fr),
 			Command: framer.WriterCommandWrite,
 		}
 		return signal.SendUnderContext(ctx, d.Out.Inlet(), req)

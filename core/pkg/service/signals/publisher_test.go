@@ -43,6 +43,10 @@ var _ = Describe("Publisher", Serial, func() {
 		closeStreamer io.Closer
 	)
 	BeforeEach(func(ctx SpecContext) {
+		sigs := MustSucceed(signals.New(signals.Config{
+			Channel: channelSvc,
+			Framer:  framerSvc,
+		}))
 		obs = observe.New[[]change.Change[[]byte, struct{}]]()
 		cfg = signals.ObservablePublisherConfig{
 			SetChannel:    channel.Channel{Name: publisherSetChannelName, DataType: telem.UUIDT},
