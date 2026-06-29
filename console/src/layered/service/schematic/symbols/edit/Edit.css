@@ -9,6 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Fixed dimensions matching the original symbol-create window (1200x800). The 2-class
+ * selector overrides pluto's global modal min-width floor, which is wider than 1200px. */
+.console-modal.console-schematic__symbol-create-layout {
+    min-width: 0;
+    width: 1200px;
+    height: 800px;
+}
+
 .console-schematic__symbol-create-layout {
     overflow: hidden;
     .console-schematic__create-symbol-content {
