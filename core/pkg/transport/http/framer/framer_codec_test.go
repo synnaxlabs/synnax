@@ -89,7 +89,7 @@ var _ = Describe("FramerCodec", func() {
 			}
 			Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(channelSvc)
+			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{
 				Codec:          cdec,
 				LowerPerfCodec: json.Codec,
@@ -162,7 +162,7 @@ var _ = Describe("FramerCodec", func() {
 			}
 			Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(channelSvc)
+			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{
 				Codec:          cdec,
 				LowerPerfCodec: json.Codec,
@@ -177,7 +177,7 @@ var _ = Describe("FramerCodec", func() {
 		})
 
 		It("Should not call Update when the request has no keys", func(ctx SpecContext) {
-			cdec := codec.NewDynamic(channelSvc)
+			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 			msg := http.WSMessage[framer.StreamerRequest]{
 				Type:    "data",
@@ -199,7 +199,7 @@ var _ = Describe("FramerCodec", func() {
 			}
 			Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(channelSvc)
+			cdec := codec.NewDynamic(apiChannelSvc)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 
@@ -321,7 +321,7 @@ var _ = Describe("FramerCodec", func() {
 			}
 			Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(channelSvc)
+			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{
 				Codec:          cdec,
 				LowerPerfCodec: json.Codec,
@@ -504,7 +504,7 @@ var _ = Describe("FramerCodec", func() {
 			}}
 			Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(channelSvc)
+			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 
 			openReq := http.WSMessage[framer.IteratorRequest]{

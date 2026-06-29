@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -213,48 +212,6 @@ func (s *Service) NewRetrieve() Retrieve {
 	r := s.newRetrieve()
 	r.gorp = r.gorp.Validate(s.validateChannels)
 	return r
-}
-
-// RetrieveDataTypes resolves the data types of the channels with the given keys,
-// returning them in the same order as keys. Keys that do not correspond to an existing
-// channel are omitted, so the returned slice is shorter than keys when any key is
-// unknown. Its signature satisfies codec.Resolver, allowing a dynamic framer codec to
-// resolve channel data types directly through the service layer.
-func (s *Service) RetrieveDataTypes(
-	ctx context.Context,
-	keys Keys,
-) ([]telem.DataType, error) {
-	var channels []Channel
-	if err := s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	dataTypeByKey := make(map[Key]telem.DataType, len(channels))
-	for _, ch := range channels {
-		dataTypeByKey[ch.Key()] = ch.DataType
-	}
-	dataTypes := make([]telem.DataType, 0, len(keys))
-	for _, key := range keys {
-		if dt, ok := dataTypeByKey[key]; ok {
-			dataTypes = append(dataTypes, dt)
-		}
-	}
-	return dataTypes, nil
-}
-
-// RetrieveName resolves the name of the channel with the given key, returning an empty
-// string if no channel with the key exists. Its signature satisfies codec.Resolver.
-func (s *Service) RetrieveName(ctx context.Context, key Key) string {
-	var ch Channel
-	if err := s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&ch).
-		Exec(ctx, nil); err != nil {
-		return ""
-	}
-	return ch.Name
 }
 
 // Close releases the resources held by the Service.

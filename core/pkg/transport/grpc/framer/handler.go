@@ -15,7 +15,6 @@ import (
 
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -337,7 +336,7 @@ func (t frameStreamerResponseTranslator) Backward(
 		}
 		return framer.StreamerResponse{Frame: fr}, nil
 	}
-	tr, err := telempb.FrameFromPB[apichannel.Key](msg.Frame)
+	tr, err := telempb.FrameFromPB[channel.Key](msg.Frame)
 	if err != nil {
 		return framer.StreamerResponse{}, err
 	}
@@ -400,7 +399,7 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func New(t *api.Transport, channelSvc *apichannel.Service) fgrpc.BindableTransport {
+func New(t *api.Transport, codecResolver codec.Resolver) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
@@ -408,7 +407,7 @@ func New(t *api.Transport, channelSvc *apichannel.Service) fgrpc.BindableTranspo
 					fgrpc.Translator[framer.WriterRequest, *WriterRequest],
 					fgrpc.Translator[framer.WriterResponse, *WriterResponse],
 				) {
-					codec := codec.NewDynamic(channelSvc)
+					codec := codec.NewDynamic(codecResolver)
 					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
 				},
 				ServiceDesc: &FrameWriterService_ServiceDesc,
@@ -420,7 +419,7 @@ func New(t *api.Transport, channelSvc *apichannel.Service) fgrpc.BindableTranspo
 					fgrpc.Translator[framer.IteratorRequest, *IteratorRequest],
 					fgrpc.Translator[framer.IteratorResponse, *IteratorResponse],
 				) {
-					codec := codec.NewDynamic(channelSvc)
+					codec := codec.NewDynamic(codecResolver)
 					return frameIteratorRequestTranslator{codec: codec},
 						frameIteratorResponseTranslator{codec: codec}
 				},
@@ -433,7 +432,7 @@ func New(t *api.Transport, channelSvc *apichannel.Service) fgrpc.BindableTranspo
 					fgrpc.Translator[framer.StreamerRequest, *StreamerRequest],
 					fgrpc.Translator[framer.StreamerResponse, *StreamerResponse],
 				) {
-					codec := codec.NewDynamic(channelSvc)
+					codec := codec.NewDynamic(codecResolver)
 					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
 				},
 				ServiceDesc: &FrameStreamerService_ServiceDesc,

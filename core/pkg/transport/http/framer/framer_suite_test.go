@@ -14,14 +14,21 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var channelSvc *channel.Service
+var (
+	channelSvc    *channel.Service
+	apiChannelSvc *apichannel.Service
+)
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -51,6 +58,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:        node.Group,
 		Search:       node.Search,
 		Status:       statusSvc,
+	}))
+	apiChannelSvc = MustSucceed(apichannel.NewService(apicfg.LayerConfig{
+		Distribution: &distribution.Layer{DB: node.DB},
+		Service:      &svc.Layer{Channel: channelSvc},
 	}))
 })
 
