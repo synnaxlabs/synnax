@@ -199,7 +199,9 @@ func (s *Service) DeleteTimeRange(
 // ConfigureControlUpdateChannel registers the channel used to propagate control
 // transfers between opened writers.
 func (s *Service) ConfigureControlUpdateChannel(
-	ctx context.Context, ch channel.Key, name string,
+	ctx context.Context,
+	ch channel.Key,
+	name string,
 ) error {
 	s.controlStateKey = ch
 	return s.cfg.TS.ConfigureControlUpdateChannel(ctx, ch.StorageKey(), name)

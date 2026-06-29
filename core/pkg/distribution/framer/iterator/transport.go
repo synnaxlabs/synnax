@@ -66,7 +66,7 @@ type Request struct {
 	// SeqNum is the sequence number of the request (starting at 0). This is used to
 	// match responses to requests. Each request should increment the sequence number by
 	// 1.
-	SeqNum int
+	SeqNum int `json:"-" msgpack:"-"`
 	// Command is the command to execute on the Iterator.
 	Command Command `json:"command" msgpack:"command"`
 }

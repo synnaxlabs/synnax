@@ -20,7 +20,7 @@ import (
 // channels. Sending a new Request replaces the previous set of channels.
 type Request struct {
 	// Keys are the channels to stream live samples from.
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys
 }
 
 // Response carries a batch of live samples delivered to a relay subscriber.

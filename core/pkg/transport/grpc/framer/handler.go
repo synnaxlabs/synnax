@@ -339,7 +339,7 @@ func (t frameStreamerResponseTranslator) Backward(
 		}
 		return framer.StreamerResponse{Frame: fr}, nil
 	}
-	tr, err := telempb.FrameFromPB[channel.Key](msg.Frame)
+	tr, err := telempb.FrameFromPB[apichannel.Key](msg.Frame)
 	if err != nil {
 		return framer.StreamerResponse{}, err
 	}

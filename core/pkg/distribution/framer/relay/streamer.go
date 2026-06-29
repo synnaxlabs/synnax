@@ -39,20 +39,26 @@ type StreamerConfig struct {
 	// SendOpenAck sets whether to send an acknowledgement when the streamer has
 	// successfully connected to the relay and is ready to start streaming data.
 	// [OPTIONAL] - defaults to false
-	SendOpenAck *bool `json:"send_open_ack" msgpack:"send_open_ack"`
+	SendOpenAck *bool
 	// Keys are the list of channels to read from. This slice may be empty, in
 	// which case no data will be streamed until a new configuration is provided
 	// as a request to the streamer.
 	// [OPTIONAL]
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys
 	// ExcludeGroups is a list of writer group IDs whose frames should be filtered
 	// out before delivery. This is used by the telemetry bypass to prevent
 	// duplicate delivery of frames that were already routed via the local bus.
 	// [OPTIONAL]
-	ExcludeGroups []uint32 `json:"exclude_groups" msgpack:"exclude_groups"`
+	ExcludeGroups []uint32
 }
 
-var _ config.Config[StreamerConfig] = StreamerConfig{}
+var (
+	_ config.Config[StreamerConfig] = StreamerConfig{}
+	// DefaultStreamerConfig is the default configuration for opening a new streamer.
+	// This configuration is valid and will create a streamer that does
+	// not stream from any channels.
+	DefaultStreamerConfig = StreamerConfig{SendOpenAck: new(false)}
+)
 
 // Override implements config.Config.
 func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
@@ -73,7 +79,7 @@ func (c StreamerConfig) Validate() error {
 // relay. Each subsequent StreamerConfig overrides the parameters specified in the
 // previous config. See the StreamerConfig struct for information on required fields.
 func (r *Relay) NewStreamer(_ context.Context, cfgs ...StreamerConfig) (Streamer, error) {
-	cfg, err := config.New(StreamerConfig{SendOpenAck: new(false)}, cfgs...)
+	cfg, err := config.New(DefaultStreamerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

@@ -20,6 +20,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/bit"
@@ -86,9 +87,9 @@ func (s *sorter) Swap(i, j int) {
 }
 
 // Codec is a high-performance encoder/decoder specifically designed for moving
-// telemetry frames over the network. Codec is stateful, meaning that both the
-// encoding and decoding sides must agree on the set of channels and their order
-// before any encoding or decoding can occur.
+// telemetry frames over the network. Codec is stateful, meaning that both the encoding
+// and decoding sides must agree on the set of channels and their order before any
+// encoding or decoding can occur.
 type Codec struct {
 	// buf is reused for each encode operation.
 	buf *binary.Writer
@@ -105,16 +106,16 @@ type Codec struct {
 	opts *options
 	// mu is non-routine safe structures that must be used carefully.
 	mu struct {
-		// states is the current backlog of encoding states. We keep multiple states
-		// to allow for temporary de-sync between the encoding and decoding sides. For
+		// states is the current backlog of encoding states. We keep multiple states to
+		// allow for temporary de-sync between the encoding and decoding sides. For
 		// example, when updating the keys of a streamer, the receiving codec may get
 		// the updated set of channel in its state before the sending codec may get
-		// updated, which means that the receiving codec needs to decode according
-		// to the previous state. seqNum and the states backlog are used to keep the
-		// two in sync.
+		// updated, which means that the receiving codec needs to decode according to
+		// the previous state. seqNum and the states backlog are used to keep the two in
+		// sync.
 		states map[uint32]state
-		// updates is a channel that the routine in Update pushes a new state down
-		// for processing within Encode/Decode.
+		// updates is a channel that the routine in Update pushes a new state down for
+		// processing within Encode/Decode.
 		updates chan state
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
@@ -131,18 +132,18 @@ type Codec struct {
 }
 
 type options struct {
-	// enableAlignmentCompression controls whether to merge contiguous series with
-	// the same channel key during encoding. When enabled, reduces bandwidth at the
-	// cost of some CPU overhead during encoding.
+	// enableAlignmentCompression controls whether to merge contiguous series with the
+	// same channel key during encoding. When enabled, reduces bandwidth at the cost of
+	// some CPU overhead during encoding.
 	enableAlignmentCompression bool
 }
 
 type Option = func(*options)
 
 // DisableAlignmentCompression disables merging of contiguous series with the same
-// channel key during encoding. This can significantly increase bandwidth usage
-// (30-70%) for frames with many small contiguous series at the cost of 5-15%
-// additional CPU overhead during encoding. Defaults to true.
+// channel key during encoding. This can significantly increase bandwidth usage (30-70%)
+// for frames with many small contiguous series at the cost of 5-15% additional CPU
+// overhead during encoding. Defaults to true.
 func DisableAlignmentCompression() Option {
 	return func(o *options) { o.enableAlignmentCompression = false }
 }
@@ -333,7 +334,7 @@ func newFlags() flags {
 
 // Encode encodes the given frame into bytes. The returned byte slice is a copy
 // and safe to retain after subsequent Encode calls.
-func (c *Codec) Encode(ctx context.Context, src frame.Frame) ([]byte, error) {
+func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 	err := c.encodeInternal(ctx, src)
 	if err != nil {
 		return nil, err
@@ -371,7 +372,7 @@ type mergedSeriesInfo struct {
 func (c *Codec) mergeContiguousSeries(
 	sortedKeys []channel.Key,
 	sortedIndices []int,
-	src frame.Frame,
+	src framer.Frame,
 	count int,
 ) []mergedSeriesInfo {
 	// Reuse the result slice, growing capacity only if needed
@@ -494,7 +495,7 @@ const (
 
 // EncodeStream encodes the given frame into the provided io writer, returning any
 // encoding errors encountered.
-func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src frame.Frame) error {
+func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame) error {
 	if err := c.encodeInternal(ctx, src); err != nil {
 		return err
 	}
@@ -513,7 +514,7 @@ func (c *Codec) retrieveName(ctx context.Context, key channel.Key) string {
 
 // encodeInternal encodes the frame into c.buf. After calling this method,
 // c.buf.Bytes() contains the encoded data.
-func (c *Codec) encodeInternal(ctx context.Context, src frame.Frame) error {
+func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
@@ -694,12 +695,12 @@ func (c *Codec) encodeInternal(ctx context.Context, src frame.Frame) error {
 }
 
 // Decode decodes a frame from the given src bytes.
-func (c *Codec) Decode(src []byte) (dst frame.Frame, err error) {
+func (c *Codec) Decode(src []byte) (dst framer.Frame, err error) {
 	return c.DecodeStream(bytes.NewReader(src))
 }
 
 // DecodeStream decodes a frame from the given io reader.
-func (c *Codec) DecodeStream(reader io.Reader) (frame.Frame, error) {
+func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	c.processUpdates()
 	c.panicIfNotUpdated("Decode")
 	c.reader.Reset(reader)
@@ -708,39 +709,39 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame.Frame, error) {
 		dataLen      uint32
 		refTr        telem.TimeRange
 		refAlignment telem.Alignment
-		fr           frame.Frame
+		fr           framer.Frame
 		err          error
 	)
 
 	flagB, err := c.reader.Uint8()
 	if err != nil {
-		return frame.Frame{}, err
+		return framer.Frame{}, err
 	}
 	seqNum, err := c.reader.Uint32()
 	if err != nil {
-		return frame.Frame{}, err
+		return framer.Frame{}, err
 	}
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
 		states := lo.Keys(c.mu.states)
 		err = errors.Wrapf(validate.ErrValidation, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
-		return frame.Frame{}, err
+		return framer.Frame{}, err
 	}
 	fgs := decodeFlags(flagB)
 	if fgs.equalLens {
 		if dataLen, err = c.reader.Uint32(); err != nil {
-			return frame.Frame{}, err
+			return framer.Frame{}, err
 		}
 	}
 	if fgs.equalTimeRanges && !fgs.timeRangesZero {
 		if refTr, err = c.readTimeRange(); err != nil {
-			return frame.Frame{}, err
+			return framer.Frame{}, err
 		}
 	}
 	if fgs.equalAlignments && !fgs.zeroAlignments {
 		v, readErr := c.reader.Uint64()
 		if readErr != nil {
-			return frame.Frame{}, readErr
+			return framer.Frame{}, readErr
 		}
 		refAlignment = telem.Alignment(v)
 	}
@@ -786,7 +787,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame.Frame, error) {
 		fr = frame.Alloc(len(cState.keys))
 		for _, k := range cState.keys {
 			if err = decodeSeries(k); err != nil {
-				return frame.Frame{}, err
+				return framer.Frame{}, err
 			}
 		}
 		return fr, nil
@@ -798,10 +799,10 @@ func (c *Codec) DecodeStream(reader io.Reader) (frame.Frame, error) {
 			if errors.Is(readErr, io.EOF) {
 				return fr, nil
 			}
-			return frame.Frame{}, readErr
+			return framer.Frame{}, readErr
 		}
 		if err = decodeSeries(channel.Key(k)); err != nil {
-			return frame.Frame{}, err
+			return framer.Frame{}, err
 		}
 	}
 }

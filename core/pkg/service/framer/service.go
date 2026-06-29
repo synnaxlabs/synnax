@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package framer provides the service-level types for writing, reading, and streaming
+// telemetry data through Synnax. This extends the distribution-layer framer service
+// with calculated channel functionality, throttling, and other features.
 package framer
 
 import (

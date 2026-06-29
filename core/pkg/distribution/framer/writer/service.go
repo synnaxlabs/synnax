@@ -110,7 +110,7 @@ type Config struct {
 	// WriterModePersistStream.
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
-	Mode ts.WriterMode
+	Mode Mode
 	// AutoIndex causes each leaseholder to generate timestamps for any index channel
 	// local to it (and in the writer's Keys) whose series is omitted from a Write
 	// frame. The first sample in each Write call is stamped with telem.Now() on the

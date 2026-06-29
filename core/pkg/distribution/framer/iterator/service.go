@@ -59,7 +59,11 @@ func (cfg Config) Validate() error {
 	}
 	for _, k := range cfg.Keys {
 		if k.Free() {
-			return errors.Wrapf(validate.ErrValidation, "cannot read from free channel %v", k)
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"cannot read from free channel %v",
+				k,
+			)
 		}
 	}
 	return v.Error()
