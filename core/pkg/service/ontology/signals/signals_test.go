@@ -119,7 +119,7 @@ var _ = Describe("Signals", func() {
 	Describe("Resource Changes", func() {
 		It("Should correctly propagate resource changes to the ontology", func(ctx SpecContext) {
 			var resCh channel.Channel
-			Expect(node.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.Keys{resCh.Key()},
 			}))
@@ -158,7 +158,7 @@ var _ = Describe("Signals", func() {
 		})
 		It("Should correctly propagate resource deletes to the ontology", func(ctx SpecContext) {
 			var resCh channel.Channel
-			Expect(node.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.Keys{resCh.Key()},
 			}))
@@ -191,7 +191,7 @@ var _ = Describe("Signals", func() {
 	})
 	It("Should correctly propagate relationship set to the ontology", func(ctx SpecContext) {
 		var resCh channel.Channel
-		Expect(node.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{resCh.Key()},
 		}))
@@ -226,7 +226,7 @@ var _ = Describe("Signals", func() {
 	It("Should correctly propagate a relationship delete to the ontology", func(ctx SpecContext) {
 		var resCh channel.Channel
 		By("Correctly creating the deletion channel.")
-		Expect(node.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		By("Opening a streamer on the deletion channel")
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{resCh.Key()},

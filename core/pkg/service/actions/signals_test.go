@@ -56,7 +56,7 @@ var _ = Describe("PublishSignals", func() {
 			Name:     serviceName,
 		}))
 		DeferCleanup(func() { Expect(closer.Close()).To(Succeed()) })
-		Expect(node.Channel.NewRetrieve().
+		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(fmt.Sprintf("sy_%s_set", serviceName))).
 			Entry(&setChannel).
 			Exec(ctx, nil),

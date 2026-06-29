@@ -50,12 +50,12 @@ var _ = Describe("Publisher", Serial, func() {
 			Observable:    obs,
 		}
 		closer = MustSucceed(sigs.PublishFromObservable(ctx, cfg))
-		Expect(node.Channel.NewRetrieve().
+		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
-		Expect(node.Channel.NewRetrieve().
+		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(publisherDeleteChannelName)).
 			Entry(&cfg.DeleteChannel).
 			Exec(ctx, nil),

@@ -33,7 +33,7 @@ func openStreamer(ctx context.Context, name string) (
 	confluence.Outlet[framer.StreamerResponse], io.Closer,
 ) {
 	var sigCh channel.Channel
-	Expect(node.Channel.NewRetrieve().
+	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchNames(name)).
 		Entry(&sigCh).
 		Exec(ctx, nil),

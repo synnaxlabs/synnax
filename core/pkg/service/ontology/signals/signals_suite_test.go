@@ -33,9 +33,10 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	node      mock.Node
-	svc       *changeService
-	framerSvc *framer.Service
+	node       mock.Node
+	svc        *changeService
+	framerSvc  *framer.Service
+	channelSvc *channel.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -55,7 +56,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   node.Search,
 	}))
-	channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
 		DB:           node.DB,
 		Distribution: node.Channel,
 		Status:       statusSvc,

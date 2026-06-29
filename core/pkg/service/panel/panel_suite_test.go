@@ -33,13 +33,14 @@ func TestPanel(t *testing.T) {
 }
 
 var (
-	node      mock.Node
-	db        *gorp.DB
-	otg       *ontology.Ontology
-	svc       *panel.Service
-	framerSvc *framer.Service
-	parentID  ontology.ID
-	tx        gorp.Tx
+	node       mock.Node
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	svc        *panel.Service
+	framerSvc  *framer.Service
+	channelSvc *channel.Service
+	parentID   ontology.ID
+	tx         gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -59,7 +60,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   node.Search,
 	}))
-	channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
 		DB:           node.DB,
 		Distribution: node.Channel,
 		Status:       statusSvc,

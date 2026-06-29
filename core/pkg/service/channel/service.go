@@ -30,6 +30,7 @@ type (
 	Operation     = channel.Operation
 	OperationType = channel.OperationType
 	CreateOption  = channel.CreateOption
+	Retrieve      = channel.Retrieve
 )
 
 const (
@@ -122,6 +123,11 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
 	w.analyzer = NewAnalyzer(s.NewArcSymbolResolver(tx))
 	return w
+}
+
+// NewRetrieve opens a query to retrieve channels from the cluster.
+func (s *Service) NewRetrieve() Retrieve {
+	return s.cfg.Distribution.NewRetrieve()
 }
 
 // Create creates a single channel, inferring the DataType for calculated channels.

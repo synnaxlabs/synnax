@@ -105,7 +105,7 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {
 	var ch channel.Channel
-	Expect(node.Channel.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&ch).Exec(ctx, nil)).To(Succeed())
+	Expect(channelSvc.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&ch).Exec(ctx, nil)).To(Succeed())
 	return ch.DataType
 }
 

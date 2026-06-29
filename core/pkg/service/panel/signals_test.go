@@ -34,7 +34,7 @@ const (
 var _ = Describe("Signals", func() {
 	openStreamer := func(ctx context.Context, name string) confluence.Outlet[framer.StreamerResponse] {
 		var ch channel.Channel
-		Expect(node.Channel.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
+		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 			Exec(ctx, nil)).To(Succeed())
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{ch.Key()},
@@ -55,7 +55,7 @@ var _ = Describe("Signals", func() {
 	It("Should create the set and delete signal channels", func(ctx SpecContext) {
 		for _, name := range []string{setChannelName, deleteChannelName} {
 			var ch channel.Channel
-			Expect(node.Channel.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
+			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())
