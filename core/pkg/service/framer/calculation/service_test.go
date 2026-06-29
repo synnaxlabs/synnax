@@ -35,9 +35,10 @@ import (
 
 var _ = Describe("Calculation", Ordered, func() {
 	var (
-		c         *calculation.Service
-		dist      mock.Node
-		statusSvc *status.Service
+		c          *calculation.Service
+		dist       mock.Node
+		statusSvc  *status.Service
+		channelSvc *channel.Service
 	)
 	open := func(
 		ctx context.Context,
@@ -47,7 +48,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		streamKeys func([]channel.Channel) channel.Keys,
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
 		if indexChannels != nil {
-			Expect(dist.Channel.CreateMany(ctx, indexChannels)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, indexChannels)).To(Succeed())
 		}
 		for i, channel := range *baseChannels {
 			if channel.Virtual {
@@ -60,8 +61,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			channel.LocalIndex = (*indexChannels)[toGet].LocalKey
 			(*baseChannels)[i] = channel
 		}
-		Expect(dist.Channel.CreateMany(ctx, baseChannels)).To(Succeed())
-		Expect(dist.Channel.CreateMany(ctx, calculations)).To(Succeed())
+		Expect(channelSvc.CreateMany(ctx, baseChannels)).To(Succeed())
+		Expect(channelSvc.CreateMany(ctx, calculations)).To(Succeed())
 		rm := c.OpenRequestManager()
 		Expect(rm.Set(ctx, channel.KeysFromChannels(*calculations))).To(Succeed())
 		writerKeys := channel.KeysFromChannels(*baseChannels)
@@ -110,7 +111,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Label:    labelSvc,
 			Search:   dist.Search,
 		}))
-		channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
 			DB:           dist.DB,
 			Distribution: dist.Channel,
 			Status:       statusSvc,
@@ -501,8 +502,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
-			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(channelSvc.CreateMany(ctx, &calcs)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			calcs[0].Expression = "invalid expression without return"
@@ -567,7 +568,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", bases[0].Name)
-			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(channelSvc.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
@@ -608,7 +609,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
-			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(channelSvc.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2))))

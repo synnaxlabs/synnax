@@ -31,11 +31,12 @@ import (
 
 var _ = Describe("Alias", Ordered, func() {
 	var (
-		node      mock.Node
-		rangerSvc *ranger.Service
-		aliasSvc  *alias.Service
-		labelSvc  *label.Service
-		tx        gorp.Tx
+		node       mock.Node
+		rangerSvc  *ranger.Service
+		aliasSvc   *alias.Service
+		labelSvc   *label.Service
+		channelSvc *channel.Service
+		tx         gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
 		node = mock.NewNode(ctx)
@@ -52,7 +53,7 @@ var _ = Describe("Alias", Ordered, func() {
 			Label:    labelSvc,
 			Search:   node.Search,
 		}))
-		channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
 			DB:           node.DB,
 			Distribution: node.Channel,
 			Status:       statusSvc,
@@ -84,7 +85,7 @@ var _ = Describe("Alias", Ordered, func() {
 	createChannel := func(ctx context.Context) channel.Channel {
 		channelCount++
 		ch := channel.Channel{DataType: telem.Float32T, Name: fmt.Sprintf("test_%d", channelCount), Virtual: true}
-		Expect(node.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		return ch
 	}
 
