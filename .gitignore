@@ -286,3 +286,7 @@ core/synnax
 
 # |||| ORACLE ||||
 .oracle/
+
+# Lock file for the local boringssl->openssl shim module; only its MODULE.bazel matters
+# as a local_path_override target, never run bazel inside that directory.
+vendor/boringssl/MODULE.bazel.lock

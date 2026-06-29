@@ -14,18 +14,28 @@ cc_library(
     srcs = ["server.cpp"],
     hdrs = ["server.h"],
     copts = select({
-        "@platforms//os:windows": ["/wd4191"],
+        # cpp-httplib >= 0.46 hard-errors unless _WIN32_WINNT targets Windows 10+.
+        "@platforms//os:windows": [
+            "/wd4191",
+            "/D_WIN32_WINNT=0x0A00",
+        ],
         "//conditions:default": [],
     }),
     defines = ["CPPHTTPLIB_OPENSSL_SUPPORT"],
+    # cpp-httplib's TLS system-cert loading calls Apple's Security framework on macOS.
+    linkopts = select({
+        "@platforms//os:macos": [
+            "-framework CoreFoundation",
+            "-framework Security",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//driver/http/types",
         "//x/cpp/errors",
         "//x/cpp/telem",
         "@cpp-httplib//:cpp-httplib",
-        "@openssl//:crypto",
-        "@openssl//:ssl",
     ],
 )
 
@@ -33,7 +43,11 @@ cc_test(
     name = "server_test",
     srcs = ["server_test.cpp"],
     copts = select({
-        "@platforms//os:windows": ["/wd4191"],
+        # cpp-httplib >= 0.46 hard-errors unless _WIN32_WINNT targets Windows 10+.
+        "@platforms//os:windows": [
+            "/wd4191",
+            "/D_WIN32_WINNT=0x0A00",
+        ],
         "//conditions:default": [],
     }),
     data = [
