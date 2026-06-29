@@ -17,7 +17,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -60,14 +59,6 @@ const (
 	WriterCommandWrite          = framer.WriterCommandWrite
 	WriterCommandCommit         = framer.WriterCommandCommit
 	WriterCommandSetAuthority   = framer.WriterCommandSetAuthority
-)
-
-// Frame constructors re-exported from the distribution-layer frame package so callers
-// can build frames without importing it directly.
-var (
-	NewUnary       = frame.NewUnary
-	NewMulti       = frame.NewMulti
-	NewFromStorage = frame.NewFromStorage
 )
 
 type ServiceConfig struct {

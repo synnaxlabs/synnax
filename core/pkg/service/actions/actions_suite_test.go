@@ -31,14 +31,13 @@ func TestActions(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	node       mock.Node
 	sigs       *signals.Provider
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	node = mock.NewNode(ctx)
+	node := mock.NewNode(ctx)
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: node.Ontology,
