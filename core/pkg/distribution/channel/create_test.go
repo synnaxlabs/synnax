@@ -83,14 +83,13 @@ var _ = Describe("Create", Ordered, func() {
 
 	Context("Multi Node", Ordered, func() {
 		var (
-			multiBuilder *mock.Cluster
-			gateway      mock.Node
-			peer         mock.Node
+			gateway mock.Node
+			peer    mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
-			multiBuilder = mock.NewCluster(ctx, 2)
-			gateway = multiBuilder.Nodes[node.KeyBootstrapper]
-			peer = multiBuilder.Nodes[node.Key(2)]
+			cluster := mock.NewCluster(ctx, 0)
+			gateway = cluster.Provision(ctx)
+			peer = cluster.Provision(ctx)
 		})
 
 		It("Should route allocation to the leaseholder and create storage there", func(ctx SpecContext) {

@@ -210,8 +210,7 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 1)
-	dist := builder.Nodes[1]
+	dist := mock.OpenNode(ctx)
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
@@ -221,14 +220,13 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 		channels: channels,
 		names:    names,
 		dist:     dist,
-		closer:   builder,
+		closer:   dist,
 	}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 4)
-	dist := builder.Nodes[1]
+	dist := mock.OpenNode(ctx)
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 2)
 	}
@@ -241,7 +239,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		channels: channels,
 		names:    names,
 		dist:     dist,
-		closer:   builder,
+		closer:   dist,
 	}
 }
 
