@@ -80,7 +80,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		DB:                node.DB,
 		Framer:            node.Framer,
 		Channel:           channelSvc,
-		ChannelObservable: node.Channel.Observe(),
+		ChannelObservable: channelSvc.Observe(),
 		Status:            statusSvc,
 	})
 	if err != nil {

@@ -256,7 +256,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if closer, err := channelsignals.Publish(
 		ctx,
 		l.Signals,
-		cfg.Distribution.Channel.Observe(),
+		l.Channel.Observe(),
 	); !ok(err, closer) {
 		return nil, err
 	}

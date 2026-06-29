@@ -219,11 +219,11 @@ var _ = Describe("Metrics", func() {
 			).To(Succeed())
 
 			newGroup := MustSucceed(dist.Group.CreateOrRetrieve(
-				ctx, "Custom Metrics Group", dist.Channel.Group().OntologyID(),
+				ctx, "Custom Metrics Group", channelSvc.Group().OntologyID(),
 			))
 
 			metricsGroup := MustSucceed(dist.Group.CreateOrRetrieve(
-				ctx, "Metrics", dist.Channel.Group().OntologyID(),
+				ctx, "Metrics", channelSvc.Group().OntologyID(),
 			))
 			otgWriter := dist.Ontology.NewWriter(nil)
 			Expect(otgWriter.DeleteRelationship(
@@ -298,7 +298,7 @@ var _ = Describe("Metrics", func() {
 			).To(Succeed())
 
 			metricsGroup := MustSucceed(dist.Group.CreateOrRetrieve(
-				ctx, "Metrics", dist.Channel.Group().OntologyID(),
+				ctx, "Metrics", channelSvc.Group().OntologyID(),
 			))
 
 			otgWriter := dist.Ontology.NewWriter(nil)

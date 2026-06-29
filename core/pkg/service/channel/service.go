@@ -15,9 +15,11 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -128,6 +130,16 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a query to retrieve channels from the cluster.
 func (s *Service) NewRetrieve() Retrieve {
 	return s.cfg.Distribution.NewRetrieve()
+}
+
+// Group returns the ontology group that channels are created under.
+func (s *Service) Group() group.Group {
+	return s.cfg.Distribution.Group()
+}
+
+// Observe returns an observable that notifies callers of changes to channel entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return s.cfg.Distribution.Observe()
 }
 
 // Create creates a single channel, inferring the DataType for calculated channels.

@@ -120,7 +120,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			DB:                dist.DB,
 			Framer:            dist.Framer,
 			Channel:           channelSvc,
-			ChannelObservable: dist.Channel.Observe(),
+			ChannelObservable: channelSvc.Observe(),
 			Status:            statusSvc,
 		}))
 	})

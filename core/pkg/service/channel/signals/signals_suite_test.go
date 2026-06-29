@@ -64,5 +64,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel: channelSvc,
 		Framer:  framerSvc,
 	}))
-	MustOpen(signals.Publish(ctx, sigs, node.Channel.Observe()))
+	MustOpen(signals.Publish(ctx, sigs, channelSvc.Observe()))
 })
