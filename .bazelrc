@@ -11,9 +11,13 @@ build --action_env=PATH
 # Enable platform-specific configs
 build --enable_platform_specific_config
 
-# A remote cache that reports a hit but can't deliver the blob (eviction race) otherwise
-# aborts the whole build. Fall back to building the action locally.
-build --remote_local_fallback
+# The remote cache can return an action-cache hit whose output blobs have been evicted
+# from the CAS, so a later action fails to fetch them ("Failed to fetch blobs because of
+# a remote cache error"). Retry the build when that happens, and download all outputs
+# locally so downstream actions read inputs from disk instead of re-fetching evicted
+# blobs.
+build --experimental_remote_cache_eviction_retries=10
+build --remote_download_all
 
 # Use OpenSSl instead of BoringSSL for grpc
 build --@grpc//third_party:grpc_use_openssl=true
