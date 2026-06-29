@@ -12,7 +12,7 @@ import { Color, type Haul, type Mosaic } from "@synnaxlabs/pluto";
 import { useMemo, useSyncExternalStore } from "react";
 
 import { selectByKeys, useMemoSelect } from "@/hooks";
-import { modalStore } from "@/layered/session/modals/store";
+import { Modals } from "@/layered/session/modals";
 import {
   SLICE_NAME,
   type SliceState,
@@ -168,28 +168,26 @@ export interface SelectActiveMosaicTabState {
 export const selectActiveMosaicTabState = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
-): SelectActiveMosaicTabState => {
+): Pick<SelectActiveMosaicTabState, "layoutKey"> => {
   const winKey = selectWindowKey(state, windowKey);
-  if (winKey == null) return { layoutKey: null, blurred: false };
+  if (winKey == null) return { layoutKey: null };
   const sliceState = selectSliceState(state);
-  return {
-    layoutKey: sliceState.mosaics[winKey].activeTab,
-    blurred: modalStore.isAnyOpen(),
-  };
+  return { layoutKey: sliceState.mosaics[winKey].activeTab };
 };
 
 export const selectActiveMosaicTabKeyAndNotBlurred = (
   state: StoreState & Drift.StoreState,
+  modals: Modals.Store,
   windowKey?: string,
 ): string | null => {
-  const active = selectActiveMosaicTabState(state, windowKey);
-  if (active.layoutKey == null) return null;
-  if (active.blurred) return null;
-  return active.layoutKey;
+  if (modals.isAnyOpen()) return null;
+  return selectActiveMosaicTabState(state, windowKey).layoutKey;
 };
 
-const useIsAnyModalOpen = (): boolean =>
-  useSyncExternalStore(modalStore.subscribe, modalStore.isAnyOpen);
+const useIsAnyModalOpen = (): boolean => {
+  const store = Modals.useStore("useIsAnyModalOpen");
+  return useSyncExternalStore(store.subscribe, store.isAnyOpen);
+};
 
 export const useSelectActiveMosaicTabKeyAndNotBlurred = (): string | null => {
   const blurred = useIsAnyModalOpen();

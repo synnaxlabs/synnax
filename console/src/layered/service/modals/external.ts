@@ -15,4 +15,8 @@ export * from "@/layered/service/modals/Frame";
 export * from "@/layered/service/modals/Header";
 export * from "@/layered/service/modals/Rename";
 export * from "@/layered/service/modals/Stack";
-export * from "@/layered/session/modals/store";
+export {
+  type Content,
+  type ContentProps,
+  type Entry,
+} from "@/layered/session/modals/Context";

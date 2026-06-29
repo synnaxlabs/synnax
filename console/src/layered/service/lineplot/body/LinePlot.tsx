@@ -222,11 +222,12 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
     [vis.viewport.renderTrigger],
   );
 
+  const modals = Session.Modals.useStore("LinePlot");
   const enableTriggers = useCallback(
     () =>
-      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key &&
+      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) === key &&
       hasUpdatePermission,
-    [store, key, hasUpdatePermission],
+    [store, key, hasUpdatePermission, modals],
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(

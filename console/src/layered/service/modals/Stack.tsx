@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Modal } from "@/layered/service/modals/Modal";
-import { useStack } from "@/layered/session/modals/Provider";
+import { useStack } from "@/layered/session/modals/Context";
 
 export const Stack = (): ReactElement => {
   const stack = useStack();

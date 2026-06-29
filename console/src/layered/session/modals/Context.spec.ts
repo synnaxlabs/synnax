@@ -10,29 +10,25 @@
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  type Content,
-  type ContentProps,
-  ModalStore,
-} from "@/layered/session/modals/store";
+import { Modals } from "@/layered/session/modals";
 
-const Noop: Content = () => null;
+const Noop: Modals.Content = () => null;
 
 /** Pulls the close callback the store bound into the topmost modal's rendered content. */
-const closeOf = (store: ModalStore): ContentProps["close"] =>
-  (store.getState().at(-1)?.render() as ReactElement<ContentProps>).props.close;
+const closeOf = (store: Modals.Store): Modals.ContentProps["close"] =>
+  (store.getState().at(-1)?.render() as ReactElement<Modals.ContentProps>).props.close;
 
-describe("ModalStore", () => {
+describe("Store", () => {
   describe("push", () => {
     it("should append a modal to the stack", () => {
-      const store = new ModalStore();
+      const store = new Modals.Store();
       store.push(Noop, undefined, () => {});
       store.push(Noop, undefined, () => {});
       expect(store.getState()).toHaveLength(2);
     });
 
     it("should resolve with the result the content passes to close", () => {
-      const store = new ModalStore();
+      const store = new Modals.Store();
       const resolve = vi.fn();
       store.push(Noop, undefined, resolve);
       closeOf(store)(42);
@@ -41,7 +37,7 @@ describe("ModalStore", () => {
     });
 
     it("should resolve null when the content closes without a result", () => {
-      const store = new ModalStore();
+      const store = new Modals.Store();
       const resolve = vi.fn();
       store.push(Noop, undefined, resolve);
       closeOf(store)();
@@ -51,7 +47,7 @@ describe("ModalStore", () => {
 
   describe("dismiss", () => {
     it("should remove the entry and resolve null", () => {
-      const store = new ModalStore();
+      const store = new Modals.Store();
       const resolve = vi.fn();
       store.push(Noop, undefined, resolve);
       store.getState()[0].dismiss();
@@ -62,7 +58,7 @@ describe("ModalStore", () => {
 
   describe("closeTop", () => {
     it("should dismiss only the topmost entry with null", () => {
-      const store = new ModalStore();
+      const store = new Modals.Store();
       const resolveA = vi.fn();
       const resolveB = vi.fn();
       store.push(Noop, undefined, resolveA);
@@ -76,7 +72,7 @@ describe("ModalStore", () => {
 
   describe("clear", () => {
     it("should dismiss every entry with null", () => {
-      const store = new ModalStore();
+      const store = new Modals.Store();
       const resolveA = vi.fn();
       const resolveB = vi.fn();
       store.push(Noop, undefined, resolveA);
@@ -90,7 +86,7 @@ describe("ModalStore", () => {
 
   describe("subscribe", () => {
     it("should notify listeners on push and dismiss", () => {
-      const store = new ModalStore();
+      const store = new Modals.Store();
       const listener = vi.fn();
       const unsubscribe = store.subscribe(listener);
       store.push(Noop, undefined, () => {});

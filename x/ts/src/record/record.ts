@@ -172,3 +172,6 @@ export const nullishToEmpty = ((key?: z.ZodType, value?: z.ZodType) => {
     .union([z.null().transform(() => ({})), z.record(key as z.ZodType<Key>, value)])
     .default(() => ({}));
 }) as NullishToEmpty;
+
+/** A completely empty record */
+export type Empty = Record<never, never>;

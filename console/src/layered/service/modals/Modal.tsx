@@ -10,7 +10,7 @@
 import { Dialog, Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
-import { type Entry } from "@/layered/session/modals/store";
+import { type Entry } from "@/layered/session/modals/Context";
 
 interface ModalProps {
   entry: Entry;

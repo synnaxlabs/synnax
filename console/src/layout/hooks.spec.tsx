@@ -14,7 +14,7 @@ import { act, type PropsWithChildren } from "react";
 import { Provider, useStore } from "react-redux";
 import { describe, expect, it } from "vitest";
 
-import { modalStore } from "@/layered/session/modals/store";
+import { Modals } from "@/layered/session/modals";
 import { Layout } from "@/layout";
 import { select } from "@/layout/selectors";
 
@@ -28,7 +28,9 @@ describe("layout hooks", () => {
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>{children}</Provider>
+        <Provider store={store}>
+          <Modals.Provider>{children}</Modals.Provider>
+        </Provider>
       );
       const { result } = renderHook(
         () => ({
@@ -64,7 +66,9 @@ describe("layout hooks", () => {
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>{children}</Provider>
+        <Provider store={store}>
+          <Modals.Provider>{children}</Modals.Provider>
+        </Provider>
       );
       const { result } = renderHook(
         () => ({
@@ -101,7 +105,9 @@ describe("layout hooks", () => {
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>{children}</Provider>
+        <Provider store={store}>
+          <Modals.Provider>{children}</Modals.Provider>
+        </Provider>
       );
       const { result } = renderHook(
         () => ({
@@ -145,13 +151,16 @@ describe("layout hooks", () => {
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>{children}</Provider>
+        <Provider store={store}>
+          <Modals.Provider>{children}</Modals.Provider>
+        </Provider>
       );
       const { result } = renderHook(
         () => ({
           placer: Layout.usePlacer(),
           store: useStore(),
           activeTab: Layout.useSelectActiveMosaicTabState(),
+          modals: Modals.useStore("test"),
         }),
         { wrapper },
       );
@@ -177,7 +186,7 @@ describe("layout hooks", () => {
 
       // Open a modal in the independent modal store
       act(() => {
-        modalStore.push(
+        result.current.modals.push(
           () => null,
           undefined,
           () => {},
@@ -189,7 +198,7 @@ describe("layout hooks", () => {
         blurred: true,
         layoutKey: "test-tab",
       });
-      modalStore.clear();
+      result.current.modals.clear();
     });
   });
 });

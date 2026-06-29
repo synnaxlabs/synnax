@@ -15,7 +15,7 @@ import { createPrompt, type Prompt } from "@/layered/service/modals/factory";
 import { Footer } from "@/layered/service/modals/Footer";
 import { Frame } from "@/layered/service/modals/Frame";
 import { Header } from "@/layered/service/modals/Header";
-import { type ContentProps } from "@/layered/session/modals/store";
+import { type ContentProps } from "@/layered/session/modals/Context";
 import { Triggers } from "@/triggers";
 
 export interface RenameParams {

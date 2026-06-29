@@ -7,23 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
-import { type ComponentType, type ReactNode } from "react";
-
-/** The params of a modal that takes no params. */
-type Empty = Record<never, never>;
+import { context } from "@synnaxlabs/pluto";
+import { id, type record } from "@synnaxlabs/x";
+import {
+  type ComponentType,
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 /**
  * The props handed to every modal content component: the modal's typed params spread
  * alongside a single close callback. Calling close with a result resolves the caller's
  * promise (for prompts); calling it with no argument dismisses without a result.
  */
-export type ContentProps<Params = Empty, Result = unknown> = Params & {
+export type ContentProps<Params = record.Empty, Result = unknown> = Params & {
   close: (result?: Result) => void;
 };
 
 /** A component that renders a modal's content of a particular params/result type. */
-export type Content<Params = Empty, Result = unknown> = ComponentType<
+export type Content<Params = record.Empty, Result = unknown> = ComponentType<
   ContentProps<Params, Result>
 >;
 
@@ -46,13 +51,12 @@ export interface Entry {
 type Listener = () => void;
 
 /**
- * An in-memory, per-window stack of open modals. Because Drift windows are isolated JS
- * contexts, a module-level instance is naturally window-local and is never persisted or
- * synced. The store is both a React external store (via {@link subscribe}/{@link getState})
- * and imperatively readable (via {@link isAnyOpen}) for event-handler consumers that
- * cannot use hooks.
+ * An in-memory, per-window stack of open modals. Created once by {@link Provider} and
+ * read via {@link useStore}. The store is both a React external store (via
+ * {@link subscribe}/{@link getState}) and imperatively readable (via {@link isAnyOpen})
+ * for event-handler consumers that cannot use hooks.
  */
-export class ModalStore {
+export class Store {
   private stack: readonly Entry[] = [];
   private readonly listeners = new Set<Listener>();
 
@@ -85,18 +89,16 @@ export class ModalStore {
     // params is only absent when every field is optional (see optional.Arg in the
     // factory), so an empty object is a valid Params.
     const bound = params ?? ({} as Params);
-    const settle = (result: Result | null): void => {
+    const settle = (result?: Result): void => {
       this.emit(this.stack.filter((e) => e.key !== key));
-      resolve(result);
+      resolve(result ?? null);
     };
-    this.emit([
-      ...this.stack,
-      {
-        key,
-        render: () => <Component {...bound} close={(result) => settle(result ?? null)} />,
-        dismiss: () => settle(null),
-      },
-    ]);
+    const entry = {
+      key,
+      render: () => <Component {...bound} close={settle} />,
+      dismiss: settle,
+    };
+    this.emit([...this.stack, entry]);
   }
 
   /** closeTop dismisses the topmost open modal, resolving its caller with null. */
@@ -110,8 +112,25 @@ export class ModalStore {
   }
 }
 
+const [Context, useStore] = context.create<Store>({
+  displayName: "Modal.StoreContext",
+  providerName: "Modal.StoreProvider",
+});
+
+export { useStore };
+
 /**
- * The window-local modal stack. Imported directly by non-React consumers (keyboard
- * triggers, the active-tab blur selector) that must read modal state synchronously.
+ * Provider creates the window-local modal store and makes it available to descendants via
+ * context. Mount once near the root of each window; the store lives for the window's
+ * lifetime and is never shared across windows or persisted.
  */
-export const modalStore = new ModalStore();
+export const Provider = ({ children }: PropsWithChildren): ReactElement => {
+  const [store] = useState(() => new Store());
+  return <Context value={store}>{children}</Context>;
+};
+
+/** useStack subscribes to and returns the current modal stack. */
+export const useStack = (): readonly Entry[] => {
+  const store = useStore("useStack");
+  return useSyncExternalStore(store.subscribe, store.getState);
+};

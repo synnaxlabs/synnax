@@ -137,7 +137,9 @@ const MainUnderContext = (): ReactElement => {
       theming={themingProps}
     >
       <Vis.Canvas>
-        <Layout.Window />
+        <Session.Modals.Provider>
+          <Layout.Window />
+        </Session.Modals.Provider>
       </Vis.Canvas>
     </Pluto.Provider>
   );

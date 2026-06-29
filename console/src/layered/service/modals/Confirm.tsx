@@ -12,14 +12,14 @@ import { Button, type Icon, Nav, Text } from "@synnaxlabs/pluto";
 
 import { Body } from "@/layered/service/modals/Body";
 import { createPrompt, type Prompt } from "@/layered/service/modals/factory";
-import { type ContentProps } from "@/layered/session/modals/store";
+import { type ContentProps } from "@/layered/session/modals/Context";
 import { Triggers } from "@/triggers";
 
 import { Footer } from "./Footer";
 import { Frame } from "./Frame";
 import { Header } from "./Header";
 
-interface ConfirmButtonProps {
+interface ButtonProps {
   variant?: status.Variant;
   label?: string;
   delay?: number;
@@ -28,14 +28,52 @@ interface ConfirmButtonProps {
 export interface ConfirmParams {
   message: string;
   description: string;
-  confirm?: ConfirmButtonProps;
-  cancel?: ConfirmButtonProps;
+  confirm?: ButtonProps;
+  cancel?: ButtonProps;
   title?: string;
   icon?: Icon.ReactElement;
 }
 
 export interface PromptConfirm extends Prompt<boolean, ConfirmParams> {}
 
+interface InternalButtonProps
+  extends ButtonProps, Omit<Button.ButtonProps, "variant"> {}
+
+const DEFAULT_CONFIRM_LABEL = "Confirm"
+
+const ConfirmButton = ({
+  label = DEFAULT_CONFIRM_LABEL,
+  variant = "error",
+  delay,
+  ...rest
+}: InternalButtonProps) => (
+  <Button.Button
+    variant="filled"
+    status={variant}
+    trigger={Triggers.SAVE}
+    onClickDelay={delay}
+    {...rest}
+  >
+    {label}
+  </Button.Button>
+);
+
+const CancelButton = ({
+  label = "Cancel",
+  variant,
+  delay,
+  ...rest
+}: InternalButtonProps) => (
+  <Button.Button
+    variant="filled"
+    status={variant}
+    trigger={Triggers.SAVE}
+    onClickDelay={delay}
+    {...rest}
+  >
+    {label}
+  </Button.Button>
+);
 const Confirm = ({
   message,
   description,
@@ -44,49 +82,23 @@ const Confirm = ({
   title = "Confirm",
   icon,
   close,
-}: ContentProps<ConfirmParams, boolean>) => {
-  const {
-    variant: confirmVariant = "error",
-    label: confirmLabel = "Confirm",
-    delay: confirmDelay = 0,
-  } = confirm;
-  const {
-    variant: cancelVariant,
-    label: cancelLabel = "Cancel",
-    delay: cancelDelay = 0,
-  } = cancel;
-  return (
-    <Frame>
-      <Header icon={icon}>{title}</Header>
-      <Body>
-        <Text.Text level="h3" weight={450}>
-          {message}
-        </Text.Text>
-        <Text.Text weight={450}>{description}</Text.Text>
-      </Body>
-      <Footer>
-        <Triggers.SaveHelpText action={confirmLabel} />
-        <Nav.Bar.End x align="center">
-          <Button.Button
-            status={cancelVariant}
-            onClick={() => close(false)}
-            onClickDelay={cancelDelay}
-          >
-            {cancelLabel}
-          </Button.Button>
-          <Button.Button
-            variant="filled"
-            status={confirmVariant}
-            onClick={() => close(true)}
-            trigger={Triggers.SAVE}
-            onClickDelay={confirmDelay}
-          >
-            {confirmLabel}
-          </Button.Button>
-        </Nav.Bar.End>
-      </Footer>
-    </Frame>
-  );
-};
+}: ContentProps<ConfirmParams, boolean>) => (
+  <Frame>
+    <Header icon={icon}>{title}</Header>
+    <Body>
+      <Text.Text level="h3" weight={450}>
+        {message}
+      </Text.Text>
+      <Text.Text weight={450}>{description}</Text.Text>
+    </Body>
+    <Footer>
+      <Triggers.SaveHelpText action={confirm.label ?? DEFAULT_CONFIRM_LABEL} />
+      <Nav.Bar.End x align="center">
+        <CancelButton {...cancel} onClick={() => close(false)} />
+        <ConfirmButton {...confirm} onClick={() => close(true)} />
+      </Nav.Bar.End>
+    </Footer>
+  </Frame>
+);
 
 export const useConfirm = createPrompt<boolean, ConfirmParams>(Confirm);
