@@ -26,15 +26,35 @@ import (
 )
 
 type (
+	Frame          = framer.Frame
 	WriterConfig   = framer.WriterConfig
 	WriterRequest  = framer.WriterRequest
 	WriterResponse = framer.WriterResponse
 
+	IteratorCommand  = framer.IteratorCommand
 	IteratorRequest  = framer.IteratorRequest
 	IteratorResponse = framer.IteratorResponse
 	StreamerRequest  = framer.StreamerRequest
 	StreamerResponse = framer.StreamerResponse
 	DeleteRequest    = framer.DeleteRequest
+)
+
+const (
+	WriterCommandOpen           = framer.WriterCommandOpen
+	WriterCommandWrite          = framer.WriterCommandWrite
+	WriterCommandCommit         = framer.WriterCommandCommit
+	WriterCommandSetAuthority   = framer.WriterCommandSetAuthority
+	IteratorCommandNext         = framer.IteratorCommandNext
+	IteratorCommandPrev         = framer.IteratorCommandPrev
+	IteratorCommandSeekFirst    = framer.IteratorCommandSeekFirst
+	IteratorCommandSeekLast     = framer.IteratorCommandSeekLast
+	IteratorCommandSeekLE       = framer.IteratorCommandSeekLE
+	IteratorCommandSeekGE       = framer.IteratorCommandSeekGE
+	IteratorCommandValid        = framer.IteratorCommandValid
+	IteratorCommandError        = framer.IteratorCommandError
+	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
+	IteratorResponseVariantAck  = framer.IteratorResponseVariantAck
+	IteratorResponseVariantData = framer.IteratorResponseVariantData
 )
 
 type Codec struct {

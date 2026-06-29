@@ -55,6 +55,15 @@ type (
 const (
 	IteratorResponseVariantAck  = iterator.ResponseVariantAck
 	IteratorResponseVariantData = iterator.ResponseVariantData
+	IteratorCommandNext         = iterator.CommandNext
+	IteratorCommandPrev         = iterator.CommandPrev
+	IteratorCommandSeekFirst    = iterator.CommandSeekFirst
+	IteratorCommandSeekLast     = iterator.CommandSeekLast
+	IteratorCommandSeekLE       = iterator.CommandSeekLE
+	IteratorCommandSeekGE       = iterator.CommandSeekGE
+	IteratorCommandValid        = iterator.CommandValid
+	IteratorCommandError        = iterator.CommandError
+	IteratorCommandSetBounds    = iterator.CommandSetBounds
 	WriterCommandOpen           = framer.WriterCommandOpen
 	WriterCommandWrite          = framer.WriterCommandWrite
 	WriterCommandCommit         = framer.WriterCommandCommit

@@ -117,6 +117,15 @@ type (
 const (
 	IteratorResponseVariantAck  = framer.IteratorResponseVariantAck
 	IteratorResponseVariantData = framer.IteratorResponseVariantData
+	IteratorCommandNext         = framer.IteratorCommandNext
+	IteratorCommandPrev         = framer.IteratorCommandPrev
+	IteratorCommandSeekFirst    = framer.IteratorCommandSeekFirst
+	IteratorCommandSeekLast     = framer.IteratorCommandSeekLast
+	IteratorCommandSeekLE       = framer.IteratorCommandSeekLE
+	IteratorCommandSeekGE       = framer.IteratorCommandSeekGE
+	IteratorCommandValid        = framer.IteratorCommandValid
+	IteratorCommandError        = framer.IteratorCommandError
+	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
 )
 
 const (
