@@ -11,4 +11,6 @@ export * from "@/arc/graph";
 export * from "@/arc/haul";
 export * from "@/arc/language";
 export * from "@/arc/queries";
+export { Scope } from "@/arc/scope";
+export * from "@/arc/Suspended";
 export * from "@/arc/text";
