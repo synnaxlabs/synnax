@@ -43,7 +43,7 @@ const Internal = () => {
     initialQuery: View.useContext().getInitialView().query,
   });
   const openCreate = useCreateModal();
-  const handleCreate = useCallback(() => openCreate({}), [openCreate]);
+  const handleCreate = useCallback(() => openCreate(), [openCreate]);
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <View.Form {...listProps}>

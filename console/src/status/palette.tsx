@@ -17,7 +17,7 @@ import { EXPLORER_LAYOUT } from "@/status/Explorer";
 
 const CreateCommand: Palette.Command = (listProps) => {
   const open = useCreateModal();
-  const handleSelect = useCallback(() => open({}), [open]);
+  const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}

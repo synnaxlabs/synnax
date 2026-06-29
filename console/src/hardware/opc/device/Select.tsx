@@ -23,7 +23,7 @@ const EmptyContent = () => {
       action="Connect a new server"
       full="y"
       onClick={() => {
-        connect({});
+        connect();
         close();
       }}
     />

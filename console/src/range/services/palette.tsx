@@ -17,7 +17,7 @@ import { useCreateModal } from "@/range/Create";
 
 export const CreateCommand: Palette.Command = (listProps) => {
   const open = useCreateModal();
-  const handleSelect = useCallback(() => open({}), [open]);
+  const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}

@@ -52,7 +52,7 @@ const EmptyContent = () => {
     <EmptyAction
       message="No ranges found."
       action={hasCreatePermission ? "Create a range" : undefined}
-      onClick={() => openCreate({})}
+      onClick={() => openCreate()}
     />
   );
 };
@@ -178,7 +178,7 @@ const AddButton = (): ReactElement | null => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
-    <Button.Button tooltip="Create Range" onClick={() => openCreate({})}>
+    <Button.Button tooltip="Create Range" onClick={() => openCreate()}>
       <Icon.Add />
     </Button.Button>
   );

@@ -35,7 +35,7 @@ CreateCommand.useVisible = useVisible;
 
 const CreateCalculatedCommand: Palette.Command = (listProps) => {
   const open = useCalculatedModal();
-  const handleSelect = useCallback(() => open({}), [open]);
+  const handleSelect = useCallback(() => open(), [open]);
   return (
     <Palette.CommandListItem
       {...listProps}

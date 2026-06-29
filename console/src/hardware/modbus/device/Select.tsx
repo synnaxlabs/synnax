@@ -22,7 +22,7 @@ const EmptyContent = () => {
       message="No Modbus servers connected."
       action="Connect a new server"
       onClick={() => {
-        connect({});
+        connect();
         closeDialog();
       }}
     />

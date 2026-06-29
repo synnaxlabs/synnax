@@ -25,7 +25,7 @@ const Actions = (): ReactElement | null => {
   return (
     <Toolbar.Actions>
       <Toolbar.Action
-        onClick={() => openCalculated({})}
+        onClick={() => openCalculated()}
         tooltip="Create calculated channel"
       >
         <Channel.CreateCalculatedIcon />

@@ -47,7 +47,7 @@ const Internal = () => {
     sort: Ranger.sortByStage,
   });
   const openCreate = useCreateModal();
-  const handleCreate = useCallback(() => openCreate({}), [openCreate]);
+  const handleCreate = useCallback(() => openCreate(), [openCreate]);
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <View.Form {...listProps}>

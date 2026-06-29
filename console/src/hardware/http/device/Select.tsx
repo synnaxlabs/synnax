@@ -19,7 +19,7 @@ const EmptyContent = () => {
   const connect = useConnectModal();
   const { close } = Dialog.useContext();
   const handleClick = useCallback(() => {
-    connect({});
+    connect();
     close();
   }, [connect, close]);
   return (

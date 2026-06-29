@@ -16,7 +16,7 @@ import { Palette } from "@/palette";
 
 const ConnectServerCommand: Palette.Command = (listProps) => {
   const connect = useConnectModal();
-  const handleSelect = useCallback(() => connect({}), [connect]);
+  const handleSelect = useCallback(() => connect(), [connect]);
   return (
     <Palette.CommandListItem
       {...listProps}

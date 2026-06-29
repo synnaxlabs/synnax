@@ -13,14 +13,24 @@ import { type FC, useCallback } from "react";
 import { useStore } from "@/layered/session/modals/Provider";
 import { type RenderProps } from "@/layered/session/modals/store";
 
+/**
+ * The opener's parameter list for a given params type: empty when the modal takes no
+ * params, optional when every field is optional, and required otherwise.
+ */
+export type ParamList<Params> = void extends Params
+  ? []
+  : {} extends Params
+    ? [params?: Params]
+    : [params: Params];
+
 /** A typed fire-and-forget opener: opens a modal and returns immediately. */
 export interface Opener<Params> {
-  (params: Params): void;
+  (...params: ParamList<Params>): void;
 }
 
 /** A typed prompt opener: opens a modal and resolves with its result, or null. */
 export interface Prompt<Result, Params> {
-  (params: Params): Promise<Result | null>;
+  (...params: ParamList<Params>): Promise<Result | null>;
 }
 
 /**
@@ -47,11 +57,16 @@ export interface PromptHook<Params, Result> {
 export const create = <Params = void>(
   Component: FC<RenderProps<Params, void>>,
 ): OpenHook<Params> => {
-  const useOpen = (): ((params: Params) => void) => {
+  const useOpen = (): Opener<Params> => {
     const store = useStore();
     return useCallback(
-      (params: Params) =>
-        store.push({ key: id.create(), render: Component, params, resolve: () => {} }),
+      (...params: ParamList<Params>) =>
+        store.push({
+          key: id.create(),
+          render: Component,
+          params: (params[0] ?? {}) as Params,
+          resolve: () => {},
+        }),
       [store],
     );
   };
@@ -66,12 +81,17 @@ export const create = <Params = void>(
 export const prompt = <Result, Params = void>(
   Component: FC<RenderProps<Params, Result>>,
 ): PromptHook<Params, Result> => {
-  const usePrompt = (): ((params: Params) => Promise<Result | null>) => {
+  const usePrompt = (): Prompt<Result, Params> => {
     const store = useStore();
     return useCallback(
-      (params: Params) =>
+      (...params: ParamList<Params>) =>
         new Promise<Result | null>((resolve) =>
-          store.push({ key: id.create(), render: Component, params, resolve }),
+          store.push({
+            key: id.create(),
+            render: Component,
+            params: (params[0] ?? {}) as Params,
+            resolve,
+          }),
         ),
       [store],
     );

@@ -150,7 +150,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             <Icon.Cluster />
             Cores
           </Header.Title>
-          <Button.Button onClick={() => openConnect({})} variant="filled">
+          <Button.Button onClick={() => openConnect()} variant="filled">
             <Icon.Add />
           </Button.Button>
         </Header.Header>
@@ -159,7 +159,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             <EmptyAction
               message="No Cores added."
               action="Add a Core"
-              onClick={() => openConnect({})}
+              onClick={() => openConnect()}
             />
           ) : (
             keys.map((key, i) => (
