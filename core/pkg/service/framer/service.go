@@ -82,21 +82,21 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 type Service struct {
 	closer   io.MultiCloser
-	Streamer *streamer.Service
-	Iterator *iterator.Service
+	streamer *streamer.Service
+	iterator *iterator.Service
 	cfg      ServiceConfig
 }
 
 func (s *Service) OpenIterator(
 	ctx context.Context, cfg IteratorConfig,
 ) (*Iterator, error) {
-	return s.Iterator.Open(ctx, cfg)
+	return s.iterator.Open(ctx, cfg)
 }
 
 func (s *Service) NewStreamIterator(
 	ctx context.Context, cfg IteratorConfig,
 ) (StreamIterator, error) {
-	return s.Iterator.NewStream(ctx, cfg)
+	return s.iterator.NewStream(ctx, cfg)
 }
 
 func (s *Service) NewStreamWriter(
@@ -121,7 +121,7 @@ func (s *Service) NewStreamer(
 	ctx context.Context,
 	cfg StreamerConfig,
 ) (Streamer, error) {
-	return s.Streamer.New(ctx, cfg)
+	return s.streamer.New(ctx, cfg)
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
@@ -145,7 +145,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, calcSvc) {
 		return nil, err
 	}
-	if s.Streamer, err = streamer.NewService(streamer.ServiceConfig{
+	if s.streamer, err = streamer.NewService(streamer.ServiceConfig{
 		Instrumentation: cfg.Child("streamer"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
@@ -153,7 +153,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if s.Iterator, err = iterator.NewService(iterator.ServiceConfig{
+	if s.iterator, err = iterator.NewService(iterator.ServiceConfig{
 		Instrumentation: cfg.Child("iterator"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
