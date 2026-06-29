@@ -395,4 +395,32 @@ TEST(ClibChannel, testCreateIndexedDataChannel) {
 
     synnax_client_close(client);
 }
+
+/// @brief it should reject a create with a count of zero.
+TEST(ClibChannel, testCreateRejectsZeroCount) {
+    SynnaxError err;
+    SynnaxClient *client = open_test_client(&err);
+    ASSERT_NE(client, nullptr) << err.message;
+
+    uint32_t keys[1] = {0};
+    const uint8_t is_index[1] = {0};
+    const uint32_t index[1] = {0};
+    const uint8_t is_virtual[1] = {0};
+    const int32_t code = synnax_channel_create(
+        client,
+        "",
+        "",
+        is_index,
+        index,
+        is_virtual,
+        0,
+        keys,
+        &err
+    );
+    EXPECT_NE(code, OK);
+    EXPECT_STREQ(err.type, "sy.validation");
+    EXPECT_NE(std::strstr(err.message, "at least one channel"), nullptr);
+
+    synnax_client_close(client);
+}
 }

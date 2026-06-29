@@ -122,6 +122,15 @@ int32_t synnax_channel_create(
         set_err(err, CODE_INTERNAL, "sy.validation", "null client or out_keys");
         return CODE_INTERNAL;
     }
+    if (count == 0) {
+        set_err(
+            err,
+            CODE_INTERNAL,
+            "sy.validation",
+            "create requires at least one channel"
+        );
+        return CODE_INTERNAL;
+    }
     try {
         const std::vector<std::string> name_list = split_newlines(names);
         const std::vector<std::string> dtype_list = split_newlines(data_types);
@@ -152,8 +161,18 @@ int32_t synnax_channel_create(
             set_err(err, CODE_ERROR, c_err.type, c_err.data);
             return CODE_ERROR;
         }
-        for (size_t i = 0; i < count; i++)
+        for (size_t i = 0; i < count; i++) {
+            if (chans[i].key == 0) {
+                set_err(
+                    err,
+                    CODE_ERROR,
+                    "sy.unexpected",
+                    "server created fewer channels than requested"
+                );
+                return CODE_ERROR;
+            }
             out_keys[i] = chans[i].key;
+        }
         return CODE_OK;
     } catch (const std::exception &e) {
         set_err(err, CODE_INTERNAL, "sy.internal", e.what());
