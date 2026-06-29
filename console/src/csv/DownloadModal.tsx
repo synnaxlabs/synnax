@@ -31,7 +31,7 @@ import { useDownload } from "@/csv/useDownload";
 import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
 
-export interface DownloadModalArgs {
+export interface DownloadModalParams {
   channelNames?: Record<channel.Key, string>;
   timeRange: CrudeTimeRange;
   channels: channel.Key[];
@@ -46,10 +46,10 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
 };
 
-export interface PromptDownload extends Modals.Prompt<void, DownloadModalArgs> {}
+export interface PromptDownload extends Modals.Prompt<void, DownloadModalParams> {}
 
-export const useDownloadModal = Modals.prompt<void, DownloadModalArgs>(
-  ({ args: { timeRange, channels, name, channelNames, icon }, close }) => {
+export const useDownloadModal = Modals.prompt<void, DownloadModalParams>(
+  ({ params: { timeRange, channels, name, channelNames, icon }, close }) => {
     const form = Form.use<typeof formSchema>({
       schema: formSchema,
       values: {

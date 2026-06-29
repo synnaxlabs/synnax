@@ -16,14 +16,14 @@ import { Label } from "@/label";
 import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
 
-export type CreateLayoutArgs = Partial<z.infer<typeof Status.formSchema>>;
+export type CreateModalParams = Partial<z.infer<typeof Status.formSchema>>;
 
-export const useCreateModal = Modals.create<CreateLayoutArgs>(({ args, close }) => {
+export const useCreateModal = Modals.create<CreateModalParams>(({ params, close }) => {
   const { form, save, variant } = Status.useForm({
-    query: { key: args?.key },
+    query: { key: params?.key },
     autoSave: false,
     initialValues: {
-      ...args,
+      ...params,
       key: "",
       message: "",
       time: TimeStamp.now(),

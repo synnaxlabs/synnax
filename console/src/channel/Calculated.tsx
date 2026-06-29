@@ -29,7 +29,7 @@ import { CSS } from "@/css";
 import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
 
-export interface CalculatedLayoutArgs {
+export interface CalculatedModalParams {
   channelKey?: number;
   title?: string;
 }
@@ -41,16 +41,16 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   placeholder: "Name",
 };
 
-export const useCalculatedModal = Modals.create<CalculatedLayoutArgs>(
-  ({ args, close }) => {
-    const isEdit = args?.channelKey !== 0;
+export const useCalculatedModal = Modals.create<CalculatedModalParams>(
+  ({ params, close }) => {
+    const isEdit = params?.channelKey !== 0;
     const {
       form,
       variant,
       save,
       status: stat,
     } = Channel.useCalculatedForm({
-      query: { key: args?.channelKey },
+      query: { key: params?.channelKey },
       afterSave: ({ reset }) => {
         if (createMore) reset();
         else close();
@@ -70,7 +70,7 @@ export const useCalculatedModal = Modals.create<CalculatedLayoutArgs>(
     return (
       <Flex.Box className={CSS.B("channel", "edit", "calculated")} grow empty>
         <Modals.Header
-          name={args?.title ?? "Channel.Create.Calculated"}
+          name={params?.title ?? "Channel.Create.Calculated"}
           icon="Channel"
         />
         <Flex.Box className={CSS.B("form")} style={{ padding: "3rem" }} grow>

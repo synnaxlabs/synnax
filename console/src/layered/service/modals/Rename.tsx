@@ -14,7 +14,7 @@ import { type Prompt, prompt } from "@/layered/service/modals/Base";
 import { ModalContentLayout } from "@/layered/service/modals/layout";
 import { Triggers } from "@/triggers";
 
-export interface PromptRenameLayoutArgs {
+export interface RenameParams {
   allowEmpty?: boolean;
   initialValue?: string;
   label?: string;
@@ -22,11 +22,11 @@ export interface PromptRenameLayoutArgs {
   icon?: Icon.ReactElement | string;
 }
 
-export interface PromptRename extends Prompt<string, PromptRenameLayoutArgs> {}
+export interface PromptRename extends Prompt<string, RenameParams> {}
 
-export const useRename = prompt<string, PromptRenameLayoutArgs>(
+export const useRename = prompt<string, RenameParams>(
   ({
-    args: { allowEmpty = false, label = "Name", initialValue, title = "Name", icon },
+    params: { allowEmpty = false, label = "Name", initialValue, title = "Name", icon },
     close,
   }) => {
     const [name, setName] = useState(initialValue ?? "");

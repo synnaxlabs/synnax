@@ -17,8 +17,8 @@ export {
 } from "@/layered/service/modals/Base";
 export * from "@/layered/service/modals/BottomNavBar";
 export {
+  type ConfirmParams,
   type PromptConfirm,
-  type PromptConfirmLayoutArgs,
   useConfirm,
 } from "@/layered/service/modals/Confirm";
 export { useDismiss } from "@/layered/service/modals/Dismiss";
@@ -26,7 +26,7 @@ export { Header } from "@/layered/service/modals/Header";
 export * from "@/layered/service/modals/layout";
 export {
   type PromptRename,
-  type PromptRenameLayoutArgs,
+  type RenameParams,
   useRename,
 } from "@/layered/service/modals/Rename";
 export { type Renderer, type RenderProps } from "@/layered/session/modals/store";

@@ -10,19 +10,19 @@
 import { type ComponentType } from "react";
 
 /**
- * The props handed to every modal renderer. A renderer receives its typed args and a
+ * The props handed to every modal renderer. A renderer receives its typed params and a
  * single close callback; calling close with a result resolves the caller's promise (for
  * prompts) and dismisses the modal. Calling close with no argument dismisses without a
  * result.
  */
-export interface RenderProps<Args = unknown, Result = unknown> {
-  args: Args;
+export interface RenderProps<Params = unknown, Result = unknown> {
+  params: Params;
   close: (result?: Result) => void;
 }
 
 /** A component that renders a modal's body (and its own header) of a particular type. */
-export type Renderer<Args = unknown, Result = unknown> = ComponentType<
-  RenderProps<Args, Result>
+export type Renderer<Params = unknown, Result = unknown> = ComponentType<
+  RenderProps<Params, Result>
 >;
 
 /**
@@ -32,13 +32,13 @@ export type Renderer<Args = unknown, Result = unknown> = ComponentType<
  * state, which is why the stack cannot live in Redux. All presentation (title, icon) is
  * owned by {@link render}; the entry carries only the dynamic, per-open core.
  */
-export interface Entry<Args = unknown, Result = unknown> {
+export interface Entry<Params = unknown, Result = unknown> {
   /** A unique identity for the open modal, used to address it for close. */
   key: string;
   /** The component that renders this modal. */
-  render: Renderer<Args, Result>;
-  /** The typed arguments handed to the renderer. */
-  args: Args;
+  render: Renderer<Params, Result>;
+  /** The typed params handed to the renderer. */
+  params: Params;
   /**
    * Resolves the caller's promise. Called exactly once with the modal's result, or with
    * null when the modal is dismissed without a result. A no-op for fire-and-forget

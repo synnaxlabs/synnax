@@ -34,7 +34,7 @@ import {
 import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
 
-export interface ConnectArgs {
+export interface ConnectModalParams {
   deviceKey?: string;
   title?: string;
 }
@@ -101,73 +101,75 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<ConnectArgs>(({ args, close }) => {
-  const {
-    form,
-    save,
-    status: stat,
-    variant,
-  } = useForm({
-    query: { key: args.deviceKey ?? "" },
-    initialValues: INITIAL_VALUES,
-    beforeValidate,
-    beforeSave,
-    afterSave: useCallback(() => close(), [close]),
-  });
+export const useConnectModal = Modals.create<ConnectModalParams>(
+  ({ params, close }) => {
+    const {
+      form,
+      save,
+      status: stat,
+      variant,
+    } = useForm({
+      query: { key: params.deviceKey ?? "" },
+      initialValues: INITIAL_VALUES,
+      beforeValidate,
+      beforeSave,
+      afterSave: useCallback(() => close(), [close]),
+    });
 
-  return (
-    <Flex.Box align="start" className={CSS.B("modbus-connect")} justify="center">
-      <Modals.Header name="Server.Connect" icon="Logo.Modbus" />
-      <Flex.Box className={CSS.B("content")} grow size="small">
-        <Form.Form<typeof PDevice.formSchema> {...form}>
-          <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
-          <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
-            {selectRackRenderProp}
-          </Form.Field>
-          <Flex.Box x justify="between">
-            <Form.TextField
-              grow
-              path="properties.connection.host"
-              inputProps={HOST_INPUT_PROPS}
-            />
-            <Form.NumericField
-              path="properties.connection.port"
-              inputProps={PORT_INPUT_PROPS}
-            />
-          </Flex.Box>
-          <Flex.Box x justify="start">
-            <Form.SwitchField
-              path="properties.connection.swapBytes"
-              label="Swap Bytes"
-            />
-            <Form.SwitchField
-              path="properties.connection.swapWords"
-              label="Swap Words"
-            />
-          </Flex.Box>
-        </Form.Form>
+    return (
+      <Flex.Box align="start" className={CSS.B("modbus-connect")} justify="center">
+        <Modals.Header name="Server.Connect" icon="Logo.Modbus" />
+        <Flex.Box className={CSS.B("content")} grow size="small">
+          <Form.Form<typeof PDevice.formSchema> {...form}>
+            <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
+            <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
+              {selectRackRenderProp}
+            </Form.Field>
+            <Flex.Box x justify="between">
+              <Form.TextField
+                grow
+                path="properties.connection.host"
+                inputProps={HOST_INPUT_PROPS}
+              />
+              <Form.NumericField
+                path="properties.connection.port"
+                inputProps={PORT_INPUT_PROPS}
+              />
+            </Flex.Box>
+            <Flex.Box x justify="start">
+              <Form.SwitchField
+                path="properties.connection.swapBytes"
+                label="Swap Bytes"
+              />
+              <Form.SwitchField
+                path="properties.connection.swapWords"
+                label="Swap Words"
+              />
+            </Flex.Box>
+          </Form.Form>
+        </Flex.Box>
+        <Modals.BottomNavBar>
+          <Nav.Bar.Start gap="small">
+            {variant == "success" ? (
+              <Triggers.SaveHelpText action="Connect" noBar />
+            ) : (
+              <Status.Summary variant={variant} message={stat.description} />
+            )}
+          </Nav.Bar.Start>
+          <Nav.Bar.End>
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => save()}
+              variant="filled"
+            >
+              Connect
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modals.BottomNavBar>
       </Flex.Box>
-      <Modals.BottomNavBar>
-        <Nav.Bar.Start gap="small">
-          {variant == "success" ? (
-            <Triggers.SaveHelpText action="Connect" noBar />
-          ) : (
-            <Status.Summary variant={variant} message={stat.description} />
-          )}
-        </Nav.Bar.Start>
-        <Nav.Bar.End>
-          <Button.Button
-            status={status.keepVariants(variant, "loading")}
-            onClick={() => save()}
-            variant="filled"
-          >
-            Connect
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modals.BottomNavBar>
-    </Flex.Box>
-  );
-});
+    );
+  },
+);
 
 const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "modbus" };
 

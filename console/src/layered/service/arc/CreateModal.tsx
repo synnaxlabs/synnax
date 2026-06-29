@@ -18,12 +18,12 @@ import { prompt } from "@/layered/service/modals/Base";
 import { ModalContentLayout } from "@/layered/service/modals/layout";
 import { Triggers } from "@/triggers";
 
-export interface CreateArcResult {
+export interface CreateModalResult {
   name: string;
   mode: arc.Mode;
 }
 
-export interface CreateArcArgs {
+export interface CreateModalParams {
   initialName?: string;
   initialMode?: arc.Mode;
 }
@@ -67,8 +67,8 @@ const ArcModeSelectButton = ({
   );
 };
 
-export const useCreateModal = prompt<CreateArcResult, CreateArcArgs>(
-  ({ args: { initialName, initialMode }, close }) => {
+export const useCreateModal = prompt<CreateModalResult, CreateModalParams>(
+  ({ params: { initialName, initialMode }, close }) => {
     const [name, setName] = useState(initialName ?? "");
     const [mode, setMode] = useState<arc.Mode>(initialMode ?? "graph");
     const [error, setError] = useState<string | undefined>(undefined);

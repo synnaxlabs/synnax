@@ -24,7 +24,7 @@ const renderModal = (
 ) => ({
   result: render(
     <Wrapper>
-      <DeleteModal args={undefined} close={onClose} />
+      <DeleteModal params={undefined} close={onClose} />
     </Wrapper>,
   ),
   onClose,

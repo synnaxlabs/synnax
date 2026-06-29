@@ -12,12 +12,12 @@ import { ZERO_PROPERTIES } from "@/hardware/labjack/device/types";
 import { Modals } from "@/layered/service/modals";
 
 export const useConfigureModal = Modals.create<{ deviceKey?: string; title?: string }>(
-  ({ args, close }) => (
+  ({ params, close }) => (
     <Common.Device.Configure
-      deviceKey={args.deviceKey ?? ""}
+      deviceKey={params.deviceKey ?? ""}
       close={close}
       icon="Logo.LabJack"
-      title={args.title}
+      title={params.title}
       initialProperties={ZERO_PROPERTIES}
     />
   ),

@@ -22,7 +22,7 @@ import { CSS } from "@/css";
 import { Modals } from "@/layered/service/modals";
 import { Triggers } from "@/triggers";
 
-export interface ConnectClusterArgs {
+export interface ConnectModalParams {
   clusterKey?: string;
 }
 
@@ -48,8 +48,8 @@ const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
   placeholder: "localhost",
 };
 
-export const useConnectModal = Modals.create<ConnectClusterArgs>(
-  ({ args: { clusterKey }, close }) => {
+export const useConnectModal = Modals.create<ConnectModalParams>(
+  ({ params: { clusterKey }, close }) => {
     const dispatch = useDispatch();
     const isEdit = clusterKey != null;
     const existing = useSelect(clusterKey);

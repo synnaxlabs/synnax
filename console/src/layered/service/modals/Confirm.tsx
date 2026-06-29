@@ -20,7 +20,7 @@ interface ConfirmButtonProps {
   delay?: number;
 }
 
-export interface PromptConfirmLayoutArgs {
+export interface ConfirmParams {
   message: string;
   description: string;
   confirm?: ConfirmButtonProps;
@@ -29,11 +29,18 @@ export interface PromptConfirmLayoutArgs {
   icon?: Icon.ReactElement | string;
 }
 
-export interface PromptConfirm extends Prompt<boolean, PromptConfirmLayoutArgs> {}
+export interface PromptConfirm extends Prompt<boolean, ConfirmParams> {}
 
-export const useConfirm = prompt<boolean, PromptConfirmLayoutArgs>(
+export const useConfirm = prompt<boolean, ConfirmParams>(
   ({
-    args: { message, description, confirm = {}, cancel = {}, title = "Confirm", icon },
+    params: {
+      message,
+      description,
+      confirm = {},
+      cancel = {},
+      title = "Confirm",
+      icon,
+    },
     close,
   }) => {
     const {

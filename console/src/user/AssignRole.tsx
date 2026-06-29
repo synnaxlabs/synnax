@@ -13,21 +13,21 @@ import { useCallback } from "react";
 
 import { Modals } from "@/layered/service/modals";
 
-export interface AssignRoleLayoutArgs extends Access.Role.RetrieveQuery {
+export interface AssignRoleModalParams extends Access.Role.RetrieveQuery {
   title?: string;
 }
 
-export const useAssignRoleModal = Modals.create<AssignRoleLayoutArgs>(
-  ({ args, close }) => {
+export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
+  ({ params, close }) => {
     const client = Synnax.use();
     const { form, save, variant } = Access.Role.useChangeRoleForm({
-      query: args,
+      query: params,
       afterSave: useCallback(() => close(), [close]),
     });
     return (
       <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
         <Flex.Box grow empty>
-          <Modals.Header name={args.title ?? "Assign Role"} icon="User" />
+          <Modals.Header name={params.title ?? "Assign Role"} icon="User" />
           <Flex.Box
             className="console-form"
             justify="center"

@@ -21,7 +21,7 @@ interface ModalProps {
 }
 
 export const Modal = ({ entry }: ModalProps): ReactElement => {
-  const { key, render: Renderer, args } = entry;
+  const { key, render: Renderer, params } = entry;
   const store = useStore();
   const dismiss = useCallback(() => store.close(key), [store, key]);
   const close = useCallback(
@@ -39,7 +39,7 @@ export const Modal = ({ entry }: ModalProps): ReactElement => {
       <Dialog.Dialog full>
         <Errors.SuspenseBoundary>
           <DismissProvider value={dismiss}>
-            <Renderer args={args} close={close} />
+            <Renderer params={params} close={close} />
           </DismissProvider>
         </Errors.SuspenseBoundary>
       </Dialog.Dialog>

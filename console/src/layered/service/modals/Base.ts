@@ -14,44 +14,44 @@ import { useStore } from "@/layered/session/modals/Provider";
 import { type RenderProps } from "@/layered/session/modals/store";
 
 /** A typed fire-and-forget opener: opens a modal and returns immediately. */
-export interface Opener<Args> {
-  (args: Args): void;
+export interface Opener<Params> {
+  (params: Params): void;
 }
 
 /** A typed prompt opener: opens a modal and resolves with its result, or null. */
-export interface Prompt<Result, Args> {
-  (args: Args): Promise<Result | null>;
+export interface Prompt<Result, Params> {
+  (params: Params): Promise<Result | null>;
 }
 
 /**
  * A fire-and-forget modal. Calling the hook returns an opener that pushes the modal and
  * returns immediately.
  */
-export interface OpenHook<Args> {
-  (): Opener<Args>;
+export interface OpenHook<Params> {
+  (): Opener<Params>;
 }
 
 /**
  * A result-returning modal. Calling the hook returns an opener that resolves with the
  * value the renderer passes to close, or null on dismissal.
  */
-export interface PromptHook<Args, Result> {
-  (): Prompt<Result, Args>;
+export interface PromptHook<Params, Result> {
+  (): Prompt<Result, Params>;
 }
 
 /**
  * create defines a fire-and-forget modal (a form that performs its own side effects and
  * dismisses itself). It returns the open hook directly; the hook's function takes the
- * modal's typed args.
+ * modal's typed params.
  */
-export const create = <Args = void>(
-  Component: FC<RenderProps<Args, void>>,
-): OpenHook<Args> => {
-  const useOpen = (): ((args: Args) => void) => {
+export const create = <Params = void>(
+  Component: FC<RenderProps<Params, void>>,
+): OpenHook<Params> => {
+  const useOpen = (): ((params: Params) => void) => {
     const store = useStore();
     return useCallback(
-      (args: Args) =>
-        store.push({ key: id.create(), render: Component, args, resolve: () => {} }),
+      (params: Params) =>
+        store.push({ key: id.create(), render: Component, params, resolve: () => {} }),
       [store],
     );
   };
@@ -60,18 +60,18 @@ export const create = <Args = void>(
 
 /**
  * prompt defines a result-returning modal. It returns the prompt hook directly; the
- * hook's function takes the modal's typed args and resolves with the renderer's result
+ * hook's function takes the modal's typed params and resolves with the renderer's result
  * (or null on dismissal).
  */
-export const prompt = <Result, Args = void>(
-  Component: FC<RenderProps<Args, Result>>,
-): PromptHook<Args, Result> => {
-  const usePrompt = (): ((args: Args) => Promise<Result | null>) => {
+export const prompt = <Result, Params = void>(
+  Component: FC<RenderProps<Params, Result>>,
+): PromptHook<Params, Result> => {
+  const usePrompt = (): ((params: Params) => Promise<Result | null>) => {
     const store = useStore();
     return useCallback(
-      (args: Args) =>
+      (params: Params) =>
         new Promise<Result | null>((resolve) =>
-          store.push({ key: id.create(), render: Component, args, resolve }),
+          store.push({ key: id.create(), render: Component, params, resolve }),
         ),
       [store],
     );

@@ -12,12 +12,12 @@ import { ZERO_SLAVE_PROPERTIES } from "@/hardware/ethercat/device/types";
 import { Modals } from "@/layered/service/modals";
 
 export const useConfigureModal = Modals.create<{ deviceKey?: string; title?: string }>(
-  ({ args, close }) => (
+  ({ params, close }) => (
     <Common.Device.Configure
-      deviceKey={args.deviceKey ?? ""}
+      deviceKey={params.deviceKey ?? ""}
       close={close}
       icon="Logo.EtherCAT"
-      title={args.title}
+      title={params.title}
       initialProperties={ZERO_SLAVE_PROPERTIES}
     />
   ),
