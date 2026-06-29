@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
@@ -30,7 +31,7 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const configure = Device.useConfigureModal();
-  const onConfigure = (deviceKey: string) => configure({ deviceKey });
+  const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
   return (
     <>
       <Common.DeviceServices.ConfigureMenuItem {...props} onConfigure={onConfigure} />

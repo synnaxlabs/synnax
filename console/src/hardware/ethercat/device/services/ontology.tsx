@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { type Device as PlutoDevice, Flux, Icon, Menu } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
@@ -36,7 +37,7 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const store = Flux.useStore<PlutoDevice.FluxSubStore>();
   const { update: toggleEnabled } = useToggleEnabled();
   const configure = Device.useConfigureModal();
-  const onConfigure = (deviceKey: string) => configure({ deviceKey });
+  const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
 
   const { allDisabled, allEnabled } = useMemo(() => {
     const devices = store.devices.get(keys) as SlaveDevice[];

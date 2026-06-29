@@ -180,7 +180,7 @@ export interface ConfigureProps<
   InternalProps<Properties, Make, Model>,
   "close" | "icon" | "initialProperties"
 > {
-  deviceKey: string;
+  deviceKey: device.Key;
 }
 
 export const Configure = <

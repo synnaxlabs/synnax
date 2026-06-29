@@ -16,7 +16,7 @@ export interface ConfigureMenuItemProps extends Pick<
   Ontology.TreeContextMenuProps,
   "selection" | "state"
 > {
-  onConfigure: (deviceKey: string) => void;
+  onConfigure: (deviceKey: device.Key) => void;
 }
 
 export const ConfigureMenuItem = ({

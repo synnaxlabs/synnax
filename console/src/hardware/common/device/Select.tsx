@@ -13,7 +13,7 @@ import { primitive } from "@synnaxlabs/x";
 import { type JSX, useCallback, useMemo } from "react";
 
 export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
-  onConfigure: (deviceKey: string) => void;
+  onConfigure: (deviceKey: device.Key) => void;
   emptyContent?: string | JSX.Element;
   label?: string;
   make: string;

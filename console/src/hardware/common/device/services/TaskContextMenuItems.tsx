@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type device, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Task } from "@/hardware/common/task";
@@ -24,7 +24,7 @@ export interface TaskContextMenuItemsProps extends Pick<
   Ontology.TreeContextMenuProps,
   "selection" | "state"
 > {
-  onConfigure: (deviceKey: string) => void;
+  onConfigure: (deviceKey: device.Key) => void;
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];
 }
 

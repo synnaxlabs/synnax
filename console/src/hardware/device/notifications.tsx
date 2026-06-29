@@ -38,7 +38,7 @@ const notificationAdapter: Notifications.Adapter<ReturnType<typeof device.device
 
 interface ConfigureButtonProps {
   make: Make;
-  deviceKey: string;
+  deviceKey: device.Key;
 }
 
 const ConfigureButton = ({ make, deviceKey }: ConfigureButtonProps) => {

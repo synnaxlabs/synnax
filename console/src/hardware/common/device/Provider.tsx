@@ -37,7 +37,7 @@ export interface ProviderProps<
 > {
   canConfigure: boolean;
   children: (props: ProviderChildProps<Properties, Make, Model>) => ReactElement;
-  onConfigure: (deviceKey: string) => void;
+  onConfigure: (deviceKey: device.Key) => void;
   noneSelectedContent?: ReactElement;
   schemas?: device.DeviceSchemas<Properties, Make, Model>;
 }

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { z } from "zod";
@@ -50,7 +51,7 @@ export const getIcon = (make: Make | null) =>
  * returned opener can dispatch to any make at call time without violating the rules of
  * hooks.
  */
-export const useConfigureModal = (): ((make: Make, deviceKey?: string) => void) => {
+export const useConfigureModal = (): ((make: Make, deviceKey?: device.Key) => void) => {
   const ethercat = EtherCAT.Device.useConfigureModal();
   const http = HTTP.Device.useConnectModal();
   const labjack = LabJack.Device.useConfigureModal();
@@ -59,7 +60,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey?: string) => void) 
   const opc = OPC.Device.useConnectModal();
   return useCallback(
     (make, deviceKey) => {
-      const openers: Record<Make, (args: { deviceKey?: string }) => void> = {
+      const openers: Record<Make, (args: { deviceKey?: device.Key }) => void> = {
         [EtherCAT.Device.MAKE]: ethercat,
         [HTTP.Device.MAKE]: http,
         [LabJack.Device.MAKE]: labjack,

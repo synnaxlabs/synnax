@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { Icon, Menu } from "@synnaxlabs/pluto";
 
 import { type Ontology } from "@/ontology";
@@ -15,7 +16,7 @@ export interface EditConnectionMenuItemProps extends Pick<
   Ontology.TreeContextMenuProps,
   "selection"
 > {
-  onConfigure: (deviceKey: string) => void;
+  onConfigure: (deviceKey: device.Key) => void;
 }
 
 export const EditConnectionMenuItem = ({
