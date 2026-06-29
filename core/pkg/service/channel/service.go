@@ -57,10 +57,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // service and adds DataType inference for calculated channels on write. The calculated
 // channel dependency graph (type repair, status reporting) is a separate reactive
 // component opened independently of this Service.
-type Service struct {
-	*channel.Service
-	cfg ServiceConfig
-}
+type Service struct{ cfg ServiceConfig }
 
 // NewService opens a channel Service. The ctx is accepted for consistency with other
 // service constructors and may be used by future initialization work.
@@ -69,7 +66,7 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{Service: cfg.Distribution, cfg: cfg}, nil
+	return &Service{cfg: cfg}, nil
 }
 
 // NewArcSymbolResolver returns a resolver that maps cluster channels to Arc symbols by
@@ -82,7 +79,7 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 // NewWriter returns a Writer that infers DataTypes for calculated channels before
 // delegating to the distribution-layer writer.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
+	w := Writer{writer: s.cfg.Distribution.NewWriter(tx)}
 	w.analyzer = NewAnalyzer(s.NewArcSymbolResolver(tx))
 	return w
 }
@@ -145,4 +142,8 @@ func (s *Service) RenameMany(ctx context.Context, keys []Key, names []string, al
 // MapRename renames channels using an old-name to new-name mapping.
 func (s *Service) MapRename(ctx context.Context, names map[string]string, allowInternal bool) error {
 	return s.NewWriter(nil).MapRename(ctx, names, allowInternal)
+}
+
+func (s *Service) CountExternalNonVirtual() uint32 {
+	return s.cfg.Distribution.CountExternalNonVirtual()
 }

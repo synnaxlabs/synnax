@@ -21,7 +21,6 @@ type (
 	CreateOption  = channel.CreateOption
 	Retrieve      = channel.Retrieve
 	writer        = channel.Writer
-	service       = channel.Service
 )
 
 const (

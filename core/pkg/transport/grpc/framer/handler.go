@@ -16,9 +16,10 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/errors"
@@ -400,7 +401,7 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func New(t *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport {
+func New(t *api.Transport, channelSvc *distchannel.Service) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
