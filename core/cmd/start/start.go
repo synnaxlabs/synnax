@@ -150,27 +150,17 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	// permission mask for all files appropriately.
 	disablePermissionBits()
 
-	var (
-		closer            xio.MultiCloser
-		securityProvider  security.Provider
-		storageLayer      *storage.Layer
-		distributionLayer *distribution.Layer
-		serviceLayer      *service.Layer
-		apiLayer          *api.Layer
-		transportLayer    transport.Layer
-		rootServer        *server.Server
-		embeddedDriver    *driver.Driver
-	)
-	cleanup, ok := xservice.NewOpener(ctx, &closer)
-	defer func() {
-		err = cleanup(err)
-	}()
+	var closer xio.MultiCloser
 
-	if securityProvider, err = security.NewProvider(security.ProviderConfig{
+	cleanup, ok := xservice.NewOpener(ctx, &closer)
+	defer func() { err = cleanup(err) }()
+
+	securityProvider, err := security.NewProvider(security.ProviderConfig{
 		LoaderConfig: cfg.certFactoryConfig.LoaderConfig,
 		Insecure:     cfg.insecure,
 		KeySize:      cfg.certFactoryConfig.KeySize,
-	}); !ok(err, nil) {
+	})
+	if !ok(err, nil) {
 		return err
 	}
 
@@ -180,11 +170,12 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
-	if storageLayer, err = storage.OpenLayer(ctx, storage.LayerConfig{
+	storageLayer, err := storage.OpenLayer(ctx, storage.LayerConfig{
 		Instrumentation: cfg.Child("storage"),
 		InMemory:        cfg.memBacked,
 		Dirname:         cfg.dataPath,
-	}); !ok(err, storageLayer) {
+	})
+	if !ok(err, storageLayer) {
 		return err
 	}
 
@@ -200,18 +191,19 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		distTransport  = disttransport.New(grpcClientPool)
 	)
 
-	if distributionLayer, err = distribution.OpenLayer(ctx, distribution.LayerConfig{
+	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
 		AdvertiseAddress: cfg.listenAddress,
 		PeerAddresses:    cfg.peers,
 		AspenTransport:   aspenTransport,
 		Transport:        distTransport,
 		Storage:          storageLayer,
-	}); !ok(err, distributionLayer) {
+	})
+	if !ok(err, distributionLayer) {
 		return err
 	}
 
-	if serviceLayer, err = service.OpenLayer(ctx, service.LayerConfig{
+	serviceLayer, err := service.OpenLayer(ctx, service.LayerConfig{
 		Instrumentation:      cfg.Child("service"),
 		Distribution:         distributionLayer,
 		Security:             securityProvider,
@@ -219,16 +211,17 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		RootCredentials:      cfg.rootCredentials,
 		Verifier:             cfg.verifier,
 		ValidateChannelNames: cfg.validateChannelNames,
-	}); !ok(err, serviceLayer) {
+	})
+	if !ok(err, serviceLayer) {
 		return err
 	}
 
-	apiCfg := api.LayerConfig{
+	apiLayer, err := api.NewLayer(api.LayerConfig{
 		Instrumentation: cfg.Child("api"),
 		Service:         serviceLayer,
 		Distribution:    distributionLayer,
-	}
-	if apiLayer, err = api.NewLayer(apiCfg); !ok(err, nil) {
+	})
+	if !ok(err, nil) {
 		return err
 	}
 
@@ -240,12 +233,13 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}); !ok(err, nil) {
 		return err
 	}
-	if transportLayer, err = transport.NewLayer(transport.LayerConfig{
+	transportLayer, err := transport.NewLayer(transport.LayerConfig{
 		Instrumentation: cfg.Child("transport"),
 		API:             apiLayer,
 		Channel:         serviceLayer.Channel,
 		Router:          r,
-	}); !ok(err, nil) {
+	})
+	if !ok(err, nil) {
 		return err
 	}
 
@@ -254,7 +248,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
-	if rootServer, err = server.Serve(
+	if rootServer, err := server.Serve(
 		server.Config{
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
@@ -292,7 +286,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return nil
 	}
 
-	if embeddedDriver, err = driver.Open(
+	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
 			Enabled:             new(!*cfg.noDriver),

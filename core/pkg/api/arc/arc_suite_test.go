@@ -86,7 +86,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statSvc,
 		Search:       node.Search,
 	}))
-
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,

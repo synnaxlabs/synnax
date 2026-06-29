@@ -17,9 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 )
 
-// stubTransport is a no-op channel.Transport used to satisfy the non-nil requirement on
-// ServiceConfig.Transport in tests that exercise configuration validation only. Its
-// endpoint accessors are never invoked, so they return nil.
 type stubTransport struct{}
 
 var _ channel.Transport = stubTransport{}
