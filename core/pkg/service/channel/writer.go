@@ -9,16 +9,12 @@
 
 package channel
 
-import (
-	"context"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-)
+import "context"
 
 // Writer wraps the distribution-layer channel writer, adding DataType inference
 // for calculated channels before persisting.
 type Writer struct {
-	channel.Writer
+	writer
 	analyzer *Analyzer
 }
 
@@ -51,5 +47,5 @@ func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 			(*channels)[i].DataType = result.ChanDataType
 		}
 	}
-	return w.Writer.CreateMany(ctx, channels, opts...)
+	return w.writer.CreateMany(ctx, channels, opts...)
 }

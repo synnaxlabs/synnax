@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -83,7 +82,7 @@ type AnalysisResult struct {
 	// ExpressionReturnType is the inferred type of the calculated expression itself.
 	ExpressionReturnType types.Type
 	// Deps lists the keys of channels read by the expression.
-	Deps channel.Keys
+	Deps Keys
 	// Unresolved lists symbol names that could not be resolved during analysis.
 	Unresolved []string
 }
@@ -91,7 +90,7 @@ type AnalysisResult struct {
 // Analyze parses the channel's expression, infers its return type, and extracts
 // the set of channel dependencies. The analyzed channel is cached so that
 // subsequent calls can reference it by name or key.
-func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (AnalysisResult, error) {
+func (a *Analyzer) Analyze(ctx context.Context, ch Channel) (AnalysisResult, error) {
 	a.resolver.unresolved = make(set.Set[string])
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression))
 	if err != nil {
@@ -113,16 +112,16 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (AnalysisRes
 		a.resolver.temp.keys[intKey] = s
 	}
 	a.resolver.temp.names[s.Name] = s
-	var deps channel.Keys
+	var deps Keys
 	funcScope, scopeErr := aCtx.Scope.GetChildByParserRule(t)
 	if scopeErr == nil {
 		for k := range funcScope.Channels.Read {
-			deps = append(deps, channel.Key(k))
+			deps = append(deps, Key(k))
 		}
 	}
 	inferredDataType := types.ToTelem(dataType)
 	if len(ch.Operations) > 0 &&
-		ch.Operations[len(ch.Operations)-1].Type == channel.OperationTypeDerivative {
+		ch.Operations[len(ch.Operations)-1].Type == OperationTypeDerivative {
 		inferredDataType = telem.Float64T
 	}
 	return AnalysisResult{

@@ -20,6 +20,8 @@ type (
 	OperationType = channel.OperationType
 	CreateOption  = channel.CreateOption
 	Retrieve      = channel.Retrieve
+	writer        = channel.Writer
+	service       = channel.Service
 )
 
 const (
@@ -41,6 +43,7 @@ var (
 	OntologyIDsFromChannels                     = channel.OntologyIDsFromChannels
 	KeysFromChannels                            = channel.KeysFromChannels
 	MatchLeaseholders                           = channel.MatchLeaseholders
+	KeysFromUint32                              = channel.KeysFromUint32
 	MatchDataTypes                              = channel.MatchDataTypes
 	MatchVirtual                                = channel.MatchVirtual
 	MatchIsIndex                                = channel.MatchIsIndex
