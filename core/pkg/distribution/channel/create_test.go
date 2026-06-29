@@ -75,6 +75,11 @@ var _ = Describe("Create", Ordered, func() {
 			{Name: "unresolvable", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: node.Key(99)},
 		})).Error().To(MatchError(query.ErrNotFound))
 	})
+	It("Should surface an error when storage creation fails", func(ctx SpecContext) {
+		Expect(n.Channel.Create(ctx, []channel.Channel{
+			{Name: "no-index", DataType: telem.Float32T},
+		})).Error().To(MatchError(ContainSubstring("non-indexed channel must have an index")))
+	})
 
 	Context("Multi Node", Ordered, func() {
 		var (
@@ -173,6 +178,11 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(gateway.Channel.Create(ctx, []channel.Channel{
 				{Name: "remote-unresolvable", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: node.Key(99)},
 			})).Error().To(MatchError(query.ErrNotFound))
+		})
+		It("Should surface an error when storage creation fails on the leaseholder", func(ctx SpecContext) {
+			Expect(gateway.Channel.Create(ctx, []channel.Channel{
+				{Name: "remote-no-index", DataType: telem.Float32T, Leaseholder: peer.Cluster.HostKey()},
+			})).Error().To(MatchError(ContainSubstring("non-indexed channel must have an index")))
 		})
 	})
 })
