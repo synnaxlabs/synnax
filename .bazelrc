@@ -11,6 +11,10 @@ build --action_env=PATH
 # Enable platform-specific configs
 build --enable_platform_specific_config
 
+# A remote cache that reports a hit but can't deliver the blob (eviction race) otherwise
+# aborts the whole build. Fall back to building the action locally.
+build --remote_local_fallback
+
 # Use OpenSSl instead of BoringSSL for grpc
 build --@grpc//third_party:grpc_use_openssl=true
 
