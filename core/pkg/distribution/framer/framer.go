@@ -63,6 +63,8 @@ type (
 )
 
 const (
+	IteratorAutoSpan = iterator.AutoSpan
+
 	IteratorCommandNext      = iterator.CommandNext
 	IteratorCommandPrev      = iterator.CommandPrev
 	IteratorCommandSeekFirst = iterator.CommandSeekFirst
@@ -83,6 +85,7 @@ const (
 )
 
 var (
+	Merge          = frame.Merge
 	NewUnary       = frame.NewUnary
 	NewMulti       = frame.NewMulti
 	NewFromStorage = frame.NewFromStorage

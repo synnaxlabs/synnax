@@ -51,8 +51,8 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	}
 
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
-		DistFramer: node.Framer,
-		Channel:    channelSvc,
+		Framer:  node.Framer,
+		Channel: channelSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open iterator service: %v", err)

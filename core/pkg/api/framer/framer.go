@@ -133,18 +133,15 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 	// already been freed and cancel does nothing).
 	defer cancel()
 
-	receiver := &freightfluence.Receiver[framer.IteratorRequest]{Receiver: stream}
-	sender := &freightfluence.TransformSender[
-		framer.IteratorResponse,
-		framer.IteratorResponse,
-	]{
-		Sender: freighter.SenderNopCloser[framer.IteratorResponse]{
+	receiver := &freightfluence.Receiver[IteratorRequest]{Receiver: stream}
+	sender := &freightfluence.TransformSender[IteratorResponse, IteratorResponse]{
+		Sender: freighter.SenderNopCloser[IteratorResponse]{
 			StreamSender: stream,
 		},
 		Transform: func(
 			ctx context.Context,
-			res framer.IteratorResponse,
-		) (framer.IteratorResponse, bool, error) {
+			res IteratorResponse,
+		) (IteratorResponse, bool, error) {
 			res.Error = errors.Encode(ctx, res.Error, false)
 			return res, true, nil
 		},
@@ -153,13 +150,13 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 	plumber.SetSegment(pipe, frameIteratorAddr, iter)
 	plumber.SetSink(pipe, frameSenderAddr, sender)
 	plumber.SetSource(pipe, frameReceiverAddr, receiver)
-	plumber.MustConnect[framer.IteratorResponse](
+	plumber.MustConnect[IteratorResponse](
 		pipe,
 		frameIteratorAddr,
 		frameSenderAddr,
 		iteratorResponseBufferSize,
 	)
-	plumber.MustConnect[framer.IteratorRequest](
+	plumber.MustConnect[IteratorRequest](
 		pipe,
 		frameReceiverAddr,
 		frameIteratorAddr,
@@ -194,7 +191,7 @@ func (s *Service) openIterator(
 	if err != nil {
 		return nil, err
 	}
-	if err := stream.Send(framer.IteratorResponse{
+	if err := stream.Send(IteratorResponse{
 		Variant: framer.IteratorResponseVariantAck,
 		Ack:     true,
 	}); err != nil {
@@ -264,11 +261,13 @@ func (s *Service) openStreamer(
 	if err != nil {
 		return nil, err
 	}
-	if err := stream.Send(framer.StreamerResponse{}); err != nil {
+	if err := stream.Send(StreamerResponse{}); err != nil {
 		return nil, err
 	}
 	return streamer, nil
 }
+
+type WriterCommand = framer.WriterCommand
 
 type WriterConfig struct {
 	// ControlSubject is an identifier for the writer.
@@ -318,16 +317,16 @@ type WriterConfig struct {
 
 // WriterRequest represents a request to write telemetry data for a set of channels.
 type WriterRequest struct {
-	Config  WriterConfig         `json:"config" msgpack:"config"`
-	Frame   Frame                `json:"frame" msgpack:"frame"`
-	Command framer.WriterCommand `json:"command" msgpack:"command"`
+	Config  WriterConfig  `json:"config" msgpack:"config"`
+	Frame   Frame         `json:"frame" msgpack:"frame"`
+	Command WriterCommand `json:"command" msgpack:"command"`
 }
 
 type WriterResponse struct {
-	Err        errors.Payload       `json:"err" msgpack:"err"`
-	End        telem.TimeStamp      `json:"end" msgpack:"end"`
-	Command    framer.WriterCommand `json:"command" msgpack:"command"`
-	Authorized bool                 `json:"authorized" msgpack:"authorized"`
+	Err        errors.Payload  `json:"err" msgpack:"err"`
+	End        telem.TimeStamp `json:"end" msgpack:"end"`
+	Command    WriterCommand   `json:"command" msgpack:"command"`
+	Authorized bool            `json:"authorized" msgpack:"authorized"`
 }
 
 type WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]

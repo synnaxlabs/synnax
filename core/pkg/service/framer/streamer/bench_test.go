@@ -86,7 +86,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	}
 
 	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
-		DistFramer:  node.Framer,
+		Framer:      node.Framer,
 		Channel:     channelSvc,
 		Calculation: calc,
 	})

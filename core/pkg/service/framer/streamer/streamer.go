@@ -70,21 +70,32 @@ func (c Config) distribution() framer.StreamerConfig {
 
 // ServiceConfig is the configuration for opening a new streamer service.
 type ServiceConfig struct {
+	// Calculation is used to update the calculation request manager with the provided
+	// keys.
+	//
+	// [REQUIRED]
 	Calculation *calculation.Service
-	Channel     *channel.Service
-	DistFramer  *framer.Service
+	// Channel is used to retrieve channel information.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
+	// Framer is the underlying framer service to stream telemetry frames.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Calculation = override.Nil(cfg.Calculation, other.Calculation)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
-	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
+	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
 	return cfg
 }
 
@@ -92,13 +103,13 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("streamer")
 	validate.NotNil(v, "calculation", cfg.Calculation)
 	validate.NotNil(v, "channel", cfg.Channel)
-	validate.NotNil(v, "dist_framer", cfg.DistFramer)
+	validate.NotNil(v, "framer", cfg.Framer)
 	return v.Error()
 }
 
-type Service struct {
-	cfg ServiceConfig
-}
+// Service is the service layer entry point for using streamers to stream telemetry
+// frames.
+type Service struct{ cfg ServiceConfig }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
@@ -126,7 +137,7 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 		return nil, err
 	}
 	p := plumber.New()
-	dist, err := s.cfg.DistFramer.NewStreamer(ctx, cfg.distribution())
+	dist, err := s.cfg.Framer.NewStreamer(ctx, cfg.distribution())
 	if err != nil {
 		return nil, err
 	}

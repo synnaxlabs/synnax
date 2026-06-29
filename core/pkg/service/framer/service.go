@@ -17,8 +17,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -33,19 +31,19 @@ import (
 )
 
 type (
-	Frame            = frame.Frame
+	Frame            = framer.Frame
 	Iterator         = iterator.Iterator
 	IteratorCommand  = iterator.Command
 	IteratorRequest  = iterator.Request
 	IteratorResponse = iterator.Response
 	StreamIterator   = iterator.StreamIterator
-	Writer           = writer.Writer
-	WriterCommand    = writer.Command
-	WriterConfig     = writer.Config
-	WriterMode       = writer.Mode
-	WriterRequest    = writer.Request
-	WriterResponse   = writer.Response
-	StreamWriter     = writer.StreamWriter
+	Writer           = framer.Writer
+	WriterCommand    = framer.WriterCommand
+	WriterConfig     = framer.WriterConfig
+	WriterMode       = framer.WriterMode
+	WriterRequest    = framer.WriterRequest
+	WriterResponse   = framer.WriterResponse
+	StreamWriter     = framer.StreamWriter
 	IteratorConfig   = iterator.Config
 	StreamerConfig   = streamer.Config
 	StreamerRequest  = streamer.Request
@@ -56,18 +54,18 @@ type (
 const (
 	IteratorResponseVariantAck  = iterator.ResponseVariantAck
 	IteratorResponseVariantData = iterator.ResponseVariantData
-	WriterCommandOpen           = writer.CommandOpen
-	WriterCommandWrite          = writer.CommandWrite
-	WriterCommandCommit         = writer.CommandCommit
-	WriterCommandSetAuthority   = writer.CommandSetAuthority
+	WriterCommandOpen           = framer.WriterCommandOpen
+	WriterCommandWrite          = framer.WriterCommandWrite
+	WriterCommandCommit         = framer.WriterCommandCommit
+	WriterCommandSetAuthority   = framer.WriterCommandSetAuthority
 )
 
 // Frame constructors re-exported from the distribution-layer frame package so callers
 // can build frames without importing it directly.
 var (
-	NewUnary       = frame.NewUnary
-	NewMulti       = frame.NewMulti
-	NewFromStorage = frame.NewFromStorage
+	NewUnary       = framer.NewUnary
+	NewMulti       = framer.NewMulti
+	NewFromStorage = framer.NewFromStorage
 )
 
 type ServiceConfig struct {
@@ -135,7 +133,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.streamer, err = streamer.NewService(streamer.ServiceConfig{
 		Instrumentation: cfg.Child("streamer"),
-		DistFramer:      cfg.Framer,
+		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
 		Calculation:     calcSvc,
 	}); !ok(err, nil) {
@@ -143,7 +141,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.iterator, err = iterator.NewService(iterator.ServiceConfig{
 		Instrumentation: cfg.Child("iterator"),
-		DistFramer:      cfg.Framer,
+		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
 	}); !ok(err, nil) {
 		return nil, err
