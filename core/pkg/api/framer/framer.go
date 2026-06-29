@@ -339,15 +339,15 @@ const (
 // implementation is expected to return a WriterResponse.CloseMsg with the error,
 // and then wait for a reasonable amount of time for the client to close the
 // connection before forcibly terminating the connection.
-func (s *Service) Write(_ctx context.Context, stream WriterStream) error {
-	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Child("frame_writer")))
+func (s *Service) Write(ctx context.Context, stream WriterStream) error {
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Child("frame_writer")))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or writer internal) and we need to free all
 	// resources, OR the client executed the close command on the writer (in
 	// which case resources have already been freed and cancel does nothing).
 	defer cancel()
 
-	w, err := s.openWriter(ctx, auth.GetSubject(_ctx), stream)
+	w, err := s.openWriter(sCtx, auth.GetSubject(ctx), stream)
 	if err != nil {
 		return err
 	}
@@ -386,8 +386,8 @@ func (s *Service) Write(_ctx context.Context, stream WriterStream) error {
 	plumber.MustConnect[framer.WriterRequest](pipe, frameReceiverAddr, frameWriterAddr, writerRequestBufferSize)
 	plumber.MustConnect[framer.WriterResponse](pipe, frameWriterAddr, frameSenderAddr, writerResponseBufferSize)
 
-	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
-	err = ctx.Wait()
+	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
+	err = sCtx.Wait()
 	return err
 }
 
