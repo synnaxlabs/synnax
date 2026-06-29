@@ -95,7 +95,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<Common.Device.ModalParams>(
+export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
   ({ params, close }) => {
     const {
       form,
