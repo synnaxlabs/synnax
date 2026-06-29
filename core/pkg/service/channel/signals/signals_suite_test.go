@@ -32,6 +32,7 @@ func TestSignals(t *testing.T) {
 var (
 	node       mock.Node
 	channelSvc *channel.Service
+	framerSvc  *framer.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -54,7 +55,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Distribution: node.Channel,
 		Status:       statusSvc,
 	}))
-	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  node.Framer,
 		Channel: channelSvc,
 		Status:  statusSvc,
