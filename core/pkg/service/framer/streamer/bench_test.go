@@ -67,7 +67,14 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
-	channelSvc := channel.Wrap(node.Channel)
+	channelSvc, err := channel.NewService(ctx, channel.ServiceConfig{
+		DB:           node.DB,
+		Distribution: node.Channel,
+		Status:       statusSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open channel service: %v", err)
+	}
 	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:                node.DB,
 		Framer:            node.Framer,

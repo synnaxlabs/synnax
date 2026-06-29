@@ -28,8 +28,9 @@ import (
 )
 
 var (
-	node      mock.Node
-	statusSvc *status.Service
+	node       mock.Node
+	statusSvc  *status.Service
+	channelSvc *channel.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -47,11 +48,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   node.Search,
 	}))
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+		DB:           node.DB,
+		Distribution: node.Channel,
+		Status:       statusSvc,
+	}))
 })
 
 func openGraph(ctx context.Context) *graph.Graph {
 	return MustOpen(graph.Open(ctx, graph.Config{
-		Channel: channel.Wrap(node.Channel),
+		Channel: channelSvc,
 		Status:  statusSvc,
 	}))
 }
@@ -858,7 +864,7 @@ var _ = Describe("Graph", func() {
 	Describe("Lifecycle", func() {
 		It("Should open and close without error", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				Channel: channel.Wrap(node.Channel),
+				Channel: channelSvc,
 				Status:  statusSvc,
 			}))
 			Expect(g.Close()).To(Succeed())
@@ -866,7 +872,7 @@ var _ = Describe("Graph", func() {
 
 		It("Should disconnect observer on Close", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				Channel: channel.Wrap(node.Channel),
+				Channel: channelSvc,
 				Status:  statusSvc,
 			}))
 			base := channel.Channel{Name: "lc_disc_base", DataType: telem.Int64T, Virtual: true}
@@ -897,13 +903,13 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should fail to open with nil Status", func(ctx SpecContext) {
-			_, err := graph.Open(ctx, graph.Config{Channel: channel.Wrap(node.Channel)})
+			_, err := graph.Open(ctx, graph.Config{Channel: channelSvc})
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("Should handle Close being called twice", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				Channel: channel.Wrap(node.Channel),
+				Channel: channelSvc,
 				Status:  statusSvc,
 			}))
 			Expect(g.Close()).To(Succeed())

@@ -51,7 +51,11 @@ var _ = Describe("Streamer", Ordered, func() {
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
-		channelSvc := channel.Wrap(node.Channel)
+		channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+			DB:           node.DB,
+			Distribution: node.Channel,
+			Status:       statusSvc,
+		}))
 		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                node.DB,
 			Framer:            node.Framer,

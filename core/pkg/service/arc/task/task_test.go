@@ -72,8 +72,9 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.Arc, error) {
 
 var _ = Describe("Task", Ordered, func() {
 	var (
-		node      mock.Node
-		statusSvc *status.Service
+		node       mock.Node
+		statusSvc  *status.Service
+		channelSvc *channel.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -91,11 +92,16 @@ var _ = Describe("Task", Ordered, func() {
 			Label:    labelSvc,
 			Search:   node.Search,
 		}))
+		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+			DB:           node.DB,
+			Distribution: node.Channel,
+			Status:       statusSvc,
+		}))
 	})
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
 		return MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-			Channel:    channel.Wrap(node.Channel),
+			Channel:    channelSvc,
 			Framer:     node.Framer,
 			Status:     statusSvc,
 			GetProgram: getModule,
@@ -104,7 +110,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-			resolver := channel.Wrap(node.Channel).NewArcSymbolResolver(nil)
+			resolver := channelSvc.NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileGraph(ctx, g, root)
 			if err != nil {
@@ -116,7 +122,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := channel.Wrap(node.Channel).NewArcSymbolResolver(nil)
+			resolver := channelSvc.NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
@@ -231,7 +237,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return ErrTaskNotHandled for non-arc task types", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				Channel: channel.Wrap(node.Channel),
+				Channel: channelSvc,
 				Framer:  node.Framer,
 				Status:  statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
@@ -256,7 +262,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				Channel:    channel.Wrap(node.Channel),
+				Channel:    channelSvc,
 				Framer:     node.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -272,7 +278,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				Channel:    channel.Wrap(node.Channel),
+				Channel:    channelSvc,
 				Framer:     node.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
@@ -288,7 +294,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				Channel:    channel.Wrap(node.Channel),
+				Channel:    channelSvc,
 				Framer:     node.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -312,7 +318,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
-				Channel:    channel.Wrap(node.Channel),
+				Channel:    channelSvc,
 				Framer:     node.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,

@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -34,9 +36,22 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	ctx := context.Background()
 	node := mock.OpenNode(ctx)
 
+	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{DB: node.DB, Ontology: node.Ontology, Group: node.Group, Search: node.Search})
+	if err != nil {
+		b.Fatalf("failed to open label service: %v", err)
+	}
+	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{DB: node.DB, Ontology: node.Ontology, Group: node.Group, Label: labelSvc, Search: node.Search})
+	if err != nil {
+		b.Fatalf("failed to open status service: %v", err)
+	}
+	channelSvc, err := channel.NewService(ctx, channel.ServiceConfig{DB: node.DB, Distribution: node.Channel, Status: statusSvc})
+	if err != nil {
+		b.Fatalf("failed to open channel service: %v", err)
+	}
+
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: node.Framer,
-		Channel:    channel.Wrap(node.Channel),
+		Channel:    channelSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open iterator service: %v", err)

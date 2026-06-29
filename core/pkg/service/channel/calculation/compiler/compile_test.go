@@ -17,14 +17,37 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var node mock.Node
+var (
+	node       mock.Node
+	channelSvc *channel.Service
+)
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	node = mock.NewNode(ctx)
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Label:    labelSvc,
+		Search:   node.Search,
+	}))
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+		DB:           node.DB,
+		Distribution: node.Channel,
+		Status:       statusSvc,
+	}))
 })
 
 var _ = Describe("Compile", func() {
@@ -39,7 +62,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(node.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(node.Channel),
+			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -59,7 +82,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(node.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(node.Channel),
+			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -80,7 +103,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(node.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(node.Channel),
+			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
@@ -99,7 +122,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(node.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(node.Channel),
+			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -115,7 +138,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(node.Channel.Create(ctx, &calc)).To(Succeed())
 		Expect(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(node.Channel),
+			ChannelService: channelSvc,
 			Channel:        calc,
 		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})

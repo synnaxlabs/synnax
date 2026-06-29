@@ -87,16 +87,6 @@ type Service struct {
 	cfg      ServiceConfig
 }
 
-// Wrap builds a Service from an existing distribution-layer framer service without a
-// full ServiceConfig. The returned Service supports the writer operations that delegate
-// directly to the distribution framer (e.g. NewStreamWriter and OpenWriter), but not
-// the calculation-backed streaming and iteration that NewService wires up. It suits
-// tests and other lightweight contexts; use OpenService when a complete configuration
-// is available.
-func Wrap(dist *framer.Service) *Service {
-	return &Service{cfg: ServiceConfig{Framer: dist}}
-}
-
 func (s *Service) OpenIterator(
 	ctx context.Context, cfg IteratorConfig,
 ) (*Iterator, error) {

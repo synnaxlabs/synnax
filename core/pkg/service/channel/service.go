@@ -100,15 +100,6 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{Service: cfg.Distribution, cfg: cfg}, nil
 }
 
-// Wrap builds a Service from an existing distribution-layer channel service without a
-// full ServiceConfig. It provides the same write-time DataType inference for calculated
-// channels as a Service opened with NewService, but carries only the distribution
-// dependency (no Status service or instrumentation), so it suits tests and other
-// lightweight contexts. Use NewService when a complete configuration is available.
-func Wrap(dist *channel.Service) *Service {
-	return &Service{Service: dist, cfg: ServiceConfig{Distribution: dist}}
-}
-
 // NewArcSymbolResolver returns a resolver that maps cluster channels to Arc symbols by
 // name or numeric key, for analyzing and compiling Arc expressions such as calculated
 // channels. tx scopes channel lookups; nil consults the service DB directly.

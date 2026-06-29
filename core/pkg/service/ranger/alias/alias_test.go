@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -44,6 +45,18 @@ var _ = Describe("Alias", Ordered, func() {
 			Group:    node.Group,
 			Search:   node.Search,
 		}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Label:    labelSvc,
+			Search:   node.Search,
+		}))
+		channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+			DB:           node.DB,
+			Distribution: node.Channel,
+			Status:       statusSvc,
+		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
 			Ontology: node.Ontology,
@@ -54,7 +67,7 @@ var _ = Describe("Alias", Ordered, func() {
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              node.DB,
 			Ontology:        node.Ontology,
-			Channel:         channel.Wrap(node.Channel),
+			Channel:         channelSvc,
 			ParentRetriever: rangerSvc,
 			Search:          node.Search,
 		}))

@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -35,9 +37,33 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	node = mock.NewNode(ctx)
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Label:    labelSvc,
+		Search:   node.Search,
+	}))
+	channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+		DB:           node.DB,
+		Distribution: node.Channel,
+		Status:       statusSvc,
+	}))
+	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		DB:      node.DB,
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		Status:  statusSvc,
+	}))
 	sigs = MustSucceed(signals.New(signals.Config{
-		Channel: channel.Wrap(node.Channel),
-		Framer:  framer.Wrap(node.Framer),
+		Channel: channelSvc,
+		Framer:  framerSvc,
 	}))
 })
 

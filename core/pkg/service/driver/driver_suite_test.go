@@ -72,7 +72,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
-	channelSvc = channel.Wrap(node.Channel)
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+		DB:           node.DB,
+		Distribution: node.Channel,
+		Status:       statusSvc,
+	}))
 	framerSvc = node.Framer
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       node.DB,
@@ -80,7 +84,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    node.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
-		Channel:  channel.Wrap(node.Channel),
+		Channel:  channelSvc,
 		Search:   searchIdx,
 	}))
 })

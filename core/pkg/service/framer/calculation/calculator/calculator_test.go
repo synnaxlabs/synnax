@@ -21,14 +21,37 @@ import (
 	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Calculator", Ordered, func() {
-	var node mock.Node
+	var (
+		node       mock.Node
+		channelSvc *channel.Service
+	)
 	BeforeAll(func(ctx SpecContext) {
 		node = mock.NewNode(ctx)
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Search:   node.Search,
+		}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Label:    labelSvc,
+			Search:   node.Search,
+		}))
+		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+			DB:           node.DB,
+			Distribution: node.Channel,
+			Status:       statusSvc,
+		}))
 	})
 
 	open := func(
@@ -55,7 +78,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		}
 		Expect(node.Channel.Create(ctx, calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(node.Channel),
+			ChannelService: channelSvc,
 			Channel:        *calc,
 		}))
 		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
@@ -933,12 +956,12 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			Expect(node.Channel.CreateMany(ctx, bases)).To(Succeed())
-			res := MustSucceed(channelanalyzer.New(channel.Wrap(node.Channel).NewArcSymbolResolver(nil)).
+			res := MustSucceed(channelanalyzer.New(channelSvc.NewArcSymbolResolver(nil)).
 				Analyze(ctx, *calc))
 			calc.DataType = res.ChanDataType
 			Expect(node.Channel.Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-				ChannelService: channel.Wrap(node.Channel),
+				ChannelService: channelSvc,
 				Channel:        *calc,
 			}))
 			return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
@@ -1034,7 +1057,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(node.Channel.CreateMany(ctx, &base)).To(Succeed())
 			Expect(node.Channel.Create(ctx, &calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-				ChannelService: channel.Wrap(node.Channel),
+				ChannelService: channelSvc,
 				Channel:        calc,
 			}))
 			c := MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))

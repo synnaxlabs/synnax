@@ -40,19 +40,21 @@ func TestArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	svc      *arc.Service
-	tx       gorp.Tx
-	node     mock.Node
-	groupSvc *group.Service
-	labelSvc *label.Service
-	statSvc  *status.Service
-	rackSvc  *rack.Service
-	taskSvc  *task.Service
-	testRack *rack.Rack
-	sigs     *signals.Provider
-	arcClock = telem.Now
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	svc        *arc.Service
+	tx         gorp.Tx
+	node       mock.Node
+	groupSvc   *group.Service
+	labelSvc   *label.Service
+	statSvc    *status.Service
+	rackSvc    *rack.Service
+	taskSvc    *task.Service
+	channelSvc *channel.Service
+	framerSvc  *framer.Service
+	testRack   *rack.Rack
+	sigs       *signals.Provider
+	arcClock   = telem.Now
 )
 
 var (
@@ -98,14 +100,25 @@ var (
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+			DB:           node.DB,
+			Distribution: node.Channel,
+			Status:       statSvc,
+		}))
+		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+			DB:      node.DB,
+			Framer:  node.Framer,
+			Channel: channelSvc,
+			Status:  statSvc,
+		}))
 		sigs = MustSucceed(signals.New(signals.Config{
-			Channel: channel.Wrap(node.Channel),
-			Framer:  framer.Wrap(node.Framer),
+			Channel: channelSvc,
+			Framer:  framerSvc,
 		}))
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
-			Channel:             channel.Wrap(node.Channel),
+			Channel:             channelSvc,
 			Task:                taskSvc,
 			Search:              searchIdx,
 			Signals:             sigs,
