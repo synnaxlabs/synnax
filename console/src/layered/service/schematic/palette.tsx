@@ -26,7 +26,7 @@ const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
     />
   );
 };
-CreateCommand.key = "create-schematic";
+CreateCommand.key = "create_schematic";
 CreateCommand.commandName = "Create a schematic";
 CreateCommand.useVisible = () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
 

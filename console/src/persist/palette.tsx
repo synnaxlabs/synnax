@@ -42,7 +42,7 @@ export const ClearCommand: Palette.Command = ({
     />
   );
 };
-ClearCommand.key = "clear-local-storage";
+ClearCommand.key = "clear_local_storage";
 ClearCommand.commandName = "Clear local storage";
 
 export const COMMANDS = [ClearCommand];

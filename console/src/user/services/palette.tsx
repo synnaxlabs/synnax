@@ -26,7 +26,7 @@ const RegisterCommand: Palette.Command = (listProps) => {
     />
   );
 };
-RegisterCommand.key = "register-user";
+RegisterCommand.key = "register_user";
 RegisterCommand.commandName = "Register a user";
 RegisterCommand.useVisible = () => Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
 

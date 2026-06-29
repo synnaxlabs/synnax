@@ -28,7 +28,7 @@ export const EditCommand: Palette.Command = (listProps) => {
     />
   );
 };
-EditCommand.key = "edit-labels";
+EditCommand.key = "edit_labels";
 EditCommand.commandName = "Edit labels";
 EditCommand.useVisible = useVisible;
 

@@ -29,7 +29,7 @@ const CreateCommand: Palette.Command = (listProps) => {
     />
   );
 };
-CreateCommand.key = "create-channel";
+CreateCommand.key = "create_channel";
 CreateCommand.commandName = "Create a channel";
 CreateCommand.useVisible = useVisible;
 
@@ -45,7 +45,7 @@ const CreateCalculatedCommand: Palette.Command = (listProps) => {
     />
   );
 };
-CreateCalculatedCommand.key = "create-calculated-channel";
+CreateCalculatedCommand.key = "create_calculated_channel";
 CreateCalculatedCommand.commandName = "Create a calculated channel";
 CreateCalculatedCommand.useVisible = useVisible;
 

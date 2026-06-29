@@ -27,12 +27,12 @@ export const CreateCommand: Palette.Command = (listProps) => {
     />
   );
 };
-CreateCommand.key = "define-range";
+CreateCommand.key = "define_range";
 CreateCommand.commandName = "Create a range";
 CreateCommand.useVisible = () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({
-  key: "open-explorer",
+  key: "open_explorer",
   name: "Open the Range Explorer",
   icon: <Icon.Explore />,
   layout: Range.EXPLORER_LAYOUT,

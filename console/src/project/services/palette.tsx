@@ -31,7 +31,7 @@ const CreateCommand: Palette.Command = (listProps) => {
     />
   );
 };
-CreateCommand.key = "project-create";
+CreateCommand.key = "project_create";
 CreateCommand.commandName = "Create a project";
 CreateCommand.useVisible = useCreateVisible;
 
@@ -58,7 +58,7 @@ const ImportProjectCommand: Palette.Command = ({
     />
   );
 };
-ImportProjectCommand.key = "project-import";
+ImportProjectCommand.key = "project_import";
 ImportProjectCommand.commandName = "Import a project";
 ImportProjectCommand.sortOrder = -1;
 ImportProjectCommand.useVisible = useCreateVisible;
@@ -75,7 +75,7 @@ const ExportProjectCommand: Palette.Command = (listProps) => {
     />
   );
 };
-ExportProjectCommand.key = "project-export";
+ExportProjectCommand.key = "project_export";
 ExportProjectCommand.commandName = "Export current project";
 ExportProjectCommand.sortOrder = -1;
 ExportProjectCommand.useVisible = useViewVisible;

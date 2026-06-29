@@ -24,7 +24,7 @@ const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
     />
   );
 };
-CreateCommand.key = "create-line-plot";
+CreateCommand.key = "create_line_plot";
 CreateCommand.commandName = "Create a line plot";
 CreateCommand.useVisible = () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
 

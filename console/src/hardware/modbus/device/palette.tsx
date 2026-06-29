@@ -26,7 +26,7 @@ const ConnectServerCommand: Palette.Command = (listProps) => {
     />
   );
 };
-ConnectServerCommand.key = "modbus-connect-server";
+ConnectServerCommand.key = "modbus_connect_server";
 ConnectServerCommand.commandName = "Connect a Modbus server";
 ConnectServerCommand.useVisible = () =>
   Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);

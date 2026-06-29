@@ -24,7 +24,7 @@ const CreateCommand: Palette.Command = (listProps) => {
     />
   );
 };
-CreateCommand.key = "create-log";
+CreateCommand.key = "create_log";
 CreateCommand.commandName = "Create a log";
 CreateCommand.useVisible = () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
 

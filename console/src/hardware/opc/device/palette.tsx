@@ -26,7 +26,7 @@ const ConnectServerCommand: Palette.Command = (listProps) => {
     />
   );
 };
-ConnectServerCommand.key = "opc-ua-connect-server";
+ConnectServerCommand.key = "opc_ua_connect_server";
 ConnectServerCommand.commandName = "Connect an OPC UA server";
 ConnectServerCommand.useVisible = () =>
   Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);

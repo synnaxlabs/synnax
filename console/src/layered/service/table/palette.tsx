@@ -24,7 +24,7 @@ const CreateCommand: Palette.Command = (listProps) => {
     />
   );
 };
-CreateCommand.key = "create-table";
+CreateCommand.key = "create_table";
 CreateCommand.commandName = "Create a table";
 CreateCommand.useVisible = () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
 
