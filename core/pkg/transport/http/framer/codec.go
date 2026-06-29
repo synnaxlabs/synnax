@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -176,7 +175,7 @@ func (c *Codec) decodeWriteRequest(
 		if v.Type != http.WSMessageTypeData {
 			return nil
 		}
-		if v.Payload.Command == distframer.WriterCommandOpen {
+		if v.Payload.Command == framer.WriterCommandOpen {
 			return c.Update(ctx, v.Payload.Config.Keys)
 		}
 		return nil
@@ -186,7 +185,7 @@ func (c *Codec) decodeWriteRequest(
 	if err != nil {
 		return err
 	}
-	v.Payload.Command = distframer.WriterCommandWrite
+	v.Payload.Command = framer.WriterCommandWrite
 	v.Payload.Frame = fr
 	return nil
 }
@@ -196,7 +195,7 @@ func (c *Codec) encodeWriteRequest(
 	w io.Writer,
 	v http.WSMessage[WriterRequest],
 ) error {
-	if v.Type != http.WSMessageTypeData || v.Payload.Command != distframer.WriterCommandWrite {
+	if v.Type != http.WSMessageTypeData || v.Payload.Command != framer.WriterCommandWrite {
 		return c.lowPerfEncode(ctx, true, w, v)
 	}
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
@@ -292,7 +291,7 @@ func (c *Codec) decodeIteratorResponse(
 		return err
 	}
 	v.Payload.Frame = fr
-	v.Payload.Variant = distframer.IteratorResponseVariantData
+	v.Payload.Variant = framer.IteratorResponseVariantData
 	return nil
 }
 
@@ -302,7 +301,7 @@ func (c *Codec) encodeIteratorResponse(
 	v http.WSMessage[IteratorResponse],
 ) error {
 	if v.Type != http.WSMessageTypeData ||
-		v.Payload.Variant != distframer.IteratorResponseVariantData ||
+		v.Payload.Variant != framer.IteratorResponseVariantData ||
 		v.Payload.Frame.Empty() {
 		return c.lowPerfEncode(ctx, true, w, v)
 	}

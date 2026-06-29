@@ -13,8 +13,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/http"
+
 	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -32,7 +34,7 @@ var _ = Describe("FramerCodec", func() {
 			}
 			req := framer.WriterRequest{
 				Command: distframer.WriterCommandWrite,
-				Frame:   distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			msg := http.WSMessage[framer.WriterRequest]{Type: "data", Payload: req}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -54,7 +56,7 @@ var _ = Describe("FramerCodec", func() {
 			}
 			req := framer.WriterRequest{
 				Command: distframer.WriterCommandWrite,
-				Frame: distframer.NewMulti(keys, []telem.Series{
+				Frame: frame.NewMulti(keys, []telem.Series{
 					telem.NewSeriesV[int32](1, 2),
 					telem.NewSeriesV[float32](1.1, 2.2),
 					telem.NewSeriesV[uint64](100, 200),
@@ -210,7 +212,7 @@ var _ = Describe("FramerCodec", func() {
 			Expect(v.Decode(ctx, encoded, &decoded)).To(Succeed())
 
 			res := framer.StreamerResponse{
-				Frame: distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](7, 8, 9)}),
+				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](7, 8, 9)}),
 			}
 			resMsg := http.WSMessage[framer.StreamerResponse]{Type: "data", Payload: res}
 			resEncoded := MustSucceed(v.Encode(ctx, resMsg))
@@ -230,7 +232,7 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: json.Codec,
 			}
 			res := framer.StreamerResponse{
-				Frame: distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			msg := http.WSMessage[framer.StreamerResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -250,7 +252,7 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: json.Codec,
 			}
 			res := framer.StreamerResponse{
-				Frame: distframer.NewMulti(keys, []telem.Series{
+				Frame: frame.NewMulti(keys, []telem.Series{
 					telem.NewSeriesV(1.5, 2.5, 3.5),
 					telem.NewSeriesV[int64](1000, 2000, 3000),
 				}),
@@ -363,7 +365,7 @@ var _ = Describe("FramerCodec", func() {
 			res := framer.IteratorResponse{
 				Variant: distframer.IteratorResponseVariantData,
 				Command: distframer.IteratorCommandNext,
-				Frame:   distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			msg := http.WSMessage[framer.IteratorResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -451,7 +453,7 @@ var _ = Describe("FramerCodec", func() {
 				Command: distframer.IteratorCommandNext,
 				Ack:     true,
 				SeqNum:  99,
-				Frame:   distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			msg := http.WSMessage[framer.IteratorResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -536,7 +538,7 @@ var _ = Describe("FramerCodec", func() {
 
 			res := framer.IteratorResponse{
 				Variant: distframer.IteratorResponseVariantData,
-				Frame:   distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](7, 8)}),
+				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](7, 8)}),
 			}
 			dataMsg := http.WSMessage[framer.IteratorResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, dataMsg))

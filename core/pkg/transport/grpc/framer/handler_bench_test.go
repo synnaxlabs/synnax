@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -43,7 +44,7 @@ func benchFrame(numChannels, samplesPerSeries int) (
 		series[i] = telem.NewSeries(data)
 		frameKeys[i] = keys[i]
 	}
-	return keys, dataTypes, distframer.NewMulti(frameKeys, series)
+	return keys, dataTypes, frame.NewMulti(frameKeys, series)
 }
 
 // benchIteratorFrame mirrors the iterator's "across-domains" shape: each
@@ -52,7 +53,7 @@ func benchFrame(numChannels, samplesPerSeries int) (
 // span more than one domain and the response carries one series per domain per
 // channel.
 func benchIteratorFrame(numChannels, numDomains, samples int) (
-	channel.Keys, []telem.DataType, distframer.Frame,
+	channel.Keys, []telem.DataType, framer.Frame,
 ) {
 	keys := make(channel.Keys, numChannels)
 	dataTypes := make([]telem.DataType, numChannels)
@@ -80,7 +81,7 @@ func benchIteratorFrame(numChannels, numDomains, samples int) (
 			idx++
 		}
 	}
-	return keys, dataTypes, distframer.NewMulti(frameKeys, series)
+	return keys, dataTypes, frame.NewMulti(frameKeys, series)
 }
 
 // BenchmarkWriterRequestTranslator_Forward_BufferOnly simulates a hypothetical

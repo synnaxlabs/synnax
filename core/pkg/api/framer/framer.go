@@ -113,6 +113,11 @@ type (
 )
 
 const (
+	IteratorResponseVariantAck  = framer.IteratorResponseVariantAck
+	IteratorResponseVariantData = framer.IteratorResponseVariantData
+)
+
+const (
 	iteratorResponseBufferSize = 50
 	iteratorRequestBufferSize  = 2
 )
@@ -268,6 +273,15 @@ func (s *Service) openStreamer(
 }
 
 type WriterCommand = framer.WriterCommand
+
+const (
+	WriterCommandOpen         = framer.WriterCommandOpen
+	WriterCommandWrite        = framer.WriterCommandWrite
+	WriterCommandCommit       = framer.WriterCommandCommit
+	WriterCommandSetAuthority = framer.WriterCommandSetAuthority
+)
+
+type WriterMode = framer.WriterMode
 
 type WriterConfig struct {
 	// ControlSubject is an identifier for the writer.

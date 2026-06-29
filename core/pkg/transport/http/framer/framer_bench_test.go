@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter/http"
 	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -48,7 +49,7 @@ func httpBenchFrame(numChannels, samples int) (channel.Keys, []telem.DataType, d
 		series[i] = telem.NewSeries(data)
 		frameKeys[i] = keys[i]
 	}
-	return keys, dts, distframer.NewMulti(frameKeys, series)
+	return keys, dts, frame.NewMulti(frameKeys, series)
 }
 
 func httpIteratorFrame(numChannels, numDomains, samples int) (channel.Keys, []telem.DataType, distframer.Frame) {
@@ -78,7 +79,7 @@ func httpIteratorFrame(numChannels, numDomains, samples int) (channel.Keys, []te
 			idx++
 		}
 	}
-	return keys, dts, distframer.NewMulti(frameKeys, series)
+	return keys, dts, frame.NewMulti(frameKeys, series)
 }
 
 func BenchmarkHTTPCodec_WriteRequest_Encode(b *testing.B) {

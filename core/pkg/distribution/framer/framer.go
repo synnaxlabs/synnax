@@ -10,7 +10,6 @@
 package framer
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -27,39 +26,19 @@ type (
 	IteratorResponse        = iterator.Response
 	IteratorCommand         = iterator.Command
 	IteratorResponseVariant = iterator.ResponseVariant
-	IteratorClient          = iterator.Client
-	IteratorServer          = iterator.Server
-	IteratorClientStream    = iterator.ClientStream
-	IteratorServerStream    = iterator.ServerStream
-	IteratorTransport       = iterator.Transport
 
-	Writer             = writer.Writer
-	StreamWriter       = writer.StreamWriter
-	WriterConfig       = writer.Config
-	WriterRequest      = writer.Request
-	WriterResponse     = writer.Response
-	WriterCommand      = writer.Command
-	WriterMode         = writer.Mode
-	WriterClient       = writer.Client
-	WriterServer       = writer.Server
-	WriterClientStream = writer.ClientStream
-	WriterServerStream = writer.ServerStream
-	WriterTransport    = writer.Transport
+	Streamer         = relay.Streamer
+	StreamerConfig   = relay.StreamerConfig
+	StreamerRequest  = relay.Request
+	StreamerResponse = relay.Response
 
-	Streamer             = relay.Streamer
-	StreamerConfig       = relay.StreamerConfig
-	StreamerRequest      = relay.Request
-	StreamerResponse     = relay.Response
-	StreamerClient       = relay.Client
-	StreamerServer       = relay.Server
-	StreamerClientStream = relay.ClientStream
-	StreamerServerStream = relay.ServerStream
-	StreamerTransport    = relay.Transport
-
-	DeleterRequest   = deleter.Request
-	DeleterClient    = deleter.Client
-	DeleterServer    = deleter.Server
-	DeleterTransport = deleter.Transport
+	Writer         = writer.Writer
+	StreamWriter   = writer.StreamWriter
+	WriterConfig   = writer.Config
+	WriterRequest  = writer.Request
+	WriterResponse = writer.Response
+	WriterCommand  = writer.Command
+	WriterMode     = writer.Mode
 )
 
 const (
@@ -82,11 +61,4 @@ const (
 	WriterCommandWrite        = writer.CommandWrite
 	WriterCommandCommit       = writer.CommandCommit
 	WriterCommandSetAuthority = writer.CommandSetAuthority
-)
-
-var (
-	Merge          = frame.Merge
-	NewUnary       = frame.NewUnary
-	NewMulti       = frame.NewMulti
-	NewFromStorage = frame.NewFromStorage
 )

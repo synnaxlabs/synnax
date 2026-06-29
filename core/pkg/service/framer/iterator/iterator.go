@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -129,7 +130,7 @@ func (i *Iterator) Value() framer.Frame {
 	for idx, v := range i.value {
 		i.valueFrames[idx] = v.Frame
 	}
-	return framer.Merge(i.valueFrames)
+	return frame.Merge(i.valueFrames)
 }
 
 func (i *Iterator) exec(req Request) bool {
