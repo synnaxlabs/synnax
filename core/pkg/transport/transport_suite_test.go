@@ -19,14 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	apiLayer   *api.Layer
-	channelSvc *channel.Service
-)
+var apiLayer *api.Layer
 
 func TestTransport(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -44,7 +40,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Security:     sec,
 		Storage:      node.Storage,
 	}))
-	channelSvc = svc.Channel
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
 		Distribution: node.Layer,

@@ -10,66 +10,71 @@
 package channel_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/channel"
 )
 
-type stubTransport struct{}
+// validServiceConfig opens an in-memory single-node cluster and returns a fully
+// populated ServiceConfig backed by its host resolver, key-value store, time-series
+// database, and a fresh in-memory channel transport.
+func validServiceConfig(ctx context.Context) channel.ServiceConfig {
+	node := mock.NewNode(ctx)
+	return channel.ServiceConfig{
+		HostResolver: node.Cluster,
+		KVReadWriter: node.DB,
+		TS:           node.Storage.TS,
+		Transport:    tmock.NewNetwork().New("mock"),
+	}
+}
 
-var _ channel.Transport = stubTransport{}
+var _ = Describe("ServiceConfig", Ordered, func() {
+	var valid channel.ServiceConfig
+	BeforeAll(func(ctx SpecContext) { valid = validServiceConfig(ctx) })
 
-func (stubTransport) CreateClient() channel.CreateClient { return nil }
-func (stubTransport) CreateServer() channel.CreateServer { return nil }
-func (stubTransport) DeleteClient() channel.DeleteClient { return nil }
-func (stubTransport) DeleteServer() channel.DeleteServer { return nil }
-func (stubTransport) RenameClient() channel.RenameClient { return nil }
-func (stubTransport) RenameServer() channel.RenameServer { return nil }
-
-var _ = Describe("Service", func() {
-	Describe("ServiceConfig", func() {
+	Describe("Validate", func() {
+		It("Should pass when all required fields are set", func() {
+			Expect(valid.Validate()).To(Succeed())
+		})
 		DescribeTable("Should report each missing required field",
 			func(field string) {
-				Expect(channel.ServiceConfig{}.Validate()).To(MatchError(ContainSubstring(field)))
+				Expect(channel.ServiceConfig{}.Validate()).To(
+					MatchError(ContainSubstring(field)),
+				)
 			},
-			Entry("host resolver", "host_resolver"),
-			Entry("kv read writer", "kv_read_writer"),
-			Entry("time-series database", "ts"),
-			Entry("transport", "transport"),
+			Entry("host resolver", "host_resolver: must be non-nil"),
+			Entry("kv read writer", "kv_read_writer: must be non-nil"),
+			Entry("time-series database", "ts: must be non-nil"),
+			Entry("transport", "transport: must be non-nil"),
 		)
-
-		Context("With all required dependencies", Ordered, func() {
-			var (
-				builder *mock.Cluster
-				valid   channel.ServiceConfig
-			)
-			BeforeAll(func(ctx SpecContext) {
-				builder = mock.NewCluster(ctx, 1)
-				n := builder.Nodes[node.KeyBootstrapper]
-				valid = channel.ServiceConfig{
-					HostResolver: n.Cluster,
-					KVReadWriter: n.DB,
-					TS:           n.Storage.TS,
-					Transport:    stubTransport{},
-				}
-			})
-
-			It("Should pass validation when all required fields are set", func() {
-				Expect(valid.Validate()).To(Succeed())
-			})
-			It("Should carry the override's fields onto a zero config", func() {
-				Expect(channel.ServiceConfig{}.Override(valid).Validate()).To(Succeed())
-			})
-		})
 	})
 
-	Describe("NewService", func() {
-		It("Should return an error when required configuration is missing", func(ctx SpecContext) {
-			Expect(channel.NewService(ctx, channel.ServiceConfig{})).Error().To(
-				MatchError(ContainSubstring("host_resolver")),
-			)
+	Describe("Override", func() {
+		It("Should carry the override's fields onto a zero config", func() {
+			Expect(channel.ServiceConfig{}.Override(valid).Validate()).To(Succeed())
 		})
+	})
+})
+
+var _ = Describe("Service", Ordered, Focus, func() {
+	var valid channel.ServiceConfig
+	BeforeAll(func(ctx SpecContext) { valid = validServiceConfig(ctx) })
+
+	It("Should open with a valid configuration", func(ctx SpecContext) {
+		Expect(channel.NewService(ctx, valid)).ToNot(BeNil())
+	})
+	It("Should return an error with an invalid configuration", func(ctx SpecContext) {
+		Expect(channel.NewService(ctx, channel.ServiceConfig{})).Error().To(
+			MatchError(SatisfyAll(
+				ContainSubstring("host_resolver: must be non-nil"),
+				ContainSubstring("kv_read_writer: must be non-nil"),
+				ContainSubstring("ts: must be non-nil"),
+				ContainSubstring("transport: must be non-nil"),
+			)),
+		)
 	})
 })
