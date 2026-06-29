@@ -13,7 +13,7 @@ import { type Entry, ModalStore } from "@/layered/session/modals/store";
 
 const entry = (key: string, resolve: (r: unknown) => void = () => {}): Entry => ({
   key,
-  render: () => null,
+  Renderer: () => null,
   params: undefined,
   resolve,
 });

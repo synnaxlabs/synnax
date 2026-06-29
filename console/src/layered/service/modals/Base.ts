@@ -55,7 +55,7 @@ export const create = <Params = void>(
       (params?: Params) =>
         store.push({
           key: id.create(),
-          render: Component,
+          Renderer: Component,
           params: (params ?? {}) as Params,
           resolve: () => {},
         }),
@@ -80,7 +80,7 @@ export const prompt = <Result, Params = void>(
         new Promise<Result | null>((resolve) =>
           store.push({
             key: id.create(),
-            render: Component,
+            Renderer: Component,
             params: (params ?? {}) as Params,
             resolve,
           }),

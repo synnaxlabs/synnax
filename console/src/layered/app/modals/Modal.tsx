@@ -10,7 +10,7 @@
 import "@/layered/app/modals/Modal.css";
 
 import { Dialog, Errors } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { memo, type ReactElement, useCallback } from "react";
 
 import { DismissProvider } from "@/layered/service/modals/Dismiss";
 import { useStore } from "@/layered/session/modals/Provider";
@@ -20,8 +20,8 @@ interface ModalProps {
   entry: Entry;
 }
 
-export const Modal = ({ entry }: ModalProps): ReactElement => {
-  const { key, render: Renderer, params } = entry;
+export const Modal = memo(({ entry }: ModalProps): ReactElement => {
+  const { key, Renderer, params } = entry;
   const store = useStore();
   const dismiss = useCallback(() => store.close(key), [store, key]);
   const close = useCallback(
@@ -45,4 +45,5 @@ export const Modal = ({ entry }: ModalProps): ReactElement => {
       </Dialog.Dialog>
     </Dialog.Frame>
   );
-};
+});
+Modal.displayName = "Modal";

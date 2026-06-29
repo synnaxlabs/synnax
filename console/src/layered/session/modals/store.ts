@@ -30,13 +30,13 @@ export type Renderer<Params = unknown, Result = unknown> = ComponentType<
  * modal resolves via {@link ModalStore.close}. Both the render component and the resolve
  * closure are held directly on the entry rather than round-tripped through serializable
  * state, which is why the stack cannot live in Redux. All presentation (title, icon) is
- * owned by {@link render}; the entry carries only the dynamic, per-open core.
+ * owned by {@link Renderer}; the entry carries only the dynamic, per-open core.
  */
 export interface Entry<Params = unknown, Result = unknown> {
   /** A unique identity for the open modal, used to address it for close. */
   key: string;
   /** The component that renders this modal. */
-  render: Renderer<Params, Result>;
+  Renderer: Renderer<Params, Result>;
   /** The typed params handed to the renderer. */
   params: Params;
   /**

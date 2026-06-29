@@ -179,7 +179,7 @@ describe("layout hooks", () => {
       act(() => {
         modalStore.push({
           key: "test-modal",
-          render: () => null,
+          Renderer: () => null,
           params: undefined,
           resolve: () => {},
         });
