@@ -117,7 +117,6 @@ var _ = Describe("Deleter", Ordered, func() {
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
-				Sync:  new(true),
 			}))
 			Expect(w.Write(frame.NewMulti(
 				s.keys,
@@ -151,7 +150,6 @@ var _ = Describe("Deleter", Ordered, func() {
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
-				Sync:  new(true),
 			}))
 			Expect(w.Write(frame.NewMulti(
 				s.keys,
