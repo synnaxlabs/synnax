@@ -42,15 +42,15 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
 };
 
 export const useCalculatedModal = Modals.create<CalculatedModalParams>(
-  ({ params, close }) => {
-    const isEdit = primitive.isNonZero(params.channelKey);
+  ({ params: { channelKey }, close }) => {
+    const isEdit = primitive.isNonZero(channelKey);
     const {
       form,
       variant,
       save,
       status: stat,
     } = Channel.useCalculatedForm({
-      query: { key: params.channelKey },
+      query: { key: channelKey },
       afterSave: ({ reset }) => {
         if (createMore) reset();
         else close();
