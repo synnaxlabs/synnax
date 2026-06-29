@@ -10,6 +10,7 @@
 package framer
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -17,19 +18,72 @@ import (
 )
 
 type (
-	Frame            = frame.Frame
-	Iterator         = iterator.Iterator
-	IteratorRequest  = iterator.Request
-	IteratorResponse = iterator.Response
-	StreamIterator   = iterator.StreamIterator
-	Writer           = writer.Writer
-	WriterRequest    = writer.Request
-	WriterResponse   = writer.Response
-	StreamWriter     = writer.StreamWriter
-	WriterConfig     = writer.Config
-	IteratorConfig   = iterator.Config
-	StreamerResponse = relay.Response
-	StreamerRequest  = relay.Request
-	StreamerConfig   = relay.StreamerConfig
-	Streamer         = relay.Streamer
+	Frame = frame.Frame
+
+	Iterator                = iterator.Iterator
+	StreamIterator          = iterator.StreamIterator
+	IteratorConfig          = iterator.Config
+	IteratorRequest         = iterator.Request
+	IteratorResponse        = iterator.Response
+	IteratorCommand         = iterator.Command
+	IteratorResponseVariant = iterator.ResponseVariant
+	IteratorClient          = iterator.Client
+	IteratorServer          = iterator.Server
+	IteratorClientStream    = iterator.ClientStream
+	IteratorServerStream    = iterator.ServerStream
+	IteratorTransport       = iterator.Transport
+
+	Writer             = writer.Writer
+	StreamWriter       = writer.StreamWriter
+	WriterConfig       = writer.Config
+	WriterRequest      = writer.Request
+	WriterResponse     = writer.Response
+	WriterCommand      = writer.Command
+	WriterMode         = writer.Mode
+	WriterClient       = writer.Client
+	WriterServer       = writer.Server
+	WriterClientStream = writer.ClientStream
+	WriterServerStream = writer.ServerStream
+	WriterTransport    = writer.Transport
+
+	Streamer             = relay.Streamer
+	StreamerConfig       = relay.StreamerConfig
+	StreamerRequest      = relay.Request
+	StreamerResponse     = relay.Response
+	StreamerClient       = relay.Client
+	StreamerServer       = relay.Server
+	StreamerClientStream = relay.ClientStream
+	StreamerServerStream = relay.ServerStream
+	StreamerTransport    = relay.Transport
+
+	DeleterRequest   = deleter.Request
+	DeleterClient    = deleter.Client
+	DeleterServer    = deleter.Server
+	DeleterTransport = deleter.Transport
+)
+
+const (
+	IteratorCommandNext      = iterator.CommandNext
+	IteratorCommandPrev      = iterator.CommandPrev
+	IteratorCommandSeekFirst = iterator.CommandSeekFirst
+	IteratorCommandSeekLast  = iterator.CommandSeekLast
+	IteratorCommandSeekLE    = iterator.CommandSeekLE
+	IteratorCommandSeekGE    = iterator.CommandSeekGE
+	IteratorCommandValid     = iterator.CommandValid
+	IteratorCommandError     = iterator.CommandError
+	IteratorCommandSetBounds = iterator.CommandSetBounds
+
+	IteratorResponseVariantAck  = iterator.ResponseVariantAck
+	IteratorResponseVariantData = iterator.ResponseVariantData
+
+	WriterCommandOpen         = writer.CommandOpen
+	WriterCommandWrite        = writer.CommandWrite
+	WriterCommandCommit       = writer.CommandCommit
+	WriterCommandSetAuthority = writer.CommandSetAuthority
+)
+
+var (
+	NewUnary       = frame.NewUnary
+	NewMulti       = frame.NewMulti
+	NewFromStorage = frame.NewFromStorage
 )

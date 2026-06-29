@@ -16,10 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -46,8 +44,8 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			t := frameWriterRequestTranslator{codec: cdec}
 			req := framer.WriterRequest{
-				Command: writer.CommandWrite,
-				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Command: distframer.WriterCommandWrite,
+				Frame:   distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, req))
 			Expect(pb.Buffer).ToNot(BeEmpty())
@@ -64,8 +62,8 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			t := frameWriterRequestTranslator{codec: cdec}
 			req := framer.WriterRequest{
-				Command: writer.CommandWrite,
-				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](4, 5, 6)}),
+				Command: distframer.WriterCommandWrite,
+				Frame:   distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](4, 5, 6)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, req))
 			Expect(pb.Buffer).To(BeEmpty())
@@ -76,8 +74,8 @@ var _ = Describe("gRPC Framer Translators", func() {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
 			t := frameWriterRequestTranslator{}
 			req := framer.WriterRequest{
-				Command: writer.CommandWrite,
-				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](7, 8, 9)}),
+				Command: distframer.WriterCommandWrite,
+				Frame:   distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](7, 8, 9)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, req))
 			Expect(pb.Buffer).To(BeEmpty())
@@ -90,7 +88,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 
 			t := frameWriterRequestTranslator{codec: cdec}
-			req := framer.WriterRequest{Command: writer.CommandWrite}
+			req := framer.WriterRequest{Command: distframer.WriterCommandWrite}
 			pb := MustSucceed(t.Forward(ctx, req))
 			Expect(pb.Buffer).To(BeEmpty())
 		})
@@ -98,12 +96,12 @@ var _ = Describe("gRPC Framer Translators", func() {
 		It("Should round-trip a writer response", func(ctx SpecContext) {
 			t := frameWriterResponseTranslator{}
 			res := framer.WriterResponse{
-				Command: writer.CommandWrite,
+				Command: distframer.WriterCommandWrite,
 				End:     telem.TimeStamp(123),
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
 			out := MustSucceed(t.Backward(ctx, pb))
-			Expect(out.Command).To(Equal(writer.CommandWrite))
+			Expect(out.Command).To(Equal(distframer.WriterCommandWrite))
 			Expect(out.End).To(Equal(telem.TimeStamp(123)))
 		})
 	})
@@ -138,7 +136,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			st := frameStreamerResponseTranslator{codec: cdec}
 			res := framer.StreamerResponse{
-				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}),
+				Frame: distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}),
 			}
 			pbRes := MustSucceed(st.Forward(ctx, res))
 			Expect(pbRes.Buffer).ToNot(BeEmpty())
@@ -159,7 +157,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			st := frameStreamerResponseTranslator{codec: cdec}
 			res := framer.StreamerResponse{
-				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](10, 20, 30)}),
+				Frame: distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](10, 20, 30)}),
 			}
 			pbRes := MustSucceed(st.Forward(ctx, res))
 			Expect(pbRes.Buffer).ToNot(BeEmpty())
@@ -177,7 +175,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewDynamic(dist.Channel)
 			t := frameIteratorRequestTranslator{codec: cdec}
 			req := framer.IteratorRequest{
-				Command:   iterator.CommandSeekFirst,
+				Command:   distframer.IteratorCommandSeekFirst,
 				Keys:      keys,
 				ChunkSize: 100,
 				Bounds:    telem.TimeRangeMax,
@@ -187,7 +185,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			out := MustSucceed(t.Backward(ctx, pb))
 			Expect(channel.Keys(out.Keys)).To(Equal(keys))
-			Expect(out.Command).To(Equal(iterator.CommandSeekFirst))
+			Expect(out.Command).To(Equal(distframer.IteratorCommandSeekFirst))
 			Expect(cdec.Initialized()).To(BeTrue())
 		})
 
@@ -195,11 +193,11 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewDynamic(dist.Channel)
 			t := frameIteratorRequestTranslator{codec: cdec}
 			pb := MustSucceed(t.Forward(ctx, framer.IteratorRequest{
-				Command: iterator.CommandNext,
+				Command: distframer.IteratorCommandNext,
 				Span:    telem.Second,
 			}))
 			out := MustSucceed(t.Backward(ctx, pb))
-			Expect(out.Command).To(Equal(iterator.CommandNext))
+			Expect(out.Command).To(Equal(distframer.IteratorCommandNext))
 			Expect(out.Span).To(Equal(telem.Second))
 			Expect(cdec.Initialized()).To(BeFalse())
 		})
@@ -213,16 +211,16 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
-				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Variant: distframer.IteratorResponseVariantData,
+				Command: distframer.IteratorCommandNext,
+				Frame:   distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
 			Expect(pb.Buffer).ToNot(BeEmpty())
 			Expect(pb.Frame).To(BeNil())
 
 			out := MustSucceed(t.Backward(ctx, pb))
-			Expect(out.Variant).To(Equal(iterator.ResponseVariantData))
+			Expect(out.Variant).To(Equal(distframer.IteratorResponseVariantData))
 			Expect(channel.Keys(out.Frame.KeysSlice())).To(Equal(keys))
 			Expect(out.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
@@ -232,8 +230,8 @@ var _ = Describe("gRPC Framer Translators", func() {
 			Expect(cdec.Update(ctx, channel.Keys{})).To(Succeed())
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantAck,
-				Command: iterator.CommandNext,
+				Variant: distframer.IteratorResponseVariantAck,
+				Command: distframer.IteratorCommandNext,
 				Ack:     true,
 				SeqNum:  7,
 			}
@@ -241,7 +239,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			Expect(pb.Buffer).To(BeEmpty())
 
 			out := MustSucceed(t.Backward(ctx, pb))
-			Expect(out.Variant).To(Equal(iterator.ResponseVariantAck))
+			Expect(out.Variant).To(Equal(distframer.IteratorResponseVariantAck))
 			Expect(out.Ack).To(BeTrue())
 			Expect(out.SeqNum).To(Equal(7))
 		})
@@ -253,9 +251,9 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
-				Frame:   frame.Frame{},
+				Variant: distframer.IteratorResponseVariantData,
+				Command: distframer.IteratorCommandNext,
+				Frame:   distframer.Frame{},
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
 			Expect(pb.Buffer).To(BeEmpty())
@@ -269,9 +267,9 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewDynamic(dist.Channel)
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
-				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Variant: distframer.IteratorResponseVariantData,
+				Command: distframer.IteratorCommandNext,
+				Frame:   distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
 			Expect(pb.Buffer).To(BeEmpty())
@@ -286,9 +284,9 @@ var _ = Describe("gRPC Framer Translators", func() {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
 			t := frameIteratorResponseTranslator{}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
-				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](4, 5, 6)}),
+				Variant: distframer.IteratorResponseVariantData,
+				Command: distframer.IteratorCommandNext,
+				Frame:   distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](4, 5, 6)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
 			Expect(pb.Buffer).To(BeEmpty())
@@ -302,7 +300,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
 			t := frameIteratorResponseTranslator{codec: cdec}
 			pb := &IteratorResponse{
-				Variant: int32(iterator.ResponseVariantData),
+				Variant: int32(distframer.IteratorResponseVariantData),
 				Buffer:  []byte{0x01, 0x02, 0x03},
 			}
 			Expect(t.Backward(ctx, pb)).Error().To(HaveOccurred())
@@ -311,7 +309,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 		It("Should not panic when the proto Error field is nil", func(ctx SpecContext) {
 			t := frameIteratorResponseTranslator{}
 			pb := &IteratorResponse{
-				Variant: int32(iterator.ResponseVariantAck),
+				Variant: int32(distframer.IteratorResponseVariantAck),
 				Ack:     true,
 			}
 			out := MustSucceed(t.Backward(ctx, pb))
@@ -325,7 +323,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
 			t := frameIteratorRequestTranslator{}
 			pb := MustSucceed(t.Forward(ctx, framer.IteratorRequest{
-				Command: iterator.CommandSeekFirst,
+				Command: distframer.IteratorCommandSeekFirst,
 				Keys:    keys,
 			}))
 			out := MustSucceed(t.Backward(ctx, pb))
@@ -341,7 +339,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 			t := frameStreamerResponseTranslator{codec: cdec}
 			res := framer.StreamerResponse{
-				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](100, 200)}),
+				Frame: distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](100, 200)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
 			Expect(pb.Buffer).ToNot(BeEmpty())
@@ -361,7 +359,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			keys := createVirtualChannels(ctx, telem.Int64T, 1)
 			t := frameStreamerResponseTranslator{}
 			res := framer.StreamerResponse{
-				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}),
+				Frame: distframer.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}),
 			}
 			pb := MustSucceed(t.Forward(ctx, res))
 			Expect(pb.Buffer).To(BeEmpty())
@@ -375,7 +373,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewDynamic(dist.Channel)
 			t := frameWriterRequestTranslator{codec: cdec}
 			pb := &WriterRequest{
-				Command: int32(writer.CommandOpen),
+				Command: int32(distframer.WriterCommandOpen),
 				Config:  &WriterConfig{Keys: keys.Uint32(), ControlSubject: nil},
 			}
 			MustSucceed(t.Backward(ctx, pb))
@@ -392,14 +390,14 @@ var _ = Describe("gRPC Framer Translators", func() {
 			cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
 			t := frameWriterRequestTranslator{codec: cdec}
 			out := MustSucceed(t.Backward(ctx, nil))
-			Expect(out.Command).To(Equal(writer.Command(0)))
+			Expect(out.Command).To(Equal(distframer.WriterCommand(0)))
 		})
 
 		It("Should not panic and not call Update when the codec is nil", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
 			t := frameWriterRequestTranslator{}
 			pb := &WriterRequest{
-				Command: int32(writer.CommandOpen),
+				Command: int32(distframer.WriterCommandOpen),
 				Config:  &WriterConfig{Keys: keys.Uint32(), ControlSubject: nil},
 			}
 			out := MustSucceed(t.Backward(ctx, pb))
