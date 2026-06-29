@@ -77,15 +77,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
-	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostResolver: node.Cluster,
-		Ontology:     node.Ontology,
-		Group:        node.Group,
-		Status:       statSvc,
-		Search:       node.Search,
-	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:                  db,
 		Ontology:            otg,
@@ -102,6 +93,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Rack:     rackSvc,
 		Status:   statSvc,
 		Search:   searchIdx,
+	}))
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Status:       statSvc,
+		Search:       node.Search,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,

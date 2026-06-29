@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package transport binds the transport-agnostic API layer
-// (github.com/synnaxlabs/synnax/pkg/api) to Synnax's supported wire protocols. The
-// protocol-specific implementations live in the http and grpc sub-packages; this
-// package composes them into a single Layer that mirrors the storage, distribution,
-// service, and api layers.
+// Package transport binds the transport-agnostic API layer  to Synnax's supported wire
+// protocols. The protocol-specific implementations live in the http and grpc
+// sub-packages; this package composes them into a single Layer that mirrors the
+// storage, distribution, service, and api layers.
 package transport
 
 import (
@@ -33,8 +32,9 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// API is the API layer whose service handlers are bound to each protocol. Its channel
-	// service also backs the frame codec, which resolves channel data types through it.
+	// API is the API layer whose service handlers are bound to each protocol. Its
+	// channel service also backs the frame codec, which resolves channel data types
+	// through it.
 	//
 	// [REQUIRED]
 	API *api.Layer

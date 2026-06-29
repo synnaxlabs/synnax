@@ -27,7 +27,7 @@ import (
 // benchmarks. The sample shape (numChannels x samplesPerSeries) is the same
 // shape the writer translator sees on a steady-state hot stream.
 func benchFrame(numChannels, samplesPerSeries int) (
-	channel.Keys, []telem.DataType, frame.Frame,
+	channel.Keys, []telem.DataType, framer.Frame,
 ) {
 	keys := make(channel.Keys, numChannels)
 	dataTypes := make([]telem.DataType, numChannels)
@@ -54,7 +54,7 @@ func benchFrame(numChannels, samplesPerSeries int) (
 // span more than one domain and the response carries one series per domain per
 // channel.
 func benchIteratorFrame(numChannels, numDomains, samples int) (
-	channel.Keys, []telem.DataType, frame.Frame,
+	channel.Keys, []telem.DataType, framer.Frame,
 ) {
 	keys := make(channel.Keys, numChannels)
 	dataTypes := make([]telem.DataType, numChannels)
