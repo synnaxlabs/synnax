@@ -156,12 +156,10 @@ func (s *Service) openIterator(ctx context.Context, srv IteratorStream) (framer.
 	if err != nil {
 		return nil, err
 	}
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: framer.OntologyIDs(req.Keys),
-		})
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
 	}
@@ -225,12 +223,10 @@ func (s *Service) openStreamer(
 	if err != nil {
 		return nil, err
 	}
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionRetrieve,
-			Objects: framer.OntologyIDs(req.Keys),
-		})
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionRetrieve,
+		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
 	}
@@ -401,12 +397,10 @@ func (s *Service) openWriter(
 		return nil, err
 	}
 
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionCreate,
-			Objects: framer.OntologyIDs(req.Config.Keys),
-		})
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionCreate,
+		Objects: framer.OntologyIDs(req.Config.Keys),
 	}); err != nil {
 		return nil, err
 	}
