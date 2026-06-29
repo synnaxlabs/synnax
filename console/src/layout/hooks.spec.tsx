@@ -177,12 +177,11 @@ describe("layout hooks", () => {
 
       // Open a modal in the independent modal store
       act(() => {
-        modalStore.push({
-          key: "test-modal",
-          Renderer: () => null,
-          params: undefined,
-          resolve: () => {},
-        });
+        modalStore.push(
+          () => null,
+          undefined,
+          () => {},
+        );
       });
 
       // The active tab is now blurred because a modal is open

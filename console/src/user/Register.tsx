@@ -13,6 +13,7 @@ import {
   Button,
   Flex,
   Form,
+  Icon,
   type Input,
   Nav,
   Synnax,
@@ -49,7 +50,7 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   full: "x",
 };
 
-export const useRegisterModal = Modals.create<void>(({ close }) => {
+export const useRegisterModal = Modals.create(({ close }) => {
   const client = Synnax.use();
   const { form, save, variant } = User.useForm({
     query: {},
@@ -57,8 +58,8 @@ export const useRegisterModal = Modals.create<void>(({ close }) => {
   });
 
   return (
-    <Flex.Box grow empty>
-      <Modals.Header title="User.Register" icon="User" />
+    <Modals.Frame>
+      <Modals.Header icon={<Icon.User />}>User.Register</Modals.Header>
       <Flex.Box
         className="console-form"
         justify="center"
@@ -111,6 +112,6 @@ export const useRegisterModal = Modals.create<void>(({ close }) => {
           </Button.Button>
         </Nav.Bar.End>
       </Modals.Footer>
-    </Flex.Box>
+    </Modals.Frame>
   );
 });

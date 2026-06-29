@@ -51,7 +51,7 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
 
 export const DeleteModal = ({
   close,
-}: Modals.ContentProps<void, void>): ReactElement => {
+}: Modals.ContentProps<Record<never, never>, void>): ReactElement => {
   const [step, setStep] = useState<"form" | "confirm">("form");
   const methods = Form.use({
     schema: formSchema,
@@ -59,14 +59,14 @@ export const DeleteModal = ({
   });
   return (
     <Form.Form<typeof formSchema> {...methods}>
-      <Flex.Box align="stretch" direction="y" empty grow>
-        <Modals.Header title="Data.Delete" icon="Channel" />
+      <Modals.Frame>
+        <Modals.Header icon={<Icon.Channel />}>Data.Delete</Modals.Header>
         {step === "form" ? (
           <FormStep onNext={() => setStep("confirm")} />
         ) : (
           <ConfirmStep onBack={() => setStep("form")} onClose={close} />
         )}
-      </Flex.Box>
+      </Modals.Frame>
     </Form.Form>
   );
 };
@@ -103,61 +103,72 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
     </>
   );
   return (
-    <Modals.Body footer={footer} gap="large" justify="start">
-      <Text.Text level="h3" weight={450}>
-        Delete Data
-      </Text.Text>
-      <Flex.Box y full="x" gap="medium">
-        <Form.Field<channel.Key[]> path="channels">
-          {channelSelectRenderProp}
-        </Form.Field>
-        <Flex.Box x gap="medium" align="start">
-          <Flex.Box y gap="small" className={CSS.BE("delete-modal", "time-range-side")}>
-            <Flex.Box x align="center" gap="small">
-              <Input.Checkbox
-                value={isFromBeginning}
-                onChange={(v) =>
-                  set(
-                    "timeRange.start",
-                    v ? TimeRange.MAX.numeric.start : TimeStamp.now().nanoseconds,
-                  )
-                }
-              />
-              <Text.Text weight={450}>From beginning of time</Text.Text>
+    <>
+      <Modals.Body gap="large" justify="start">
+        <Text.Text level="h3" weight={450}>
+          Delete Data
+        </Text.Text>
+        <Flex.Box y full="x" gap="medium">
+          <Form.Field<channel.Key[]> path="channels">
+            {channelSelectRenderProp}
+          </Form.Field>
+          <Flex.Box x gap="medium" align="start">
+            <Flex.Box
+              y
+              gap="small"
+              className={CSS.BE("delete-modal", "time-range-side")}
+            >
+              <Flex.Box x align="center" gap="small">
+                <Input.Checkbox
+                  value={isFromBeginning}
+                  onChange={(v) =>
+                    set(
+                      "timeRange.start",
+                      v ? TimeRange.MAX.numeric.start : TimeStamp.now().nanoseconds,
+                    )
+                  }
+                />
+                <Text.Text weight={450}>From beginning of time</Text.Text>
+              </Flex.Box>
+              {!isFromBeginning && (
+                <Form.Field<number>
+                  path="timeRange.start"
+                  padHelpText={false}
+                  label="From"
+                >
+                  {inputDateTimeRenderProp}
+                </Form.Field>
+              )}
             </Flex.Box>
-            {!isFromBeginning && (
-              <Form.Field<number>
-                path="timeRange.start"
-                padHelpText={false}
-                label="From"
-              >
-                {inputDateTimeRenderProp}
-              </Form.Field>
-            )}
-          </Flex.Box>
-          <Icon.Arrow.Right className={CSS.BE("delete-modal", "arrow")} color={9} />
-          <Flex.Box y gap="small" className={CSS.BE("delete-modal", "time-range-side")}>
-            <Flex.Box x align="center" gap="small">
-              <Input.Checkbox
-                value={isToEnd}
-                onChange={(v) =>
-                  set(
-                    "timeRange.end",
-                    v ? TimeRange.MAX.numeric.end : TimeStamp.now().nanoseconds,
-                  )
-                }
-              />
-              <Text.Text weight={450}>To end of time</Text.Text>
+            <Icon.Arrow.Right className={CSS.BE("delete-modal", "arrow")} color={9} />
+            <Flex.Box
+              y
+              gap="small"
+              className={CSS.BE("delete-modal", "time-range-side")}
+            >
+              <Flex.Box x align="center" gap="small">
+                <Input.Checkbox
+                  value={isToEnd}
+                  onChange={(v) =>
+                    set(
+                      "timeRange.end",
+                      v ? TimeRange.MAX.numeric.end : TimeStamp.now().nanoseconds,
+                    )
+                  }
+                />
+                <Text.Text weight={450}>To end of time</Text.Text>
+              </Flex.Box>
+              {!isToEnd && (
+                <Form.Field<number> path="timeRange.end" padHelpText={false} label="To">
+                  {inputDateTimeRenderProp}
+                </Form.Field>
+              )}
             </Flex.Box>
-            {!isToEnd && (
-              <Form.Field<number> path="timeRange.end" padHelpText={false} label="To">
-                {inputDateTimeRenderProp}
-              </Form.Field>
-            )}
           </Flex.Box>
         </Flex.Box>
-      </Flex.Box>
-    </Modals.Body>
+      </Modals.Body>
+      <Modals.Footer>{footer}</Modals.Footer>
+    </>
   );
 };
 
@@ -234,19 +245,22 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
     </>
   );
   return (
-    <Modals.Body footer={footer} gap="large">
-      <Text.Text level="h3" weight={450}>
-        Are you sure you want to delete this data?
-      </Text.Text>
-      <Flex.Box y gap="medium">
-        <Text.Text weight={450}>
-          This will permanently delete data from {channelStr} for the time range:{" "}
-          {formatTimeRange(start, end)}.
+    <>
+      <Modals.Body gap="large">
+        <Text.Text level="h3" weight={450}>
+          Are you sure you want to delete this data?
         </Text.Text>
-        <Text.Text weight={450} status="error">
-          This action is irreversible.
-        </Text.Text>
-      </Flex.Box>
-    </Modals.Body>
+        <Flex.Box y gap="medium">
+          <Text.Text weight={450}>
+            This will permanently delete data from {channelStr} for the time range:{" "}
+            {formatTimeRange(start, end)}.
+          </Text.Text>
+          <Text.Text weight={450} status="error">
+            This action is irreversible.
+          </Text.Text>
+        </Flex.Box>
+      </Modals.Body>
+      <Modals.Footer>{footer}</Modals.Footer>
+    </>
   );
 };

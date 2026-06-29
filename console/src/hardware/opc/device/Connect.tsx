@@ -18,6 +18,7 @@ import {
   Flex,
   type Flux,
   Form,
+  Icon,
   Nav,
   Rack,
   Status,
@@ -96,14 +97,14 @@ const beforeSave = async ({
 };
 
 export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
-  ({ params, close }) => {
+  ({ deviceKey, close }) => {
     const {
       form,
       save,
       status: stat,
       variant,
     } = useForm({
-      query: { key: params.deviceKey ?? "" },
+      query: { key: deviceKey ?? "" },
       initialValues: INITIAL_VALUES,
       beforeValidate,
       beforeSave,
@@ -116,8 +117,8 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
         { ctx: form },
       ) != NO_SECURITY_MODE;
     return (
-      <Flex.Box align="start" className={CSS.B("opc-connect")} justify="center">
-        <Modals.Header title="Server.Connect" icon="Logo.OPC" />
+      <Modals.Frame className={CSS.B("opc-connect")}>
+        <Modals.Header icon={<Icon.Logo.OPC />}>Server.Connect</Modals.Header>
         <Flex.Box className={CSS.B("content")} grow gap="small">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
@@ -202,7 +203,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
             </Button.Button>
           </Nav.Bar.End>
         </Modals.Footer>
-      </Flex.Box>
+      </Modals.Frame>
     );
   },
 );

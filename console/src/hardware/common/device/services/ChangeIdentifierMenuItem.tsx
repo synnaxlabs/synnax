@@ -47,7 +47,7 @@ export const ChangeIdentifierMenuItem = ({
           allowEmpty: false,
           label: "Identifier",
           title: "Device.Identifier",
-          icon,
+          icon: Icon.resolve(icon),
         });
         if (newIdentifier == null) return;
         await updateAsync({ key: first.id.key, identifier: newIdentifier });

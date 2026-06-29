@@ -66,7 +66,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
       const renamed = await renameModal({
         initialValue: ranges[0].name,
         title: "Range.Rename",
-        icon: "Range",
+        icon: <Icon.Range />,
       });
       if (renamed == null) return;
       renameRange({ key: ranges[0].key, name: renamed });

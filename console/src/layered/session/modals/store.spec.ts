@@ -7,59 +7,56 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { type Entry, ModalStore } from "@/layered/session/modals/store";
+import {
+  type Content,
+  type ContentProps,
+  ModalStore,
+} from "@/layered/session/modals/store";
 
-const entry = (key: string, resolve: (r: unknown) => void = () => {}): Entry => ({
-  key,
-  Renderer: () => null,
-  params: undefined,
-  resolve,
-});
+const Noop: Content = () => null;
+
+/** Pulls the close callback the store bound into the topmost modal's rendered content. */
+const closeOf = (store: ModalStore): ContentProps["close"] =>
+  (store.getState().at(-1)?.render() as ReactElement<ContentProps>).props.close;
 
 describe("ModalStore", () => {
   describe("push", () => {
-    it("should append an entry to the stack", () => {
+    it("should append a modal to the stack", () => {
       const store = new ModalStore();
-      store.push(entry("a"));
-      store.push(entry("b"));
-      expect(store.getState().map((e) => e.key)).toEqual(["a", "b"]);
+      store.push(Noop, undefined, () => {});
+      store.push(Noop, undefined, () => {});
+      expect(store.getState()).toHaveLength(2);
     });
 
-    it("should dedupe a push with an already-open key and resolve it null", () => {
-      const store = new ModalStore();
-      store.push(entry("a"));
-      const resolve = vi.fn();
-      store.push(entry("a", resolve));
-      expect(store.getState()).toHaveLength(1);
-      expect(resolve).toHaveBeenCalledWith(null);
-    });
-  });
-
-  describe("close", () => {
-    it("should remove the entry and resolve with the result", () => {
+    it("should resolve with the result the content passes to close", () => {
       const store = new ModalStore();
       const resolve = vi.fn();
-      store.push(entry("a", resolve));
-      store.close("a", 42);
+      store.push(Noop, undefined, resolve);
+      closeOf(store)(42);
       expect(store.isAnyOpen()).toBe(false);
       expect(resolve).toHaveBeenCalledWith(42);
     });
 
-    it("should resolve null when closed without a result", () => {
+    it("should resolve null when the content closes without a result", () => {
       const store = new ModalStore();
       const resolve = vi.fn();
-      store.push(entry("a", resolve));
-      store.close("a");
+      store.push(Noop, undefined, resolve);
+      closeOf(store)();
       expect(resolve).toHaveBeenCalledWith(null);
     });
+  });
 
-    it("should ignore an unknown key", () => {
+  describe("dismiss", () => {
+    it("should remove the entry and resolve null", () => {
       const store = new ModalStore();
-      store.push(entry("a"));
-      store.close("missing");
-      expect(store.getState()).toHaveLength(1);
+      const resolve = vi.fn();
+      store.push(Noop, undefined, resolve);
+      store.getState()[0].dismiss();
+      expect(store.isAnyOpen()).toBe(false);
+      expect(resolve).toHaveBeenCalledWith(null);
     });
   });
 
@@ -68,10 +65,10 @@ describe("ModalStore", () => {
       const store = new ModalStore();
       const resolveA = vi.fn();
       const resolveB = vi.fn();
-      store.push(entry("a", resolveA));
-      store.push(entry("b", resolveB));
+      store.push(Noop, undefined, resolveA);
+      store.push(Noop, undefined, resolveB);
       store.closeTop();
-      expect(store.getState().map((e) => e.key)).toEqual(["a"]);
+      expect(store.getState()).toHaveLength(1);
       expect(resolveB).toHaveBeenCalledWith(null);
       expect(resolveA).not.toHaveBeenCalled();
     });
@@ -82,8 +79,8 @@ describe("ModalStore", () => {
       const store = new ModalStore();
       const resolveA = vi.fn();
       const resolveB = vi.fn();
-      store.push(entry("a", resolveA));
-      store.push(entry("b", resolveB));
+      store.push(Noop, undefined, resolveA);
+      store.push(Noop, undefined, resolveB);
       store.clear();
       expect(store.isAnyOpen()).toBe(false);
       expect(resolveA).toHaveBeenCalledWith(null);
@@ -92,15 +89,15 @@ describe("ModalStore", () => {
   });
 
   describe("subscribe", () => {
-    it("should notify listeners on push and close", () => {
+    it("should notify listeners on push and dismiss", () => {
       const store = new ModalStore();
       const listener = vi.fn();
       const unsubscribe = store.subscribe(listener);
-      store.push(entry("a"));
-      store.close("a");
+      store.push(Noop, undefined, () => {});
+      store.getState()[0].dismiss();
       expect(listener).toHaveBeenCalledTimes(2);
       unsubscribe();
-      store.push(entry("b"));
+      store.push(Noop, undefined, () => {});
       expect(listener).toHaveBeenCalledTimes(2);
     });
   });

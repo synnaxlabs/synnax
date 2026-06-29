@@ -11,14 +11,14 @@ import "@/layout/Window.css";
 
 import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
+import { Component, Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
-import { Modals } from "@/layered/app/modals";
+import { Modals } from "@/layered/service/modals";
 import { Content } from "@/layout/Content";
 import { useSelect } from "@/layout/selectors";
 import { Runtime } from "@/runtime";
@@ -70,7 +70,7 @@ const WindowInternal = (): ReactElement | null => {
       onDragOver={handleDragOver}
       onContextMenu={menuProps.open}
     >
-      <Modals.Surface />
+      <Modals.Stack />
       <Menu.ContextMenu menu={menu} {...menuProps}>
         <Content layoutKey={layout.key} />
       </Menu.ContextMenu>
@@ -78,7 +78,7 @@ const WindowInternal = (): ReactElement | null => {
   );
 };
 
-const menu = () => <DefaultContextMenu />;
+const menu = Component.renderProp(DefaultContextMenu);
 
 export const Window = memo(WindowInternal);
 Window.displayName = "Window";

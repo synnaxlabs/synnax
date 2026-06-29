@@ -16,6 +16,7 @@ import {
   Flex,
   Form,
   Header,
+  Icon,
   Input,
   Nav,
   Schematic,
@@ -52,7 +53,7 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 const DEFAULT_REGION_KEY = "default";
 
 export const useSymbolModal = Modals.create<SymbolModalParams>(
-  ({ params: { key, parent, createKey }, close }): ReactElement => {
+  ({ key, parent, createKey, close }): ReactElement => {
     const isCreate = key == null;
     const theme = Theming.use();
     const { form, save } = Schematic.Symbol.useForm({
@@ -157,17 +158,13 @@ export const useSymbolModal = Modals.create<SymbolModalParams>(
 
     return (
       <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
-        <Flex.Box
+        <Modals.Frame
           className={CSS.BE("schematic", "symbol-create-layout")}
-          empty
-          full
           background={1}
-          y
         >
-          <Modals.Header
-            title={isCreate ? CREATE_NAME : EDIT_SYMBOL_NAME}
-            icon="Schematic"
-          />
+          <Modals.Header icon={<Icon.Schematic />}>
+            {isCreate ? CREATE_NAME : EDIT_SYMBOL_NAME}
+          </Modals.Header>
           <Flex.Box className="console-form" grow full y>
             <Flex.Box x grow>
               {hasSVG && (
@@ -281,7 +278,7 @@ export const useSymbolModal = Modals.create<SymbolModalParams>(
               </Nav.Bar.End>
             </Modals.Footer>
           )}
-        </Flex.Box>
+        </Modals.Frame>
       </Form.Form>
     );
   },

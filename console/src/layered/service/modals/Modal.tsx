@@ -7,38 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layered/app/modals/Modal.css";
-
 import { Dialog, Errors } from "@synnaxlabs/pluto";
-import { memo, type ReactElement, useCallback } from "react";
+import { memo, type ReactElement } from "react";
 
-import { useStore } from "@/layered/session/modals/Provider";
 import { type Entry } from "@/layered/session/modals/store";
 
 interface ModalProps {
   entry: Entry;
 }
 
-export const Modal = memo(({ entry }: ModalProps): ReactElement => {
-  const { key, Renderer, params } = entry;
-  const store = useStore();
-  const dismiss = useCallback(() => store.close(key), [store, key]);
-  const close = useCallback(
-    (result?: unknown) => store.close(key, result),
-    [store, key],
-  );
-  return (
+export const Modal = memo(
+  ({ entry }: ModalProps): ReactElement => (
     <Dialog.Frame
-      key={key}
       variant="modal"
       visible
-      onVisibleChange={dismiss}
+      onVisibleChange={entry.dismiss}
       background={0}
     >
-      <Errors.SuspenseBoundary>
-        <Renderer params={params} close={close} />
-      </Errors.SuspenseBoundary>
+      <Errors.SuspenseBoundary>{entry.render()}</Errors.SuspenseBoundary>
     </Dialog.Frame>
-  );
-});
+  ),
+);
 Modal.displayName = "Modal";

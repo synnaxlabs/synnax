@@ -18,6 +18,7 @@ import {
   Flex,
   type Flux,
   Form,
+  Icon,
   Nav,
   Rack,
   Select,
@@ -108,14 +109,14 @@ const beforeSave = async ({
 };
 
 export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
-  ({ params, close }) => {
+  ({ deviceKey, close }) => {
     const {
       form,
       save,
       status: stat,
       variant,
     } = useForm({
-      query: { key: params.deviceKey ?? "" },
+      query: { key: deviceKey ?? "" },
       initialValues: INITIAL_VALUES,
       beforeSave,
       afterSave: useCallback(() => close(), [close]),
@@ -225,8 +226,8 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
     );
 
     return (
-      <Flex.Box grow className={CSS.B("http-connect")}>
-        <Modals.Header title="Server.Connect" icon="Logo.HTTP" />
+      <Modals.Frame className={CSS.B("http-connect")}>
+        <Modals.Header icon={<Icon.Logo.HTTP />}>Server.Connect</Modals.Header>
         <Flex.Box className={CSS.B("content")} grow gap="large">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Flex.Box gap="small">
@@ -421,7 +422,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
             </Button.Button>
           </Nav.Bar.End>
         </Modals.Footer>
-      </Flex.Box>
+      </Modals.Frame>
     );
   },
 );

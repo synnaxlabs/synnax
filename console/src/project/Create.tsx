@@ -8,7 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { status, UnexpectedError } from "@synnaxlabs/client";
-import { Button, Flex, Form, Input, Nav, Project, Synnax } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Flex,
+  Form,
+  Icon,
+  Input,
+  Nav,
+  Project,
+  Synnax,
+} from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Modals } from "@/layered/service/modals";
@@ -17,7 +26,7 @@ import { useSelectOptionalActiveKey } from "@/project/selectors";
 import { setActive } from "@/project/slice";
 import { Triggers } from "@/triggers";
 
-export const useCreateModal = Modals.create<void>(({ close }) => {
+export const useCreateModal = Modals.create(({ close }) => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const active = useSelectOptionalActiveKey();
@@ -39,8 +48,8 @@ export const useCreateModal = Modals.create<void>(({ close }) => {
   });
 
   return (
-    <Flex.Box style={{ height: "100%" }}>
-      <Modals.Header title="Project.Create" icon="Project" />
+    <Modals.Frame style={{ height: "100%" }}>
+      <Modals.Header icon={<Icon.Project />}>Project.Create</Modals.Header>
       <Flex.Box
         className="console-form"
         style={{ padding: "1rem 3rem" }}
@@ -77,6 +86,6 @@ export const useCreateModal = Modals.create<void>(({ close }) => {
           </Button.Button>
         </Nav.Bar.End>
       </Modals.Footer>
-    </Flex.Box>
+    </Modals.Frame>
   );
 });

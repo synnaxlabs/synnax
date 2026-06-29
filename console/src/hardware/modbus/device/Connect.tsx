@@ -17,6 +17,7 @@ import {
   Flex,
   type Flux,
   Form,
+  Icon,
   Nav,
   Rack,
   Status,
@@ -98,14 +99,14 @@ const beforeSave = async ({
 };
 
 export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
-  ({ params, close }) => {
+  ({ deviceKey, close }) => {
     const {
       form,
       save,
       status: stat,
       variant,
     } = useForm({
-      query: { key: params.deviceKey ?? "" },
+      query: { key: deviceKey ?? "" },
       initialValues: INITIAL_VALUES,
       beforeValidate,
       beforeSave,
@@ -113,8 +114,8 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
     });
 
     return (
-      <Flex.Box align="start" className={CSS.B("modbus-connect")} justify="center">
-        <Modals.Header title="Server.Connect" icon="Logo.Modbus" />
+      <Modals.Frame className={CSS.B("modbus-connect")}>
+        <Modals.Header icon={<Icon.Logo.Modbus />}>Server.Connect</Modals.Header>
         <Flex.Box className={CSS.B("content")} grow size="small">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
@@ -162,7 +163,7 @@ export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
             </Button.Button>
           </Nav.Bar.End>
         </Modals.Footer>
-      </Flex.Box>
+      </Modals.Frame>
     );
   },
 );

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Button, Flex, Flux, Progress, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Flux, Icon, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -92,7 +92,7 @@ const { useUpdate } = Flux.createUpdate<
   },
 });
 
-export const useInfoModal = Modals.create<void>(() => {
+export const useInfoModal = Modals.create(() => {
   const version = use();
   const availableQuery = useRetrieveUpdateAvailable({});
   const updateQuery = useUpdate();
@@ -157,8 +157,8 @@ export const useInfoModal = Modals.create<void>(() => {
       );
 
   return (
-    <>
-      <Modals.Header title="About.Version" icon="Info" />
+    <Modals.Frame>
+      <Modals.Header icon={<Icon.Info />}>About.Version</Modals.Header>
       <Flex.Box align="center" y gap="large" style={{ paddingTop: "6rem" }}>
         <Flex.Box y gap="small" justify="center" align="center">
           <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
@@ -178,6 +178,6 @@ export const useInfoModal = Modals.create<void>(() => {
           © 2022-2026 Synnax Labs, Inc. All rights reserved
         </Text.Text>
       </Flex.Box>
-    </>
+    </Modals.Frame>
   );
 });

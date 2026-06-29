@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layered/service/modals/BottomNavBar.css";
+import "@/layered/service/modals/Footer.css";
 
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
-export interface BottomNavBarProps extends Nav.BarProps {}
+export interface FooterProps extends Nav.BarProps {}
 
-export const Footer = ({ className, ...rest }: BottomNavBarProps): ReactElement => (
+export const Footer = ({ className, ...rest }: FooterProps): ReactElement => (
   <Nav.Bar
     location="bottom"
     size="8rem"

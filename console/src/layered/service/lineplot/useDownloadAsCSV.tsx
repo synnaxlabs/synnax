@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { LinePlot, Status } from "@synnaxlabs/pluto";
+import { Icon, LinePlot, Status } from "@synnaxlabs/pluto";
 import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -45,7 +45,7 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
             timeRange: timeRange.numeric,
             name,
             channels,
-            icon: "LinePlot",
+            icon: <Icon.LinePlot />,
           }),
         `Failed to download CSV data for ${name}`,
       );

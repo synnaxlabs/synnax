@@ -36,7 +36,7 @@ export interface DownloadModalParams {
   timeRange: CrudeTimeRange;
   channels: channel.Key[];
   name: string;
-  icon?: Icon.ReactElement | string;
+  icon?: Icon.ReactElement;
 }
 
 const NON_VIRTUAL_CHANNEL_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
@@ -48,8 +48,8 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
 
 export interface PromptDownload extends Modals.Prompt<void, DownloadModalParams> {}
 
-export const useDownloadModal = Modals.prompt<void, DownloadModalParams>(
-  ({ params: { timeRange, channels, name, channelNames, icon }, close }) => {
+export const useDownloadModal = Modals.createPrompt<void, DownloadModalParams>(
+  ({ timeRange, channels, name, channelNames, icon, close }) => {
     const form = Form.use<typeof formSchema>({
       schema: formSchema,
       values: {
@@ -70,49 +70,56 @@ export const useDownloadModal = Modals.prompt<void, DownloadModalParams>(
     );
     return (
       <Form.Form<typeof formSchema> {...form}>
-        <Modals.Body title="Download.CSV" icon={icon} footer={footer} gap="huge">
-          <Text.Text level="h3" weight={450}>
-            Download data for {name} to a CSV
-          </Text.Text>
-          <Flex.Box y full="x" gap="medium">
-            <Flex.Box x gap="medium">
-              <Form.Field<number>
-                path="timeRange.start"
-                padHelpText={false}
-                label="From"
-              >
-                {(p) => (
-                  <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
+        <Modals.Frame>
+          <Modals.Header icon={icon}>Download.CSV</Modals.Header>
+          <Modals.Body gap="huge">
+            <Text.Text level="h3" weight={450}>
+              Download data for {name} to a CSV
+            </Text.Text>
+            <Flex.Box y full="x" gap="medium">
+              <Flex.Box x gap="medium">
+                <Form.Field<number>
+                  path="timeRange.start"
+                  padHelpText={false}
+                  label="From"
+                >
+                  {(p) => (
+                    <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
+                  )}
+                </Form.Field>
+                <Icon.Arrow.Right style={{ width: "3rem", height: "3rem" }} color={9} />
+                <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
+                  {(p) => (
+                    <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
+                  )}
+                </Form.Field>
+              </Flex.Box>
+              <Form.Field<channel.Key[]> path="channels">
+                {({ value, onChange }) => (
+                  <Channel.SelectMultiple
+                    value={value}
+                    onChange={onChange}
+                    initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
+                    triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
+                    full="x"
+                  />
                 )}
               </Form.Field>
-              <Icon.Arrow.Right style={{ width: "3rem", height: "3rem" }} color={9} />
-              <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
-                {(p) => (
-                  <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
-                )}
-              </Form.Field>
-            </Flex.Box>
-            <Form.Field<channel.Key[]> path="channels">
-              {({ value, onChange }) => (
-                <Channel.SelectMultiple
-                  value={value}
-                  onChange={onChange}
-                  initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
-                  triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
-                  full="x"
-                />
+              <DownsampleFactorField
+                path="downsampleFactor"
+                label="Downsample Factor"
+              />
+              {runtime.getOS() !== "Windows" && (
+                <Text.Text status="warning" weight={450}>
+                  For improved performance when downloading large datasets, we recommend
+                  exporting from the Console when it is running in Google Chrome or
+                  Microsoft Edge.
+                </Text.Text>
               )}
-            </Form.Field>
-            <DownsampleFactorField path="downsampleFactor" label="Downsample Factor" />
-            {runtime.getOS() !== "Windows" && (
-              <Text.Text status="warning" weight={450}>
-                For improved performance when downloading large datasets, we recommend
-                exporting from the Console when it is running in Google Chrome or
-                Microsoft Edge.
-              </Text.Text>
-            )}
-          </Flex.Box>
-        </Modals.Body>
+            </Flex.Box>
+          </Modals.Body>
+          <Modals.Footer>{footer}</Modals.Footer>
+        </Modals.Frame>
       </Form.Form>
     );
   },

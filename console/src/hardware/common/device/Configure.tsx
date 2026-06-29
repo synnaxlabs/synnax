@@ -36,7 +36,7 @@ interface InternalProps<
   Model extends z.ZodType<string>,
 > {
   close: () => void;
-  icon: Icon.ReactElement | string;
+  icon: Icon.ReactElement;
   device: device.Device<Properties, Make, Model>;
   initialProperties: z.infer<Properties>;
 }
@@ -93,8 +93,8 @@ const Internal = <
   });
 
   return (
-    <Flex.Box align="stretch" className={CSS.B("configure")} empty>
-      <Modals.Header title={name || "Device.Configure"} icon={icon} />
+    <Modals.Frame className={CSS.B("configure")}>
+      <Modals.Header icon={icon}>{name || "Device.Configure"}</Modals.Header>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
         <Flex.Box
           align="stretch"
@@ -168,7 +168,7 @@ const Internal = <
           </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
-    </Flex.Box>
+    </Modals.Frame>
   );
 };
 

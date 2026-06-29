@@ -163,7 +163,7 @@ const Selector = ({
         const name = await renameModal({
           initialValue: `View for ${plural(resourceType)}`,
           title: "View.Create",
-          icon,
+          icon: Icon.resolve(icon),
         });
         if (name == null) return false;
         const newKey = uuid.create();

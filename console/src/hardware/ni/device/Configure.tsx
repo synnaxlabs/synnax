@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/pluto";
+
 import { Common } from "@/hardware/common";
 import { ZERO_PROPERTIES } from "@/hardware/ni/device/types";
 import { Modals } from "@/layered/service/modals";
 
 export const useConfigureModal = Modals.create<Common.Device.ConfigureParams>(
-  ({ params: { deviceKey }, close }) => (
+  ({ deviceKey, close }) => (
     <Common.Device.Configure
       deviceKey={deviceKey}
       close={close}
-      icon="Logo.NI"
+      icon={<Icon.Logo.NI />}
       initialProperties={ZERO_PROPERTIES}
     />
   ),

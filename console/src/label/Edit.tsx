@@ -152,14 +152,14 @@ const LabelListItem = ({
 
 const listItem = Component.renderProp(LabelListItem);
 
-export const useEditModal = Modals.create<void>(() => {
+export const useEditModal = Modals.create(() => {
   const { data, getItem, retrieve, subscribe } = Label.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   return (
-    <Flex.Box y grow empty className={CSS.BE("label", "edit")}>
-      <Modals.Header title="Labels.Edit" icon="Label" />
+    <Modals.Frame y className={CSS.BE("label", "edit")}>
+      <Modals.Header icon={<Icon.Label />}>Labels.Edit</Modals.Header>
       <List.Frame<label.Key, label.Label>
         data={data}
         getItem={getItem}
@@ -215,6 +215,6 @@ export const useEditModal = Modals.create<void>(() => {
           </List.Items>
         </Flex.Box>
       </List.Frame>
-    </Flex.Box>
+    </Modals.Frame>
   );
 });

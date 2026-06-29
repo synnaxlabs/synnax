@@ -170,7 +170,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                     timeRange: form.get<NumericTimeRange>("timeRange").value,
                     name,
                     channels: [],
-                    icon: "Range",
+                    icon: <Icon.Range />,
                   });
                 }, "Failed to download CSV")
               }

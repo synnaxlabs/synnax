@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, DataType } from "@synnaxlabs/client";
+import { Dialog } from "@synnaxlabs/pluto";
 import { id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -24,7 +25,9 @@ const renderModal = (
 ) => ({
   result: render(
     <Wrapper>
-      <DeleteModal params={undefined} close={onClose} />
+      <Dialog.Frame variant="modal" visible>
+        <DeleteModal close={onClose} />
+      </Dialog.Frame>
     </Wrapper>,
   ),
   onClose,
@@ -63,7 +66,7 @@ describe("DeleteModal", () => {
       const { result: c } = renderModal();
       expect(c.getByText("From beginning of time")).toBeTruthy();
       expect(c.getByText("To end of time")).toBeTruthy();
-      const checkboxes = c.container.querySelectorAll<HTMLInputElement>(
+      const checkboxes = c.baseElement.querySelectorAll<HTMLInputElement>(
         "input[type='checkbox']",
       );
       checkboxes.forEach((cb) => {
@@ -79,7 +82,7 @@ describe("DeleteModal", () => {
 
     it("should show From DateTime input when the start checkbox is unchecked", () => {
       const { result: c } = renderModal();
-      const checkboxes = c.container.querySelectorAll<HTMLInputElement>(
+      const checkboxes = c.baseElement.querySelectorAll<HTMLInputElement>(
         "input[type='checkbox']",
       );
       const startCheckbox = checkboxes[0];
@@ -89,7 +92,7 @@ describe("DeleteModal", () => {
 
     it("should show To DateTime input when the end checkbox is unchecked", () => {
       const { result: c } = renderModal();
-      const checkboxes = c.container.querySelectorAll<HTMLInputElement>(
+      const checkboxes = c.baseElement.querySelectorAll<HTMLInputElement>(
         "input[type='checkbox']",
       );
       const endCheckbox = checkboxes[1];

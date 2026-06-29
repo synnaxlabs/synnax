@@ -13,6 +13,7 @@ import {
   Channel,
   Flex,
   Form,
+  Icon,
   Input,
   Nav,
   Telem,
@@ -25,7 +26,7 @@ import { Triggers } from "@/triggers";
 
 const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
 
-export const useCreateModal = Modals.create<void>(({ close }) => {
+export const useCreateModal = Modals.create(({ close }) => {
   const [createMore, setCreateMore] = useState(false);
   const { form, variant, save } = Channel.useForm({
     query: {},
@@ -43,8 +44,8 @@ export const useCreateModal = Modals.create<void>(({ close }) => {
     { ctx: form },
   );
   return (
-    <Flex.Box grow empty>
-      <Modals.Header title="Channel.Create" icon="Channel" />
+    <Modals.Frame>
+      <Modals.Header icon={<Icon.Channel />}>Channel.Create</Modals.Header>
       <Flex.Box className="console-form" style={{ padding: "3rem" }} grow>
         <Form.Form<typeof Channel.formSchema> {...form}>
           <Form.Field<string> path="name" label="Name">
@@ -116,6 +117,6 @@ export const useCreateModal = Modals.create<void>(({ close }) => {
           </Button.Button>
         </Nav.Bar.End>
       </Modals.Footer>
-    </Flex.Box>
+    </Modals.Frame>
   );
 });

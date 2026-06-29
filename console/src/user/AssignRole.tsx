@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type access, status } from "@synnaxlabs/client";
-import { Access, Button, Flex, Form, Nav, Synnax } from "@synnaxlabs/pluto";
+import { Access, Button, Flex, Form, Icon, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Modals } from "@/layered/service/modals";
@@ -18,16 +18,16 @@ export interface AssignRoleModalParams extends Access.Role.RetrieveQuery {
 }
 
 export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
-  ({ params, close }) => {
+  ({ title, close, ...query }) => {
     const client = Synnax.use();
     const { form, save, variant } = Access.Role.useChangeRoleForm({
-      query: params,
+      query,
       afterSave: useCallback(() => close(), [close]),
     });
     return (
       <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
-        <Flex.Box grow empty>
-          <Modals.Header title={params.title ?? "Assign Role"} icon="User" />
+        <Modals.Frame>
+          <Modals.Header icon={<Icon.User />}>{title ?? "Assign Role"}</Modals.Header>
           <Flex.Box
             className="console-form"
             justify="center"
@@ -52,7 +52,7 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
               </Button.Button>
             </Nav.Bar.End>
           </Modals.Footer>
-        </Flex.Box>
+        </Modals.Frame>
       </Form.Form>
     );
   },

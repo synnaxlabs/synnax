@@ -16,6 +16,9 @@ import { useState } from "react";
 import { CSS } from "@/css";
 import { Body } from "@/layered/service/modals/Body";
 import { createPrompt } from "@/layered/service/modals/factory";
+import { Footer } from "@/layered/service/modals/Footer";
+import { Frame } from "@/layered/service/modals/Frame";
+import { Header } from "@/layered/service/modals/Header";
 import { Triggers } from "@/triggers";
 
 export interface CreateModalResult {
@@ -68,7 +71,7 @@ const ArcModeSelectButton = ({
 };
 
 export const useCreateModal = createPrompt<CreateModalResult, CreateModalParams>(
-  ({ params: { initialName, initialMode }, close }) => {
+  ({ initialName, initialMode, close }) => {
     const [name, setName] = useState(initialName ?? "");
     const [mode, setMode] = useState<arc.Mode>(initialMode ?? "graph");
     const [error, setError] = useState<string | undefined>(undefined);
@@ -96,53 +99,52 @@ export const useCreateModal = createPrompt<CreateModalResult, CreateModalParams>
     );
 
     return (
-      <Body
-        title="Arc.Create Automation"
-        icon="Arc"
-        footer={footer}
-        className={CSS.B("arc-create-modal")}
-      >
-        <Input.Item
-          label="Name"
-          required
-          helpText={error}
-          status={error != null ? "error" : "success"}
-          padHelpText
-        >
-          <Input.Text
-            autoFocus
-            placeholder="Automation Name"
-            level="h2"
-            variant="text"
-            value={name}
-            onChange={setName}
-            selectOnFocus
-          />
-        </Input.Item>
-        <Input.Item label="Editor Mode" padHelpText full="x">
-          <Select.Buttons
-            value={mode}
-            onChange={setMode}
-            keys={MODE_KEYS}
-            pack={false}
-            x
-            full="x"
+      <Frame className={CSS.B("arc-create-modal")}>
+        <Header icon={<Icon.Arc />}>Arc.Create Automation</Header>
+        <Body>
+          <Input.Item
+            label="Name"
+            required
+            helpText={error}
+            status={error != null ? "error" : "success"}
+            padHelpText
           >
-            <ArcModeSelectButton
-              itemKey="graph"
-              icon={<Icon.Schematic />}
-              title="Graph"
-              description="Visual, block-based editor that is best for simple automations such as alarms"
+            <Input.Text
+              autoFocus
+              placeholder="Automation Name"
+              level="h2"
+              variant="text"
+              value={name}
+              onChange={setName}
+              selectOnFocus
             />
-            <ArcModeSelectButton
-              itemKey="text"
-              icon={<Icon.Text />}
-              title="Text"
-              description="Text-based editor that is best for complex automations such as control sequences"
-            />
-          </Select.Buttons>
-        </Input.Item>
-      </Body>
+          </Input.Item>
+          <Input.Item label="Editor Mode" padHelpText full="x">
+            <Select.Buttons
+              value={mode}
+              onChange={setMode}
+              keys={MODE_KEYS}
+              pack={false}
+              x
+              full="x"
+            >
+              <ArcModeSelectButton
+                itemKey="graph"
+                icon={<Icon.Schematic />}
+                title="Graph"
+                description="Visual, block-based editor that is best for simple automations such as alarms"
+              />
+              <ArcModeSelectButton
+                itemKey="text"
+                icon={<Icon.Text />}
+                title="Text"
+                description="Text-based editor that is best for complex automations such as control sequences"
+              />
+            </Select.Buttons>
+          </Input.Item>
+        </Body>
+        <Footer>{footer}</Footer>
+      </Frame>
     );
   },
 );

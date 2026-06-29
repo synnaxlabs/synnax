@@ -32,11 +32,11 @@ const Rename = ({
   allowEmpty = false,
   label = "Name",
   title = "Name",
-  initialValue,
+  initialValue = "",
   icon,
   close,
 }: ContentProps<RenameParams, string>) => {
-  const [name, setName] = useState(initialValue ?? "");
+  const [name, setName] = useState(initialValue);
   const [error, setError] = useState<string | undefined>(undefined);
   const handleClick = useCallback(() => {
     if (allowEmpty && name.length === 0) return close();

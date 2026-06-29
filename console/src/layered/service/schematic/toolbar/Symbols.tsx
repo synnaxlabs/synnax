@@ -195,7 +195,7 @@ const RemoteSymbolListContextMenu = (
         allowEmpty: false,
         label: "Symbol Name",
         title: "Schematic.Symbols.Rename",
-        icon: "Schematic",
+        icon: <Icon.Schematic />,
       });
       if (newName == null) return false;
       return { ...data, name: newName };
@@ -346,7 +346,7 @@ const Actions = ({
         allowEmpty: false,
         label: "Group Name",
         title: "Schematic.Symbols.Create Group",
-        icon: "Group",
+        icon: <Icon.Group />,
       });
       if (result == null || result.length === 0) return;
       await updateAsync({
@@ -436,7 +436,7 @@ const GroupListContextMenu = ({
         allowEmpty: false,
         label: "Group Name",
         title: "Schematic.Symbols.Rename Group",
-        icon: "Group",
+        icon: <Icon.Group />,
       });
       if (newName == null) return false;
       return { ...data, name: newName };

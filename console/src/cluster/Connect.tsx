@@ -10,7 +10,16 @@
 import "@/cluster/Connect.css";
 
 import { checkConnection, type connection } from "@synnaxlabs/client";
-import { Button, Flex, Form, type Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Flex,
+  Form,
+  Icon,
+  type Input,
+  Nav,
+  Status,
+  Synnax,
+} from "@synnaxlabs/pluto";
 import { caseconv, uuid } from "@synnaxlabs/x";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
@@ -49,7 +58,7 @@ const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
 };
 
 export const useConnectModal = Modals.create<ConnectModalParams>(
-  ({ params: { clusterKey }, close }) => {
+  ({ clusterKey, close }) => {
     const dispatch = useDispatch();
     const isEdit = clusterKey != null;
     const existing = useSelect(clusterKey);
@@ -110,8 +119,8 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
       }, "Failed to connect to cluster");
 
     return (
-      <Flex.Box grow className={CSS.B("connect-cluster")}>
-        <Modals.Header title="Core.Connect" icon="Cluster" />
+      <Modals.Frame className={CSS.B("connect-cluster")}>
+        <Modals.Header icon={<Icon.Cluster />}>Core.Connect</Modals.Header>
         <Form.Form<typeof formSchema> {...methods}>
           <Flex.Box
             className="console-form"
@@ -162,7 +171,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
             </Button.Button>
           </Nav.Bar.End>
         </Modals.Footer>
-      </Flex.Box>
+      </Modals.Frame>
     );
   },
 );

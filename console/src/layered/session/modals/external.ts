@@ -8,10 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export { StoreContext, useStack, useStore } from "@/layered/session/modals/Provider";
-export {
-  type Entry,
-  ModalStore,
-  modalStore,
-  type Content as Renderer,
-  type ContentProps as RenderProps,
-} from "@/layered/session/modals/store";
+export { type Entry, ModalStore, modalStore } from "@/layered/session/modals/store";

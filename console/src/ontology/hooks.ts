@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 
@@ -46,7 +47,7 @@ export const useConfirmDelete = ({
         },
         cancel: { label: "Cancel" },
         title: `${type}.Delete`,
-        icon: icon ?? type,
+        icon: Icon.resolve(icon ?? type),
       })) ?? false
     );
   };

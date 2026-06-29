@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, type optional } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type optional } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { useStore } from "@/layered/session/modals/Provider";
-import { type ContentProps } from "@/layered/session/modals/store";
+import { type Content } from "@/layered/session/modals/store";
 
 /**
  * A typed fire-and-forget opener: opens a modal and returns immediately. Its params
@@ -47,17 +47,11 @@ export interface PromptHook<Params, Result> {
  * modal's typed params.
  */
 export const create =
-  <Params = void>(Component: FC<ContentProps<Params, void>>): OpenHook<Params> =>
+  <Params = Record<never, never>>(Component: Content<Params, void>): OpenHook<Params> =>
   (): Opener<Params> => {
     const store = useStore();
     return useCallback(
-      (params?: Params) =>
-        store.push({
-          key: id.create(),
-          Renderer: Component,
-          params: (params ?? {}) as Params,
-          resolve: () => {},
-        }),
+      (params?: Params) => store.push(Component, params, () => {}),
       [store],
     );
   };
@@ -68,21 +62,14 @@ export const create =
  * (or null on dismissal).
  */
 export const createPrompt =
-  <Result, Params = void>(
-    Component: FC<ContentProps<Params, Result>>,
+  <Result, Params = Record<never, never>>(
+    Component: Content<Params, Result>,
   ): PromptHook<Params, Result> =>
   (): Prompt<Result, Params> => {
     const store = useStore();
     return useCallback(
       (params?: Params) =>
-        new Promise<Result | null>((resolve) =>
-          store.push({
-            key: id.create(),
-            Renderer: Component,
-            params: (params ?? {}) as Params,
-            resolve,
-          }),
-        ),
+        new Promise<Result | null>((resolve) => store.push(Component, params, resolve)),
       [store],
     );
   };

@@ -17,6 +17,7 @@ import {
   Code,
   Flex,
   Form,
+  Icon,
   Input,
   Nav,
   Select,
@@ -73,11 +74,10 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
       typeof Channel.calculatedFormSchema
     >("name", { ctx: form });
     return (
-      <Flex.Box className={CSS.B("channel", "edit", "calculated")} grow empty>
-        <Modals.Header
-          title={isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
-          icon="Channel"
-        />
+      <Modals.Frame className={CSS.B("channel", "edit", "calculated")}>
+        <Modals.Header icon={<Icon.Channel />}>
+          {isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
+        </Modals.Header>
         <Flex.Box className={CSS.B("form")} style={{ padding: "3rem" }} grow>
           <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
             <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
@@ -172,7 +172,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
             </Flex.Box>
           </Nav.Bar.End>
         </Modals.Footer>
-      </Flex.Box>
+      </Modals.Frame>
     );
   },
 );

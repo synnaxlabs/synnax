@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Access, Component, type Flux, Menu, Status } from "@synnaxlabs/pluto";
+import { Access, Component, type Flux, Icon, Menu, Status } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -39,7 +39,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
         const renamed = await renameModal({
           initialValue: data.name,
           title: "Status.Rename",
-          icon: "Status",
+          icon: <Icon.Status />,
         });
         if (renamed == null) return false;
         return { ...data, name: renamed };

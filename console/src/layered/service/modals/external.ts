@@ -8,24 +8,11 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/layered/service/modals/Body";
-export {
-  type ConfirmParams,
-  type PromptConfirm,
-  useConfirm,
-} from "@/layered/service/modals/Confirm";
-export {
-  create,
-  type Opener,
-  type OpenHook,
-  type Prompt,
-  createPrompt as prompt,
-  type PromptHook,
-} from "@/layered/service/modals/factory";
+export * from "@/layered/service/modals/Confirm";
+export * from "@/layered/service/modals/factory";
 export * from "@/layered/service/modals/Footer";
-export { Header } from "@/layered/service/modals/Header";
-export {
-  type PromptRename,
-  type RenameParams,
-  useRename,
-} from "@/layered/service/modals/Rename";
-export { type Content, type ContentProps } from "@/layered/session/modals/store";
+export * from "@/layered/service/modals/Frame";
+export * from "@/layered/service/modals/Header";
+export * from "@/layered/service/modals/Rename";
+export * from "@/layered/service/modals/Stack";
+export * from "@/layered/session/modals/store";
