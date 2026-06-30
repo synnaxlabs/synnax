@@ -611,7 +611,10 @@ class ProjectClient:
         The import pipeline derives the tab name from the chosen filename (via
         trimFileName), so we copy ``json_path`` into a temp file named
         ``{name}.json`` to control the resulting tab name independently of
-        the source fixture's filename.
+        the source fixture's filename. Server-side importers (e.g. log) take
+        the resource name from the envelope's top-level ``name`` field rather
+        than the file name, so the same ``name`` is stamped into the payload
+        to keep the tab and the project-tree row in agreement.
 
         Waits for the page to appear in the project resource tree before
         returning. Non-schematic types (lineplot/log/table) only persist to
@@ -626,7 +629,12 @@ class ProjectClient:
         """
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, f"{name}.json")
-            shutil.copyfile(json_path, tmp_path)
+            with open(json_path, "r") as f:
+                payload = json.load(f)
+            if isinstance(payload, dict):
+                payload["name"] = name
+            with open(tmp_path, "w") as f:
+                json.dump(payload, f)
             with self.layout.page.expect_file_chooser() as fc_info:
                 self.layout.command_palette("Import component(s)")
             fc_info.value.set_files(tmp_path)
