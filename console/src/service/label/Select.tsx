@@ -11,7 +11,7 @@ import { Button, Dialog, Icon, Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction } from "@/component";
-import { useEditModal } from "@/label/Edit";
+import { useEditModal } from "@/service/label/useEditModal";
 
 export interface SelectSingleProps extends Label.SelectSingleProps {}
 

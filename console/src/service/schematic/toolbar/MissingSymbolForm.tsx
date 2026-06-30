@@ -23,7 +23,7 @@ import {
 import React, { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/component/css";
-import { useSymbolModal } from "@/service/schematic/symbols/edit/Edit";
+import { useSymbolModal } from "@/service/schematic/symbols/edit/useSymbolModal";
 
 const SELECT_GROUP_STYLE: React.CSSProperties = { maxWidth: "60rem" };
 

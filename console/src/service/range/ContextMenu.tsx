@@ -41,11 +41,11 @@ import {
 } from "@/session/range/slice";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { useCreateModal } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { fromClientRange } from "@/range/translate";
 import { useAddToActivePlot } from "@/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/range/useAddToNewPlot";
+import { useCreateModal } from "@/range/useCreateModal";
 
 export interface SnapshotMenuItemProps {
   range?: Range | null;

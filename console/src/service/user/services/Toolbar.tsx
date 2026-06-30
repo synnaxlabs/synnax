@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/component";
 import { type Service } from "@/service";
-import { useRegisterModal } from "@/service/user/Register";
+import { useRegisterModal } from "@/service/user/useRegisterModal";
 import { Ontology } from "@/ontology";
 
 const Content = (): ReactElement => {

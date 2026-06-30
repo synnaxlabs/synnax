@@ -19,23 +19,13 @@ import { import_ } from "@/project/services/import";
 const useCreateVisible = () => Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
 
-const CREATE_COMMAND_NAME = "Create a project";
-
-const CreateCommand: Palette.Command = (listProps) => {
-  const open = Project.useCreateModal();
-  const handleSelect = useCallback(() => open(), [open]);
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name={CREATE_COMMAND_NAME}
-      icon={<PProject.CreateIcon />}
-      onSelect={handleSelect}
-    />
-  );
-};
-CreateCommand.key = "project_create";
-CreateCommand.commandName = CREATE_COMMAND_NAME;
-CreateCommand.useVisible = useCreateVisible;
+const CreateCommand = Palette.createCommand({
+  key: "project_create",
+  name: "Create a project",
+  icon: <PProject.CreateIcon />,
+  useOnSelect: Project.useCreateModal,
+  useVisible: useCreateVisible,
+});
 
 const IMPORT_COMMAND_NAME = "Import a project";
 
@@ -67,23 +57,18 @@ ImportProjectCommand.commandName = IMPORT_COMMAND_NAME;
 ImportProjectCommand.sortOrder = -1;
 ImportProjectCommand.useVisible = useCreateVisible;
 
-const EXPORT_COMMAND_NAME = "Export current project";
-
-const ExportProjectCommand: Palette.Command = (listProps) => {
+const useExportCurrentProject = (): (() => void) => {
   const handleExport = Project.useExport();
-  const handleSelect = useCallback(() => handleExport(null), [handleExport]);
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name={EXPORT_COMMAND_NAME}
-      icon={<PProject.ExportIcon />}
-      onSelect={handleSelect}
-    />
-  );
+  return useCallback(() => handleExport(null), [handleExport]);
 };
-ExportProjectCommand.key = "project_export";
-ExportProjectCommand.commandName = EXPORT_COMMAND_NAME;
-ExportProjectCommand.sortOrder = -1;
-ExportProjectCommand.useVisible = useViewVisible;
+
+const ExportProjectCommand = Palette.createCommand({
+  key: "project_export",
+  name: "Export current project",
+  icon: <PProject.ExportIcon />,
+  useOnSelect: useExportCurrentProject,
+  useVisible: useViewVisible,
+  sortOrder: -1,
+});
 
 export const COMMANDS = [CreateCommand, ImportProjectCommand, ExportProjectCommand];

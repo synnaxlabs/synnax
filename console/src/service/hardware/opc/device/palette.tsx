@@ -9,28 +9,16 @@
 
 import { device } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
-import { useConnectModal } from "@/hardware/opc/device/Connect";
+import { useConnectModal } from "@/hardware/opc/device/useConnectModal";
 import { Palette } from "@/palette";
 
-const COMMAND_NAME = "Connect an OPC UA server";
-
-const ConnectServerCommand: Palette.Command = (listProps) => {
-  const connect = useConnectModal();
-  const handleSelect = useCallback(() => connect(), [connect]);
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name={COMMAND_NAME}
-      icon={<Icon.Logo.OPC />}
-      onSelect={handleSelect}
-    />
-  );
-};
-ConnectServerCommand.key = "opc_ua_connect_server";
-ConnectServerCommand.commandName = COMMAND_NAME;
-ConnectServerCommand.useVisible = () =>
-  Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+const ConnectServerCommand = Palette.createCommand({
+  key: "opc_ua_connect_server",
+  name: "Connect an OPC UA server",
+  icon: <Icon.Logo.OPC />,
+  useOnSelect: useConnectModal,
+  useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),
+});
 
 export const COMMANDS = [ConnectServerCommand];

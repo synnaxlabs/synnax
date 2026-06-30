@@ -49,7 +49,7 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to delete",
 };
 
-export const DeleteModal = ({
+const DeleteModal = ({
   close,
 }: Modals.ContentProps<Record<never, never>, void>): ReactElement => {
   const [step, setStep] = useState<"form" | "confirm">("form");

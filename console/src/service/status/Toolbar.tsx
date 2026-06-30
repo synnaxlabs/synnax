@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/status/Toolbar.css";
+import "@/service/status/Toolbar.css";
 
 import { status } from "@synnaxlabs/client";
 import {
@@ -32,9 +32,9 @@ import { type Service } from "@/service";
 import { useSelectFavorites } from "@/session/status/selectors";
 import { removeFavorites } from "@/session/status/slice";
 import { Layout } from "@/layout";
-import { useCreateModal } from "@/status/Create";
-import { EXPLORER_LAYOUT } from "@/status/Explorer";
-import { contextMenu } from "@/status/list/ContextMenu";
+import { EXPLORER_LAYOUT } from "@/service/status/Explorer";
+import { contextMenu } from "@/service/status/list/ContextMenu";
+import { useCreateModal } from "@/service/status/useCreateModal";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();

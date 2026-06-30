@@ -486,7 +486,7 @@ export const { actions, reducer } = createSlice({
     },
     setProject: (state, { payload: { slice } }: PayloadAction<SetProjectPayload>) => {
       // Mosaic.insertTab mutates tabs arrays in place; clone before
-      // reconciling s the helper does not fight frozen nested objects
+      // reconciling so the helper does not fight frozen nested objects
       // carried over from the previous store snapshot. Snapshot the draft
       // with current() first, since structuredClone cannot clone Immer's
       // draft Proxies.

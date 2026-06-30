@@ -12,13 +12,13 @@ import { Form } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { useConfigureModal } from "@/hardware/ethercat/device/Configure";
 import { useCommonNetwork } from "@/hardware/ethercat/device/queries";
 import {
   MAKE,
   SLAVE_MODEL,
   type SlaveProperties,
 } from "@/hardware/ethercat/device/types";
+import { useConfigureModal } from "@/hardware/ethercat/device/useConfigureModal";
 import { type Channel } from "@/hardware/ethercat/task/types";
 
 export interface SelectSlaveProps {

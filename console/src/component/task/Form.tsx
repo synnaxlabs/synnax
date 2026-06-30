@@ -22,7 +22,7 @@ import { ParentRangeButton } from "@/component/task/ParentRangeButton";
 import { Rack } from "@/component/task/Rack";
 import { useStatus } from "@/component/task/useStatus";
 import { UtilityButtons } from "@/component/task/UtilityButtons";
-import { useConfirm } from "@/component/modals/Confirm";
+import { useConfirm } from "@/component/modals/useConfirm";
 import { type RootState } from "@/session/store";
 import { Layout } from "@/layout";
 

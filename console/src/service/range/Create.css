@@ -17,4 +17,14 @@
     .console-range-create-layout__parent {
         width: fit-content;
     }
+
+    .console-range-create-layout__time-range {
+        container-type: inline-size;
+    }
+}
+
+@container (max-width: 560px) {
+    .console-range-create-layout__time-range-arrow {
+        display: none;
+    }
 }

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/component/modals/Body";
-export * from "@/component/modals/Confirm";
+export * from "@/component/modals/useConfirm";
 export * from "@/component/modals/factory";
 export * from "@/component/modals/Footer";
 export * from "@/component/modals/Frame";
 export * from "@/component/modals/Header";
-export * from "@/component/modals/Rename";
+export * from "@/component/modals/useRename";
 export * from "@/component/modals/Stack";
 export { type Content, type ContentProps, type Entry } from "@/session/modals/Context";

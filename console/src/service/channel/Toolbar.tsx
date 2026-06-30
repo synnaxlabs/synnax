@@ -11,11 +11,11 @@ import { channel, group } from "@synnaxlabs/client";
 import { Access, Channel, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useCalculatedModal } from "@/channel/Calculated";
-import { useCreateModal } from "@/channel/Create";
 import { EmptyAction, Toolbar } from "@/component";
-import { type Service } from "@/service";
+import { useCalculatedModal } from "@/component/channel/useCalculatedModal";
+import { useCreateModal } from "@/component/channel/useCreateModal";
 import { Ontology } from "@/ontology";
+import { type Service } from "@/service";
 
 const Actions = (): ReactElement | null => {
   const openCreate = useCreateModal();

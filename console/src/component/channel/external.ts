@@ -7,5 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/component/channel/Calculated";
-export * from "@/component/channel/Create";
+export * from "@/component/channel/useCalculatedModal";
+export * from "@/component/channel/useCreateModal";

@@ -18,7 +18,7 @@ import { Selectable } from "@/service/arc/Selectable";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 
-export * from "@/service/arc/CreateModal";
+export * from "@/service/arc/useCreateModal";
 export * from "@/component/arc/editor";
 export * from "@/service/arc/Explorer";
 export * from "@/service/arc/imex";

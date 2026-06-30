@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/range/list/List.css";
+import "@/service/range/list/List.css";
 
 import { ranger } from "@synnaxlabs/client";
 import {
@@ -26,10 +26,10 @@ import {
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { EmptyAction } from "@/component";
-import { useCreateModal } from "@/range/Create";
-import { ContextMenu } from "@/range/list/ContextMenu";
-import { Item, type ItemProps } from "@/range/list/Item";
-import { Filters, SelectFilters } from "@/range/list/SelectFilters";
+import { ContextMenu } from "@/service/range/list/ContextMenu";
+import { Item, type ItemProps } from "@/service/range/list/Item";
+import { Filters, SelectFilters } from "@/service/range/list/SelectFilters";
+import { useCreateModal } from "@/service/range/useCreateModal";
 
 export interface ListProps
   extends

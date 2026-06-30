@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/modbus/device/Connect";
 export * from "@/hardware/modbus/device/palette";
 export * from "@/hardware/modbus/device/Select";
 export * from "@/hardware/modbus/device/types";
+export * from "@/hardware/modbus/device/useConnectModal";

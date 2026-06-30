@@ -18,7 +18,7 @@ import { check } from "@tauri-apps/plugin-updater";
 
 import { type Notifications } from "@/notifications";
 import { Runtime } from "@/runtime";
-import { useInfoModal } from "@/service/version/Info";
+import { useInfoModal } from "@/service/version/useInfoModal";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
 

@@ -18,11 +18,11 @@ import { Modals } from "@/component/modals";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { CreateChildRangeIcon } from "@/range/ContextMenu";
-import { useCreateModal } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { useSelectKeys } from "@/session/range/selectors";
 import { add, remove } from "@/session/range/slice";
 import { fromClientRange } from "@/range/translate";
+import { useCreateModal } from "@/range/useCreateModal";
 
 export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const { getItem } = List.useUtilContext<ranger.Key, ranger.Range>();

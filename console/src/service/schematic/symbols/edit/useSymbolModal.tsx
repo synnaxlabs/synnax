@@ -46,7 +46,7 @@ export interface SymbolModalParams extends Schematic.Symbol.FormQuery {
 }
 
 const CREATE_NAME = "Schematic.Create Symbol";
-export const EDIT_SYMBOL_NAME = "Schematic.Edit Symbol";
+const EDIT_SYMBOL_NAME = "Schematic.Edit Symbol";
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 

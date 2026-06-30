@@ -11,8 +11,8 @@ import { type Notifications } from "@/notifications";
 import { notificationAdapter } from "@/service/version/Updater";
 
 export * from "@/service/version/Badge";
-export * from "@/service/version/Info";
 export * from "@/service/version/Updater";
 export * from "@/service/version/use";
+export * from "@/service/version/useInfoModal";
 
 export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];

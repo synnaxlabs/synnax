@@ -10,8 +10,8 @@
 import { Button, Flex, Header, Icon, Ranger } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { useCreateModal } from "@/range/Create";
 import { List } from "@/range/list/List";
+import { useCreateModal } from "@/range/useCreateModal";
 
 export interface ChildRangesProps {
   rangeKey: string;

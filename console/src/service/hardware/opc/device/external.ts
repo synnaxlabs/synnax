@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/hardware/opc/device/Browser";
-export * from "@/hardware/opc/device/Connect";
 export * from "@/hardware/opc/device/palette";
 export * from "@/hardware/opc/device/Select";
 export * from "@/hardware/opc/device/types";
+export * from "@/hardware/opc/device/useConnectModal";

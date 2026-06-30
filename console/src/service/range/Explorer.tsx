@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/range/Explorer.css";
+import "@/service/range/Explorer.css";
 
 import { ranger } from "@synnaxlabs/client";
 import { Access, Button, Component, Icon, Ranger } from "@synnaxlabs/pluto";
@@ -17,9 +17,9 @@ import { useCallback } from "react";
 import { Label } from "@/service/label";
 import { View } from "@/service/view";
 import { type Layout } from "@/layout";
-import { useCreateModal } from "@/range/Create";
-import { ContextMenu } from "@/range/list/ContextMenu";
-import { Item } from "@/range/list/Item";
+import { ContextMenu } from "@/service/range/list/ContextMenu";
+import { Item } from "@/service/range/list/Item";
+import { useCreateModal } from "@/service/range/useCreateModal";
 
 export const EXPLORER_LAYOUT_TYPE = "range_explorer";
 

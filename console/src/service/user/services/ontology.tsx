@@ -14,7 +14,7 @@ import { useCallback } from "react";
 import { ContextMenu } from "@/component";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
-import { useAssignRoleModal } from "@/service/user/AssignRole";
+import { useAssignRoleModal } from "@/service/user/useAssignRoleModal";
 
 const useDelete = createUseDelete({
   type: "User",

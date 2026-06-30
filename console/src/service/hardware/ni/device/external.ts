@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/ni/device/Configure";
 export * from "@/hardware/ni/device/enrich";
 export * from "@/hardware/ni/device/PortField";
 export * from "@/hardware/ni/device/Select";
 export * from "@/hardware/ni/device/types";
+export * from "@/hardware/ni/device/useConfigureModal";

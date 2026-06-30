@@ -9,27 +9,16 @@
 
 import { user } from "@synnaxlabs/client";
 import { Access, User as PUser } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Palette } from "@/palette";
-import { useRegisterModal } from "@/service/user/Register";
+import { useRegisterModal } from "@/service/user/useRegisterModal";
 
-const COMMAND_NAME = "Register a user";
-
-const RegisterCommand: Palette.Command = (listProps) => {
-  const open = useRegisterModal();
-  const handleSelect = useCallback(() => open(), [open]);
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name={COMMAND_NAME}
-      icon={<PUser.CreateIcon />}
-      onSelect={handleSelect}
-    />
-  );
-};
-RegisterCommand.key = "register_user";
-RegisterCommand.commandName = COMMAND_NAME;
-RegisterCommand.useVisible = () => Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+const RegisterCommand = Palette.createCommand({
+  key: "register_user",
+  name: "Register a user",
+  icon: <PUser.CreateIcon />,
+  useOnSelect: useRegisterModal,
+  useVisible: () => Access.useCreateGranted(user.TYPE_ONTOLOGY_ID),
+});
 
 export const COMMANDS = [RegisterCommand];

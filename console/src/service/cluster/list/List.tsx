@@ -22,13 +22,13 @@ import {
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { useConnectModal } from "@/cluster/Connect";
-import { Item } from "@/cluster/list/Item";
 import { ContextMenu, EmptyAction } from "@/component";
-import { Link } from "@/service/link";
+import { Item } from "@/service/cluster/list/Item";
 import { useSelectMany } from "@/session/cluster/selectors";
 import { changeKey, remove } from "@/session/cluster/slice";
+import { useConnectModal } from "@/service/cluster/useConnectModal";
 import { Layout } from "@/layout";
+import { Link } from "@/service/link";
 
 export interface ListProps
   extends Input.Control<string | undefined>, Omit<Flex.BoxProps, "onChange"> {}

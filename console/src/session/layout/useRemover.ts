@@ -12,7 +12,7 @@ import { compare, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { useConfirm } from "@/component/modals/Confirm";
+import { useConfirm } from "@/component/modals/useConfirm";
 import { select } from "@/session/layout/selectors";
 import { remove, type State } from "@/session/layout/slice";
 import { type RootState } from "@/session/store";

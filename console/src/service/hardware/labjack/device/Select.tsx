@@ -10,8 +10,8 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
-import { useConfigureModal } from "@/hardware/labjack/device/Configure";
 import { MAKE } from "@/hardware/labjack/device/types";
+import { useConfigureModal } from "@/hardware/labjack/device/useConfigureModal";
 
 export const Select = () => {
   const configure = useConfigureModal();

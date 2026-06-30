@@ -11,8 +11,8 @@ import { Dialog } from "@synnaxlabs/pluto";
 
 import { EmptyAction } from "@/component";
 import { Common } from "@/hardware/common";
-import { useConnectModal } from "@/hardware/modbus/device/Connect";
 import { MAKE } from "@/hardware/modbus/device/types";
+import { useConnectModal } from "@/hardware/modbus/device/useConnectModal";
 
 const EmptyContent = () => {
   const connect = useConnectModal();

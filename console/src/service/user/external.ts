@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/service/user/AssignRole";
 export * from "@/service/user/Badge";
-export * from "@/service/user/Register";
+export * from "@/service/user/useAssignRoleModal";
+export * from "@/service/user/useRegisterModal";

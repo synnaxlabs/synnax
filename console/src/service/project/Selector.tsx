@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/project/Selector.css";
+import "@/service/project/Selector.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
 import {
@@ -31,7 +31,7 @@ import { CSS } from "@/component/css";
 import { useSelectSelected } from "@/session/project/selectors";
 import { select } from "@/session/project/slice";
 import { Layout } from "@/layout";
-import { useCreateModal } from "@/project/Create";
+import { useCreateModal } from "@/service/project/useCreateModal";
 
 const listItem = Component.renderProp(
   (props: List.ItemProps<project.Key>): ReactElement | null => {

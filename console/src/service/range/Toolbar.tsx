@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/range/Toolbar.css";
+import "@/service/range/Toolbar.css";
 
 import { ranger } from "@synnaxlabs/client";
 import {
@@ -40,9 +40,9 @@ import {
 import { add, rename, select, type Static } from "@/session/range/slice";
 import { type RootState } from "@/session/store";
 import { Layout } from "@/layout";
-import { ContextMenu } from "@/range/ContextMenu";
-import { useCreateModal } from "@/range/Create";
-import { EXPLORER_LAYOUT } from "@/range/Explorer";
+import { ContextMenu } from "@/service/range/ContextMenu";
+import { useCreateModal } from "@/service/range/useCreateModal";
+import { EXPLORER_LAYOUT } from "@/service/range/Explorer";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
