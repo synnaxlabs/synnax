@@ -31,15 +31,14 @@ import (
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/wasm"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
@@ -415,7 +414,7 @@ func (d *dataRuntime) next(
 	if fr, changed := d.state.channel.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
-			Command: writer.CommandWrite,
+			Command: framer.WriterCommandWrite,
 		}
 		return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 	}
@@ -427,7 +426,7 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 	if len(changes) == 0 {
 		return nil
 	}
-	cfg := writer.Config{}
+	cfg := framer.WriterConfig{}
 	for _, change := range changes {
 		if change.Channel != nil {
 			cfg.Keys = append(cfg.Keys, channel.Key(*change.Channel))
@@ -439,7 +438,7 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 			}
 		}
 	}
-	req := framer.WriterRequest{Command: writer.CommandSetAuthority, Config: cfg}
+	req := framer.WriterRequest{Command: framer.WriterCommandSetAuthority, Config: cfg}
 	return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
 }
 

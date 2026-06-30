@@ -23,7 +23,6 @@ import {
   manualBoundsZ,
   ruleZ,
   tickTypeZ,
-  titleZ,
   xAxisKeyZ,
   yAxisKeyZ,
 } from "@/lineplot/types.gen";
@@ -35,12 +34,19 @@ export const renamePayloadZ = z.object({
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
 
-/** SetTitle replaces the plot title configuration. */
-export const setTitlePayloadZ = z.object({
-  title: titleZ,
+/** SetTitleVisible sets whether the plot title is shown above the plot. */
+export const setTitleVisiblePayloadZ = z.object({
+  visible: z.boolean(),
 });
 
-export type SetTitlePayload = z.infer<typeof setTitlePayloadZ>;
+export type SetTitleVisiblePayload = z.infer<typeof setTitleVisiblePayloadZ>;
+
+/** SetTitleLevel sets the typography level of the plot title. */
+export const setTitleLevelPayloadZ = z.object({
+  level: text.levelZ,
+});
+
+export type SetTitleLevelPayload = z.infer<typeof setTitleLevelPayloadZ>;
 
 /** SetLegendHidden sets whether the plot legend is hidden. */
 export const setLegendHiddenPayloadZ = z.object({
@@ -338,7 +344,14 @@ export type RemoveRulePayload = z.infer<typeof removeRulePayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
-  z.object({ type: z.literal("set_title"), setTitle: setTitlePayloadZ }),
+  z.object({
+    type: z.literal("set_title_visible"),
+    setTitleVisible: setTitleVisiblePayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_title_level"),
+    setTitleLevel: setTitleLevelPayloadZ,
+  }),
   z.object({
     type: z.literal("set_legend_hidden"),
     setLegendHidden: setLegendHiddenPayloadZ,
@@ -414,9 +427,18 @@ export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   rename: renamePayloadZ.parse(payload),
 });
 
-export const setTitle = (payload: z.input<typeof setTitlePayloadZ>): Action => ({
-  type: "set_title",
-  setTitle: setTitlePayloadZ.parse(payload),
+export const setTitleVisible = (
+  payload: z.input<typeof setTitleVisiblePayloadZ>,
+): Action => ({
+  type: "set_title_visible",
+  setTitleVisible: setTitleVisiblePayloadZ.parse(payload),
+});
+
+export const setTitleLevel = (
+  payload: z.input<typeof setTitleLevelPayloadZ>,
+): Action => ({
+  type: "set_title_level",
+  setTitleLevel: setTitleLevelPayloadZ.parse(payload),
 });
 
 export const setLegendHidden = (
@@ -613,7 +635,14 @@ export type ReduceAllResult = actions.ReduceAllResult<LinePlot, Action>;
 
 export interface Handlers {
   rename: (state: Draft<LinePlot>, payload: RenamePayload) => HandlerResult;
-  setTitle: (state: Draft<LinePlot>, payload: SetTitlePayload) => HandlerResult;
+  setTitleVisible: (
+    state: Draft<LinePlot>,
+    payload: SetTitleVisiblePayload,
+  ) => HandlerResult;
+  setTitleLevel: (
+    state: Draft<LinePlot>,
+    payload: SetTitleLevelPayload,
+  ) => HandlerResult;
   setLegendHidden: (
     state: Draft<LinePlot>,
     payload: SetLegendHiddenPayload,
@@ -690,8 +719,10 @@ export const createReduceAll = (handlers: Handlers) =>
     switch (action.type) {
       case "rename":
         return handlers.rename(state, action.rename);
-      case "set_title":
-        return handlers.setTitle(state, action.setTitle);
+      case "set_title_visible":
+        return handlers.setTitleVisible(state, action.setTitleVisible);
+      case "set_title_level":
+        return handlers.setTitleLevel(state, action.setTitleLevel);
       case "set_legend_hidden":
         return handlers.setLegendHidden(state, action.setLegendHidden);
       case "set_legend_position":

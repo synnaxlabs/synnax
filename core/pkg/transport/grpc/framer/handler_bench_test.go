@@ -17,8 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -27,7 +25,7 @@ import (
 // benchmarks. The sample shape (numChannels x samplesPerSeries) is the same
 // shape the writer translator sees on a steady-state hot stream.
 func benchFrame(numChannels, samplesPerSeries int) (
-	channel.Keys, []telem.DataType, frame.Frame,
+	channel.Keys, []telem.DataType, framer.Frame,
 ) {
 	keys := make(channel.Keys, numChannels)
 	dataTypes := make([]telem.DataType, numChannels)
@@ -54,7 +52,7 @@ func benchFrame(numChannels, samplesPerSeries int) (
 // span more than one domain and the response carries one series per domain per
 // channel.
 func benchIteratorFrame(numChannels, numDomains, samples int) (
-	channel.Keys, []telem.DataType, frame.Frame,
+	channel.Keys, []telem.DataType, framer.Frame,
 ) {
 	keys := make(channel.Keys, numChannels)
 	dataTypes := make([]telem.DataType, numChannels)
@@ -102,7 +100,7 @@ func BenchmarkWriterRequestTranslator_Forward_BufferOnly(b *testing.B) {
 					b.Fatalf("encode: %v", err)
 				}
 				_ = &WriterRequest{
-					Command: int32(writer.CommandWrite),
+					Command: int32(framer.WriterCommandWrite),
 					Buffer:  buf,
 				}
 			}
@@ -117,7 +115,7 @@ func BenchmarkWriterRequestTranslator_Forward(b *testing.B) {
 			cdec := codec.NewStatic(keys, dataTypes)
 			t := frameWriterRequestTranslator{codec: cdec}
 			req := framer.WriterRequest{
-				Command: writer.CommandWrite,
+				Command: framer.WriterCommandWrite,
 				Frame:   fr,
 			}
 			ctx := context.Background()
@@ -145,7 +143,7 @@ func BenchmarkWriterRequestTranslator_Backward(b *testing.B) {
 				b.Fatalf("encode: %v", err)
 			}
 			pb := &WriterRequest{
-				Command: int32(writer.CommandWrite),
+				Command: int32(framer.WriterCommandWrite),
 				Buffer:  buf,
 			}
 			t := frameWriterRequestTranslator{codec: cdec}
@@ -164,7 +162,7 @@ func BenchmarkIteratorRequestTranslator_RoundTrip(b *testing.B) {
 	cdec := codec.NewStatic(keys, dataTypes)
 	t := frameIteratorRequestTranslator{codec: cdec}
 	req := framer.IteratorRequest{
-		Command: iterator.CommandNext,
+		Command: framer.IteratorCommandNext,
 		Span:    telem.Second,
 	}
 	ctx := context.Background()
@@ -199,8 +197,8 @@ func BenchmarkIteratorResponseTranslator_Forward(b *testing.B) {
 			cdec := codec.NewStatic(keys, dataTypes)
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
+				Variant: framer.IteratorResponseVariantData,
+				Command: framer.IteratorCommandNext,
 				Frame:   fr,
 			}
 			ctx := context.Background()
@@ -237,8 +235,8 @@ func BenchmarkIteratorResponseTranslator_Forward_NoCodec(b *testing.B) {
 			_, _, fr := benchIteratorFrame(c.channels, c.domains, c.samples)
 			t := frameIteratorResponseTranslator{}
 			res := framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
+				Variant: framer.IteratorResponseVariantData,
+				Command: framer.IteratorCommandNext,
 				Frame:   fr,
 			}
 			ctx := context.Background()
@@ -268,8 +266,8 @@ func BenchmarkIteratorResponseTranslator_Backward(b *testing.B) {
 			t := frameIteratorResponseTranslator{codec: cdec}
 			ctx := context.Background()
 			pb, err := t.Forward(ctx, framer.IteratorResponse{
-				Variant: iterator.ResponseVariantData,
-				Command: iterator.CommandNext,
+				Variant: framer.IteratorResponseVariantData,
+				Command: framer.IteratorCommandNext,
 				Frame:   fr,
 			})
 			if err != nil {
