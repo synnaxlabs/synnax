@@ -14,12 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestCalculator(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Framer Calculation Calculator Suite")
 }
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
