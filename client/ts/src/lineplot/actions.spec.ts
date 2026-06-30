@@ -59,20 +59,31 @@ describe("lineplot reducer", () => {
     });
   });
 
-  describe("setTitle", () => {
-    it("should replace the title configuration", () => {
-      const out = apply(
-        createEmpty(),
-        lineplot.setTitle({ title: { level: "h2", visible: true } }),
-      );
-      expect(out.title).toEqual({ level: "h2", visible: true });
+  describe("setTitleVisible", () => {
+    it("should set title visibility, leaving level unchanged", () => {
+      const out = apply(createEmpty(), lineplot.setTitleVisible({ visible: true }));
+      expect(out.title.visible).toEqual(true);
+      expect(out.title.level).toEqual(createEmpty().title.level);
     });
-    it("should round-trip the previous title through its inverse", () => {
-      const state = createEmpty({ title: { level: "h4", visible: false } });
+    it("should round-trip the previous visibility through its inverse", () => {
+      const state = createEmpty();
       expect(
-        roundTrip(state, lineplot.setTitle({ title: { level: "h1", visible: true } }))
-          .title,
+        roundTrip(state, lineplot.setTitleVisible({ visible: true })).title,
       ).toEqual(state.title);
+    });
+  });
+
+  describe("setTitleLevel", () => {
+    it("should set title level, leaving visibility unchanged", () => {
+      const out = apply(createEmpty(), lineplot.setTitleLevel({ level: "h2" }));
+      expect(out.title.level).toEqual("h2");
+      expect(out.title.visible).toEqual(createEmpty().title.visible);
+    });
+    it("should round-trip the previous level through its inverse", () => {
+      const state = createEmpty({ title: { level: "h4", visible: false } });
+      expect(roundTrip(state, lineplot.setTitleLevel({ level: "h1" })).title).toEqual(
+        state.title,
+      );
     });
   });
 

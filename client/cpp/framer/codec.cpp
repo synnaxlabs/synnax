@@ -111,7 +111,7 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
             return x::errors::Error(
                 x::errors::VALIDATION,
                 "frame contains extra key " + std::to_string(k) +
-                    "not provided when opening the writer"
+                    " not provided when opening the writer"
             );
         const bool is_equivalent = (dt->second == x::telem::INT64_T ||
                                     dt->second == x::telem::TIMESTAMP_T) &&
@@ -120,7 +120,7 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
         if (dt->second != ser.data_type() && !is_equivalent)
             return x::errors::Error(
                 x::errors::VALIDATION,
-                "data type " + dt->second + " for channel + " + std::to_string(k) +
+                "data type " + dt->second + " for channel " + std::to_string(k) +
                     " does not match series data type " + ser.data_type()
             );
         this->sorting_indices[i] = {k, i};

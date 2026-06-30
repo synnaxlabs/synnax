@@ -18,8 +18,6 @@ import (
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -33,7 +31,7 @@ func newHTTPFramerCodec(keys channel.Keys, dts []telem.DataType) *framer.Codec {
 	}
 }
 
-func httpBenchFrame(numChannels, samples int) (channel.Keys, []telem.DataType, frame.Frame) {
+func httpBenchFrame(numChannels, samples int) (channel.Keys, []telem.DataType, framer.Frame) {
 	keys := make(channel.Keys, numChannels)
 	dts := make([]telem.DataType, numChannels)
 	for i := range numChannels {
@@ -53,7 +51,7 @@ func httpBenchFrame(numChannels, samples int) (channel.Keys, []telem.DataType, f
 	return keys, dts, frame.NewMulti(frameKeys, series)
 }
 
-func httpIteratorFrame(numChannels, numDomains, samples int) (channel.Keys, []telem.DataType, frame.Frame) {
+func httpIteratorFrame(numChannels, numDomains, samples int) (channel.Keys, []telem.DataType, framer.Frame) {
 	keys := make(channel.Keys, numChannels)
 	dts := make([]telem.DataType, numChannels)
 	for i := range numChannels {
@@ -91,7 +89,7 @@ func BenchmarkHTTPCodec_WriteRequest_Encode(b *testing.B) {
 			msg := http.WSMessage[framer.WriterRequest]{
 				Type: "data",
 				Payload: framer.WriterRequest{
-					Command: writer.CommandWrite,
+					Command: framer.WriterCommandWrite,
 					Frame:   fr,
 				},
 			}
@@ -116,7 +114,7 @@ func BenchmarkHTTPCodec_WriteRequest_Decode(b *testing.B) {
 			msg := http.WSMessage[framer.WriterRequest]{
 				Type: "data",
 				Payload: framer.WriterRequest{
-					Command: writer.CommandWrite,
+					Command: framer.WriterCommandWrite,
 					Frame:   fr,
 				},
 			}
@@ -206,8 +204,8 @@ func BenchmarkHTTPCodec_IteratorResponse_Encode(b *testing.B) {
 			msg := http.WSMessage[framer.IteratorResponse]{
 				Type: "data",
 				Payload: framer.IteratorResponse{
-					Variant: iterator.ResponseVariantData,
-					Command: iterator.CommandNext,
+					Variant: framer.IteratorResponseVariantData,
+					Command: framer.IteratorCommandNext,
 					Frame:   fr,
 				},
 			}
@@ -240,8 +238,8 @@ func BenchmarkHTTPCodec_IteratorResponse_Decode(b *testing.B) {
 			msg := http.WSMessage[framer.IteratorResponse]{
 				Type: "data",
 				Payload: framer.IteratorResponse{
-					Variant: iterator.ResponseVariantData,
-					Command: iterator.CommandNext,
+					Variant: framer.IteratorResponseVariantData,
+					Command: framer.IteratorCommandNext,
 					Frame:   fr,
 				},
 			}
@@ -272,7 +270,7 @@ func BenchmarkHTTPCodec_IteratorRequest_Encode(b *testing.B) {
 	msg := http.WSMessage[framer.IteratorRequest]{
 		Type: "data",
 		Payload: framer.IteratorRequest{
-			Command: iterator.CommandNext,
+			Command: framer.IteratorCommandNext,
 			Span:    telem.Second,
 			Keys:    keys,
 		},

@@ -20,19 +20,14 @@ import {
   type telem,
 } from "@synnaxlabs/pluto";
 import { type bounds, type color, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { EmptyAction } from "@/component";
 import { CSS } from "@/component/css";
 
-export interface LinesProps {
-  layoutKey: string;
-}
-
-export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
-  const lineKeys = LinePlot.useSelectLineKeys({ key: layoutKey });
+export const Lines = (): ReactElement => {
+  const lineKeys = LinePlot.useSelectLineKeys();
   const { onSelect } = Tabs.useContext();
-
   const emptyContent = (
     <EmptyAction
       x
@@ -52,18 +47,13 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
         className={CSS.BE("line-plot", "toolbar", "lines")}
         emptyContent={emptyContent}
       >
-        {({ key, index, ...rest }) => (
-          <Line key={key} layoutKey={layoutKey} index={index} {...rest} />
-        )}
+        {({ key, index, ...rest }) => <Line key={key} index={index} {...rest} />}
       </List.Items>
     </List.Frame>
   );
 };
 
-interface LineProps extends Omit<List.ItemProps<string>, "onChange"> {
-  layoutKey: string;
-  index: number;
-}
+interface LineProps extends Omit<List.ItemProps<string>, "onChange"> {}
 
 const STROKE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 10 };
 const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 1000 };
@@ -88,36 +78,32 @@ const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement =>
   </Select.Buttons>
 );
 
-const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => {
-  const line = LinePlot.useSelectLine({ key: layoutKey, lineKey: itemKey });
-  const { dispatch } = LinePlot.useDispatch();
-
-  const apply = useCallback(
-    (action: lineplot.Action): void => dispatch({ key: layoutKey, actions: [action] }),
-    [dispatch, layoutKey],
-  );
+const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
+  const line = LinePlot.useSelectLine({ lineKey: itemKey });
+  const dispatch = LinePlot.useSingleDispatch();
 
   const handleLabelChange: Input.Control<string>["onChange"] = (label) =>
-    apply(
+    dispatch(
       lineplot.setLineLabel({
         key: itemKey,
         label: label.length === 0 ? undefined : label,
       }),
     );
 
-  const handleLabelReset = (): void => apply(lineplot.setLineLabel({ key: itemKey }));
+  const handleLabelReset = (): void =>
+    dispatch(lineplot.setLineLabel({ key: itemKey }));
 
   const handleWidthChange = (strokeWidth: number) =>
-    apply(lineplot.setLineStrokeWidth({ key: itemKey, strokeWidth }));
+    dispatch(lineplot.setLineStrokeWidth({ key: itemKey, strokeWidth }));
 
   const handleDownsampleChange = (downsample: number) =>
-    apply(lineplot.setLineDownsample({ key: itemKey, downsample }));
+    dispatch(lineplot.setLineDownsample({ key: itemKey, downsample }));
 
   const handleDownsampleModeChange = (downsampleMode: telem.DownsampleMode) =>
-    apply(lineplot.setLineDownsampleMode({ key: itemKey, downsampleMode }));
+    dispatch(lineplot.setLineDownsampleMode({ key: itemKey, downsampleMode }));
 
   const handleColorChange = (color: color.Color) =>
-    apply(lineplot.setLineColor({ key: itemKey, color }));
+    dispatch(lineplot.setLineColor({ key: itemKey, color }));
 
   return (
     <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large">

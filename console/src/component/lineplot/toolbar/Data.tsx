@@ -17,18 +17,13 @@ import {
   YAxisChannelSelect,
 } from "@/component/lineplot/SelectAxis";
 
-export interface DataProps {
-  layoutKey: string;
-}
-
-export const Data = ({ layoutKey }: DataProps): ReactElement => (
+export const Data = (): ReactElement => (
   <Flex.Box className={CSS.BE("line-plot", "toolbar", "data")} full="x">
-    <YAxisChannelSelect layoutKey={layoutKey} axisKey="y1" align="center" grow />
-    <YAxisChannelSelect layoutKey={layoutKey} axisKey="y2" grow />
+    <YAxisChannelSelect axisKey="y1" align="center" grow />
+    <YAxisChannelSelect axisKey="y2" grow />
     <Flex.Box x grow wrap>
-      <XAxisRangeSelect layoutKey={layoutKey} axisKey="x1" grow />
+      <XAxisRangeSelect axisKey="x1" grow />
       <XAxisChannelSelect
-        layoutKey={layoutKey}
         axisKey="x1"
         className={CSS.BE("line-plot", "toolbar", "data-x")}
       />

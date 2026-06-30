@@ -23,25 +23,19 @@ export interface YAxisChannelSelectProps extends Omit<
   Input.ItemProps,
   "onChange" | "children" | "label"
 > {
-  layoutKey: lineplot.Key;
   axisKey: lineplot.YAxisKey;
 }
 
 export const YAxisChannelSelect = ({
-  layoutKey,
   axisKey,
   ...rest
 }: YAxisChannelSelectProps): ReactElement => {
-  const value = LinePlot.useSelectYAxisChannels({ key: layoutKey, axisKey });
-  const { dispatch } = LinePlot.useDispatch();
-  const rangeKey = Range.useSelectSelectedKey() ?? undefined;
+  const value = LinePlot.useSelectYAxisChannels({ axisKey });
+  const dispatch = LinePlot.useSingleDispatch();
+  const rangeKey = Range.useSelectActiveKey() ?? undefined;
   const handleChange = useCallback(
-    (channels: channel.Key[]) =>
-      dispatch({
-        key: layoutKey,
-        actions: [lineplot.setChannels({ axisKey, channels })],
-      }),
-    [dispatch, layoutKey, axisKey],
+    (channels: channel.Key[]) => dispatch(lineplot.setChannels({ axisKey, channels })),
+    [dispatch, axisKey],
   );
   return (
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest}>
@@ -60,25 +54,19 @@ export interface XAxisChannelSelectProps extends Omit<
   Input.ItemProps,
   "onChange" | "children" | "label"
 > {
-  layoutKey: lineplot.Key;
   axisKey: lineplot.XAxisKey;
 }
 
 export const XAxisChannelSelect = ({
-  layoutKey,
   axisKey,
   ...rest
 }: XAxisChannelSelectProps): ReactElement => {
-  const value = LinePlot.useSelectXAxisChannel({ key: layoutKey, axisKey });
-  const { dispatch } = LinePlot.useDispatch();
-  const rangeKey = Range.useSelectSelectedKey() ?? undefined;
+  const value = LinePlot.useSelectXAxisChannel({ axisKey });
+  const dispatch = LinePlot.useSingleDispatch();
+  const rangeKey = Range.useSelectActiveKey() ?? undefined;
   const handleChange = useCallback(
-    (channel: channel.Key) =>
-      dispatch({
-        key: layoutKey,
-        actions: [lineplot.setXChannel({ axisKey, channel })],
-      }),
-    [dispatch, layoutKey, axisKey],
+    (channel: channel.Key) => dispatch(lineplot.setXChannel({ axisKey, channel })),
+    [dispatch, axisKey],
   );
   return (
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest} grow>
@@ -97,24 +85,18 @@ export interface XAxisRangeSelectProps extends Omit<
   Range.SelectMultipleInputItemProps,
   "value" | "onChange"
 > {
-  layoutKey: lineplot.Key;
   axisKey: lineplot.XAxisKey;
 }
 
 export const XAxisRangeSelect = ({
-  layoutKey,
   axisKey,
   ...rest
 }: XAxisRangeSelectProps): ReactElement => {
-  const value = LinePlot.useSelectXAxisRanges({ key: layoutKey, axisKey });
-  const { dispatch } = LinePlot.useDispatch();
+  const value = LinePlot.useSelectXAxisRanges({ axisKey });
+  const dispatch = LinePlot.useSingleDispatch();
   const handleChange = useCallback(
-    (ranges: string[]) =>
-      dispatch({
-        key: layoutKey,
-        actions: [lineplot.setRanges({ axisKey, ranges })],
-      }),
-    [dispatch, layoutKey, axisKey],
+    (ranges: string[]) => dispatch(lineplot.setRanges({ axisKey, ranges })),
+    [dispatch, axisKey],
   );
   return (
     <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...rest} />

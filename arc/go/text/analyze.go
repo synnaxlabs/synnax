@@ -700,9 +700,10 @@ func Analyze(
 	ctx context.Context,
 	t Text,
 	root *symbol.Symbol,
+	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	var (
-		aCtx = acontext.NewRoot(ctx, t.AST, root)
+		aCtx = acontext.NewRoot(ctx, t.AST, root).WithConfig(parser.ConfigOf(cfgs...))
 		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
 
