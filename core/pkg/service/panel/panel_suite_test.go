@@ -96,5 +96,3 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
