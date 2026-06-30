@@ -10,6 +10,7 @@ cc_library(
         "//arc/cpp/stl",
         "//client/cpp:synnax",
         "//client/cpp/status",
+        "//driver/arc:reporter",
         "//x/cpp/errors",
     ],
 )

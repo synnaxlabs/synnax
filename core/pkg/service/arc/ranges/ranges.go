@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 	"github.com/tetratelabs/wazero"
 )
@@ -130,6 +131,15 @@ type ModuleConfig struct {
 }
 
 func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
+	v := validate.New("arc.ranges")
+	validate.NotNil(v, "ranger", cfg.Ranger)
+	validate.NotNil(v, "reporter", cfg.Reporter)
+	if cfg.Runtime != nil {
+		validate.NotNil(v, "strings", cfg.Strings)
+	}
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
 	m := &module{rng: cfg.Ranger, report: cfg.Reporter}
 	if cfg.Runtime == nil {
 		return m, nil
@@ -163,8 +173,6 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 	}
 	return m, nil
 }
-
-func (m *module) ModuleName() string { return moduleName }
 
 func (m *module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {

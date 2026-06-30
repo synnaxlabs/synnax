@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 	"github.com/tetratelabs/wazero"
 )
@@ -102,6 +103,15 @@ type ModuleConfig struct {
 }
 
 func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
+	v := validate.New("arc.status")
+	validate.NotNil(v, "status", cfg.Status)
+	validate.NotNil(v, "reporter", cfg.Reporter)
+	if cfg.Runtime != nil {
+		validate.NotNil(v, "strings", cfg.Strings)
+	}
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
 	m := &module{stat: cfg.Status, report: cfg.Reporter}
 	if cfg.Runtime == nil {
 		return m, nil

@@ -171,7 +171,6 @@ var _ = Describe("Module", func() {
 	Describe("Construction", func() {
 		It("Should construct without WASM wiring when rat is nil", func(ctx SpecContext) {
 			Expect(mod).ToNot(BeNil())
-			Expect(mod.(node.ModuleNamer).ModuleName()).To(Equal("status"))
 		})
 
 		It("Should wire host functions when a wazero runtime is provided", func(ctx SpecContext) {
@@ -184,7 +183,6 @@ var _ = Describe("Module", func() {
 				Reporter: rep.report,
 			}))
 			Expect(wired).ToNot(BeNil())
-			Expect(wired.(node.ModuleNamer).ModuleName()).To(Equal("status"))
 		})
 
 		It("Should error when the runtime can't instantiate the host module", func(ctx SpecContext) {

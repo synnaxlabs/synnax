@@ -10,7 +10,6 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -30,13 +29,9 @@
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
+#include "driver/arc/reporter.h"
 
 namespace driver::arc::ranges {
-
-/// @brief Reporter surfaces a stdlib-originated failure as a task-level status,
-/// mirroring the Go-side taskreporter.Reporter so failures land as warnings.
-using Reporter = std::function<
-    void(const std::string &variant, const std::string &message)>;
 
 /// @brief dispatch_create creates an open range that starts now, parsing the color
 /// and parent and reporting failures as warnings. Returns the new key or "".

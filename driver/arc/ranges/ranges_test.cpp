@@ -104,8 +104,7 @@ std::string unique_name(const std::string &prefix) {
     return ir;
 }
 
-// reads the string written to a node's first output via a fresh state handle, which
-// shares the same output buffers as the executed node.
+// output_key returns the string written to the node's first output.
 std::string output_key(::arc::runtime::state::State &s) {
     auto check = ASSERT_NIL_P(s.node("ranges"));
     return std::get<std::string>((*check.output(0)).at(0));

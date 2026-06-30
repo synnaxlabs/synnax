@@ -140,16 +140,22 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 // SetEnd sets the end bound of the range with the given key, preserving all other
 // fields. Returns query.ErrNotFound if no range with the key exists.
 func (w Writer) SetEnd(ctx context.Context, key Key, end telem.TimeStamp) error {
-	var r Range
-	if err := w.table.
-		NewRetrieve().
+	return w.table.
+		NewUpdate().
 		Where(gorp.MatchKeys[Key, Range](key)).
-		Entry(&r).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	r.TimeRange.End = end
-	return w.table.NewCreate().Entry(&r).Exec(ctx, w.tx)
+		ChangeErr(func(_ gorp.Context, r Range) (Range, error) {
+			if end.Before(r.TimeRange.Start) {
+				return r, errors.Wrapf(
+					validate.ErrValidation,
+					"range end %v cannot precede its start %v",
+					end,
+					r.TimeRange.Start,
+				)
+			}
+			r.TimeRange.End = end
+			return r, nil
+		}).
+		Exec(ctx, w.tx)
 }
 
 // Delete deletes the ranges with the given keys. Delete also recursively removes every

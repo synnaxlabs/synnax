@@ -20,9 +20,9 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
-	arctest "github.com/synnaxlabs/arc/stl/testutil"
+	. "github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/arc/symbol"
-	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	arcranges "github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
@@ -212,7 +212,6 @@ var _ = Describe("Module", func() {
 	Describe("Construction", func() {
 		It("Should construct without WASM wiring when the runtime is nil", func() {
 			Expect(mod).ToNot(BeNil())
-			Expect(mod.(node.ModuleNamer).ModuleName()).To(Equal("ranges"))
 		})
 
 		It("Should wire host functions when a wazero runtime is provided", func(ctx SpecContext) {
@@ -224,7 +223,7 @@ var _ = Describe("Module", func() {
 				Runtime:  rt,
 				Reporter: rep.report,
 			}))
-			Expect(wired.(node.ModuleNamer).ModuleName()).To(Equal("ranges"))
+			Expect(wired).ToNot(BeNil())
 		})
 
 		It("Should error when the runtime can't re-instantiate the host module", func(ctx SpecContext) {
@@ -453,7 +452,7 @@ var _ = Describe("Analyzer hooks", func() {
 		{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
 	}
 	buildRoot := func() *symbol.Symbol {
-		root := symboltestutil.NewRoot(nil, channels...)
+		root := NewRoot(nil, channels...)
 		for _, s := range arcranges.NewSymbols() {
 			root.Parent.AddChild(s)
 		}
@@ -493,13 +492,13 @@ var _ = Describe("Analyzer hooks", func() {
 
 var _ = Describe("WASM host functions", func() {
 	var (
-		rt   *arctest.Runtime
+		rt   *Runtime
 		strs *stlstrings.ProgramState
 		rep  *recordingReporter
 	)
 
 	BeforeEach(func(ctx SpecContext) {
-		rt = arctest.NewRuntime(ctx)
+		rt = NewRuntime(ctx)
 		strs = stlstrings.NewProgramState()
 		rep = &recordingReporter{}
 		MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
@@ -523,8 +522,8 @@ var _ = Describe("WASM host functions", func() {
 			parentH := strs.Create("")
 
 			res := rt.Call(ctx, "ranges", "create",
-				arctest.U32(nameH), arctest.U32(colorH), arctest.U32(parentH))
-			out := arctest.AsU32(res[0])
+				U32(nameH), U32(colorH), U32(parentH))
+			out := AsU32(res[0])
 			Expect(out).ToNot(BeZero())
 			newKey := MustBeOk(strs.Get(out))
 			r := MustSucceed(retrieveRange(ctx, newKey))
@@ -536,8 +535,8 @@ var _ = Describe("WASM host functions", func() {
 			colorH := strs.Create("")
 			parentH := strs.Create("")
 			res := rt.Call(ctx, "ranges", "create",
-				arctest.U32(9999), arctest.U32(colorH), arctest.U32(parentH))
-			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+				U32(9999), U32(colorH), U32(parentH))
+			Expect(AsU32(res[0])).To(Equal(uint32(0)))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
 			Expect(calls[0].message).To(ContainSubstring("ranges.create: invalid string handle"))
@@ -554,8 +553,8 @@ var _ = Describe("WASM host functions", func() {
 			keyH := strs.Create(r.Key.String())
 			before := telem.Now()
 
-			res := rt.Call(ctx, "ranges", "end", arctest.U32(keyH))
-			out := arctest.AsU32(res[0])
+			res := rt.Call(ctx, "ranges", "end", U32(keyH))
+			out := AsU32(res[0])
 			Expect(MustBeOk(strs.Get(out))).To(Equal(r.Key.String()))
 			updated := MustSucceed(retrieveRange(ctx, r.Key.String()))
 			Expect(updated.TimeRange.End).To(BeNumerically(">=", before))
@@ -564,8 +563,8 @@ var _ = Describe("WASM host functions", func() {
 		})
 
 		It("Should warn and return 0 on an invalid key handle", func(ctx SpecContext) {
-			res := rt.Call(ctx, "ranges", "end", arctest.U32(9999))
-			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+			res := rt.Call(ctx, "ranges", "end", U32(9999))
+			Expect(AsU32(res[0])).To(Equal(uint32(0)))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
 			Expect(calls[0].message).To(ContainSubstring("ranges.end: invalid string handle"))

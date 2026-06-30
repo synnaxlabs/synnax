@@ -40,46 +40,9 @@ void expect_css_error(const std::string &input, const std::string &msg) {
 
 } // namespace
 
-TEST(ColorFromHex, SixCharWithHash) {
-    auto [c, err] = from_hex("#ff0000");
-    ASSERT_FALSE(err) << err.message();
-    EXPECT_EQ(c.r, 255);
-    EXPECT_EQ(c.g, 0);
-    EXPECT_EQ(c.b, 0);
-    EXPECT_DOUBLE_EQ(c.a, 1.0);
-}
-
-TEST(ColorFromHex, SixCharWithoutHash) {
-    auto [c, err] = from_hex("00ff00");
-    ASSERT_FALSE(err) << err.message();
-    EXPECT_EQ(c.r, 0);
-    EXPECT_EQ(c.g, 255);
-    EXPECT_EQ(c.b, 0);
-    EXPECT_DOUBLE_EQ(c.a, 1.0);
-}
-
-TEST(ColorFromHex, EightCharWithAlpha) {
-    auto [c, err] = from_hex("#ff000080");
-    ASSERT_FALSE(err) << err.message();
-    EXPECT_EQ(c.r, 255);
-    EXPECT_EQ(c.g, 0);
-    EXPECT_EQ(c.b, 0);
-    EXPECT_NEAR(c.a, 128.0 / 255.0, 0.01);
-}
-
-TEST(ColorFromHex, InvalidHexDigitsErrors) {
-    EXPECT_TRUE(from_hex("#xyz").second);
-    EXPECT_TRUE(from_hex("#gggggg").second);
-}
-
-TEST(ColorFromHex, WrongLengthErrors) {
-    EXPECT_TRUE(from_hex("#12345").second);
-    EXPECT_TRUE(from_hex("#fff").second);
-    EXPECT_TRUE(from_hex("").second);
-}
-
 TEST(ColorFromCSS, ParsesValidStrings) {
     expect_css("#ff0000", 255, 0, 0, 1.0);
+    expect_css("#ff000080", 255, 0, 0, 128.0 / 255.0);
     expect_css("rgb(59,196,84)", 59, 196, 84, 1.0);
     expect_css("rgb(255, 0, 0)", 255, 0, 0, 1.0);
     expect_css("rgba(59,196,84,0.5)", 59, 196, 84, 0.5);
@@ -88,6 +51,9 @@ TEST(ColorFromCSS, ParsesValidStrings) {
 }
 
 TEST(ColorFromCSS, RejectsInvalidStrings) {
+    expect_css_error("#gggggg", "invalid hex");
+    expect_css_error("#12345", "invalid hex");
+    expect_css_error("#fff", "invalid hex");
     expect_css_error("rgb(1,2,3,0.5)", "rgb() takes 3 channels");
     expect_css_error("rgba(1,2,3)", "rgba() requires");
     expect_css_error("rgba(1,2,3,1.5)", "alpha must be 0-1");

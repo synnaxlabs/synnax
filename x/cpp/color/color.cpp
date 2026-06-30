@@ -13,6 +13,7 @@
 #include "x/cpp/color/color.h"
 
 namespace x::color {
+namespace {
 
 std::pair<Color, x::errors::Error> from_hex(const std::string &input) {
     std::string s = input;
@@ -55,7 +56,6 @@ std::pair<Color, x::errors::Error> from_hex(const std::string &input) {
     };
 }
 
-namespace {
 std::pair<Color, x::errors::Error>
 from_rgb_match(const std::smatch &m, const std::string &input) {
     const bool has_alpha = m[5].matched;
