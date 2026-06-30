@@ -226,7 +226,8 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	dist := mock.OpenNode(ctx)
+	cluster := mock.OpenCluster(ctx, 4)
+	dist := cluster.Nodes[1]
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 2)
 	}
