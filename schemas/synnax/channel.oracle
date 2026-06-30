@@ -48,7 +48,6 @@ Name = string {
     """
     @validate required
     @go output         "core/pkg/service/channel"
-    @go omit
 }
 
 OperationType enum {

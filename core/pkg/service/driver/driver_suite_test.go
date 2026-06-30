@@ -84,7 +84,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:       node.Framer,
 		Channel:      channelSvc,
-		DB:           node.DB,
 		Status:       statusSvc,
 		HostResolver: node.Cluster,
 	}))

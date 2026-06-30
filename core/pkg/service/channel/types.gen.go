@@ -19,6 +19,11 @@ import (
 	"strconv"
 )
 
+// Name is a human-readable name for a channel. Must start with a letter or underscore
+// and contain only letters, digits, and underscores. Names are not guaranteed to be
+// unique across channels.
+type Name = string
+
 // OperationType is the type of aggregation operation to apply to channel data over
 // time.
 type OperationType string

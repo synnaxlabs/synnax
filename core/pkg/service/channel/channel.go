@@ -40,9 +40,6 @@ type (
 	// LocalKey is the 20-bit, node-local portion of a channel Key. Re-exported from
 	// [channel.LocalKey].
 	LocalKey = channel.LocalKey
-	// Name is the human-readable identifier for a channel. It is an alias for string,
-	// provided so callers can refer to channel names through a domain-specific type.
-	Name = string
 )
 
 var (

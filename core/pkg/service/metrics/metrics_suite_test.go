@@ -65,7 +65,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:       dist.Framer,
 		Channel:      channelSvc,
 		Status:       statusSvc,
-		DB:           dist.DB,
 		HostResolver: dist.Cluster,
 	}))
 })

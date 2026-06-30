@@ -18,7 +18,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -27,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -36,20 +34,20 @@ import (
 )
 
 type (
-	Frame                   = frame.Frame
+	Frame                   = framer.Frame
+	Iterator                = iterator.Iterator
 	IteratorCommand         = iterator.Command
 	IteratorResponseVariant = iterator.ResponseVariant
-	Iterator                = iterator.Iterator
 	IteratorRequest         = iterator.Request
 	IteratorResponse        = iterator.Response
 	StreamIterator          = iterator.StreamIterator
 	Writer                  = writer.Writer
-	WriterMode              = writer.Mode
 	WriterCommand           = writer.Command
+	WriterConfig            = writer.Config
+	WriterMode              = writer.Mode
 	WriterRequest           = writer.Request
 	WriterResponse          = writer.Response
 	StreamWriter            = writer.StreamWriter
-	WriterConfig            = writer.Config
 	IteratorConfig          = iterator.Config
 	StreamerConfig          = streamer.Config
 	StreamerRequest         = streamer.Request
@@ -78,10 +76,6 @@ const (
 // ServiceConfig is the configuration for opening a framer Service. All fields are
 // required except the embedded Instrumentation.
 type ServiceConfig struct {
-	// DB is the underlying database used by the calculation service.
-	//
-	// [REQUIRED]
-	DB *gorp.DB
 	// Framer is the distribution-layer framer service this service extends.
 	//
 	// [REQUIRED]
@@ -102,7 +96,7 @@ type ServiceConfig struct {
 	HostResolver node.HostResolver
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
-	// [OPTIONAL] - defaults to noop instrumentation.
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
@@ -113,7 +107,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("framer")
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "host_resolver", c.HostResolver)
 	return v.Error()
@@ -124,7 +117,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	return c

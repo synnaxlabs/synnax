@@ -146,7 +146,6 @@ var _ = Describe("OpenService", func() {
 		framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 			Framer:       node.Framer,
 			Channel:      channelSvc,
-			DB:           node.DB,
 			Status:       statusSvc,
 			HostResolver: node.Cluster,
 		}))
