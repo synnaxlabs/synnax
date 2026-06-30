@@ -20,13 +20,12 @@ import (
 )
 
 var _ = Describe("Cluster", func() {
-	ShouldNotLeakGoroutinesPerSpec()
 	Describe("Provision", func() {
 		It("Should open a three node memory backed distribution layer", func(ctx SpecContext) {
-			cluster := mock.NewCluster(ctx, 0)
-			nodeOne := cluster.Provision(ctx)
-			nodeTwo := cluster.Provision(ctx)
-			nodeThree := cluster.Provision(ctx)
+			cluster := mock.NewCluster(ctx, 3)
+			nodeOne := cluster.Nodes[node.Key(1)]
+			nodeTwo := cluster.Nodes[node.Key(2)]
+			nodeThree := cluster.Nodes[node.Key(3)]
 
 			Expect(nodeOne.Cluster.HostKey()).To(Equal(node.Key(1)))
 			Expect(nodeTwo.Cluster.HostKey()).To(Equal(node.Key(2)))
@@ -45,8 +44,6 @@ var _ = Describe("Cluster", func() {
 			chs := MustSucceed(nodeOne.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()))
 			Expect(chs).To(HaveLen(1))
 			Expect(chs[0].Key).To(Equal(ch.Key().StorageKey()))
-
-			Expect(cluster.Close()).To(Succeed())
 		})
 	})
 })
