@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/units"
@@ -89,12 +90,47 @@ func inferBinaryType(elemType, nextElem types.Type) (types.Type, bool) {
 	return elemType, false
 }
 
+// checkMinusSpacing flags a binary '-' not spaced on both sides (dashed mode).
+func checkMinusSpacing(ctx context.Context[parser.IAdditiveExpressionContext]) {
+	if !ctx.Config.AllowDashedNames {
+		return
+	}
+	operands := ctx.AST.AllMultiplicativeExpression()
+	opIdx := 0
+	for _, child := range ctx.AST.GetChildren() {
+		tn, ok := child.(antlr.TerminalNode)
+		if !ok {
+			continue
+		}
+		if opIdx+1 >= len(operands) {
+			break
+		}
+		op := tn.GetSymbol()
+		left, right := operands[opIdx], operands[opIdx+1]
+		opIdx++
+		if op.GetTokenType() != parser.ArcParserMINUS {
+			continue
+		}
+		if left.GetStop().GetStop()+1 == op.GetStart() ||
+			op.GetStop()+1 == right.GetStart().GetStart() {
+			col := op.GetColumn()
+			ctx.Diagnostics.Add(diagnostics.Diagnostic{
+				Severity: diagnostics.SeverityError,
+				Message:  "subtraction requires whitespace on both sides of '-'",
+				Start:    diagnostics.Position{Line: op.GetLine(), Col: col},
+				End:      diagnostics.Position{Line: op.GetLine(), Col: col + len(op.GetText())},
+			})
+		}
+	}
+}
+
 func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types.Type {
 	multiplicatives := ctx.AST.AllMultiplicativeExpression()
 	if len(multiplicatives) == 0 {
 		return types.Type{}
 	}
 	if len(multiplicatives) > 1 {
+		checkMinusSpacing(ctx)
 		firstType := InferMultiplicative(context.Child(ctx, multiplicatives[0]))
 		isSeries := firstType.Kind == types.KindSeries
 		elemType := firstType.Unwrap()

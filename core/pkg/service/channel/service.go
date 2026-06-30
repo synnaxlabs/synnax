@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -79,11 +80,17 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
 }
 
+// ShouldValidateNames reports whether channel-name validation is enabled, delegating to
+// the distribution-layer channel service.
+func (s *Service) ShouldValidateNames() bool { return s.cfg.Channel.ShouldValidateNames() }
+
 // NewWriter returns a Writer that infers DataTypes for calculated channels before
 // delegating to the distribution-layer writer.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	w := Writer{writer: s.cfg.Channel.NewWriter(tx)}
-	w.analyzer = NewCalculationAnalyzer(s.NewArcSymbolResolver(tx))
+	w.analyzer = NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
+		AllowDashedNames: !s.ShouldValidateNames(),
+	})
 	return w
 }
 

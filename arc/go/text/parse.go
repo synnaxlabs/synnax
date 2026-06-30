@@ -18,8 +18,8 @@ import (
 //
 // Returns the Text with both Raw source and parsed AST. Returns a diagnostic object
 // that will be nil if no errors occurred during the parsing process.
-func Parse(t Text) (Text, *diagnostics.Diagnostics) {
-	ast, diag := parser.Parse(t.Raw)
+func Parse(t Text, cfgs ...parser.Config) (Text, *diagnostics.Diagnostics) {
+	ast, diag := parser.Parse(t.Raw, cfgs...)
 	if diag != nil {
 		return Text{}, diag
 	}
