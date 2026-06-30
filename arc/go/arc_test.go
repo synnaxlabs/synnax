@@ -24,6 +24,58 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("Dashed names keep -> intact", func() {
+	root := func() *symbol.Symbol {
+		r := symbol.NewRoot(nil, stl.NewSymbols())
+		syms := []arc.Symbol{
+			{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+			{Name: "ox_pt_doubled", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
+			{Name: "ox-pt-1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 3},
+			{Name: "ox-pt-doubled", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 4},
+		}
+		for i := range syms {
+			r.Parent.AddChild(&syms[i])
+		}
+		return r
+	}
+	It("resolves routing whether or not -> is spaced", func(ctx SpecContext) {
+		fn := "func calc(val f32) f32 { return val * 2 }\n"
+		opt := arc.WithAllowDashedNames(true)
+		MustSucceed(arc.CompileText(ctx, arc.Text{Raw: fn + "ox_pt_1 -> calc{} -> ox_pt_doubled"}, root(), opt))
+		MustSucceed(arc.CompileText(ctx, arc.Text{Raw: fn + "ox_pt_1->calc{}->ox_pt_doubled"}, root(), opt))
+	})
+
+	It("resolves channel names containing dashes", func(ctx SpecContext) {
+		fn := "func calc(val f32) f32 { return val * 2 }\n"
+		MustSucceed(arc.CompileText(
+			ctx,
+			arc.Text{Raw: fn + "ox-pt-1 -> calc{} -> ox-pt-doubled"},
+			root(),
+			arc.WithAllowDashedNames(true),
+		))
+	})
+
+	It("keeps spaced subtraction working alongside dashed names", func(ctx SpecContext) {
+		fn := "func calc(val f32) f32 { return val - 1.0 }\n"
+		MustSucceed(arc.CompileText(
+			ctx,
+			arc.Text{Raw: fn + "ox-pt-1 -> calc{} -> ox-pt-doubled"},
+			root(),
+			arc.WithAllowDashedNames(true),
+		))
+	})
+
+	It("keeps subtract-assign working alongside dashed names", func(ctx SpecContext) {
+		fn := "func calc(val f32) f32 {\n\tx f32 := val\n\tx -= 1.0\n\treturn x\n}\n"
+		MustSucceed(arc.CompileText(
+			ctx,
+			arc.Text{Raw: fn + "ox-pt-1 -> calc{} -> ox-pt-doubled"},
+			root(),
+			arc.WithAllowDashedNames(true),
+		))
+	})
+})
+
 var _ = Describe("Arc", func() {
 	compile := func(ctx SpecContext, code string, channels ...arc.Symbol) arc.Program {
 		t := arc.Text{Raw: code}

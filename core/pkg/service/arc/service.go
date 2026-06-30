@@ -128,9 +128,10 @@ func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
-		Instrumentation: s.cfg.Child("lsp"),
-		NewRoot:         func() *arcsymbol.Symbol { return s.NewRoot(nil) },
-		OnRename:        channelRename(s.cfg.Channel),
+		Instrumentation:  s.cfg.Child("lsp"),
+		NewRoot:          func() *arcsymbol.Symbol { return s.NewRoot(nil) },
+		AllowDashedNames: s.AllowDashedNames(),
+		OnRename:         channelRename(s.cfg.Channel),
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
 			Translate: func(
@@ -145,6 +146,10 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
+// AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
+// is permitted exactly when channel-name validation is disabled.
+func (s *Service) AllowDashedNames() bool { return !s.cfg.Channel.ShouldValidateNames() }
+
 // CompileProgram retrieves an Arc program by key and compiles its Module. The returned
 // Arc has its Module field populated with the compiled module.
 func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
@@ -155,9 +160,11 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 	}
 	var prog arc.Program
 	if entry.Mode == ModeText {
-		prog, err = arc.CompileText(ctx, entry.Text, s.NewRoot(nil))
+		prog, err = arc.CompileText(ctx, entry.Text, s.NewRoot(nil),
+			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	} else {
-		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil))
+		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil),
+			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	}
 	if err != nil {
 		return Arc{}, err

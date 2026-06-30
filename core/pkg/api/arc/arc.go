@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
+	"github.com/synnaxlabs/arc/parser"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -187,13 +188,12 @@ func (s *Service) LSP(ctx context.Context, stream freighter.ServerStream[LSPMess
 // compile compiles the Arc text to a module containing IR and WASM bytecode.
 // Returns an error if parsing, analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, arc *Arc) error {
-	// Step 1: Parse the Arc text
-	parsed, diag := arctext.Parse(arc.Text)
+	cfg := parser.Config{AllowDashedNames: s.internal.AllowDashedNames()}
+	parsed, diag := arctext.Parse(arc.Text, cfg)
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
-	// Step 2: Analyze the parsed text to produce IR
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil))
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil), cfg)
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}

@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	channel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
@@ -288,7 +289,9 @@ func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
 }
 
 func (s *Graph) newAnalyzer(tx gorp.Tx) *channelanalyzer.Analyzer {
-	return channelanalyzer.New(symbol.NewChannelResolver(s.distribution, tx))
+	return channelanalyzer.New(symbol.NewChannelResolver(s.distribution, tx), parser.Config{
+		AllowDashedNames: !s.distribution.ShouldValidateNames(),
+	})
 }
 
 func (s *Graph) inspectNode(

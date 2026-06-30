@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
@@ -64,7 +65,9 @@ const (
 // PreProcess compiles the channel's expression to discover channel references
 // and infer output types without building the full execution graph.
 func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
-	ana := analyzer.New(cfg.SymbolResolver)
+	ana := analyzer.New(cfg.SymbolResolver, parser.Config{
+		AllowDashedNames: !cfg.ChannelService.ShouldValidateNames(),
+	})
 	result, err := ana.Analyze(ctx, cfg.Channel)
 	if err != nil {
 		return arc.Program{}, err
@@ -79,7 +82,8 @@ func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
-	return arc.CompileGraph(ctx, g, arc.NewRoot(cfg.SymbolResolver))
+	return arc.CompileGraph(ctx, g, arc.NewRoot(cfg.SymbolResolver),
+		arc.WithAllowDashedNames(!cfg.ChannelService.ShouldValidateNames()))
 }
 
 // Module is the compiled output for a single calculated channel, ready for
@@ -196,7 +200,8 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		})
 	}
 
-	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(cfg.SymbolResolver))
+	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(cfg.SymbolResolver),
+		arc.WithAllowDashedNames(!cfg.ChannelService.ShouldValidateNames()))
 	if err != nil {
 		return Module{}, err
 	}
