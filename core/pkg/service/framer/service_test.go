@@ -10,6 +10,8 @@
 package framer_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -111,6 +113,44 @@ var _ = Describe("Service", func() {
 		It("Should return an error for an invalid configuration", func(ctx SpecContext) {
 			Expect(framer.OpenService(ctx, framer.ServiceConfig{})).
 				Error().To(MatchError(ContainSubstring("must be non-nil")))
+		})
+	})
+
+	Describe("Control update channel configuration", func() {
+		controlChannelName := func(n mock.Node) string {
+			return fmt.Sprintf("sy_node_%v_control", n.Cluster.HostKey())
+		}
+		It("Should create the host node's control update channel on open", func(ctx SpecContext) {
+			var controlChannels []channel.Channel
+			Expect(channelSvc.
+				NewRetrieve().
+				Where(channel.MatchNames(controlChannelName(node))).
+				Entries(&controlChannels).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(controlChannels).To(HaveLen(1))
+			controlCh := controlChannels[0]
+			Expect(controlCh.Virtual).To(BeTrue())
+			Expect(controlCh.Internal).To(BeTrue())
+			Expect(controlCh.DataType).To(Equal(telem.StringT))
+			Expect(controlCh.Leaseholder).To(Equal(node.Cluster.HostKey()))
+		})
+		It("Should reuse an existing control update channel rather than recreating it", func(ctx SpecContext) {
+			n := mock.NewNode(ctx)
+			cfg := newFramerConfig(ctx, n)
+			name := controlChannelName(n)
+			existing := channel.Channel{
+				Name:        name,
+				Leaseholder: n.Cluster.HostKey(),
+				Virtual:     true,
+				DataType:    telem.StringT,
+				Internal:    true,
+			}
+			Expect(cfg.Channel.Create(ctx, &existing)).To(Succeed())
+			DeferClose(MustSucceed(framer.OpenService(ctx, cfg)))
+			Expect(cfg.Channel.
+				NewRetrieve().
+				Where(channel.MatchNames(name)).
+				Count(ctx, nil)).To(Equal(1))
 		})
 	})
 

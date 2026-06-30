@@ -37,7 +37,7 @@ var _ = Describe("Ontology Helpers", func() {
 	Describe("KeysFromOntologyIDs", func() {
 		It("Should parse a list of ontology IDs into a list of keys", func() {
 			ids := []ontology.ID{{Type: "channel", Key: "1"}, {Type: "channel", Key: "2"}}
-			Expect(MustSucceed(channel.KeysFromOntologyIDs(ids))).To(Equal(channel.Keys{1, 2}))
+			Expect(channel.KeysFromOntologyIDs(ids)).To(Equal(channel.Keys{1, 2}))
 		})
 		It("Should return an error if a key cannot be parsed", func() {
 			ids := []ontology.ID{{Type: "channel", Key: "1"}, {Type: "channel", Key: "a"}}

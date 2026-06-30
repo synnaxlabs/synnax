@@ -72,7 +72,10 @@ var _ = Describe("Analyze", func() {
 			r := StaticResolver{
 				{Name: "ox-pt-1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 			}
-			a := channel.NewCalculationAnalyzer(r, parser.Config{AllowDashedNames: true})
+			a := channel.NewCalculationAnalyzer(
+				r,
+				parser.Config{AllowDashedNames: true},
+			)
 			ch := channel.Channel{Name: "calc", Expression: "return ox-pt-1 * 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Float32T))
