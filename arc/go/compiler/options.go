@@ -9,8 +9,18 @@
 
 package compiler
 
-type options struct{}
+import "github.com/synnaxlabs/arc/parser"
 
-// Option configures the compiler. Reserved for future use; no options
-// are defined at present.
+type options struct {
+	// config carries parse settings used when re-parsing embedded expressions.
+	config parser.Config
+}
+
+// Option configures the compiler.
 type Option func(o *options)
+
+// WithConfig sets the parse settings used when the compiler re-parses embedded
+// expressions (e.g. format-string placeholders).
+func WithConfig(cfg parser.Config) Option {
+	return func(o *options) { o.config = cfg }
+}

@@ -52,6 +52,11 @@ type Config struct {
 	//
 	// [REQUIRED]
 	NewRoot func() *symbol.Symbol
+	// AllowDashedNames permits '-' inside channel-name identifiers, set when Core runs
+	// with channel-name validation disabled.
+	//
+	// [OPTIONAL]
+	AllowDashedNames bool
 	// OnRename is invoked when a rename request targets a symbol the LSP itself cannot
 	// fully relocate by text edits alone (e.g., a channel). When nil, rename is
 	// restricted to source-defined symbols.
@@ -440,26 +445,27 @@ func (s *Server) analyze(
 		pDiagnostics []protocol.Diagnostic
 		docIR        ir.IR
 		docDiag      diagnostics.Diagnostics
+		cfg          = parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
 	)
 
 	if isBlock {
 		wrappedContent := fmt.Sprintf("{%s}", content)
-		t, err := parser.ParseBlock(wrappedContent)
+		t, err := parser.ParseBlock(wrappedContent, cfg)
 		if err != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
 		} else {
-			aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot())
+			aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
 			docDiag = *aCtx.Diagnostics
 			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
 		}
 	} else {
-		t, diag := text.Parse(text.Text{Raw: content})
+		t, diag := text.Parse(text.Text{Raw: content}, cfg)
 		if diag != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateCfg)
 		} else {
-			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.NewRoot())
+			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.NewRoot(), cfg)
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag
