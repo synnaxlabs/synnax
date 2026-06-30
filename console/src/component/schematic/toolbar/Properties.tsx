@@ -42,13 +42,10 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { useStore } from "react-redux";
 
 import { CSS } from "@/component/css";
-import { useSymbolModal } from "@/component/schematic/symbol/edit/useSymbolModal";
-import { MissingSymbolForm } from "@/component/schematic/toolbar/MissingSymbolForm";
+import { Symbol } from "@/component/schematic/symbol";
 import { Session } from "@/session";
-import { type State } from "@/session/store";
 
 export const Properties = memo((): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
@@ -91,7 +88,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     { ctx: formMethods, optional: true },
   );
   const isCustom = schematic.symbol.keyZ.safeParse(specKey).success && specKey != null;
-  const openEdit = useSymbolModal();
+  const openEditModal = Symbol.Edit.useModal();
   let actions: ReactNode = null;
   if (isCustom)
     actions = (
@@ -99,7 +96,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
         variant="filled"
         size="tiny"
         className={CSS.BE("schematic", "properties", "edit")}
-        onClick={() => openEdit({ key: specKey })}
+        onClick={() => openEditModal({ key: specKey })}
       >
         <Icon.Edit />
       </Button.Button>
@@ -143,7 +140,7 @@ const CustomVariantForm = ({
     { key: specKey },
     { addStatusOnFailure: false },
   );
-  if (Schematic.Symbol.isMissing(result)) return <MissingSymbolForm />;
+  if (Schematic.Symbol.isMissing(result)) return <Symbol.MissingForm />;
   return <VariantForm key={elKey} actions={actions} schematicKey={schematicKey} />;
 };
 

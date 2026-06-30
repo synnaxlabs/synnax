@@ -13,7 +13,7 @@ import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/component/css";
-import { Runtime } from "@/runtime";
+import { Runtime } from "@/component/runtime";
 
 const canDrop: Haul.CanDrop = ({ items }) =>
   items.some((item) => item.type === Haul.FILE_TYPE) && items.length === 1;

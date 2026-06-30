@@ -10,7 +10,7 @@
 import { log } from "@synnaxlabs/client";
 import { Access, Log } from "@synnaxlabs/pluto";
 
-import { useCreate } from "@/component/log/useCreate";
+import { useCreate } from "@/session/log/useCreate";
 import { Palette } from "@/palette";
 
 const COMMAND_NAME = "Create a log";

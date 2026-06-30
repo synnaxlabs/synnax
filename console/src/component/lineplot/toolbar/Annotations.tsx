@@ -25,8 +25,9 @@ import { bounds, type color, id } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { ContextMenu, EmptyAction } from "@/component";
+import { ContextMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
+import { Empty } from "@/component/empty";
 import { Session } from "@/session";
 
 interface EmptyContentProps {
@@ -34,7 +35,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
-  <EmptyAction
+  <Empty.Action
     x
     message="No annotations added."
     action="Create an annotation"

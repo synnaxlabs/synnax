@@ -10,8 +10,8 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/export";
-import { LAYOUT_TYPE } from "@/component/lineplot/layout";
 import { Layout } from "@/layout";
+import { LAYOUT_TYPE } from "@/service/lineplot/layout";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const name = Layout.select(store.getState(), key)?.name;

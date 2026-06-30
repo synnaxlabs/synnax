@@ -9,9 +9,9 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { LAYOUT_TYPE } from "@/component/log/layout";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
+import { LAYOUT_TYPE } from "@/session/log/layout";
 
 export const VERSION = "2.0.0";
 

@@ -9,7 +9,7 @@
 
 import { LinePlot } from "@synnaxlabs/pluto";
 
-import { create } from "@/component/lineplot/layout";
+import { create } from "@/service/lineplot/layout";
 import { Project } from "@/project";
 import { Range } from "@/range";
 

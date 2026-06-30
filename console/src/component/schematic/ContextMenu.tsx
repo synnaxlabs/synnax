@@ -7,17 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Log } from "@synnaxlabs/pluto";
+import { ContextMenu as Base } from "@/component/context-menu";
+import { Layout } from "@/component/layout";
 
-import { create } from "@/component/log/layout";
-import { Project } from "@/component/project";
-
-export const useCreate = Project.createUseCreate({
-  useCreate: Log.useCreate,
-  toCreateParams: ({ overrides, project }) => ({
-    name: "Log",
-    ...overrides,
-    project,
-  }),
-  createSessionState: create,
-});
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <Base.Menu>
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </Base.Menu>
+);

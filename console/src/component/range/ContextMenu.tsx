@@ -25,7 +25,6 @@ import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/component";
-import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/component/lineplot/layout";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
@@ -33,6 +32,7 @@ import { fromClientRange } from "@/range/translate";
 import { useAddToActivePlot } from "@/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/range/useAddToNewPlot";
 import { useCreateModal } from "@/range/useCreateModal";
+import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/service/lineplot/layout";
 import { Link } from "@/service/link";
 import { select, useSelect, useSelectMultiple } from "@/session/range/selectors";
 import {

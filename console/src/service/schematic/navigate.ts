@@ -15,7 +15,6 @@ import { useStore } from "react-redux";
 import { create } from "@/component/schematic/layouts/layout";
 import { Layout } from "@/layout";
 import { Session } from "@/session";
-import { type State } from "@/session/store";
 
 type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
 

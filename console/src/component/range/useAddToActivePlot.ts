@@ -13,9 +13,9 @@ import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 
-import { LAYOUT_TYPE } from "@/component/lineplot/layout";
 import { Layout } from "@/layout";
 import { fromClientRange } from "@/range/translate";
+import { LAYOUT_TYPE } from "@/service/lineplot/layout";
 import { add } from "@/session/range/slice";
 import { type State } from "@/session/store";
 

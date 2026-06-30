@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ContextMenu as CMenu } from "@/component";
-import { Layout } from "@/layout";
+import { ContextMenu as Base } from "@/component/context-menu";
+import { Layout } from "@/component/layout";
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <CMenu.Menu>
+  <Base.Menu>
     <Layout.MenuItems layoutKey={layoutKey} />
-  </CMenu.Menu>
+  </Base.Menu>
 );

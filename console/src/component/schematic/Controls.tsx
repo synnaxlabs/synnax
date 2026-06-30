@@ -11,7 +11,7 @@ import { Button, Control, Diagram, Flex, Icon, Schematic } from "@synnaxlabs/plu
 import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback } from "react";
 
-import { Controls as Base } from "@/component";
+import { Vis } from "@/component/vis";
 import { Session } from "@/session";
 
 const ControlToggleButton = (): ReactElement => {
@@ -39,14 +39,14 @@ export const Controls = memo((): ReactElement => {
   const isAcquired = Session.Schematic.useSelectControlIsAcquired();
   const { canEdit } = Session.Schematic.useSelectEditable();
   return (
-    <Base x>
+    <Vis.Controls>
       <Diagram.Controls.SelectViewportMode />
       <Diagram.Controls.FitView />
       <Flex.Box x pack>
         {canEdit && <Diagram.Controls.ToggleEdit disabled={isAcquired} />}
         {!isSnapshot && <ControlToggleButton />}
       </Flex.Box>
-    </Base>
+    </Vis.Controls>
   );
 });
 Controls.displayName = "Schematic.Controls";

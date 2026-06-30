@@ -10,25 +10,17 @@
 import "@/service/schematic/toolbar/Toolbar.css";
 
 import { schematic } from "@synnaxlabs/client";
-import {
-  Breadcrumb,
-  Flex,
-  Icon,
-  Schematic as PSchematic,
-  Schematic,
-  Tabs,
-} from "@synnaxlabs/pluto";
+import { Breadcrumb, Flex, Icon, Schematic, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
-import { EmptyAction, Toolbar as Base } from "@/component";
+import { Cluster } from "@/component/cluster";
 import { CSS } from "@/component/css";
+import { Empty } from "@/component/empty";
+import { Export } from "@/component/export";
 import { Control } from "@/component/schematic/toolbar/Control";
 import { Properties } from "@/component/schematic/toolbar/Properties";
-import { Symbols } from "@/component/schematic/toolbar/Symbols";
-import { Export } from "@/export";
-import { useExport } from "@/service/schematic/export";
+import { Symbols, type SymbolsProps } from "@/component/schematic/toolbar/Symbols";
+import { Toolbar as Base } from "@/component/toolbar";
 import { Session } from "@/session";
 
 const TABS = [
@@ -44,7 +36,7 @@ const NotEditableContent = (): ReactElement => {
   const { canEdit } = Session.Schematic.useSelectEditable();
   const name = Schematic.useSelectName();
   return (
-    <EmptyAction
+    <Empty.Action
       x
       message={`${name} is not editable.${canEdit ? " To make changes," : ""}`}
       action={
@@ -61,15 +53,18 @@ const NotEditableContent = (): ReactElement => {
   );
 };
 
-const Internal = (): ReactElement | null => {
+export interface ToolbarProps extends SymbolsProps {
+  onExport: () => void;
+}
+
+export const Toolbar = ({ onExport, ...rest }: ToolbarProps): ReactElement => {
   const key = Schematic.useKey();
   const dispatch = Session.useDispatch();
   const activeTab = Session.Schematic.useSelectActiveToolbarTab();
   const name = Schematic.useSelectName();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
-  const handleExport = useExport();
   const selected = Session.Schematic.useSelectSelected();
-  const singleSelectedConfig = PSchematic.useSelectElementConfig({
+  const singleSelectedConfig = Schematic.useSelectElementConfig({
     elKey: selected.length === 1 ? selected[0] : "",
   });
   const singleSelectedName =
@@ -83,7 +78,7 @@ const Internal = (): ReactElement | null => {
       if (!isCurrentlyEditable) return <NotEditableContent />;
       switch (tabKey) {
         case "symbols":
-          return <Symbols />;
+          return <Symbols {...rest} />;
         case "control":
           return <Control />;
         default:
@@ -129,7 +124,7 @@ const Internal = (): ReactElement | null => {
           </Breadcrumb.Breadcrumb>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
-              <Export.ToolbarButton onExport={() => handleExport(key)} />
+              <Export.ToolbarButton onExport={onExport} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={schematic.ontologyID(key)}
@@ -147,13 +142,3 @@ const Internal = (): ReactElement | null => {
     </Tabs.Provider>
   );
 };
-
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps) => (
-  <Schematic.Suspended schematicKey={layoutKey}>
-    <Internal />
-  </Schematic.Suspended>
-);

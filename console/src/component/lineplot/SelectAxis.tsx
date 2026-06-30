@@ -11,7 +11,8 @@ import { type channel, lineplot } from "@synnaxlabs/client";
 import { Channel, Input, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { Range } from "@/range";
+import { Range } from "@/component/range";
+import { Session } from "@/session";
 
 const SEARCH_OPTIONS: channel.RetrieveOptions = {
   notDataTypes: ["string", "json", "uuid"],
@@ -32,7 +33,7 @@ export const YAxisChannelSelect = ({
 }: YAxisChannelSelectProps): ReactElement => {
   const value = LinePlot.useSelectYAxisChannels({ axisKey });
   const dispatch = LinePlot.useSingleDispatch();
-  const rangeKey = Range.useSelectActiveKey() ?? undefined;
+  const rangeKey = Session.Range.useSelectSelectedKey();
   const handleChange = useCallback(
     (channels: channel.Key[]) => dispatch(lineplot.setChannels({ axisKey, channels })),
     [dispatch, axisKey],
@@ -63,7 +64,7 @@ export const XAxisChannelSelect = ({
 }: XAxisChannelSelectProps): ReactElement => {
   const value = LinePlot.useSelectXAxisChannel({ axisKey });
   const dispatch = LinePlot.useSingleDispatch();
-  const rangeKey = Range.useSelectActiveKey() ?? undefined;
+  const rangeKey = Session.Range.useSelectSelectedKey();
   const handleChange = useCallback(
     (channel: channel.Key) => dispatch(lineplot.setXChannel({ axisKey, channel })),
     [dispatch, axisKey],

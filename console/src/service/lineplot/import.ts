@@ -24,7 +24,7 @@ import {
 import { z } from "zod";
 
 import { type Import } from "@/import";
-import { create, LAYOUT_TYPE } from "@/component/lineplot/layout";
+import { create, LAYOUT_TYPE } from "@/service/lineplot/layout";
 
 const STATE_MIGRATION_NAME = "lineplot.state";
 

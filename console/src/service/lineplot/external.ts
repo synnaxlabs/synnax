@@ -9,21 +9,21 @@
 
 import { LinePlot } from "@/component/lineplot/body/LinePlot";
 import { ContextMenu } from "@/component/lineplot/ContextMenu";
-import { LAYOUT_TYPE } from "@/component/lineplot/layout";
 import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 import { extract } from "@/service/lineplot/export";
+import { LAYOUT_TYPE } from "@/service/lineplot/layout";
 import { Selectable } from "@/service/lineplot/Selectable";
 
-export * from "@/component/lineplot/layout";
 export * from "@/component/lineplot/toolbar";
-export * from "@/component/lineplot/useCreate";
 export * from "@/service/lineplot/addChannelsToActivePlot";
 export * from "@/service/lineplot/imex";
+export * from "@/service/lineplot/layout";
 export * from "@/service/lineplot/link";
 export * from "@/service/lineplot/ontology";
 export * from "@/service/lineplot/palette";
+export * from "@/service/lineplot/useCreate";
 export * from "@/service/lineplot/useTriggerHold";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {

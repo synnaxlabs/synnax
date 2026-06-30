@@ -23,18 +23,13 @@ import {
 import React, { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/component/css";
-import { useSymbolModal } from "@/component/schematic/symbol/edit/useSymbolModal";
+import { Edit } from "@/component/schematic/symbol/edit";
 
 const SELECT_GROUP_STYLE: React.CSSProperties = { maxWidth: "60rem" };
 
-/// MissingSymbolForm replaces the property panel for a custom-symbol node whose
-/// referenced symbol cannot be resolved. The user can either pick an existing
-/// symbol to re-link the node to, or create a new symbol — the group picker
-/// controls which sub-group of the schematic-symbol library the new symbol is
-/// parented under, matching the groups the Schematic Symbols toolbar exposes.
-export const MissingSymbolForm = (): ReactElement => {
+export const MissingForm = (): ReactElement => {
   const form = Form.useContext();
-  const openEdit = useSymbolModal();
+  const openEditModal = Edit.useModal();
   const symbolGroup = Schematic.Symbol.useRetrieveGroup({ query: {} });
   const [createGroupKey, setCreateGroupKey] = useState<group.Key | undefined>(
     undefined,
@@ -50,11 +45,11 @@ export const MissingSymbolForm = (): ReactElement => {
   const handleCreate = useCallback(() => {
     if (createGroupKey == null) return;
     const missingKey = form.get<string>("specKey", { optional: true })?.value;
-    openEdit({
+    openEditModal({
       parent: group.ontologyID(createGroupKey),
       createKey: missingKey,
     });
-  }, [openEdit, createGroupKey, form]);
+  }, [openEditModal, createGroupKey, form]);
   return (
     <Flex.Box
       y

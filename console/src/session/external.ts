@@ -17,6 +17,7 @@ export * from "@/session/modals";
 export * from "@/session/nav";
 export * from "@/session/persist";
 export * from "@/session/project";
+export * from "@/session/range";
 export * from "@/session/runtime";
 export * from "@/session/schematic";
 export * from "@/session/status";

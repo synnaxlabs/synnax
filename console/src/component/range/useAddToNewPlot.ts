@@ -12,10 +12,10 @@ import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 
-import { create as createLinePlot } from "@/component/lineplot/layout";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { fromClientRange } from "@/range/translate";
+import { create as createLinePlot } from "@/service/lineplot/layout";
 import { add } from "@/session/range/slice";
 import { type State } from "@/session/store";
 

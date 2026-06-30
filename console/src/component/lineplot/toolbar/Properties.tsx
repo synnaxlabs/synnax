@@ -12,8 +12,8 @@ import { Flex, Input, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { CSS } from "@/component/css";
+import { Session } from "@/session";
 
 export const Properties = (): ReactElement => {
   const key = LinePlot.useKey();
@@ -26,7 +26,7 @@ export const Properties = (): ReactElement => {
 
   const handleTitleRename = useCallback(
     (name: string): void => {
-      reduxDispatch(Layout.rename({ key, name }));
+      reduxDispatch(Session.Layout.rename({ key, name }));
       rename({ key, name });
     },
     [reduxDispatch, rename],

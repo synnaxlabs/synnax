@@ -9,18 +9,19 @@
 
 import { Control, Diagram, Menu, Schematic as Base, Viewport } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu } from "@/component/context-menu";
-import { Controller } from "@/component/schematic/body/Controller";
-import { Controls } from "@/component/schematic/body/Controls";
-import { Legend } from "@/component/schematic/body/Legend";
-import { useHandleNodeClickAction } from "@/component/schematic/body/navigate";
-import { Layout } from "@/layout";
+import { Controller } from "@/component/schematic/Controller";
+import { Controls } from "@/component/schematic/Controls";
+import { Legend } from "@/component/schematic/Legend";
+import { useHandleNodeClickAction } from "@/service/schematic/navigate";
 import { Session } from "@/session";
-import { type State } from "@/session/store";
 
-const Internal: Layout.Renderer = ({ visible }) => {
+export interface SchematicProps {
+  visible: boolean;
+}
+
+export const Schematic = ({ visible }: SchematicProps) => {
   const key = Base.useKey();
   const isSnapshot = Base.useSelectSnapshot();
   const dispatch = Session.useDispatch();
@@ -83,8 +84,8 @@ const Internal: Layout.Renderer = ({ visible }) => {
 
   const enableTriggers = useCallback(
     () =>
-      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) === key &&
-      isCurrentlyEditable,
+      Session.Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) ===
+        key && isCurrentlyEditable,
     [store, key, isCurrentlyEditable, modals],
   );
 
@@ -128,13 +129,3 @@ const Internal: Layout.Renderer = ({ visible }) => {
     </Controller>
   );
 };
-
-export const Schematic: Layout.Renderer = (props) => (
-  <Base.Suspended schematicKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-Schematic.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-);

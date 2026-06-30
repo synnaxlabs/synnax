@@ -13,7 +13,7 @@ import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/component";
-import { create } from "@/component/lineplot/layout";
+import { create } from "@/service/lineplot/layout";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";

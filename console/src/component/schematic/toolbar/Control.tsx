@@ -10,7 +10,6 @@
 import { Flex, Input, Schematic } from "@synnaxlabs/pluto";
 import { control } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/component/css";
 import { Session } from "@/session";

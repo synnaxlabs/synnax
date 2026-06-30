@@ -9,7 +9,6 @@
 
 import { Control, Schematic, User } from "@synnaxlabs/pluto";
 import { memo, type PropsWithChildren, type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
 import { Session } from "@/session";
 

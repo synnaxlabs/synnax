@@ -171,7 +171,7 @@ export interface LinePlotProps {
   visible: boolean;
 }
 
-const LinePlot = ({ focused, visible }: LinePlotProps) => {
+export const LinePlot = ({ focused, visible }: LinePlotProps) => {
   const key = Base.useKey();
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();

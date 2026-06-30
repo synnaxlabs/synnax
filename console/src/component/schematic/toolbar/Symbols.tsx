@@ -27,24 +27,15 @@ import {
 } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
 
-import { ContextMenu, EmptyAction } from "@/component";
+import { ContextMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
-import { Export } from "@/export";
+import { Empty } from "@/component/empty";
+import { Export } from "@/component/export";
 import { Modals } from "@/component/modals";
-import { useSymbolModal } from "@/component/schematic/symbol/edit/useSymbolModal";
-import {
-  useExport as useExportSymbol,
-  useExportGroup,
-} from "@/component/schematic/symbol/export";
-import {
-  useImport as useImportSymbol,
-  useImportGroup,
-} from "@/component/schematic/symbol/import";
-import { useDeleteSymbolGroup } from "@/component/schematic/symbol/useDeleteSymbolGroup";
+import { Symbol } from "@/component/schematic/symbol";
+import { useConfirmDelete } from "@/service/ontology/hooks";
 import { Session } from "@/session";
-import { useConfirmDelete } from "@/ontology/hooks";
 
 const HAUL_DRAG_PROPS: Haul.UseDragProps = {
   type: "Diagram-Elements",
@@ -172,20 +163,21 @@ const remoteListItem = Component.renderProp(RemoteListItem);
 
 export interface RemoteSymbolListContextMenuProps extends Menu.ContextMenuMenuProps {
   groupKey: string;
+  onExportSymbol: (key: schematic.symbol.Key) => void;
 }
 
-const RemoteSymbolListContextMenu = (
-  props: RemoteSymbolListContextMenuProps,
-): ReactElement => {
-  const firstKey = props.keys[0];
+const RemoteSymbolListContextMenu = ({
+  onExportSymbol,
+  ...rest
+}: RemoteSymbolListContextMenuProps): ReactElement => {
+  const firstKey = rest.keys[0];
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
   const confirmDelete = useConfirmDelete({
     type: "Schematic.Symbol",
     icon: "Schematic",
   });
-  const openEdit = useSymbolModal();
+  const openEdit = Symbol.Edit.useModal();
   const renameModal = Modals.useRename();
-  const exportSymbol = useExportSymbol();
   const rename = Schematic.Symbol.useRename({
     beforeUpdate: async ({ data }) => {
       const { name } = data;
@@ -208,7 +200,7 @@ const RemoteSymbolListContextMenu = (
     },
   });
   const handleEdit = () => {
-    openEdit({ key: firstKey, parent: group.ontologyID(props.groupKey) });
+    openEdit({ key: firstKey, parent: group.ontologyID(rest.groupKey) });
   };
   return (
     <ContextMenu.Menu>
@@ -222,13 +214,13 @@ const RemoteSymbolListContextMenu = (
         <Icon.Edit />
         Edit
       </Menu.Item>
-      <Export.ContextMenuItem onClick={() => exportSymbol(firstKey)} />
+      <Export.ContextMenuItem onClick={() => onExportSymbol(firstKey)} />
     </ContextMenu.Menu>
   );
 };
 
 const useCreateSymbol = (selectedGroup: string) => {
-  const openEdit = useSymbolModal();
+  const openEdit = Symbol.Edit.useModal();
   const handleCreateSymbol = useCallback(() => {
     openEdit({ parent: group.ontologyID(selectedGroup) });
   }, [openEdit, selectedGroup]);
@@ -244,7 +236,7 @@ const RemoteListEmptyContent = ({
 }: RemoteListEmptyContentProps): ReactElement => {
   const createSymbol = useCreateSymbol(groupKey);
   return (
-    <EmptyAction
+    <Empty.Action
       message="No symbols found."
       action="Create symbol"
       onClick={createSymbol}
@@ -252,7 +244,15 @@ const RemoteListEmptyContent = ({
   );
 };
 
-const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
+export interface RemoteSymbolListProps extends Pick<
+  RemoteSymbolListContextMenuProps,
+  "onExportSymbol"
+>, SymbolListProps{}
+
+const RemoteSymbolList = ({
+  groupKey,
+  onExportSymbol,
+}: RemoteSymbolListProps): ReactElement => {
   const listData = Schematic.Symbol.useList({
     initialQuery: { parent: group.ontologyID(groupKey) },
   });
@@ -263,7 +263,13 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
     <List.Frame<string, schematic.symbol.Symbol> {...listData}>
       <Menu.ContextMenu
         {...menuProps}
-        menu={(props) => <RemoteSymbolListContextMenu {...props} groupKey={groupKey} />}
+        menu={(props) => (
+          <RemoteSymbolListContextMenu
+            {...props}
+            groupKey={groupKey}
+            onExportSymbol={onExportSymbol}
+          />
+        )}
       >
         <List.Items
           x
@@ -321,18 +327,20 @@ const ImportGroupIcon = Icon.createComposite(Icon.Group, {
 export interface ActionsProps {
   symbolGroupID?: ontology.ID;
   selectedGroup: string;
+  onImportGroup: () => void;
+  onImportSymbol: (group: string) => void;
 }
 
 const Actions = ({
   symbolGroupID,
   selectedGroup,
+  onImportGroup,
+  onImportSymbol,
 }: ActionsProps): ReactElement | null => {
   const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
-  const openEdit = useSymbolModal();
-  const importSymbol = useImportSymbol(selectedGroup);
-  const importGroup = useImportGroup();
+  const openEdit = Symbol.Edit.useModal();
   const hasCreateGroupPermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
   const hasCreateSymbolPermission = Access.useCreateGranted(
     schematic.symbol.TYPE_ONTOLOGY_ID,
@@ -382,7 +390,7 @@ const Actions = ({
             variant="outlined"
             size="small"
             tooltip="Import symbol group"
-            onClick={importGroup}
+            onClick={onImportGroup}
           >
             <ImportGroupIcon />
           </Button.Button>
@@ -404,7 +412,7 @@ const Actions = ({
             size="small"
             tooltip="Import symbol"
             disabled={!isRemoteGroup}
-            onClick={importSymbol}
+            onClick={() => onImportSymbol(selectedGroup)}
           >
             <ImportSymbolIcon />
           </Button.Button>
@@ -414,19 +422,19 @@ const Actions = ({
   );
 };
 
-export interface GroupListProps extends Input.Control<group.Key> {
-  symbolGroupID?: ontology.ID;
+export interface GroupListContextMenuProps extends Menu.ContextMenuMenuProps {
+  onExportGroup: (group: group.Group) => void;
 }
 
 const GroupListContextMenu = ({
   keys,
-}: Menu.ContextMenuMenuProps): ReactElement | null => {
+  onExportGroup,
+}: GroupListContextMenuProps): ReactElement | null => {
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Group>(firstKey);
   const renameModal = Modals.useRename();
-  const exportGroup = useExportGroup();
-  const deleteSymbolGroup = useDeleteSymbolGroup();
+  const deleteSymbolGroup = Symbol.useDeleteGroup();
   const rename = Group.useRename({
     beforeUpdate: async ({ data }) => {
       const { name } = data;
@@ -458,19 +466,23 @@ const GroupListContextMenu = ({
       />
       <Export.ContextMenuItem
         onClick={() => {
-          if (item != null) exportGroup(item);
+          if (item != null) onExportGroup(item);
         }}
       />
     </ContextMenu.Menu>
   );
 };
 
-const groupListContextMenu = Component.renderProp(GroupListContextMenu);
+export interface GroupListProps
+  extends Input.Control<group.Key>, Pick<GroupListContextMenuProps, "onExportGroup"> {
+  symbolGroupID?: ontology.ID;
+}
 
 const GroupList = ({
   value,
   onChange,
   symbolGroupID,
+  onExportGroup,
 }: GroupListProps): ReactElement => {
   const staticData = List.useStaticData<group.Key, group.Group>({
     data: Schematic.Node.GROUPS,
@@ -492,7 +504,10 @@ const GroupList = ({
       onChange={onChange}
       autoSelectOnNone
     >
-      <Menu.ContextMenu {...menuProps} menu={groupListContextMenu}>
+      <Menu.ContextMenu
+        {...menuProps}
+        menu={(p) => <GroupListContextMenu {...p} onExportGroup={onExportGroup} />}
+      >
         <List.Items onContextMenu={menuProps.open} x gap="small">
           {groupListItem}
         </List.Items>
@@ -553,7 +568,18 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
   );
 };
 
-export const Symbols = (): ReactElement => {
+export interface SymbolsProps
+  extends
+    Pick<GroupListProps, "onExportGroup">,
+    Pick<ActionsProps, "onImportSymbol" | "onImportGroup">,
+    Pick<RemoteSymbolListContextMenuProps, "onExportSymbol"> {}
+
+export const Symbols = ({
+  onExportGroup,
+  onImportGroup,
+  onImportSymbol,
+  onExportSymbol,
+}: SymbolsProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const layoutKey = Schematic.useKey();
   const groupKey = Session.Schematic.useSelectSelectedSymbolGroup({ key: layoutKey });
@@ -569,7 +595,7 @@ export const Symbols = (): ReactElement => {
   const searchMode = searchTerm.length > 0;
   let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
   if (isRemoteGroup)
-    symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
+    symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} onExportSymbol={onExportSymbol}/>;
   else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
   const symbolGroupID =
     symbolGroup.data?.key != null ? group.ontologyID(symbolGroup.data.key) : undefined;
@@ -591,8 +617,14 @@ export const Symbols = (): ReactElement => {
           value={groupKey}
           onChange={setGroupKey}
           symbolGroupID={symbolGroupID}
+          onExportGroup={onExportGroup}
         />
-        <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
+        <Actions
+          symbolGroupID={symbolGroupID}
+          selectedGroup={groupKey}
+          onImportGroup={onImportGroup}
+          onImportSymbol={onImportSymbol}
+        />
       </Flex.Box>
       {symbolList}
     </Flex.Box>

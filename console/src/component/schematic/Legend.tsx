@@ -10,7 +10,6 @@
 import { Control, Schematic } from "@synnaxlabs/pluto";
 import { type color, type sticky } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
 import { Session } from "@/session";
 

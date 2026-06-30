@@ -22,14 +22,14 @@ import {
 import { type bounds, type color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { EmptyAction } from "@/component";
 import { CSS } from "@/component/css";
+import { Empty } from "@/component/empty";
 
 export const Lines = (): ReactElement => {
   const lineKeys = LinePlot.useSelectLineKeys();
   const { onSelect } = Tabs.useContext();
   const emptyContent = (
-    <EmptyAction
+    <Empty.Action
       x
       message="No lines plotted. Select channels using the"
       action="data tab."

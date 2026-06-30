@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import { create } from "@/component/lineplot/layout";
+import { create } from "@/service/lineplot/layout";
 import { type Link } from "@/service/link";
 import { Layout } from "@/layout";
 
