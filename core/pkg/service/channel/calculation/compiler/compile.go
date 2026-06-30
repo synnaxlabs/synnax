@@ -63,7 +63,7 @@ const (
 // and infer output types without building the full execution graph.
 func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 	resolver := cfg.ChannelService.NewArcSymbolResolver(nil)
-	ana := channel.NewAnalyzer(resolver)
+	ana := channel.NewCalculationAnalyzer(resolver)
 	result, err := ana.Analyze(ctx, cfg.Channel)
 	if err != nil {
 		return arc.Program{}, err

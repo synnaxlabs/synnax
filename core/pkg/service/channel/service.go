@@ -83,7 +83,7 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 // delegating to the distribution-layer writer.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	w := Writer{writer: s.cfg.Channel.NewWriter(tx)}
-	w.analyzer = NewAnalyzer(s.NewArcSymbolResolver(tx))
+	w.analyzer = NewCalculationAnalyzer(s.NewArcSymbolResolver(tx))
 	return w
 }
 

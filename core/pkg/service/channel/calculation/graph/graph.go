@@ -291,15 +291,15 @@ func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
 	}
 }
 
-func (s *Graph) newAnalyzer(tx gorp.Tx) *channel.Analyzer {
-	return channel.NewAnalyzer(s.svc.NewArcSymbolResolver(tx))
+func (s *Graph) newAnalyzer(tx gorp.Tx) *channel.CalculationAnalyzer {
+	return channel.NewCalculationAnalyzer(s.svc.NewArcSymbolResolver(tx))
 }
 
 func (s *Graph) inspectNode(
 	ctx context.Context,
 	tx gorp.Tx,
 	ch channel.Channel,
-	analyzer *channel.Analyzer,
+	analyzer *channel.CalculationAnalyzer,
 ) (node, error) {
 	if analyzer == nil {
 		analyzer = s.newAnalyzer(tx)
@@ -325,7 +325,7 @@ func (s *Graph) reconcileQueued(
 	queued set.Set[channel.Key],
 	unresolvedNames []string,
 	overlayMap map[channel.Key]channel.Channel,
-	analyzer *channel.Analyzer,
+	analyzer *channel.CalculationAnalyzer,
 ) []channel.Channel {
 	if overlayMap == nil {
 		overlayMap = make(map[channel.Key]channel.Channel)

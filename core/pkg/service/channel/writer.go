@@ -15,7 +15,7 @@ import "context"
 // for calculated channels before persisting.
 type Writer struct {
 	writer
-	analyzer *Analyzer
+	analyzer *CalculationAnalyzer
 }
 
 // Create creates a single channel, inferring the DataType if it is calculated.
