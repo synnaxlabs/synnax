@@ -20,12 +20,12 @@ import { usePlacer } from "@/layout/usePlacer";
 import { useRemover } from "@/layout/useRemover";
 import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { Runtime } from "@/runtime";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 
 export const useTriggers = (): void => {
-  const store = useStore<RootState>();
+  const store = Session.useStore();
   const modals = Modals.useStore("Layout.useTriggers");
   const remove = useRemover();
   const openInNewWindow = useOpenInNewWindow();

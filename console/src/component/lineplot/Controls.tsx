@@ -18,10 +18,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement, useMemo } from "react";
-import { useDispatch } from "react-redux";
 
-import { Controls as Base } from "@/component";
 import { CSS } from "@/component/css";
+import { Vis } from "@/component/vis";
 import { HOLD_TRIGGER } from "@/service/lineplot/useTriggerHold";
 import { Session } from "@/session";
 
@@ -35,7 +34,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
   const annotationsVisible = Session.LinePlot.useSelectAnnotationsVisible();
   const mode = Session.LinePlot.useSelectViewportMode();
   const measureMode = Session.LinePlot.useSelectMeasureMode();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
 
   const handleModeChange = (mode: Viewport.Mode): void => {
     dispatch(Session.LinePlot.setViewportMode({ key, mode }));
@@ -72,7 +71,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Base
+    <Vis.Controls
       className={CSS(
         annotationsVisible &&
           hasAnnotations &&
@@ -165,7 +164,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
           </Button.Toggle>
         </Flex.Box>
       )}
-    </Base>
+    </Vis.Controls>
   );
 });
 Controls.displayName = "Controls";

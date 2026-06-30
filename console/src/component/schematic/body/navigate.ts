@@ -15,7 +15,7 @@ import { useStore } from "react-redux";
 import { create } from "@/component/schematic/layouts/layout";
 import { Layout } from "@/layout";
 import { Session } from "@/session";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
 
@@ -31,7 +31,7 @@ const navigateToLinkedSchematic = async (
 type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
 
 export const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler => {
-  const store = useStore<RootState>();
+  const store = Session.useStore();
   const client = Synnax.use();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const retrieve: SchematicRetriever | null = useMemo(

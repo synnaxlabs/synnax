@@ -15,7 +15,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { type Link } from "@/service/link";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 const CONNECT_TIMEOUT = TimeSpan.seconds(10);
 const POLL_INTERVAL = TimeSpan.milliseconds(50);
@@ -35,7 +35,7 @@ export interface Snapshot {
 // mutate connection state without binding to React. Production wires these to the Redux
 // store and the Synnax provider; tests inject controllable stubs.
 export interface ConnectContext {
-  getState: () => RootState;
+  getState: () => State;
   getSnapshot: () => Snapshot;
   setActive: (key: string) => void;
   poll: breaker.Breaker;
@@ -92,8 +92,8 @@ export const useLink = (): Link.ClusterConnect => {
   const client = Synnax.use();
   const connState = Synnax.useConnectionState();
   const stateRef = useSyncedRef({ client, connState });
-  const dispatch = useDispatch();
-  const store = useStore<RootState>();
+  const dispatch = Session.useDispatch();
+  const store = Session.useStore();
   return useCallback(
     (key) =>
       connectToCluster(key, {

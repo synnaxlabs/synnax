@@ -38,7 +38,7 @@ import { Layout } from "@/layout";
 import { type Service } from "@/service";
 import { select, useSelect, useSelectStaticKeys } from "@/session/range/selectors";
 import { add, rename, select, type Static } from "@/session/range/slice";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
@@ -53,7 +53,7 @@ const NoRanges = (): ReactElement => {
 };
 
 const List = (): ReactElement => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const activeRange = useSelect();
   const data = useSelectStaticKeys();
 
@@ -101,7 +101,7 @@ const List = (): ReactElement => {
 };
 
 export const useRename = () => {
-  const store = useStore<RootState>();
+  const store = Session.useStore();
   return Ranger.useRename({
     beforeUpdate: useCallback(
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {

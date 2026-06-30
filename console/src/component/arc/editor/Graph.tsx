@@ -21,7 +21,7 @@ export const Graph: Layout.Renderer = ({ visible }): ReactElement => {
   const key = Base.useKey();
   const viewport = Session.Arc.useSelectViewport();
   const fitViewOnResize = Session.Arc.useSelectFitViewOnResize();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const { canEdit, isCurrentlyEditable } = Session.Arc.useSelectEditable();
   const selected = Session.Arc.useSelectSelected();
   const viewportMode = Session.Arc.useSelectViewportMode();

@@ -16,18 +16,14 @@ import { Export } from "@/export";
 import { useExtractors } from "@/export/ExtractorsProvider";
 import { Modals } from "@/component/modals";
 import { selectSelected } from "@/session/project/selectors";
-import {
-  type RootAction,
-  type RootState,
-  type RootStore,
-} from "@/session/store";
+import { type Action, type State, type State } from "@/session/store";
 import { Layout } from "@/layout";
 import { purgeExcludedLayouts } from "@/project/purgeExcludedLayouts";
 import { Runtime } from "@/runtime";
 
 export interface ExportContext {
   client: Client | null;
-  store: RootStore;
+  store: State;
   confirm: Modals.PromptConfirm;
   handleError: Status.ErrorHandler;
   extractors: Export.Extractors;
@@ -100,7 +96,7 @@ export const useExport = (): ((key: string | null) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
-  const store = useStore<RootState, RootAction>();
+  const store = useStore<State, Action>();
   const confirm = Modals.useConfirm();
   const extractors = useExtractors();
   return (key: string | null) =>

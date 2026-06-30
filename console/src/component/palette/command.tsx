@@ -34,7 +34,7 @@ import { useStore } from "react-redux";
 import { Modals } from "@/component/modals";
 import { Layout } from "@/layout";
 import { type UseListReturn } from "@/palette/list";
-import { type RootAction, type RootState, type RootStore } from "@/session/store";
+import { type Action, type State, type State } from "@/session/store";
 
 export interface CommandProps extends List.ItemProps<string> {
   placeLayout: Layout.Placer;
@@ -42,7 +42,7 @@ export interface CommandProps extends List.ItemProps<string> {
   rename: Modals.PromptRename;
   handleError: Status.ErrorHandler;
   addStatus: Status.Adder;
-  store: RootStore;
+  store: State;
   fluxStore: Pluto.FluxStore;
   client: Client | null;
 }
@@ -193,7 +193,7 @@ const sort: compare.Comparator<Command> = (a, b) => {
 };
 
 export const useCommandList = (): UseListReturn<Command> => {
-  const store = useStore<RootState, RootAction>();
+  const store = useStore<State, Action>();
   const client = Synnax.use();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const commands = useCommandContext();

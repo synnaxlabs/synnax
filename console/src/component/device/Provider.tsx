@@ -13,8 +13,8 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
-import { EmptyAction } from "@/component";
 import { use } from "@/component/device/use";
+import { Empty } from "@/component/empty";
 
 const DEFAULT_NONE_SELECTED_CONTENT = (
   <Text.Text center color={8}>
@@ -59,7 +59,7 @@ export const Provider = <
     const { name } = device;
     const handleConfigure = () => onConfigure(device.key);
     return (
-      <EmptyAction
+      <Empty.Action
         message={`${name} is not configured.`}
         action={canConfigure ? `Configure ${name}` : ""}
         onClick={handleConfigure}

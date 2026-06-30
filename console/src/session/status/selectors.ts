@@ -11,24 +11,24 @@ import { type status } from "@synnaxlabs/client";
 
 import { Select } from "@/session/select";
 import { SLICE_NAME, type SliceState } from "@/session/status/slice";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
-export const selectSliceState = (state: RootState): SliceState => state[SLICE_NAME];
+export const selectSliceState = (state: State): SliceState => state[SLICE_NAME];
 
-export const selectFavorites = (state: RootState): status.Key[] =>
+export const selectFavorites = (state: State): status.Key[] =>
   selectSliceState(state).favorites;
 
 export const useSelectFavorites = (): status.Key[] =>
-  Select.useMemo((state: RootState) => selectFavorites(state), []);
+  Select.useMemo((state: State) => selectFavorites(state), []);
 
-export const selectFavoriteSet = (state: RootState): Set<status.Key> =>
+export const selectFavoriteSet = (state: State): Set<status.Key> =>
   new Set(selectFavorites(state));
 
 export const useSelectFavoriteSet = (): Set<status.Key> =>
-  Select.useMemo((state: RootState) => selectFavoriteSet(state), []);
+  Select.useMemo((state: State) => selectFavoriteSet(state), []);
 
-export const selectIsFavorite = (state: RootState, key: status.Key): boolean =>
+export const selectIsFavorite = (state: State, key: status.Key): boolean =>
   selectSliceState(state).favorites.includes(key);
 
 export const useSelectIsFavorite = (key: status.Key): boolean =>
-  Select.useMemo((state: RootState) => selectIsFavorite(state, key), [key]);
+  Select.useMemo((state: State) => selectIsFavorite(state, key), [key]);

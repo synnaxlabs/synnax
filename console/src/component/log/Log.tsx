@@ -10,26 +10,29 @@
 import { Log as Base } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
 
-import { ContextMenu, EmptyAction } from "@/component";
+import { ContextMenu } from "@/component/context-menu";
+import { Empty } from "@/component/empty";
 import { Session } from "@/session";
-import { Layout } from "@/layout";
-import { type RootState } from "@/session/store";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
-const Internal: Layout.Renderer = ({ visible }) => {
+export interface LogProps {
+  visible: boolean;
+}
+
+export const Log = ({ visible }: LogProps) => {
   const key = Base.useKey();
-  const dispatch = useDispatch();
-  const store = useStore<RootState>();
+  const dispatch = Session.useDispatch();
+  const store = Session.useStore();
   const channelKeys = Base.useSelectChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
 
   const modals = Session.Modals.useStore("Log");
   const enableTriggers = useCallback(
     () =>
-      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) === key,
+      Session.Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) ===
+      key,
     [store, key, modals],
   );
 
@@ -48,7 +51,7 @@ const Internal: Layout.Renderer = ({ visible }) => {
       enableTriggers={enableTriggers}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
-        <EmptyAction
+        <Empty.Action
           message={
             hasChannels
               ? "No data received yet."
@@ -62,10 +65,3 @@ const Internal: Layout.Renderer = ({ visible }) => {
     />
   );
 };
-
-export const Log: Layout.Renderer = (props) => (
-  <Base.Suspended logKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-Log.useName = Layout.createUseFluxName(Base.useRename, Base.useRetrieveObservableName);

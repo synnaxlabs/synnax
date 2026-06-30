@@ -24,7 +24,7 @@ export interface FavoriteButtonProps extends Omit<
 
 export const FavoriteButton = ({ range, ...rest }: FavoriteButtonProps) => {
   const sliceRange = useSelect(range.key);
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const isFavorite = sliceRange != null;
   const handleFavorite = () => {
     if (!isFavorite) dispatch(add(fromClientRange(range)));

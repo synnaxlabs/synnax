@@ -57,7 +57,7 @@ export const Login = (): ReactElement => {
   const clusters = Cluster.useSelectMany();
   const [selectedKey, setSelectedKey] = useState<string | undefined>(clusters[0]?.key);
   const selectedCluster = Cluster.useSelect(selectedKey);
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
 
   const methods = Form.use<typeof credentialsZ>({

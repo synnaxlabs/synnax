@@ -13,13 +13,13 @@ import { useStore } from "react-redux";
 
 import { LinePlot } from "@/service/lineplot";
 import { type Link } from "@/service/link";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { Range } from "@/range";
 
 export const useLink = (): Link.Handler => {
-  const store = useStore<RootState>();
+  const store = Session.useStore();
   const placeLayout = Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {

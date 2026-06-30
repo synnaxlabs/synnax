@@ -12,15 +12,13 @@ import "@/service/log/toolbar/Toolbar.css";
 import { log } from "@synnaxlabs/client";
 import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
-import { Toolbar as Base } from "@/component";
+import { Cluster } from "@/component/cluster";
 import { CSS } from "@/component/css";
-import { Export } from "@/export";
-import { useExport } from "@/service/log/export";
-import { Channels } from "@/service/log/toolbar/Channels";
-import { Properties } from "@/service/log/toolbar/Properties";
+import { Export } from "@/component/export";
+import { Channels } from "@/component/log/toolbar/Channels";
+import { Properties } from "@/component/log/toolbar/Properties";
+import { Toolbar as Base } from "@/component/toolbar";
 import { Session } from "@/session";
 
 const TABS: Tabs.Tab[] = [
@@ -28,8 +26,12 @@ const TABS: Tabs.Tab[] = [
   { tabKey: "properties", name: "Properties" },
 ];
 
-const Internal = (): ReactElement => {
-  const dispatch = useDispatch();
+export interface ToolbarProps {
+  onExport: () => void;
+}
+
+export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
+  const dispatch = Session.useDispatch();
   const selected = Session.Log.useSelectSelectedToolbarTab();
   const name = Log.useSelectName();
   const key = Log.useKey();
@@ -43,7 +45,6 @@ const Internal = (): ReactElement => {
       ),
     [dispatch, key],
   );
-  const handleExport = useExport();
 
   const content = useCallback(({ tabKey }: Tabs.Tab) => {
     switch (tabKey) {
@@ -66,7 +67,7 @@ const Internal = (): ReactElement => {
           <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
-              <Export.ToolbarButton onExport={() => handleExport(key)} />
+              <Export.ToolbarButton onExport={onExport} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(key)}
@@ -80,13 +81,3 @@ const Internal = (): ReactElement => {
     </Base.Content>
   );
 };
-
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Log.Suspended logKey={layoutKey}>
-    <Internal />
-  </Log.Suspended>
-);

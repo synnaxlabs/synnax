@@ -25,7 +25,7 @@ export interface ControlsProps extends OS.ControlsProps {}
 export const Controls = (props: ControlsProps): ReactElement | null => {
   const os = OS.use();
   const window = useSelectWindow();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const maximizedDisabled = window?.resizable === false;
   const disabled: OS.ControlsAction[] = [];
   if (window?.focus === false && os === "macOS")

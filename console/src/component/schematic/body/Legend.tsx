@@ -17,7 +17,7 @@ import { Session } from "@/session";
 export const Legend = memo((): ReactElement | null => {
   const key = Schematic.useKey();
   const { visible, position, colors } = Session.Schematic.useSelectLegend();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const handleLegendPositionChange = useCallback(
     (position: sticky.XY) => dispatch(Session.Schematic.moveLegend({ key, position })),
     [dispatch, key],

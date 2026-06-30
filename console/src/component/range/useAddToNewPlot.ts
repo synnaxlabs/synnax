@@ -17,12 +17,12 @@ import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { fromClientRange } from "@/range/translate";
 import { add } from "@/session/range/slice";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const store = useStore<RootState>();
+  const store = Session.useStore();
   const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({

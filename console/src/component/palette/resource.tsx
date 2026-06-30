@@ -20,10 +20,10 @@ import {
 import { isValidElement, useCallback } from "react";
 import { useStore } from "react-redux";
 
-import { type RootAction, type RootState } from "@/session/store";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { type UseListReturn } from "@/palette/list";
+import { type Action, type State } from "@/session/store";
 
 interface OntologyListItemProps extends List.ItemProps<string> {}
 
@@ -53,7 +53,7 @@ export const useResourceList = (): UseListReturn<ontology.Resource> => {
   );
   const { data, getItem, subscribe, retrieve } = POntology.useResourceList({ filter });
   const client = Synnax.use();
-  const store = useStore<RootState, RootAction>();
+  const store = useStore<State, Action>();
   const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();

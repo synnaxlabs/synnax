@@ -30,7 +30,7 @@ interface MenuItemProps {
 }
 
 const FocusMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const windowKey = useSelectWindowKey() as string;
   return (
     <Menu.Item
@@ -116,7 +116,7 @@ const splitMenuItemFactory = (
   direction: direction.Direction,
 ): FC<SplitMenuItemProps> => {
   const C = ({ layoutKey }: SplitMenuItemProps) => {
-    const dispatch = useDispatch();
+    const dispatch = Session.useDispatch();
     const [windowKey, mosaic] = useSelectMosaic();
     if (windowKey == null || mosaic == null) return null;
     const canSplit = Mosaic.canSplit(mosaic, layoutKey);

@@ -15,7 +15,7 @@ import { Layout } from "@/layout";
 import { Project } from "@/project";
 
 export const useLink = (): Link.Handler => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   return useCallback(
     async ({ client, key }) => {
       const { layout, ...proj } = await client.projects.retrieve(key);

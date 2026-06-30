@@ -27,7 +27,7 @@ const Internal: Layout.Renderer = ({ visible }) => {
   const selected = Session.Table.useSelectSelectedCellKeys();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const canEdit = hasUpdatePermission && editable;
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
 
   const handleSelectionChange = useCallback(
     (cells: string[]) =>
@@ -79,7 +79,7 @@ const TableControls = (): ReactElement | null => {
   const editable = Session.Table.useSelectEditable();
   const hideIndicators = Session.Table.useSelectHideIndicators();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const handleEdit = useCallback(
     () => dispatch(Session.Table.setEditable({ key })),
     [dispatch, key],

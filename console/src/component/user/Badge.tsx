@@ -17,7 +17,7 @@ import { Cluster } from "@/cluster";
 import { logout } from "@/cluster/services/logout";
 
 export const Badge = (): ReactElement | null => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const { data: u } = User.useRetrieve({}, { addStatusOnFailure: false });
   const cluster = Cluster.useSelect();
   const handleLogout = useCallback(() => logout(dispatch), [dispatch]);

@@ -38,19 +38,17 @@ import {
   useRef,
   useState,
 } from "react";
-import { useDispatch, useStore } from "react-redux";
 
-import { ContextMenu } from "@/component";
+import { ContextMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
+import { Layout } from "@/component/layout";
+import { Controls } from "@/component/lineplot/Controls";
 import {
   type DownloadLine,
   useDownloadAsCSV,
 } from "@/component/lineplot/useDownloadAsCSV";
-import { Layout } from "@/layout";
-import { Range } from "@/range";
-import { Controls } from "@/service/lineplot/body/Controls";
+import { Range } from "@/component/range";
 import { Session } from "@/session";
-import { type RootState } from "@/session/store";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
 
@@ -68,7 +66,7 @@ const RangeAnnotationContextMenu = ({
     downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
   const addRangeToNewPlot = Range.useAddToNewPlot();
   const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   const handleViewDetails = () => {
     placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
   };
@@ -172,8 +170,8 @@ const ContextMenuContent = ({
 const Internal: Layout.Renderer = ({ focused, visible }) => {
   const key = Base.useKey();
   const vis = Session.LinePlot.useSelect();
-  const dispatch = useDispatch();
-  const store = useStore<RootState>();
+  const dispatch = Session.useDispatch();
+  const store = Session.useStore();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
   const ranges = Base.useSelectRanges();
   const rangeKeys = useMemo(

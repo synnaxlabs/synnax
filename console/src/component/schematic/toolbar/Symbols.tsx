@@ -554,7 +554,7 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
 };
 
 export const Symbols = (): ReactElement => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const layoutKey = Schematic.useKey();
   const groupKey = Session.Schematic.useSelectSelectedSymbolGroup({ key: layoutKey });
   const setGroupKey = useCallback(

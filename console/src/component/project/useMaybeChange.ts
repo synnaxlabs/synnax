@@ -16,7 +16,7 @@ import { useSelectActiveKey } from "@/session/project/selectors";
 import { select } from "@/session/project/slice";
 
 export const useMaybeChange = (): ((key: string) => Promise<void>) => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const activeKey = useSelectActiveKey();
   const client = Synnax.use();
   return async (key) => {

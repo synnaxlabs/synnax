@@ -9,7 +9,7 @@
 
 import { createRoot } from "react-dom/client";
 
-import { Console } from "@/Console";
+import { App } from "@/app";
 
 if (import.meta.env.DEV) {
   const script = document.createElement("script");

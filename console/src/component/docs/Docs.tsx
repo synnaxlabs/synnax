@@ -13,12 +13,10 @@ import { Logo } from "@synnaxlabs/media";
 import { Button, Icon, Theming, Triggers } from "@synnaxlabs/pluto";
 import { url } from "@synnaxlabs/x";
 import { memo, type ReactElement, useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/component/css";
-import { Layout } from "@/layout";
-import { useSelectLocation } from "@/session/docs/selectors";
-import { setLocation } from "@/session/docs/slice";
+import { type Layout } from "@/component/layout";
+import { Session } from "@/session";
 
 const HOST = new url.URL({
   host: "docs.synnaxlabs.com",
@@ -27,7 +25,7 @@ const HOST = new url.URL({
 });
 export const LAYOUT_TYPE = "docs";
 
-export const LAYOUT: Layout.BaseState = {
+export const LAYOUT: Session.Layout.BaseState = {
   key: LAYOUT_TYPE,
   type: LAYOUT_TYPE,
   location: "mosaic",
@@ -35,10 +33,6 @@ export const LAYOUT: Layout.BaseState = {
   tab: { editable: false },
 };
 
-/**
- * Renders a layout that loads the documentation site in an iframe. Updates the docs
- * redux store to preserve the location when re-opening the docs.
- */
 export const Docs: Layout.Renderer = memo(() => {
   // Iframes prevent drop interactions on the mosaic, so we need to listen for
   // the mouse being held down and add a class the docs that adds a mask over the frame
@@ -52,14 +46,14 @@ export const Docs: Layout.Renderer = memo(() => {
 
   const { theme } = Theming.useContext();
 
-  const { path } = useSelectLocation();
+  const { path } = Session.Docs.useSelectLocation();
   const [frameURL, setFrameURL] = useState<url.URL | null>(null);
 
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
 
   const handleFrameMessage = (event: Event): void => {
     dispatch(
-      setLocation({
+      Session.Docs.setLocation({
         path: (event as MessageEvent).data.path,
         heading: (event as MessageEvent).data.heading,
       }),
@@ -92,7 +86,7 @@ export const Docs: Layout.Renderer = memo(() => {
 Docs.displayName = "DocsLayoutRenderer";
 
 export const OpenButton = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   const handleDocs = (): void => {
     placeLayout(LAYOUT);
   };

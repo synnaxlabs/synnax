@@ -39,7 +39,7 @@ const TABS = [
 
 const NotEditableContent = (): ReactElement => {
   const key = Schematic.useKey();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const controlState = Session.Schematic.useSelectControlStatus();
   const { canEdit } = Session.Schematic.useSelectEditable();
   const name = Schematic.useSelectName();
@@ -63,7 +63,7 @@ const NotEditableContent = (): ReactElement => {
 
 const Internal = (): ReactElement | null => {
   const key = Schematic.useKey();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const activeTab = Session.Schematic.useSelectActiveToolbarTab();
   const name = Schematic.useSelectName();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();

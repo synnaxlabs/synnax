@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 import { remove, updateRemote } from "@/session/range/slice";
 
 export const useListenForChanges = (): void => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const handleRangeSet = useCallback(
     ({ timeRange, ...rest }: ranger.Payload): void => {
       dispatch(

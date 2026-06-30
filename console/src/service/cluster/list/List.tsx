@@ -35,7 +35,7 @@ export interface ListProps
 
 export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
   const keys = useMemo(() => allClusters.map((c) => c.key), [allClusters]);
   const [testing, setTesting] = useState<string | null>(null);

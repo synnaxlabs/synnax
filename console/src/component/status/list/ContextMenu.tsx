@@ -20,7 +20,7 @@ import { addFavorites, removeFavorites } from "@/session/status/slice";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const q = Status.useRetrieveMultiple({ keys });
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const favoriteSet = useSelectFavoriteSet();
   const ids = status.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);

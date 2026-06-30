@@ -16,7 +16,7 @@ import { useStore } from "react-redux";
 import { Layout } from "@/layout";
 import { useSelectActiveKey } from "@/session/project/selectors";
 import { useMaybeChange } from "@/project/useMaybeChange";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 export interface UseCreateProps {
   project?: project.Key;
@@ -41,7 +41,7 @@ export interface ToCreateParams<Input> {
   // project is the resolved target project, if any.
   project?: project.Key;
   // store exposes redux state for callers that derive default fields from it.
-  store: Store<RootState>;
+  store: Store<State>;
 }
 
 export interface CreateUseCreateArgs<Input, Output extends CreatedRecord> {
@@ -72,7 +72,7 @@ export const createUseCreate =
     const activeProject = useSelectActiveKey();
     const maybeChangeProject = useMaybeChange();
     const placeLayout = Layout.usePlacer();
-    const store = useStore<RootState>();
+    const store = Session.useStore();
     project ??= activeProject;
     const { update } = useCreate({
       afterSuccess: useCallback(

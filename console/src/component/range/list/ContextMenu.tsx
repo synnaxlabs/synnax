@@ -38,7 +38,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const favoriteKeys = useSelectKeys();
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
   const someAreNotFavorites = ranges.some((r) => !favoriteKeys.includes(r.key));
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const renameModal = Modals.useRename();
   const confirm = useConfirmDelete({
     type: "Range",

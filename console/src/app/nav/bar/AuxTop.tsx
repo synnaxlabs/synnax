@@ -20,7 +20,7 @@ import { Layout } from "@/layout";
 import { Project } from "@/project";
 
 const BottomToggleButton = (): ReactElement => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const toggle = useCallback(() => dispatch(Session.Nav.toggleBottom({})), []);
   return (
     <Button.Button

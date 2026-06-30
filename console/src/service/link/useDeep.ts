@@ -14,11 +14,7 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { useDispatch } from "react-redux";
 
-import {
-  type ClusterConnect,
-  type Handler,
-  PREFIX,
-} from "@/service/link/types";
+import { type ClusterConnect, type Handler, PREFIX } from "@/service/link/types";
 import { Runtime } from "@/runtime";
 
 const BASE_LINK = `${PREFIX}<cluster-key>`;
@@ -58,7 +54,7 @@ export const useDeep = (
   // constant and so the hook will be the exact same for a given runtime.
   if (deps.engine !== "tauri") return;
   const handleError = Status.useErrorHandler();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const urlHandler = async (urls: string[]) => {
     try {
       dispatch(Drift.focusWindow({}));

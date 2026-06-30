@@ -28,7 +28,7 @@ export const useSelectSelected = (): string => Select.useMemo(selectSelected, []
 
 export const useProviderProps = (): Theming.ProviderProps => {
   const key = useSelectSelected();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   return useMemo<Theming.ProviderProps>(
     () => ({
       theme: { key },

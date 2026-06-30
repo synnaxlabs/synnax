@@ -41,7 +41,7 @@ const ParentRangeIcon = Icon.createComposite(Icon.Range, {
 export const useCreateModal = Modals.create<CreateModalParams>(
   ({ close, ...params }) => {
     const now = useRef(Number(TimeStamp.now().valueOf())).current;
-    const dispatch = useDispatch();
+    const dispatch = Session.useDispatch();
 
     const client = Synnax.use();
     const clientExists = client != null;

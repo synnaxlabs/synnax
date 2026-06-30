@@ -45,7 +45,7 @@ export const ContextMenu = ({
   const someSelected = keys.length > 0;
   const isSingle = keys.length === 1;
 
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const placeLayout = Layout.usePlacer();
   const addStatus = Status.useAdder();
   const handleLink = Cluster.useCopyLinkToClipboard();

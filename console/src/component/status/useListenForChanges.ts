@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 import { filterFavoritesToKeys, removeFavorites } from "@/session/status/slice";
 
 export const useListenForChanges = () => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const addStatus = Status.useAdder();
   const listQuery = Status.useList();
   const client = Synnax.use();

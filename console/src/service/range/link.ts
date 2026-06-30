@@ -15,7 +15,7 @@ import { Layout } from "@/layout";
 import { Range } from "@/range";
 
 export const useLink = (): Link.Handler => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const placeLayout = Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {

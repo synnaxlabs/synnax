@@ -61,7 +61,7 @@ const useExtraErrorInfo = (): ExtraErrorInfo => {
 };
 
 const FallbackRenderWithStore = ({ error }: Errors.FallbackProps): ReactElement => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const extraInfo = useExtraErrorInfo();
 
   const handleTryAgain = useCallback((): void => {

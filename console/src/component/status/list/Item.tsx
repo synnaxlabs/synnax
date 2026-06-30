@@ -34,7 +34,7 @@ import { toggleFavorite } from "@/session/status/slice";
 export interface ItemProps extends List.ItemProps<status.Key> {}
 
 export const Item = (props: ItemProps): ReactElement | null => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const { itemKey } = props;
   const isFavorite = useSelectIsFavorite(itemKey);
   const handleFavorite = () => {

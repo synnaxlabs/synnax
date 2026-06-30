@@ -176,7 +176,7 @@ interface NotEditableContentProps {
 
 const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => {
   const key = Base.useKey();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   return (
     <EmptyAction

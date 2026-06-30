@@ -14,7 +14,7 @@ import { deep, type direction, id, location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type BaseState } from "@/session/layout/usePlacer";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 const placementLocationZ = z.enum(["window", "mosaic", "modal"]);
 
@@ -197,7 +197,7 @@ export interface StoreState {
 
 export const PERSIST_EXCLUDE = ["hauling"].map(
   (key) => `${SLICE_NAME}.${key}`,
-) as Array<deep.Key<RootState>>;
+) as Array<deep.Key<State>>;
 
 /** Signature for the placeLayout action. */
 export type PlacePayload = State;

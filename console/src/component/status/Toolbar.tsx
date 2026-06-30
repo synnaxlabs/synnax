@@ -74,7 +74,7 @@ const List = (): ReactElement => {
 const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
   const q = Status.useRetrieve({ key: itemKey });
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   useEffect(() => {
     if (q.variant === "error") dispatch(removeFavorites([itemKey]));
   }, [q.variant, dispatch, itemKey]);

@@ -14,7 +14,7 @@ import {
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 
-import { Runtime } from "@/runtime";
+import { Runtime } from "@/component/runtime";
 
 export interface DownloadParams extends Omit<framer.ReadRequest, "responseType"> {
   name: string;

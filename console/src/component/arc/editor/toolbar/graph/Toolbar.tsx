@@ -29,7 +29,7 @@ const TABS = [
 const NotEditableContent = (): ReactElement => {
   const key = Arc.useKey();
   const name = Arc.useSelectName();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const { canEdit } = Session.Arc.useSelectEditable();
   return (
     <Flex.Box x gap="small" center>
@@ -60,7 +60,7 @@ export interface ToolbarProps {
 
 export const Toolbar = ({ onExport }: ToolbarProps): ReactElement | null => {
   const key = Arc.useKey();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const toolbar = Session.Arc.useSelectToolbar();
   const { canEdit, isCurrentlyEditable } = Session.Arc.useSelectEditable();
   const selected = Session.Arc.useSelectSelected();

@@ -27,9 +27,9 @@ import { type z } from "zod";
 
 import { CSS } from "@/component/css";
 import { Modals } from "@/component/modals";
-import { useSelectState, useSelectAllNames } from "@/session/cluster/selectors";
-import { changeKey, clusterZ, set } from "@/session/cluster/slice";
 import { Triggers } from "@/component/triggers";
+import { useSelectAllNames, useSelectState } from "@/session/cluster/selectors";
+import { changeKey, clusterZ, set } from "@/session/cluster/slice";
 
 export interface ConnectModalParams {
   clusterKey?: string;
@@ -59,7 +59,7 @@ const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
 
 export const useConnectModal = Modals.create<ConnectModalParams>(
   ({ clusterKey, close }) => {
-    const dispatch = useDispatch();
+    const dispatch = Session.useDispatch();
     const isEdit = clusterKey != null;
     const existing = useSelectState(clusterKey);
     const [connState, setConnState] = useState<connection.State | null>(null);

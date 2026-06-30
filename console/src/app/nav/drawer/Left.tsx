@@ -16,7 +16,7 @@ import { Session } from "@/session";
 
 export const Left = (): ReactElement => {
   const { selected, hover, size } = Session.Nav.useSelectLeft();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const item = Items.LEFT.find((i) => i.key === selected);
   const handleResizeEnd = useCallback(
     (size: number) => dispatch(Session.Nav.resizeLeft({ size })),

@@ -23,7 +23,7 @@ import { Rack } from "@/component/task/Rack";
 import { useStatus } from "@/component/task/useStatus";
 import { UtilityButtons } from "@/component/task/UtilityButtons";
 import { useConfirm } from "@/component/modals/useConfirm";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 import { Layout } from "@/layout";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
@@ -115,12 +115,12 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   showControls = true,
 }: WrapFormArgs<S>): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
-    const store = useStore<RootState>();
+    const store = Session.useStore();
     const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<FormLayoutArgs>(
       store.getState(),
       layoutKey,
     );
-    const dispatch = useDispatch();
+    const dispatch = Session.useDispatch();
     const handleUnsavedChanges = useCallback(
       (unsavedChanges: boolean) =>
         dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges })),

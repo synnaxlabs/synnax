@@ -11,7 +11,7 @@ import { type ontology } from "@synnaxlabs/client";
 import { Button, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { useCopyLinkToClipboard } from "@/cluster/useCopyLinkToClipboard";
+import { useCopyLinkToClipboard } from "@/component/cluster/useCopyLinkToClipboard";
 
 export interface CopyLinkToolbarButtonProps extends Omit<
   Button.ButtonProps,

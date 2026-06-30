@@ -48,7 +48,7 @@ import { CSS } from "@/component/css";
 import { useSymbolModal } from "@/component/schematic/symbol/edit/useSymbolModal";
 import { MissingSymbolForm } from "@/component/schematic/toolbar/MissingSymbolForm";
 import { Session } from "@/session";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 export const Properties = memo((): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
@@ -157,7 +157,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const selected = Session.Schematic.useSelectSelected();
   const selectedNodes = Schematic.useSelectNodes({ keys: selected });
   const dispatch = Schematic.useSingleDispatch();
-  const store = useStore<RootState>();
+  const store = Session.useStore();
 
   const nodesByKey = useMemo(() => {
     const m = new Map<string, schematic.Node>();

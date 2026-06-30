@@ -18,7 +18,7 @@ import { select } from "@/session/project/slice";
 // mismatch with a project that does not exist.
 export const useCheckCore = (): void => {
   const currentClientKey = Synnax.use()?.key;
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const clientKeyRef = useRef(currentClientKey);
   useEffect(() => {
     if (clientKeyRef.current === currentClientKey) return;

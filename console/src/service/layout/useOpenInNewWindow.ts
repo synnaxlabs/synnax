@@ -18,7 +18,7 @@ interface OpenInNewWindow {
 }
 
 export const useOpenInNewWindow = (): OpenInNewWindow => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const place = usePlacer();
   return useCallback(
     (layoutKey) => {

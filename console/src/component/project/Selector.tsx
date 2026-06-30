@@ -50,7 +50,7 @@ const DIALOG_STYLE = { minHeight: 200, minWidth: 400 };
 
 export const Selector = (): ReactElement | null => {
   const client = Synnax.use();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const active = useSelectSelected();
   const openCreate = useCreateModal();
   const [dialogVisible, setDialogVisible] = useState(false);

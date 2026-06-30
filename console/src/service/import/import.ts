@@ -18,7 +18,7 @@ import { ZodError } from "zod";
 import { useFileIngesters } from "@/import/FileIngestersProvider";
 import { type FileIngesterContext, type FileIngesters } from "@/import/ingester";
 import { trimFileName } from "@/import/trimFileName";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { Runtime } from "@/runtime";
@@ -108,7 +108,7 @@ const importComponent = ({
 
 export const useImport = (): ((projectKey?: string) => void) => {
   const placeLayout = Layout.usePlacer();
-  const store = useStore<RootState>();
+  const store = Session.useStore();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();

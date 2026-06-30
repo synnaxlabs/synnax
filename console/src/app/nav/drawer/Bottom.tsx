@@ -16,7 +16,7 @@ import { Session } from "@/session";
 
 export const Bottom = (): ReactElement | null => {
   const { visible, hover, size } = Session.Nav.useSelectBottom();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const handleResizeEnd = useCallback(
     (size: number) => dispatch(Session.Nav.resizeBottom({ size })),
     [dispatch],

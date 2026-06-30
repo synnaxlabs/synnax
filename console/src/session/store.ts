@@ -12,11 +12,12 @@ import {
   type Dispatch,
   type Middleware,
   type Reducer,
-  type Store,
+  type Store as BaseStore,
   Tuple,
 } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { type deep, type record } from "@synnaxlabs/x";
+import { useDispatch as baseUseDispatch, useStore as baseUseStore } from "react-redux";
 
 import { Arc } from "@/session/arc";
 import { Cluster } from "@/session/cluster";
@@ -35,7 +36,7 @@ import { Theme } from "@/session/theme";
 
 import { Persist } from "./persist";
 
-const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
+const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
   ...Layout.PERSIST_EXCLUDE,
   ...Arc.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
@@ -44,7 +45,7 @@ const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootSta
   ...Table.PERSIST_EXCLUDE,
 ];
 
-const ZERO_STATE: RootState = {
+const ZERO_STATE: State = {
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
@@ -76,9 +77,9 @@ const reducer = combineReducers({
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Theme.SLICE_NAME]: Theme.reducer,
-}) as unknown as Reducer<RootState, RootAction>;
+}) as unknown as Reducer<State, Action>;
 
-export interface RootState {
+export interface State {
   [Arc.SLICE_NAME]: Arc.SliceState;
   [Cluster.SLICE_NAME]: Cluster.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
@@ -95,7 +96,7 @@ export interface RootState {
   [Theme.SLICE_NAME]: Theme.SliceState;
 }
 
-export type RootAction =
+export type Action =
   | Arc.Action
   | Cluster.Action
   | Docs.Action
@@ -111,7 +112,7 @@ export type RootAction =
   | Table.Action
   | Theme.Action;
 
-export type RootStore = Store<RootState, RootAction>;
+export type Store = BaseStore<State, Action>;
 
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   visible: IS_DEV,
@@ -119,8 +120,8 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
 };
 
 interface OpenPersistReturn {
-  initialState?: RootState;
-  persistMiddleware: Middleware<record.Unknown, RootState, Dispatch<RootAction>>;
+  initialState?: State;
+  persistMiddleware: Middleware<record.Unknown, State, Dispatch<Action>>;
 }
 
 const openPersist = async (): Promise<OpenPersistReturn> => {
@@ -129,7 +130,7 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
       initialState: undefined,
       persistMiddleware: () => (next) => (action) => next(action),
     };
-  const engine = await Persist.open<RootState>({
+  const engine = await Persist.open<State>({
     initial: ZERO_STATE,
     exclude: PERSIST_EXCLUDE,
   });
@@ -141,9 +142,9 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 
 const BASE_MIDDLEWARE = [...Layout.MIDDLEWARE, ...Nav.MIDDLEWARE];
 
-export const createStore = async (): Promise<RootStore> => {
+export const createStore = async (): Promise<Store> => {
   const { initialState, persistMiddleware } = await openPersist();
-  return await Drift.configureStore<RootState, RootAction>({
+  return await Drift.configureStore<State, Action>({
     runtime: new Runtime.Drift(),
     preloadedState: initialState,
     middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
@@ -153,3 +154,6 @@ export const createStore = async (): Promise<RootStore> => {
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };
+
+export const useStore = baseUseStore.withTypes<Store>();
+export const useDispatch = baseUseDispatch.withTypes<Dispatch<Action>>();

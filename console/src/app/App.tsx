@@ -25,30 +25,30 @@ import {
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { COMMANDS } from "@/app/commands";
 import { Cluster } from "@/cluster";
+import { Errors } from "@/component/errors";
+import { Palette } from "@/component/palette";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Hardware } from "@/hardware";
 import { Import } from "@/import";
 import { FILE_INGESTERS } from "@/ingesters";
-import { COMMANDS } from "@/app/commands";
-import { Errors } from "@/component/errors";
+import { Layout } from "@/layout";
+import { Layouts } from "@/layouts";
+import { Range } from "@/range";
+import { Runtime } from "@/runtime";
 import { Arc } from "@/service/arc";
 import { Docs } from "@/service/docs";
 import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
+import { Ontology } from "@/service/ontology";
 import { Schematic } from "@/service/schematic";
 import { Status } from "@/service/status";
 import { Table } from "@/service/table";
+import { SERVICES } from "@/services";
 import { Session } from "@/session";
 import { store } from "@/session/store";
-import { Layout } from "@/layout";
-import { Layouts } from "@/layouts";
-import { Ontology } from "@/service/ontology";
-import { Palette } from "@/component/palette";
-import { Range } from "@/range";
-import { Runtime } from "@/runtime";
-import { SERVICES } from "@/services";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 
@@ -85,7 +85,7 @@ const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
 
 const useHaulState: state.PureUse<Haul.DraggingState> = () => {
   const hauled = Layout.useSelectHauling();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const onHauledChange = useCallback(
     (state: Haul.DraggingState) => dispatch(Layout.setHauled(state)),
     [dispatch],
@@ -95,7 +95,7 @@ const useHaulState: state.PureUse<Haul.DraggingState> = () => {
 
 const useColorContextState: state.PureUse<Color.ContextState> = () => {
   const colorContext = Layout.useSelectColorContext();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const onColorContextChange = useCallback(
     (state: Color.ContextState) => dispatch(Layout.setColorContext({ state })),
     [dispatch],

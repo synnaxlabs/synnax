@@ -39,7 +39,7 @@ const Base = ({
   loading,
   ...rest
 }: ListItemProps): ReactElement | null => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const { selected, onSelect } = Select.useItemState(rest.itemKey);
   const handleChange = (value: string) => {
     if (!validateName(value) || item == null) return;

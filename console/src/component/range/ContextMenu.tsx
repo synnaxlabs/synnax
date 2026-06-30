@@ -104,7 +104,7 @@ const useViewDetails = (): ((key: string) => void) => {
 };
 
 const useDelete = () => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const remover = Layout.useRemover();
   const ranges = useSelectMultiple();
   const handleRemove = (keys: string[]): void => {
@@ -131,7 +131,7 @@ const useDelete = () => {
 };
 
 const usePersist = () => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const ranges = useSelectMultiple();
   const { update } = Ranger.useCreate();
   return useCallback(
@@ -146,7 +146,7 @@ const usePersist = () => {
 };
 
 export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const client = Synnax.use();
   const ranges = useSelectMultiple();
   const id = ranger.ontologyID(key ?? "");

@@ -72,7 +72,7 @@ const Content = () => {
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
   const menuProps = Menu.useContextMenu();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const placeLayout = Layout.usePlacer();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({

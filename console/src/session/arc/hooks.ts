@@ -28,7 +28,7 @@ const notDeployedYet = (name: string) =>
 export const useRename = (
   getItem: List.GetItem<arc.Key, arc.Arc>,
 ): { update: (params: Arc.RenameParams) => void } => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const confirm = Modals.useConfirm();
   const { update } = Arc.useRename({
     beforeUpdate: useCallback(

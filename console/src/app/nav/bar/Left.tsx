@@ -17,7 +17,7 @@ import { Session } from "@/session";
 import { Palette } from "@/palette";
 
 const BottomMenu = () => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const visible = Session.Nav.useSelectBottomVisible();
   const handleSelect = useCallback(
     () => dispatch(Session.Nav.selectBottom({})),
@@ -50,7 +50,7 @@ const BottomMenu = () => {
 };
 
 const LeftMenu = () => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const selected = Session.Nav.useSelectLeftSelected();
   const handleSelect = useCallback(
     (key: string) => dispatch(Session.Nav.selectLeft({ key })),

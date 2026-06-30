@@ -64,7 +64,7 @@ const SplashNav = (): ReactElement => {
 };
 
 export const Splash = (): ReactElement => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const { data, retrieve, getItem, subscribe } = PProject.useList();

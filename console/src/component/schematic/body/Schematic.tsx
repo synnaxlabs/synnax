@@ -18,12 +18,12 @@ import { Legend } from "@/component/schematic/body/Legend";
 import { useHandleNodeClickAction } from "@/component/schematic/body/navigate";
 import { Layout } from "@/layout";
 import { Session } from "@/session";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 const Internal: Layout.Renderer = ({ visible }) => {
   const key = Base.useKey();
   const isSnapshot = Base.useSelectSnapshot();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const viewport = Session.Schematic.useSelectViewport();
   const selected = Session.Schematic.useSelectSelected();
   const fitViewOnResize = Session.Schematic.useSelectFitViewOnResize();
@@ -78,7 +78,7 @@ const Internal: Layout.Renderer = ({ visible }) => {
     [handleNodeClickAction],
   );
 
-  const store = useStore<RootState>();
+  const store = Session.useStore();
   const modals = Session.Modals.useStore("Schematic");
 
   const enableTriggers = useCallback(

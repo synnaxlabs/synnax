@@ -19,7 +19,7 @@ import { Triggers } from "@/component/triggers";
 
 export const useCreateModal = Modals.create(({ close }) => {
   const client = Synnax.use();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const active = useSelectOptionalActiveKey();
 
   const { form, save, variant } = Project.useForm({

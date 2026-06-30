@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 import { Link } from "@/service/link";
 
 export const ReloadConsoleItem = (): ReactElement => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const handleClick = useCallback(() => {
     Link.markNextIgnored();
     dispatch(reloadWindow({}));

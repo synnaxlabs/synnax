@@ -10,7 +10,7 @@
 import { Log } from "@synnaxlabs/pluto";
 
 import { create } from "@/component/log/layout";
-import { Project } from "@/project";
+import { Project } from "@/component/project";
 
 export const useCreate = Project.createUseCreate({
   useCreate: Log.useCreate,

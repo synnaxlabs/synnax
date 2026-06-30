@@ -23,10 +23,10 @@ import { useStore } from "react-redux";
 import { Layout } from "@/layout";
 import { purgeExcludedLayouts } from "@/project/purgeExcludedLayouts";
 import { selectOptionalActiveKey } from "@/session/project/selectors";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 export const useSyncLayout = (): void => {
-  const store = useStore<RootState>();
+  const store = Session.useStore();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const client = Synnax.use();
   const prevSyncRef = useRef<unknown>(null);

@@ -36,7 +36,7 @@ const WindowInternal = (): ReactElement | null => {
   if (isMain) win = MAIN_WINDOW;
   const layout = useSelect(win);
   const os = OS.use({ default: "Windows" });
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   useEffect(() => {
     if (layout?.key == null) return;
     dispatch(

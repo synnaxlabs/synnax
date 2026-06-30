@@ -16,7 +16,7 @@ import { CSS } from "@/component/css";
 import { Session } from "@/session";
 
 export const Control = () => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const authority = Session.Schematic.useSelectAuthority();
   const legendVisible = Session.Schematic.useSelectLegendVisible();
   const key = Schematic.useKey();

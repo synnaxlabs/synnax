@@ -110,7 +110,7 @@ const useBase =
 
 export const useDropOutside = (): void => {
   const place = usePlacer();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const handleDrop = useCallback(
     ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
       if (item == null || !Mosaic.isTabDropHaulItem(item)) return [];

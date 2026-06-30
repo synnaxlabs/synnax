@@ -14,8 +14,7 @@ import { Access, Button, Flex, Icon, LinePlot, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
-import { Toolbar as Base } from "@/component";
+import { Cluster } from "@/component/cluster";
 import { CSS } from "@/component/css";
 import { Annotations } from "@/component/lineplot/toolbar/Annotations";
 import { Axes } from "@/component/lineplot/toolbar/Axes";
@@ -23,7 +22,7 @@ import { Data } from "@/component/lineplot/toolbar/Data";
 import { Lines } from "@/component/lineplot/toolbar/Lines";
 import { Properties } from "@/component/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/component/lineplot/useDownloadAsCSV";
-import { Export } from "@/export";
+import { Toolbar as Base } from "@/component/toolbar";
 import { Layout } from "@/layout";
 import { useExport } from "@/service/lineplot/export";
 import { Session } from "@/session";
@@ -44,7 +43,7 @@ const TABS: Tab[] = [
 const Internal = (): ReactElement => {
   const layoutKey = LinePlot.useKey();
   const { name } = Layout.useSelectRequired(layoutKey);
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
   const handleExport = useExport();

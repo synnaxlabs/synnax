@@ -25,7 +25,7 @@ export const HOLD_TRIGGER: Triggers.Trigger = ["H"];
 
 export const useTriggerHold = (): void => {
   const { layoutKey: activeTab } = Layout.useSelectActiveMosaicTabState();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const flat = Triggers.useFlattenedMemoConfig(CONFIG);
   Triggers.use({
     triggers: flat,

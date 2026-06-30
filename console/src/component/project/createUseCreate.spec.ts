@@ -14,9 +14,9 @@ import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { Log } from "@/service/log";
-import { Layout } from "@/layout";
+import { Layout } from "@/component/layout";
 import { Project } from "@/project";
+import { Log } from "@/service/log";
 import { createConsoleWrapper } from "@/testUtils";
 
 const client: Synnax = createTestClient();

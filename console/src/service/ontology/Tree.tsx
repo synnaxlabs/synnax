@@ -55,7 +55,7 @@ import {
   type TreeState,
 } from "@/ontology/service";
 import { useServices } from "@/ontology/ServicesProvider";
-import { type RootAction, type RootState } from "@/session/store";
+import { type Action, type State } from "@/session/store";
 
 interface InternalProps {
   root: ontology.ID;
@@ -361,7 +361,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
   const addStatus = Status.useAdder();
-  const store = useStore<RootState, RootAction>();
+  const store = useStore<State, Action>();
 
   const moveChildren = Ontology.useMoveChildren({});
 

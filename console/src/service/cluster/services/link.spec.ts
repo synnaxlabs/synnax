@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 const client = (): Client => ({}) as Client;
 
@@ -31,13 +31,13 @@ const connState = (
   clockSkewExceeded: false,
 });
 
-const makeState = (clusterKeys: string[], active: string | null): RootState =>
+const makeState = (clusterKeys: string[], active: string | null): State =>
   ({
     [Cluster.SLICE_NAME]: {
       clusters: Object.fromEntries(clusterKeys.map((k) => [k, { key: k, name: k }])),
       activeCluster: active,
     },
-  }) as unknown as RootState;
+  }) as unknown as State;
 
 // sequence returns each snapshot once and then repeats the last one indefinitely, so a
 // poll loop that overshoots the scripted transitions keeps seeing the terminal state.

@@ -53,7 +53,7 @@ import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { Ontology } from "@/ontology";
 import { ProjectServices } from "@/project/services";
 import { Runtime } from "@/runtime";
-import { type RootState, type RootStore } from "@/session/store";
+import { type State, type State } from "@/session/store";
 
 const EmptyContent = (): ReactElement => {
   const createComponentEnabled = useSelectorVisible();
@@ -102,7 +102,7 @@ interface ModalContentProps extends Tabs.Tab {
 }
 
 const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const layout = Layout.useSelectRequired(tabKey);
   const { windowKey, focused: focusedKey } = Layout.useSelectFocused();
   const focused = tabKey === focusedKey;
@@ -230,12 +230,12 @@ Mosaic.displayName = "Mosaic";
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
 const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
-  const store = useStore<RootState>();
+  const store = Session.useStore();
   const activeTab = Layout.useSelectActiveMosaicTabState();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
@@ -263,7 +263,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
           if (client == null) return;
           services[id.type].onMosaicDrop?.({
             client,
-            store: store as RootStore,
+            store: store as State,
             id,
             nodeKey: mosaicKey,
             location,
@@ -393,7 +393,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
 
 export const MosaicWindow = memo<Layout.Renderer>(
   ({ layoutKey }: Layout.RendererProps) => {
-    const dispatch = useDispatch();
+    const dispatch = Session.useDispatch();
     const [windowKey, mosaic] = Layout.useSelectMosaic();
     useLayoutEffect(() => {
       dispatch(Session.Nav.showBottom({}));

@@ -21,7 +21,7 @@ import { changeKey } from "@/session/cluster/slice";
 export const useSyncClusterKey = () => {
   const activeClusterKey = useSelectSelectedKey();
   const { clusterKey, status } = Synnax.useConnectionState();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
   useEffect(() => {
     if (
       status !== "connected" ||

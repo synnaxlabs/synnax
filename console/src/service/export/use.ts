@@ -13,13 +13,13 @@ import { useStore } from "react-redux";
 
 import { type Extractor } from "@/export/extractor";
 import { Runtime } from "@/runtime";
-import { type RootState } from "@/session/store";
+import { type State } from "@/session/store";
 
 const FILTERS: Runtime.FileFilter[] = [{ name: "JSON", extensions: ["json"] }];
 
 export const use = (extract: Extractor, type: string): ((key: string) => void) => {
   const client = Synnax.use();
-  const store = useStore<RootState>();
+  const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   return useCallback(
