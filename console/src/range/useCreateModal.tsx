@@ -122,11 +122,19 @@ export const useCreateModal = Modals.create<CreateModalParams>(
                 />
               )}
             </Form.Field>
-            <Flex.Box x gap="large">
+            <Flex.Box
+              x
+              wrap
+              gap="large"
+              className={CSS.BE("range-create-layout", "time-range")}
+            >
               <Form.Field<number> path="timeRange.start" label="From">
                 {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
               </Form.Field>
-              <Text.Text level="h4">
+              <Text.Text
+                level="h4"
+                className={CSS.BE("range-create-layout", "time-range-arrow")}
+              >
                 <Icon.Arrow.Right />
               </Text.Text>
               <Form.Field<number> path="timeRange.end" label="To">
