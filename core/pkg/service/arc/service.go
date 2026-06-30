@@ -11,14 +11,14 @@ package arc
 
 import (
 	"context"
-	stdio "io"
+	"io"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
-	arcsymbol "github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -147,26 +147,26 @@ func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 
 // NewRoot builds the production analysis root: the STL, status, and ranges modules
 // plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
-func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
+func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
 	syms := slices.Concat(
 		stl.NewSymbols(),
 		status.NewSymbols(),
 		ranges.NewSymbols(),
 	)
-	return arcsymbol.NewRoot(s.NewSymbolResolver(tx), syms)
+	return symbol.NewRoot(s.NewSymbolResolver(tx), syms)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
 		Instrumentation: s.cfg.Child("lsp"),
-		NewRoot:         func() *arcsymbol.Symbol { return s.NewRoot(nil) },
+		NewRoot:         func() *symbol.Symbol { return s.NewRoot(nil) },
 		OnRename: func(
 			ctx context.Context,
-			sym *arcsymbol.Symbol,
+			sym *symbol.Symbol,
 			oldName,
 			newName string,
 		) error {
-			if sym.Kind != arcsymbol.KindChannel {
+			if sym.Kind != symbol.KindChannel {
 				return nil
 			}
 			return s.cfg.Channel.NewWriter(nil).
@@ -246,7 +246,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		var sig stdio.Closer
+		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
 			Provider: cfg.Signals,
 			State:    s.state,
@@ -270,11 +270,6 @@ func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnAction(handler)
-}
-
-// Observe returns an observable that notifies callers of changes to Arc entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Arc]] {
-	return s.table.Observe()
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting Arcs in Synnax. If

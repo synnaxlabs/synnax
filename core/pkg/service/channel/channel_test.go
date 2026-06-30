@@ -36,7 +36,7 @@ var _ = Describe("Writer", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(node.Channel.Create(ctx, &base)).To(Succeed())
+			Expect(svc.Create(ctx, &base)).To(Succeed())
 			ch := channel.Channel{
 				Name:       channel.NewRandomName(),
 				Expression: fmt.Sprintf("return %s * 2.0", base.Name),

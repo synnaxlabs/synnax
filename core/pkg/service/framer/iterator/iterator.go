@@ -14,31 +14,31 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type (
+	Command        = framer.IteratorCommand
 	StreamIterator = framer.StreamIterator
 	Request        = framer.IteratorRequest
 	Response       = framer.IteratorResponse
 )
 
 const (
-	AutoSpan            = iterator.AutoSpan
-	CommandSeekFirst    = iterator.CommandSeekFirst
-	CommandSeekLast     = iterator.CommandSeekLast
-	CommandSeekLE       = iterator.CommandSeekLE
-	CommandSeekGE       = iterator.CommandSeekGE
-	CommandNext         = iterator.CommandNext
-	CommandPrev         = iterator.CommandPrev
-	CommandSetBounds    = iterator.CommandSetBounds
-	ResponseVariantAck  = iterator.ResponseVariantAck
-	ResponseVariantData = iterator.ResponseVariantData
-	CommandError        = iterator.CommandError
-	CommandValid        = iterator.CommandValid
+	AutoSpan            = framer.IteratorAutoSpan
+	CommandSeekFirst    = framer.IteratorCommandSeekFirst
+	CommandSeekLast     = framer.IteratorCommandSeekLast
+	CommandSeekLE       = framer.IteratorCommandSeekLE
+	CommandSeekGE       = framer.IteratorCommandSeekGE
+	CommandNext         = framer.IteratorCommandNext
+	CommandPrev         = framer.IteratorCommandPrev
+	CommandSetBounds    = framer.IteratorCommandSetBounds
+	ResponseVariantAck  = framer.IteratorResponseVariantAck
+	ResponseVariantData = framer.IteratorResponseVariantData
+	CommandError        = framer.IteratorCommandError
+	CommandValid        = framer.IteratorCommandValid
 )
 
 type responseSegment = confluence.Segment[Response, Response]
@@ -49,7 +49,7 @@ type Iterator struct {
 	shutdown    context.CancelFunc
 	wg          signal.WaitGroup
 	value       []Response
-	valueFrames []frame.Frame
+	valueFrames []framer.Frame
 }
 
 // Next reads all channel data occupying the next span of time. Returns true
@@ -121,9 +121,9 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
 	return i.exec(Request{Command: CommandSetBounds, Bounds: bounds})
 }
 
-func (i *Iterator) Value() frame.Frame {
+func (i *Iterator) Value() framer.Frame {
 	if cap(i.valueFrames) < len(i.value) {
-		i.valueFrames = make([]frame.Frame, len(i.value))
+		i.valueFrames = make([]framer.Frame, len(i.value))
 	} else {
 		i.valueFrames = i.valueFrames[:len(i.value)]
 	}
