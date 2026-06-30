@@ -131,20 +131,6 @@ type Service struct {
 	sweeper textSweeper
 }
 
-// NewChannelResolver returns the dynamic resolver that the analyzer consults for
-// cluster channels not statically known to the program.
-func (s *Service) NewChannelResolver(tx gorp.Tx) arc.SymbolResolver {
-	return s.cfg.Channel.NewArcSymbolResolver(tx)
-}
-
-// NewSymbolResolver is the dynamic resolver attached to a program root's
-// GlobalResolver. It resolves cluster channels by name or numeric key. Static prelude
-// symbols (STL, status, ranges) are attached to the ambient by NewRoot rather than
-// chained behind this resolver.
-func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
-	return s.NewChannelResolver(tx)
-}
-
 // NewRoot builds the production analysis root: the STL, status, and ranges modules
 // plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
@@ -153,7 +139,7 @@ func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
 		status.NewSymbols(),
 		ranges.NewSymbols(),
 	)
-	return symbol.NewRoot(s.NewSymbolResolver(tx), syms)
+	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), syms)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
