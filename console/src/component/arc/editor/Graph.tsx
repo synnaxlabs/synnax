@@ -9,15 +9,17 @@
 
 import { Arc as Base, Diagram, Menu, Viewport } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
 
 import { TaskControls } from "@/component/arc/editor/TaskControls";
 import { ContextMenu } from "@/component/context-menu";
-import { type Layout } from "@/component/layout";
 import { Vis } from "@/component/vis";
 import { Session } from "@/session";
 
-export const Graph: Layout.Renderer = ({ visible }): ReactElement => {
+export interface GraphProps {
+  visible: boolean;
+}
+
+export const Graph = ({ visible }: GraphProps): ReactElement => {
   const key = Base.useKey();
   const viewport = Session.Arc.useSelectViewport();
   const fitViewOnResize = Session.Arc.useSelectFitViewOnResize();

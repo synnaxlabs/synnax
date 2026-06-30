@@ -10,9 +10,8 @@
 import { Arc } from "@synnaxlabs/pluto";
 
 import { TaskControls } from "@/component/arc/editor/TaskControls";
-import { type Layout } from "@/component/layout";
 
-export const Text: Layout.Renderer = () => (
+export const Text = () => (
   <>
     <Arc.Text.Editor />
     <TaskControls />

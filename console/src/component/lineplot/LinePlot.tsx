@@ -41,7 +41,6 @@ import {
 
 import { ContextMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
-import { Layout } from "@/component/layout";
 import { Controls } from "@/component/lineplot/Controls";
 import {
   type DownloadLine,
@@ -167,7 +166,12 @@ const ContextMenuContent = ({
   );
 };
 
-const Internal: Layout.Renderer = ({ focused, visible }) => {
+export interface LinePlotProps {
+  focused: boolean;
+  visible: boolean;
+}
+
+const LinePlot = ({ focused, visible }: LinePlotProps) => {
   const key = Base.useKey();
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
@@ -223,8 +227,8 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
   const modals = Session.Modals.useStore("LinePlot");
   const enableTriggers = useCallback(
     () =>
-      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) === key &&
-      hasUpdatePermission,
+      Session.Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) ===
+        key && hasUpdatePermission,
     [store, key, hasUpdatePermission, modals],
   );
 
@@ -318,14 +322,3 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
     </div>
   );
 };
-
-export const LinePlot: Layout.Renderer = (props) => (
-  <Base.Suspended linePlotKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-
-LinePlot.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-);

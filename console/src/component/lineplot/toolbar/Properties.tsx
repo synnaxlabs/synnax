@@ -13,16 +13,11 @@ import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/component/css";
-import { Layout } from "@/layout";
 
-export interface PropertiesProps {
-  layoutKey: string;
-}
-
-export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
+export const Properties = (): ReactElement => {
   const title = LinePlot.useSelectTitle({ key: layoutKey });
   const legend = LinePlot.useSelectLegend({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const name = LinePlot.useSelectName();
   const reduxDispatch = useDispatch();
   const { dispatch } = LinePlot.useDispatch();
   const { update: renameRemote } = LinePlot.useRename({});

@@ -10,3 +10,14 @@
 export * from "@/session/arc/hooks";
 export * from "@/session/arc/selectors";
 export * from "@/session/arc/slice";
+
+export const EXPLORER_LAYOUT_TYPE = "arc_explorer";
+
+export const EXPLORER_LAYOUT: Layout.State = {
+  key: EXPLORER_LAYOUT_TYPE,
+  windowKey: EXPLORER_LAYOUT_TYPE,
+  type: EXPLORER_LAYOUT_TYPE,
+  name: "Arc Explorer",
+  icon: "Explore",
+  location: "mosaic",
+};
