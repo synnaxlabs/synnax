@@ -46,19 +46,19 @@ namespace {
     return p;
 }
 
-// make_create_ir_node builds a `create` IR node with {name, color, parent}.
+// make_create_ir_node builds a `create` IR node with {name, parent, color}.
 ::arc::ir::Node make_create_ir_node(
     const std::string &name,
-    const std::string &color,
-    const std::string &parent
+    const std::string &parent,
+    const std::string &color
 ) {
     ::arc::ir::Node node;
     node.key = "ranges";
     node.type = "create";
     node.inputs = ::arc::types::Params{
         str_param("name", name),
-        str_param("color", color),
-        str_param("parent", parent)
+        str_param("parent", parent),
+        str_param("color", color)
     };
     ::arc::types::Param out;
     out.name = "output";
@@ -206,7 +206,7 @@ TEST(CreateRangeTest, NextCreatesOpenRange) {
 TEST(CreateRangeTest, NextParsesColor) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("cpp_color_");
-    auto node = make_create_ir_node(name, "#df6d38", "");
+    auto node = make_create_ir_node(name, "", "#df6d38");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
         ::arc::runtime::state::Config{.ir = ir, .channels = {}},
@@ -234,7 +234,7 @@ TEST(CreateRangeTest, NextWarnsOnInvalidColorButStillCreates) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("cpp_badcolor_");
     std::vector<std::pair<std::string, std::string>> calls;
-    auto node = make_create_ir_node(name, "not-a-color", "");
+    auto node = make_create_ir_node(name, "", "not-a-color");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
         ::arc::runtime::state::Config{.ir = ir, .channels = {}},
@@ -262,7 +262,7 @@ TEST(CreateRangeTest, NextWarnsOnInvalidColorButStillCreates) {
 TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     std::vector<std::pair<std::string, std::string>> calls;
-    auto node = make_create_ir_node(unique_name("cpp_badparent_"), "", "not-a-uuid");
+    auto node = make_create_ir_node(unique_name("cpp_badparent_"), "not-a-uuid", "");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
         ::arc::runtime::state::Config{.ir = ir, .channels = {}},

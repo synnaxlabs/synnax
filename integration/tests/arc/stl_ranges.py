@@ -36,48 +36,51 @@ func range_test{}() {
     ranges.create("RangeFunc_Create")
 
     // RGB
-    ranges.create("RangeFunc_RGB_1", "rgb(255, 0, 0)")
-    ranges.create("RangeFunc_RGB_2", "rgb(0, 255, 0)")
-    ranges.create("RangeFunc_RGB_3", "rgb(0, 0, 255)")
+    ranges.create("RangeFunc_RGB_1", "", "rgb(255, 0, 0)")
+    ranges.create("RangeFunc_RGB_2", "", "rgb(0, 255, 0)")
+    ranges.create("RangeFunc_RGB_3", "", "rgb(0, 0, 255)")
 
     // RGBA
-    ranges.create("RangeFunc_RGBA_1", "rgba(255, 0, 0, 0.5)")
-    ranges.create("RangeFunc_RGBA_2", "rgba(0, 255, 0, 0.25)")
-    ranges.create("RangeFunc_RGBA_3", "rgba(0, 0, 255, 0.75)")
+    ranges.create("RangeFunc_RGBA_1", "", "rgba(255, 0, 0, 0.5)")
+    ranges.create("RangeFunc_RGBA_2", "", "rgba(0, 255, 0, 0.25)")
+    ranges.create("RangeFunc_RGBA_3", "", "rgba(0, 0, 255, 0.75)")
 
     // Hex
-    ranges.create("RangeFunc_Hex_1", "#112233")
-    ranges.create("RangeFunc_Hex_2", "#44aa66")
-    ranges.create("RangeFunc_Hex_3", "#ddeeff")
+    ranges.create("RangeFunc_Hex_1", "", "#112233")
+    ranges.create("RangeFunc_Hex_2", "", "#44aa66")
+    ranges.create("RangeFunc_Hex_3", "", "#ddeeff")
 
     // Parent (key injected by the test)
-    ranges.create("RangeFunc_Child", "rgb(10, 20, 30)", "__PARENT_KEY__")
+    ranges.create("RangeFunc_Child", "__PARENT_KEY__", "rgb(10, 20, 30)")
+    // Parent without a color (positional, since parent precedes color)
+    ranges.create("RangeFunc_Child_NoColor", "__PARENT_KEY__")
 }
 start_stl_ranges_cmd -> range_test{}
 
 
 // ───────────────────────── Flow Context ──────────────────────────
+// Flow context supports named args via the brace form, so parent can be omitted.
 // Create no End
-start_stl_ranges_cmd -> ranges.create("RangeFlow_Create")
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Create"}
 
 // RGB
-start_stl_ranges_cmd -> ranges.create("RangeFlow_RGB_1", "rgb(255, 0, 0)")
-start_stl_ranges_cmd -> ranges.create("RangeFlow_RGB_2", "rgb(0, 255, 0)")
-start_stl_ranges_cmd -> ranges.create("RangeFlow_RGB_3", "rgb(0, 0, 255)")
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGB_1", color="rgb(255, 0, 0)"}
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGB_2", color="rgb(0, 255, 0)"}
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGB_3", color="rgb(0, 0, 255)"}
 
 // RGBA
-start_stl_ranges_cmd -> ranges.create("RangeFlow_RGBA_1", "rgba(255, 0, 0, 0.5)")
-start_stl_ranges_cmd -> ranges.create("RangeFlow_RGBA_2", "rgba(0, 255, 0, 0.25)")
-start_stl_ranges_cmd -> ranges.create("RangeFlow_RGBA_3", "rgba(0, 0, 255, 0.75)")
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGBA_1", color="rgba(255, 0, 0, 0.5)"}
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGBA_2", color="rgba(0, 255, 0, 0.25)"}
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGBA_3", color="rgba(0, 0, 255, 0.75)"}
 
 // Hex
-start_stl_ranges_cmd -> ranges.create("RangeFlow_Hex_1", "#112233")
-start_stl_ranges_cmd -> ranges.create("RangeFlow_Hex_2", "#44aa66")
-start_stl_ranges_cmd -> ranges.create("RangeFlow_Hex_3", "#ddeeff")
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Hex_1", color="#112233"}
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Hex_2", color="#44aa66"}
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Hex_3", color="#ddeeff"}
 
 // Parent (key injected by the test)
-start_stl_ranges_cmd -> ranges.create("RangeFlow_Child", "rgb(10, 20, 30)", "__PARENT_KEY__")
-// Parent without a color (named args require the brace form)
+start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Child", parent="__PARENT_KEY__", color="rgb(10, 20, 30)"}
+// Parent without a color
 start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Child_NoColor", parent="__PARENT_KEY__"}
 
 // ────────────────────────── End Signal ───────────────────────────
@@ -111,6 +114,7 @@ CASES: list[Case] = [
     Case("RangeFunc_Hex_2", sy.Color("#44aa66"), False),
     Case("RangeFunc_Hex_3", sy.Color("#ddeeff"), False),
     Case("RangeFunc_Child", sy.Color("rgb(10, 20, 30)"), False),
+    Case("RangeFunc_Child_NoColor", None, False),
     Case("RangeFlow_Create", None, False),
     Case("RangeFlow_RGB_1", sy.Color("rgb(255, 0, 0)"), False),
     Case("RangeFlow_RGB_2", sy.Color("rgb(0, 255, 0)"), False),
@@ -125,7 +129,12 @@ CASES: list[Case] = [
     Case("RangeFlow_Child_NoColor", None, False),
 ]
 
-CHILD_NAMES = ["RangeFunc_Child", "RangeFlow_Child", "RangeFlow_Child_NoColor"]
+CHILD_NAMES = [
+    "RangeFunc_Child",
+    "RangeFunc_Child_NoColor",
+    "RangeFlow_Child",
+    "RangeFlow_Child_NoColor",
+]
 
 NAMES = [c.name for c in CASES]
 

@@ -77,11 +77,11 @@ func buildState(bareType string, inputs types.Params) (*node.ProgramState, ir.No
 	return node.New(prog), irNode
 }
 
-func createInputs(name, colorHex, parent string) types.Params {
+func createInputs(name, parent, colorHex string) types.Params {
 	return types.Params{
 		{Name: "name", Type: types.String(), Value: name},
-		{Name: "color", Type: types.String(), Value: colorHex},
 		{Name: "parent", Type: types.String(), Value: parent},
+		{Name: "color", Type: types.String(), Value: colorHex},
 	}
 }
 
@@ -158,14 +158,14 @@ var _ = Describe("Symbols", func() {
 			Expect(sym.Trigger).To(Equal(symbol.TriggerOnly))
 		})
 
-		It("Should have name (required), color and parent (optional) string inputs", func() {
+		It("Should have name (required), parent and color (optional) string inputs", func() {
 			Expect(sym.Type.Inputs).To(HaveLen(3))
 			Expect(sym.Type.Inputs[0].Name).To(Equal("name"))
 			Expect(sym.Type.Inputs[0].Type).To(Equal(types.String()))
 			Expect(sym.Type.Inputs[0].Value).To(BeNil())
-			Expect(sym.Type.Inputs[1].Name).To(Equal("color"))
+			Expect(sym.Type.Inputs[1].Name).To(Equal("parent"))
 			Expect(sym.Type.Inputs[1].Value).To(Equal(""))
-			Expect(sym.Type.Inputs[2].Name).To(Equal("parent"))
+			Expect(sym.Type.Inputs[2].Name).To(Equal("color"))
 			Expect(sym.Type.Inputs[2].Value).To(Equal(""))
 		})
 
@@ -266,8 +266,8 @@ var _ = Describe("Module", func() {
 
 		It("Should return a clean error when create is missing name", func(ctx SpecContext) {
 			cfg := node.Config{Node: ir.Node{Type: "create", Inputs: types.Params{
-				{Name: "color", Type: types.String(), Value: ""},
 				{Name: "parent", Type: types.String(), Value: ""},
+				{Name: "color", Type: types.String(), Value: ""},
 			}, Outputs: rangesOutputs}}
 			state := node.New(ir.IR{Nodes: ir.Nodes{cfg.Node}})
 			cfg.State = state.Node("")
@@ -293,8 +293,8 @@ var _ = Describe("createNode.Next", func() {
 		mod = newModule(ctx, rep)
 	})
 
-	build := func(ctx context.Context, name, colorHex, parent string) (node.Node, *node.State) {
-		state, irNode := buildState("create", createInputs(name, colorHex, parent))
+	build := func(ctx context.Context, name, parent, colorHex string) (node.Node, *node.State) {
+		state, irNode := buildState("create", createInputs(name, parent, colorHex))
 		s := state.Node(irNode.Key)
 		return MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: s})), s
 	}
@@ -322,7 +322,7 @@ var _ = Describe("createNode.Next", func() {
 
 	It("Should store a parsed color when a valid hex is provided", func(ctx SpecContext) {
 		name := "create_color_" + uuid.NewString()
-		n, state := build(ctx, name, "#DF6D38", "")
+		n, state := build(ctx, name, "", "#DF6D38")
 		n.Next(nodeCtx(ctx))
 
 		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
@@ -333,7 +333,7 @@ var _ = Describe("createNode.Next", func() {
 
 	It("Should accept an rgb() color", func(ctx SpecContext) {
 		name := "create_rgb_" + uuid.NewString()
-		n, state := build(ctx, name, "rgb(223, 109, 56)", "")
+		n, state := build(ctx, name, "", "rgb(223, 109, 56)")
 		n.Next(nodeCtx(ctx))
 		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
 		r := MustSucceed(retrieveRange(ctx, newKey))
@@ -343,7 +343,7 @@ var _ = Describe("createNode.Next", func() {
 
 	It("Should warn but still create the range when the color is invalid", func(ctx SpecContext) {
 		name := "create_badcolor_" + uuid.NewString()
-		n, state := build(ctx, name, "not-a-color", "")
+		n, state := build(ctx, name, "", "not-a-color")
 		n.Next(nodeCtx(ctx))
 
 		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
@@ -364,7 +364,7 @@ var _ = Describe("createNode.Next", func() {
 		}
 		Expect(rangeSvc.NewWriter(nil).Create(ctx, &parent)).To(Succeed())
 
-		n, state := build(ctx, "child_"+uuid.NewString(), "", parent.Key.String())
+		n, state := build(ctx, "child_"+uuid.NewString(), parent.Key.String(), "")
 		n.Next(nodeCtx(ctx))
 
 		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
@@ -374,7 +374,7 @@ var _ = Describe("createNode.Next", func() {
 	})
 
 	It("Should warn and emit an empty key when the parent key is not a UUID", func(ctx SpecContext) {
-		n, state := build(ctx, "bad_parent_"+uuid.NewString(), "", "not-a-uuid")
+		n, state := build(ctx, "bad_parent_"+uuid.NewString(), "not-a-uuid", "")
 		n.Next(nodeCtx(ctx))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))

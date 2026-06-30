@@ -28,8 +28,8 @@ shown as "In Progress"), and outputs the new range key.
 | Parameter | Type  | Required | Description                                                                     |
 | --------- | ----- | -------- | ------------------------------------------------------------------------------- |
 | `name`    | `str` | Yes      | A human-readable name for the range.                                            |
-| `color`   | `str` | No       | A display color: hex (`#3bc454`), `rgb(r, g, b)`, or `rgba(r, g, b, a)`.        |
 | `parent`  | `str` | No       | The key of an existing range to nest the new range under. No parent if omitted. |
+| `color`   | `str` | No       | A display color: hex (`#3bc454`), `rgb(r, g, b)`, or `rgba(r, g, b, a)`.        |
 
 **Output** `str`: the new range key.
 
@@ -39,7 +39,7 @@ shown as "In Progress"), and outputs the new range key.
 ranges.create{name="Terminal Count", color="#3bc454"} -> key_ch
 
 func ranges_create() {
-  range_key := ranges.create("Terminal Count", "#3bc454")
+  range_key := ranges.create("Terminal Count", parent_key, "#3bc454")
 }
 ```
 

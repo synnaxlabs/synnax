@@ -39,8 +39,8 @@ inline std::string dispatch_create(
     const std::shared_ptr<synnax::Synnax> &client,
     const Reporter &report,
     const std::string &name,
-    const std::string &color_hex,
-    const std::string &parent
+    const std::string &parent,
+    const std::string &color_hex
 ) {
     std::optional<x::color::Color> c;
     if (!color_hex.empty()) {
@@ -109,8 +109,8 @@ class CreateRange : public ::arc::runtime::node::Node {
     std::shared_ptr<synnax::Synnax> client;
     Reporter report;
     std::string name;
-    std::string color;
     std::string parent;
+    std::string color;
 
 public:
     CreateRange(
@@ -118,23 +118,23 @@ public:
         std::shared_ptr<synnax::Synnax> client,
         Reporter report,
         std::string name,
-        std::string color,
-        std::string parent
+        std::string parent,
+        std::string color
     ):
         state(std::move(state)),
         client(std::move(client)),
         report(std::move(report)),
         name(std::move(name)),
-        color(std::move(color)),
-        parent(std::move(parent)) {}
+        parent(std::move(parent)),
+        color(std::move(color)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
         const std::string key = dispatch_create(
             this->client,
             this->report,
             this->name,
-            this->color,
-            this->parent
+            this->parent,
+            this->color
         );
         *this->state.output(0) = x::telem::Series(key);
         *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
@@ -209,15 +209,15 @@ public:
                 "create",
                 [client, report, str_state](
                     uint32_t name_h,
-                    uint32_t color_h,
-                    uint32_t parent_h
+                    uint32_t parent_h,
+                    uint32_t color_h
                 ) -> uint32_t {
                     return str_state->create(dispatch_create(
                         client,
                         report,
                         str_state->get(name_h),
-                        str_state->get(color_h),
-                        str_state->get(parent_h)
+                        str_state->get(parent_h),
+                        str_state->get(color_h)
                     ));
                 }
             )
@@ -252,8 +252,8 @@ public:
                     this->client,
                     this->report,
                     get_str("name"),
-                    get_str("color"),
-                    get_str("parent")
+                    get_str("parent"),
+                    get_str("color")
                 ),
                 x::errors::NIL
             };

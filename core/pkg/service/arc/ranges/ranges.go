@@ -70,8 +70,8 @@ var moduleDoc = doc.New(
 func newCreateSymbolType() types.Type {
 	params := types.Params{
 		{Name: "name", Type: types.String()},
-		{Name: "color", Type: types.String(), Value: ""},
 		{Name: "parent", Type: types.String(), Value: ""},
+		{Name: "color", Type: types.String(), Value: ""},
 	}
 	return types.Function(types.FunctionProperties{
 		Inputs:  params,
@@ -147,16 +147,16 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 	heap := cfg.Strings
 	builder := cfg.Runtime.NewHostModuleBuilder(moduleName)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(ctx context.Context, nameH, colorH, parentH uint32) uint32 {
+		WithFunc(func(ctx context.Context, nameH, parentH, colorH uint32) uint32 {
 			name, nOK := heap.Get(nameH)
-			colorHex, cOK := heap.Get(colorH)
 			parent, pOK := heap.Get(parentH)
+			colorHex, cOK := heap.Get(colorH)
 			if !nOK || !cOK || !pOK {
 				m.report(ctx, status.VariantWarning,
 					"ranges.create: invalid string handle from WASM runtime")
 				return 0
 			}
-			return heap.Create(dispatchCreate(ctx, m.rng, m.report, name, colorHex, parent))
+			return heap.Create(dispatchCreate(ctx, m.rng, m.report, name, parent, colorHex))
 		}).Export(createMemberName)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(ctx context.Context, keyH uint32) uint32 {
@@ -186,8 +186,8 @@ func (m *module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			rng:    m.rng,
 			report: m.report,
 			name:   in.Name,
-			color:  in.Color,
 			parent: in.Parent,
+			color:  in.Color,
 		}, nil
 	case endMemberName:
 		var in endInputs
@@ -207,14 +207,14 @@ func (m *module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 
 type createInputs struct {
 	Name   string `json:"name"`
-	Color  string `json:"color"`
 	Parent string `json:"parent"`
+	Color  string `json:"color"`
 }
 
 var createInputsSchema = zyn.Object(map[string]zyn.Schema{
 	"name":   zyn.String(),
-	"color":  zyn.String(),
 	"parent": zyn.String(),
+	"color":  zyn.String(),
 })
 
 type createNode struct {
@@ -222,12 +222,12 @@ type createNode struct {
 	rng    *ranger.Service
 	report taskreporter.Reporter
 	name   string
-	color  string
 	parent string
+	color  string
 }
 
 func (n *createNode) Next(ctx node.Context) {
-	key := dispatchCreate(ctx, n.rng, n.report, n.name, n.color, n.parent)
+	key := dispatchCreate(ctx, n.rng, n.report, n.name, n.parent, n.color)
 	*n.Output(0) = telem.NewSeriesV[string](key)
 	*n.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)
@@ -239,7 +239,7 @@ func dispatchCreate(
 	ctx context.Context,
 	rng *ranger.Service,
 	report taskreporter.Reporter,
-	name, colorHex, parent string,
+	name, parent, colorHex string,
 ) string {
 	var c *color.Color
 	if colorHex != "" {
@@ -315,7 +315,7 @@ func dispatchEnd(
 	return uid.String()
 }
 
-const colorIndex = 1
+const colorIndex = 2
 
 // analyzeCreateArguments validates the color argument across both call forms: it
 // binds by name ("color") or, when positional, by index.
@@ -343,6 +343,11 @@ func checkColorLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionCo
 	}
 	value, ok := parsed.Value.(string)
 	if !ok {
+		return
+	}
+	// An empty color is valid and means "no color", matching dispatchCreate's
+	// runtime behavior; only a non-empty literal must be a parseable CSS color.
+	if value == "" {
 		return
 	}
 	if _, err := color.FromCSS(value); err != nil {
