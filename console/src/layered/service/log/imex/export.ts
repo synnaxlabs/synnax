@@ -18,14 +18,7 @@ const envelopeZ = z.object({ name: z.string() });
 const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
   const stream = await client.imex.export(log.ontologyID(key), { encoding: "JSON" });
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let data = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    data += decoder.decode(value, { stream: true });
-  }
+  const data = await new Response(stream).text();
   const { name } = envelopeZ.parse(JSON.parse(data));
   return { data, name };
 };
