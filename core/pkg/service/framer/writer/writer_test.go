@@ -43,17 +43,17 @@ var _ = Describe("Writer", func() {
 	Describe("ServiceConfig", func() {
 		Describe("Override", func() {
 			It("Should retain the base value when the override is nil", func() {
-				base := writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc}
+				base := writer.ServiceConfig{Framer: node.Framer, Channel: channelSvc}
 				res := base.Override(writer.ServiceConfig{})
-				Expect(res.Framer).To(Equal(dist.Framer))
+				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
 			})
 			It("Should replace the base value when the override is non-nil", func() {
 				res := writer.ServiceConfig{}.Override(writer.ServiceConfig{
-					Framer:  dist.Framer,
+					Framer:  node.Framer,
 					Channel: channelSvc,
 				})
-				Expect(res.Framer).To(Equal(dist.Framer))
+				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
 			})
 			It("Should override zero-value instrumentation", func() {
@@ -72,7 +72,7 @@ var _ = Describe("Writer", func() {
 
 		Describe("Validate", func() {
 			It("Should return nil for a fully specified configuration", func() {
-				cfg := writer.ServiceConfig{Framer: dist.Framer, Channel: channelSvc}
+				cfg := writer.ServiceConfig{Framer: node.Framer, Channel: channelSvc}
 				Expect(cfg.Validate()).To(Succeed())
 			})
 			It("Should return an error when Framer is nil", func() {
@@ -80,7 +80,7 @@ var _ = Describe("Writer", func() {
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring("framer")))
 			})
 			It("Should return an error when Channel is nil", func() {
-				cfg := writer.ServiceConfig{Framer: dist.Framer}
+				cfg := writer.ServiceConfig{Framer: node.Framer}
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring("channel")))
 			})
 		})
@@ -89,7 +89,7 @@ var _ = Describe("Writer", func() {
 	Describe("NewService", func() {
 		It("Should open a service from a valid configuration", func() {
 			Expect(writer.NewService(writer.ServiceConfig{
-				Framer:  dist.Framer,
+				Framer:  node.Framer,
 				Channel: channelSvc,
 			})).Error().ToNot(HaveOccurred())
 		})
@@ -135,7 +135,7 @@ var _ = Describe("Writer", func() {
 		It("Should return an error when a key has no corresponding channel", func(ctx SpecContext) {
 			Expect(writerSvc.Open(ctx, writer.Config{
 				Start: telem.SecondTS,
-				Keys:  []channel.Key{channel.NewKey(dist.Cluster.HostKey(), 9999)},
+				Keys:  []channel.Key{channel.NewKey(node.Cluster.HostKey(), 9999)},
 			})).Error().To(MatchError(query.ErrNotFound))
 		})
 
@@ -173,7 +173,7 @@ var _ = Describe("Writer", func() {
 		It("Should return an error when a key has no corresponding channel", func(ctx SpecContext) {
 			Expect(writerSvc.NewStream(ctx, writer.Config{
 				Start: telem.SecondTS,
-				Keys:  []channel.Key{channel.NewKey(dist.Cluster.HostKey(), 9999)},
+				Keys:  []channel.Key{channel.NewKey(node.Cluster.HostKey(), 9999)},
 			})).Error().To(MatchError(query.ErrNotFound))
 		})
 
