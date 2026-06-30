@@ -13,8 +13,12 @@ import { id } from "@synnaxlabs/x";
 import { type Dispatch, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { place, type State } from "@/layout/slice";
-import { type RootAction, type RootState, type RootStore } from "@/store";
+import { place, type State } from "@/layered/service/slice";
+import {
+  type RootAction,
+  type RootState,
+  type RootStore,
+} from "@/layered/session/store";
 
 export interface CreatorProps {
   dispatch: Dispatch<PayloadAction<unknown>>;

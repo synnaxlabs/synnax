@@ -15,8 +15,8 @@ import { useDispatch } from "react-redux";
 import { ContextMenu as CMenu } from "@/components";
 import { Modals } from "@/layered/service/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { useSelectFavoriteSet } from "@/status/selectors";
-import { addFavorites, removeFavorites } from "@/status/slice";
+import { useSelectFavoriteSet } from "@/layered/session/status/selectors";
+import { addFavorites, removeFavorites } from "@/layered/session/status/slice";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const q = Status.useRetrieveMultiple({ keys });

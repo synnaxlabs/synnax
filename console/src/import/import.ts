@@ -18,10 +18,10 @@ import { ZodError } from "zod";
 import { useFileIngesters } from "@/import/FileIngestersProvider";
 import { type FileIngesterContext, type FileIngesters } from "@/import/ingester";
 import { trimFileName } from "@/import/trimFileName";
+import { type RootState } from "@/layered/session/store";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { Runtime } from "@/runtime";
-import { type RootState } from "@/store";
 
 export const ingestComponent = async (
   data: unknown,
@@ -86,7 +86,7 @@ const importComponent = ({
     if (projectKey != null && activeProjectKey !== projectKey) {
       if (client == null) throw new DisconnectedError();
       const proj = await client.projects.retrieve(projectKey);
-      store.dispatch(Project.setActive(proj));
+      store.dispatch(Project.select(proj));
       store.dispatch(Layout.setProject({ slice: proj.layout as Layout.SliceState }));
     }
     const activeProjectKeyAfter = Project.selectActiveKey(store.getState());

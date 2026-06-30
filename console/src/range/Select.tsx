@@ -22,8 +22,8 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useSelect, useSelectMultiple } from "@/range/selectors";
-import { type Range } from "@/range/slice";
+import { useSelect, useSelectMultiple } from "@/layered/session/range/selectors";
+import { type Range } from "@/layered/session/range/slice";
 import { type DynamicRange, type StaticRange } from "@/range/types";
 
 interface SelectMultipleRangesProps extends Omit<

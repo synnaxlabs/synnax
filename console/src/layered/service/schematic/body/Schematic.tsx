@@ -18,7 +18,7 @@ import { Legend } from "@/layered/service/schematic/body/Legend";
 import { useHandleNodeClickAction } from "@/layered/service/schematic/body/navigate";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import { type RootState } from "@/store";
+import { type RootState } from "@/layered/session/store";
 
 const Internal: Layout.Renderer = ({ visible }) => {
   const key = Base.useKey();

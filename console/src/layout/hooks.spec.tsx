@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 
 import { Modals } from "@/layered/session/modals";
 import { Layout } from "@/layout";
-import { select } from "@/layout/selectors";
+import { select } from "@/layered/service/selectors";
 
 describe("layout hooks", () => {
   describe("placing & removing", () => {

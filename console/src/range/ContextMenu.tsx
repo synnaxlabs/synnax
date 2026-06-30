@@ -27,12 +27,22 @@ import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/components";
 import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/layered/service/lineplot/layout";
 import { Link } from "@/layered/service/link";
+import {
+  select,
+  useSelect,
+  useSelectMultiple,
+} from "@/layered/session/range/selectors";
+import {
+  add,
+  type Range,
+  remove,
+  select,
+  type StoreState,
+} from "@/layered/session/range/slice";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useCreateModal } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { select, useSelect, useSelectMultiple } from "@/range/selectors";
-import { add, type Range, remove, setActive, type StoreState } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 import { useAddToActivePlot } from "@/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/range/useAddToNewPlot";
@@ -165,10 +175,10 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const activeRange = useSelect();
   const openCreate = useCreateModal();
   const handleSetActive = () => {
-    dispatch(setActive(key));
+    dispatch(select(key));
   };
   const handleClearActive = () => {
-    dispatch(setActive(null));
+    dispatch(select(null));
   };
   const handleViewDetails = useViewDetails();
   const handleAddChildRange = () => {

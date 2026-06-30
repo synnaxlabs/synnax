@@ -16,7 +16,7 @@ import { Project } from "@/project";
 
 export const logout = (dispatch: Dispatch) => {
   dispatch(Cluster.setActive(null));
-  dispatch(Project.setActive(null));
+  dispatch(Project.select(null));
   dispatch(Layout.clearProject());
   dispatch(Session.Nav.hideAll({}));
 };

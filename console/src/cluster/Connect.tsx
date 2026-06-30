@@ -25,10 +25,10 @@ import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
 
-import { useSelect, useSelectAllNames } from "@/cluster/selectors";
-import { changeKey, clusterZ, set } from "@/cluster/slice";
 import { CSS } from "@/css";
 import { Modals } from "@/layered/service/modals";
+import { useSelect, useSelectAllNames } from "@/layered/session/cluster/selectors";
+import { changeKey, clusterZ, set } from "@/layered/session/cluster/slice";
 import { Triggers } from "@/triggers";
 
 export interface ConnectModalParams {

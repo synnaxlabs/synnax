@@ -53,7 +53,7 @@ import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { Ontology } from "@/ontology";
 import { ProjectServices } from "@/project/services";
 import { Runtime } from "@/runtime";
-import { type RootState, type RootStore } from "@/store";
+import { type RootState, type RootStore } from "@/layered/session/store";
 
 const EmptyContent = (): ReactElement => {
   const createComponentEnabled = useSelectorVisible();

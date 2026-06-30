@@ -48,7 +48,7 @@ import { CSS } from "@/css";
 import { useSymbolModal } from "@/layered/service/schematic/symbols/edit/Edit";
 import { MissingSymbolForm } from "@/layered/service/schematic/toolbar/MissingSymbolForm";
 import { Session } from "@/layered/session";
-import { type RootState } from "@/store";
+import { type RootState } from "@/layered/session/store";
 
 export const Properties = memo((): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();

@@ -66,7 +66,7 @@ const handleSelect: Ontology.HandleSelect = ({
     }
     default: {
       const project = Project.selectActiveKey(state);
-      const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_KEY;
+      const activeRange = Range.selectSelectedKey(state) ?? Range.RECENT_KEY;
       handleError(async () => {
         const { key, name } = await client.lineplots.create(project, {
           name: "Line Plot",
@@ -133,7 +133,7 @@ export const useSetAlias = ({
     ids: [firstID],
   },
 }: Ontology.TreeContextMenuProps): (() => void) => {
-  const activeRange = Range.useSelectActiveKey();
+  const activeRange = Range.useSelectSelectedKey();
   const { update } = PChannel.useUpdateAlias({ beforeUpdate: beforeSetAlias });
   return useCallback(
     () =>
@@ -155,7 +155,7 @@ export const useRename = createUseRename({
 export const useDeleteAlias = ({
   selection: { ids },
 }: Ontology.TreeContextMenuProps): (() => void) => {
-  const activeRange = Range.useSelectActiveKey();
+  const activeRange = Range.useSelectSelectedKey();
   const { update } = PChannel.useDeleteAlias();
   return useCallback(
     () =>

@@ -9,7 +9,7 @@
 
 import { type PropsWithChildren, type ReactNode } from "react";
 
-import { useSelectOptionalActiveKey } from "@/project/selectors";
+import { useSelectOptionalActiveKey } from "@/layered/session/project/selectors";
 import { Splash } from "@/project/Splash";
 
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {

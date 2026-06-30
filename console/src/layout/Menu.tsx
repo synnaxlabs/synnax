@@ -15,8 +15,12 @@ import { type FC, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu } from "@/components/context-menu";
-import { useSelectMosaic } from "@/layout/selectors";
-import { moveMosaicTab, setFocus, splitMosaicNode } from "@/layout/slice";
+import { useSelectMosaic } from "@/layered/session/layout/selectors";
+import {
+  moveMosaicTab,
+  setFocus,
+  splitMosaicNode,
+} from "@/layered/session/layout/slice";
 import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { useRemover } from "@/layout/useRemover";
 import { Runtime } from "@/runtime";

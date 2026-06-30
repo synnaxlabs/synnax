@@ -19,8 +19,8 @@ import { useDispatch } from "react-redux";
 import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { Modals } from "@/layered/service/modals";
+import { useSelect } from "@/layered/session/layout/selectors";
 import { Content } from "@/layout/Content";
-import { useSelect } from "@/layout/selectors";
 import { Runtime } from "@/runtime";
 
 export const DefaultContextMenu = (): ReactElement => (

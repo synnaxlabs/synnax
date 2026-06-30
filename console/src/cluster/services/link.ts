@@ -15,7 +15,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { type Link } from "@/layered/service/link";
-import { type RootState } from "@/store";
+import { type RootState } from "@/layered/session/store";
 
 const CONNECT_TIMEOUT = TimeSpan.seconds(10);
 const POLL_INTERVAL = TimeSpan.milliseconds(50);

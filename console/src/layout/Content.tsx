@@ -10,8 +10,8 @@
 import { Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
+import { useSelectFocused, useSelectType } from "@/layered/session/layout/selectors";
 import { useRenderer } from "@/layout/context";
-import { useSelectFocused, useSelectType } from "@/layout/selectors";
 import { useRemover } from "@/layout/useRemover";
 
 /** LayoutContentProps are the props for the LayoutContent component. */

@@ -24,8 +24,8 @@ import { useDispatch } from "react-redux";
 
 import { useConnectModal } from "@/cluster/Connect";
 import { Item } from "@/cluster/list/Item";
-import { useSelectMany } from "@/cluster/selectors";
-import { changeKey, remove } from "@/cluster/slice";
+import { useSelectMany } from "@/layered/session/cluster/selectors";
+import { changeKey, remove } from "@/layered/session/cluster/slice";
 import { ContextMenu, EmptyAction } from "@/components";
 import { Link } from "@/layered/service/link";
 import { Layout } from "@/layout";

@@ -29,7 +29,7 @@ describe("RangeServices.useLink", () => {
     });
     await handler({ client, key: range.key });
     const state = store.getState();
-    expect(Range.selectActiveKey(state)).toBe(range.key);
+    expect(Range.selectSelectedKey(state)).toBe(range.key);
     expect(Range.select(state, range.key)?.name).toBe("Burn Test");
     expect(Layout.select(state, range.key)?.name).toBe("Burn Test");
   });

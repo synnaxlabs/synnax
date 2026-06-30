@@ -9,7 +9,11 @@
 
 import { context } from "@synnaxlabs/pluto";
 
-import { type ContextMenuRenderer, type Renderer, type UseName } from "@/layout/slice";
+import {
+  type ContextMenuRenderer,
+  type Renderer,
+  type UseName,
+} from "@/layered/service/slice";
 
 export interface Renderers extends Record<string, Renderer> {}
 

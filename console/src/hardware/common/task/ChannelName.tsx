@@ -13,7 +13,7 @@ import { location, type optional, primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { useSelectActiveKey as useSelectActiveRangeKey } from "@/range/selectors";
+import { useSelectSelectedKey as useSelectActiveRangeKey } from "@/layered/session/range/selectors";
 
 export interface ChannelNameProps extends optional.Optional<
   Omit<Text.MaybeEditableProps, "value">,

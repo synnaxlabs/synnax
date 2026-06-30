@@ -23,9 +23,9 @@ import { caseconv } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { useSelect } from "@/cluster/selectors";
-import { type Cluster, rename } from "@/cluster/slice";
 import { CSS } from "@/css";
+import { useSelect } from "@/layered/session/cluster/selectors";
+import { type Cluster, rename } from "@/layered/session/cluster/slice";
 
 interface ListItemProps extends BaseList.ItemProps<string> {
   validateName: (name: string) => boolean;

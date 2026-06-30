@@ -12,14 +12,14 @@ import { Ranger } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { remove, updateIfExists } from "@/range/slice";
+import { remove, updateRemote } from "@/layered/session/range/slice";
 
 export const useListenForChanges = (): void => {
   const dispatch = useDispatch();
   const handleRangeSet = useCallback(
     ({ timeRange, ...rest }: ranger.Payload): void => {
       dispatch(
-        updateIfExists({
+        updateRemote({
           ...rest,
           parent: undefined,
           timeRange: timeRange.numeric,

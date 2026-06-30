@@ -29,7 +29,7 @@ import { type z } from "zod";
 import { CSS } from "@/css";
 import { Label } from "@/label";
 import { Modals } from "@/layered/service/modals";
-import { add } from "@/range/slice";
+import { add } from "@/layered/session/range/slice";
 import { Triggers } from "@/triggers";
 
 export type CreateModalParams = Partial<z.infer<typeof Ranger.formSchema>>;

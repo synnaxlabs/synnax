@@ -28,8 +28,8 @@ import { useDispatch } from "react-redux";
 
 import { FavoriteButton } from "@/components";
 import { CSS } from "@/css";
-import { useSelectIsFavorite } from "@/status/selectors";
-import { toggleFavorite } from "@/status/slice";
+import { useSelectIsFavorite } from "@/layered/session/status/selectors";
+import { toggleFavorite } from "@/layered/session/status/slice";
 
 export interface ItemProps extends List.ItemProps<status.Key> {}
 

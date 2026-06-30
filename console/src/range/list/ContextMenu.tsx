@@ -20,8 +20,8 @@ import { useConfirmDelete } from "@/ontology/hooks";
 import { CreateChildRangeIcon } from "@/range/ContextMenu";
 import { useCreateModal } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { useSelectKeys } from "@/range/selectors";
-import { add, remove } from "@/range/slice";
+import { useSelectKeys } from "@/layered/session/range/selectors";
+import { add, remove } from "@/layered/session/range/slice";
 import { fromClientRange } from "@/range/translate";
 
 export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {

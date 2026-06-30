@@ -8,10 +8,16 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/layered/session/arc";
+export * from "@/layered/session/cluster";
+export * from "@/layered/session/docs";
+export * from "@/layered/session/layout";
 export * from "@/layered/session/lineplot";
 export * from "@/layered/session/log";
 export * from "@/layered/session/modals";
 export * from "@/layered/session/nav";
+export * from "@/layered/session/project";
 export * from "@/layered/session/schematic";
+export * from "@/layered/session/status";
+export * from "@/layered/session/store";
 export * from "@/layered/session/table";
 export * from "@/layered/session/theme";

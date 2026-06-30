@@ -20,7 +20,7 @@ export const useLink = (): Link.Handler => {
     async ({ client, key }) => {
       const { layout, ...proj } = await client.projects.retrieve(key);
       dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
-      dispatch(Project.setActive(proj));
+      dispatch(Project.select(proj));
     },
     [dispatch],
   );

@@ -16,8 +16,8 @@ import { memo, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { useSelectLocation } from "@/docs/selectors";
-import { setDocsLocation } from "@/docs/slice";
+import { useSelectLocation } from "@/layered/session/docs/selectors";
+import { setDocsLocation } from "@/layered/session/docs/slice";
 import { Layout } from "@/layout";
 
 const HOST = new url.URL({

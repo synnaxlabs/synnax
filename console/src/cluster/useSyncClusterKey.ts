@@ -11,8 +11,8 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { useSelectActiveKey } from "@/cluster/selectors";
-import { changeKey } from "@/cluster/slice";
+import { useSelectActiveKey } from "@/layered/session/cluster/selectors";
+import { changeKey } from "@/layered/session/cluster/slice";
 
 // useSyncClusterKey synchronizes the actual cluster key of the cluster to the cluster
 // key in the redux store. This is needed for a few different reasons, such as

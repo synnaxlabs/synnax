@@ -15,9 +15,9 @@ import { useStore } from "react-redux";
 import { create as createLinePlot } from "@/layered/service/lineplot/layout";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
-import { add } from "@/range/slice";
+import { add } from "@/layered/session/range/slice";
 import { fromClientRange } from "@/range/translate";
-import { type RootState } from "@/store";
+import { type RootState } from "@/layered/session/store";
 
 export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();

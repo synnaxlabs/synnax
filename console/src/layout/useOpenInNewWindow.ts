@@ -10,7 +10,7 @@
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { createMosaicWindow, moveMosaicTab } from "@/layout/slice";
+import { createMosaicWindow, moveMosaicTab } from "@/layered/service/slice";
 import { usePlacer } from "@/layout/usePlacer";
 
 interface OpenInNewWindow {

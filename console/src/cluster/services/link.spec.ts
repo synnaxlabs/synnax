@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
-import { type RootState } from "@/store";
+import { type RootState } from "@/layered/session/store";
 
 const client = (): Client => ({}) as Client;
 

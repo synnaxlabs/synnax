@@ -43,8 +43,8 @@ import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { useExport } from "@/project/export";
-import { selectOptionalActiveKey } from "@/project/selectors";
-import { maybeRename, setActive } from "@/project/slice";
+import { selectOptionalActiveKey } from "@/layered/session/project/selectors";
+import { maybeRename, select } from "@/layered/session/project/slice";
 
 const useDelete = createUseDelete({
   type: "Project",
@@ -55,7 +55,7 @@ const useDelete = createUseDelete({
     const activeKey = selectOptionalActiveKey(s);
     const active = array.toArray(data).find((k) => k === activeKey);
     if (active == null) return;
-    store.dispatch(setActive(null));
+    store.dispatch(select(null));
     store.dispatch(Layout.clearProject());
   },
 });
@@ -180,7 +180,7 @@ const handleSelect: Ontology.HandleSelect = ({
   );
   handleError(async () => {
     const proj = await client.projects.retrieve(selection[0].id.key);
-    store.dispatch(setActive(proj));
+    store.dispatch(select(proj));
     store.dispatch(Layout.setProject({ slice: proj.layout as Layout.SliceState }));
   }, `Failed to select ${names}`);
 };

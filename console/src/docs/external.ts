@@ -12,8 +12,8 @@ import { type Layout } from "@/layout";
 
 export * from "@/docs/Docs";
 export * from "@/docs/palette";
-export * from "@/docs/selectors";
-export * from "@/docs/slice";
+export * from "@/layered/session/docs/selectors";
+export * from "@/layered/session/docs/slice";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Docs,

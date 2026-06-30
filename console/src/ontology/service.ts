@@ -19,7 +19,7 @@ import { type location } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { type Layout } from "@/layout";
-import { type RootStore } from "@/store";
+import { type RootStore } from "@/layered/session/store";
 
 export interface GetResource {
   (id: ontology.ID | string): ontology.Resource;

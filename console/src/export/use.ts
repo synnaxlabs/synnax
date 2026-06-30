@@ -13,7 +13,7 @@ import { useStore } from "react-redux";
 
 import { type Extractor } from "@/export/extractor";
 import { Runtime } from "@/runtime";
-import { type RootState } from "@/store";
+import { type RootState } from "@/layered/session/store";
 
 const FILTERS: Runtime.FileFilter[] = [{ name: "JSON", extensions: ["json"] }];
 

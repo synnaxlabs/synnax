@@ -13,10 +13,10 @@ import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { useConfirm } from "@/layered/service/modals/Confirm";
-import { select } from "@/layout/selectors";
-import { remove } from "@/layout/slice";
+import { select } from "@/layered/service/selectors";
+import { remove } from "@/layered/service/slice";
 import { type State } from "@/layout/types";
-import { type RootState } from "@/store";
+import { type RootState } from "@/layered/session/store";
 
 /** A function that removes a layout. */
 export interface Remover {

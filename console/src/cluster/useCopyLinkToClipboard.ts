@@ -11,8 +11,8 @@ import { type ontology } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useSelectActiveKey } from "@/cluster/selectors";
 import { Link } from "@/layered/service/link";
+import { useSelectActiveKey } from "@/layered/session/cluster/selectors";
 
 export interface CopyLinkToClipboardArgs {
   name: string;

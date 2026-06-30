@@ -15,11 +15,15 @@ import { useStore } from "react-redux";
 import { Export } from "@/export";
 import { useExtractors } from "@/export/ExtractorsProvider";
 import { Modals } from "@/layered/service/modals";
+import { selectSelected } from "@/layered/session/project/selectors";
+import {
+  type RootAction,
+  type RootState,
+  type RootStore,
+} from "@/layered/session/store";
 import { Layout } from "@/layout";
 import { purgeExcludedLayouts } from "@/project/purgeExcludedLayouts";
-import { selectActive } from "@/project/selectors";
 import { Runtime } from "@/runtime";
-import { type RootAction, type RootState, type RootStore } from "@/store";
 
 export interface ExportContext {
   client: Client | null;
@@ -37,7 +41,7 @@ export const export_ = (
   let name: string = "project"; // default name for error message
   handleError(async () => {
     const storeState = store.getState();
-    const active = selectActive(storeState);
+    const active = selectSelected(storeState);
     let toExport: Layout.SliceState;
     if (active.key === key || key == null) {
       const file = Layout.selectSliceState(storeState);

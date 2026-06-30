@@ -15,8 +15,12 @@ import { Window } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useId, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { select } from "@/layout/selectors";
-import { createMosaicWindow, moveMosaicTab, type StoreState } from "@/layout/slice";
+import { select } from "@/layered/service/selectors";
+import {
+  createMosaicWindow,
+  moveMosaicTab,
+  type StoreState,
+} from "@/layered/service/slice";
 import { usePlacer } from "@/layout/usePlacer";
 import { Runtime } from "@/runtime";
 

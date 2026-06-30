@@ -23,8 +23,8 @@ import { Rack } from "@/hardware/common/task/Rack";
 import { useStatus } from "@/hardware/common/task/useStatus";
 import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { useConfirm } from "@/layered/service/modals/Confirm";
+import { type RootState } from "@/layered/session/store";
 import { Layout } from "@/layout";
-import { type RootState } from "@/store";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (

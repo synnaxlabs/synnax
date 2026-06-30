@@ -50,7 +50,7 @@ import {
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
 import { Range } from "@/range";
-import { type RootState } from "@/store";
+import { type RootState } from "@/layered/session/store";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
 

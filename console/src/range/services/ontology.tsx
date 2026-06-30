@@ -13,7 +13,7 @@ import { type CrudeTimeRange, strings } from "@synnaxlabs/x";
 
 import { Ontology } from "@/ontology";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
-import { add } from "@/range/slice";
+import { add } from "@/layered/session/range/slice";
 import { fromClientRange } from "@/range/translate";
 
 const handleSelect: Ontology.HandleSelect = ({

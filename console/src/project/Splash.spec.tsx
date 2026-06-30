@@ -77,7 +77,7 @@ describe("project/Splash", () => {
       fireEvent.click(await screen.findByText(name));
 
       await waitFor(() => {
-        const active = Project.selectOptionalActive(store.getState());
+        const active = Project.selectOptionalSelected(store.getState());
         expect(active?.key).toEqual(proj.key);
         expect(active?.name).toEqual(name);
       });
@@ -102,10 +102,10 @@ describe("project/Splash", () => {
       fireEvent.click(screen.getByText("Create Project"));
 
       await waitFor(() => {
-        const active = Project.selectOptionalActive(store.getState());
+        const active = Project.selectOptionalSelected(store.getState());
         expect(active?.name).toEqual(name);
       });
-      const active = Project.selectOptionalActive(store.getState());
+      const active = Project.selectOptionalSelected(store.getState());
       const created = await client.projects.retrieve(active!.key);
       expect(created.name).toEqual(name);
     });

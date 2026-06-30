@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { logout } from "@/cluster/services/logout";
 import { Layout } from "@/layout";
-import { SLICE_NAME } from "@/project/slice";
+import { SLICE_NAME } from "@/layered/session/project/slice";
 import { type Project, ZERO_SLICE_STATE } from "@/project/types";
 import { useSyncLayout } from "@/project/useSyncLayout";
 import { type ConsolePreloadedState, createConsoleWrapper } from "@/testUtils";

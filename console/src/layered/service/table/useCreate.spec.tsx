@@ -188,7 +188,7 @@ describe("useCreate", () => {
   describe("project switching", () => {
     it("does not flip the active project when the table is created in the active one", async () => {
       const { wrapper, store } = await buildHarness({ activeProject: projectA });
-      const beforeActive = Project.selectActive(store.getState());
+      const beforeActive = Project.selectSelected(store.getState());
       const { result } = renderHook(() => useCreate({ project: projectA.key }), {
         wrapper,
       });
@@ -196,7 +196,7 @@ describe("useCreate", () => {
         result.current({ name: "SameProject" });
       });
       await waitForPlacedLayout(store);
-      expect(Project.selectActive(store.getState())).toBe(beforeActive);
+      expect(Project.selectSelected(store.getState())).toBe(beforeActive);
     });
   });
 });

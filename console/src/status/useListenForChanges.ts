@@ -12,7 +12,7 @@ import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useCallback, useEffectEvent } from "react";
 import { useDispatch } from "react-redux";
 
-import { filterFavoritesToKeys, removeFavorites } from "@/status/slice";
+import { filterFavoritesToKeys, removeFavorites } from "@/layered/session/status/slice";
 
 export const useListenForChanges = () => {
   const dispatch = useDispatch();

@@ -11,7 +11,7 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Guard } from "@/project/Guard";
-import { SLICE_NAME } from "@/project/slice";
+import { SLICE_NAME } from "@/layered/session/project/slice";
 import { ZERO_SLICE_STATE } from "@/project/types";
 import { renderWithConsole } from "@/testUtils";
 

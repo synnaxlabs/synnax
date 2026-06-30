@@ -10,7 +10,7 @@
 import { type ranger } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
-import { type Range } from "@/range/slice";
+import { type Range } from "@/layered/session/range/slice";
 
 export const fromClientRange = (ranges: ranger.Payload | ranger.Payload[]): Range[] =>
   array.toArray(ranges).map((range) => ({

@@ -14,8 +14,8 @@ import {
   FavoriteButton as Base,
   type FavoriteButtonProps as BaseProps,
 } from "@/components";
-import { useSelect } from "@/range/selectors";
-import { add, remove } from "@/range/slice";
+import { useSelect } from "@/layered/session/range/selectors";
+import { add, remove } from "@/layered/session/range/slice";
 import { fromClientRange } from "@/range/translate";
 
 export interface FavoriteButtonProps extends Omit<

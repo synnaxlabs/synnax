@@ -13,8 +13,8 @@ import { useDispatch } from "react-redux";
 
 import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
-import { useSelectOptionalActiveKey } from "@/project/selectors";
-import { setActive } from "@/project/slice";
+import { useSelectOptionalActiveKey } from "@/layered/session/project/selectors";
+import { select } from "@/layered/session/project/slice";
 import { Triggers } from "@/triggers";
 
 export const useCreateModal = Modals.create(({ close }) => {
@@ -31,7 +31,7 @@ export const useCreateModal = Modals.create(({ close }) => {
     afterSave: ({ value }) => {
       const { key, name, layout } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
-      dispatch(setActive({ key, name }));
+      dispatch(select({ key, name }));
       if (active != null)
         dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
       close();

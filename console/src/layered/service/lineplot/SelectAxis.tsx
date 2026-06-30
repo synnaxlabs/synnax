@@ -34,7 +34,7 @@ export const YAxisChannelSelect = ({
 }: YAxisChannelSelectProps): ReactElement => {
   const value = LinePlot.useSelectYAxisChannels({ key: layoutKey, axisKey });
   const { dispatch } = LinePlot.useDispatch();
-  const rangeKey = Range.useSelectActiveKey() ?? undefined;
+  const rangeKey = Range.useSelectSelectedKey() ?? undefined;
   const handleChange = useCallback(
     (channels: channel.Key[]) =>
       dispatch({
@@ -71,7 +71,7 @@ export const XAxisChannelSelect = ({
 }: XAxisChannelSelectProps): ReactElement => {
   const value = LinePlot.useSelectXAxisChannel({ key: layoutKey, axisKey });
   const { dispatch } = LinePlot.useDispatch();
-  const rangeKey = Range.useSelectActiveKey() ?? undefined;
+  const rangeKey = Range.useSelectSelectedKey() ?? undefined;
   const handleChange = useCallback(
     (channel: channel.Key) =>
       dispatch({

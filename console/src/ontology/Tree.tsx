@@ -55,7 +55,7 @@ import {
   type TreeState,
 } from "@/ontology/service";
 import { useServices } from "@/ontology/ServicesProvider";
-import { type RootAction, type RootState } from "@/store";
+import { type RootAction, type RootState } from "@/layered/session/store";
 
 interface InternalProps {
   root: ontology.ID;

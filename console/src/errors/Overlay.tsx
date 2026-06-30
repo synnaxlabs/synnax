@@ -33,8 +33,8 @@ import {
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { Persist } from "@/persist";
-import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
+import { Persist } from "@/layered/session/persist";
+import { CLEAR_STATE, REVERT_STATE } from "@/layered/session/persist/state";
 import { Runtime } from "@/runtime";
 import { use } from "@/version/use";
 

@@ -28,10 +28,10 @@ import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
+import { useSelectSelected } from "@/layered/session/project/selectors";
+import { select } from "@/layered/session/project/slice";
 import { Layout } from "@/layout";
 import { useCreateModal } from "@/project/Create";
-import { useSelectActive } from "@/project/selectors";
-import { setActive } from "@/project/slice";
 
 const listItem = Component.renderProp(
   (props: List.ItemProps<project.Key>): ReactElement | null => {
@@ -51,7 +51,7 @@ const DIALOG_STYLE = { minHeight: 200, minWidth: 400 };
 export const Selector = (): ReactElement | null => {
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const active = useSelectActive();
+  const active = useSelectSelected();
   const openCreate = useCreateModal();
   const [dialogVisible, setDialogVisible] = useState(false);
   const { data, retrieve, getItem, subscribe } = Project.useList();
@@ -61,7 +61,7 @@ export const Selector = (): ReactElement | null => {
       if (key == null) return;
       const proj = getItem(key);
       if (proj == null) throw new UnexpectedError(`Project ${key} not found`);
-      dispatch(setActive(proj));
+      dispatch(select(proj));
       dispatch(Layout.setProject({ slice: proj.layout as Layout.SliceState }));
       setDialogVisible(false);
     },

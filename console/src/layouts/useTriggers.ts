@@ -13,14 +13,14 @@ import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";
 
 import { Modals } from "@/layered/session/modals";
-import { selectActiveMosaicTabState, selectFocused } from "@/layout/selectors";
-import { setFocus } from "@/layout/slice";
+import { selectActiveMosaicTabState, selectFocused } from "@/layered/service/selectors";
+import { setFocus } from "@/layered/service/slice";
 import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { usePlacer } from "@/layout/usePlacer";
 import { useRemover } from "@/layout/useRemover";
 import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { Runtime } from "@/runtime";
-import { type RootState } from "@/store";
+import { type RootState } from "@/layered/session/store";
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 

@@ -23,7 +23,7 @@ import { useStore } from "react-redux";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { type UseListReturn } from "@/palette/list";
-import { type RootAction, type RootState } from "@/store";
+import { type RootAction, type RootState } from "@/layered/session/store";
 
 interface OntologyListItemProps extends List.ItemProps<string> {}
 

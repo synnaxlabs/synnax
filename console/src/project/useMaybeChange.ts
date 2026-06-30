@@ -12,8 +12,8 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
-import { useSelectActiveKey } from "@/project/selectors";
-import { setActive } from "@/project/slice";
+import { useSelectActiveKey } from "@/layered/session/project/selectors";
+import { select } from "@/layered/session/project/slice";
 
 export const useMaybeChange = (): ((key: string) => Promise<void>) => {
   const dispatch = useDispatch();
@@ -23,7 +23,7 @@ export const useMaybeChange = (): ((key: string) => Promise<void>) => {
     if (activeKey === key) return;
     if (client == null) throw new DisconnectedError();
     const { layout, ...proj } = await client.projects.retrieve(key);
-    dispatch(setActive(proj));
+    dispatch(select(proj));
     dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
   };
 };

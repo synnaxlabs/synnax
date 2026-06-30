@@ -16,7 +16,7 @@ import { Range } from "@/range";
 export const useCreate = Project.createUseCreate({
   useCreate: LinePlot.useCreate,
   toCreateParams: ({ overrides, project, store }) => {
-    const activeRange = Range.selectActiveKey(store.getState()) ?? Range.RECENT_KEY;
+    const activeRange = Range.selectSelectedKey(store.getState()) ?? Range.RECENT_KEY;
     return {
       name: "Line Plot",
       ranges: { x1: [activeRange] },

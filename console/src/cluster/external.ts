@@ -15,8 +15,8 @@ export * from "@/cluster/Connect";
 export * from "@/cluster/CopyLinkToolbarButton";
 export * from "@/cluster/detectConnection";
 export * from "@/cluster/list";
-export * from "@/cluster/selectors";
-export * from "@/cluster/slice";
+export * from "@/layered/session/cluster/selectors";
+export * from "@/layered/session/cluster/slice";
 export * from "@/cluster/useCopyLinkToClipboard";
 export * from "@/cluster/useSyncClusterKey";
 

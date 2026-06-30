@@ -15,7 +15,7 @@ import { useDispatch, useStore } from "react-redux";
 import { ContextMenu, EmptyAction } from "@/components";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
-import { type RootState } from "@/store";
+import { type RootState } from "@/layered/session/store";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 

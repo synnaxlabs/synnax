@@ -31,7 +31,7 @@ import { CSS } from "@/css";
 import { Nav as ServiceNav } from "@/layered/service/nav";
 import { Window as ServiceWindow } from "@/layered/service/window";
 import { Layout } from "@/layout";
-import { setActive } from "@/project/slice";
+import { select } from "@/layered/session/project/slice";
 import { Triggers } from "@/triggers";
 import { Version } from "@/version";
 
@@ -80,7 +80,7 @@ export const Splash = (): ReactElement => {
       if (key == null) return;
       const p = getItem(key);
       if (p == null) throw new UnexpectedError(`Project ${key} not found`);
-      dispatch(setActive(p));
+      dispatch(select(p));
       dispatch(Layout.setProject({ slice: p.layout as Layout.SliceState }));
     },
     [dispatch, getItem],
@@ -92,7 +92,7 @@ export const Splash = (): ReactElement => {
     afterSave: ({ value }) => {
       const { key, name } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
-      dispatch(setActive({ key, name }));
+      dispatch(select({ key, name }));
     },
   });
 

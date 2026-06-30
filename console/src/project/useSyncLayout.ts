@@ -22,8 +22,8 @@ import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { purgeExcludedLayouts } from "@/project/purgeExcludedLayouts";
-import { selectOptionalActiveKey } from "@/project/selectors";
-import { type RootState } from "@/store";
+import { selectOptionalActiveKey } from "@/layered/session/project/selectors";
+import { type RootState } from "@/layered/session/store";
 
 export const useSyncLayout = (): void => {
   const store = useStore<RootState>();

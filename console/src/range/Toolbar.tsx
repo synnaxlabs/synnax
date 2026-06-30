@@ -32,13 +32,17 @@ import { useDispatch, useStore } from "react-redux";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { type Service } from "@/layered/service";
+import {
+  select,
+  useSelect,
+  useSelectStaticKeys,
+} from "@/layered/session/range/selectors";
+import { add, rename, select, type Static } from "@/layered/session/range/slice";
+import { type RootState } from "@/layered/session/store";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
 import { useCreateModal } from "@/range/Create";
 import { EXPLORER_LAYOUT } from "@/range/Explorer";
-import { select, useSelect, useSelectStaticKeys } from "@/range/selectors";
-import { add, rename, setActive, type StaticRange } from "@/range/slice";
-import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
@@ -58,7 +62,7 @@ const List = (): ReactElement => {
   const data = useSelectStaticKeys();
 
   const handleSelect = (key: string): void => {
-    dispatch(setActive(key));
+    dispatch(select(key));
   };
 
   const dropProps = Haul.useDrop({
@@ -82,7 +86,7 @@ const List = (): ReactElement => {
   const menuProps = Menu.useContextMenu();
 
   return (
-    <Select.Frame<string, StaticRange>
+    <Select.Frame<string, Static>
       data={data}
       value={activeRange?.key}
       onChange={handleSelect}

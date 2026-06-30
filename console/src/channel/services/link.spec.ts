@@ -34,7 +34,7 @@ describe("ChannelServices.useLink", () => {
       [Project.SLICE_NAME]: Project.reducer,
       [Range.SLICE_NAME]: Range.reducer,
     });
-    store.dispatch(Project.setActive(project));
+    store.dispatch(Project.select(project));
     await handler({ client, key: String(ch.key) });
     const placed = Layout.selectByFilter(
       store.getState(),

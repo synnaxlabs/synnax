@@ -38,6 +38,7 @@ import { LinePlot } from "@/layered/service/lineplot";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
+import { store } from "@/layered/session/store";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { Ontology } from "@/ontology";
@@ -46,7 +47,6 @@ import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { SERVICES } from "@/services";
 import { Status } from "@/status";
-import { store } from "@/store";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 
