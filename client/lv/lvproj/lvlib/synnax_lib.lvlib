@@ -25,7 +25,40 @@
             URL="../classes/Synnax Writer.lvclass"
         />
 	</Item>
+	<Item Name="Examples" Type="Folder">
+		<Item
+            Name="1 Channel 1 Sample - Auto Indexing.vi"
+            Type="VI"
+            URL="../../../examples/1 Channel 1 Sample - Auto Indexing.vi"
+        />
+		<Item
+            Name="Create Channel - Auto Index and Timestamp.vi"
+            Type="VI"
+            URL="../../../examples/Create Channel - Auto Index and Timestamp.vi"
+        />
+		<Item
+            Name="Create Channel - Manual Index and Timestamp.vi"
+            Type="VI"
+            URL="../../../examples/Create Channel - Manual Index and Timestamp.vi"
+        />
+		<Item
+            Name="N Channel N Samples - Auto Indexing.vi"
+            Type="VI"
+            URL="../../../examples/N Channel N Samples - Auto Indexing.vi"
+        />
+		<Item
+            Name="N Channel N Samples - Manual Timestamp.vi"
+            Type="VI"
+            URL="../../../examples/N Channel N Samples - Manual Timestamp.vi"
+        />
+	</Item>
 	<Item Name="private" Type="Folder">
+		<Item
+            Name="err_bytes_preallocate.vi"
+            Type="VI"
+            URL="../private/err_bytes_preallocate.vi"
+        />
+		<Item Name="err_bytes_read.vi" Type="VI" URL="../private/err_bytes_read.vi" />
 		<Item Name="sy_err.vi" Type="VI" URL="../private/sy_err.vi" />
 		<Item
             Name="Timestamp Conversion 1D Array.vi"
@@ -44,6 +77,10 @@
         />
 	</Item>
 	<Item Name="public" Type="Folder">
+		<Item Name="Build Error.vi" Type="VI" URL="../Public/Build Error.vi" />
+		<Item Name="Generate UID.vi" Type="VI" URL="../Public/Generate UID.vi" />
+		<Item Name="Ignore Error.vi" Type="VI" URL="../Public/Ignore Error.vi" />
+		<Item Name="No Error Const.vi" Type="VI" URL="../Public/No Error Const.vi" />
 		<Item
             Name="Timestamp Conversion.vi"
             Type="VI"
@@ -52,6 +89,8 @@
 	</Item>
 	<Item Name="typedefs" Type="Folder">
 		<Item Name="connection_config.ctl" Type="VI" URL="../typedefs/connection_config.ctl" />
+		<Item Name="data_type.ctl" Type="VI" URL="../typedefs/data_type.ctl" />
+		<Item Name="error_type.ctl" Type="VI" URL="../typedefs/error_type.ctl" />
 		<Item Name="tls_config.ctl" Type="VI" URL="../typedefs/tls_config.ctl" />
 		<Item Name="writer_mode.ctl" Type="VI" URL="../typedefs/writer_mode.ctl" />
 	</Item>
