@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Notifications } from "@/notifications";
+import { type Notifications } from "@/component/notifications";
 import { notificationAdapter } from "@/component/version/Updater";
 
 export * from "@/component/version/Badge";
 export * from "@/component/version/Updater";
-export * from "@/component/version/use";
 export * from "@/component/version/useInfoModal";
 
 export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];

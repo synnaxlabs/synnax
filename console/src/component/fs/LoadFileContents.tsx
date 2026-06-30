@@ -17,7 +17,7 @@ import { type ReactElement, useEffect, useState } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/component/css";
-import { Runtime } from "@/runtime";
+import { Session } from "@/session";
 
 export interface InputFilePathProps
   extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
@@ -34,7 +34,7 @@ export const InputFilePath = ({
   const handleError = Status.useErrorHandler();
   const handleClick = () =>
     handleError(async () => {
-      if (Runtime.ENGINE !== "tauri")
+      if (Session.Runtime.ENGINE !== "tauri")
         throw new Error(
           "Cannot open a file dialog when running Synnax in the browser.",
         );

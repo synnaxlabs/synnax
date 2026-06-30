@@ -15,7 +15,6 @@ import { url } from "@synnaxlabs/x";
 import { memo, type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/component/css";
-import { type Layout } from "@/component/layout";
 import { Session } from "@/session";
 
 const HOST = new url.URL({
@@ -33,7 +32,7 @@ export const LAYOUT: Session.Layout.BaseState = {
   tab: { editable: false },
 };
 
-export const Docs: Layout.Renderer = memo(() => {
+export const Docs = memo(() => {
   // Iframes prevent drop interactions on the mosaic, so we need to listen for
   // the mouse being held down and add a class the docs that adds a mask over the frame
   // to allow for drop interactions.

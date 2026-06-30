@@ -19,4 +19,4 @@ if (import.meta.env.DEV) {
 
 const rootEl = document.getElementById("root") as HTMLElement;
 
-createRoot(rootEl).render(<Console />);
+createRoot(rootEl).render(<App.App />);

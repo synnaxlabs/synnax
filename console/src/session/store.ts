@@ -26,6 +26,7 @@ import { Layout } from "@/session/layout";
 import { LinePlot } from "@/session/lineplot";
 import { Log } from "@/session/log";
 import { Nav } from "@/session/nav";
+import { Persist } from "@/session/persist";
 import { Project } from "@/session/project";
 import { Range } from "@/session/range";
 import { Runtime } from "@/session/runtime";
@@ -33,8 +34,6 @@ import { Schematic } from "@/session/schematic";
 import { Status } from "@/session/status";
 import { Table } from "@/session/table";
 import { Theme } from "@/session/theme";
-
-import { Persist } from "./persist";
 
 const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
   ...Layout.PERSIST_EXCLUDE,
@@ -110,7 +109,8 @@ export type Action =
   | Schematic.Action
   | Status.Action
   | Table.Action
-  | Theme.Action;
+  | Theme.Action
+  | Persist.Action;
 
 export type Store = BaseStore<State, Action>;
 

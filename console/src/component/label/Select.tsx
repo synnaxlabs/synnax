@@ -10,7 +10,7 @@
 import { Button, Dialog, Icon, Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { EmptyAction } from "@/component";
+import { Empty } from "@/component/empty";
 import { useEditModal } from "@/component/label/useEditModal";
 
 export interface SelectSingleProps extends Label.SelectSingleProps {}
@@ -27,7 +27,7 @@ const useAdd = (): (() => void) => {
 const SelectEmptyContent = (): ReactElement => {
   const add = useAdd();
   return (
-    <EmptyAction message="No labels created." action="Create a label" onClick={add} />
+    <Empty.Action message="No labels created." action="Create a label" onClick={add} />
   );
 };
 

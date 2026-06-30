@@ -12,7 +12,7 @@ import { type Dialog, Form, type Select } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { SelectMultiple } from "@/label/Select";
+import { SelectMultiple } from "@/component/label/Select";
 
 const TRIGGER_PROPS: Select.MultipleTriggerProps<string> = {
   hideTags: true,

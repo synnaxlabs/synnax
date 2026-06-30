@@ -119,7 +119,7 @@ const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
 const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
 const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
-const MainUnderContext = (): ReactElement => {
+const AppUnderContext = (): ReactElement => {
   const cluster = Cluster.useSelect();
   const themingProps = Session.Theme.useProviderProps();
   useBlockDefaultDropBehavior();
@@ -145,7 +145,7 @@ const MainUnderContext = (): ReactElement => {
   );
 };
 
-export const Console = (): ReactElement => {
+export const App = (): ReactElement => {
   const storeRef = useInitializerRef(() => Session.createStore());
   return (
     <Errors.OverlayWithoutStore>
@@ -157,7 +157,7 @@ export const Console = (): ReactElement => {
                 <Export.ExtractorsProvider extractors={EXTRACTORS}>
                   <Ontology.ServicesProvider services={SERVICES}>
                     <Palette.CommandProvider commands={COMMANDS}>
-                      <MainUnderContext />
+                      <AppUnderContext />
                     </Palette.CommandProvider>
                   </Ontology.ServicesProvider>
                 </Export.ExtractorsProvider>

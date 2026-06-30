@@ -20,10 +20,10 @@ import {
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { useDeleteDataModal } from "@/framer/useDeleteDataModal";
-import { Modals } from "@/layered/service/modals";
-import { renderWithModals } from "@/layered/service/modals/testutil";
-import { Session } from "@/layered/session";
+import { useDeleteDataModal } from "@/component/framer/useDeleteDataModal";
+import { Modals } from "@/component/modals";
+import { renderWithModals } from "@/component/modals/testutil";
+import { Session } from "@/session";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const Harness = (): ReactElement => {

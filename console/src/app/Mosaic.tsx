@@ -42,17 +42,17 @@ import {
 } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { App } from "@/app";
 import { ContextMenu as CMenu } from "@/component";
 import { CSS } from "@/component/css";
 import { Import } from "@/import";
-import { App } from "@/app";
-import { LinePlot } from "@/service/lineplot";
-import { Session } from "@/session";
 import { Layout } from "@/layout";
 import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { Ontology } from "@/ontology";
 import { ProjectServices } from "@/project/services";
 import { Runtime } from "@/runtime";
+import { LinePlot } from "@/service/lineplot";
+import { Session } from "@/session";
 import { type State, type State } from "@/session/store";
 
 const EmptyContent = (): ReactElement => {

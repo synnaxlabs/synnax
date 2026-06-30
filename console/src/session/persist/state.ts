@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, type Middleware } from "@reduxjs/toolkit";
+import {
+  type Action,
+  type ActionCreator,
+  createAction,
+  type Middleware,
+} from "@reduxjs/toolkit";
 import {
   type CrudeTimeSpan,
   debounce,
@@ -16,8 +21,8 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { openSugaredKV, type SugaredKV } from "@/persist/kv";
-import { Runtime } from "@/runtime";
+import { openSugaredKV, type SugaredKV } from "@/session/persist/kv";
+import { Runtime } from "@/session/runtime";
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
 export const DB_VERSION_KEY = "console-version";
@@ -75,8 +80,9 @@ export interface Config<S extends object> {
   historyLength?: number;
 }
 
-export const REVERT_STATE: Action = { type: "persist.revert-state" };
-export const CLEAR_STATE: Action = { type: "persist.clear-state" };
+export const revertState = createAction("persist/revertState");
+export const clearState = createAction("persist/clearState");
+export type Action = ReturnType<typeof revertState | typeof clearState>;
 
 export const persistedStateKey = (version: number): string =>
   `${PERSISTED_STATE_KEY}.${version}`;
@@ -203,14 +209,14 @@ export const middleware = <S extends object>(
   return (store) => (next) => (action) => {
     const result = next(action);
     const type = (action as Action | undefined)?.type;
-    if (type === REVERT_STATE.type)
+    if (type === revertState.type)
       engine
         .revert()
         .then(() => window.location.reload())
         .catch((err: unknown) => {
           console.error("failed to revert state", err);
         });
-    else if (type === CLEAR_STATE.type)
+    else if (type === clearState.type)
       engine
         .clear()
         .then(() => window.location.reload())

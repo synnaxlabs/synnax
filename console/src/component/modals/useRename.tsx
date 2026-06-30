@@ -15,8 +15,8 @@ import { createPrompt, type Prompt } from "@/component/modals/factory";
 import { Footer } from "@/component/modals/Footer";
 import { Frame } from "@/component/modals/Frame";
 import { Header } from "@/component/modals/Header";
-import { type ContentProps } from "@/session/modals/Context";
 import { Triggers } from "@/component/triggers";
+import { type Session } from "@/session";
 
 export interface RenameParams {
   allowEmpty?: boolean;
@@ -35,7 +35,7 @@ const Rename = ({
   initialValue = "",
   icon,
   close,
-}: ContentProps<RenameParams, string>) => {
+}: Session.Modals.ContentProps<RenameParams, string>) => {
   const [name, setName] = useState(initialValue);
   const [error, setError] = useState<string | undefined>(undefined);
   const handleClick = useCallback(() => {

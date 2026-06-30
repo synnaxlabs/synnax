@@ -30,12 +30,10 @@ import {
   useEffect,
   useState,
 } from "react";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/component/css";
-import { use } from "@/component/version/use";
+import { Version } from "@/component/version";
 import { Session } from "@/session";
-import { CLEAR_STATE, REVERT_STATE } from "@/session/persist/state";
 
 export interface OverlayProps extends PropsWithChildren {}
 
@@ -48,7 +46,7 @@ const useExtraErrorInfo = (): ExtraErrorInfo => {
   // These hooks must be called unconditionally per React rules.
   // If they throw, the error bubbles to OverlayWithoutStore which is fine.
   // We use optional chaining when building extraInfo to handle undefined values.
-  const consoleVersion = use();
+  const consoleVersion = Version.use();
   const connectionState = Synnax.useConnectionState();
   const extraInfo: ExtraErrorInfo = {
     consoleVersion: "unknown",
@@ -65,10 +63,10 @@ const FallbackRenderWithStore = ({ error }: Errors.FallbackProps): ReactElement 
   const extraInfo = useExtraErrorInfo();
 
   const handleTryAgain = useCallback((): void => {
-    dispatch(REVERT_STATE);
+    dispatch(Session.Persist.revertState());
   }, [dispatch]);
   const handleClear = useCallback((): void => {
-    dispatch(CLEAR_STATE);
+    dispatch(Session.Persist.clearState());
   }, [dispatch]);
 
   return (

@@ -25,7 +25,7 @@ describe("project slice", () => {
     it("should clear the selected project", () => {
       const next = Project.reducer(
         { ...Project.ZERO_SLICE_STATE, selected },
-        Project.clearSelection(),
+        Project.clearSelected(),
       );
       expect(next.selected).toBeUndefined();
     });

@@ -10,9 +10,9 @@
 import { type Dispatch } from "@reduxjs/toolkit";
 
 import { Cluster } from "@/cluster";
-import { Session } from "@/session";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
+import { Session } from "@/session";
 
 export const logout = (dispatch: Dispatch) => {
   dispatch(Cluster.setActive(null));

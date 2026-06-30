@@ -24,3 +24,5 @@ export * from "@/session/status";
 export * from "@/session/store";
 export * from "@/session/table";
 export * from "@/session/theme";
+export * from "@/session/useLogout";
+export * from "@/session/version";

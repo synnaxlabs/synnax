@@ -13,18 +13,17 @@ import { Button } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useCheckForUpdates } from "@/component/version/Updater";
-import { use } from "@/component/version/use";
 import { useInfoModal } from "@/component/version/useInfoModal";
-import { Runtime } from "@/runtime";
+import { Session } from "@/session";
 
 export const Badge = (): ReactElement => {
-  const version = use();
+  const version = Session.Version.use();
   const openInfo = useInfoModal();
   const updateAvailable = useCheckForUpdates();
   return (
     <Button.Button
       onClick={() => openInfo()}
-      preventClick={Runtime.ENGINE !== "tauri"}
+      preventClick={Session.Runtime.ENGINE !== "tauri"}
       variant="text"
       size="small"
       level="small"

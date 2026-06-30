@@ -11,7 +11,7 @@ import { Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { getVersion } from "@tauri-apps/api/app";
 import { useState } from "react";
 
-import { Runtime } from "@/runtime";
+import { Runtime } from "@/session/runtime";
 
 export const use = (): string | undefined => {
   const [tauriVersion, setTauriVersion] = useState<string>();

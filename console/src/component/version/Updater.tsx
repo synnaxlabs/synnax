@@ -16,9 +16,9 @@ import {
 import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
 
+import { type Notifications } from "@/component/notifications";
 import { useInfoModal } from "@/component/version/useInfoModal";
-import { type Notifications } from "@/notifications";
-import { Runtime } from "@/runtime";
+import { Session } from "@/session";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
 
@@ -28,7 +28,7 @@ export const useCheckForUpdates = (): boolean => {
     useCombinedStateAndRef<boolean>(false);
 
   const checkForUpdates = async () => {
-    if (Runtime.ENGINE !== "tauri" || availableRef.current) return;
+    if (Session.Runtime.ENGINE !== "tauri" || availableRef.current) return;
     const update = await check();
     if (update == null) return;
     setAvailable(true);

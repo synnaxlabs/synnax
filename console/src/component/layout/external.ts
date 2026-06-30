@@ -10,4 +10,3 @@
 export * from "@/component/layout/context";
 export * from "@/component/layout/layout";
 export * from "@/component/layout/Menu";
-export * from "@/component/layout/useFluxName";

@@ -110,8 +110,11 @@ const { actions, reducer } = createSlice({
     },
     remove: ({ clusters }, { payload: keys }: PayloadAction<RemovePayload>) =>
       array.toArray(keys).forEach((key) => delete clusters[key]),
-    setActive: (state, { payload: key }: PayloadAction<SelectPayload>) => {
+    select: (state, { payload: key }: PayloadAction<SelectPayload>) => {
       state.selected = key;
+    },
+    clearSelected: (state) => {
+      state.selected = undefined;
     },
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
       checkName(state, name);
@@ -129,7 +132,7 @@ const { actions, reducer } = createSlice({
   },
 });
 
-export const { set, setActive, remove, rename, changeKey } = actions;
+export const { set, select, clearSelected, remove, rename, changeKey } = actions;
 
 export { reducer };
 

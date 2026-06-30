@@ -18,8 +18,7 @@ import { z } from "zod";
 
 import { CSS } from "@/component/css";
 import { Modals } from "@/component/modals";
-import { Runtime } from "@/runtime";
-import { use } from "@/component/version/use";
+import { Session } from "@/session";
 
 const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
   {},
@@ -30,7 +29,7 @@ const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
   name: "Version",
   allowDisconnected: true,
   retrieve: async () => {
-    if (Runtime.ENGINE !== "tauri") return null;
+    if (Session.Runtime.ENGINE !== "tauri") return null;
     await new Promise((resolve) => setTimeout(resolve, 500));
     return await check();
   },
@@ -90,13 +89,13 @@ const { useUpdate } = Flux.createUpdate<
           break;
       }
     });
-    if (Runtime.ENGINE === "tauri") await relaunch();
+    if (Session.Runtime.ENGINE === "tauri") await relaunch();
     return update;
   },
 });
 
 export const useInfoModal = Modals.create(() => {
-  const version = use();
+  const version = Session.Version.use();
   const availableQuery = useRetrieveUpdateAvailable({});
   const updateQuery = useUpdate();
   let totalSize: Size = Size.bytes(0);
