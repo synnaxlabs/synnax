@@ -484,14 +484,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: new(true),
 					}))
-					f := frame.NewMulti(
+					fr := frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[0],
 							telem.NewSeriesV[float32](1, 2),
 						},
 					)
-					MustSucceed(w.Write(f))
+					MustSucceed(w.Write(fr))
 					Expect(w.Close()).To(Succeed())
 
 					// Second domain
@@ -500,14 +500,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: new(true),
 					}))
-					f = frame.NewMulti(
+					fr = frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[1],
 							telem.NewSeriesV[float32](5, 6),
 						},
 					)
-					MustSucceed(w.Write(f))
+					MustSucceed(w.Write(fr))
 					Expect(w.Close()).To(Succeed())
 
 					// Third domain
@@ -516,14 +516,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: new(true),
 					}))
-					f = frame.NewMulti(
+					fr = frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[2],
 							telem.NewSeriesV[float32](10, 11),
 						},
 					)
-					MustSucceed(w.Write(f))
+					MustSucceed(w.Write(fr))
 					Expect(w.Close()).To(Succeed())
 				})
 
