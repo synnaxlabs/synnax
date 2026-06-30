@@ -151,7 +151,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close should be called when the service is no longer needed.
 func (s *Service) Close() error { return s.shutdown.Close() }
 
-func FreeOverflowCheck(inUse types.Uint20) error {
+func DefaultOverflowCheck(inUse types.Uint20) error {
 	if inUse > FreeCount {
 		return ErrFree
 	}

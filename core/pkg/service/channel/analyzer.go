@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type analysisResolver struct {
+type resolver struct {
 	arc.SymbolResolver
 	temp struct {
 		names map[string]*symbol.Symbol
@@ -36,17 +36,15 @@ type analysisResolver struct {
 	unresolved set.Set[string]
 }
 
-// Analyzer parses and type-checks calculated channel expressions. It caches
-// previously analyzed channels so that later expressions can reference them by
-// name without hitting the backing symbol resolver.
-type Analyzer struct {
-	resolver *analysisResolver
-}
+// Analyzer parses and type-checks calculated channel expressions. It caches previously
+// analyzed channels so that later expressions can reference them by name without
+// hitting the backing symbol resolver.
+type Analyzer struct{ resolver *resolver }
 
 // NewAnalyzer returns an Analyzer that falls back to symbolResolver for symbols not yet
 // in the internal cache.
 func NewAnalyzer(symbolResolver arc.SymbolResolver) *Analyzer {
-	r := &analysisResolver{SymbolResolver: symbolResolver}
+	r := &resolver{SymbolResolver: symbolResolver}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
 	return &Analyzer{resolver: r}
@@ -56,7 +54,7 @@ func NewAnalyzer(symbolResolver arc.SymbolResolver) *Analyzer {
 // against the resolver's temporary cache of channels in the current batch, then falling
 // back to the underlying SymbolResolver. Names that the fallback cannot resolve are
 // recorded as unresolved.
-func (r *analysisResolver) Resolve(
+func (r *resolver) Resolve(
 	ctx context.Context, name string,
 ) (*symbol.Symbol, error) {
 	i, err := strconv.Atoi(name)
@@ -79,9 +77,9 @@ func (r *analysisResolver) Resolve(
 // AnalysisResult holds the output of an analysis. On error, Unresolved may be populated
 // even though ChanDataType and Deps are zero-valued.
 type AnalysisResult struct {
-	// ChanDataType is the inferred type of the expression when combined
-	// with operations. For example, a derivative operation will convert the
-	// channels return type to Float64.
+	// ChanDataType is the inferred type of the expression when combined with
+	// operations. For example, a derivative operation will convert the channels return
+	// type to Float64.
 	ChanDataType telem.DataType
 	// ExpressionReturnType is the inferred type of the calculated expression itself.
 	ExpressionReturnType types.Type
@@ -92,9 +90,8 @@ type AnalysisResult struct {
 }
 
 // Analyze parses the channel's expression, infers its return type, and extracts the set
-// of channel dependencies. The analyzed channel is cached (by its name and key) so that
-// subsequent calls can reference it by name or key. A trailing derivative operation on
-// the channel refines the inferred data type to Float64.
+// of channel dependencies. The analyzed channel is cached so that subsequent calls can
+// reference it by name or key.
 func (a *Analyzer) Analyze(ctx context.Context, ch Channel) (AnalysisResult, error) {
 	a.resolver.unresolved = make(set.Set[string])
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression))

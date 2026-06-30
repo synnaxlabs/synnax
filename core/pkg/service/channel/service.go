@@ -142,7 +142,7 @@ type Service struct {
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{
 		ValidateNames:    new(true),
-		IntOverflowCheck: verification.FreeOverflowCheck,
+		IntOverflowCheck: verification.DefaultOverflowCheck,
 	}, cfgs...)
 	if err != nil {
 		return nil, err
