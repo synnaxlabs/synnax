@@ -1,0 +1,64 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { project } from "@synnaxlabs/client";
+import {
+  Access,
+  Flux,
+  type Pluto,
+  Project,
+  Synnax,
+  useSyncedRef,
+} from "@synnaxlabs/pluto";
+import { deep, TimeSpan } from "@synnaxlabs/x";
+import { useCallback, useEffect, useRef } from "react";
+import { useStore } from "react-redux";
+
+import { Layout } from "@/layout";
+import { purgeExcludedLayouts } from "@/project/purgeExcludedLayouts";
+import { selectOptionalActiveKey } from "@/session/project/selectors";
+import { type RootState } from "@/session/store";
+
+export const useSyncLayout = (): void => {
+  const store = useStore<RootState>();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
+  const client = Synnax.use();
+  const prevSyncRef = useRef<unknown>(null);
+  const sync = Project.useSaveLayout({
+    debounce: TimeSpan.milliseconds(250),
+    beforeUpdate: useCallback(async () => {
+      const s = store.getState();
+      const key = selectOptionalActiveKey(s);
+      if (key == null) return false;
+      if (
+        !Access.updateGranted({
+          id: project.ontologyID(key),
+          store: fluxStore,
+          client,
+        })
+      )
+        return false;
+      const layoutSlice = Layout.selectSliceState(s);
+      if (deep.equal(prevSyncRef.current, layoutSlice)) return false;
+      prevSyncRef.current = layoutSlice;
+      const layout = purgeExcludedLayouts(layoutSlice);
+      return { key, layout };
+    }, [store, fluxStore, client]),
+  });
+
+  // sync.update closes over the Synnax client and is rebuilt when the client
+  // connects. The store subscription is created once, so route through a ref to
+  // always invoke the latest update; otherwise it stays bound to the null client
+  // captured before connection and the layout never saves.
+  const updateRef = useSyncedRef(sync.update);
+  useEffect(
+    () => store.subscribe(() => updateRef.current({ key: "", layout: {} })),
+    [store],
+  );
+};
