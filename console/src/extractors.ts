@@ -19,7 +19,7 @@ export const EXTRACTORS: Export.Extractors = {
   ...Arc.EXTRACTORS,
   ...Hardware.EXTRACTORS,
   ...LinePlot.EXTRACTORS,
-  ...Log.EXTRACTORS,
+  ...Log.ImEx.EXTRACTORS,
   ...Schematic.EXTRACTORS,
   ...Table.EXTRACTORS,
 };

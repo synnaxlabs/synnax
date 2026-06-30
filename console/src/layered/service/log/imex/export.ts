@@ -7,22 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
+import { DisconnectedError, log } from "@synnaxlabs/client";
+import { z } from "zod";
 
 import { Export } from "@/export";
 import { LAYOUT_TYPE } from "@/layered/service/log/layout";
-import { Layout } from "@/layout";
 
-export const VERSION = "2.0.0";
+const envelopeZ = z.object({ name: z.string() });
 
-export const extract: Export.Extractor = async (key, { store, client }) => {
-  const name = Layout.select(store.getState(), key)?.name;
+const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
-  const l = await client.logs.retrieve({ key });
-  return {
-    data: JSON.stringify({ ...l, type: LAYOUT_TYPE, version: VERSION }),
-    name: name ?? l.name,
-  };
+  const stream = await client.imex.export(log.ontologyID(key), { encoding: "JSON" });
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let data = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    data += decoder.decode(value, { stream: true });
+  }
+  const { name } = envelopeZ.parse(JSON.parse(data));
+  return { data, name };
 };
 
 export const useExport = () => Export.use(extract, "log");
+
+export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
