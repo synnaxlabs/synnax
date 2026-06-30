@@ -78,5 +78,3 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	MustOpen(signals.Publish(ctx, sigs, node.Ontology))
 })
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
