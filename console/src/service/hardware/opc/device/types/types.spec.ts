@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { testPropertiesSchema } from "@/hardware/common/device/testutil";
+import { testPropertiesSchema } from "@/component/device/testutil";
 import { propertiesZ, ZERO_PROPERTIES } from "@/hardware/opc/device/types";
 import * as v0 from "@/hardware/opc/device/types/v0";
 

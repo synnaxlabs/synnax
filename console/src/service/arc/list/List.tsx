@@ -20,8 +20,8 @@ import {
 import { useCallback, useState } from "react";
 
 import { ContextMenu } from "@/service/arc/ContextMenu";
-import { useRename } from "@/service/arc/hooks";
 import { Item, type ItemProps } from "@/service/arc/list/Item";
+import { useRename } from "@/session/arc/hooks";
 
 export interface ListProps
   extends

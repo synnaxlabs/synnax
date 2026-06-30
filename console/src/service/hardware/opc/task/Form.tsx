@@ -23,8 +23,8 @@ import {
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/component/css";
+import { ChannelName } from "@/component/task/ChannelName";
 import { Common } from "@/hardware/common";
-import { ChannelName } from "@/hardware/common/task/ChannelName";
 import { Device } from "@/hardware/opc/device";
 import { type Channel } from "@/hardware/opc/task/types";
 

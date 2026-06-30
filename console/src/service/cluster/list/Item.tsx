@@ -24,7 +24,7 @@ import { memo, type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/component/css";
-import { useSelect } from "@/session/cluster/selectors";
+import { useSelectState } from "@/session/cluster/selectors";
 import { type Cluster, rename } from "@/session/cluster/slice";
 
 interface ListItemProps extends BaseList.ItemProps<string> {
@@ -97,7 +97,7 @@ const Base = ({
 };
 
 const Wrapper = (props: Omit<ListItemProps, "item">): ReactElement | null => {
-  const item = useSelect(props.itemKey);
+  const item = useSelectState(props.itemKey);
   if (item == null) return null;
   return <Base {...props} item={item} />;
 };

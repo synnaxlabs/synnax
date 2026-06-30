@@ -10,7 +10,7 @@
 import { type ontology } from "@synnaxlabs/client";
 import { useCallback } from "react";
 
-import { useCopyToClipboard as useCopy } from "@/component/copy/useCopyToClipboard";
+import { useCopy } from "@/component/clipboard/useCopy";
 import { PREFIX } from "@/service/link/types";
 
 export interface CopyToClipboardArgs {

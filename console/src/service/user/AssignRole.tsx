@@ -11,7 +11,7 @@ import { type access, status } from "@synnaxlabs/client";
 import { Access, Button, Form, Icon, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 
 export interface AssignRoleModalParams extends Access.Role.RetrieveQuery {
   title?: string;

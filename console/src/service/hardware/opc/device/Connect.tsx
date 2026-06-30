@@ -41,7 +41,7 @@ import { TEST_CONNECTION_COMMAND_TYPE } from "@/hardware/opc/task/types";
 import { CSS } from "@/component/css";
 import { FS } from "@/component/fs";
 import { Triggers } from "@/component/triggers";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 
 const useForm = PDevice.createForm(SCHEMAS);
 

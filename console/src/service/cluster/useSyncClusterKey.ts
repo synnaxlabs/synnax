@@ -11,7 +11,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { useSelectActiveKey } from "@/session/cluster/selectors";
+import { useSelectSelectedKey } from "@/session/cluster/selectors";
 import { changeKey } from "@/session/cluster/slice";
 
 // useSyncClusterKey synchronizes the actual cluster key of the cluster to the cluster
@@ -19,7 +19,7 @@ import { changeKey } from "@/session/cluster/slice";
 // connecting to a different cluster at the same address or connecting to the local or
 // demo cluster that is already defined in the initial slice state.
 export const useSyncClusterKey = () => {
-  const activeClusterKey = useSelectActiveKey();
+  const activeClusterKey = useSelectSelectedKey();
   const { clusterKey, status } = Synnax.useConnectionState();
   const dispatch = useDispatch();
   useEffect(() => {

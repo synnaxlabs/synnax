@@ -12,7 +12,7 @@ import "@/components/toolbar/Header.css";
 import { Button, Flex, Header as PHeader } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/components/css";
+import { CSS } from "@/component/css";
 
 export interface ContentProps extends Flex.BoxProps {}
 

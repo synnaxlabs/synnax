@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ChannelServices } from "@/service/channel/services";
-import { Hardware } from "@/service/hardware";
-import { type Service } from "@/service";
-import { Arc } from "@/service/arc";
-import { UserServices } from "@/service/user/services";
 import { ProjectServices } from "@/project/services";
 import { Range } from "@/range";
+import { type Service } from "@/service";
+import { Arc } from "@/service/arc";
+import { ChannelServices } from "@/service/channel";
+import { Hardware } from "@/service/hardware";
+import { UserServices } from "@/service/user/services";
 import { Status } from "@/status";
 import { Vis } from "@/vis";
 

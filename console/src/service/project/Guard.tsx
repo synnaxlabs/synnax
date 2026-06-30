@@ -9,11 +9,8 @@
 
 import { type PropsWithChildren, type ReactNode } from "react";
 
-import { useSelectOptionalActiveKey } from "@/session/project/selectors";
-import { Splash } from "@/project/Splash";
+import { Splash } from "@/service/project/Splash";
+import { Session } from "@/session";
 
-export const Guard = ({ children }: PropsWithChildren): ReactNode => {
-  const active = useSelectOptionalActiveKey();
-  if (active != null) return children;
-  return <Splash />;
-};
+export const Guard = ({ children }: PropsWithChildren): ReactNode =>
+  Session.Project.useSelectIsAnySelected() ? children : <Splash />;

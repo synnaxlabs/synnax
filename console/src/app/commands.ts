@@ -9,8 +9,11 @@
 
 import { ClusterServices } from "@/cluster/services";
 import { Import } from "@/import";
+import { type Palette } from "@/palette";
+import { ProjectServices } from "@/project/services";
+import { RangeServices } from "@/range/services";
 import { Service } from "@/service";
-import { ChannelServices } from "@/service/channel/services";
+import { ChannelServices } from "@/service/channel";
 import { Docs } from "@/service/docs";
 import { Framer } from "@/service/framer";
 import { Hardware } from "@/service/hardware";
@@ -18,9 +21,6 @@ import { LabelServices } from "@/service/label/services";
 import { Status } from "@/service/status";
 import { UserServices } from "@/service/user/services";
 import { Persist } from "@/session/persist";
-import { type Palette } from "@/palette";
-import { ProjectServices } from "@/project/services";
-import { RangeServices } from "@/range/services";
 
 export const COMMANDS: Palette.Command[] = [
   ...ChannelServices.COMMANDS,

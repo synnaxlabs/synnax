@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Triggers } from "@/component/triggers";
 
 const FIRST_NAME_INPUT_PROPS: Partial<Input.TextProps> = {

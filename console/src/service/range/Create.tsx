@@ -28,7 +28,7 @@ import { type z } from "zod";
 
 import { CSS } from "@/component/css";
 import { Label } from "@/service/label";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { add } from "@/session/range/slice";
 import { Triggers } from "@/component/triggers";
 

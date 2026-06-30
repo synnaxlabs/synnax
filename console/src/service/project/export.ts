@@ -14,7 +14,7 @@ import { useStore } from "react-redux";
 
 import { Export } from "@/export";
 import { useExtractors } from "@/export/ExtractorsProvider";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { selectSelected } from "@/session/project/selectors";
 import {
   type RootAction,

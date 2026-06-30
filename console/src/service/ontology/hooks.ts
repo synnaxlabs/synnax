@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 
 interface UseConfirmDeleteProps {
   type: string;

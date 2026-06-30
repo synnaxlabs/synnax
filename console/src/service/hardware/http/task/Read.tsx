@@ -32,7 +32,7 @@ import { EmptyAction } from "@/component";
 import { KeyValueEditor } from "@/component/form/KeyValueEditor";
 import { CSS } from "@/component/css";
 import { Common } from "@/hardware/common";
-import { ChannelList as BaseChannelList } from "@/hardware/common/task/ChannelList";
+import { ChannelList as BaseChannelList } from "@/component/task/ChannelList";
 import { Device } from "@/hardware/http/device";
 import { ContextMenu } from "@/hardware/http/task/ContextMenu";
 import { EndpointListItem } from "@/hardware/http/task/EndpointListItem";

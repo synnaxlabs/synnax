@@ -9,7 +9,7 @@
 
 import { type Export } from "@/export";
 import { type Import } from "@/import";
-import { Editor } from "@/service/arc/editor";
+import { Editor } from "@/component/arc/editor";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/service/arc/Explorer";
 import { extract } from "@/service/arc/imex/export";
 import { ingest } from "@/service/arc/imex/import";
@@ -19,7 +19,7 @@ import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 
 export * from "@/service/arc/CreateModal";
-export * from "@/service/arc/editor";
+export * from "@/component/arc/editor";
 export * from "@/service/arc/Explorer";
 export * from "@/service/arc/imex";
 export * from "@/service/arc/layout";

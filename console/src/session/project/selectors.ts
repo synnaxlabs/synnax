@@ -28,3 +28,9 @@ export const selectSelected = (state: StoreState): project.Key => {
 };
 
 export const useSelectSelected = (): project.Key => Select.useMemo(selectSelected, []);
+
+export const selectIsAnySelected = (state: StoreState): boolean =>
+  selectOptionalSelected(state) != null;
+
+export const useSelectIsAnySelected = (): boolean =>
+  Select.useMemo(selectIsAnySelected, []);

@@ -1,0 +1,45 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { arc } from "@synnaxlabs/client";
+import { Arc, Breadcrumb, Flex, Icon, Text } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
+
+import { Cluster } from "@/component/cluster";
+import { Export } from "@/component/export";
+import { Toolbar as Base } from "@/component/toolbar";
+
+export interface ToolbarProps {
+  onExport: (key: arc.Key) => void;
+}
+
+export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
+  const key = Arc.useKey();
+  const name = Arc.useSelectName(key);
+  const handleExport = useCallback(() => onExport(key), [key]);
+  return (
+    <>
+      <Base.Header>
+        <Breadcrumb.Breadcrumb level="h5">
+          <Breadcrumb.Segment weight={500} color={10} level="h5">
+            <Icon.Arc />
+            {name}
+          </Breadcrumb.Segment>
+        </Breadcrumb.Breadcrumb>
+        <Flex.Box x align="center" empty style={{ height: "100%", width: 66 }}>
+          <Export.ToolbarButton onExport={handleExport} />
+          <Cluster.CopyLinkToolbarButton name={name} ontologyID={arc.ontologyID(key)} />
+        </Flex.Box>
+      </Base.Header>
+      <Flex.Box center>
+        <Text.Text status="disabled">No Content</Text.Text>
+      </Flex.Box>
+    </>
+  );
+};

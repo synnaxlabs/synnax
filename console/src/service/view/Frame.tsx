@@ -36,7 +36,7 @@ import {
 
 import { ContextMenu as CMenu, Controls } from "@/component";
 import { CSS } from "@/component/css";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Ontology } from "@/ontology";
 import { Context, type StaticView, useContext, type View } from "@/view/context";
 

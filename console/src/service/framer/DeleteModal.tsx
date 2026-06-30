@@ -34,7 +34,7 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/component/css";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Triggers } from "@/component/triggers";
 
 const formSchema = z.object({

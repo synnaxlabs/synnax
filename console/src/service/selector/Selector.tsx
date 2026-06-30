@@ -13,7 +13,7 @@ import { Eraser, Flex, Status, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/component/css";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Layout } from "@/layout";
 
 export interface SelectableProps {

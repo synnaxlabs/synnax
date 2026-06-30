@@ -30,7 +30,7 @@ import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/component/css";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 
 interface LabelListItemProps extends List.ItemProps<label.Key> {
   isCreate?: boolean;

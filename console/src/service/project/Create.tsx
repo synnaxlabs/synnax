@@ -11,7 +11,7 @@ import { status, UnexpectedError } from "@synnaxlabs/client";
 import { Button, Form, Icon, Input, Nav, Project, Synnax } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Layout } from "@/layout";
 import { useSelectOptionalActiveKey } from "@/session/project/selectors";
 import { select } from "@/session/project/slice";

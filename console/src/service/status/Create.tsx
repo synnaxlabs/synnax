@@ -13,7 +13,7 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Label } from "@/service/label";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Triggers } from "@/component/triggers";
 
 export type CreateModalParams = Partial<z.infer<typeof Status.formSchema>>;

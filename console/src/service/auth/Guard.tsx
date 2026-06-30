@@ -9,11 +9,8 @@
 
 import { type PropsWithChildren, type ReactNode } from "react";
 
-import { Login } from "@/auth/Login";
-import { Cluster } from "@/cluster";
+import { Login } from "@/service/auth/Login";
+import { Session } from "@/session";
 
-export const Guard = ({ children }: PropsWithChildren): ReactNode => {
-  const active = Cluster.useSelectActiveKey();
-  if (active != null) return children;
-  return <Login />;
-};
+export const Guard = ({ children }: PropsWithChildren): ReactNode =>
+  Session.Cluster.useSelectIsAnySelected() ? children : <Login />;

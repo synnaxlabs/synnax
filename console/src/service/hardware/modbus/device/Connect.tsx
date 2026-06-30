@@ -33,7 +33,7 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/hardware/modbus/task/types";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Triggers } from "@/component/triggers";
 
 const useForm = PDevice.createForm(SCHEMAS);

@@ -18,7 +18,7 @@ import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/component";
 import { CSS } from "@/component/css";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { useSelect } from "@/session/layout/selectors";
 import { Content } from "@/layout/Content";
 import { Runtime } from "@/runtime";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { testPropertiesSchema } from "@/hardware/common/device/testutil";
+import { testPropertiesSchema } from "@/component/device/testutil";
 import {
   slavePropertiesZ,
   ZERO_SLAVE_PROPERTIES,

@@ -12,7 +12,7 @@ import "@/components/form/KeyValueEditor.css";
 import { Button, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 
-import { CSS } from "@/components/css";
+import { CSS } from "@/component/css";
 
 export type Entry<K extends string, V extends string | number> = {
   [k in K]: string;

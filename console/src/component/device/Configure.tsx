@@ -1,0 +1,191 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/component/device/Configure.css";
+
+import { type device, status } from "@synnaxlabs/client";
+import {
+  Button,
+  Device as Base,
+  Device,
+  Flex,
+  Form,
+  Icon,
+  Nav,
+  Status,
+  Text,
+} from "@synnaxlabs/pluto";
+import { deep, type record, strings } from "@synnaxlabs/x";
+import { useCallback, useRef, useState } from "react";
+import { z } from "zod";
+
+import { CSS } from "@/component/css";
+import { identifierZ, nameZ } from "@/component/device/types";
+import { Modals } from "@/component/modals";
+import { Triggers } from "@/component/triggers";
+
+interface InternalProps<
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
+> {
+  close: () => void;
+  icon: Icon.ReactElement;
+  device: device.Device<Properties, Make, Model>;
+  initialProperties: z.infer<Properties>;
+}
+
+const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
+type ConfigurablePropertiesZ = typeof configurablePropertiesZ;
+
+const Internal = <
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
+>({
+  device,
+  device: { name },
+  close,
+  icon,
+  initialProperties,
+}: InternalProps<Properties, Make, Model>) => {
+  const methods = Form.use<ConfigurablePropertiesZ>({
+    values: { name, identifier: "" },
+    schema: configurablePropertiesZ,
+  });
+  const [step, setStep] = useState<"name" | "identifier">("name");
+  const isNameStep = step === "name";
+  const triggerAction = isNameStep ? "Next" : "Save";
+  const [recommendedIds, setRecommendedIds] = useState<string[]>([]);
+  const identifierRef = useRef<HTMLInputElement>(null);
+  const deviceToCreate = () => ({
+    ...device,
+    configured: true,
+    name: methods.get<string>("name").value,
+    properties: {
+      ...(deep.copy(initialProperties) as record.Unknown),
+      ...(device.properties as record.Unknown),
+      identifier: methods.get<string>("identifier").value,
+    },
+  });
+  const { update, variant } = Base.useCreate({
+    beforeUpdate: useCallback(async () => {
+      if (isNameStep) {
+        if (methods.validate("name")) {
+          setStep("identifier");
+          setRecommendedIds(
+            strings.createShortIdentifiers(methods.get<string>("name").value),
+          );
+          setTimeout(() => identifierRef.current?.focus(), 100);
+        }
+        return false;
+      }
+      if (!methods.validate("identifier")) return false;
+      return deviceToCreate();
+    }, [isNameStep, methods, setStep, setRecommendedIds, identifierRef]),
+    afterSuccess: useCallback(() => close(), [close]),
+  });
+
+  return (
+    <Modals.Frame className={CSS.B("configure")}>
+      <Modals.Header icon={icon}>{name || "Device.Configure"}</Modals.Header>
+      <Form.Form<typeof configurablePropertiesZ> {...methods}>
+        <Modals.Body align="stretch" gap="large">
+          {isNameStep ? (
+            <>
+              <Text.Text>
+                Before you can acquire data from this device, we'll need a few details.
+                To start off, enter a name so it's easy to look up later.
+              </Text.Text>
+              <Form.TextField
+                autoFocus
+                inputProps={{ autoFocus: true, level: "h2", variant: "text" }}
+                label="Name"
+                path="name"
+              />
+            </>
+          ) : (
+            <>
+              <Text.Text>
+                Next, we'll need a short identifier for{" "}
+                {methods.get<string>("name").value}. We'll use this as a prefix for all
+                channels associated with this device. We've given you some suggestions
+                below.
+              </Text.Text>
+              <Flex.Box gap="small">
+                <Form.TextField
+                  autoFocus
+                  label="Identifier"
+                  inputProps={{ level: "h2", ref: identifierRef, variant: "text" }}
+                  path="identifier"
+                />
+                <Flex.Box x>
+                  <Button.Button disabled size="small" variant="text">
+                    <Icon.Bolt />
+                  </Button.Button>
+                  {recommendedIds.map((id) => (
+                    <Button.Button
+                      key={id}
+                      onClick={() => {
+                        methods.set("identifier", id);
+                        identifierRef.current?.focus();
+                      }}
+                      size="small"
+                      variant="suggestion"
+                    >
+                      {id}
+                    </Button.Button>
+                  ))}
+                </Flex.Box>
+              </Flex.Box>
+            </>
+          )}
+        </Modals.Body>
+      </Form.Form>
+      <Nav.Bar location="bottom" size={48} bordered>
+        <Triggers.SaveHelpText action={triggerAction} />
+        <Nav.Bar.End>
+          <Button.Button
+            status={status.keepVariants(variant, "loading")}
+            onClick={() => update(deviceToCreate())}
+            variant="filled"
+            trigger={Triggers.SAVE}
+            type="submit"
+          >
+            {triggerAction}
+          </Button.Button>
+        </Nav.Bar.End>
+      </Nav.Bar>
+    </Modals.Frame>
+  );
+};
+
+export interface ConfigureProps<
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
+> extends Pick<
+  InternalProps<Properties, Make, Model>,
+  "close" | "icon" | "initialProperties"
+> {
+  deviceKey: device.Key;
+}
+
+export const Configure = <
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
+>({
+  deviceKey,
+  ...rest
+}: ConfigureProps<Properties, Make, Model>) => {
+  const { data, status, variant } = Device.useRetrieve({ key: deviceKey });
+  if (variant !== "success") return <Status.Summary status={status} />;
+  return <Internal device={data} {...rest} />;
+};

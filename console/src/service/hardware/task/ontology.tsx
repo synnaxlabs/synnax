@@ -15,7 +15,7 @@ import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/component";
 import { Export } from "@/export";
 import { Common } from "@/hardware/common";
-import { type FormLayoutArgs } from "@/hardware/common/task/Form";
+import { type FormLayoutArgs } from "@/component/task/Form";
 import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
 import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { Group } from "@/service/group";

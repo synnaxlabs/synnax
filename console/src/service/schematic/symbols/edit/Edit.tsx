@@ -27,7 +27,7 @@ import { type bounds, color, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/component/css";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { HandleList } from "@/service/schematic/symbols/edit/HandleList";
 import { Preview } from "@/service/schematic/symbols/edit/Preview";
 import { RegionList } from "@/service/schematic/symbols/edit/RegionList";

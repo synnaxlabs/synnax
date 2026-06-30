@@ -12,7 +12,7 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Export } from "@/export";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { type GroupManifest } from "@/service/schematic/symbols/types";
 import { Runtime } from "@/runtime";
 

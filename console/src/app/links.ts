@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { ClusterServices } from "@/cluster/services";
+import { ProjectServices } from "@/project/services";
+import { RangeServices } from "@/range/services";
 import { Arc } from "@/service/arc";
-import { ChannelServices } from "@/service/channel/services";
+import { ChannelServices } from "@/service/channel";
 import { Hardware } from "@/service/hardware";
 import { LinePlot } from "@/service/lineplot";
 import { Link } from "@/service/link";
 import { Log } from "@/service/log";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
-import { ProjectServices } from "@/project/services";
-import { RangeServices } from "@/range/services";
 
 export const useLinks = (): void => {
   const handlers = {

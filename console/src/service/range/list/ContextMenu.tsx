@@ -14,7 +14,7 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/component";
 import { Link } from "@/service/link";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { CreateChildRangeIcon } from "@/range/ContextMenu";

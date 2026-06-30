@@ -31,14 +31,10 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Layout } from "@/layout";
 import { type UseListReturn } from "@/palette/list";
-import {
-  type RootAction,
-  type RootState,
-  type RootStore,
-} from "@/session/store";
+import { type RootAction, type RootState, type RootStore } from "@/session/store";
 
 export interface CommandProps extends List.ItemProps<string> {
   placeLayout: Layout.Placer;

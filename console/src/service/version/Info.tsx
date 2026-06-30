@@ -17,7 +17,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import { z } from "zod";
 
 import { CSS } from "@/component/css";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Runtime } from "@/runtime";
 import { use } from "@/service/version/use";
 

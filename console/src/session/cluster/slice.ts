@@ -45,7 +45,7 @@ const DEMO: Cluster = {
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
-  activeCluster: z.string().nullable().default(null),
+  selected: z.string().optional(),
   clusters: z
     .record(z.string(), clusterZ)
     .default({ [LOCAL_KEY]: LOCAL, [DEMO_KEY]: DEMO }),
@@ -62,7 +62,7 @@ export interface StoreState {
 
 export type SetPayload = Cluster;
 
-export type SetActivePayload = string | null;
+export type SelectPayload = string;
 
 export type RemovePayload = string | string[];
 
@@ -110,8 +110,8 @@ const { actions, reducer } = createSlice({
     },
     remove: ({ clusters }, { payload: keys }: PayloadAction<RemovePayload>) =>
       array.toArray(keys).forEach((key) => delete clusters[key]),
-    setActive: (state, { payload: key }: PayloadAction<SetActivePayload>) => {
-      state.activeCluster = key;
+    setActive: (state, { payload: key }: PayloadAction<SelectPayload>) => {
+      state.selected = key;
     },
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
       checkName(state, name);
@@ -124,7 +124,7 @@ const { actions, reducer } = createSlice({
       const cluster = state.clusters[oldKey];
       delete state.clusters[oldKey];
       state.clusters[newKey] = { ...cluster, key: newKey };
-      if (state.activeCluster === oldKey) state.activeCluster = newKey;
+      if (state.selected === oldKey) state.selected = newKey;
     },
   },
 });

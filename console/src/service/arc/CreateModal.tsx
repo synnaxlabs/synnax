@@ -14,11 +14,11 @@ import { Button, CSS as PCSS, Icon, Input, Nav, Select, Text } from "@synnaxlabs
 import { useState } from "react";
 
 import { CSS } from "@/component/css";
-import { Body } from "@/service/modals/Body";
-import { createPrompt } from "@/service/modals/factory";
-import { Footer } from "@/service/modals/Footer";
-import { Frame } from "@/service/modals/Frame";
-import { Header } from "@/service/modals/Header";
+import { Body } from "@/component/modals/Body";
+import { createPrompt } from "@/component/modals/factory";
+import { Footer } from "@/component/modals/Footer";
+import { Frame } from "@/component/modals/Frame";
+import { Header } from "@/component/modals/Header";
 import { Triggers } from "@/component/triggers";
 
 export interface CreateModalResult {

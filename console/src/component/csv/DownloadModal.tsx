@@ -30,9 +30,9 @@ import {
 import { z } from "zod";
 
 import { CSS } from "@/component/css";
-import { useDownload } from "@/csv/useDownload";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { Triggers } from "@/component/triggers";
+import { useDownload } from "@/csv/useDownload";
 
 export interface DownloadModalParams {
   channelNames?: Record<channel.Key, string>;

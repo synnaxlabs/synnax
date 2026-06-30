@@ -20,17 +20,17 @@ export const selectSliceState = (state: StoreState): SliceState => state[SLICE_N
 export const useSelectSliceState = (): SliceState =>
   Select.useMemo((s: StoreState) => selectSliceState(s), []);
 
-export const selectActiveKey = (state: StoreState): string | undefined =>
-  selectSliceState(state).activeCluster ?? undefined;
+export const selectSelectedKey = (state: StoreState): string | undefined =>
+  selectSliceState(state).selected;
 
-export const useSelectActiveKey = (): string | undefined =>
-  Select.useMemo((s: StoreState) => selectActiveKey(s), []);
+export const useSelectSelectedKey = (): string | undefined =>
+  Select.useMemo((s: StoreState) => selectSelectedKey(s), []);
 
-export const select = (state: StoreState, key?: string): Cluster | undefined =>
-  Select.byKey(selectSliceState(state).clusters, key, selectActiveKey(state));
+export const selectState = (state: StoreState, key?: string): Cluster | undefined =>
+  Select.byKey(selectSliceState(state).clusters, key, selectSelectedKey(state));
 
-export const useSelect = (key?: string): Cluster | undefined =>
-  Select.useMemo((s: StoreState) => select(s, key), [key]);
+export const useSelectState = (key?: string): Cluster | undefined =>
+  Select.useMemo((s: StoreState) => selectState(s, key), [key]);
 
 export const selectMany = (state: StoreState, keys?: string[]): Cluster[] =>
   Select.byKeys(state.cluster.clusters, keys);
@@ -43,3 +43,9 @@ export const selectAllNames = (state: StoreState): string[] =>
 
 export const useSelectAllNames = (): string[] =>
   Select.useMemo((s: StoreState) => selectAllNames(s), []);
+
+export const selectIsAnySelected = (state: StoreState): boolean =>
+  selectSelectedKey(state) != null;
+
+export const useSelectIsAnySelected = (): boolean =>
+  Select.useMemo(selectIsAnySelected, []);

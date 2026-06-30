@@ -13,7 +13,7 @@ import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/component";
-import { Modals } from "@/service/modals";
+import { Modals } from "@/component/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectFavoriteSet } from "@/session/status/selectors";
 import { addFavorites, removeFavorites } from "@/session/status/slice";

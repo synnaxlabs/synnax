@@ -32,11 +32,10 @@ import {
 } from "react";
 import { useDispatch } from "react-redux";
 
-import { CSS } from "@/components/css";
+import { CSS } from "@/component/css";
 import { use } from "@/service/version/use";
-import { Persist } from "@/session/persist";
+import { Session } from "@/session";
 import { CLEAR_STATE, REVERT_STATE } from "@/session/persist/state";
-import { Runtime } from "@/runtime";
 
 export interface OverlayProps extends PropsWithChildren {}
 
@@ -86,7 +85,7 @@ const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactEleme
   const [consoleVersion, setConsoleVersion] = useState<string | undefined>();
 
   useEffect(() => {
-    if (Runtime.ENGINE !== "tauri") return;
+    if (Session.Runtime.ENGINE !== "tauri") return;
     void getVersion().then(setConsoleVersion);
   }, []);
 
@@ -97,7 +96,7 @@ const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactEleme
 
   return (
     <FallBackRenderContent
-      onClear={Persist.hardClearAndReload}
+      onClear={Session.Persist.hardClearAndReload}
       error={error}
       extraInfo={extraInfo}
     />
@@ -131,7 +130,7 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
     } catch (e) {
       console.error(e);
     }
-    if (Runtime.ENGINE === "tauri") void getCurrentWindow().show();
+    if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().show();
   }, []);
   const resetErrorBoundary = useCallback((): void => {
     onTryAgain?.();
@@ -151,13 +150,13 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
             visibleIfOS="macOS"
             forceOS={os}
             onClose={() => {
-              if (Runtime.ENGINE === "tauri") void getCurrentWindow().close();
+              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              if (Runtime.ENGINE === "tauri") void getCurrentWindow().minimize();
+              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              if (Runtime.ENGINE === "tauri") void getCurrentWindow().maximize();
+              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().maximize();
             }}
           />
           {os === "Windows" && (
@@ -170,13 +169,13 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
             forceOS={os}
             contrast={0}
             onClose={() => {
-              if (Runtime.ENGINE === "tauri") void getCurrentWindow().close();
+              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              if (Runtime.ENGINE === "tauri") void getCurrentWindow().minimize();
+              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              if (Runtime.ENGINE === "tauri") void getCurrentWindow().maximize();
+              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().maximize();
             }}
           />
         </Nav.Bar.End>
