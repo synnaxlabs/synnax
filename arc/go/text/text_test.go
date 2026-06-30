@@ -123,6 +123,79 @@ func scopeNodeRefs(scope ir.Scope) []string {
 }
 
 var _ = Describe("Text", func() {
+	Describe("Variable Channels", func() {
+		varResolver := []symbol.Symbol{
+			{Name: "count_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 901},
+			{Name: "out_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 902},
+		}
+
+		It("Should back a written value variable with read and write nodes", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				counter i64 := 0
+				stage s1 {
+					count_ch -> counter
+					counter -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.VarChannels).To(HaveLen(1))
+			varKey := inter.VarChannels[0]
+			sawRead, sawWrite := false, false
+			for _, n := range inter.Nodes {
+				if _, ok := n.Channels.Read[varKey]; ok {
+					sawRead = true
+				}
+				if _, ok := n.Channels.Write[varKey]; ok {
+					sawWrite = true
+				}
+			}
+			Expect(sawRead).To(BeTrue(), "expected an on-node reading the var channel")
+			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
+		})
+
+		It("Should assign distinct keys to variables in sibling sequences", func(ctx SpecContext) {
+			source := `
+			sequence a {
+				x i64 := 0
+				stage s1 {
+					count_ch -> x
+				}
+			}
+			sequence b {
+				y i64 := 0
+				stage s1 {
+					count_ch -> y
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.VarChannels).To(HaveLen(2))
+			Expect(inter.VarChannels[0]).ToNot(Equal(inter.VarChannels[1]))
+		})
+
+		It("Should compile a variable read inside a transition condition", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				counter i64 := 0
+				stage s1 {
+					count_ch -> counter
+					counter > 5 => s2
+				}
+				stage s2 {
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			prog := MustSucceed(text.Compile(ctx, inter))
+			Expect(prog.WASM).ToNot(BeEmpty())
+		})
+	})
+
 	Describe("Parse", func() {
 		It("Should correctly parse a text-based arc program", func() {
 			source := `

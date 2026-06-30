@@ -12,6 +12,7 @@ package channels
 import (
 	"slices"
 
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
@@ -21,6 +22,8 @@ type Digest struct {
 	DataType telem.DataType
 	Key      uint32
 	Index    uint32
+	// Variable marks a channel that backs a reactive value variable.
+	Variable bool
 }
 
 // ProgramState manages channel I/O buffers and index mapping.
@@ -29,6 +32,8 @@ type ProgramState struct {
 	writes          map[uint32]telem.Series
 	activeWriteKeys []uint32
 	indexes         map[uint32]uint32
+	// varChannels holds the keys of channels that back reactive value variables.
+	varChannels set.Set[uint32]
 	// clock provides monotonically increasing timestamps for indexed
 	// channel writes, avoiding duplicate timestamps on platforms with
 	// coarse clock resolution (e.g. Windows).
@@ -38,14 +43,29 @@ type ProgramState struct {
 // NewProgramState creates a new ProgramState from channel digests.
 func NewProgramState(digests []Digest) *ProgramState {
 	cs := &ProgramState{
-		reads:   make(map[uint32]telem.MultiSeries),
-		writes:  make(map[uint32]telem.Series),
-		indexes: make(map[uint32]uint32),
+		reads:       make(map[uint32]telem.MultiSeries),
+		writes:      make(map[uint32]telem.Series),
+		indexes:     make(map[uint32]uint32),
+		varChannels: set.New[uint32](),
 	}
 	for _, d := range digests {
 		cs.indexes[d.Key] = d.Index
+		if d.Variable {
+			cs.varChannels.Add(d.Key)
+		}
 	}
 	return cs
+}
+
+// appendVarRead loops a variable-channel write back into the read buffer at the next alignment so source nodes treat it as fresh data.
+func (cs *ProgramState) appendVarRead(key uint32, s telem.Series) {
+	cur := cs.reads[key]
+	if n := len(cur.Series); n > 0 {
+		s.Alignment = cur.Series[n-1].AlignmentBounds().Upper
+	} else {
+		s.Alignment = 0
+	}
+	cs.reads[key] = cur.Append(s)
 }
 
 // Ingest adds external channel data to the read buffer.
@@ -171,6 +191,10 @@ func (cs *ProgramState) writeIndexedTimestamp(key uint32) {
 }
 
 func appendFixedWriteSample[T telem.FixedSample](cs *ProgramState, key uint32, value T) {
+	if cs.varChannels.Contains(key) {
+		cs.appendVarRead(key, telem.NewSeriesV(value))
+		return
+	}
 	dt := telem.InferDataType[T]()
 	acc, exists := cs.writes[key]
 	if !exists {
@@ -222,6 +246,12 @@ func (cs *ProgramState) writeChannel(key uint32, data, time telem.Series) {
 }
 
 func (cs *ProgramState) appendWriteSeries(key uint32, source telem.Series) {
+	if cs.varChannels.Contains(key) {
+		if len(source.Data) > 0 {
+			cs.appendVarRead(key, source.DeepCopy())
+		}
+		return
+	}
 	acc, exists := cs.writes[key]
 	if !exists {
 		acc = telem.Series{DataType: source.DataType}

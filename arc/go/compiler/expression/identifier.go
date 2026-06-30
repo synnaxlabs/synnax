@@ -34,8 +34,23 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		name = head + "." + tail
 	}
 	chanRef := ctx.Hint.Kind == types.KindChan
+	// A value variable inherited from an enclosing reactive scope is backed by a channel read by key.
+	if isInheritedVarChannel(ctx.Scope, scope) {
+		ctx.Writer.WriteI32Const(int32(channelKeyOf(scope)))
+		emitChannelRead(ctx, scope.Type)
+		return scope.Type.UnwrapChan(), nil
+	}
 	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput, symbol.KindLoopVariable:
+		// Inherited channel alias (cpu := chan): no local here, read by key.
+		if scope.Type.Kind == types.KindChan && !sameFunction(ctx.Scope, scope) {
+			ctx.Writer.WriteI32Const(int32(channelKeyOf(scope)))
+			if chanRef {
+				return scope.Type, nil
+			}
+			emitChannelRead(ctx, scope.Type)
+			return scope.Type.Unwrap(), nil
+		}
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if scope.Type.Kind == types.KindChan {
 			if chanRef {
@@ -73,6 +88,30 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	default:
 		return types.Type{}, errors.Newf("unsupported symbol kind: %v for '%s'", scope.Kind, name)
 	}
+}
+
+// isInheritedVarChannel reports whether scope is a value variable backed by an internal channel and read from a different unit than its declaration.
+func isInheritedVarChannel(reader, scope *symbol.Symbol) bool {
+	if scope.Kind != symbol.KindVariable && scope.Kind != symbol.KindStatefulVariable {
+		return false
+	}
+	return scope.Type.Kind != types.KindChan && scope.SourceID == nil && !sameFunction(reader, scope)
+}
+
+// channelKeyOf returns the channel key sym refers to: its SourceID when sym is
+// an alias bound to another channel, otherwise its own ID.
+func channelKeyOf(sym *symbol.Symbol) int {
+	if sym.SourceID != nil {
+		return *sym.SourceID
+	}
+	return sym.ID
+}
+
+// sameFunction reports whether a and b compile into the same unit (same enclosing function, or both module-level).
+func sameFunction(a, b *symbol.Symbol) bool {
+	af, _ := a.ClosestAncestorOfKind(symbol.KindFunction)
+	bf, _ := b.ClosestAncestorOfKind(symbol.KindFunction)
+	return af == bf
 }
 
 func emitStatefulLoad[ASTNode antlr.ParserRuleContext](

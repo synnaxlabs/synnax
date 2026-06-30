@@ -951,6 +951,13 @@ func broken() {
 				Expect(parser.Parse(`func test()`)).
 					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
+
+			It("Should reject a flow statement inside a function body", func() {
+				Expect(parser.Parse(`func test() {
+					x := 0
+					1 -> x
+				}`)).Error().To(MatchError(ContainSubstring("'->'")))
+			})
 		})
 
 		Context("String Literals", func() {

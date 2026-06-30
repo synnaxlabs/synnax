@@ -73,12 +73,17 @@ func NewDependencies(
 		reads  = make(set.Set[channel.Key])
 		writes = make(set.Set[channel.Key])
 	)
+	varChannels := set.New(prog.VarChannels...)
 	for _, n := range prog.Nodes {
 		for rawChanKey := range n.Channels.Read {
-			reads.Add(channel.Key(rawChanKey))
+			if !varChannels.Contains(rawChanKey) {
+				reads.Add(channel.Key(rawChanKey))
+			}
 		}
 		for chanKey := range n.Channels.Write {
-			writes.Add(channel.Key(chanKey))
+			if !varChannels.Contains(chanKey) {
+				writes.Add(channel.Key(chanKey))
+			}
 		}
 	}
 	for key := range prog.Authorities.Channels {
@@ -88,7 +93,13 @@ func NewDependencies(
 	if err != nil {
 		return Dependencies{}, err
 	}
-	channelDigests := make([]stlchannels.Digest, 0, len(channels))
+	channelDigests := make([]stlchannels.Digest, 0, len(channels)+len(varChannels))
+	for key := range varChannels {
+		channelDigests = append(channelDigests, stlchannels.Digest{
+			Key:      key,
+			Variable: true,
+		})
+	}
 	for _, ch := range channels {
 		channelDigests = append(channelDigests, stlchannels.Digest{
 			Key:      uint32(ch.Key()),

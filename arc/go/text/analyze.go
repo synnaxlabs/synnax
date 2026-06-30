@@ -94,12 +94,15 @@ type shellBuilder struct {
 	// synthByAST maps each inline-body declaration to its synth scope, keyed by
 	// the declaration's parser node.
 	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol
+	// varChannels holds the channel keys backing reactive value variables.
+	varChannels set.Set[uint32]
 }
 
 func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *shellBuilder {
 	return &shellBuilder{
 		activations: map[string]ir.Handle{},
 		synthByAST:  synthByAST,
+		varChannels: set.New[uint32](),
 	}
 }
 
@@ -376,6 +379,9 @@ func analyzeIdentifierByRole(
 		r, ok := buildGlobalConstantNode(name, sym, kg)
 		return flowNodeResult{node: r}, ok
 	default:
+		if isVarChannel(sym) {
+			shell.varChannels.Add(channelKey(sym))
+		}
 		if isSink {
 			r, ok := buildChannelWriteNode(name, sym, kg)
 			return flowNodeResult{node: r}, ok
@@ -445,15 +451,44 @@ func isRootLevelScope(sym *symbol.Symbol) bool {
 	return sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindStage
 }
 
+// channelKey returns the channel key sym refers to: its SourceID when sym is an
+// alias bound to another channel (cpu := some_channel), otherwise its own ID.
+func channelKey(sym *symbol.Symbol) uint32 {
+	if sym.SourceID != nil {
+		return uint32(*sym.SourceID)
+	}
+	return uint32(sym.ID)
+}
+
+// isVarChannel reports whether sym is a value variable backed by an internal channel.
+func isVarChannel(sym *symbol.Symbol) bool {
+	if sym.Kind != symbol.KindVariable && sym.Kind != symbol.KindStatefulVariable {
+		return false
+	}
+	return sym.Type.Kind != types.KindChan && sym.SourceID == nil
+}
+
+// chanAndValueTypes returns the channel-param and value types for sym, wrapping a value variable's bare type into a channel.
+func chanAndValueTypes(sym *symbol.Symbol, write bool) (chanType, valType types.Type) {
+	if sym.Type.Kind == types.KindChan {
+		return sym.Type, sym.Type.Unwrap()
+	}
+	if write {
+		return types.WriteChan(sym.Type), sym.Type
+	}
+	return types.ReadChan(sym.Type), sym.Type
+}
+
 func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
 	nodeKey := kg.generate("on", name)
-	chKey := uint32(sym.ID)
+	chKey := channelKey(sym)
+	chanType, valType := chanAndValueTypes(sym, false)
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "on",
 		Channels: types.NewChannels(),
-		Inputs:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type.Unwrap()}},
+		Inputs:   types.Params{{Name: "channel", Type: chanType, Value: chKey}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: valType}},
 	}
 	n.Channels.Read[chKey] = sym.Name
 	return newNodeResult(n, "", ir.DefaultOutputParam), true
@@ -461,14 +496,15 @@ func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (no
 
 func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
 	nodeKey := kg.generate("write", name)
-	chKey := uint32(sym.ID)
+	chKey := channelKey(sym)
+	chanType, valType := chanAndValueTypes(sym, true)
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "write",
 		Channels: types.NewChannels(),
 		Inputs: types.Params{
-			{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()},
-			{Name: "channel", Type: sym.Type, Value: chKey},
+			{Name: ir.DefaultInputParam, Type: valType},
+			{Name: "channel", Type: chanType, Value: chKey},
 		},
 		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 	}
@@ -789,6 +825,9 @@ func Analyze(
 	// still registers in the program's global node and edge lists.
 	i.Nodes = append(i.Nodes, shell.inlineNodes...)
 	i.Edges = append(i.Edges, shell.inlineEdges...)
+
+	i.VarChannels = shell.varChannels.Slice()
+	slices.Sort(i.VarChannels)
 
 	if len(rootMembers) > 0 {
 		i.Root.Strata = []ir.Members{rootMembers}
@@ -1341,6 +1380,11 @@ type stepInfo struct {
 func collectStepKeys(items []parser.ISequenceItemContext) []stepInfo {
 	steps := make([]stepInfo, 0, len(items))
 	for i, item := range items {
+		// Variable declarations and assignments are not sequential steps, so
+		// they must not break the auto-wired transition chain between steps.
+		if item.VariableDeclaration() != nil || item.Assignment() != nil {
+			continue
+		}
 		key := fmt.Sprintf("step_%d", i)
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
 			if id := stageDecl.IDENTIFIER(); id != nil {
