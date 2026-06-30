@@ -110,7 +110,7 @@ std::string output_key(::arc::runtime::state::State &s) {
     return std::get<std::string>((*check.output(0)).at(0));
 }
 
-} // namespace
+}
 
 TEST(RangesModuleTest, HandlesCreateAndEnd) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -171,11 +171,11 @@ TEST(RangesModuleTest, ReturnsNotFoundForUnknownType) {
     auto st = ASSERT_NIL_P(s.node("ranges"));
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     Module module(client, noopReporter());
-    auto [created, err] = module.create(
-        ::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st))
+    const auto created = ASSERT_OCCURRED_AS_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st))),
+        x::errors::NOT_FOUND
     );
     EXPECT_EQ(created, nullptr);
-    EXPECT_EQ(err, x::errors::NOT_FOUND);
 }
 
 TEST(CreateRangeTest, NextCreatesOpenRange) {
@@ -198,8 +198,7 @@ TEST(CreateRangeTest, NextCreatesOpenRange) {
 
     const auto key = output_key(s);
     const auto uid = ASSERT_NIL_P(x::uuid::UUID::parse(key));
-    auto [r, err] = client->ranges.retrieve_by_key(uid);
-    ASSERT_NIL(err);
+    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(uid));
     EXPECT_EQ(r.name, name);
     EXPECT_EQ(r.time_range.end, x::telem::TIME_STAMP_MAX);
 }
@@ -222,10 +221,9 @@ TEST(CreateRangeTest, NextParsesColor) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
-    auto [r, err] = client->ranges.retrieve_by_key(
+    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(
         ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s)))
-    );
-    ASSERT_NIL(err);
+    ));
     ASSERT_TRUE(r.color.has_value());
     EXPECT_EQ(r.color->r, 0xdf);
     EXPECT_EQ(r.color->g, 0x6d);
@@ -255,10 +253,9 @@ TEST(CreateRangeTest, NextWarnsOnInvalidColorButStillCreates) {
     EXPECT_EQ(calls[0].first, synnax::status::VARIANT_WARNING);
     EXPECT_NE(calls[0].second.find("ranges.create: invalid color"), std::string::npos);
 
-    auto [r, err] = client->ranges.retrieve_by_key(
+    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(
         ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s)))
-    );
-    ASSERT_NIL(err);
+    ));
     EXPECT_EQ(r.name, name);
 }
 
@@ -313,8 +310,7 @@ TEST(EndRangeTest, NextSetsEndToNow) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
-    auto [updated, err] = client->ranges.retrieve_by_key(r.key);
-    ASSERT_NIL(err);
+    const auto updated = ASSERT_NIL_P(client->ranges.retrieve_by_key(r.key));
     EXPECT_GE(updated.time_range.end.nanoseconds(), before.nanoseconds());
     EXPECT_LE(
         updated.time_range.end.nanoseconds(),

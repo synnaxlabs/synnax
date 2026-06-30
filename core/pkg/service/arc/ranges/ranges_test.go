@@ -216,7 +216,7 @@ var _ = Describe("Module", func() {
 
 		It("Should wire host functions when a wazero runtime is provided", func(ctx SpecContext) {
 			rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
-			defer func() { Expect(rt.Close(ctx)).To(Succeed()) }()
+			DeferCleanup(rt.Close)
 			wired := MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
 				Ranger:   rangeSvc,
 				Strings:  stlstrings.NewProgramState(),
@@ -228,7 +228,7 @@ var _ = Describe("Module", func() {
 
 		It("Should error when the runtime can't re-instantiate the host module", func(ctx SpecContext) {
 			rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
-			defer func() { Expect(rt.Close(ctx)).To(Succeed()) }()
+			DeferCleanup(rt.Close)
 			MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
 				Ranger:   rangeSvc,
 				Strings:  stlstrings.NewProgramState(),

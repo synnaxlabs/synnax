@@ -94,11 +94,11 @@ var _ = Describe("Task", Ordered, func() {
 			Search:   node.Search,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
 			Label:    labelSvc,
-			Search:   dist.Search,
+			Search:   node.Search,
 		}))
 	})
 
@@ -412,8 +412,8 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("FactoryConfig", func() {
 		full := func() arctask.FactoryConfig {
 			return arctask.FactoryConfig{
-				Channel:    channel.Wrap(dist.Channel),
-				Framer:     dist.Framer,
+				Channel:    channel.Wrap(node.Channel),
+				Framer:     node.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
 				Ranger:     rangerSvc,
