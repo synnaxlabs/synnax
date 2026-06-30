@@ -10,8 +10,8 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
-import { useConfigureModal } from "@/hardware/ni/device/Configure";
 import { MAKE } from "@/hardware/ni/device/types";
+import { useConfigureModal } from "@/hardware/ni/device/useConfigureModal";
 
 export interface SelectProps extends Omit<
   Common.Device.SelectProps,

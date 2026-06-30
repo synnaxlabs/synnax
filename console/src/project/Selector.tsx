@@ -29,9 +29,9 @@ import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { useCreateModal } from "@/project/Create";
 import { useSelectActive } from "@/project/selectors";
 import { setActive } from "@/project/slice";
+import { useCreateModal } from "@/project/useCreateModal";
 
 const listItem = Component.renderProp(
   (props: List.ItemProps<project.Key>): ReactElement | null => {

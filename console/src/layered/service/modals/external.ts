@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/layered/service/modals/Body";
-export * from "@/layered/service/modals/Confirm";
 export * from "@/layered/service/modals/factory";
 export * from "@/layered/service/modals/Footer";
 export * from "@/layered/service/modals/Frame";
 export * from "@/layered/service/modals/Header";
-export * from "@/layered/service/modals/Rename";
 export * from "@/layered/service/modals/Stack";
+export * from "@/layered/service/modals/useConfirm";
+export * from "@/layered/service/modals/useRename";
 export {
   type Content,
   type ContentProps,

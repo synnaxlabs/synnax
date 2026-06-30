@@ -26,10 +26,10 @@ import {
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { EmptyAction } from "@/components";
-import { useCreateModal } from "@/range/Create";
 import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/range/list/Item";
 import { Filters, SelectFilters } from "@/range/list/SelectFilters";
+import { useCreateModal } from "@/range/useCreateModal";
 
 export interface ListProps
   extends

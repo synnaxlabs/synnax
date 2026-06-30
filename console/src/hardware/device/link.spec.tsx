@@ -8,11 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client";
+import { Dialog } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/hardware/device";
 import { NI } from "@/hardware/ni";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { renderLinkHook } from "@/testUtils";
 
 const client = createTestClient();
@@ -31,12 +34,21 @@ const createDevice = async (make: string, name: string) => {
 };
 
 describe("Device.useLink", () => {
-  it("should open the configure modal for a device with a known make", async () => {
+  it("should open the configure modal for the linked device", async () => {
     const device = await createDevice(NI.Device.MAKE, "cDAQ Chassis");
     const { handler, modals } = renderLinkHook(Device.useLink);
     expect(modals.isAnyOpen()).toBe(false);
     await handler({ client, key: device.key });
-    expect(modals.getState()).toHaveLength(1);
+    const [entry] = modals.getState();
+    expect(entry).toBeDefined();
+    const Wrapper = await createAsyncSynnaxWrapper({ client });
+    render(
+      <Dialog.Frame variant="modal" visible>
+        {entry.render()}
+      </Dialog.Frame>,
+      { wrapper: Wrapper },
+    );
+    expect(await screen.findByText("cDAQ Chassis")).toBeTruthy();
   });
 
   it("should open nothing for a device with an unrecognized make", async () => {

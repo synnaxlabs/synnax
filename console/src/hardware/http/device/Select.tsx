@@ -12,8 +12,8 @@ import { useCallback } from "react";
 
 import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
-import { useConnectModal } from "@/hardware/http/device/Connect";
 import { MAKE } from "@/hardware/http/device/types";
+import { useConnectModal } from "@/hardware/http/device/useConnectModal";
 
 const EmptyContent = () => {
   const connect = useConnectModal();

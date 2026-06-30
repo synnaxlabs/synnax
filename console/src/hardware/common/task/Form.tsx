@@ -22,7 +22,7 @@ import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
 import { useStatus } from "@/hardware/common/task/useStatus";
 import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
-import { useConfirm } from "@/layered/service/modals/Confirm";
+import { useConfirm } from "@/layered/service/modals/useConfirm";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 

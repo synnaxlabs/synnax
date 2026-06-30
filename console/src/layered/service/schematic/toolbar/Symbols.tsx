@@ -33,7 +33,7 @@ import { ContextMenu, EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Modals } from "@/layered/service/modals";
-import { useSymbolModal } from "@/layered/service/schematic/symbols/edit/Edit";
+import { useSymbolModal } from "@/layered/service/schematic/symbols/edit/useSymbolModal";
 import {
   useExport as useExportSymbol,
   useExportGroup,

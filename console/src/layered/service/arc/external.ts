@@ -18,7 +18,6 @@ import { Selectable } from "@/layered/service/arc/Selectable";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 
-export * from "@/layered/service/arc/CreateModal";
 export * from "@/layered/service/arc/editor";
 export * from "@/layered/service/arc/Explorer";
 export * from "@/layered/service/arc/imex";
@@ -28,6 +27,7 @@ export * from "@/layered/service/arc/ontology";
 export * from "@/layered/service/arc/palette";
 export * from "@/layered/service/arc/toolbar/Toolbar";
 export * from "@/layered/service/arc/useCreate";
+export * from "@/layered/service/arc/useCreateModal";
 
 export const EDITOR_LAYOUT_TYPE = LAYOUT_TYPE;
 export type EditorLayoutType = typeof EDITOR_LAYOUT_TYPE;

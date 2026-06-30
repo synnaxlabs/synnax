@@ -30,11 +30,11 @@ import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
-import { useCreateModal } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 import { contextMenu } from "@/status/list/ContextMenu";
 import { useSelectFavorites } from "@/status/selectors";
 import { removeFavorites } from "@/status/slice";
+import { useCreateModal } from "@/status/useCreateModal";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();

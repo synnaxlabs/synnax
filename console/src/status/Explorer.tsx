@@ -14,10 +14,10 @@ import { useCallback } from "react";
 
 import { Label } from "@/label";
 import { type Layout } from "@/layout";
-import { useCreateModal } from "@/status/Create";
 import { Filter } from "@/status/filter";
 import { contextMenu } from "@/status/list/ContextMenu";
 import { Item } from "@/status/list/Item";
+import { useCreateModal } from "@/status/useCreateModal";
 import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";

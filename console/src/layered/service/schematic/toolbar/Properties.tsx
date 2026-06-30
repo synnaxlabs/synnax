@@ -45,7 +45,7 @@ import {
 import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
-import { useSymbolModal } from "@/layered/service/schematic/symbols/edit/Edit";
+import { useSymbolModal } from "@/layered/service/schematic/symbols/edit/useSymbolModal";
 import { MissingSymbolForm } from "@/layered/service/schematic/toolbar/MissingSymbolForm";
 import { Session } from "@/layered/session";
 import { type RootState } from "@/store";

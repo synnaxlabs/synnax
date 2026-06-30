@@ -34,10 +34,10 @@ import { CSS } from "@/css";
 import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
-import { useCreateModal } from "@/range/Create";
 import { EXPLORER_LAYOUT } from "@/range/Explorer";
 import { select, useSelect, useSelectStaticKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
+import { useCreateModal } from "@/range/useCreateModal";
 import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {

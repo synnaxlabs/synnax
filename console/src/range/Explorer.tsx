@@ -16,9 +16,9 @@ import { useCallback } from "react";
 
 import { Label } from "@/label";
 import { type Layout } from "@/layout";
-import { useCreateModal } from "@/range/Create";
 import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item } from "@/range/list/Item";
+import { useCreateModal } from "@/range/useCreateModal";
 import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "range_explorer";

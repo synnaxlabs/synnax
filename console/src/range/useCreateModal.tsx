@@ -34,7 +34,7 @@ import { Triggers } from "@/triggers";
 
 export type CreateModalParams = Partial<z.infer<typeof Ranger.formSchema>>;
 
-export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
+const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,
 });
 

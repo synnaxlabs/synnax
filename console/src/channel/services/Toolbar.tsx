@@ -11,8 +11,8 @@ import { channel, group } from "@synnaxlabs/client";
 import { Access, Channel, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useCalculatedModal } from "@/channel/Calculated";
-import { useCreateModal } from "@/channel/Create";
+import { useCalculatedModal } from "@/channel/useCalculatedModal";
+import { useCreateModal } from "@/channel/useCreateModal";
 import { EmptyAction, Toolbar } from "@/components";
 import { type Service } from "@/layered/service";
 import { Ontology } from "@/ontology";

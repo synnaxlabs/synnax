@@ -11,8 +11,8 @@ import { Dialog, Icon } from "@synnaxlabs/pluto";
 
 import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
-import { useConnectModal } from "@/hardware/opc/device/Connect";
 import { MAKE } from "@/hardware/opc/device/types";
+import { useConnectModal } from "@/hardware/opc/device/useConnectModal";
 
 const EmptyContent = () => {
   const connect = useConnectModal();

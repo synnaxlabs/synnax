@@ -9,48 +9,27 @@
 
 import { channel } from "@synnaxlabs/client";
 import { Access, Channel as PChannel } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
-import { useCalculatedModal } from "@/channel/Calculated";
-import { useCreateModal } from "@/channel/Create";
+import { useCalculatedModal } from "@/channel/useCalculatedModal";
+import { useCreateModal } from "@/channel/useCreateModal";
 import { Palette } from "@/palette";
 
 const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
 
-const CREATE_COMMAND_NAME = "Create a channel";
+const CreateCommand = Palette.createCommand({
+  key: "create_channel",
+  name: "Create a channel",
+  icon: <PChannel.CreateIcon />,
+  useOnSelect: useCreateModal,
+  useVisible,
+});
 
-const CreateCommand: Palette.Command = (listProps) => {
-  const open = useCreateModal();
-  const handleSelect = useCallback(() => open(), [open]);
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name={CREATE_COMMAND_NAME}
-      icon={<PChannel.CreateIcon />}
-      onSelect={handleSelect}
-    />
-  );
-};
-CreateCommand.key = "create_channel";
-CreateCommand.commandName = CREATE_COMMAND_NAME;
-CreateCommand.useVisible = useVisible;
-
-const CREATE_CALCULATED_COMMAND_NAME = "Create a calculated channel";
-
-const CreateCalculatedCommand: Palette.Command = (listProps) => {
-  const open = useCalculatedModal();
-  const handleSelect = useCallback(() => open(), [open]);
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name={CREATE_CALCULATED_COMMAND_NAME}
-      icon={<PChannel.CreateCalculatedIcon />}
-      onSelect={handleSelect}
-    />
-  );
-};
-CreateCalculatedCommand.key = "create_calculated_channel";
-CreateCalculatedCommand.commandName = CREATE_CALCULATED_COMMAND_NAME;
-CreateCalculatedCommand.useVisible = useVisible;
+const CreateCalculatedCommand = Palette.createCommand({
+  key: "create_calculated_channel",
+  name: "Create a calculated channel",
+  icon: <PChannel.CreateCalculatedIcon />,
+  useOnSelect: useCalculatedModal,
+  useVisible,
+});
 
 export const COMMANDS = [CreateCommand, CreateCalculatedCommand];

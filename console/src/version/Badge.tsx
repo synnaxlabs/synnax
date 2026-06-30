@@ -13,9 +13,9 @@ import { Button } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Runtime } from "@/runtime";
-import { useInfoModal } from "@/version/Info";
 import { useCheckForUpdates } from "@/version/Updater";
 import { use } from "@/version/use";
+import { useInfoModal } from "@/version/useInfoModal";
 
 export const Badge = (): ReactElement => {
   const version = use();

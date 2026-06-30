@@ -14,7 +14,7 @@ import { type ReactElement } from "react";
 import { EmptyAction, Toolbar } from "@/components";
 import { type Service } from "@/layered/service";
 import { Ontology } from "@/ontology";
-import { useCreateModal } from "@/project/Create";
+import { useCreateModal } from "@/project/useCreateModal";
 
 const Actions = (): ReactElement | null => {
   const openCreate = useCreateModal();
