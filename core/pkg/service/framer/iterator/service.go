@@ -16,7 +16,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
@@ -57,36 +56,32 @@ type Config struct {
 }
 
 func (c Config) distribution() framer.IteratorConfig {
-	return iterator.Config{Keys: c.Keys, Bounds: c.Bounds, ChunkSize: c.ChunkSize}
+	return framer.IteratorConfig{Keys: c.Keys, Bounds: c.Bounds, ChunkSize: c.ChunkSize}
 }
 
 // ServiceConfig is the configuration for opening the service layer frame Service.
 type ServiceConfig struct {
-	// DistFramer is the distribution layer frame service to extend.
+	// Framer is the distribution layer frame service to extend.
+	//
 	// [REQUIRED]
-	DistFramer *framer.Service
+	Framer *framer.Service
 	// Channel is used to retrieve information about channels and to resolve channel
 	// symbols for Arc expression compilation.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
 	// Instrumentation is for logging, tracing, and metrics.
+	//
 	// [OPTIONAL] - defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a Service. This
-	// configuration is not valid on its own and must be overridden with the required
-	// fields specified in ServiceConfig.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.DistFramer = override.Nil(cfg.DistFramer, other.DistFramer)
+	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	return cfg
 }
@@ -94,7 +89,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
-	validate.NotNil(v, "framer", cfg.DistFramer)
+	validate.NotNil(v, "framer", cfg.Framer)
 	validate.NotNil(v, "channel", cfg.Channel)
 	return v.Error()
 }
@@ -107,7 +102,7 @@ type Service struct{ cfg ServiceConfig }
 // configuration overrides the one in the previous configuration. If the configuration
 // is invalid, NewService returns a nil service and a non-nil error.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +115,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err != nil {
 		return nil, err
 	}
-	dist, err := s.cfg.DistFramer.NewStreamIterator(ctx, cfg.distribution())
+	dist, err := s.cfg.Framer.NewStreamIterator(ctx, cfg.distribution())
 	if err != nil {
 		return nil, err
 	}

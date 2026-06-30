@@ -228,10 +228,7 @@ func (s *Service) openOrGetCalculator(
 	return calc, err
 }
 
-func groupEquals(
-	mods []compiler.Module,
-	g *group,
-) bool {
+func groupEquals(mods []compiler.Module, g *group) bool {
 	if g == nil {
 		return false
 	}
@@ -246,7 +243,11 @@ func groupEquals(
 	return true
 }
 
-func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Module) error {
+func (s *Service) updateGroup(
+	ctx context.Context,
+	key int,
+	mods []compiler.Module,
+) error {
 	g := s.mu.groups[key]
 	if groupEquals(mods, g) {
 		return nil

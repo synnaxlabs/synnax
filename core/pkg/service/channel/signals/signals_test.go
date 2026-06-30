@@ -16,8 +16,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -38,7 +38,7 @@ func openStreamer(ctx context.Context, name string) (
 		Entry(&sigCh).
 		Exec(ctx, nil),
 	).To(Succeed())
-	streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+	streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 		Keys: channel.Keys{sigCh.Key()},
 	}))
 	requests, responses := confluence.Attach(streamer, 2)

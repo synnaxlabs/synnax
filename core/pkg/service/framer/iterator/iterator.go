@@ -51,7 +51,7 @@ type Iterator struct {
 	shutdown    context.CancelFunc
 	wg          signal.WaitGroup
 	value       []Response
-	valueFrames []frame.Frame
+	valueFrames []framer.Frame
 }
 
 // Next reads all channel data occupying the next span of time. Returns true
@@ -123,9 +123,9 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
 	return i.exec(Request{Command: CommandSetBounds, Bounds: bounds})
 }
 
-func (i *Iterator) Value() frame.Frame {
+func (i *Iterator) Value() framer.Frame {
 	if cap(i.valueFrames) < len(i.value) {
-		i.valueFrames = make([]frame.Frame, len(i.value))
+		i.valueFrames = make([]framer.Frame, len(i.value))
 	} else {
 		i.valueFrames = i.valueFrames[:len(i.value)]
 	}

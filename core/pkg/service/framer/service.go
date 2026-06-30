@@ -229,7 +229,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.streamer, err = streamer.NewService(streamer.ServiceConfig{
 		Instrumentation: cfg.Child("streamer"),
-		DistFramer:      cfg.Framer,
+		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
 		Calculation:     calcSvc,
 	}); !ok(err, nil) {
@@ -237,7 +237,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.iterator, err = iterator.NewService(iterator.ServiceConfig{
 		Instrumentation: cfg.Child("iterator"),
-		DistFramer:      cfg.Framer,
+		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
 	}); !ok(err, nil) {
 		return nil, err

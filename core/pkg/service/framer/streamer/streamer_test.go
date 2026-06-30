@@ -74,7 +74,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Status:  statusSvc,
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
-			DistFramer:  dist.Framer,
+			Framer:      dist.Framer,
 			Channel:     channelSvc,
 			Calculation: calc,
 		}))
