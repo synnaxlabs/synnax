@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -247,11 +248,16 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 // the service DB).
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc:      s,
-		tx:       s.db.OverrideTx(tx),
-		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx)),
+		svc: s,
+		tx:  s.db.OverrideTx(tx),
+		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
+			AllowDashedNames: !s.ShouldValidateNames(),
+		}),
 	}
 }
+
+// ShouldValidateNames reports whether channel-name validation is enabled.
+func (s *Service) ShouldValidateNames() bool { return *s.cfg.ValidateNames }
 
 // The methods below are convenience shortcuts that run a single operation through a
 // fresh, transaction-less Writer. Callers that need to batch writes into a transaction

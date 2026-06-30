@@ -10,11 +10,65 @@
 package parser_test
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/parser"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Dashed identifier lexing", func() {
+	tokens := func(src string, cfg parser.Config) []string {
+		lexer := parser.NewLexer(src, cfg)
+		lexer.RemoveErrorListeners()
+		var out []string
+		for _, t := range lexer.GetAllTokens() {
+			if t.GetChannel() == antlr.TokenDefaultChannel {
+				out = append(out, t.GetText())
+			}
+		}
+		return out
+	}
+
+	Context("enabled", func() {
+		DescribeTable("'-' joins identifiers, but not '->'/'-=' or non-identifiers",
+			func(src string, want []string) {
+				Expect(tokens(src, parser.Config{AllowDashedNames: true})).To(Equal(want))
+			},
+			Entry("internal dash", "a-b", []string{"a-b"}),
+			Entry("multiple dashes and digits", "sensor-1-raw", []string{"sensor-1-raw"}),
+			Entry("dash before digit", "a-1", []string{"a-1"}),
+			Entry("trailing dash", "log-", []string{"log-"}),
+			Entry("trailing dash before space", "a- b", []string{"a-", "b"}),
+			Entry("leading dash is MINUS", "-a", []string{"-", "a"}),
+			Entry("arrow stays intact", "a->b", []string{"a", "->", "b"}),
+			Entry("chained arrows", "a->b->c", []string{"a", "->", "b", "->", "c"}),
+			Entry("minus-assign stays intact", "a-=b", []string{"a", "-=", "b"}),
+			Entry("space before dash is MINUS", "a -b", []string{"a", "-", "b"}),
+			Entry("spaced subtraction", "a - b", []string{"a", "-", "b"}),
+			Entry("spaced arrow", "a -> b", []string{"a", "->", "b"}),
+			Entry("digits do not start a dashed name", "1-2", []string{"1", "-", "2"}),
+			Entry("dashed name then spaced subtraction", "a-b - c", []string{"a-b", "-", "c"}),
+			Entry("subtraction between dashed names", "a-b - c-d", []string{"a-b", "-", "c-d"}),
+			Entry("dashed name then arrow", "a-b->c", []string{"a-b", "->", "c"}),
+			Entry("dashed name then minus-assign", "a-b-=c", []string{"a-b", "-=", "c"}),
+			Entry("leading dash then dashed name", "-a-b", []string{"-", "a-b"}),
+			Entry("trailing dash then arrow", "a- ->b", []string{"a-", "->", "b"}),
+		)
+	})
+
+	Context("disabled", func() {
+		DescribeTable("'-' is always an operator",
+			func(src string, want []string) {
+				Expect(tokens(src, parser.Config{})).To(Equal(want))
+			},
+			Entry("dashed name splits", "a-b", []string{"a", "-", "b"}),
+			Entry("named channel splits", "sensor-1", []string{"sensor", "-", "1"}),
+			Entry("arrow unaffected", "a->b", []string{"a", "->", "b"}),
+			Entry("minus-assign unaffected", "a-=b", []string{"a", "-=", "b"}),
+		)
+	})
+})
 
 var _ = Describe("Parser", func() {
 	Describe("Expressions", func() {

@@ -12,6 +12,7 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -65,6 +66,16 @@ var _ = Describe("Analyze", func() {
 			ch := channel.Channel{Name: "calc", Expression: "return a + b"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Float64T))
+		})
+
+		It("resolves a channel name containing dashes when enabled", func(ctx SpecContext) {
+			r := StaticResolver{
+				{Name: "ox-pt-1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			a := channel.NewCalculationAnalyzer(r, parser.Config{AllowDashedNames: true})
+			ch := channel.Channel{Name: "calc", Expression: "return ox-pt-1 * 2.0"}
+			res := MustSucceed(a.Analyze(ctx, ch))
+			Expect(res.ChanDataType).To(Equal(telem.Float32T))
 		})
 	})
 

@@ -38,15 +38,21 @@ type resolver struct {
 // CalculationAnalyzer parses and type-checks calculated channel expressions. It caches
 // previously analyzed channels so that later expressions can reference them by name
 // without hitting the backing symbol resolver.
-type CalculationAnalyzer struct{ resolver *resolver }
+type CalculationAnalyzer struct {
+	resolver *resolver
+	cfg      parser.Config
+}
 
 // NewCalculationAnalyzer returns an Analyzer that falls back to symbolResolver for
 // symbols not yet in the internal cache.
-func NewCalculationAnalyzer(symbolResolver arc.SymbolResolver) *CalculationAnalyzer {
+func NewCalculationAnalyzer(
+	symbolResolver arc.SymbolResolver,
+	cfgs ...parser.Config,
+) *CalculationAnalyzer {
 	r := &resolver{SymbolResolver: symbolResolver}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
-	return &CalculationAnalyzer{resolver: r}
+	return &CalculationAnalyzer{resolver: r, cfg: parser.ConfigOf(cfgs...)}
 }
 
 func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
@@ -90,11 +96,11 @@ func (a *CalculationAnalyzer) Analyze(
 	ch Channel,
 ) (CalculationAnalysisResult, error) {
 	a.resolver.unresolved = make(set.Set[string])
-	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression))
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression), a.cfg)
 	if err != nil {
 		return CalculationAnalysisResult{}, err
 	}
-	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver))
+	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver)).WithConfig(a.cfg)
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
 		return CalculationAnalysisResult{
