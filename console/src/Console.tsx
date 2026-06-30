@@ -20,6 +20,7 @@ import {
   preventDefault,
   type state,
   type Triggers,
+  useInitializerRef,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -38,6 +39,7 @@ import { LinePlot } from "@/layered/service/lineplot";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
+import { Session } from "@/layered/session";
 import { store } from "@/layered/session/store";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
@@ -49,8 +51,6 @@ import { SERVICES } from "@/services";
 import { Status } from "@/status";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
-
-import { Session } from "./layered/session";
 
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Docs.LAYOUTS,
@@ -145,24 +145,27 @@ const MainUnderContext = (): ReactElement => {
   );
 };
 
-export const Console = (): ReactElement => (
-  <Errors.OverlayWithoutStore>
-    <Provider store={store}>
-      <Errors.OverlayWithStore>
-        <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-          <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-            <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
-              <Export.ExtractorsProvider extractors={EXTRACTORS}>
-                <Ontology.ServicesProvider services={SERVICES}>
-                  <Palette.CommandProvider commands={COMMANDS}>
-                    <MainUnderContext />
-                  </Palette.CommandProvider>
-                </Ontology.ServicesProvider>
-              </Export.ExtractorsProvider>
-            </Import.FileIngestersProvider>
-          </Layout.ContextMenuProvider>
-        </Layout.RendererProvider>
-      </Errors.OverlayWithStore>
-    </Provider>
-  </Errors.OverlayWithoutStore>
-);
+export const Console = (): ReactElement => {
+  const storeRef = useInitializerRef(() => Session.createStore());
+  return (
+    <Errors.OverlayWithoutStore>
+      <Provider store={storeRef.current}>
+        <Errors.OverlayWithStore>
+          <Layout.RendererProvider value={LAYOUT_RENDERERS}>
+            <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
+              <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
+                <Export.ExtractorsProvider extractors={EXTRACTORS}>
+                  <Ontology.ServicesProvider services={SERVICES}>
+                    <Palette.CommandProvider commands={COMMANDS}>
+                      <MainUnderContext />
+                    </Palette.CommandProvider>
+                  </Ontology.ServicesProvider>
+                </Export.ExtractorsProvider>
+              </Import.FileIngestersProvider>
+            </Layout.ContextMenuProvider>
+          </Layout.RendererProvider>
+        </Errors.OverlayWithStore>
+      </Provider>
+    </Errors.OverlayWithoutStore>
+  );
+};

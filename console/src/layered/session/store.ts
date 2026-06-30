@@ -145,7 +145,7 @@ const BASE_MIDDLEWARE = [
   ...LinePlot.MIDDLEWARE,
 ];
 
-const createStore = async (): Promise<RootStore> => {
+export const createStore = async (): Promise<RootStore> => {
   const { initialState, persistMiddleware } = await openPersist();
   return await Drift.configureStore<RootState, RootAction>({
     runtime: new Runtime.Drift(),
@@ -157,4 +157,3 @@ const createStore = async (): Promise<RootStore> => {
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };
-export const store = createStore();
