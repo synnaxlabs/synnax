@@ -14,7 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -389,4 +391,19 @@ var _ = Describe("Channel Tests", func() {
 			),
 		)
 	})
+})
+
+var _ = Describe("ShouldValidateNames", func() {
+	DescribeTable("reports whether channel-name validation is enabled",
+		func(ctx SpecContext, validateNames *bool, expected bool) {
+			c := mock.ProvisionCluster(ctx, 1, distribution.LayerConfig{
+				ValidateChannelNames: validateNames,
+			})
+			DeferCleanup(func() { Expect(c.Close()).To(Succeed()) })
+			Expect(c.Nodes[1].Channel.ShouldValidateNames()).To(Equal(expected))
+		},
+		Entry("nil defaults to enabled", (*bool)(nil), true),
+		Entry("explicitly enabled", new(true), true),
+		Entry("explicitly disabled", new(false), false),
+	)
 })

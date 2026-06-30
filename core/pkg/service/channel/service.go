@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
@@ -127,7 +128,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
 	if s.cfg.Arc != nil {
 		w.tx = gorp.OverrideTx(s.cfg.DB, tx)
-		w.analyzer = analyzer.New(s.cfg.Arc.NewSymbolResolver(tx))
+		w.analyzer = analyzer.New(s.cfg.Arc.NewSymbolResolver(tx), parser.Config{
+			AllowDashedNames: !s.cfg.Distribution.ShouldValidateNames(),
+		})
 	}
 	return w
 }

@@ -41,15 +41,16 @@ type resolver struct {
 // name without hitting the backing symbol resolver.
 type Analyzer struct {
 	resolver *resolver
+	cfg      parser.Config
 }
 
 // New returns an Analyzer that falls back to symbolResolver for symbols not yet
 // in the internal cache.
-func New(symbolResolver arc.SymbolResolver) *Analyzer {
+func New(symbolResolver arc.SymbolResolver, cfgs ...parser.Config) *Analyzer {
 	r := &resolver{SymbolResolver: symbolResolver}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
-	return &Analyzer{resolver: r}
+	return &Analyzer{resolver: r, cfg: parser.ConfigOf(cfgs...)}
 }
 
 func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
@@ -90,11 +91,11 @@ type Result struct {
 // subsequent calls can reference it by name or key.
 func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, error) {
 	a.resolver.unresolved = make(set.Set[string])
-	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression))
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression), a.cfg)
 	if err != nil {
 		return Result{}, err
 	}
-	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver))
+	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver)).WithConfig(a.cfg)
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
 		return Result{Unresolved: a.resolver.unresolved.Slice()}, aCtx.Diagnostics

@@ -66,6 +66,11 @@ type Service struct {
 	keyRouter    proxy.BatchFactory[Key]
 }
 
+// ShouldValidateNames reports whether channel-name validation is on (default true).
+func (s *Service) ShouldValidateNames() bool {
+	return s.cfg.ValidateNames == nil || *s.cfg.ValidateNames
+}
+
 type IntOverflowChecker = func(types.Uint20) error
 
 type ServiceConfig struct {
