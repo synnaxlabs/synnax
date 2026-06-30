@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -30,19 +31,30 @@ import (
 
 var _ = Describe("Alias", Ordered, func() {
 	var (
-		node      mock.Node
-		rangerSvc *ranger.Service
-		aliasSvc  *alias.Service
-		labelSvc  *label.Service
-		tx        gorp.Tx
+		node       mock.Node
+		rangerSvc  *ranger.Service
+		aliasSvc   *alias.Service
+		channelSvc *channel.Service
+		tx         gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
 		node = mock.NewNode(ctx)
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: node.Ontology,
 			Group:    node.Group,
 			Search:   node.Search,
+		}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Label:    labelSvc,
+			Search:   node.Search,
+		}))
+		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			Status:  statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
@@ -54,24 +66,21 @@ var _ = Describe("Alias", Ordered, func() {
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              node.DB,
 			Ontology:        node.Ontology,
-			Channel:         channel.Wrap(node.Channel),
+			Channel:         channelSvc,
 			ParentRetriever: rangerSvc,
 			Search:          node.Search,
 		}))
 		Expect(node.Search.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func() {
-		tx = node.DB.OpenTx()
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
+		tx = DeferClose(node.DB.OpenTx())
 	})
 
 	channelCount := 0
 	createChannel := func(ctx context.Context) channel.Channel {
 		channelCount++
 		ch := channel.Channel{DataType: telem.Float32T, Name: fmt.Sprintf("test_%d", channelCount), Virtual: true}
-		Expect(node.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		return ch
 	}
 

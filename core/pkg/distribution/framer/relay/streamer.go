@@ -39,17 +39,17 @@ type StreamerConfig struct {
 	// SendOpenAck sets whether to send an acknowledgement when the streamer has
 	// successfully connected to the relay and is ready to start streaming data.
 	// [OPTIONAL] - defaults to false
-	SendOpenAck *bool `json:"send_open_ack" msgpack:"send_open_ack"`
+	SendOpenAck *bool
 	// Keys are the list of channels to read from. This slice may be empty, in
 	// which case no data will be streamed until a new configuration is provided
 	// as a request to the streamer.
 	// [OPTIONAL]
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys
 	// ExcludeGroups is a list of writer group IDs whose frames should be filtered
 	// out before delivery. This is used by the telemetry bypass to prevent
 	// duplicate delivery of frames that were already routed via the local bus.
 	// [OPTIONAL]
-	ExcludeGroups []uint32 `json:"exclude_groups" msgpack:"exclude_groups"`
+	ExcludeGroups []uint32
 }
 
 var (

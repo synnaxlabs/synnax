@@ -18,13 +18,11 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/address"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -47,7 +45,6 @@ const (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	channel  *channel.Service
 	internal *framer.Service
@@ -64,7 +61,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		internal:        cfg.Service.Framer,
 		channel:         cfg.Service.Channel,
 		access:          cfg.Service.RBAC,
-		db:              cfg.Distribution.DB,
 	}, nil
 }
 
@@ -111,9 +107,25 @@ func (s *Service) Delete(
 }
 
 type (
-	IteratorRequest  = framer.IteratorRequest
-	IteratorResponse = framer.IteratorResponse
-	IteratorStream   = freighter.ServerStream[IteratorRequest, IteratorResponse]
+	IteratorCommand         = framer.IteratorCommand
+	IteratorResponseVariant = framer.IteratorResponseVariant
+	IteratorRequest         = framer.IteratorRequest
+	IteratorResponse        = framer.IteratorResponse
+	IteratorStream          = freighter.ServerStream[IteratorRequest, IteratorResponse]
+)
+
+const (
+	IteratorResponseVariantAck  = framer.IteratorResponseVariantAck
+	IteratorResponseVariantData = framer.IteratorResponseVariantData
+	IteratorCommandNext         = framer.IteratorCommandNext
+	IteratorCommandPrev         = framer.IteratorCommandPrev
+	IteratorCommandSeekFirst    = framer.IteratorCommandSeekFirst
+	IteratorCommandSeekLast     = framer.IteratorCommandSeekLast
+	IteratorCommandSeekLE       = framer.IteratorCommandSeekLE
+	IteratorCommandSeekGE       = framer.IteratorCommandSeekGE
+	IteratorCommandValid        = framer.IteratorCommandValid
+	IteratorCommandError        = framer.IteratorCommandError
+	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
 )
 
 const (
@@ -127,17 +139,25 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 		return err
 	}
 
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Child("frame_iterator")))
-	// Cancellation here would occur for one of two reasons. Either we encounter
-	// a fatal error (transport or iterator internal) and we need to free all
-	// resources, OR the client executed the close command on the iterator (in
-	// which case resources have already been freed and cancel does nothing).
+	sCtx, cancel := signal.WithCancel(
+		ctx,
+		signal.WithInstrumentation(s.Child("frame_iterator")),
+	)
+	// Cancellation here would occur for one of two reasons. Either we encounter a fatal
+	// error (transport or iterator internal) and we need to free all resources, OR the
+	// client executed the close command on the iterator (in which case resources have
+	// already been freed and cancel does nothing).
 	defer cancel()
 
-	receiver := &freightfluence.Receiver[framer.IteratorRequest]{Receiver: stream}
-	sender := &freightfluence.TransformSender[framer.IteratorResponse, framer.IteratorResponse]{
-		Sender: freighter.SenderNopCloser[framer.IteratorResponse]{StreamSender: stream},
-		Transform: func(ctx context.Context, res framer.IteratorResponse) (framer.IteratorResponse, bool, error) {
+	receiver := &freightfluence.Receiver[IteratorRequest]{Receiver: stream}
+	sender := &freightfluence.TransformSender[IteratorResponse, IteratorResponse]{
+		Sender: freighter.SenderNopCloser[IteratorResponse]{
+			StreamSender: stream,
+		},
+		Transform: func(
+			ctx context.Context,
+			res IteratorResponse,
+		) (IteratorResponse, bool, error) {
 			res.Error = errors.Encode(ctx, res.Error, false)
 			return res, true, nil
 		},
@@ -146,24 +166,35 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 	plumber.SetSegment(pipe, frameIteratorAddr, iter)
 	plumber.SetSink(pipe, frameSenderAddr, sender)
 	plumber.SetSource(pipe, frameReceiverAddr, receiver)
-	plumber.MustConnect[framer.IteratorResponse](pipe, frameIteratorAddr, frameSenderAddr, iteratorResponseBufferSize)
-	plumber.MustConnect[framer.IteratorRequest](pipe, frameReceiverAddr, frameIteratorAddr, iteratorRequestBufferSize)
+	plumber.MustConnect[IteratorResponse](
+		pipe,
+		frameIteratorAddr,
+		frameSenderAddr,
+		iteratorResponseBufferSize,
+	)
+	plumber.MustConnect[IteratorRequest](
+		pipe,
+		frameReceiverAddr,
+		frameIteratorAddr,
+		iteratorRequestBufferSize,
+	)
 
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return sCtx.Wait()
 }
 
-func (s *Service) openIterator(ctx context.Context, srv IteratorStream) (framer.StreamIterator, error) {
-	req, err := srv.Receive()
+func (s *Service) openIterator(
+	ctx context.Context,
+	stream IteratorStream,
+) (framer.StreamIterator, error) {
+	req, err := stream.Receive()
 	if err != nil {
 		return nil, err
 	}
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: framer.OntologyIDs(req.Keys),
-		})
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
 	}
@@ -176,11 +207,16 @@ func (s *Service) openIterator(ctx context.Context, srv IteratorStream) (framer.
 	if err != nil {
 		return nil, err
 	}
-	return iter, srv.Send(framer.IteratorResponse{Variant: iterator.ResponseVariantAck, Ack: true})
+	if err := stream.Send(IteratorResponse{
+		Variant: framer.IteratorResponseVariantAck,
+		Ack:     true,
+	}); err != nil {
+		return nil, err
+	}
+	return iter, nil
 }
 
 type (
-	StreamerConfig   = framer.StreamerConfig
 	StreamerRequest  = framer.StreamerRequest
 	StreamerResponse = framer.StreamerResponse
 	StreamerStream   = freighter.ServerStream[StreamerRequest, StreamerResponse]
@@ -192,7 +228,9 @@ const (
 )
 
 func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Child("frame_streamer")))
+	sCtx, cancel := signal.WithCancel(
+		ctx, signal.WithInstrumentation(s.Child("frame_streamer")),
+	)
 	defer cancel()
 	streamer, err := s.openStreamer(sCtx, auth.GetSubject(ctx), stream)
 	if err != nil {
@@ -209,8 +247,12 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 	plumber.SetSegment(pipe, framerStreamerAddr, streamer)
 	plumber.SetSink(pipe, frameSenderAddr, sender)
 	plumber.SetSource(pipe, frameReceiverAddr, receiver)
-	plumber.MustConnect[StreamerRequest](pipe, frameReceiverAddr, framerStreamerAddr, streamingRequestBufferSize)
-	plumber.MustConnect[StreamerResponse](pipe, framerStreamerAddr, frameSenderAddr, streamingResponseBufferSize)
+	plumber.MustConnect[StreamerRequest](
+		pipe, frameReceiverAddr, framerStreamerAddr, streamingRequestBufferSize,
+	)
+	plumber.MustConnect[StreamerResponse](
+		pipe, framerStreamerAddr, frameSenderAddr, streamingResponseBufferSize,
+	)
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	return sCtx.Wait()
 }
@@ -219,66 +261,75 @@ func (s *Service) openStreamer(
 	ctx context.Context,
 	subject ontology.ID,
 	stream StreamerStream,
-) (streamer framer.Streamer, err error) {
+) (framer.Streamer, error) {
 	req, err := stream.Receive()
 	if err != nil {
 		return nil, err
 	}
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionRetrieve,
-			Objects: framer.OntologyIDs(req.Keys),
-		})
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionRetrieve,
+		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
 	}
-	reader, err := s.internal.NewStreamer(ctx, req)
+	streamer, err := s.internal.NewStreamer(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	return reader, stream.Send(framer.StreamerResponse{})
+	if err := stream.Send(StreamerResponse{}); err != nil {
+		return nil, err
+	}
+	return streamer, nil
 }
+
+type WriterCommand = framer.WriterCommand
+
+const (
+	WriterCommandOpen         = framer.WriterCommandOpen
+	WriterCommandWrite        = framer.WriterCommandWrite
+	WriterCommandCommit       = framer.WriterCommandCommit
+	WriterCommandSetAuthority = framer.WriterCommandSetAuthority
+)
+
+type WriterMode = framer.WriterMode
 
 type WriterConfig struct {
 	// ControlSubject is an identifier for the writer.
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
-	// Authorities is the authority to use when writing to the channels. We set this
-	// as an int and not control.Authorities because msgpack has a tough time decoding
-	// lists of uint8.
+	// Authorities is the authority to use when writing to the channels. We set this as
+	// a uint32 and not control.Authorities because MessagePack has a tough time
+	// decoding lists of uint8.
 	Authorities []uint32 `json:"authorities" msgpack:"authorities"`
-	// Keys is keys to write to. At least one key must be provided. All keys must
-	// have the same data rate OR the same index. All Frames written to the Writer must
-	// have an array specified for each key, and all series must be the same length (i.e.
+	// Keys is keys to write to. At least one key must be provided. All keys must have
+	// the same data rate OR the same index. All Frames written to the Writer must have
+	// an array specified for each key, and all series must be the same length (i.e.
 	// calls to Frame.Even must return true).
+	//
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Start marks the starting timestamp of the first sample in the first frame. If
-	// telemetry occupying the given timestamp already exists for the provided keys,
-	// the writer will fail to open.
+	// telemetry occupying the given timestamp already exists for the provided keys, the
+	// writer will fail to open.
+	//
 	// [REQUIRED]
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
-	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
-	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
-	// to AlwaysAutoPersist.
-	// [OPTIONAL] - Defaults to 1s.
+	// AutoIndexPersistInterval is the interval at which commits to the index will be
+	// persisted. To persist every commit to guarantee minimal loss of data, set
+	// AutoIndexPersistInterval to AlwaysAutoPersist.
 	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
-	// WriterModePersistStream. See the ts.WriterMode documentation for more.
-	// [OPTIONAL]
-	Mode writer.Mode `json:"mode" msgpack:"mode"`
+	// WriterModePersistStream.
+	Mode framer.WriterMode `json:"mode" msgpack:"mode"`
 	// ErrOnUnauthorized controls whether the writer will return an error when
-	// attempting to write to a channel that it does not have authority over.
-	// In non-control scenarios, this value should be set to true. In scenarios
-	// that require control handoff, this value should be set to false.
-	// [OPTIONAL] - Defaults to false.
+	// attempting to write to a channel that it does not have authority over. In
+	// non-control scenarios, this value should be set to true. In scenarios that
+	// require control handoff, this value should be set to false.
 	ErrOnUnauthorized bool `json:"err_on_unauthorized" msgpack:"err_on_unauthorized"`
 	// EnableAutoCommit determines whether the writer will automatically commit after
 	// each write. If EnableAutoCommit is true, then the writer will commit after each
 	// write, and will flush that commit to index on FS after the specified
 	// AutoIndexPersistInterval.
-	//
-	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
 	// AutoIndex causes the server to generate timestamps for any index channel in the
 	// writer's Keys that is not provided in a given Write frame. The first sample in
@@ -286,12 +337,10 @@ type WriterConfig struct {
 	// remaining N-1 samples are spaced 1ns apart. A per-writer high-water mark
 	// guarantees the generated timestamps are strictly monotonic across Write calls and
 	// across user-provided timestamps for other index channels in the writer.
-	//
-	// [OPTIONAL] - Defaults to false.
 	AutoIndex bool `json:"auto_index" msgpack:"auto_index"`
 }
 
-// WriterRequest represents a request to write CreateNet data for a set of channels.
+// WriterRequest represents a request to write telemetry data for a set of channels.
 type WriterRequest struct {
 	Config  WriterConfig  `json:"config" msgpack:"config"`
 	Frame   Frame         `json:"frame" msgpack:"frame"`
@@ -301,64 +350,67 @@ type WriterRequest struct {
 type WriterResponse struct {
 	Err        errors.Payload  `json:"err" msgpack:"err"`
 	End        telem.TimeStamp `json:"end" msgpack:"end"`
-	Command    writer.Command  `json:"command" msgpack:"command"`
+	Command    WriterCommand   `json:"command" msgpack:"command"`
 	Authorized bool            `json:"authorized" msgpack:"authorized"`
 }
 
-type (
-	WriterCommand = writer.Command
-	WriterStream  = freighter.ServerStream[WriterRequest, WriterResponse]
-)
+type WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]
 
 const (
 	writerResponseBufferSize = 2
 	writerRequestBufferSize  = 50
 )
 
-// Write exposes a high-level api for writing segmented telemetry to Synnax0
-// cluster. The client is expected to send an initial request containing the
-// keys of the channels to write to. The server will acquire an exclusive lock on
-// these channels. If the channels are already locked, Write will return with
-// an error. After sending the initial request, the client is free to send segments.
-// The server will route the segments to the appropriate nodes in the cluster,
-// persisting them to disk.
+// Write exposes a high-level API for writing segmented telemetry to a Synnax cluster.
+// The client is expected to send an initial request containing the keys of the channels
+// to write to. The server will acquire an exclusive lock on these channels. If the
+// channels are already locked, Write will return with an error. After sending the
+// initial request, the client is free to send segments. The server will route the
+// segments to the appropriate nodes in the cluster, persisting them to disk.
 //
-// If the client cancels the provided context, the server will immediately
-// abort all pending writes, release the locks, and return errors.Canceled.
+// If the client cancels the provided context, the server will immediately abort all
+// pending writes, release the locks, and return errors.Canceled.
 //
-// To ensure writes are durable, the client can issue a Close request
-// (i.e. calling freighter.ClientStream.close_send()) after sending all segments,
-// and then wait for the server to acknowledge the request with a Close response
-// of its own.
+// To ensure writes are durable, the client can issue a Close request (i.e. calling
+// freighter.ClientStream.CloseSend()) after sending all segments, and then wait for the
+// server to acknowledge the request with a Close response of its own.
 //
-// Concrete api implementations (GRPC, Websocket, etc.) are expected to
-// implement the WriterStream interface according to the protocol defined in
-// the freighter.StreamServer interface.
+// Concrete API implementations (gRPC, WebSocket, etc.) are expected to implement the
+// WriterStream interface according to the protocol defined in the
+// freighter.StreamServer interface.
 //
-// When Write returns an error that is not errors.Canceled, the api
-// implementation is expected to return a WriterResponse.CloseMsg with the error,
-// and then wait for a reasonable amount of time for the client to close the
-// connection before forcibly terminating the connection.
-func (s *Service) Write(_ctx context.Context, stream WriterStream) error {
-	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Child("frame_writer")))
-	// cancellation here would occur for one of two reasons. Either we encounter
-	// a fatal error (transport or writer internal) and we need to free all
-	// resources, OR the client executed the close command on the writer (in
-	// which case resources have already been freed and cancel does nothing).
+// When Write returns an error that is not errors.Canceled, the API implementation is
+// expected to return a WriterResponse.CloseMsg with the error, and then wait for a
+// reasonable amount of time for the client to close the connection before forcibly
+// terminating the connection.
+func (s *Service) Write(ctx context.Context, stream WriterStream) error {
+	sCtx, cancel := signal.WithCancel(
+		ctx, signal.WithInstrumentation(s.Child("frame_writer")),
+	)
+	// cancellation here would occur for one of two reasons. Either we encounter a fatal
+	// error (transport or writer internal) and we need to free all resources, OR the
+	// client executed the close command on the writer (in which case resources have
+	// already been freed and cancel does nothing).
 	defer cancel()
 
-	w, err := s.openWriter(ctx, auth.GetSubject(_ctx), stream)
+	w, err := s.openWriter(sCtx, auth.GetSubject(ctx), stream)
 	if err != nil {
 		return err
 	}
 
 	receiver := &freightfluence.TransformReceiver[framer.WriterRequest, WriterRequest]{
 		Receiver: stream,
-		Transform: func(_ context.Context, req WriterRequest) (framer.WriterRequest, bool, error) {
+		Transform: func(
+			_ context.Context,
+			req WriterRequest,
+		) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
-			if r.Command == writer.CommandSetAuthority {
-				// We decode like this because msgpack has a tough time decoding slices of uint8.
-				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
+			if r.Command == framer.WriterCommandSetAuthority {
+				// We decode like this because msgpack has a tough time decoding slices
+				// of uint8.
+				r.Config.Authorities = make(
+					[]control.Authority, len(req.Config.Authorities),
+				)
 				for i, a := range req.Config.Authorities {
 					r.Config.Authorities[i] = control.Authority(a)
 				}
@@ -369,12 +421,16 @@ func (s *Service) Write(_ctx context.Context, stream WriterStream) error {
 	}
 	sender := &freightfluence.TransformSender[framer.WriterResponse, WriterResponse]{
 		Sender: freighter.SenderNopCloser[WriterResponse]{StreamSender: stream},
-		Transform: func(ctx context.Context, i framer.WriterResponse) (o WriterResponse, ok bool, err error) {
-			o.Command = i.Command
-			o.Authorized = i.Authorized
-			o.Err = errors.Encode(ctx, i.Err, false)
-			o.End = i.End
-			return o, true, nil
+		Transform: func(
+			ctx context.Context,
+			i framer.WriterResponse,
+		) (WriterResponse, bool, error) {
+			return WriterResponse{
+				Command:    i.Command,
+				Authorized: i.Authorized,
+				Err:        errors.Encode(ctx, i.Err, false),
+				End:        i.End,
+			}, true, nil
 		},
 	}
 
@@ -383,30 +439,32 @@ func (s *Service) Write(_ctx context.Context, stream WriterStream) error {
 	plumber.SetSegment(pipe, "writer", w)
 	plumber.SetSource(pipe, frameReceiverAddr, receiver)
 	plumber.SetSink(pipe, frameSenderAddr, sender)
-	plumber.MustConnect[framer.WriterRequest](pipe, frameReceiverAddr, frameWriterAddr, writerRequestBufferSize)
-	plumber.MustConnect[framer.WriterResponse](pipe, frameWriterAddr, frameSenderAddr, writerResponseBufferSize)
+	plumber.MustConnect[framer.WriterRequest](
+		pipe, frameReceiverAddr, frameWriterAddr, writerRequestBufferSize,
+	)
+	plumber.MustConnect[framer.WriterResponse](
+		pipe, frameWriterAddr, frameSenderAddr, writerResponseBufferSize,
+	)
 
-	pipe.Flow(ctx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
-	err = ctx.Wait()
+	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
+	err = sCtx.Wait()
 	return err
 }
 
 func (s *Service) openWriter(
 	ctx context.Context,
 	subject ontology.ID,
-	srv WriterStream,
+	stream WriterStream,
 ) (framer.StreamWriter, error) {
-	req, err := srv.Receive()
+	req, err := stream.Receive()
 	if err != nil {
 		return nil, err
 	}
 
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionCreate,
-			Objects: framer.OntologyIDs(req.Config.Keys),
-		})
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionCreate,
+		Objects: framer.OntologyIDs(req.Config.Keys),
 	}); err != nil {
 		return nil, err
 	}
@@ -416,7 +474,7 @@ func (s *Service) openWriter(
 		authorities[i] = control.Authority(a)
 	}
 
-	w, err := s.internal.NewStreamWriter(ctx, writer.Config{
+	w, err := s.internal.NewStreamWriter(ctx, framer.WriterConfig{
 		ControlSubject:           req.Config.ControlSubject,
 		Start:                    req.Config.Start,
 		Keys:                     req.Config.Keys,
@@ -428,12 +486,15 @@ func (s *Service) openWriter(
 		AutoIndex:                new(req.Config.AutoIndex),
 	})
 	if err != nil {
-		return w, err
+		return nil, err
 	}
 
 	// Let the client know the writer is ready to receive segments.
-	return w, srv.Send(WriterResponse{
-		Command: writer.CommandOpen,
+	if err := stream.Send(WriterResponse{
+		Command: framer.WriterCommandOpen,
 		Err:     errors.Encode(ctx, nil, false),
-	})
+	}); err != nil {
+		return nil, err
+	}
+	return w, nil
 }

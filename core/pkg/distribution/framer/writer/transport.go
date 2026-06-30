@@ -43,34 +43,34 @@ type Mode = ts.WriterMode
 type Request struct {
 	// Config sets the configuration to use when opening the writer. Only used
 	// internally when an open command is sent.
-	Config Config `json:"config" msgpack:"config"`
+	Config Config
 	// Frame is the telemetry frame. This field is only acknowledged during Write
 	// commands.
-	Frame frame.Frame `json:"frame" msgpack:"keys"`
+	Frame frame.Frame
 	// SeqNum is used to match the request with the response.
-	SeqNum int `json:"seq_num" msgpack:"seq_num"`
+	SeqNum int
 	// Command is the command to execute on the writer.
-	Command Command `json:"command" msgpack:"command"`
+	Command Command
 }
 
 // Response represents a response to a streaming call to a Writer.
 type Response struct {
 	// Err contains an error that occurred when attempting to execute a request on a
 	// writer.
-	Err error `json:"err" msgpack:"err"`
+	Err error
 	// SeqNum is the current sequence number of the command. This value will correspond
 	// to the Request.SeqNum that executed the command.
-	SeqNum int `json:"seq_num" msgpack:"seq_num"`
+	SeqNum int
 	// End is the end timestamp of the domain on commit. This value is only validate
 	// during calls to WriterCommit.
-	End telem.TimeStamp `json:"end" msgpack:"end"`
+	End telem.TimeStamp
 	// NodeKey is the NodeKey of the node that sent the response.
-	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
+	NodeKey node.Key
 	// Command is the command that was executed on the writer.
-	Command Command `json:"command" msgpack:"command"`
+	Command Command
 	// Authorized flags whether the writer or commit operation was authorized. It is
 	// only valid during calls to WriterWrite and WriterCommit.
-	Authorized bool `json:"authorized" msgpack:"authorized"`
+	Authorized bool
 }
 
 type (

@@ -15,11 +15,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -72,15 +72,22 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
-	channelSvc = channel.Wrap(node.Channel)
-	framerSvc = node.Framer
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		Status:  statusSvc,
+	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		Status:  statusSvc,
+	}))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       node.DB,
 		Ontology: node.Ontology,
 		Group:    node.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
-		Channel:  channel.Wrap(node.Channel),
+		Channel:  channelSvc,
 		Search:   searchIdx,
 	}))
 })

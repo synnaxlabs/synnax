@@ -57,7 +57,7 @@ type Config struct {
 	// AutoIndexPersistInterval.
 	//
 	// [OPTIONAL] - Defaults to true.
-	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
+	EnableAutoCommit *bool
 	// Sync is set to true if the writer should send acknowledgements for every write
 	// request, not just on failed requests.
 	//
@@ -69,15 +69,15 @@ type Config struct {
 	// considerable performance impact.
 	//
 	// [OPTIONAL] - Defaults to false.
-	Sync *bool `json:"sync" msgpack:"sync"`
+	Sync *bool
 	// ControlSubject is an identifier for the writer.
-	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
+	ControlSubject control.Subject
 	// Keys are the channel keys to write to. At least one key must be provided. All
 	// Frames written to the Writer must have a array specified for each key, and all
 	// series must be the same length (i.e. calls Frame.Even must return true).
 	//
 	// [REQUIRED]
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	Keys channel.Keys
 	// Authorities sets the control authority the writer has on each channel for the
 	// write. This should either be a single authority for all channels or a slice of
 	// authorities with the same length as the number of channels where each authority
@@ -85,24 +85,24 @@ type Config struct {
 	// all channels.
 	//
 	// [OPTIONAL]
-	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
+	Authorities []control.Authority
 	// Start marks the starting timestamp of the first sample in the first frame. If
 	// telemetry occupying the given timestamp already exists for the provided keys, the
 	// writer will fail to open.
 	//
 	// [OPTIONAL] - Defaults to 0, or telem.Now() if AutoIndex is true.
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	Start telem.TimeStamp
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set
 	// AutoIndexPersistInterval to AlwaysAutoPersist.
 	//
 	// [OPTIONAL] - Defaults to 1s.
-	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
+	AutoIndexPersistInterval telem.TimeSpan
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream.
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
-	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
+	Mode Mode
 	// AutoIndex causes each leaseholder to generate timestamps for any index channel
 	// local to it (and in the writer's Keys) whose series is omitted from a Write
 	// frame. The first sample in each Write call is stamped with telem.Now() on the
@@ -115,7 +115,7 @@ type Config struct {
 	// writer at open time so the storage layer opens them for writing.
 	//
 	// [OPTIONAL] - Defaults to false.
-	AutoIndex *bool `json:"auto_index" msgpack:"auto_index"`
+	AutoIndex *bool
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
