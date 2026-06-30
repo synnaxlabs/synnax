@@ -118,6 +118,8 @@ sequenceDeclaration
 sequenceItem
     : stageDeclaration
     | sequenceDeclaration
+    | variableDeclaration
+    | assignment
     | flowStatement
     | singleInvocation
     ;
@@ -137,7 +139,9 @@ stageBody
     ;
 
 stageItem
-    : flowStatement
+    : variableDeclaration
+    | assignment
+    | flowStatement
     | singleInvocation
     | sequenceDeclaration
     ;
