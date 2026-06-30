@@ -128,9 +128,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		db:           cfg.ClusterDB,
 		otg:          cfg.Ontology,
 		indexes:      newIndexes(),
-		createRouter: proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		keyRouter:    proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
-		renameRouter: proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
+		createRouter: proxy.BatchFactory[Channel](cfg.HostResolver.HostKey()),
+		keyRouter:    proxy.BatchFactory[Key](cfg.HostResolver.HostKey()),
+		renameRouter: proxy.BatchFactory[renameBatchEntry](cfg.HostResolver.HostKey()),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -148,7 +148,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		}
 	}
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter")
-	if s.leasedCounter, err = openCounter(ctx, cfg.ClusterDB, leasedCounterKey); !ok(err, nil) {
+	if s.leasedCounter, err = newCounter(ctx, cfg.ClusterDB, leasedCounterKey); !ok(err, nil) {
 		return nil, err
 	}
 	// Seed the external/non-virtual key set by scanning the table once at
@@ -167,7 +167,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
 	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
-		if s.freeCounter, err = openCounter(ctx, cfg.ClusterDB, freeCounterKey); !ok(err, nil) {
+		if s.freeCounter, err = newCounter(ctx, cfg.ClusterDB, freeCounterKey); !ok(err, nil) {
 			return nil, err
 		}
 	}

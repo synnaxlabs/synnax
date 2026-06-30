@@ -112,7 +112,7 @@ jobs:
       packages: write
     with:
       module: freighter/integration
-      tag: ghcr.io/synnaxlabs/freighter-go-integration:latest
+      tag: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
 
   py:
     name: Test - Python
@@ -123,7 +123,7 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       integration:
-        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
+        image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
         credentials:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -152,7 +152,7 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       integration:
-        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
+        image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
         credentials:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}

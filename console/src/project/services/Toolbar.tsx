@@ -12,6 +12,7 @@ import { Access, Icon, Project } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
+import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { CREATE_LAYOUT } from "@/project/Create";
@@ -58,13 +59,12 @@ const EmptyContent = () => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "project",
   icon: <Icon.Project />,
   content: <Content />,
   tooltip: "Projects",
   trigger: ["W"],
   initialSize: 300,
-  minSize: 175,
-  maxSize: 400,
+  sizeBounds: { lower: 175, upper: 400 },
 };

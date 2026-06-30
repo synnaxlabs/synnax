@@ -119,8 +119,8 @@ var _ = Describe("Signals", func() {
 	Describe("Resource Changes", func() {
 		It("Should correctly propagate resource changes to the ontology", func(ctx SpecContext) {
 			var resCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
-			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Expect(node.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			streamer := MustSucceed(node.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.Keys{resCh.Key()},
 			}))
 			requests, responses := confluence.Attach(streamer, 2)
@@ -158,8 +158,8 @@ var _ = Describe("Signals", func() {
 		})
 		It("Should correctly propagate resource deletes to the ontology", func(ctx SpecContext) {
 			var resCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
-			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Expect(node.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			streamer := MustSucceed(node.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.Keys{resCh.Key()},
 			}))
 			requests, responses := confluence.Attach(streamer, 2)
@@ -191,8 +191,8 @@ var _ = Describe("Signals", func() {
 	})
 	It("Should correctly propagate relationship set to the ontology", func(ctx SpecContext) {
 		var resCh channel.Channel
-		Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
-		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		Expect(node.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+		streamer := MustSucceed(node.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{resCh.Key()},
 		}))
 		requests, responses := confluence.Attach(streamer, 2)
@@ -205,7 +205,7 @@ var _ = Describe("Signals", func() {
 			Expect(closeStreamer.Close()).To(Succeed())
 		}()
 
-		w := dist.Ontology.NewWriter(nil)
+		w := node.Ontology.NewWriter(nil)
 		firstResource := newChangeID("abc")
 		secondResource := newChangeID("def")
 		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())
@@ -226,9 +226,9 @@ var _ = Describe("Signals", func() {
 	It("Should correctly propagate a relationship delete to the ontology", func(ctx SpecContext) {
 		var resCh channel.Channel
 		By("Correctly creating the deletion channel.")
-		Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+		Expect(node.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		By("Opening a streamer on the deletion channel")
-		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		streamer := MustSucceed(node.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{resCh.Key()},
 		}))
 		requests, responses := confluence.Attach(streamer, 2)
@@ -241,7 +241,7 @@ var _ = Describe("Signals", func() {
 			Expect(closeStreamer.Close()).To(Succeed())
 		}()
 
-		w := dist.Ontology.NewWriter(nil)
+		w := node.Ontology.NewWriter(nil)
 		firstResource := newChangeID("abc")
 		secondResource := newChangeID("def")
 		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())

@@ -44,7 +44,7 @@ var (
 	otg      *ontology.Ontology
 	svc      *arc.Service
 	tx       gorp.Tx
-	dist     mock.Node
+	node     mock.Node
 	groupSvc *group.Service
 	labelSvc *label.Service
 	statSvc  *status.Service
@@ -60,7 +60,7 @@ var (
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.Open())
-		dist = DeferClose(mock.NewCluster().Provision(ctx))
+		node = mock.NewNode(ctx)
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -83,7 +83,7 @@ var (
 			DB:                  db,
 			Ontology:            otg,
 			Group:               groupSvc,
-			HostProvider:        mock.StaticHostKeyProvider(1),
+			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              statSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
@@ -99,13 +99,13 @@ var (
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
 		sigs = MustSucceed(signals.New(signals.Config{
-			Channel: channel.Wrap(dist.Channel),
-			Framer:  framer.Wrap(dist.Framer),
+			Channel: channel.Wrap(node.Channel),
+			Framer:  framer.Wrap(node.Framer),
 		}))
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
-			Channel:             channel.Wrap(dist.Channel),
+			Channel:             channel.Wrap(node.Channel),
 			Task:                taskSvc,
 			Search:              searchIdx,
 			Signals:             sigs,

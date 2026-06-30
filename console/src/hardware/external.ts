@@ -11,8 +11,9 @@ import { type Export } from "@/export";
 import { Device } from "@/hardware/device";
 import { Task } from "@/hardware/task";
 import { type Import } from "@/import";
+import { type Service } from "@/layered/service";
+import { type Link } from "@/layered/service/link";
 import { type Layout } from "@/layout";
-import { type Link } from "@/link";
 import { type Notifications } from "@/notifications";
 import { type Palette } from "@/palette";
 import { type Selector } from "@/selector";
@@ -32,12 +33,12 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...Task.LAYOUTS,
 };
 
-export const LINK_HANDLERS: Record<string, Link.Handler> = {
-  device: Device.handleLink,
-  task: Task.handleLink,
-};
+export const useLinks = (): Record<string, Link.Handler> => ({
+  device: Device.useLink(),
+  task: Task.useLink(),
+});
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
+export const NAV_DRAWER_ITEMS: Service.Nav.Item[] = [
   ...Device.NAV_DRAWER_ITEMS,
   ...Task.NAV_DRAWER_ITEMS,
 ];

@@ -12,6 +12,7 @@ import { Access, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
+import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { REGISTER_LAYOUT } from "@/user/Register";
@@ -52,14 +53,13 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "user",
   icon: <Icon.User />,
   content: <Content />,
   tooltip: "Users",
   initialSize: 300,
-  minSize: 175,
-  maxSize: 400,
+  sizeBounds: { lower: 175, upper: 400 },
   trigger: ["U"],
   useVisible: () => Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID),
 };

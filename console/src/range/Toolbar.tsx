@@ -31,6 +31,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
+import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
@@ -209,14 +210,13 @@ const Content = (): ReactElement => (
   </Toolbar.Content>
 );
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Service.Nav.Item = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,
   tooltip: "Ranges",
   trigger: ["R"],
   initialSize: 300,
-  minSize: 175,
-  maxSize: 400,
+  sizeBounds: { lower: 175, upper: 400 },
   useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
 };

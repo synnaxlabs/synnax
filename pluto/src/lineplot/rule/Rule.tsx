@@ -16,10 +16,10 @@ import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { useContext } from "@/lineplot/Frame";
 import { rule } from "@/lineplot/rule/aether";
 import { state } from "@/state";
@@ -102,7 +102,7 @@ export const Rule = ({
     }));
   }, [propsPosition, colorVal, lineWidth, lineDash]);
 
-  const handleDragStart = useCursorDrag({
+  const handleDragStart = Cursor.useDrag({
     onStart: useCallback(() => {
       onSelect?.();
       setState((p) => ({ ...p, dragging: true }));
@@ -133,9 +133,8 @@ export const Rule = ({
       style={{ top: `calc(${pixelPosition}px - 0.5rem)` }}
     >
       <div
-        className={CSS.BE("rule", "drag-handle")}
-        onDragStart={handleDragStart}
-        draggable
+        className={CSS(CSS.BE("rule", "drag-handle"), Cursor.DRAG_CLASS)}
+        onPointerDown={handleDragStart}
       />
       <Flex.Box
         x
