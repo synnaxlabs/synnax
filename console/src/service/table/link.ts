@@ -10,7 +10,7 @@
 import { useCallback } from "react";
 
 import { type Link } from "@/service/link";
-import { create } from "@/service/table/layout";
+import { create } from "@/component/table/layout";
 import { Layout } from "@/layout";
 
 export const useLink = (): Link.Handler => {

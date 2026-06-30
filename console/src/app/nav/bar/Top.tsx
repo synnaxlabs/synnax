@@ -11,11 +11,11 @@ import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
+import { User } from "@/component/user";
+import { Version } from "@/component/version";
+import { Project } from "@/project";
 import { Service } from "@/service";
 import { Docs } from "@/service/docs";
-import { User } from "@/service/user";
-import { Version } from "@/service/version";
-import { Project } from "@/project";
 
 export const Top = (): ReactElement | null => (
   <Service.Nav.Bar location="top" size="6.5rem">

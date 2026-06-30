@@ -9,7 +9,7 @@
 
 import { Button, Synnax } from "@synnaxlabs/pluto";
 
-import { Version } from "@/service/version";
+import { Version } from "@/component/version";
 import { type Notifications } from "@/notifications";
 
 export const versionOutdatedAdapter: Notifications.Adapter<

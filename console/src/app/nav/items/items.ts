@@ -13,7 +13,7 @@ import { type Service } from "@/service";
 import { Arc } from "@/service/arc";
 import { ChannelServices } from "@/service/channel";
 import { Hardware } from "@/service/hardware";
-import { UserServices } from "@/service/user/services";
+import { UserServices } from "@/service/user";
 import { Status } from "@/status";
 import { Vis } from "@/vis";
 

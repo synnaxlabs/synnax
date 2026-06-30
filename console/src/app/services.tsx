@@ -22,7 +22,7 @@ import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
-import { UserServices } from "@/service/user/services";
+import { UserServices } from "@/service/user";
 
 const createEmptyService = (
   type: ontology.ResourceType,

@@ -11,8 +11,8 @@ import { schematic } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { LAYOUT_TYPE } from "@/service/schematic/layout";
-import { useCreate } from "@/service/schematic/useCreate";
+import { LAYOUT_TYPE } from "@/component/schematic/layouts/layout";
+import { useCreate } from "@/component/schematic/useCreateseCreate";
 import { Selector } from "@/selector";
 
 export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {

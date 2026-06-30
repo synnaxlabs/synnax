@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Docs, LAYOUT_TYPE } from "@/service/docs/Docs";
+import { Docs, LAYOUT_TYPE } from "@/component/docs/Docs";
 import { type Layout } from "@/layout";
 
-export * from "@/service/docs/Docs";
+export * from "@/component/docs/Docs";
 export * from "@/service/docs/palette";
 export * from "@/session/docs/selectors";
 export * from "@/session/docs/slice";

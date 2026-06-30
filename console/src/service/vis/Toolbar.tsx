@@ -11,13 +11,13 @@ import { Errors, Icon } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/component";
+import { Layout } from "@/layout";
 import { type Service } from "@/service";
 import { Arc } from "@/service/arc";
 import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
-import { Layout } from "@/layout";
 import { createSelectorLayout, useSelectorVisible } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
 

@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/component/status/Explorer";
 import { type Layout } from "@/layout";
-import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/service/status/Explorer";
 
-export * from "@/session/status/slice";
-export * from "@/service/status/Explorer";
+export * from "@/component/status/Explorer";
+export * from "@/component/status/Toolbar";
 export * from "@/service/status/palette";
-export * from "@/service/status/Toolbar";
 export * from "@/service/status/useCreateModal";
 export * from "@/service/status/useListenForChanges";
+export * from "@/session/status/slice";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,

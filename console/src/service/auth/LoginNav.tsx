@@ -11,7 +11,7 @@ import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Service } from "@/service";
-import { Version } from "@/service/version";
+import { Version } from "@/component/version";
 
 export const LoginNav = (): ReactElement => {
   const os = OS.use();

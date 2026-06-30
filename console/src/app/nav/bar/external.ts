@@ -10,4 +10,4 @@
 export * from "@/app/nav/bar/AuxTop";
 export * from "@/app/nav/bar/Left";
 export * from "@/app/nav/bar/Top";
-export * from "@/service/nav/Bar";
+export * from "@/component/nav/Bar";

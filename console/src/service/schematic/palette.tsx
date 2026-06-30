@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
 
-import { useCreate } from "@/service/schematic/useCreate";
+import { useCreate } from "@/component/schematic/useCreateseCreate";
 import { Palette } from "@/palette";
 
 const useCreateSchematic = () => useCreate({});

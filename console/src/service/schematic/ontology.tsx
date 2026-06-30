@@ -27,7 +27,7 @@ import { Export } from "@/export";
 import { Group } from "@/service/group";
 import { Link } from "@/service/link";
 import { ImEx } from "@/service/schematic/imex";
-import { create } from "@/service/schematic/layout";
+import { create } from "@/component/schematic/layouts/layout";
 import { Session } from "@/session";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";

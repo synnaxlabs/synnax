@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ClusterServices } from "@/cluster/services";
+import { Framer } from "@/component/framer";
 import { Import } from "@/import";
 import { type Palette } from "@/palette";
 import { ProjectServices } from "@/project/services";
@@ -15,11 +16,10 @@ import { RangeServices } from "@/range/services";
 import { Service } from "@/service";
 import { ChannelServices } from "@/service/channel";
 import { Docs } from "@/service/docs";
-import { Framer } from "@/service/framer";
 import { Hardware } from "@/service/hardware";
-import { LabelServices } from "@/service/label/services";
+import { LabelServices } from "@/service/label";
 import { Status } from "@/service/status";
-import { UserServices } from "@/service/user/services";
+import { UserServices } from "@/service/user";
 import { Persist } from "@/session/persist";
 
 export const COMMANDS: Palette.Command[] = [

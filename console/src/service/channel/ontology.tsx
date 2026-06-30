@@ -27,16 +27,16 @@ import { useCallback, useMemo } from "react";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/component";
-import { Channel } from "@/service/channel";
-import { Group } from "@/service/group";
-import { LinePlot } from "@/service/lineplot";
-import { Link } from "@/service/link";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { Project } from "@/project";
 import { Range } from "@/range";
+import { Channel } from "@/service/channel";
+import { Group } from "@/service/group";
+import { LinePlot } from "@/service/lineplot";
+import { Link } from "@/service/link";
 
 const handleSelect: Ontology.HandleSelect = ({
   client,

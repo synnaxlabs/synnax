@@ -33,7 +33,7 @@ import {
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/component/css";
-import { use } from "@/service/version/use";
+import { use } from "@/component/version/use";
 import { Session } from "@/session";
 import { CLEAR_STATE, REVERT_STATE } from "@/session/persist/state";
 
@@ -153,10 +153,12 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
               if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().minimize();
+              if (Session.Runtime.ENGINE === "tauri")
+                void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().maximize();
+              if (Session.Runtime.ENGINE === "tauri")
+                void getCurrentWindow().maximize();
             }}
           />
           {os === "Windows" && (
@@ -172,10 +174,12 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
               if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().close();
             }}
             onMinimize={() => {
-              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().minimize();
+              if (Session.Runtime.ENGINE === "tauri")
+                void getCurrentWindow().minimize();
             }}
             onMaximize={() => {
-              if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().maximize();
+              if (Session.Runtime.ENGINE === "tauri")
+                void getCurrentWindow().maximize();
             }}
           />
         </Nav.Bar.End>
