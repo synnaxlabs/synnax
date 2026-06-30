@@ -476,7 +476,12 @@ var _ = Describe("Analyzer hooks", func() {
 
 	It("Should flag an invalid color literal in a positional argument", func(ctx SpecContext) {
 		Expect(hasColorError(ctx,
-			"import ranges\nsensor -> ranges.create{\"r\", \"not-a-color\"}")).To(BeTrue())
+			"import ranges\nsensor -> ranges.create{\"r\", \"\", \"not-a-color\"}")).To(BeTrue())
+	})
+
+	It("Should not color-validate the positional parent argument", func(ctx SpecContext) {
+		Expect(hasColorError(ctx,
+			"import ranges\nsensor -> ranges.create{\"r\", \"not-a-color\"}")).To(BeFalse())
 	})
 
 	It("Should accept a valid color literal", func(ctx SpecContext) {
