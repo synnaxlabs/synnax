@@ -217,7 +217,6 @@ func (s *Service) openIterator(
 }
 
 type (
-	StreamerConfig   = framer.StreamerConfig
 	StreamerRequest  = framer.StreamerRequest
 	StreamerResponse = framer.StreamerResponse
 	StreamerStream   = freighter.ServerStream[StreamerRequest, StreamerResponse]

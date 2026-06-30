@@ -11,13 +11,13 @@ package arc
 
 import (
 	"context"
-	stdio "io"
+	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
-	arcsymbol "github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -129,43 +129,29 @@ type Service struct {
 	sweeper textSweeper
 }
 
-// NewChannelResolver returns the dynamic resolver that the analyzer consults for
-// cluster channels not statically known to the program.
-func (s *Service) NewChannelResolver(tx gorp.Tx) arc.SymbolResolver {
-	return s.cfg.Channel.NewArcSymbolResolver(tx)
-}
-
-// NewSymbolResolver is the dynamic resolver attached to a program root's
-// GlobalResolver. It resolves cluster channels by name or numeric key. Static prelude
-// symbols (STL, status module) are attached to the ambient by NewRoot rather than
-// chained behind this resolver.
-func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
-	return s.NewChannelResolver(tx)
-}
-
 // NewRoot builds a program root populated with STL + status module + the cluster
 // channel resolver attached as the dynamic resolver. This is the production analysis
 // root: tx is consulted for channel lookups, nil means "use the service DB directly."
-func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
+func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
 	stlSyms := stl.NewSymbols()
 	statusSyms := status.NewSymbols()
-	syms := make([]*arcsymbol.Symbol, 0, len(stlSyms)+len(statusSyms))
+	syms := make([]*symbol.Symbol, 0, len(stlSyms)+len(statusSyms))
 	syms = append(syms, stlSyms...)
 	syms = append(syms, statusSyms...)
-	return arcsymbol.NewRoot(s.NewSymbolResolver(tx), syms)
+	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), syms)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
 		Instrumentation: s.cfg.Child("lsp"),
-		NewRoot:         func() *arcsymbol.Symbol { return s.NewRoot(nil) },
+		NewRoot:         func() *symbol.Symbol { return s.NewRoot(nil) },
 		OnRename: func(
 			ctx context.Context,
-			sym *arcsymbol.Symbol,
+			sym *symbol.Symbol,
 			oldName,
 			newName string,
 		) error {
-			if sym.Kind != arcsymbol.KindChannel {
+			if sym.Kind != symbol.KindChannel {
 				return nil
 			}
 			return s.cfg.Channel.NewWriter(nil).
@@ -245,7 +231,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		var sig stdio.Closer
+		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
 			Provider: cfg.Signals,
 			State:    s.state,
@@ -269,11 +255,6 @@ func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnAction(handler)
-}
-
-// Observe returns an observable that notifies callers of changes to Arc entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Arc]] {
-	return s.table.Observe()
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting Arcs in Synnax. If

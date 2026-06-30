@@ -31,27 +31,27 @@ var _ = Describe("Dependencies", Ordered, func() {
 	var channelSvc *channel.Service
 
 	BeforeAll(func(ctx SpecContext) {
-		dist := mock.NewNode(ctx)
+		node := mock.NewNode(ctx)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Search:   dist.Search,
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Search:   node.Search,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
 			Label:    labelSvc,
-			Search:   dist.Search,
+			Search:   node.Search,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      dist.Channel,
-			DB:           dist.DB,
-			HostResolver: dist.Cluster,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			Search:       dist.Search,
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostResolver: node.Cluster,
+			Ontology:     node.Ontology,
+			Group:        node.Group,
+			Search:       node.Search,
 			Status:       statusSvc,
 		}))
 	})

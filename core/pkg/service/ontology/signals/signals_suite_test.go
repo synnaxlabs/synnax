@@ -34,12 +34,15 @@ func TestSignals(t *testing.T) {
 
 var (
 	node       mock.Node
-	channelSvc *channel.Service
 	svc        *changeService
+	framerSvc  *framer.Service
+	channelSvc *channel.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	node = mock.NewNode(ctx)
+	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
+	node.Ontology.RegisterService(svc)
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: node.Ontology,
@@ -62,9 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       node.Search,
 		Status:       statusSvc,
 	}))
-	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
-	node.Ontology.RegisterService(svc)
-	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:       node.Framer,
 		Channel:      channelSvc,
 		DB:           node.DB,

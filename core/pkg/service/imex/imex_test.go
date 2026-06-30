@@ -402,6 +402,26 @@ var _ = Describe("ImEx", func() {
 				Expect(round).NotTo(HaveKey("-"))
 			})
 
+			It("Should skip unexported fields even when they carry a json tag", func() {
+				// Encode goes through structToMap, which only reflects over exported
+				// fields. An unexported field with a json tag should never reach the
+				// wire — calling Interface() on it would panic, and exposing it would
+				// leak private state.
+				type payload struct {
+					Name string `json:"name"`
+					//nolint:govet,staticcheck
+					secret string `json:"secret"`
+				}
+				env := imex.Envelope{Version: 1, Type: "log"}
+				Expect(imex.Encode(
+					&env, payload{Name: "n", secret: "shh"},
+				)).To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).NotTo(HaveKey("secret"))
+			})
+
 			It("Should skip exported fields that have no json tag", func() {
 				type payload struct {
 					Name     string `json:"name"`

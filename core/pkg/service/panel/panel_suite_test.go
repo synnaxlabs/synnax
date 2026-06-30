@@ -37,6 +37,7 @@ var (
 	db         *gorp.DB
 	otg        *ontology.Ontology
 	svc        *panel.Service
+	framerSvc  *framer.Service
 	channelSvc *channel.Service
 	parentID   ontology.ID
 	tx         gorp.Tx
@@ -68,7 +69,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       node.Search,
 		Status:       statusSvc,
 	}))
-	framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:       node.Framer,
 		Channel:      channelSvc,
 		DB:           node.DB,

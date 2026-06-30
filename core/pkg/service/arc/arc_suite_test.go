@@ -58,7 +58,7 @@ var (
 			Group:    node.Group,
 			Search:   searchIdx,
 		}))
-		statSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    node.Group,
@@ -72,14 +72,14 @@ var (
 			Ontology:     node.Ontology,
 			Group:        node.Group,
 			Search:       node.Search,
-			Status:       statSvc,
+			Status:       statusSvc,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               node.Group,
 			HostProvider:        mock.NewStaticHostProvider(1),
-			Status:              statSvc,
+			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
@@ -88,7 +88,7 @@ var (
 			Ontology: otg,
 			Group:    node.Group,
 			Rack:     rackSvc,
-			Status:   statSvc,
+			Status:   statusSvc,
 			Search:   searchIdx,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
