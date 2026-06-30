@@ -48,11 +48,14 @@ type Program struct {
 	// root is the top-level execution context. The root is always a parallel, always-live
 	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
 	Root *pb.Scope `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
+	// var_channels lists the channel keys that back reactive value variables. These
+	// channels live only in program-local state and are never read from or written to Core.
+	VarChannels []uint32 `protobuf:"varint,6,rep,packed,name=var_channels,json=varChannels,proto3" json:"var_channels,omitempty"`
 	// wasm is compiled WebAssembly bytecode for sandboxed execution.
-	Wasm []byte `protobuf:"bytes,6,opt,name=wasm,proto3" json:"wasm,omitempty"`
+	Wasm []byte `protobuf:"bytes,7,opt,name=wasm,proto3" json:"wasm,omitempty"`
 	// output_memory_bases contains memory base addresses for multi-output functions,
 	// mapping function keys to their base addresses.
-	OutputMemoryBases map[string]uint32 `protobuf:"bytes,7,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	OutputMemoryBases map[string]uint32 `protobuf:"bytes,8,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -122,6 +125,13 @@ func (x *Program) GetRoot() *pb.Scope {
 	return nil
 }
 
+func (x *Program) GetVarChannels() []uint32 {
+	if x != nil {
+		return x.VarChannels
+	}
+	return nil
+}
+
 func (x *Program) GetWasm() []byte {
 	if x != nil {
 		return x.Wasm
@@ -140,15 +150,16 @@ var File_arc_go_program_pb_program_proto protoreflect.FileDescriptor
 
 const file_arc_go_program_pb_program_proto_rawDesc = "" +
 	"\n" +
-	"\x1farc/go/program/pb/program.proto\x12\x0earc.program.pb\x1a\x15arc/go/ir/pb/ir.proto\"\xa4\x03\n" +
+	"\x1farc/go/program/pb/program.proto\x12\x0earc.program.pb\x1a\x15arc/go/ir/pb/ir.proto\"\xc7\x03\n" +
 	"\aProgram\x121\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12%\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
 	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x128\n" +
 	"\vauthorities\x18\x04 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12$\n" +
-	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.ScopeR\x04root\x12\x12\n" +
-	"\x04wasm\x18\x06 \x01(\fR\x04wasm\x12^\n" +
-	"\x13output_memory_bases\x18\a \x03(\v2..arc.program.pb.Program.OutputMemoryBasesEntryR\x11outputMemoryBases\x1aD\n" +
+	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.ScopeR\x04root\x12!\n" +
+	"\fvar_channels\x18\x06 \x03(\rR\vvarChannels\x12\x12\n" +
+	"\x04wasm\x18\a \x01(\fR\x04wasm\x12^\n" +
+	"\x13output_memory_bases\x18\b \x03(\v2..arc.program.pb.Program.OutputMemoryBasesEntryR\x11outputMemoryBases\x1aD\n" +
 	"\x16OutputMemoryBasesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\xa2\x01\n" +

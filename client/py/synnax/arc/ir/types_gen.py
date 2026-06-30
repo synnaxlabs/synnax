@@ -197,6 +197,9 @@ class IR(BaseModel):
         root: Is the top-level execution context. The root is always a
             parallel, always-live Scope whose strata mix module-scope
             reactive flow with top-level gated scopes.
+        var_channels: Lists the channel keys that back reactive value variables. These
+            channels live only in program-local state and are never read from
+            or written to Core.
     """
 
     functions: Functions = Field(default_factory=list)
@@ -204,6 +207,7 @@ class IR(BaseModel):
     edges: Edges = Field(default_factory=list)
     authorities: Authorities
     root: Scope
+    var_channels: list[int] = Field(default_factory=list)
 
 
 Members: TypeAlias = list[Member]

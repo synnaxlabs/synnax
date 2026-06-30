@@ -53,6 +53,8 @@ Program::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_root() = v;
     }
+    for (const auto &item: this->var_channels)
+        pb.add_var_channels(item);
     pb.set_wasm(this->wasm.data(), this->wasm.size());
     for (const auto &[k, v]: this->output_memory_bases)
         (*pb.mutable_output_memory_bases())[k] = v;
@@ -81,6 +83,8 @@ Program::from_proto(const ::arc::program::pb::Program &pb) {
         if (err) return {{}, err};
         cpp.root = v;
     }
+    for (const auto &item: pb.var_channels())
+        cpp.var_channels.push_back(item);
     cpp.wasm.assign(pb.wasm().begin(), pb.wasm().end());
     for (const auto &[k, v]: pb.output_memory_bases())
         cpp.output_memory_bases[k] = v;

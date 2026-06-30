@@ -394,6 +394,7 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				},
+				VarChannels: []uint32{106},
 			}),
 			Entry("zero values", ir.IR{
 				Functions:   nil,
@@ -409,6 +410,7 @@ var _ = Describe("Codec", func() {
 					Steps:       nil,
 					Transitions: nil,
 				},
+				VarChannels: nil,
 			}),
 			Entry("empty collections", ir.IR{
 				Functions:   []ir.Function{},
@@ -424,6 +426,7 @@ var _ = Describe("Codec", func() {
 					Steps:       []ir.Member{},
 					Transitions: []ir.Transition{},
 				},
+				VarChannels: []uint32{},
 			}),
 		)
 	})
@@ -1078,6 +1081,7 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 				},
 			},
 		},
+		VarChannels: []uint32{106},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1899,6 +1903,7 @@ func FuzzDecodeIR(f *testing.F) {
 					},
 				},
 			},
+			VarChannels: []uint32{106},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1921,6 +1926,7 @@ func FuzzDecodeIR(f *testing.F) {
 				Steps:       nil,
 				Transitions: nil,
 			},
+			VarChannels: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1943,6 +1949,7 @@ func FuzzDecodeIR(f *testing.F) {
 				Steps:       []ir.Member{},
 				Transitions: []ir.Transition{},
 			},
+			VarChannels: []uint32{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

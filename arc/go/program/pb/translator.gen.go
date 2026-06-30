@@ -39,6 +39,7 @@ func ProgramToPB(r program.Program) (*Program, error) {
 		return nil, err
 	}
 	pb := &Program{
+		VarChannels:       r.VarChannels,
 		Wasm:              r.WASM,
 		OutputMemoryBases: r.OutputMemoryBases,
 		Functions:         functionsVal,
@@ -77,6 +78,7 @@ func ProgramFromPB(pb *Program) (program.Program, error) {
 	if err != nil {
 		return program.Program{}, err
 	}
+	r.VarChannels = pb.VarChannels
 	r.WASM = pb.Wasm
 	r.OutputMemoryBases = pb.OutputMemoryBases
 	return r, nil

@@ -247,6 +247,13 @@ func (ir IR) EncodeOrc(w *orc.Writer) error {
 	if err := ir.Root.EncodeOrc(w); err != nil {
 		return err
 	}
+	w.Bool(ir.VarChannels != nil)
+	if ir.VarChannels != nil {
+		w.Uint32(uint32(len(ir.VarChannels)))
+		for i := range ir.VarChannels {
+			w.Uint32(uint32(ir.VarChannels[i]))
+		}
+	}
 	return nil
 }
 
@@ -311,6 +318,24 @@ func (ir *IR) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = ir.Root.DecodeOrc(r); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			ir.VarChannels = make([]uint32, n)
+			for i := range ir.VarChannels {
+				if ir.VarChannels[i], err = r.Uint32(); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

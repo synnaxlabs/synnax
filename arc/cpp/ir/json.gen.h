@@ -185,6 +185,7 @@ inline IR IR::parse(x::json::Parser parser) {
         .edges = parser.field<Edges>("edges"),
         .authorities = parser.field<Authorities>("authorities"),
         .root = parser.field<Scope>("root"),
+        .var_channels = parser.field<std::vector<std::uint32_t>>("var_channels"),
     };
 }
 
@@ -195,6 +196,7 @@ inline x::json::json IR::to_json() const {
     j["edges"] = this->edges.to_json();
     j["authorities"] = this->authorities.to_json();
     j["root"] = this->root.to_json();
+    j["var_channels"] = this->var_channels;
     return j;
 }
 

@@ -50,6 +50,13 @@ func (p Program) EncodeOrc(w *orc.Writer) error {
 	if err := p.Root.EncodeOrc(w); err != nil {
 		return err
 	}
+	w.Bool(p.VarChannels != nil)
+	if p.VarChannels != nil {
+		w.Uint32(uint32(len(p.VarChannels)))
+		for i := range p.VarChannels {
+			w.Uint32(uint32(p.VarChannels[i]))
+		}
+	}
 	w.Bool(p.WASM != nil)
 	if p.WASM != nil {
 		w.WriteWithLen(p.WASM)
@@ -126,6 +133,24 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = p.Root.DecodeOrc(r); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			p.VarChannels = make([]uint32, n)
+			for i := range p.VarChannels {
+				if p.VarChannels[i], err = r.Uint32(); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	{
 		present, err := r.Bool()

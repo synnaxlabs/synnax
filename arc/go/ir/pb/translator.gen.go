@@ -659,6 +659,7 @@ func IRToPB(r ir.IR) (*IR, error) {
 		return nil, err
 	}
 	pb := &IR{
+		VarChannels: r.VarChannels,
 		Functions:   functionsVal,
 		Nodes:       nodesVal,
 		Edges:       edgesVal,
@@ -695,6 +696,7 @@ func IRFromPB(pb *IR) (ir.IR, error) {
 	if err != nil {
 		return ir.IR{}, err
 	}
+	r.VarChannels = pb.VarChannels
 	return r, nil
 }
 

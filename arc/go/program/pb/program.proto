@@ -31,9 +31,12 @@ message Program {
   // root is the top-level execution context. The root is always a parallel, always-live
   // Scope whose strata mix module-scope reactive flow with top-level gated scopes.
   .arc.ir.pb.Scope root = 5;
+  // var_channels lists the channel keys that back reactive value variables. These
+  // channels live only in program-local state and are never read from or written to Core.
+  repeated uint32 var_channels = 6;
   // wasm is compiled WebAssembly bytecode for sandboxed execution.
-  bytes wasm = 6;
+  bytes wasm = 7;
   // output_memory_bases contains memory base addresses for multi-output functions,
   // mapping function keys to their base addresses.
-  map<string, uint32> output_memory_bases = 7;
+  map<string, uint32> output_memory_bases = 8;
 }

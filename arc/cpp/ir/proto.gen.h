@@ -333,6 +333,8 @@ inline std::pair<::arc::ir::pb::IR, x::errors::Error> IR::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_root() = v;
     }
+    for (const auto &item: this->var_channels)
+        pb.add_var_channels(item);
     return {pb, x::errors::NIL};
 }
 
@@ -354,6 +356,8 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
         if (err) return {{}, err};
         cpp.root = v;
     }
+    for (const auto &item: pb.var_channels())
+        cpp.var_channels.push_back(item);
     return {cpp, x::errors::NIL};
 }
 

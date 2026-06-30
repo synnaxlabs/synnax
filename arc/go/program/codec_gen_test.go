@@ -181,10 +181,11 @@ var _ = Describe("Codec", func() {
 							},
 						},
 					},
+					VarChannels: []uint32{106},
 				},
 				Output: compiler.Output{
-					WASM:              []byte{105, 106, 107},
-					OutputMemoryBases: map[string]uint32{"test_106": 107},
+					WASM:              []byte{106, 107, 108},
+					OutputMemoryBases: map[string]uint32{"test_107": 108},
 				},
 			}),
 			Entry("zero values", program.Program{
@@ -202,6 +203,7 @@ var _ = Describe("Codec", func() {
 						Steps:       nil,
 						Transitions: nil,
 					},
+					VarChannels: nil,
 				},
 				Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 			}),
@@ -220,9 +222,10 @@ var _ = Describe("Codec", func() {
 						Steps:       []ir.Member{},
 						Transitions: []ir.Transition{},
 					},
+					VarChannels: []uint32{},
 				},
 				Output: compiler.Output{
-					WASM:              []byte{17, 18, 19},
+					WASM:              []byte{18, 19, 20},
 					OutputMemoryBases: map[string]uint32{},
 				},
 			}),
@@ -375,10 +378,11 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 					},
 				},
 			},
+			VarChannels: []uint32{106},
 		},
 		Output: compiler.Output{
-			WASM:              []byte{105, 106, 107},
-			OutputMemoryBases: map[string]uint32{"test_106": 107},
+			WASM:              []byte{106, 107, 108},
+			OutputMemoryBases: map[string]uint32{"test_107": 108},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -542,10 +546,11 @@ func FuzzDecodeProgram(f *testing.F) {
 						},
 					},
 				},
+				VarChannels: []uint32{106},
 			},
 			Output: compiler.Output{
-				WASM:              []byte{105, 106, 107},
-				OutputMemoryBases: map[string]uint32{"test_106": 107},
+				WASM:              []byte{106, 107, 108},
+				OutputMemoryBases: map[string]uint32{"test_107": 108},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -570,6 +575,7 @@ func FuzzDecodeProgram(f *testing.F) {
 					Steps:       nil,
 					Transitions: nil,
 				},
+				VarChannels: nil,
 			},
 			Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 		}
@@ -595,9 +601,10 @@ func FuzzDecodeProgram(f *testing.F) {
 					Steps:       []ir.Member{},
 					Transitions: []ir.Transition{},
 				},
+				VarChannels: []uint32{},
 			},
 			Output: compiler.Output{
-				WASM:              []byte{17, 18, 19},
+				WASM:              []byte{18, 19, 20},
 				OutputMemoryBases: map[string]uint32{},
 			},
 		}

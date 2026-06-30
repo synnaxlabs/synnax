@@ -206,6 +206,15 @@ export const irZ = z.object({
    * reactive flow with top-level gated scopes.
    */
   root: scopeZ,
+  /**
+   * varChannels lists the channel keys that back reactive value variables. These
+   * channels live only in program-local state and are never read from
+   * or written to Core.
+   */
+  varChannels: z
+    .uint32()
+    .array()
+    .default(() => []),
 });
 export interface IR extends z.infer<typeof irZ> {}
 

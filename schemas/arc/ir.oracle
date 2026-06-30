@@ -221,23 +221,30 @@ Authorities struct {
 }
 
 IR struct {
-    functions   Functions   {
+    functions    Functions   {
         @doc value "contains function template definitions."
     }
-    nodes       Nodes       {
+    nodes        Nodes       {
         @doc value "contains node instantiations."
     }
-    edges       Edges       {
+    edges        Edges       {
         @doc value "contains dataflow connections."
     }
-    authorities Authorities {
+    authorities  Authorities {
         @doc value "contains the static authority declarations for this program."
     }
-    root        Scope       {
+    root         Scope       {
         @doc value """
             is the top-level execution context. The root is always a
             parallel, always-live Scope whose strata mix module-scope
             reactive flow with top-level gated scopes.
+        """
+    }
+    var_channels uint32[] = [] {
+        @doc value """
+            lists the channel keys that back reactive value variables. These
+            channels live only in program-local state and are never read from
+            or written to Core.
         """
     }
 

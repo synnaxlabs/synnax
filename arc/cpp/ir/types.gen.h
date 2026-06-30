@@ -442,6 +442,11 @@ struct IR {
     /// always-live Scope whose strata mix module-scope reactive flow with top-level
     /// gated scopes.
     Scope root;
+    /// @brief var_channels lists the channel keys that back reactive value variables.
+    /// These
+    /// channels live only in program-local state and are never read from or written to
+    /// Core.
+    std::vector<std::uint32_t> var_channels = {};
 
     static IR parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

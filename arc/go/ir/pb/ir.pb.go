@@ -846,7 +846,10 @@ type IR struct {
 	Authorities *Authorities `protobuf:"bytes,4,opt,name=authorities,proto3" json:"authorities,omitempty"`
 	// root is the top-level execution context. The root is always a parallel, always-live
 	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
-	Root          *Scope `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
+	Root *Scope `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
+	// var_channels lists the channel keys that back reactive value variables. These
+	// channels live only in program-local state and are never read from or written to Core.
+	VarChannels   []uint32 `protobuf:"varint,6,rep,packed,name=var_channels,json=varChannels,proto3" json:"var_channels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -916,6 +919,13 @@ func (x *IR) GetRoot() *Scope {
 	return nil
 }
 
+func (x *IR) GetVarChannels() []uint32 {
+	if x != nil {
+		return x.VarChannels
+	}
+	return nil
+}
+
 var File_arc_go_ir_pb_ir_proto protoreflect.FileDescriptor
 
 const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
@@ -973,13 +983,14 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\n" +
 	"\n" +
-	"\b_default\"\xe5\x01\n" +
+	"\b_default\"\x88\x02\n" +
 	"\x02IR\x121\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12%\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
 	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x128\n" +
 	"\vauthorities\x18\x04 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12$\n" +
-	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.ScopeR\x04root*Z\n" +
+	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.ScopeR\x04root\x12!\n" +
+	"\fvar_channels\x18\x06 \x03(\rR\vvarChannels*Z\n" +
 	"\bEdgeKind\x12\x19\n" +
 	"\x15EDGE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14EDGE_KIND_CONTINUOUS\x10\x01\x12\x19\n" +

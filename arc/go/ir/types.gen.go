@@ -181,7 +181,10 @@ type IR struct {
 	Authorities Authorities `json:"authorities" msgpack:"authorities"`
 	// Root is the top-level execution context. The root is always a parallel, always-live
 	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
-	Root    Scope                                  `json:"root" msgpack:"root"`
-	Symbols *symbol.Symbol                         `json:"-"`
-	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
+	Root Scope `json:"root" msgpack:"root"`
+	// VarChannels lists the channel keys that back reactive value variables. These channels
+	// live only in program-local state and are never read from or written to Core.
+	VarChannels []uint32                               `json:"var_channels,omitzero" msgpack:"var_channels,omitzero"`
+	Symbols     *symbol.Symbol                         `json:"-"`
+	TypeMap     map[antlr.ParserRuleContext]types.Type `json:"-"`
 }
