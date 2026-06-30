@@ -41,7 +41,7 @@ type Writer struct {
 	// tx scopes every write the Writer performs; nil writes directly to the service DB.
 	tx gorp.Tx
 	// analyzer infers DataTypes for calculated channels before they are persisted.
-	analyzer *Analyzer
+	analyzer *CalculationAnalyzer
 }
 
 type createOptions struct {

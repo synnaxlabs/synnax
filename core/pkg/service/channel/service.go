@@ -249,7 +249,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		svc:      s,
 		tx:       s.db.OverrideTx(tx),
-		analyzer: NewAnalyzer(s.NewArcSymbolResolver(tx)),
+		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx)),
 	}
 }
 

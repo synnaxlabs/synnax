@@ -12,7 +12,6 @@ package channel
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strconv"
 
 	"github.com/synnaxlabs/arc"
@@ -36,27 +35,21 @@ type resolver struct {
 	unresolved set.Set[string]
 }
 
-// Analyzer parses and type-checks calculated channel expressions. It caches previously
-// analyzed channels so that later expressions can reference them by name without
-// hitting the backing symbol resolver.
-type Analyzer struct{ resolver *resolver }
+// CalculationAnalyzer parses and type-checks calculated channel expressions. It caches
+// previously analyzed channels so that later expressions can reference them by name
+// without hitting the backing symbol resolver.
+type CalculationAnalyzer struct{ resolver *resolver }
 
-// NewAnalyzer returns an Analyzer that falls back to symbolResolver for symbols not yet
-// in the internal cache.
-func NewAnalyzer(symbolResolver arc.SymbolResolver) *Analyzer {
+// NewCalculationAnalyzer returns an Analyzer that falls back to symbolResolver for
+// symbols not yet in the internal cache.
+func NewCalculationAnalyzer(symbolResolver arc.SymbolResolver) *CalculationAnalyzer {
 	r := &resolver{SymbolResolver: symbolResolver}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)
-	return &Analyzer{resolver: r}
+	return &CalculationAnalyzer{resolver: r}
 }
 
-// Resolve implements arc.SymbolResolver, resolving name (a channel key or name) first
-// against the resolver's temporary cache of channels in the current batch, then falling
-// back to the underlying SymbolResolver. Names that the fallback cannot resolve are
-// recorded as unresolved.
-func (r *resolver) Resolve(
-	ctx context.Context, name string,
-) (*symbol.Symbol, error) {
+func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
 	i, err := strconv.Atoi(name)
 	if err == nil {
 		if s, ok := r.temp.keys[i]; ok {
@@ -74,9 +67,9 @@ func (r *resolver) Resolve(
 	return sym, resolveErr
 }
 
-// AnalysisResult holds the output of an analysis. On error, Unresolved may be populated
-// even though ChanDataType and Deps are zero-valued.
-type AnalysisResult struct {
+// CalculationAnalysisResult holds the output of a calculation analysis. On error,
+// Unresolved may be populated even though ChanDataType and Deps are zero-valued.
+type CalculationAnalysisResult struct {
 	// ChanDataType is the inferred type of the expression when combined with
 	// operations. For example, a derivative operation will convert the channels return
 	// type to Float64.
@@ -92,16 +85,19 @@ type AnalysisResult struct {
 // Analyze parses the channel's expression, infers its return type, and extracts the set
 // of channel dependencies. The analyzed channel is cached so that subsequent calls can
 // reference it by name or key.
-func (a *Analyzer) Analyze(ctx context.Context, ch Channel) (AnalysisResult, error) {
+func (a *CalculationAnalyzer) Analyze(
+	ctx context.Context,
+	ch Channel,
+) (CalculationAnalysisResult, error) {
 	a.resolver.unresolved = make(set.Set[string])
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression))
 	if err != nil {
-		return AnalysisResult{}, err
+		return CalculationAnalysisResult{}, err
 	}
 	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver))
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
-		return AnalysisResult{
+		return CalculationAnalysisResult{
 			Unresolved: a.resolver.unresolved.Slice(),
 		}, aCtx.Diagnostics
 	}
@@ -124,12 +120,11 @@ func (a *Analyzer) Analyze(ctx context.Context, ch Channel) (AnalysisResult, err
 		}
 	}
 	inferredDataType := types.ToTelem(dataType)
-	if slices.ContainsFunc(ch.Operations, func(o Operation) bool {
-		return o.Type == OperationTypeDerivative
-	}) {
+	if len(ch.Operations) > 0 &&
+		ch.Operations[len(ch.Operations)-1].Type == OperationTypeDerivative {
 		inferredDataType = telem.Float64T
 	}
-	return AnalysisResult{
+	return CalculationAnalysisResult{
 		ChanDataType:         inferredDataType,
 		Deps:                 deps,
 		ExpressionReturnType: dataType,

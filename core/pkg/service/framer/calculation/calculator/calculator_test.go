@@ -937,7 +937,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			Expect(channelSvc.CreateMany(ctx, bases)).To(Succeed())
-			res := MustSucceed(channel.NewAnalyzer(channelSvc.NewArcSymbolResolver(nil)).
+			res := MustSucceed(channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(nil)).
 				Analyze(ctx, *calc))
 			calc.DataType = res.ChanDataType
 			Expect(channelSvc.Create(ctx, calc)).To(Succeed())
