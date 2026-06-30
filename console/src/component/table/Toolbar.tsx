@@ -19,39 +19,37 @@ import {
   Icon,
   Input,
   Select,
-  Table as Base,
+  Table,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
 import { color, deep, record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
-import { EmptyAction, Toolbar as Tb } from "@/component";
+import { Cluster } from "@/component/cluster";
 import { CSS } from "@/component/css";
-import { Export } from "@/export";
-import { useExport } from "@/service/table/export";
+import { Empty } from "@/component/empty";
+import { Export } from "@/component/export";
+import { Toolbar as Base } from "@/component/toolbar";
 import { Session } from "@/session";
 
 export interface ToolbarProps {
-  layoutKey: string;
+  onExport: () => void;
 }
 
-const Internal = (): ReactElement => {
-  const key = Base.useKey();
-  const name = Base.useSelectName();
+export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
+  const key = Table.useKey();
+  const name = Table.useSelectName();
   const editable = Session.Table.useSelectEditable();
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
-  const cellsByKey = Base.useSelectCells({ cellKeys: selectedCellKeys });
+  const cellsByKey = Table.useSelectCells({ cellKeys: selectedCellKeys });
   const liveCellCount = cellsByKey.size;
   const singleSelectedKey =
     liveCellCount === 1 ? (cellsByKey.keys().next().value ?? null) : null;
-  const selectedCellPos = Base.useCellPosition({ cellKey: singleSelectedKey ?? "" });
-  const handleExport = useExport();
+  const selectedCellPos = Table.useCellPosition({ cellKey: singleSelectedKey ?? "" });
   return (
-    <Tb.Content>
-      <Tb.Header>
+    <Base.Content>
+      <Base.Header>
         <Flex.Box x align="center">
           <Breadcrumb.Breadcrumb>
             <Breadcrumb.Segment weight={500} color={10} level="h5">
@@ -60,7 +58,7 @@ const Internal = (): ReactElement => {
             </Breadcrumb.Segment>
             {selectedCellPos != null && (
               <Breadcrumb.Segment color={8}>
-                {Base.getCellColumn(selectedCellPos.x)}
+                {Table.getCellColumn(selectedCellPos.x)}
                 {selectedCellPos.y + 1}
               </Breadcrumb.Segment>
             )}
@@ -70,13 +68,13 @@ const Internal = (): ReactElement => {
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
-          <Export.ToolbarButton onExport={() => handleExport(key)} />
+          <Export.ToolbarButton onExport={onExport} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(key)}
           />
         </Flex.Box>
-      </Tb.Header>
+      </Base.Header>
       <Flex.Box full>
         {!editable ? (
           <NotEditableContent name={name} />
@@ -88,24 +86,18 @@ const Internal = (): ReactElement => {
           <MultiCellForm cellKeys={selectedCellKeys} />
         )}
       </Flex.Box>
-    </Tb.Content>
+    </Base.Content>
   );
 };
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Base.Suspended tableKey={layoutKey}>
-    <Internal />
-  </Base.Suspended>
-);
 
 // buildVariantSwapActions returns one setCell action per cell whose variant
 // differs from the target. Compatible fields survive the swap.
 const buildVariantSwapActions = (
-  cells: Iterable<[string, Base.Cell.Config]>,
-  variant: Base.Cell.Variant,
+  cells: Iterable<[string, Table.Cell.Config]>,
+  variant: Table.Cell.Variant,
   theme: Theming.Theme,
 ): table.Action[] => {
-  const spec = Base.Cell.REGISTRY[variant];
+  const spec = Table.Cell.REGISTRY[variant];
   const actions: table.Action[] = [];
   for (const [key, cell] of cells) {
     if (cell.variant === variant) continue;
@@ -124,12 +116,12 @@ interface CellFormProps {
 }
 
 const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
-  const cell = Base.useSelectCell({ cellKey });
-  const dispatch = Base.useSingleDispatch();
+  const cell = Table.useSelectCell({ cellKey });
+  const dispatch = Table.useSingleDispatch();
   const theme = Theming.use();
 
   const handleVariantChange = useCallback(
-    (variant: Base.Cell.Variant) => {
+    (variant: Table.Cell.Variant) => {
       if (cell != null)
         dispatch(buildVariantSwapActions([[cellKey, cell]], variant, theme));
     },
@@ -156,7 +148,7 @@ const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   });
 
   if (cell == null) return null;
-  const C = Base.Cell.REGISTRY[cell.variant];
+  const C = Table.Cell.REGISTRY[cell.variant];
   return (
     <Form.Form<ReturnType<typeof record.unknownZ>> {...methods}>
       <C.Form onVariantChange={handleVariantChange} />
@@ -175,11 +167,11 @@ interface NotEditableContentProps {
 }
 
 const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => {
-  const key = Base.useKey();
+  const key = Table.useKey();
   const dispatch = Session.useDispatch();
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   return (
-    <EmptyAction
+    <Empty.Action
       x
       message={`${name} is not editable.${hasUpdatePermission ? " To make changes," : ""}`}
       action={hasUpdatePermission ? "enable editing." : undefined}
@@ -188,7 +180,7 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
   );
 };
 
-const readCellColor = (cell: Base.Cell.Config): color.Hex | null => {
+const readCellColor = (cell: Table.Cell.Config): color.Hex | null => {
   switch (cell.variant) {
     case "text":
       return cell.props.backgroundColor == null
@@ -200,7 +192,7 @@ const readCellColor = (cell: Base.Cell.Config): color.Hex | null => {
 };
 
 const cellColorPatch = (
-  cell: Base.Cell.Config,
+  cell: Table.Cell.Config,
   next: color.Color,
 ): Partial<record.Unknown> => {
   switch (cell.variant) {
@@ -216,8 +208,8 @@ interface MultiCellFormProps {
 }
 
 const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
-  const cellsByKey = Base.useSelectCells({ cellKeys });
-  const dispatch = Base.useSingleDispatch();
+  const cellsByKey = Table.useSelectCells({ cellKeys });
+  const dispatch = Table.useSingleDispatch();
   const theme = Theming.use();
 
   // Cells absent from the store are skipped (selection may include keys from
@@ -225,7 +217,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   const applyPropPatch = useCallback(
     (
       keys: string[],
-      patch: (cell: Base.Cell.Config) => Partial<record.Unknown> | null,
+      patch: (cell: Table.Cell.Config) => Partial<record.Unknown> | null,
     ) => {
       const actions: table.Action[] = [];
       for (const key of keys) {
@@ -249,7 +241,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
   );
 
   const variants = useMemo(() => {
-    const s = new Set<Base.Cell.Variant>();
+    const s = new Set<Table.Cell.Variant>();
     cellsByKey.forEach((c) => s.add(c.variant));
     return s;
   }, [cellsByKey]);
@@ -257,7 +249,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
     variants.size === 1 ? (variants.values().next().value ?? null) : null;
 
   const handleVariantChange = useCallback(
-    (variant: Base.Cell.Variant) => {
+    (variant: Table.Cell.Variant) => {
       dispatch(buildVariantSwapActions(cellsByKey, variant, theme));
     },
     [cellsByKey, dispatch, theme],
@@ -303,7 +295,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
       className={CSS.BE("table", "multi-cell-form")}
     >
       <Input.Item label="Variant" padHelpText={false}>
-        <Base.Cell.SelectVariant
+        <Table.Cell.SelectVariant
           value={commonVariant ?? undefined}
           onChange={handleVariantChange}
         />

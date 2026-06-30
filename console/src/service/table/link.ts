@@ -9,9 +9,9 @@
 
 import { useCallback } from "react";
 
-import { type Link } from "@/service/link";
-import { create } from "@/component/table/layout";
 import { Layout } from "@/layout";
+import { type Link } from "@/service/link";
+import { create } from "@/session/table/layout";
 
 export const useLink = (): Link.Handler => {
   const placeLayout = Layout.usePlacer();

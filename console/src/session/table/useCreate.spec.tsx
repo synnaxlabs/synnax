@@ -22,8 +22,8 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { LAYOUT_TYPE } from "@/component/table/layout";
-import { useCreate } from "@/component/table/useCreate";
+import { LAYOUT_TYPE } from "@/session/table/layout";
+import { useCreate } from "@/session/table/useCreate";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { Session } from "@/session";

@@ -12,9 +12,9 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Modals } from "@/component/modals";
-import { type GroupManifest } from "@/component/schematic/symbol/types";
-import { Export } from "@/export";
-import { Runtime } from "@/runtime";
+import { Runtime } from "@/component/runtime";
+import { type Symbol } from "@/component/schematic/symbol";
+import { Export } from "@/service/export";
 
 export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
@@ -75,7 +75,7 @@ const exportGroup = async ({
     if (shouldReplace !== true) return;
   }
 
-  const manifest: GroupManifest = {
+  const manifest: Symbol.GroupManifest = {
     version: 1,
     type: "symbol_group",
     name,

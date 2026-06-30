@@ -13,7 +13,7 @@ import { migrate, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Import } from "@/import";
-import { create, LAYOUT_TYPE } from "@/component/table/layout";
+import { create, LAYOUT_TYPE } from "@/session/table/layout";
 
 const STATE_MIGRATION_NAME = "table.state";
 
