@@ -335,6 +335,54 @@ var _ = Describe("Sequence Analyzer", func() {
 		)
 	})
 
+	Describe("Variables And Aliases In Flows", func() {
+		DescribeTable("Valid",
+			analyzeAndExpectSuccess,
+			Entry("channel alias drives a transition condition", `
+				sequence main {
+					p := pressure
+					stage s1 {
+						p > 0.0 => s2
+					}
+					stage s2 {
+					}
+				}
+			`),
+			Entry("value variable is the sink of a flow", `
+				sequence main {
+					level f64 := 0
+					stage s1 {
+						pressure -> level
+					}
+				}
+			`),
+			Entry("value variable read in a transition condition", `
+				sequence main {
+					threshold f64 := 10
+					stage s1 {
+						pressure > threshold => s2
+					}
+					stage s2 {
+					}
+				}
+			`),
+		)
+
+		DescribeTable("Invalid",
+			func(bCtx SpecContext, source, expectedError string) {
+				Expect(analyzeAndExpectError(bCtx, source)).To(ContainSubstring(expectedError))
+			},
+			Entry("type mismatch feeding an expression into a variable sink", `
+				sequence main {
+					level f64 := 0
+					stage s1 {
+						"hello" -> level
+					}
+				}
+			`, "does not match"),
+		)
+	})
+
 	Describe("Top-Level Transitions", func() {
 		It("Should validate top-level entry points", func(bCtx SpecContext) {
 			analyzeAndExpectSuccess(bCtx, `

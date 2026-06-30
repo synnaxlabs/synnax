@@ -266,8 +266,12 @@ func analyzeIdentifier(
 		return
 	}
 
+	isValueVarSink := (sym.Kind == symbol.KindVariable ||
+		sym.Kind == symbol.KindStatefulVariable) && sym.Type.Kind != types.KindChan
 	if prevNode != nil {
-		validTarget := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage || sym.Kind == symbol.KindSequence
+		validTarget := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage ||
+			sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
+			sym.Kind == symbol.KindStatefulVariable
 		if !validTarget {
 			d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
 			if sym.Kind == symbol.KindFunction {
@@ -278,7 +282,7 @@ func analyzeIdentifier(
 		}
 	}
 
-	if isLastNode && prevNode != nil && sym.Kind == symbol.KindChannel {
+	if isLastNode && prevNode != nil && (sym.Kind == symbol.KindChannel || isValueVarSink) {
 		if prevExpr := prevNode.Expression(); prevExpr != nil {
 			exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
 			chanValueType := sym.Type.Unwrap()

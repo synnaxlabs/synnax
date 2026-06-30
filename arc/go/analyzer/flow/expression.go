@@ -24,6 +24,8 @@ import (
 // AnalyzeSingleExpression converts an inline expression into a synthetic function
 // node. Format-string placeholders are analyzed here; IR shape is chosen downstream.
 func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
+	// enclosing is the lexical scope the expression appears in.
+	enclosing := ctx.Scope
 	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})
 	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
@@ -52,6 +54,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 							return
 						}
 						fnScope.AutoName("fmt_str_")
+						fnScope.SetLexicalResolver(enclosing)
 						expression.AnalyzeFmtStrLiteral(ctx.WithScope(fnScope), strTerm)
 						return
 					}
@@ -86,6 +89,9 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 		return
 	}
 	fnScope = fnScope.AutoName("expression_")
+	// Set on the function scope, not the block: the compiler resolves the
+	// synth expression under fnScope, so the hook must live there too.
+	fnScope.SetLexicalResolver(enclosing)
 
 	blockScope, err := fnScope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindBlock,

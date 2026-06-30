@@ -28,3 +28,21 @@ type Resolver interface {
 	// and "did you mean" suggestions.
 	Search(ctx context.Context, term string) ([]*Symbol, error)
 }
+
+// scopeResolver adapts a *Symbol to the Resolver interface, delegating
+// lookups to that scope's lexical resolution.
+type scopeResolver struct{ scope *Symbol }
+
+func (r scopeResolver) Resolve(ctx context.Context, name string) (*Symbol, error) {
+	return r.scope.Resolve(ctx, name)
+}
+
+func (r scopeResolver) Search(ctx context.Context, term string) ([]*Symbol, error) {
+	return r.scope.Search(ctx, term)
+}
+
+// SetLexicalResolver makes s consult enc for names not found among its own children,
+// before its parent, so a root-parented synthetic function can resolve lexically.
+func (s *Symbol) SetLexicalResolver(enc *Symbol) {
+	s.globalResolver = scopeResolver{scope: enc}
+}
