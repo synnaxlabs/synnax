@@ -485,8 +485,6 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Expression:  "invalid expression without return",
 			}}
-			// Bypass create-time analysis so the invalid expression reaches the
-			// calculation request manager, whose error-status handling is under test.
 			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
