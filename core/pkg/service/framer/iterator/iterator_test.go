@@ -29,40 +29,40 @@ import (
 
 var _ = Describe("StreamIterator", Ordered, func() {
 	var (
-		dist        mock.Node
+		node        mock.Node
+		iteratorSvc *iterator.Service
 		channelSvc  *channel.Service
 		writerSvc   *writer.Service
-		iteratorSvc *iterator.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		dist = mock.NewNode(ctx)
+		node = mock.NewNode(ctx)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Search:   dist.Search,
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Search:   node.Search,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
 			Label:    labelSvc,
-			Search:   dist.Search,
+			Search:   node.Search,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      dist.Channel,
-			DB:           dist.DB,
-			HostResolver: dist.Cluster,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			Search:       dist.Search,
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostResolver: node.Cluster,
+			Ontology:     node.Ontology,
+			Group:        node.Group,
+			Search:       node.Search,
 			Status:       statusSvc,
 		}))
 		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
-			Framer: dist.Framer, Channel: channelSvc,
+			Framer: node.Framer, Channel: channelSvc,
 		}))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
-			Framer:  dist.Framer,
+			Framer:  node.Framer,
 			Channel: channelSvc,
 		}))
 	})
@@ -128,7 +128,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
 					telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10),
 				}}
-				f := frame.NewMulti(
+				fr := frame.NewMulti(
 					keys,
 					[]telem.Series{
 						idxData.Series[0],
@@ -136,14 +136,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						telem.NewSeriesV[float32](-2, -3, -4, -5, -6),
 					},
 				)
-				MustSucceed(w.Write(f))
+				MustSucceed(w.Write(fr))
 				Expect(w.Close()).To(Succeed())
 				w = MustSucceed(writerSvc.Open(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS * 6,
 					Keys:             keys,
 					EnableAutoCommit: new(true),
 				}))
-				f = frame.NewMulti(
+				fr = frame.NewMulti(
 					keys,
 					[]telem.Series{
 						idxData.Series[1],
@@ -151,7 +151,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						telem.NewSeriesV[float32](-3, -4, -5, -6, -7),
 					},
 				)
-				MustSucceed(w.Write(f))
+				MustSucceed(w.Write(fr))
 				Expect(w.Close()).To(Succeed())
 			})
 
