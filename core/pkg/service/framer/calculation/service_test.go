@@ -126,7 +126,6 @@ var _ = Describe("Calculation", Ordered, func() {
 			Framer: dist.Framer, Channel: channelSvc,
 		}))
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-			DB:      dist.DB,
 			Framer:  dist.Framer,
 			Writer:  writerSvc,
 			Channel: channelSvc,

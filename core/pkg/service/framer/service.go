@@ -220,7 +220,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	var calcSvc *calculation.Service
 	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation: cfg.Child("calculation"),
-		DB:              cfg.DB,
 		Channel:         cfg.Channel,
 		Framer:          cfg.Framer,
 		Writer:          s.writer,
