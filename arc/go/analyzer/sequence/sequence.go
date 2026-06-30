@@ -16,12 +16,19 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
+	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 )
+
+// rejectReactiveAssignment reports that '=' cannot mutate a variable in a reactive scope; a flow must be used instead.
+func rejectReactiveAssignment(d *diagnostics.Diagnostics, assign parser.IAssignmentContext) {
+	name := assign.IDENTIFIER().GetText()
+	d.Add(diagnostics.Errorf(assign, "cannot use '=' here; write to '%s' with a flow: <value> -> %s", name, name))
+}
 
 // CollectDeclarations registers all sequences and their children in the symbol table.
 // This is called during the first pass of AnalyzeProgram to establish scopes before
@@ -239,6 +246,12 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
 			analyzeStage(context.Child(ctx, stageDecl).WithScope(seqScope))
 		}
+		if varDecl := item.VariableDeclaration(); varDecl != nil {
+			statement.AnalyzeVariableDeclaration(context.Child(ctx, varDecl).WithScope(seqScope))
+		}
+		if assign := item.Assignment(); assign != nil {
+			rejectReactiveAssignment(ctx.Diagnostics, assign)
+		}
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			flow.Analyze(context.Child(ctx, flowStmt).WithScope(seqScope))
 		}
@@ -305,11 +318,17 @@ func analyzeStage(ctx context.Context[parser.IStageDeclarationContext]) {
 		stageScope = scope
 	}
 	for _, item := range stageBody.AllStageItem() {
+		if varDecl := item.VariableDeclaration(); varDecl != nil {
+			statement.AnalyzeVariableDeclaration(context.Child(ctx, varDecl).WithScope(stageScope))
+		}
+		if assign := item.Assignment(); assign != nil {
+			rejectReactiveAssignment(ctx.Diagnostics, assign)
+		}
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			flow.Analyze(context.Child(ctx, flowStmt))
+			flow.Analyze(context.Child(ctx, flowStmt).WithScope(stageScope))
 		}
 		if single := item.SingleInvocation(); single != nil {
-			analyzeSingleInvocation(context.Child(ctx, single))
+			analyzeSingleInvocation(context.Child(ctx, single).WithScope(stageScope))
 		}
 		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
 			Analyze(context.Child(ctx, nestedSeq).WithScope(stageScope))

@@ -201,6 +201,140 @@ var _ = Describe("Sequence Analyzer", func() {
 		)
 	})
 
+	Describe("Scoped Variables", func() {
+		DescribeTable("Valid",
+			analyzeAndExpectSuccess,
+			Entry("variable declared in a sequence body", `
+				sequence main {
+					counter := 0
+					stage s1 {
+					}
+				}
+			`),
+			Entry("nested stage reads a variable from the enclosing sequence", `
+				sequence main {
+					counter := 0
+					stage s1 {
+						doubled := counter
+					}
+				}
+			`),
+			Entry("channel alias declared in a sequence body", `
+				sequence main {
+					p := pressure
+					stage s1 {
+					}
+				}
+			`),
+			Entry("nested sequence reads a variable from the enclosing sequence", `
+				sequence main {
+					counter := 0
+					sequence inner {
+						doubled := counter
+						stage s1 {
+						}
+					}
+				}
+			`),
+		)
+
+		DescribeTable("Invalid",
+			func(bCtx SpecContext, source, expectedError string) {
+				Expect(analyzeAndExpectError(bCtx, source)).To(ContainSubstring(expectedError))
+			},
+			Entry("shadowing a variable inherited from the enclosing sequence", `
+				sequence main {
+					counter := 0
+					stage s1 {
+						counter := 1
+					}
+				}
+			`, "conflicts with existing variable"),
+			Entry("referencing a variable declared in a sibling stage", `
+				sequence main {
+					stage s1 {
+						x := 1
+					}
+					stage s2 {
+						y := x
+					}
+				}
+			`, "undefined symbol: x"),
+			Entry("assigning with = in a reactive scope", `
+				sequence main {
+					counter := 0
+					stage s1 {
+						counter = 1
+					}
+				}
+			`, "cannot use '='"),
+			Entry("using a variable before it is declared in the same scope", `
+				sequence main {
+					stage s1 {
+						a := b
+						b := 0
+					}
+				}
+			`, "undefined symbol: b"),
+			Entry("a stage using a sequence variable declared after the stage", `
+				sequence main {
+					stage s1 {
+						a := counter
+					}
+					counter := 0
+				}
+			`, "undefined symbol: counter"),
+			Entry("shadowing an inherited variable in a nested sequence", `
+				sequence main {
+					counter := 0
+					sequence inner {
+						counter := 1
+						stage s1 {
+						}
+					}
+				}
+			`, "conflicts with existing variable"),
+			Entry("referencing a variable declared in a sibling sequence", `
+				sequence a {
+					x := 1
+					stage s1 {
+					}
+				}
+				sequence b {
+					y := x
+					stage s1 {
+					}
+				}
+			`, "undefined symbol: x"),
+			Entry("assigning with = in a sequence body", `
+				sequence main {
+					counter := 0
+					counter = 1
+					stage s1 {
+					}
+				}
+			`, "cannot use '='"),
+			Entry("using a variable before it is declared in a sequence body", `
+				sequence main {
+					a := b
+					b := 0
+					stage s1 {
+					}
+				}
+			`, "undefined symbol: b"),
+			Entry("a nested sequence using an enclosing variable declared after it", `
+				sequence main {
+					sequence inner {
+						a := counter
+						stage s1 {
+						}
+					}
+					counter := 0
+				}
+			`, "undefined symbol: counter"),
+		)
+	})
+
 	Describe("Top-Level Transitions", func() {
 		It("Should validate top-level entry points", func(bCtx SpecContext) {
 			analyzeAndExpectSuccess(bCtx, `

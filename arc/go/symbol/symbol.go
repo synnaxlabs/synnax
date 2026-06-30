@@ -347,8 +347,9 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 		if err == nil && existing.AST != nil {
 			tok := existing.AST.GetStart()
 			return nil, errors.Newf(
-				"name %s conflicts with existing symbol at line %d, col %d",
+				"name %s conflicts with existing %s at line %d, col %d",
 				sym.Name,
+				nounForKind(existing.Kind),
 				tok.GetLine(),
 				tok.GetColumn(),
 			)
@@ -363,9 +364,13 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Kind == KindFunction {
 		child.Channels = types.NewChannels()
 	}
-	if sym.Kind == KindVariable ||
-		sym.Kind == KindStatefulVariable ||
-		sym.Kind == KindInput ||
+	if sym.Kind == KindVariable || sym.Kind == KindStatefulVariable {
+		if _, err := s.ClosestAncestorOfKind(KindFunction); err != nil {
+			child.ID = s.Root().addIndex()
+		} else {
+			child.ID = s.addIndex()
+		}
+	} else if sym.Kind == KindInput ||
 		sym.Kind == KindConfig ||
 		sym.Kind == KindOutput ||
 		sym.Kind == KindLoopVariable {
@@ -373,6 +378,35 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	}
 	s.children = append(s.children, child)
 	return child, nil
+}
+
+// nounForKind returns a human-readable noun for k, used in diagnostics so a
+// name conflict names what it collides with (variable, channel, function, ...).
+func nounForKind(k Kind) string {
+	switch k {
+	case KindVariable, KindStatefulVariable, KindLoopVariable:
+		return "variable"
+	case KindChannel:
+		return "channel"
+	case KindFunction:
+		return "function"
+	case KindConfig:
+		return "config parameter"
+	case KindInput:
+		return "input parameter"
+	case KindOutput:
+		return "output parameter"
+	case KindSequence:
+		return "sequence"
+	case KindStage:
+		return "stage"
+	case KindConstant, KindGlobalConstant:
+		return "constant"
+	case KindModule, KindModuleAlias:
+		return "import"
+	default:
+		return "symbol"
+	}
 }
 
 // AddChild appends each already-constructed child to s.children and sets

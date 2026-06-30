@@ -18,6 +18,7 @@ import (
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -61,6 +62,18 @@ func Analyze(ctx context.Context[parser.IStatementContext]) {
 	case ctx.AST.Expression() != nil:
 		expression.Analyze(context.Child(ctx, ctx.AST.Expression()))
 	}
+}
+
+// AnalyzeVariableDeclaration registers and type-checks a `:=`/`$=` declaration in
+// ctx.Scope, letting sequences and stages declare scoped variables.
+func AnalyzeVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) {
+	analyzeVariableDeclaration(ctx)
+}
+
+// AnalyzeAssignment validates an `=` or compound assignment against the variable or
+// channel it targets, letting sequences and stages reassign in-scope variables.
+func AnalyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
+	analyzeAssignment(ctx)
 }
 
 func analyzeVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) {
@@ -172,11 +185,21 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 		sourceID = getChannelSourceFromExpr(ctx, expr)
 	}
 
+	var defaultValue any
+	if expr != nil && isLiteralExpression(context.Child(ctx, expr)) {
+		if lit := parser.GetLiteral(expr); lit != nil {
+			if parsed, perr := literal.Parse(lit, varType); perr == nil {
+				defaultValue = parsed.Value
+			}
+		}
+	}
+
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
-		Name:     name,
-		Type:     varType,
-		AST:      ctx.AST,
-		SourceID: sourceID,
+		Name:         name,
+		Type:         varType,
+		AST:          ctx.AST,
+		SourceID:     sourceID,
+		DefaultValue: defaultValue,
 	})
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
