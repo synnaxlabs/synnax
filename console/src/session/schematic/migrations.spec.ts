@@ -10,7 +10,7 @@
 import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { anyStateZ } from "@/service/schematic/import";
+import { anyStateZ } from "@/session/schematic/migrations";
 
 const V0_ZERO = {
   version: "0.0.0",

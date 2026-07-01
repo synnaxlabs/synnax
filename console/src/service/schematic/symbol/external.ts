@@ -9,3 +9,4 @@
 
 export * from "@/service/schematic/symbol/export";
 export * from "@/service/schematic/symbol/import";
+export * from "@/service/schematic/symbol/useDeleteGroup";

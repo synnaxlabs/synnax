@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/component/layout";
-import { ContextMenu } from "@/component/schematic/ContextMenu";
 import { LAYOUT_TYPE } from "@/component/schematic/layout";
-import { Schematic } from "@/component/schematic/Schematic";
 import { type Selector } from "@/component/selector";
 import { type Export } from "@/service/export";
+import { ContextMenu } from "@/service/schematic/ContextMenu";
 import { extract } from "@/service/schematic/export";
 import { FILE_INGESTERS } from "@/service/schematic/import";
+import { Schematic } from "@/service/schematic/Schematic";
 import { Selectable } from "@/service/schematic/Selectable";
 
 export * from "@/component/schematic/layout";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/component/schematic/toolbar/Toolbar.css";
+import "@/service/schematic/toolbar/Toolbar.css";
 
 import { schematic } from "@synnaxlabs/client";
 import { Breadcrumb, Flex, Icon, Schematic, Tabs } from "@synnaxlabs/pluto";

@@ -10,7 +10,7 @@
 import { type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { parseImport } from "@/service/schematic/import";
+import { parseImport } from "@/session/schematic/migrations";
 
 const configsOf = (s: { configs?: unknown }): record.Unknown =>
   typeof s.configs === "object" && s.configs != null ? { ...s.configs } : {};

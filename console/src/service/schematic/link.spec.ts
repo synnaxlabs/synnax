@@ -25,6 +25,8 @@ describe("Schematic.useLink", () => {
     });
     const { handler, store } = renderLinkHook(Schematic.useLink);
     await handler({ client, key: schematic.key });
-    expect(Session.Layout.select(store.getState(), schematic.key)?.name).toBe("Pump Schematic");
+    expect(Session.Layout.select(store.getState(), schematic.key)?.name).toBe(
+      "Pump Schematic",
+    );
   });
 });

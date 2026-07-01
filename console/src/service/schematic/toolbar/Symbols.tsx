@@ -35,6 +35,7 @@ import { Export } from "@/component/export";
 import { Modals } from "@/component/modals";
 import { Symbol } from "@/component/schematic/symbol";
 import { useConfirmDelete } from "@/service/ontology/hooks";
+import { Symbol as ServiceSymbol } from "@/service/schematic/symbol";
 import {
   useExport as useExportSymbol,
   useExportGroup,
@@ -322,7 +323,10 @@ export interface ActionsProps {
   selectedGroup: string;
 }
 
-const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement | null => {
+const Actions = ({
+  symbolGroupID,
+  selectedGroup,
+}: ActionsProps): ReactElement | null => {
   const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
@@ -414,13 +418,15 @@ export interface GroupListProps extends Input.Control<group.Key> {
   symbolGroupID?: ontology.ID;
 }
 
-const GroupListContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
+const GroupListContextMenu = ({
+  keys,
+}: Menu.ContextMenuMenuProps): ReactElement | null => {
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Group>(firstKey);
   const renameModal = Modals.useRename();
   const exportGroup = useExportGroup();
-  const deleteSymbolGroup = Symbol.useDeleteGroup();
+  const deleteSymbolGroup = ServiceSymbol.useDeleteGroup();
   const rename = Group.useRename({
     beforeUpdate: async ({ data }) => {
       const { name } = data;
@@ -461,7 +467,11 @@ const GroupListContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement
 
 const groupListContextMenu = Component.renderProp(GroupListContextMenu);
 
-const GroupList = ({ value, onChange, symbolGroupID }: GroupListProps): ReactElement => {
+const GroupList = ({
+  value,
+  onChange,
+  symbolGroupID,
+}: GroupListProps): ReactElement => {
   const staticData = List.useStaticData<group.Key, group.Group>({
     data: Schematic.Node.GROUPS,
   });
@@ -577,7 +587,11 @@ export const Symbols = (): ReactElement => {
           }
           size="small"
         />
-        <GroupList value={groupKey} onChange={setGroupKey} symbolGroupID={symbolGroupID} />
+        <GroupList
+          value={groupKey}
+          onChange={setGroupKey}
+          symbolGroupID={symbolGroupID}
+        />
         <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
       </Flex.Box>
       {symbolList}
