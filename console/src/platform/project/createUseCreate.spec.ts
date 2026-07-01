@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type EnhancedStore } from "@reduxjs/toolkit";
 import { createTestClient, log, type project, type Synnax } from "@synnaxlabs/client";
 import { Log as PLog } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
@@ -17,7 +16,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Log } from "@/feature/log";
 import { Project } from "@/platform/project";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil/testutil";
+import { createConsoleWrapper, type TestStore } from "@/testutil/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -26,7 +25,7 @@ const activeState = (proj: project.Project): Session.Project.SliceState => ({
   selected: proj.key,
 });
 
-const placedLog = (store: EnhancedStore): Session.Layout.State | undefined =>
+const placedLog = (store: TestStore): Session.Layout.State | undefined =>
   Session.Layout.selectByFilter(store.getState(), (l) => l.type === Log.LAYOUT_TYPE);
 
 const projectParents = async (logKey: string): Promise<string[]> =>
@@ -48,7 +47,9 @@ describe("createUseCreate", () => {
   });
 
   const buildUseCreate = (
-    args?: Partial<Parameters<typeof Project.createUseCreate<PLog.CreateParams, log.Log>>[0]>,
+    args?: Partial<
+      Parameters<typeof Project.createUseCreate<PLog.CreateParams, log.Log>>[0]
+    >,
   ) =>
     Project.createUseCreate<PLog.CreateParams, log.Log>({
       useCreate: PLog.useCreate,

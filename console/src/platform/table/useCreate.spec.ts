@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type EnhancedStore } from "@reduxjs/toolkit";
 import { createTestClient, type project, type Synnax } from "@synnaxlabs/client";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -15,7 +14,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/platform/table";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil/testutil";
+import { createConsoleWrapper, type TestStore } from "@/testutil/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -37,10 +36,10 @@ const buildHarness = async ({ activeProject }: BuildHarnessArgs = {}) =>
 const newProject = async (): Promise<project.Project> =>
   await client.projects.create({ name: `proj-${id.create()}`, layout: {} });
 
-const findPlacedTableLayout = (store: EnhancedStore) =>
+const findPlacedTableLayout = (store: TestStore) =>
   Session.Layout.selectByFilter(store.getState(), (l) => l.type === Table.LAYOUT_TYPE);
 
-const waitForPlacedLayout = async (store: EnhancedStore): Promise<string> => {
+const waitForPlacedLayout = async (store: TestStore): Promise<string> => {
   let key: string | undefined;
   await waitFor(() => {
     const placed = findPlacedTableLayout(store);

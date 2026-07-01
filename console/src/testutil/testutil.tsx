@@ -32,24 +32,22 @@ import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax
 
 export type ConsolePreloadedState = Partial<Session.State>;
 
-/** The console test store, typed with the full production root state. */
-export type TestStore = EnhancedStore<Session.State>;
-
 export interface ConsoleTestProviderOptions {
   preloadedState?: ConsolePreloadedState;
 }
 
-export const createTestStore = (
-  options: ConsoleTestProviderOptions = {},
-): TestStore => {
+export const createTestStore = (options: ConsoleTestProviderOptions = {}) => {
   const { preloadedState } = options;
   return configureStore({
-    reducer: Session.reducer as Reducer<Session.State>,
+    reducer: Session.reducer,
     // combineReducers fills any slice omitted from the partial preloaded state.
     preloadedState: preloadedState as Session.State | undefined,
     middleware: (getDefault) => getDefault().concat(...Session.BASE_MIDDLEWARE),
-  }) as TestStore;
+  });
 };
+
+/** The console test store, typed with the full production root state. */
+export type TestStore = ReturnType<typeof createTestStore>;
 
 // The eraser aether component is required by console widgets but is not part of pluto's
 // default test registry, so it is injected via additionalRegistry.
@@ -77,7 +75,7 @@ export interface RenderWithConsoleOptions extends RenderOptions {
 export const renderWithConsole = (
   ui: ReactElement,
   options: RenderWithConsoleOptions = {},
-): RenderResult & { store: EnhancedStore } => {
+): RenderResult & { store: TestStore } => {
   const {
     preloadedState,
     store = createTestStore({ preloadedState }),
@@ -129,7 +127,7 @@ export interface RenderHookWithConsoleOptions<Props> extends RenderHookOptions<P
 export const renderHookWithConsole = <Result, Props>(
   cb: (props: Props) => Result,
   options: RenderHookWithConsoleOptions<Props> = {},
-): RenderHookResult<Result, Props> & { store: EnhancedStore } => {
+): RenderHookResult<Result, Props> & { store: TestStore } => {
   const {
     preloadedState,
     store = createTestStore({ preloadedState }),
@@ -163,7 +161,7 @@ export const createConsoleWrapper = async ({
   store = createTestStore({ preloadedState }),
 }: CreateConsoleWrapperArgs): Promise<{
   wrapper: FC<PropsWithChildren>;
-  store: EnhancedStore;
+  store: TestStore;
 }> => {
   const SynnaxWrapper = await createAsyncSynnaxWrapper({
     client,

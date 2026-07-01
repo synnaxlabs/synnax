@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import {
   access,
   arc,
@@ -26,7 +25,7 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/session/arc";
-import { createConsoleWrapper } from "@/testutil/testutil";
+import { createConsoleWrapper, createTestStore } from "@/testutil/testutil";
 
 const KEY = "arc-1";
 
@@ -103,10 +102,7 @@ describe("arc selectors", () => {
 });
 
 const storeWith = (slice: Arc.SliceState) =>
-  configureStore({
-    reducer: { [Arc.SLICE_NAME]: Arc.reducer },
-    preloadedState: { [Arc.SLICE_NAME]: slice },
-  });
+  createTestStore({ preloadedState: { [Arc.SLICE_NAME]: slice } });
 
 const wrapperFor = (
   store: ReturnType<typeof storeWith>,

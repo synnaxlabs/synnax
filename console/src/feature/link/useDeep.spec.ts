@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { waitFor } from "@testing-library/react";
@@ -16,11 +15,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Link } from "@/feature/link";
 import { Link as Platform } from "@/platform/link";
 import { renderHookWithConsole } from "@/testutil/testutil";
-
-// useDeep dispatches Drift.focusWindow as a side effect of routing. Routing itself does
-// not depend on window state, so an identity-reducer store lets that dispatch no-op
-// while we assert on connect/handler calls.
-const noopStore = () => configureStore({ reducer: (state = {}) => state });
 
 const client = (): Client => ({}) as Client;
 
@@ -51,9 +45,7 @@ const setup = (overrides: Partial<Link.Deps> = {}): Harness => {
     onOpenURL,
     ...overrides,
   };
-  renderHookWithConsole(() => Link.useDeep(connect, handlers, deps), {
-    store: noopStore(),
-  });
+  renderHookWithConsole(() => Link.useDeep(connect, handlers, deps));
   return { connect, handlers, deps, openURL: (urls) => openURL(urls) };
 };
 

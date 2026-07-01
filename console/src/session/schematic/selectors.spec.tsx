@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import {
   access,
   channel,
@@ -26,7 +25,7 @@ import { Provider } from "react-redux";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/session/schematic";
-import { createConsoleWrapper } from "@/testutil/testutil";
+import { createConsoleWrapper, createTestStore } from "@/testutil/testutil";
 
 const KEY = "schematic-1";
 
@@ -147,10 +146,7 @@ describe("schematic selectors", () => {
 });
 
 const storeWith = (slice: Schematic.SliceState) =>
-  configureStore({
-    reducer: { [Schematic.SLICE_NAME]: Schematic.reducer },
-    preloadedState: { [Schematic.SLICE_NAME]: slice },
-  });
+  createTestStore({ preloadedState: { [Schematic.SLICE_NAME]: slice } });
 
 const wrapperFor = (
   store: ReturnType<typeof storeWith>,
