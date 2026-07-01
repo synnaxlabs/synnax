@@ -12,7 +12,7 @@ import { errors } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
-import { ENGINE } from "@/runtime/runtime";
+import { Session } from "@/session";
 
 export const downloadFromBrowser = (data: Blob, fileName: string) => {
   const link = document.createElement("a");
@@ -89,7 +89,7 @@ export const downloadStream = async ({
     }
   // Case 2: we use Tauri's stream writer, where at least we don't have to load
   // everything into memory.
-  if (ENGINE === "tauri") {
+  if (Session.Runtime.ENGINE === "tauri") {
     const savePath = await save({
       title: `Download ${name}`,
       defaultPath: nameWithExtension,

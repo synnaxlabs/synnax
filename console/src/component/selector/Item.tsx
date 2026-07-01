@@ -10,8 +10,8 @@
 import { Button, type Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { type Layout } from "@/layout";
-import { type Selectable } from "@/selector/Selector";
+import { type Selectable } from "@/component/selector/Selector";
+import { type Session } from "@/session";
 
 export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
   title: string;
@@ -28,7 +28,7 @@ export const Item = ({ title, icon, ...rest }: ItemProps) => (
 export interface SimpleItemProps {
   title: string;
   icon: Icon.ReactElement;
-  layout: Layout.BaseState;
+  layout: Session.Layout.BaseState;
   useVisible?: () => boolean;
 }
 

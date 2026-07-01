@@ -11,9 +11,9 @@ import { log } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Selector } from "@/selector";
-import { LAYOUT_TYPE } from "@/session/log/layout";
-import { useCreate } from "@/session/log/useCreate";
+import { Selector } from "@/component/selector";
+import { LAYOUT_TYPE } from "@/service/log/layout";
+import { useCreate } from "@/service/log/useCreate";
 
 export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
   const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);

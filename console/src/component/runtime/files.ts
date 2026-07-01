@@ -18,8 +18,8 @@ import {
   writeTextFile,
 } from "@tauri-apps/plugin-fs";
 
-import { downloadFromBrowser } from "@/runtime/download";
-import { ENGINE } from "@/runtime/runtime";
+import { downloadFromBrowser } from "@/component/runtime/download";
+import { Session } from "@/session";
 
 export interface FileFilter {
   name: string;
@@ -135,7 +135,7 @@ const pickFilesBrowser = ({
  * via File.text(). Returns null if the user cancels or selects nothing.
  */
 export const pickFiles = (args: PickFilesArgs): Promise<PickedFile[] | null> =>
-  ENGINE === "tauri" ? pickFilesTauri(args) : pickFilesBrowser(args);
+  Session.Runtime.ENGINE === "tauri" ? pickFilesTauri(args) : pickFilesBrowser(args);
 
 export interface SaveFileArgs {
   title?: string;
@@ -156,7 +156,7 @@ export const saveFile = async ({
   filters,
   contents,
 }: SaveFileArgs): Promise<string | null> => {
-  if (ENGINE === "tauri") {
+  if (Session.Runtime.ENGINE === "tauri") {
     const path = await save({ title, defaultPath: defaultName, filters });
     if (path == null) return null;
     await writeTextFile(path, contents);
@@ -244,7 +244,9 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
 export const pickDirectory = (
   args: PickDirectoryArgs = {},
 ): Promise<PickedDirectory | null> =>
-  ENGINE === "tauri" ? pickDirectoryTauri(args) : pickDirectoryBrowser();
+  Session.Runtime.ENGINE === "tauri"
+    ? pickDirectoryTauri(args)
+    : pickDirectoryBrowser();
 
 export interface WritableDirectory {
   /** A human-readable target path for status messages. */
@@ -347,6 +349,6 @@ const pickWritableDirectoryBrowser = async ({
 export const pickWritableDirectory = (
   args: PickWritableDirectoryArgs,
 ): Promise<WritableDirectory | null> =>
-  ENGINE === "tauri"
+  Session.Runtime.ENGINE === "tauri"
     ? pickWritableDirectoryTauri(args)
     : pickWritableDirectoryBrowser(args);

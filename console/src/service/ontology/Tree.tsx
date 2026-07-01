@@ -44,17 +44,18 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
-import { Layout } from "@/layout";
-import { DefaultContextMenu } from "@/ontology/DefaultContextMenu";
-import { MultipleSelectionContextMenu } from "@/ontology/MultipleSelectionContextMenu";
+import { Layout } from "@/component/layout";
+import { DefaultContextMenu } from "@/service/ontology/DefaultContextMenu";
+import { MultipleSelectionContextMenu } from "@/service/ontology/MultipleSelectionContextMenu";
 import {
   type BaseProps,
   type GetResource,
   type TreeContextMenuProps,
   type TreeItemProps,
   type TreeState,
-} from "@/ontology/service";
-import { useServices } from "@/ontology/ServicesProvider";
+} from "@/service/ontology/service";
+import { useServices } from "@/service/ontology/ServicesProvider";
+import { Session } from "@/session";
 import { type Action, type State } from "@/session/store";
 
 interface InternalProps {
@@ -358,8 +359,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [expand, contract, setLoading, handleError, setResource, nodesRef, setNodes],
   );
 
-  const placeLayout = Layout.usePlacer();
-  const removeLayout = Layout.useRemover();
+  const placeLayout = Session.Layout.usePlacer();
+  const removeLayout = Session.Layout.useRemover();
   const addStatus = Status.useAdder();
   const store = useStore<State, Action>();
 

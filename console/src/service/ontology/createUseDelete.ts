@@ -11,7 +11,8 @@ import { type Flux } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Ontology } from "@/ontology";
+import { useConfirmDelete } from "@/service/ontology/hooks";
+import { type TreeContextMenuProps } from "@/service/ontology/service";
 
 export interface CreateUseDeleteArgs<K extends record.Key> {
   type: string;
@@ -20,10 +21,10 @@ export interface CreateUseDeleteArgs<K extends record.Key> {
   query: Flux.UseUpdate<K | K[]>;
   convertKey: (key: string) => K;
   beforeUpdate?: (
-    query: Flux.BeforeUpdateParams<K | K[]> & Ontology.TreeContextMenuProps,
+    query: Flux.BeforeUpdateParams<K | K[]> & TreeContextMenuProps,
   ) => Promise<K | K[] | boolean>;
   afterSuccess?: (
-    query: Flux.AfterSuccessParams<K | K[]> & Ontology.TreeContextMenuProps,
+    query: Flux.AfterSuccessParams<K | K[]> & TreeContextMenuProps,
   ) => void;
 }
 
@@ -36,13 +37,13 @@ export const createUseDelete =
     convertKey,
     beforeUpdate,
     afterSuccess,
-  }: CreateUseDeleteArgs<K>): ((props: Ontology.TreeContextMenuProps) => () => void) =>
-  (props: Ontology.TreeContextMenuProps) => {
+  }: CreateUseDeleteArgs<K>): ((props: TreeContextMenuProps) => () => void) =>
+  (props: TreeContextMenuProps) => {
     const {
       selection: { ids },
       state: { getResource },
     } = props;
-    const confirm = Ontology.useConfirmDelete({ type, description, icon });
+    const confirm = useConfirmDelete({ type, description, icon });
     const { update } = query({
       beforeUpdate: useCallback(
         async (query: Flux.BeforeUpdateParams<K | K[]>) => {

@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import { type Layout } from "@/layout";
+import { type Layout } from "@/component/layout";
 
 type UpdateFn = (params: { key: string; name: string }) => void;
 type RetrieveFn = (params: { key: string }) => void;

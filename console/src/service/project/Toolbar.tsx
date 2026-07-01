@@ -11,13 +11,14 @@ import { project } from "@synnaxlabs/client";
 import { Access, Icon, Project } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { EmptyAction, Toolbar } from "@/component";
+import { Empty } from "@/component/empty";
+import { Project as CProject } from "@/component/project";
+import { Toolbar } from "@/component/toolbar";
 import { type Service } from "@/service";
-import { Ontology } from "@/ontology";
-import { useCreateModal } from "@/project/useCreateModal";
+import { Ontology } from "@/service/ontology";
 
 const Actions = (): ReactElement | null => {
-  const openCreate = useCreateModal();
+  const openCreate = CProject.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
@@ -43,11 +44,11 @@ const Content = (): ReactElement => {
 };
 
 const EmptyContent = () => {
-  const openCreate = useCreateModal();
+  const openCreate = CProject.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const handleClick = () => openCreate();
   return (
-    <EmptyAction
+    <Empty.Action
       message="No projects found."
       action={hasCreatePermission ? "Create a project" : undefined}
       onClick={handleClick}

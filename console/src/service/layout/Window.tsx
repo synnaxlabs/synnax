@@ -14,14 +14,12 @@ import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Component, Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
 
-import { ContextMenu } from "@/component";
+import { ContextMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
 import { Modals } from "@/component/modals";
-import { useSelect } from "@/session/layout/selectors";
-import { Content } from "@/layout/Content";
-import { Runtime } from "@/runtime";
+import { Session } from "@/session";
+import { Content } from "@/service/layout/Content";
 
 export const DefaultContextMenu = (): ReactElement => (
   <ContextMenu.Menu>
@@ -30,11 +28,12 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 const WindowInternal = (): ReactElement | null => {
-  const currLabel = Runtime.ENGINE === "tauri" ? getCurrentWindow().label : MAIN_WINDOW;
+  const currLabel =
+    Session.Runtime.ENGINE === "tauri" ? getCurrentWindow().label : MAIN_WINDOW;
   const isMain = currLabel === MAIN_WINDOW;
   let win = useSelectWindowKey(currLabel) ?? "";
   if (isMain) win = MAIN_WINDOW;
-  const layout = useSelect(win);
+  const layout = Session.Layout.useSelect(win);
   const os = OS.use({ default: "Windows" });
   const dispatch = Session.useDispatch();
   useEffect(() => {

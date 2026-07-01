@@ -28,48 +28,38 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
-import { ContextMenu } from "@/component";
-import { Export } from "@/export";
+import { Cluster } from "@/component/cluster";
+import { ContextMenu } from "@/component/context-menu";
+import { Export } from "@/service/export";
 import { Group } from "@/service/group";
-import { Import } from "@/import";
+import { Import } from "@/service/import";
 import { LinePlot } from "@/service/lineplot";
 import { Link } from "@/service/link";
 import { Log } from "@/service/log";
+import { Ontology } from "@/service/ontology";
+import { useExport } from "@/service/project/export";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
-import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createUseDelete";
-import { createUseRename } from "@/ontology/createUseRename";
-import { useExport } from "@/project/export";
-import { selectOptionalActiveKey } from "@/session/project/selectors";
-import { maybeRename, select } from "@/session/project/slice";
+import { Session } from "@/session";
 
-const useDelete = createUseDelete({
+const useDelete = Ontology.createUseDelete({
   type: "Project",
   query: Base.useDelete,
   convertKey: String,
   afterSuccess: ({ data, store }) => {
     const s = store.getState();
-    const activeKey = selectOptionalActiveKey(s);
+    const activeKey = Session.Project.selectOptionalSelected(s);
     const active = array.toArray(data).find((k) => k === activeKey);
     if (active == null) return;
-    store.dispatch(select(null));
-    store.dispatch(Layout.clearProject());
+    store.dispatch(Session.Project.clearSelected());
+    store.dispatch(Session.Layout.clearProject({}));
   },
 });
 
-const useRename = createUseRename({
+const useRename = Ontology.createUseRename({
   query: Base.useRename,
   ontologyID: project.ontologyID,
   convertKey: String,
-  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
-    const { key, name } = data;
-    store.dispatch(maybeRename({ key, name }));
-    rollbacks.push(() => store.dispatch(maybeRename({ key, name: oldName })));
-    return { ...data, name };
-  },
 });
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {

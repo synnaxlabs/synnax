@@ -18,8 +18,7 @@ import {
 import { type location } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { type Layout } from "@/layout";
-import { type State } from "@/session/store";
+import { type Session } from "@/session";
 
 export interface GetResource {
   (id: ontology.ID | string): ontology.Resource;
@@ -40,9 +39,9 @@ export interface TreeState {
 
 export interface BaseProps {
   client: Synnax;
-  store: State;
-  placeLayout: Layout.Placer;
-  removeLayout: Layout.Remover;
+  store: Session.Store;
+  placeLayout: Session.Layout.Placer;
+  removeLayout: Session.Layout.Remover;
   services: Services;
   addStatus: Status.Adder;
   handleError: Status.ErrorHandler;

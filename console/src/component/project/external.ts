@@ -8,14 +8,9 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/component/project/createUseCreate";
-export * from "@/component/project/export";
 export * from "@/component/project/Guard";
 export * from "@/component/project/Selector";
 export * from "@/component/project/Splash";
 export * from "@/component/project/useCheckCore";
 export * from "@/component/project/useCreateModal";
 export * from "@/component/project/useMaybeChange";
-export * from "@/component/project/useSyncLayout";
-export * from "@/service/project/types";
-export * from "@/session/project/selectors";
-export * from "@/session/project/slice";

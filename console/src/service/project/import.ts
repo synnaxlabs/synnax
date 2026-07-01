@@ -12,19 +12,19 @@ import { DisconnectedError, project, type Synnax } from "@synnaxlabs/client";
 import { Access, Mosaic, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 
-import { type Import } from "@/import";
-import { Layout } from "@/layout";
-import { Project } from "@/project";
-import { migrateLayout } from "@/project/services/layoutMigrations";
-import { Runtime } from "@/runtime";
+import { Runtime } from "@/component/runtime";
+import { type Import } from "@/service/import";
+import { LAYOUT_FILE_NAME } from "@/service/project/export";
+import { migrateLayout } from "@/service/project/layoutMigrations";
+import { Session } from "@/session";
 
 // Rewrites every reference to an imported component's original key with the key of the
 // resource actually created for it. Without it the original-key tabs resolve to nothing
 // and the ingesters' new-key tabs pile up as duplicates.
 const remapLayoutKeys = (
-  slice: Layout.SliceState,
+  slice: Session.Layout.SliceState,
   remap: Map<string, string>,
-): Layout.SliceState => {
+): Session.Layout.SliceState => {
   if (remap.size === 0) return slice;
   const next = deep.copy(slice);
   next.layouts = Object.fromEntries(
@@ -58,8 +58,8 @@ export const ingest: Import.DirectoryIngester = async (
   if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, store: fluxStore, client }))
     throw new Error("You do not have permission to import projects");
   if (client == null) throw new DisconnectedError();
-  const layoutData = files.find((file) => file.name === Project.LAYOUT_FILE_NAME);
-  if (layoutData == null) throw new Error(`${Project.LAYOUT_FILE_NAME} not found`);
+  const layoutData = files.find((file) => file.name === LAYOUT_FILE_NAME);
+  if (layoutData == null) throw new Error(`${LAYOUT_FILE_NAME} not found`);
   const layout = migrateLayout(layoutData.data);
   const projectKey = uuid.create();
   const proj: project.Project = { key: projectKey, name, layout };
@@ -92,8 +92,8 @@ export const ingest: Import.DirectoryIngester = async (
   }
 
   const remappedLayout = remapLayoutKeys(layout, remap);
-  store.dispatch(Project.select(proj));
-  store.dispatch(Layout.setProject({ slice: remappedLayout }));
+  store.dispatch(Session.Project.select(proj.key));
+  store.dispatch(Session.Layout.setProject({ slice: remappedLayout }));
   if (remap.size > 0) await client.projects.setLayout(projectKey, remappedLayout);
 };
 
@@ -101,7 +101,7 @@ export interface IngestContext {
   handleError: Status.ErrorHandler;
   client: Synnax | null;
   fileIngesters: Import.FileIngesters;
-  placeLayout: Layout.Placer;
+  placeLayout: Session.Layout.Placer;
   store: Store;
   fluxStore: Pluto.FluxStore;
 }

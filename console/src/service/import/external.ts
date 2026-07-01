@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/import/dataTransferItem";
-export * from "@/import/FileIngestersProvider";
-export * from "@/import/import";
-export * from "@/import/ingester";
-export * from "@/import/palette";
-export * from "@/import/trimFileName";
+export * from "@/service/import/dataTransferItem";
+export * from "@/service/import/FileIngestersProvider";
+export * from "@/service/import/import";
+export * from "@/service/import/ingester";
+export * from "@/service/import/palette";
+export * from "@/service/import/trimFileName";

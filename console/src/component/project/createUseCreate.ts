@@ -7,16 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store } from "@reduxjs/toolkit";
 import { type project } from "@synnaxlabs/client";
 import { type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
-import { useStore } from "react-redux";
 
-import { Layout } from "@/layout";
-import { useSelectActiveKey } from "@/session/project/selectors";
-import { useMaybeChange } from "@/project/useMaybeChange";
-import { type State } from "@/session/store";
+import { useMaybeChange } from "@/service/project/useMaybeChange";
+import { Session } from "@/session";
 
 export interface UseCreateProps {
   project?: project.Key;
@@ -41,14 +37,14 @@ export interface ToCreateParams<Input> {
   // project is the resolved target project, if any.
   project?: project.Key;
   // store exposes redux state for callers that derive default fields from it.
-  store: Store<State>;
+  store: Session.Store;
 }
 
 export interface CreateUseCreateArgs<Input, Output extends CreatedRecord> {
   // useCreate is the Pluto flux hook that persists the record on the server.
   useCreate: UseFluxCreate<Input, Output>;
   // createLayout builds the layout placed once the record exists on the server.
-  createSessionState: (record: Pick<Output, "key" | "name">) => Layout.Creator;
+  createSessionState: (record: Pick<Output, "key" | "name">) => Session.Layout.Creator;
   // toCreateParams assembles the create body, including the resource's default name and
   // any per-render default fields. Constructed at the concrete call site so Input needs
   // no cast; a caller override in overrides wins by spreading over the defaults.
@@ -69,9 +65,9 @@ export const createUseCreate =
     toCreateParams,
   }: CreateUseCreateArgs<Input, Output>) =>
   ({ project }: UseCreateProps): ((init?: Partial<Input>) => void) => {
-    const activeProject = useSelectActiveKey();
+    const activeProject = Session.Project.useSelectSelected();
     const maybeChangeProject = useMaybeChange();
-    const placeLayout = Layout.usePlacer();
+    const placeLayout = Session.Layout.usePlacer();
     const store = Session.useStore();
     project ??= activeProject;
     const { update } = useCreate({

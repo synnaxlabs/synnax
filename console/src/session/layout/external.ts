@@ -10,5 +10,6 @@
 export * from "@/session/layout/middleware";
 export * from "@/session/layout/selectors";
 export * from "@/session/layout/slice";
+export * from "@/session/layout/useOpenInNewWindow";
 export * from "@/session/layout/usePlacer";
 export * from "@/session/layout/useRemover";

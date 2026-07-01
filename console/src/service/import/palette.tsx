@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { useImport } from "@/import/import";
-import { Palette } from "@/palette";
+import { Palette } from "@/component/palette";
+import { useImport } from "@/service/import/import";
 
 const COMMAND_NAME = "Import component(s)";
 

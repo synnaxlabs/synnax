@@ -13,16 +13,9 @@ import { box, runtime, xy } from "@synnaxlabs/x";
 import { listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useId, useMemo } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useStore } from "react-redux";
 
-import { select } from "@/service/selectors";
-import {
-  createMosaicWindow,
-  moveMosaicTab,
-  type StoreState,
-} from "@/service/slice";
-import { usePlacer } from "@/layout/usePlacer";
-import { Runtime } from "@/runtime";
+import { Session } from "@/session";
 
 const useWindowsContains = (): ((cursor: xy.XY) => boolean) => {
   const store = useStore<Drift.StoreState>();
@@ -51,17 +44,20 @@ const useDropOutsideMacOS = ({
   const key_ = key ?? useId();
   const target: Haul.Item = useMemo(() => ({ key: key_, type }), [key_, type]);
   const windowsContain = useWindowsContains();
-  const store = useStore<StoreState & Drift.StoreState>();
+  const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   useAsyncEffect(async () => {
-    if (Runtime.ENGINE !== "tauri") return;
+    if (Session.Runtime.ENGINE !== "tauri") return;
     return await listen(
       "mouse_up",
       ({ payload: [x, y] }: { payload: [number, number] }) => {
         handleError(async () => {
           if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
           const state = store.getState();
-          const layout = select(state, dragging.current.items[0].key as string);
+          const layout = Session.Layout.select(
+            state,
+            dragging.current.items[0].key.toString(),
+          );
           if (layout?.windowKey == null) return;
           const winLabel = Drift.selectWindowLabel(state, layout.windowKey);
           if (winLabel == null || winLabel !== Drift.MAIN_WINDOW) return;
@@ -109,18 +105,18 @@ const useBase =
   runtime.getOS() === "macOS" ? useDropOutsideMacOS : useDropOutsideWindows;
 
 export const useDropOutside = (): void => {
-  const place = usePlacer();
+  const place = Session.Layout.usePlacer();
   const dispatch = Session.useDispatch();
   const handleDrop = useCallback(
     ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
       if (item == null || !Mosaic.isTabDropHaulItem(item)) return [];
       const { key } = place(
-        createMosaicWindow({
+        Session.Layout.createMosaicWindow({
           position: cursor ? xy.translate(cursor, { x: -80, y: -45 }) : undefined,
         }),
       );
       dispatch(
-        moveMosaicTab({
+        Session.Layout.moveMosaicTab({
           windowKey: key,
           key: 1,
           tabKey: item.key,

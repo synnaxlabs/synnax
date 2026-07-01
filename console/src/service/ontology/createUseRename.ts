@@ -12,7 +12,7 @@ import { type Flux, Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type Ontology } from "@/ontology";
+import { type TreeContextMenuProps } from "@/service/ontology/service";
 
 export interface CreateUseRenameArgs<K extends record.Key> {
   query: Flux.UseUpdate<record.KeyedNamed<K>>;
@@ -20,7 +20,7 @@ export interface CreateUseRenameArgs<K extends record.Key> {
   convertKey: (key: string) => K;
   beforeUpdate?: (
     query: Flux.BeforeUpdateParams<record.KeyedNamed<K>> &
-      Ontology.TreeContextMenuProps & { oldName: string },
+      TreeContextMenuProps & { oldName: string },
   ) => Promise<record.KeyedNamed<K> | boolean>;
 }
 
@@ -30,8 +30,8 @@ export const createUseRename =
     ontologyID,
     convertKey,
     beforeUpdate,
-  }: CreateUseRenameArgs<K>): ((props: Ontology.TreeContextMenuProps) => () => void) =>
-  (props: Ontology.TreeContextMenuProps) => {
+  }: CreateUseRenameArgs<K>): ((props: TreeContextMenuProps) => () => void) =>
+  (props: TreeContextMenuProps) => {
     const {
       selection: {
         ids: [firstID],

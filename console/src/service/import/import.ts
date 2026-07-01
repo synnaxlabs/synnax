@@ -12,16 +12,16 @@ import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useStore } from "react-redux";
 import { ZodError } from "zod";
 
-import { useFileIngesters } from "@/import/FileIngestersProvider";
-import { type FileIngesterContext, type FileIngesters } from "@/import/ingester";
-import { trimFileName } from "@/import/trimFileName";
-import { type State } from "@/session/store";
-import { Layout } from "@/layout";
-import { Project } from "@/project";
-import { Runtime } from "@/runtime";
+import { Runtime } from "@/component/runtime";
+import { useFileIngesters } from "@/service/import/FileIngestersProvider";
+import {
+  type FileIngesterContext,
+  type FileIngesters,
+} from "@/service/import/ingester";
+import { trimFileName } from "@/service/import/trimFileName";
+import { Session } from "@/session";
 
 export const ingestComponent = async (
   data: unknown,
@@ -58,7 +58,7 @@ const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 interface ImportComponentArgs {
   handleError: Status.ErrorHandler;
   client: Client | null;
-  placeLayout: Layout.Placer;
+  placeLayout: Session.Layout.Placer;
   store: Store;
   projectKey?: string;
   fluxStore: Pluto.FluxStore;
@@ -82,14 +82,16 @@ const importComponent = ({
     });
     if (files == null) return;
     const storeState = store.getState();
-    const activeProjectKey = Project.selectActiveKey(storeState);
+    const activeProjectKey = Session.Project.selectSelected(storeState);
     if (projectKey != null && activeProjectKey !== projectKey) {
       if (client == null) throw new DisconnectedError();
       const proj = await client.projects.retrieve(projectKey);
-      store.dispatch(Project.select(proj));
-      store.dispatch(Layout.setProject({ slice: proj.layout as Layout.SliceState }));
+      store.dispatch(Session.Project.select(proj.key));
+      store.dispatch(
+        Session.Layout.setProject({ slice: proj.layout as Session.Layout.SliceState }),
+      );
     }
-    const activeProjectKeyAfter = Project.selectActiveKey(store.getState());
+    const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());
     files.forEach((file) =>
       handleError(async () => {
         const data = await file.read();
@@ -107,7 +109,7 @@ const importComponent = ({
 };
 
 export const useImport = (): ((projectKey?: string) => void) => {
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   const store = Session.useStore();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();

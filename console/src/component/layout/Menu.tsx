@@ -12,18 +12,10 @@ import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Menu, Mosaic, Text } from "@synnaxlabs/pluto";
 import { type direction } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/component/context-menu";
-import { useSelectMosaic } from "@/session/layout/selectors";
-import {
-  moveMosaicTab,
-  setFocus,
-  splitMosaicNode,
-} from "@/session/layout/slice";
-import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
-import { useRemover } from "@/layout/useRemover";
-import { Runtime } from "@/runtime";
+import { Session } from "@/session";
 
 interface MenuItemProps {
   layoutKey: string;
@@ -35,7 +27,7 @@ const FocusMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
   return (
     <Menu.Item
       itemKey="focus"
-      onClick={() => dispatch(setFocus({ windowKey, key: layoutKey }))}
+      onClick={() => dispatch(Session.Layout.setFocus({ windowKey, key: layoutKey }))}
       trigger={["Control", "L"]}
     >
       <Icon.Focus />
@@ -48,13 +40,17 @@ const useMoveIntoMainWindow = () => {
   const store = useStore();
   return (layoutKey: string) => {
     store.dispatch(
-      moveMosaicTab({ windowKey: MAIN_WINDOW, tabKey: layoutKey, loc: "center" }),
+      Session.Layout.moveMosaicTab({
+        windowKey: MAIN_WINDOW,
+        tabKey: layoutKey,
+        loc: "center",
+      }),
     );
   };
 };
 
 const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | null => {
-  const openInNewWindow = useOpenInNewWindow();
+  const openInNewWindow = Session.Layout.useOpenInNewWindow();
   const isMain = useSelectWindowKey() === MAIN_WINDOW;
   if (!isMain) return null;
   return (
@@ -88,7 +84,7 @@ const MoveToMainWindowMenuItem = ({
 };
 
 const CloseMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
-  const remove = useRemover();
+  const remove = Session.Layout.useRemover();
   return (
     <Menu.Item
       itemKey="close"
@@ -117,7 +113,7 @@ const splitMenuItemFactory = (
 ): FC<SplitMenuItemProps> => {
   const C = ({ layoutKey }: SplitMenuItemProps) => {
     const dispatch = Session.useDispatch();
-    const [windowKey, mosaic] = useSelectMosaic();
+    const [windowKey, mosaic] = Session.Layout.useSelectMosaic();
     if (windowKey == null || mosaic == null) return null;
     const canSplit = Mosaic.canSplit(mosaic, layoutKey);
     if (!canSplit) return null;
@@ -125,7 +121,9 @@ const splitMenuItemFactory = (
       <Menu.Item
         itemKey={`split${direction}`}
         onClick={() =>
-          dispatch(splitMosaicNode({ windowKey, tabKey: layoutKey, direction }))
+          dispatch(
+            Session.Layout.splitMosaicNode({ windowKey, tabKey: layoutKey, direction }),
+          )
         }
       >
         {direction === "x" ? <Icon.SplitX /> : <Icon.SplitY />}
@@ -149,7 +147,9 @@ export const MenuItems = ({ layoutKey }: MenuItemsProps): ReactElement => (
     <CloseMenuItem layoutKey={layoutKey} />
     <Menu.Divider />
     <FocusMenuItem layoutKey={layoutKey} />
-    {Runtime.ENGINE === "tauri" && <OpenInNewWindowMenuItem layoutKey={layoutKey} />}
+    {Session.Runtime.ENGINE === "tauri" && (
+      <OpenInNewWindowMenuItem layoutKey={layoutKey} />
+    )}
     <MoveToMainWindowMenuItem layoutKey={layoutKey} />
     <Menu.Divider />
     <SplitXMenuItem layoutKey={layoutKey} />

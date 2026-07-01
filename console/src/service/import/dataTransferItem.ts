@@ -11,11 +11,10 @@ import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { type Pluto } from "@synnaxlabs/pluto";
 
-import { ingestComponent } from "@/import/import";
-import { type DirectoryIngester, type FileIngesters } from "@/import/ingester";
-import { trimFileName } from "@/import/trimFileName";
-import { type Layout } from "@/layout";
-import { Project } from "@/project";
+import { ingestComponent } from "@/service/import/import";
+import { type DirectoryIngester, type FileIngesters } from "@/service/import/ingester";
+import { trimFileName } from "@/service/import/trimFileName";
+import { Session } from "@/session";
 
 interface DirectoryContent {
   name: string;
@@ -67,8 +66,8 @@ interface DataTransferItemContext {
   client: Synnax | null;
   fileIngesters: FileIngesters;
   ingestDirectory: DirectoryIngester;
-  layout: Partial<Layout.State>;
-  placeLayout: Layout.Placer;
+  layout: Partial<Session.Layout.State>;
+  placeLayout: Session.Layout.Placer;
   store: Store;
   fluxStore: Pluto.FluxStore;
 }
@@ -95,7 +94,7 @@ export const dataTransferItem = async (
     const buffer = await entry.arrayBuffer();
     const fileData = new TextDecoder().decode(buffer);
     const parsedData = JSON.parse(fileData);
-    const projectKey = Project.selectActiveKey(store.getState());
+    const projectKey = Session.Project.selectSelected(store.getState());
     await ingestComponent(parsedData, entry.name, fileIngesters, {
       layout: { ...layout, name },
       placeLayout,

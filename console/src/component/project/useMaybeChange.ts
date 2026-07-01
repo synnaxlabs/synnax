@@ -9,21 +9,25 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 import { Synnax } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { Layout } from "@/layout";
-import { useSelectActiveKey } from "@/session/project/selectors";
-import { select } from "@/session/project/slice";
+import { Session } from "@/session";
 
 export const useMaybeChange = (): ((key: string) => Promise<void>) => {
-  const dispatch = Session.useDispatch();
-  const activeKey = useSelectActiveKey();
+  const dispatch = useDispatch();
+  const selected = Session.Project.useSelectSelected();
   const client = Synnax.use();
-  return async (key) => {
-    if (activeKey === key) return;
-    if (client == null) throw new DisconnectedError();
-    const { layout, ...proj } = await client.projects.retrieve(key);
-    dispatch(select(proj));
-    dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
-  };
+  return useCallback(
+    async (key) => {
+      if (selected === key) return;
+      if (client == null) throw new DisconnectedError();
+      const { layout } = await client.projects.retrieve(key);
+      dispatch(Session.Project.select(key));
+      dispatch(
+        Session.Layout.setProject({ slice: layout as Session.Layout.SliceState }),
+      );
+    },
+    [dispatch, selected, client],
+  );
 };

@@ -10,7 +10,7 @@
 import { open } from "@tauri-apps/plugin-shell";
 import { useEffect } from "react";
 
-import { ENGINE } from "@/runtime/runtime";
+import { Session } from "@/session";
 
 const handle = (e: MouseEvent) => {
   if (!(e.target instanceof Element)) return;
@@ -29,7 +29,7 @@ const handle = (e: MouseEvent) => {
  */
 export const useExternalLinkHandler = (): void => {
   useEffect(() => {
-    if (ENGINE !== "tauri") return;
+    if (Session.Runtime.ENGINE !== "tauri") return;
     document.addEventListener("click", handle, true);
     document.addEventListener("auxclick", handle, true);
     return () => {

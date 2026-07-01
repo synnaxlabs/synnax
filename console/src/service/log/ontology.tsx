@@ -11,20 +11,18 @@ import { log, ontology, type Synnax } from "@synnaxlabs/client";
 import { Access, Icon, Log, Menu, Mosaic } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
-import { Cluster } from "@/cluster";
-import { ContextMenu } from "@/component";
-import { Export } from "@/export";
+import { Cluster } from "@/component/cluster";
+import { ContextMenu } from "@/component/context-menu";
+import { Export } from "@/component/export";
 import { Group } from "@/service/group";
+import { Layout } from "@/service/layout";
 import { Link } from "@/service/link";
-import { ImEx } from "@/service/log/imex";
-import { create } from "@/session/log/layout";
+import { useExport } from "@/service/log/export";
+import { create } from "@/service/log/layout";
+import { Ontology } from "@/service/ontology";
 import { Session } from "@/session";
-import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createUseDelete";
-import { createUseRename } from "@/ontology/createUseRename";
 
-const useDelete = createUseDelete({
+const useDelete = Ontology.createUseDelete({
   type: "Log",
   query: Log.useDelete,
   convertKey: String,
@@ -35,7 +33,7 @@ const useDelete = createUseDelete({
   },
 });
 
-const useRename = createUseRename({
+const useRename = Ontology.createUseRename({
   query: Log.useRename,
   ontologyID: log.ontologyID,
   convertKey: String,
@@ -54,7 +52,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = ImEx.useExport();
+  const handleExport = useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const hasUpdatePermission = Access.useUpdateGranted(ids);

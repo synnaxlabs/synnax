@@ -18,12 +18,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { deep, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
-import { useStore } from "react-redux";
 
-import { Layout } from "@/layout";
-import { purgeExcludedLayouts } from "@/project/purgeExcludedLayouts";
-import { selectOptionalActiveKey } from "@/session/project/selectors";
-import { type State } from "@/session/store";
+import { purgeExcludedLayouts } from "@/service/project/purgeExcludedLayouts";
+import { Session } from "@/session";
 
 export const useSyncLayout = (): void => {
   const store = Session.useStore();
@@ -34,7 +31,7 @@ export const useSyncLayout = (): void => {
     debounce: TimeSpan.milliseconds(250),
     beforeUpdate: useCallback(async () => {
       const s = store.getState();
-      const key = selectOptionalActiveKey(s);
+      const key = Session.Project.selectOptionalSelected(s);
       if (key == null) return false;
       if (
         !Access.updateGranted({
@@ -44,7 +41,7 @@ export const useSyncLayout = (): void => {
         })
       )
         return false;
-      const layoutSlice = Layout.selectSliceState(s);
+      const layoutSlice = Session.Layout.selectSliceState(s);
       if (deep.equal(prevSyncRef.current, layoutSlice)) return false;
       prevSyncRef.current = layoutSlice;
       const layout = purgeExcludedLayouts(layoutSlice);

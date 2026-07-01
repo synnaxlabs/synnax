@@ -12,8 +12,8 @@ import { Access } from "@synnaxlabs/pluto";
 import { color, migrate, notation, telem } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Import } from "@/import";
-import { create, LAYOUT_TYPE } from "@/session/log/layout";
+import { type Import } from "@/service/import";
+import { create, LAYOUT_TYPE } from "@/service/log/layout";
 
 const STATE_MIGRATION_NAME = "log.state";
 

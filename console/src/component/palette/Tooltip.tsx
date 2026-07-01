@@ -10,7 +10,7 @@
 import { Flex, Text, Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { type TriggerConfig } from "@/palette/types";
+import { type TriggerConfig } from "@/component/palette/types";
 
 export interface TooltipContentProps {
   triggerConfig: TriggerConfig;

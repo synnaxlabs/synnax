@@ -9,19 +9,17 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { Export } from "@/export";
-import { Layout } from "@/layout";
-import { LAYOUT_TYPE } from "@/session/log/layout";
+import { Export } from "@/service/export";
+import { LAYOUT_TYPE } from "@/service/log/layout";
 
 export const VERSION = "2.0.0";
 
-export const extract: Export.Extractor = async (key, { store, client }) => {
-  const name = Layout.select(store.getState(), key)?.name;
+export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
-  const l = await client.logs.retrieve({ key });
+  const log = await client.logs.retrieve({ key });
   return {
-    data: JSON.stringify({ ...l, type: LAYOUT_TYPE, version: VERSION }),
-    name: name ?? l.name,
+    data: JSON.stringify({ ...log, type: LAYOUT_TYPE, version: VERSION }),
+    name: log.name,
   };
 };
 

@@ -25,10 +25,10 @@ import {
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { CSS } from "@/component/css";
-import { type Command, useCommandList } from "@/palette/command";
-import { useResourceList } from "@/palette/resource";
-import { TooltipContent } from "@/palette/Tooltip";
-import { type TriggerConfig } from "@/palette/types";
+import { type Command, useCommandList } from "@/component/palette/command";
+import { useResourceList } from "@/component/palette/resource";
+import { TooltipContent } from "@/component/palette/Tooltip";
+import { type TriggerConfig } from "@/component/palette/types";
 
 export interface PaletteProps {
   commandSymbol: string;

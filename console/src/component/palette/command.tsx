@@ -29,20 +29,18 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { useStore } from "react-redux";
 
 import { Modals } from "@/component/modals";
-import { Layout } from "@/layout";
-import { type UseListReturn } from "@/palette/list";
-import { type Action, type State, type State } from "@/session/store";
+import { type UseListReturn } from "@/component/palette/list";
+import { Session } from "@/session";
 
 export interface CommandProps extends List.ItemProps<string> {
-  placeLayout: Layout.Placer;
+  placeLayout: Session.Layout.Placer;
   confirm: Modals.PromptConfirm;
   rename: Modals.PromptRename;
   handleError: Status.ErrorHandler;
   addStatus: Status.Adder;
-  store: State;
+  store: Session.Store;
   fluxStore: Pluto.FluxStore;
   client: Client | null;
 }
@@ -113,7 +111,7 @@ export interface SimpleCommandConfig {
   key: string;
   name: string;
   icon?: Icon.ReactElement;
-  layout: Layout.PlacerArgs;
+  layout: Session.Layout.PlacerArgs;
   useVisible?: () => boolean;
   sortOrder?: number;
 }
@@ -193,7 +191,7 @@ const sort: compare.Comparator<Command> = (a, b) => {
 };
 
 export const useCommandList = (): UseListReturn<Command> => {
-  const store = useStore<State, Action>();
+  const store = Session.useStore();
   const client = Synnax.use();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const commands = useCommandContext();
@@ -206,7 +204,7 @@ export const useCommandList = (): UseListReturn<Command> => {
 
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   const confirm = Modals.useConfirm();
   const rename = Modals.useRename();
 

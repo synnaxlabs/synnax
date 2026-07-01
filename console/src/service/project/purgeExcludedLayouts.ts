@@ -9,7 +9,7 @@
 
 import { deep } from "@synnaxlabs/x";
 
-import { type Layout } from "@/layout";
+import { type Layout } from "@/session/layout";
 
 export const purgeExcludedLayouts = (
   sliceState: Layout.SliceState,

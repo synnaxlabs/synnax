@@ -10,9 +10,8 @@
 import { Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
-import { useSelectFocused, useSelectType } from "@/session/layout/selectors";
-import { useRenderer } from "@/layout/context";
-import { useRemover } from "@/layout/useRemover";
+import { Layout } from "@/component/layout";
+import { Session } from "@/session";
 
 /** LayoutContentProps are the props for the LayoutContent component. */
 export interface ContentProps {
@@ -29,10 +28,10 @@ export interface ContentProps {
  */
 export const Content = memo(
   ({ layoutKey, forceHidden }: ContentProps): ReactElement => {
-    const type = useSelectType(layoutKey) ?? "";
-    const handleClose = useRemover(layoutKey);
-    const Renderer = useRenderer(type);
-    const { focused } = useSelectFocused();
+    const type = Session.Layout.useSelectType(layoutKey) ?? "";
+    const handleClose = Session.Layout.useRemover(layoutKey);
+    const Renderer = Layout.useRenderer(type);
+    const { focused } = Session.Layout.useSelectFocused();
     const isFocused = focused === layoutKey;
     let visible = focused == null || isFocused;
     if (forceHidden) visible = false;

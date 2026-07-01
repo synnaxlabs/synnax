@@ -10,7 +10,7 @@
 import { Menu } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { type TreeContextMenuProps } from "@/ontology/service";
+import { type TreeContextMenuProps } from "@/service/ontology/service";
 
 export const CopyPropertiesContextMenuItem = (
   props: TreeContextMenuProps,
