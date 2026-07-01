@@ -39,14 +39,14 @@ import {
   useState,
 } from "react";
 
-import { Range as ServiceRange } from "@/feature/range";
-import { ContextMenu } from "@/platform/context-menu";
-import { CSS } from "@/platform/css";
-import { Controls } from "@/platform/lineplot/Controls";
+import { Controls } from "@/feature/lineplot/Controls";
 import {
   type DownloadLine,
   useDownloadAsCSV,
-} from "@/platform/lineplot/useDownloadAsCSV";
+} from "@/feature/lineplot/useDownloadAsCSV";
+import { Range as ServiceRange } from "@/feature/range";
+import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 

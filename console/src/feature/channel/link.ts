@@ -10,7 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { LinePlot } from "@/platform/lineplot";
+import { LinePlot } from "@/feature/lineplot";
 import { type Link } from "@/platform/link";
 import { Session } from "@/session";
 

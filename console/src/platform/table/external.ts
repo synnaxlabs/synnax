@@ -8,4 +8,3 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/table/layout";
-export * from "@/platform/table/useCreate";

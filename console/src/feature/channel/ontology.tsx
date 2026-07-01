@@ -25,14 +25,13 @@ import {
 import { id, primitive } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
-import { Group } from "@/platform/group";
-import { LinePlot as ServiceLinePlot } from "@/feature/lineplot";
-import { Ontology } from "@/platform/ontology";
 import { Channel } from "@/platform/channel";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
+import { Group } from "@/platform/group";
 import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
+import { Ontology } from "@/platform/ontology";
 import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -56,12 +55,7 @@ const handleSelect: Ontology.HandleSelect = ({
   switch (layout?.type) {
     case LinePlot.LAYOUT_TYPE: {
       handleError(
-        () =>
-          ServiceLinePlot.addChannelsToActivePlot(
-            client,
-            layout.key,
-            nonVirtualSelection,
-          ),
+        () => LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
         "Failed to add channels to plot",
       );
       break;

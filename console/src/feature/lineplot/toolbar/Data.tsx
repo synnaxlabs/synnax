@@ -10,12 +10,12 @@
 import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/platform/css";
 import {
   XAxisChannelSelect,
   XAxisRangeSelect,
   YAxisChannelSelect,
-} from "@/platform/lineplot/SelectAxis";
+} from "@/feature/lineplot/SelectAxis";
+import { CSS } from "@/platform/css";
 
 export const Data = (): ReactElement => (
   <Flex.Box className={CSS.BE("line-plot", "toolbar", "data")} full="x">

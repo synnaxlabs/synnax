@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Export } from "@/platform/export";
 import { extract } from "@/feature/table/export";
 import { FILE_INGESTERS } from "@/feature/table/import";
 import { Selectable } from "@/feature/table/Selectable";
 import { Table } from "@/feature/table/Table";
+import { type Export } from "@/platform/export";
 import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
 import { LAYOUT_TYPE } from "@/platform/table/layout";
@@ -20,8 +20,8 @@ export * from "@/feature/table/link";
 export * from "@/feature/table/ontology";
 export * from "@/feature/table/palette";
 export * from "@/feature/table/Toolbar";
+export * from "@/feature/table/useCreate";
 export * from "@/platform/table/layout";
-export * from "@/platform/table/useCreate";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

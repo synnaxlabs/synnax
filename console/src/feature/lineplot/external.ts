@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Export } from "@/platform/export";
 import { ContextMenu } from "@/feature/lineplot/ContextMenu";
 import { extract } from "@/feature/lineplot/export";
 import { LinePlot } from "@/feature/lineplot/LinePlot";
 import { Selectable } from "@/feature/lineplot/Selectable";
+import { type Export } from "@/platform/export";
 import { type Layout } from "@/platform/layout";
 import { LAYOUT_TYPE } from "@/platform/lineplot/layout";
 import { type Selector } from "@/platform/selector";
@@ -21,10 +21,10 @@ export * from "@/feature/lineplot/link";
 export * from "@/feature/lineplot/ontology";
 export * from "@/feature/lineplot/palette";
 export * from "@/feature/lineplot/toolbar";
+export * from "@/feature/lineplot/useCreate";
 export * from "@/feature/lineplot/useTriggerHold";
 export * from "@/platform/lineplot/addChannelsToActivePlot";
 export * from "@/platform/lineplot/layout";
-export * from "@/platform/lineplot/useCreate";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,

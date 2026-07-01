@@ -14,15 +14,15 @@ import { Access, Button, Flex, Icon, LinePlot, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { useExport } from "@/feature/lineplot/export";
+import { Annotations } from "@/feature/lineplot/toolbar/Annotations";
+import { Axes } from "@/feature/lineplot/toolbar/Axes";
+import { Data } from "@/feature/lineplot/toolbar/Data";
+import { Lines } from "@/feature/lineplot/toolbar/Lines";
+import { Properties } from "@/feature/lineplot/toolbar/Properties";
+import { useDownloadPlotAsCSV } from "@/feature/lineplot/useDownloadAsCSV";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
-import { Annotations } from "@/platform/lineplot/toolbar/Annotations";
-import { Axes } from "@/platform/lineplot/toolbar/Axes";
-import { Data } from "@/platform/lineplot/toolbar/Data";
-import { Lines } from "@/platform/lineplot/toolbar/Lines";
-import { Properties } from "@/platform/lineplot/toolbar/Properties";
-import { useDownloadPlotAsCSV } from "@/platform/lineplot/useDownloadAsCSV";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
