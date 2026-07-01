@@ -11,7 +11,7 @@ import { arc } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useCreate } from "@/feature/arc/useCreate";
+import { useCreate } from "@/platform/arc/useCreate";
 import { LAYOUT_TYPE } from "@/platform/arc/layout";
 import { Selector } from "@/platform/selector";
 

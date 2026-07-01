@@ -21,7 +21,6 @@ export * from "@/feature/log/ontology";
 export * from "@/feature/log/palette";
 export * from "@/feature/log/Selectable";
 export * from "@/feature/log/toolbar";
-export * from "@/feature/log/useCreate";
 export * from "@/platform/log/layout";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };

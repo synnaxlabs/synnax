@@ -11,7 +11,7 @@ import { type arc } from "@synnaxlabs/client";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useCreateModal } from "@/feature/arc/useCreateModal";
+import { useCreateModal } from "@/platform/arc/useCreateModal";
 import { create } from "@/platform/arc/layout";
 import { Session } from "@/session";
 

@@ -20,7 +20,6 @@ export * from "@/feature/table/link";
 export * from "@/feature/table/ontology";
 export * from "@/feature/table/palette";
 export * from "@/feature/table/Toolbar";
-export * from "@/feature/table/useCreate";
 export * from "@/platform/table/layout";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };

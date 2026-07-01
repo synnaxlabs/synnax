@@ -22,7 +22,7 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { useCreate } from "@/feature/table/useCreate";
+import { useCreate } from "@/platform/table/useCreate";
 import { LAYOUT_TYPE } from "@/platform/table/layout";
 import { Session } from "@/session";
 

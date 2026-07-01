@@ -11,7 +11,7 @@ import { lineplot } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useCreate } from "@/feature/lineplot/useCreate";
+import { useCreate } from "@/platform/lineplot/useCreate";
 import { LAYOUT_TYPE } from "@/platform/lineplot/layout";
 import { Selector } from "@/platform/selector";
 

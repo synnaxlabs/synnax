@@ -26,7 +26,7 @@ import { type ReactElement, useCallback, useState } from "react";
 
 import { ContextMenu } from "@/feature/arc/ContextMenu";
 import { EXPLORER_LAYOUT } from "@/feature/arc/Explorer";
-import { useCreate } from "@/feature/arc/useCreate";
+import { useCreate } from "@/platform/arc/useCreate";
 import { useRename } from "@/feature/arc/useRename";
 import { useTask } from "@/feature/arc/useTask";
 import { create as createLayout } from "@/platform/arc/layout";

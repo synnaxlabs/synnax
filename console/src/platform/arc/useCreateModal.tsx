@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/arc/CreateModal.css";
+import "@/platform/arc/CreateModal.css";
 
 import { type arc } from "@synnaxlabs/client";
 import { Button, CSS as PCSS, Icon, Input, Nav, Select, Text } from "@synnaxlabs/pluto";

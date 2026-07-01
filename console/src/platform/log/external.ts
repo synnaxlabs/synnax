@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/log/layout";
+export * from "@/platform/log/useCreate";

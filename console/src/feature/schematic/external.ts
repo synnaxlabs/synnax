@@ -22,7 +22,6 @@ export * from "@/feature/schematic/ontology";
 export * from "@/feature/schematic/palette";
 export * from "@/feature/schematic/symbol";
 export * from "@/feature/schematic/toolbar/Toolbar";
-export * from "@/feature/schematic/useCreate";
 export * from "@/platform/schematic/layout";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
