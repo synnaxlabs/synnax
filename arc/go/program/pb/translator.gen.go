@@ -38,6 +38,10 @@ func ProgramToPB(r program.Program) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
+	varSeedsVal, err := irpb.VarSeedsToPB(r.VarSeeds)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Program{
 		VarChannels:       r.VarChannels,
 		Wasm:              r.WASM,
@@ -47,6 +51,7 @@ func ProgramToPB(r program.Program) (*Program, error) {
 		Edges:             edgesVal,
 		Authorities:       authoritiesVal,
 		Root:              rootVal,
+		VarSeeds:          varSeedsVal,
 	}
 	return pb, nil
 }
@@ -75,6 +80,10 @@ func ProgramFromPB(pb *Program) (program.Program, error) {
 		return program.Program{}, err
 	}
 	r.Root, err = irpb.ScopeFromPB(pb.Root)
+	if err != nil {
+		return program.Program{}, err
+	}
+	r.VarSeeds, err = irpb.VarSeedsFromPB(pb.VarSeeds)
 	if err != nil {
 		return program.Program{}, err
 	}

@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import TypeAlias
+from typing import Any, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -89,6 +89,20 @@ class Authorities(BaseModel):
     channels: dict[int, int] = Field(default_factory=dict)
 
 
+class VarSeed(BaseModel):
+    """Is the startup seed for a reactive value variable's channel.
+
+    Attributes:
+        channel: Is the key of the channel backing the value variable.
+        type: Is the variable's value type.
+        value: Is the literal value seeded into the channel at startup.
+    """
+
+    channel: int = Field(ge=0, le=4294967295)
+    type: types.Type
+    value: Any
+
+
 class Edge(BaseModel):
     """Is a dataflow connection between node parameters in the Arc graph.
 
@@ -136,6 +150,8 @@ class Function(BaseModel):
 
 
 Nodes: TypeAlias = list[Node]
+
+VarSeeds: TypeAlias = list[VarSeed]
 
 Edges: TypeAlias = list[Edge]
 
@@ -200,6 +216,8 @@ class IR(BaseModel):
         var_channels: Lists the channel keys that back reactive value variables. These
             channels live only in program-local state and are never read from
             or written to Core.
+        var_seeds: Lists startup seeds applied to program-local state before execution
+            so a read preceding any write still observes the declared value.
     """
 
     functions: Functions = Field(default_factory=list)
@@ -208,6 +226,7 @@ class IR(BaseModel):
     authorities: Authorities
     root: Scope
     var_channels: list[int] = Field(default_factory=list)
+    var_seeds: VarSeeds = Field(default_factory=list)
 
 
 Members: TypeAlias = list[Member]

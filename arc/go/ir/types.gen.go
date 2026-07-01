@@ -26,6 +26,9 @@ type Functions []Function
 // Nodes is a collection of node instantiations in an Arc module.
 type Nodes []Node
 
+// VarSeeds is a collection of value-variable startup seeds.
+type VarSeeds []VarSeed
+
 // Members is an ordered collection of Scope members, one per position.
 type Members = []Member
 
@@ -168,6 +171,16 @@ type Authorities struct {
 	Channels map[uint32]uint8 `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
+// VarSeed is the startup seed for a reactive value variable's channel.
+type VarSeed struct {
+	// Channel is the key of the channel backing the value variable.
+	Channel uint32 `json:"channel" msgpack:"channel"`
+	// Type is the variable's value type.
+	Type types.Type `json:"type" msgpack:"type"`
+	// Value is the literal value seeded into the channel at startup.
+	Value any `json:"value" msgpack:"value"`
+}
+
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
@@ -184,7 +197,10 @@ type IR struct {
 	Root Scope `json:"root" msgpack:"root"`
 	// VarChannels lists the channel keys that back reactive value variables. These channels
 	// live only in program-local state and are never read from or written to Core.
-	VarChannels []uint32                               `json:"var_channels,omitzero" msgpack:"var_channels,omitzero"`
-	Symbols     *symbol.Symbol                         `json:"-"`
-	TypeMap     map[antlr.ParserRuleContext]types.Type `json:"-"`
+	VarChannels []uint32 `json:"var_channels,omitzero" msgpack:"var_channels,omitzero"`
+	// VarSeeds lists startup seeds applied to program-local state before execution so a
+	// read preceding any write still observes the declared value.
+	VarSeeds VarSeeds                               `json:"var_seeds,omitzero" msgpack:"var_seeds,omitzero"`
+	Symbols  *symbol.Symbol                         `json:"-"`
+	TypeMap  map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

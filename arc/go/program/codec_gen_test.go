@@ -182,10 +182,66 @@ var _ = Describe("Codec", func() {
 						},
 					},
 					VarChannels: []uint32{106},
+					VarSeeds: []ir.VarSeed{
+						{
+							Channel: 108,
+							Type: types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs: []types.Param{
+										{
+											Name:  "test_110",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_112": "value_112"},
+										},
+									},
+									Outputs: []types.Param{
+										{
+											Name:  "test_114",
+											Type:  types.Type{},
+											Value: map[string]interface{}{"key_116": "value_116"},
+										},
+									},
+								},
+								Kind: types.Kind(0),
+								Name: "test_118",
+								Elem: new(types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_123",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								}),
+								Unit: new(types.Unit{
+									Dimensions: types.Dimensions{},
+									Scale:      130.5,
+									Name:       "test_131",
+								}),
+								Constraint: new(types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_136",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								}),
+								ChanDirection: types.ChanDirection(0),
+							},
+							Value: map[string]interface{}{"key_142": "value_142"},
+						},
+					},
 				},
 				Output: compiler.Output{
-					WASM:              []byte{106, 107, 108},
-					OutputMemoryBases: map[string]uint32{"test_107": 108},
+					WASM:              []byte{143, 144, 145},
+					OutputMemoryBases: map[string]uint32{"test_144": 145},
 				},
 			}),
 			Entry("zero values", program.Program{
@@ -204,6 +260,7 @@ var _ = Describe("Codec", func() {
 						Transitions: nil,
 					},
 					VarChannels: nil,
+					VarSeeds:    nil,
 				},
 				Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 			}),
@@ -223,9 +280,10 @@ var _ = Describe("Codec", func() {
 						Transitions: []ir.Transition{},
 					},
 					VarChannels: []uint32{},
+					VarSeeds:    []ir.VarSeed{},
 				},
 				Output: compiler.Output{
-					WASM:              []byte{18, 19, 20},
+					WASM:              []byte{19, 20, 21},
 					OutputMemoryBases: map[string]uint32{},
 				},
 			}),
@@ -379,10 +437,66 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 				},
 			},
 			VarChannels: []uint32{106},
+			VarSeeds: []ir.VarSeed{
+				{
+					Channel: 108,
+					Type: types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs: []types.Param{
+								{
+									Name:  "test_110",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_112": "value_112"},
+								},
+							},
+							Outputs: []types.Param{
+								{
+									Name:  "test_114",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_116": "value_116"},
+								},
+							},
+						},
+						Kind: types.Kind(0),
+						Name: "test_118",
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_123",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      130.5,
+							Name:       "test_131",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_136",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						ChanDirection: types.ChanDirection(0),
+					},
+					Value: map[string]interface{}{"key_142": "value_142"},
+				},
+			},
 		},
 		Output: compiler.Output{
-			WASM:              []byte{106, 107, 108},
-			OutputMemoryBases: map[string]uint32{"test_107": 108},
+			WASM:              []byte{143, 144, 145},
+			OutputMemoryBases: map[string]uint32{"test_144": 145},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -547,10 +661,66 @@ func FuzzDecodeProgram(f *testing.F) {
 					},
 				},
 				VarChannels: []uint32{106},
+				VarSeeds: []ir.VarSeed{
+					{
+						Channel: 108,
+						Type: types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs: []types.Param{
+									{
+										Name:  "test_110",
+										Type:  types.Type{},
+										Value: map[string]interface{}{"key_112": "value_112"},
+									},
+								},
+								Outputs: []types.Param{
+									{
+										Name:  "test_114",
+										Type:  types.Type{},
+										Value: map[string]interface{}{"key_116": "value_116"},
+									},
+								},
+							},
+							Kind: types.Kind(0),
+							Name: "test_118",
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_123",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      130.5,
+								Name:       "test_131",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_136",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							ChanDirection: types.ChanDirection(0),
+						},
+						Value: map[string]interface{}{"key_142": "value_142"},
+					},
+				},
 			},
 			Output: compiler.Output{
-				WASM:              []byte{106, 107, 108},
-				OutputMemoryBases: map[string]uint32{"test_107": 108},
+				WASM:              []byte{143, 144, 145},
+				OutputMemoryBases: map[string]uint32{"test_144": 145},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -576,6 +746,7 @@ func FuzzDecodeProgram(f *testing.F) {
 					Transitions: nil,
 				},
 				VarChannels: nil,
+				VarSeeds:    nil,
 			},
 			Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 		}
@@ -602,9 +773,10 @@ func FuzzDecodeProgram(f *testing.F) {
 					Transitions: []ir.Transition{},
 				},
 				VarChannels: []uint32{},
+				VarSeeds:    []ir.VarSeed{},
 			},
 			Output: compiler.Output{
-				WASM:              []byte{18, 19, 20},
+				WASM:              []byte{19, 20, 21},
 				OutputMemoryBases: map[string]uint32{},
 			},
 		}

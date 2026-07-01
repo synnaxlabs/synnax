@@ -85,9 +85,6 @@ type ArcParserListener interface {
 	// EnterSingleInvocation is called when entering the singleInvocation production.
 	EnterSingleInvocation(c *SingleInvocationContext)
 
-	// EnterGlobalConstant is called when entering the globalConstant production.
-	EnterGlobalConstant(c *GlobalConstantContext)
-
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
 
@@ -321,9 +318,6 @@ type ArcParserListener interface {
 
 	// ExitSingleInvocation is called when exiting the singleInvocation production.
 	ExitSingleInvocation(c *SingleInvocationContext)
-
-	// ExitGlobalConstant is called when exiting the globalConstant production.
-	ExitGlobalConstant(c *GlobalConstantContext)
 
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)

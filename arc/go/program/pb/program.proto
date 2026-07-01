@@ -34,9 +34,12 @@ message Program {
   // var_channels lists the channel keys that back reactive value variables. These
   // channels live only in program-local state and are never read from or written to Core.
   repeated uint32 var_channels = 6;
+  // var_seeds lists startup seeds applied to program-local state before execution so a
+  // read preceding any write still observes the declared value.
+  repeated .arc.ir.pb.VarSeed var_seeds = 7;
   // wasm is compiled WebAssembly bytecode for sandboxed execution.
-  bytes wasm = 7;
+  bytes wasm = 8;
   // output_memory_bases contains memory base addresses for multi-output functions,
   // mapping function keys to their base addresses.
-  map<string, uint32> output_memory_bases = 8;
+  map<string, uint32> output_memory_bases = 9;
 }

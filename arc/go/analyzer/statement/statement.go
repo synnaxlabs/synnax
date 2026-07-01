@@ -274,11 +274,20 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 	if varType.Kind == types.KindChan {
 		varType = varType.Unwrap()
 	}
+	var defaultValue any
+	if expr != nil && isLiteralExpression(context.Child(ctx, expr)) {
+		if lit := parser.GetLiteral(expr); lit != nil {
+			if parsed, perr := literal.Parse(lit, varType); perr == nil {
+				defaultValue = parsed.Value
+			}
+		}
+	}
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
-		Name: name,
-		Kind: symbol.KindStatefulVariable,
-		Type: varType,
-		AST:  ctx.AST,
+		Name:         name,
+		Kind:         symbol.KindStatefulVariable,
+		Type:         varType,
+		AST:          ctx.AST,
+		DefaultValue: defaultValue,
 	})
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))

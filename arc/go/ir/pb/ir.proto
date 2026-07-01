@@ -146,6 +146,16 @@ message Authorities {
   map<uint32, uint32> channels = 2;
 }
 
+// VarSeed is the startup seed for a reactive value variable's channel.
+message VarSeed {
+  // channel is the key of the channel backing the value variable.
+  uint32 channel = 1;
+  // type is the variable's value type.
+  .arc.types.pb.Type type = 2;
+  // value is the literal value seeded into the channel at startup.
+  bytes value = 3;
+}
+
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 message IR {
@@ -163,4 +173,7 @@ message IR {
   // var_channels lists the channel keys that back reactive value variables. These
   // channels live only in program-local state and are never read from or written to Core.
   repeated uint32 var_channels = 6;
+  // var_seeds lists startup seeds applied to program-local state before execution so a
+  // read preceding any write still observes the declared value.
+  repeated VarSeed var_seeds = 7;
 }

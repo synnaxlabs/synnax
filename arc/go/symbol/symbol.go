@@ -128,9 +128,6 @@ const (
 	KindStage
 	// KindConstant represents a pure literal value in a flow statement.
 	KindConstant
-	// KindGlobalConstant represents a compile-time constant declared at global scope.
-	// Values are inlined at each reference site with no runtime overhead.
-	KindGlobalConstant
 	// KindLoop represents a loop scope (for break/continue validation).
 	KindLoop
 	// KindLoopVariable represents an immutable loop iteration variable.
@@ -400,7 +397,7 @@ func nounForKind(k Kind) string {
 		return "sequence"
 	case KindStage:
 		return "stage"
-	case KindConstant, KindGlobalConstant:
+	case KindConstant:
 		return "constant"
 	case KindModule, KindModuleAlias:
 		return "import"

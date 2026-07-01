@@ -166,6 +166,12 @@ func (s *source) Reset() {
 		return
 	}
 	ab := data.Series[len(data.Series)-1].AlignmentBounds()
+	// A variable read emits its current value on (re)activation; a plain channel
+	// read skips everything already buffered before it became active.
+	if s.state.varChannels.Contains(s.key) {
+		s.highWaterMark = ab.Lower
+		return
+	}
 	if ab.Upper > s.highWaterMark {
 		s.highWaterMark = ab.Upper
 	}

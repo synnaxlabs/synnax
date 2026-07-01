@@ -75,6 +75,17 @@ export const authoritiesZ = z.object({
 });
 export interface Authorities extends z.infer<typeof authoritiesZ> {}
 
+/** VarSeed is the startup seed for a reactive value variable's channel. */
+export const varSeedZ = z.object({
+  /** channel is the key of the channel backing the value variable. */
+  channel: z.uint32(),
+  /** type is the variable's value type. */
+  type: types.typeZ,
+  /** value is the literal value seeded into the channel at startup. */
+  value: z.unknown(),
+});
+export interface VarSeed extends z.infer<typeof varSeedZ> {}
+
 /** Edge is a dataflow connection between node parameters in the Arc graph. */
 export const edgeZ = z.object({
   /** source is the source node parameter producing data. */
@@ -118,6 +129,9 @@ export interface Function extends z.infer<typeof functionZ> {}
 
 export const nodesZ = nodeZ.array().default(() => []);
 export type Nodes = z.infer<typeof nodesZ>;
+
+export const varSeedsZ = varSeedZ.array().default(() => []);
+export type VarSeeds = z.infer<typeof varSeedsZ>;
 
 export const edgesZ = edgeZ.array().default(() => []);
 export type Edges = z.infer<typeof edgesZ>;
@@ -215,6 +229,11 @@ export const irZ = z.object({
     .uint32()
     .array()
     .default(() => []),
+  /**
+   * varSeeds lists startup seeds applied to program-local state before execution
+   * so a read preceding any write still observes the declared value.
+   */
+  varSeeds: varSeedsZ,
 });
 export interface IR extends z.infer<typeof irZ> {}
 

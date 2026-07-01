@@ -178,6 +178,22 @@ inline x::json::json Authorities::to_json() const {
     return j;
 }
 
+inline VarSeed VarSeed::parse(x::json::Parser parser) {
+    return VarSeed{
+        .channel = parser.field<std::uint32_t>("channel"),
+        .type = parser.field<::arc::types::Type>("type"),
+        .value = parser.field<x::json::json>("value"),
+    };
+}
+
+inline x::json::json VarSeed::to_json() const {
+    x::json::json j;
+    j["channel"] = this->channel;
+    j["type"] = this->type.to_json();
+    j["value"] = this->value;
+    return j;
+}
+
 inline IR IR::parse(x::json::Parser parser) {
     return IR{
         .functions = parser.field<Functions>("functions"),
@@ -186,6 +202,7 @@ inline IR IR::parse(x::json::Parser parser) {
         .authorities = parser.field<Authorities>("authorities"),
         .root = parser.field<Scope>("root"),
         .var_channels = parser.field<std::vector<std::uint32_t>>("var_channels"),
+        .var_seeds = parser.field<VarSeeds>("var_seeds"),
     };
 }
 
@@ -197,6 +214,7 @@ inline x::json::json IR::to_json() const {
     j["authorities"] = this->authorities.to_json();
     j["root"] = this->root.to_json();
     j["var_channels"] = this->var_channels;
+    j["var_seeds"] = this->var_seeds.to_json();
     return j;
 }
 
@@ -238,6 +256,21 @@ inline Nodes Nodes::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Nodes::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto &item: *this) {
+        j.push_back(item.to_json());
+    }
+    return j;
+}
+
+inline VarSeeds VarSeeds::parse(x::json::Parser parser) {
+    VarSeeds result;
+    for (auto &item: parser.field<std::vector<VarSeed>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json VarSeeds::to_json() const {
     x::json::json j = x::json::json::array();
     for (const auto &item: *this) {
         j.push_back(item.to_json());

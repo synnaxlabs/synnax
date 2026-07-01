@@ -220,6 +220,24 @@ Authorities struct {
     @doc value "holds the static authority declarations from an Arc program."
 }
 
+VarSeed struct {
+    channel uint32     {
+        @doc value "is the key of the channel backing the value variable."
+    }
+    type    types.Type {
+        @doc value "is the variable's value type."
+    }
+    value   any        {
+        @doc value "is the literal value seeded into the channel at startup."
+    }
+
+    @doc value "is the startup seed for a reactive value variable's channel."
+}
+
+VarSeeds VarSeed[] {
+    @doc value "is a collection of value-variable startup seeds."
+}
+
 IR struct {
     functions    Functions   {
         @doc value "contains function template definitions."
@@ -245,6 +263,12 @@ IR struct {
             lists the channel keys that back reactive value variables. These
             channels live only in program-local state and are never read from
             or written to Core.
+        """
+    }
+    var_seeds    VarSeeds    {
+        @doc value """
+            lists startup seeds applied to program-local state before execution
+            so a read preceding any write still observes the declared value.
         """
     }
 

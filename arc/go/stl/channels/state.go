@@ -24,6 +24,9 @@ type Digest struct {
 	Index    uint32
 	// Variable marks a channel that backs a reactive value variable.
 	Variable bool
+	// Seed, when non-empty, pre-fills the read buffer for a variable channel so
+	// a read preceding any write observes the declared value.
+	Seed telem.Series
 }
 
 // ProgramState manages channel I/O buffers and index mapping.
@@ -52,6 +55,9 @@ func NewProgramState(digests []Digest) *ProgramState {
 		cs.indexes[d.Key] = d.Index
 		if d.Variable {
 			cs.varChannels.Add(d.Key)
+			if len(d.Seed.Data) > 0 {
+				cs.appendVarRead(d.Key, d.Seed)
+			}
 		}
 	}
 	return cs

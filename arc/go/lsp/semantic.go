@@ -368,7 +368,7 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeFunction
 	case symbol.KindVariable:
 		tokenType = SemanticTokenTypeVariable
-	case symbol.KindConstant, symbol.KindGlobalConstant:
+	case symbol.KindConstant:
 		tokenType = SemanticTokenTypeConstant
 	case symbol.KindStatefulVariable:
 		tokenType = SemanticTokenTypeStatefulVariable

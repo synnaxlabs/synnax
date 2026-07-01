@@ -236,6 +236,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
+			Entry("a sequence using a top-level variable declared before it", `
+				greeting := "hi"
+				sequence main {
+					message := greeting
+					stage s1 {
+					}
+				}
+			`),
 		)
 
 		DescribeTable("Invalid",
@@ -332,6 +340,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					counter := 0
 				}
 			`, "undefined symbol: counter"),
+			Entry("a sequence using a top-level variable declared after it", `
+				sequence main {
+					message := greeting
+					stage s1 {
+					}
+				}
+				greeting := "hi"
+			`, "undefined symbol: greeting"),
 		)
 	})
 

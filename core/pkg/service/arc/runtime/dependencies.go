@@ -16,8 +16,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	stlchannels "github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Dependencies describes the channels a compiled Arc program reads from and writes to,
@@ -93,11 +95,16 @@ func NewDependencies(
 	if err != nil {
 		return Dependencies{}, err
 	}
+	seeds := make(map[uint32]telem.Series, len(prog.VarSeeds))
+	for _, vs := range prog.VarSeeds {
+		seeds[vs.Channel] = telem.NewSeriesFromAny(vs.Value, types.ToTelem(vs.Type))
+	}
 	channelDigests := make([]stlchannels.Digest, 0, len(channels)+len(varChannels))
 	for key := range varChannels {
 		channelDigests = append(channelDigests, stlchannels.Digest{
 			Key:      key,
 			Variable: true,
+			Seed:     seeds[key],
 		})
 	}
 	for _, ch := range channels {
@@ -113,9 +120,20 @@ func NewDependencies(
 			writes.Add(ch.Index())
 		}
 	}
+	// Digest carries a telem.Series (non-comparable), so dedup by channel key
+	// rather than by value equality.
+	seen := make(set.Set[uint32], len(channelDigests))
+	uniq := make([]stlchannels.Digest, 0, len(channelDigests))
+	for _, d := range channelDigests {
+		if seen.Contains(d.Key) {
+			continue
+		}
+		seen.Add(d.Key)
+		uniq = append(uniq, d)
+	}
 	return Dependencies{
 		Reads:          reads,
 		Writes:         writes,
-		ChannelDigests: lo.Uniq(channelDigests),
+		ChannelDigests: uniq,
 	}, nil
 }

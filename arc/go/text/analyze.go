@@ -375,9 +375,6 @@ func analyzeIdentifierByRole(
 			return flowNodeResult{}, false
 		}
 		return flowNodeResult{transition: &intent}, true
-	case symbol.KindGlobalConstant:
-		r, ok := buildGlobalConstantNode(name, sym, kg)
-		return flowNodeResult{node: r}, ok
 	default:
 		if isVarChannel(sym) {
 			shell.varChannels.Add(channelKey(sym))
@@ -512,20 +509,36 @@ func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (n
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
-func buildGlobalConstantNode(
-	name string,
-	sym *symbol.Symbol,
-	kg *keyGenerator,
-) (nodeResult, bool) {
-	key := kg.generate("const", name)
-	n := ir.Node{
-		Key:      key,
-		Type:     "constant",
-		Channels: types.NewChannels(),
-		Inputs:   types.Params{{Name: "value", Type: sym.Type, Value: sym.DefaultValue}},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
+// buildVarSeed records a value variable's declared value and channel key so the
+// runtime can pre-fill its channel with the seed before execution.
+func buildVarSeed(sym *symbol.Symbol, shell *shellBuilder) ir.VarSeed {
+	shell.varChannels.Add(channelKey(sym))
+	return ir.VarSeed{
+		Channel: channelKey(sym),
+		Type:    sym.Type,
+		Value:   sym.DefaultValue,
 	}
-	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
+}
+
+// collectSeededVars returns every reactive value variable with a literal
+// initializer. Function bodies are skipped: their locals are WASM locals.
+func collectSeededVars(root *symbol.Symbol) []*symbol.Symbol {
+	var out []*symbol.Symbol
+	var walk func(s *symbol.Symbol)
+	walk = func(s *symbol.Symbol) {
+		for _, c := range s.Children() {
+			switch c.Kind {
+			case symbol.KindModule, symbol.KindModuleAlias, symbol.KindFunction:
+				continue
+			}
+			if isVarChannel(c) && c.DefaultValue != nil {
+				out = append(out, c)
+			}
+			walk(c)
+		}
+	}
+	walk(root)
+	return out
 }
 
 // analyzeNextToken emits a transition intent that advances the enclosing
@@ -819,6 +832,12 @@ func Analyze(
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		}
+	}
+
+	// Seed each literal-initialized value variable so a read before any write
+	// still observes its declared value. Seeding is applied at runtime setup.
+	for _, v := range collectSeededVars(aCtx.Scope.Root()) {
+		i.VarSeeds = append(i.VarSeeds, buildVarSeed(v, shell))
 	}
 
 	// Inline bodies live as members of their enclosing scope; their flat IR
@@ -1167,7 +1186,9 @@ func extractConfigValues(
 					ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 					return nil, false
 				}
-				if sym.Kind == symbol.KindGlobalConstant {
+				isValueVar := sym.Kind == symbol.KindVariable ||
+					sym.Kind == symbol.KindStatefulVariable
+				if isValueVar && sym.DefaultValue != nil {
 					return sym.DefaultValue, true
 				}
 			}
@@ -1176,7 +1197,7 @@ func extractConfigValues(
 		if !parser.IsLiteral(expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				expr,
-				"config value for '%s' must be a literal or global constant",
+				"config value for '%s' must be a literal or variable",
 				paramName,
 			))
 			return nil, false

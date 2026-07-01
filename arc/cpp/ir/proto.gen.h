@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/pb/pb.h"
 
 #include "arc/cpp/ir/json.gen.h"
@@ -306,6 +307,31 @@ Authorities::from_proto(const ::arc::ir::pb::Authorities &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::arc::ir::pb::VarSeed, x::errors::Error> VarSeed::to_proto() const {
+    ::arc::ir::pb::VarSeed pb;
+    pb.set_channel(this->channel);
+    {
+        auto [v, err] = this->type.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_type() = v;
+    }
+    pb.set_value(this->value.dump());
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<VarSeed, x::errors::Error>
+VarSeed::from_proto(const ::arc::ir::pb::VarSeed &pb) {
+    VarSeed cpp;
+    cpp.channel = pb.channel();
+    {
+        auto [v, err] = ::arc::types::Type::from_proto(pb.type());
+        if (err) return {{}, err};
+        cpp.type = v;
+    }
+    cpp.value = x::json::json::parse(pb.value(), nullptr, false);
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::arc::ir::pb::IR, x::errors::Error> IR::to_proto() const {
     ::arc::ir::pb::IR pb;
     for (const auto &item: this->functions) {
@@ -335,6 +361,11 @@ inline std::pair<::arc::ir::pb::IR, x::errors::Error> IR::to_proto() const {
     }
     for (const auto &item: this->var_channels)
         pb.add_var_channels(item);
+    for (const auto &item: this->var_seeds) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_var_seeds() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -358,6 +389,8 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
     }
     for (const auto &item: pb.var_channels())
         cpp.var_channels.push_back(item);
+    if (auto err = x::pb::from_proto_repeated<VarSeed>(cpp.var_seeds, pb.var_seeds()))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 
