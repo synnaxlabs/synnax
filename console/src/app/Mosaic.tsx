@@ -43,14 +43,14 @@ import {
 
 import { Nav as AppNav } from "@/app/nav";
 import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
-import { ContextMenu as CMenu } from "@/component/context-menu";
-import { CSS } from "@/component/css";
-import { Layout } from "@/component/layout";
-import { Import } from "@/service/import";
-import { Layout as ServiceLayout } from "@/service/layout";
-import { LinePlot } from "@/service/lineplot";
-import { Ontology } from "@/service/ontology";
-import { Project } from "@/service/project";
+import { Import } from "@/feature/import";
+import { Layout as ServiceLayout } from "@/feature/layout";
+import { LinePlot } from "@/feature/lineplot";
+import { Ontology } from "@/feature/ontology";
+import { Project } from "@/feature/project";
+import { ContextMenu as CMenu } from "@/primitive/context-menu";
+import { CSS } from "@/primitive/css";
+import { Layout } from "@/primitive/layout";
 import { Session } from "@/session";
 
 const EmptyContent = (): ReactElement => {

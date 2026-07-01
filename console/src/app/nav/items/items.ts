@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Nav } from "@/component/nav";
-import { Arc } from "@/service/arc";
-import { Channel } from "@/service/channel";
-import { Device } from "@/service/device";
-import { Project } from "@/service/project";
-import { Range } from "@/service/range";
-import { Status } from "@/service/status";
-import { Task } from "@/service/task";
-import { User } from "@/service/user";
-import { Vis } from "@/service/vis";
+import { Arc } from "@/feature/arc";
+import { Channel } from "@/feature/channel";
+import { Device } from "@/feature/device";
+import { Project } from "@/feature/project";
+import { Range } from "@/feature/range";
+import { Status } from "@/feature/status";
+import { Task } from "@/feature/task";
+import { User } from "@/feature/user";
+import { Vis } from "@/feature/vis";
+import { type Nav } from "@/primitive/nav";
 
 export const DEFAULT_SIZE = 200;
 

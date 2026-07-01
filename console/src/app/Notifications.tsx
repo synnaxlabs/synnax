@@ -9,10 +9,10 @@
 
 import { type ReactElement } from "react";
 
-import { Notifications as Base } from "@/component/notifications";
-import { Version } from "@/component/version";
-import { Cluster } from "@/service/cluster";
-import { Device } from "@/service/device";
+import { Cluster } from "@/feature/cluster";
+import { Device } from "@/feature/device";
+import { Notifications as Base } from "@/primitive/notifications";
+import { Version } from "@/primitive/version";
 
 const NOTIFICATION_ADAPTERS: Base.Adapter[] = [
   ...Cluster.NOTIFICATION_ADAPTERS,

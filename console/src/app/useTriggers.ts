@@ -36,7 +36,8 @@ export const useTriggers = (): void => {
         const windowKey = selectWindowKey(state);
         const { focused } = Session.Layout.selectFocused(state);
         if (active == null || windowKey == null) return;
-        if (focused != null) store.dispatch(Session.Layout.setFocus({ key: null, windowKey }));
+        if (focused != null)
+          store.dispatch(Session.Layout.setFocus({ key: null, windowKey }));
         else store.dispatch(Session.Layout.setFocus({ key: active, windowKey }));
       },
       [store],

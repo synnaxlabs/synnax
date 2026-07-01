@@ -10,21 +10,21 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Access } from "@/service/access";
-import { Arc } from "@/service/arc";
-import { Channel } from "@/service/channel";
-import { Device } from "@/service/device";
-import { Group } from "@/service/group";
-import { LinePlot } from "@/service/lineplot";
-import { Log } from "@/service/log";
-import { Ontology } from "@/service/ontology";
-import { Project } from "@/service/project";
-import { Rack } from "@/service/rack";
-import { Range } from "@/service/range";
-import { Schematic } from "@/service/schematic";
-import { Table } from "@/service/table";
-import { Task } from "@/service/task";
-import { User } from "@/service/user";
+import { Access } from "@/feature/access";
+import { Arc } from "@/feature/arc";
+import { Channel } from "@/feature/channel";
+import { Device } from "@/feature/device";
+import { Group } from "@/feature/group";
+import { LinePlot } from "@/feature/lineplot";
+import { Log } from "@/feature/log";
+import { Ontology } from "@/feature/ontology";
+import { Project } from "@/feature/project";
+import { Rack } from "@/feature/rack";
+import { Range } from "@/feature/range";
+import { Schematic } from "@/feature/schematic";
+import { Table } from "@/feature/table";
+import { Task } from "@/feature/task";
+import { User } from "@/feature/user";
 
 const createEmptyService = (
   type: ontology.ResourceType,

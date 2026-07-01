@@ -13,9 +13,9 @@ import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Items } from "@/app/nav/items";
-import { CSS } from "@/component/css";
-import { Nav as ComponentNav } from "@/component/nav";
-import { Window } from "@/component/window";
+import { CSS } from "@/primitive/css";
+import { Nav as ComponentNav } from "@/primitive/nav";
+import { Window } from "@/primitive/window";
 import { Session } from "@/session";
 
 const BottomToggleButton = (): ReactElement => {

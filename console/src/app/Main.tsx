@@ -16,14 +16,14 @@ import { Mosaic } from "@/app/Mosaic";
 import { Nav } from "@/app/nav";
 import { Notifications } from "@/app/Notifications";
 import { useTriggers } from "@/app/useTriggers";
-import { Project } from "@/component/project";
-import { Range } from "@/component/range";
-import { Status } from "@/component/status";
-import { Auth } from "@/service/auth";
-import { Cluster } from "@/service/cluster";
-import { Device } from "@/service/device";
-import { Layout } from "@/service/layout";
-import { Project as ServiceProject } from "@/service/project";
+import { Auth } from "@/feature/auth";
+import { Cluster } from "@/feature/cluster";
+import { Device } from "@/feature/device";
+import { Layout } from "@/feature/layout";
+import { Project as ServiceProject } from "@/feature/project";
+import { Project } from "@/primitive/project";
+import { Range } from "@/primitive/range";
+import { Status } from "@/primitive/status";
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});

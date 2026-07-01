@@ -1,0 +1,41 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { group, type ontology } from "@synnaxlabs/client";
+import { Access, Icon, Menu } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
+
+import { Group } from "@/feature/group";
+import { type TreeState } from "@/feature/ontology/service";
+import { ContextMenu } from "@/primitive/context-menu";
+
+export interface DefaultContextMenuProps {
+  root: ontology.ID;
+  state: TreeState;
+}
+
+export const DefaultContextMenu = ({
+  root,
+  state,
+}: DefaultContextMenuProps): ReactElement => {
+  const createGroup = Group.useCreateEmpty({ parent: root, state, root });
+  const hasCreatePermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
+  return (
+    <ContextMenu.Menu>
+      {hasCreatePermission && (
+        <Menu.Item itemKey="newGroup" onClick={createGroup}>
+          <Icon.Group />
+          New group
+        </Menu.Item>
+      )}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
+  );
+};

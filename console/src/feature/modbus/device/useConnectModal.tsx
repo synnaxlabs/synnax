@@ -1,0 +1,187 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/feature/modbus/device/Connect.css";
+
+import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
+import {
+  Button,
+  Component,
+  Device as PDevice,
+  Flex,
+  type Flux,
+  Form,
+  Icon,
+  Nav,
+  Rack,
+  Status,
+  Task,
+} from "@synnaxlabs/pluto";
+import { useCallback } from "react";
+
+import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/feature/modbus/device/types";
+import {
+  SCAN_SCHEMAS,
+  SCAN_TYPE,
+  TEST_CONNECTION_COMMAND_TYPE,
+} from "@/feature/modbus/task/types";
+import { CSS } from "@/primitive/css";
+import { type Device as CommonDevice } from "@/primitive/device";
+import { Modals } from "@/primitive/modals";
+import { Triggers } from "@/primitive/triggers";
+
+const useForm = PDevice.createForm(SCHEMAS);
+
+const INITIAL_VALUES: Device = {
+  key: "",
+  name: "Modbus Server",
+  make: "Modbus",
+  model: "Modbus",
+  location: "",
+  properties: ZERO_PROPERTIES,
+  rack: 0,
+  configured: true,
+};
+
+const beforeValidate = ({
+  get,
+  set,
+}: Flux.BeforeValidateArgs<
+  PDevice.RetrieveQuery,
+  typeof PDevice.formSchema,
+  PDevice.FluxSubStore
+>) => {
+  const host = get<string>("properties.connection.host").value;
+  const port = get<number>("properties.connection.port").value;
+  set("location", `${host}:${port}`);
+};
+
+const beforeSave = async ({
+  client,
+  get,
+  store,
+  set,
+}: Flux.FormBeforeSaveParams<
+  PDevice.RetrieveQuery,
+  typeof PDevice.formSchema,
+  PDevice.FluxSubStore
+>) => {
+  const scanTask = await Task.retrieveSingle({
+    client,
+    store,
+    query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
+    schemas: SCAN_SCHEMAS,
+  });
+  const state = await scanTask.executeCommandSync({
+    type: TEST_CONNECTION_COMMAND_TYPE,
+    timeout: TimeSpan.seconds(10),
+    args: { connection: get("properties.connection").value },
+  });
+  if (state.variant === "error") throw new Error(state.message);
+  // Since we just scanned successfully, we create a default healthy status for the
+  // device that can then be overwritten by the scanner if we lose connection.
+  const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+    message: "Server connected",
+    variant: "success",
+    details: {
+      rack: get<rack.Key>("rack").value,
+      device: get<device.Key>("key").value,
+    },
+  });
+  set("status", devStatus, { notifyOnChange: false, markTouched: false });
+  return true;
+};
+
+export const useConnectModal = Modals.create<CommonDevice.ConnectParams>(
+  ({ deviceKey, close }) => {
+    const {
+      form,
+      save,
+      status: stat,
+      variant,
+    } = useForm({
+      query: { key: deviceKey ?? "" },
+      initialValues: INITIAL_VALUES,
+      beforeValidate,
+      beforeSave,
+      afterSave: useCallback(() => close(), [close]),
+    });
+
+    return (
+      <Modals.Frame className={CSS.B("modbus-connect")}>
+        <Modals.Header icon={<Icon.Logo.Modbus />}>Server.Connect</Modals.Header>
+        <Flex.Box className={CSS.B("content")} grow size="small">
+          <Form.Form<typeof PDevice.formSchema> {...form}>
+            <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
+            <Form.Field<rack.Key> path="rack" label="Connect From Location" required>
+              {selectRackRenderProp}
+            </Form.Field>
+            <Flex.Box x justify="between">
+              <Form.TextField
+                grow
+                path="properties.connection.host"
+                inputProps={HOST_INPUT_PROPS}
+              />
+              <Form.NumericField
+                path="properties.connection.port"
+                inputProps={PORT_INPUT_PROPS}
+              />
+            </Flex.Box>
+            <Flex.Box x justify="start">
+              <Form.SwitchField
+                path="properties.connection.swapBytes"
+                label="Swap Bytes"
+              />
+              <Form.SwitchField
+                path="properties.connection.swapWords"
+                label="Swap Words"
+              />
+            </Flex.Box>
+          </Form.Form>
+        </Flex.Box>
+        <Modals.Footer>
+          <Nav.Bar.Start gap="small">
+            {variant == "success" ? (
+              <Triggers.SaveHelpText action="Connect" noBar />
+            ) : (
+              <Status.Summary variant={variant} message={stat.description} />
+            )}
+          </Nav.Bar.Start>
+          <Nav.Bar.End>
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => save()}
+              variant="filled"
+            >
+              Connect
+            </Button.Button>
+          </Nav.Bar.End>
+        </Modals.Footer>
+      </Modals.Frame>
+    );
+  },
+);
+
+const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "modbus" };
+
+const selectRackRenderProp = Component.renderProp(
+  (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (
+    <Rack.SelectSingle {...props} initialQuery={INITIAL_RACK_QUERY} />
+  ),
+);
+
+const NAME_INPUT_PROPS = {
+  level: "h2",
+  variant: "text",
+  placeholder: "Modbus Server",
+} as const;
+
+const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;
+
+const PORT_INPUT_PROPS = { placeholder: "502" } as const;

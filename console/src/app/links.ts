@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Arc } from "@/service/arc";
-import { Channel } from "@/service/channel";
-import { Cluster } from "@/service/cluster";
-import { Device } from "@/service/device";
-import { LinePlot } from "@/service/lineplot";
-import { Link } from "@/service/link";
-import { Log } from "@/service/log";
-import { Project } from "@/service/project";
-import { Range } from "@/service/range";
-import { Schematic } from "@/service/schematic";
-import { Table } from "@/service/table";
-import { Task } from "@/service/task";
+import { Arc } from "@/feature/arc";
+import { Channel } from "@/feature/channel";
+import { Cluster } from "@/feature/cluster";
+import { Device } from "@/feature/device";
+import { LinePlot } from "@/feature/lineplot";
+import { Link } from "@/feature/link";
+import { Log } from "@/feature/log";
+import { Project } from "@/feature/project";
+import { Range } from "@/feature/range";
+import { Schematic } from "@/feature/schematic";
+import { Table } from "@/feature/table";
+import { Task } from "@/feature/task";
 
 export const useLinks = (): void => {
   const handlers = {

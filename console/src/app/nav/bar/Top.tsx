@@ -10,13 +10,13 @@
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Nav as ConsoleNav } from "@/component/nav";
-import { Project } from "@/component/project";
-import { User } from "@/component/user";
-import { Version } from "@/component/version";
-import { Window } from "@/component/window";
-import { Cluster } from "@/service/cluster";
-import { Docs } from "@/service/docs";
+import { Cluster } from "@/feature/cluster";
+import { Docs } from "@/feature/docs";
+import { Nav as ConsoleNav } from "@/primitive/nav";
+import { Project } from "@/primitive/project";
+import { User } from "@/primitive/user";
+import { Version } from "@/primitive/version";
+import { Window } from "@/primitive/window";
 
 export const Top = (): ReactElement | null => (
   <ConsoleNav.Bar location="top" size="6.5rem">

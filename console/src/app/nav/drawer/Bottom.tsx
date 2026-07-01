@@ -10,7 +10,7 @@
 import { type ReactElement, useCallback } from "react";
 
 import { Items } from "@/app/nav/items";
-import { Service } from "@/service";
+import { Feature } from "@/feature";
 import { Session } from "@/session";
 
 export const Bottom = (): ReactElement | null => {
@@ -30,7 +30,7 @@ export const Bottom = (): ReactElement | null => {
   );
   const { initialSize = Items.DEFAULT_SIZE, sizeBounds, content } = Items.BOTTOM;
   return (
-    <Service.Nav.Drawer
+    <Feature.Nav.Drawer
       location="bottom"
       size={size ?? initialSize}
       sizeBounds={sizeBounds}
@@ -41,6 +41,6 @@ export const Bottom = (): ReactElement | null => {
       onStopHover={handleStopHover}
     >
       {content}
-    </Service.Nav.Drawer>
+    </Feature.Nav.Drawer>
   );
 };

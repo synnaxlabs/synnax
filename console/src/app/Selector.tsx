@@ -9,11 +9,11 @@
 
 import { uuid } from "@synnaxlabs/x";
 
-import { type Layout } from "@/component/layout";
-import { Selector as BaseSelector } from "@/component/selector";
-import { Arc } from "@/service/arc";
-import { Task } from "@/service/task";
-import { Vis } from "@/service/vis";
+import { Arc } from "@/feature/arc";
+import { Task } from "@/feature/task";
+import { Vis } from "@/feature/vis";
+import { type Layout } from "@/primitive/layout";
+import { Selector as BaseSelector } from "@/primitive/selector";
 import { type Session } from "@/session";
 
 const SELECTABLES: BaseSelector.Selectable[] = [

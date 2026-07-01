@@ -9,12 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  type Cluster,
-  reducer,
-  set,
-  ZERO_SLICE_STATE,
-} from "@/session/cluster/slice";
+import { type Cluster, reducer, set, ZERO_SLICE_STATE } from "@/session/cluster/slice";
 
 const TEMP_KEY = "temp-uuid-1234";
 const REAL_KEY = "real-cluster-key-5678";
