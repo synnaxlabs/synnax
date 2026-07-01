@@ -9,42 +9,39 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { Flex, Input, LinePlot } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
-export interface PropertiesProps {
-  layoutKey: string;
-}
-
-export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
-  const title = LinePlot.useSelectTitle({ key: layoutKey });
-  const legend = LinePlot.useSelectLegend({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
+export const Properties = (): ReactElement => {
+  const key = LinePlot.useKey();
+  const title = LinePlot.useSelectTitle();
+  const legend = LinePlot.useSelectLegend();
+  const name = LinePlot.useSelectName();
   const reduxDispatch = useDispatch();
-  const { dispatch } = LinePlot.useDispatch();
-  const { update: renameRemote } = LinePlot.useRename({});
+  const dispatch = LinePlot.useSingleDispatch();
+  const { update: rename } = LinePlot.useRename({});
 
-  const handleTitleRename = (value: string): void => {
-    reduxDispatch(Layout.rename({ key: layoutKey, name: value }));
-    renameRemote({ key: layoutKey, name: value });
-  };
+  const handleTitleRename = useCallback(
+    (name: string): void => {
+      reduxDispatch(Layout.rename({ key, name }));
+      rename({ key, name });
+    },
+    [reduxDispatch, rename],
+  );
 
-  const handleTitleVisibilityChange = (visible: boolean): void => {
-    dispatch({
-      key: layoutKey,
-      actions: [lineplot.setTitle({ title: { ...title, visible } })],
-    });
-  };
+  const handleTitleVisibilityChange = useCallback(
+    (visible: boolean): void => dispatch(lineplot.setTitleVisible({ visible })),
+    [dispatch],
+  );
 
-  const handleLegendVisibilityChange = (visible: boolean): void => {
-    dispatch({
-      key: layoutKey,
-      actions: [lineplot.setLegendHidden({ hidden: !visible })],
-    });
-  };
+  const handleLegendVisibilityChange = useCallback(
+    (visible: boolean): void =>
+      dispatch(lineplot.setLegendHidden({ hidden: !visible })),
+    [dispatch],
+  );
 
   return (
     <Flex.Box x className={CSS.BE("line-plot", "toolbar", "properties")}>

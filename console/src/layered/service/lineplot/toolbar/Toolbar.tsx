@@ -26,7 +26,6 @@ import { Lines } from "@/layered/service/lineplot/toolbar/Lines";
 import { Properties } from "@/layered/service/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/layered/service/lineplot/useDownloadAsCSV";
 import { Session } from "@/layered/session";
-import { Layout } from "@/layout";
 
 interface Tab {
   tabKey: Session.LinePlot.ToolbarTab;
@@ -42,41 +41,41 @@ const TABS: Tab[] = [
 ];
 
 const Internal = (): ReactElement => {
-  const layoutKey = LinePlot.useKey();
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const key = LinePlot.useKey();
+  const name = LinePlot.useSelectName();
   const dispatch = useDispatch();
   const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
-  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
+  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
   const handleExport = useExport();
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
       switch (tabKey) {
         case "lines":
-          return <Lines layoutKey={layoutKey} />;
+          return <Lines />;
         case "axes":
-          return <Axes layoutKey={layoutKey} />;
+          return <Axes />;
         case "properties":
-          return <Properties layoutKey={layoutKey} />;
+          return <Properties />;
         case "annotations":
-          return <Annotations layoutKey={layoutKey} />;
+          return <Annotations />;
         default:
-          return <Data layoutKey={layoutKey} />;
+          return <Data />;
       }
     },
-    [layoutKey],
+    [key],
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(
         Session.LinePlot.setActiveToolbarTab({
-          key: layoutKey,
+          key,
           tab: tabKey as Session.LinePlot.ToolbarTab,
         }),
       );
     },
-    [dispatch, layoutKey],
+    [dispatch, key],
   );
-  const downloadAsCSV = useDownloadPlotAsCSV(layoutKey);
+  const downloadAsCSV = useDownloadPlotAsCSV(key);
   const value = useMemo(
     () => ({
       tabs: TABS,
@@ -102,10 +101,10 @@ const Internal = (): ReactElement => {
               >
                 <Icon.CSV />
               </Button.Button>
-              <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+              <Export.ToolbarButton onExport={() => handleExport(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
-                ontologyID={lineplot.ontologyID(layoutKey)}
+                ontologyID={lineplot.ontologyID(key)}
               />
             </Flex.Box>
             {hasUpdatePermission && (

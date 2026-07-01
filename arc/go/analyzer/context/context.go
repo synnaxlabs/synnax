@@ -46,6 +46,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -103,6 +104,8 @@ type Context[AST antlr.ParserRuleContext] struct {
 	TypeHint types.Type
 	// InTypeInferenceMode indicates whether type inference is active.
 	InTypeInferenceMode bool
+	// Config carries per-parse language settings (e.g. dashed channel names).
+	Config parser.Config
 }
 
 // WithScope returns a new context with an updated scope. The original context is
@@ -123,6 +126,13 @@ func (c Context[AST]) WithScope(scope *symbol.Symbol) Context[AST] {
 // assigned).
 func (c Context[AST]) WithTypeHint(hint types.Type) Context[AST] {
 	c.TypeHint = hint
+	return c
+}
+
+// WithConfig returns a new context carrying the given parse settings. The original
+// context is not mutated.
+func (c Context[AST]) WithConfig(cfg parser.Config) Context[AST] {
+	c.Config = cfg
 	return c
 }
 
@@ -226,5 +236,6 @@ func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
 		AST:                 next,
 		TypeHint:            ctx.TypeHint,
 		InTypeInferenceMode: ctx.InTypeInferenceMode,
+		Config:              ctx.Config,
 	}
 }
