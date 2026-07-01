@@ -9,7 +9,7 @@
 
 import { Arc } from "@synnaxlabs/pluto";
 
-import { List } from "@/component/arc/list/List";
+import { List } from "@/service/arc/list/List";
 import { type Session } from "@/session";
 
 export const EXPLORER_LAYOUT_TYPE = "arc_explorer";

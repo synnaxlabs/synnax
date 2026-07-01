@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { anyStateZ, parseImport } from "@/service/arc/imex/import";
+import { anyStateZ, parseImport } from "@/session/arc/migrations";
 
 const LATEST_VERSION = "3.0.0";
 

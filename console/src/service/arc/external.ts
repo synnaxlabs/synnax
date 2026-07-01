@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/component/arc/Explorer";
 import { LAYOUT_TYPE } from "@/component/arc/layout";
 import { type Layout } from "@/component/layout";
 import { type Selector } from "@/component/selector";
 import { Editor } from "@/service/arc/editor";
+import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/service/arc/Explorer";
 import { extract } from "@/service/arc/imex/export";
 import { ingest } from "@/service/arc/imex/import";
 import { Selectable } from "@/service/arc/Selectable";
 import { type Export } from "@/service/export";
 import { type Import } from "@/service/import";
 
-export * from "@/component/arc/Explorer";
 export * from "@/component/arc/layout";
 export * from "@/component/arc/useCreate";
 export * from "@/component/arc/useCreateModal";
 export * from "@/service/arc/editor";
+export * from "@/service/arc/Explorer";
 export * from "@/service/arc/imex";
 export * from "@/service/arc/link";
 export * from "@/service/arc/ontology";

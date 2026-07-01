@@ -10,9 +10,9 @@
 import { arc } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { EXPLORER_LAYOUT } from "@/component/arc/Explorer";
 import { useCreate } from "@/component/arc/useCreate";
 import { Palette } from "@/component/palette";
+import { EXPLORER_LAYOUT } from "@/service/arc/Explorer";
 
 const useCreateVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);

@@ -7,4 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as List from "@/component/arc/list/List";
+export * as List from "@/service/arc/list/List";
