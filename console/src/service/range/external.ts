@@ -20,6 +20,8 @@ export * from "@/service/range/ontology";
 export * from "@/service/range/overview/Overview";
 export * from "@/service/range/palette";
 export * from "@/service/range/Toolbar";
+export * from "@/service/range/useAddToActivePlot";
+export * from "@/service/range/useAddToNewPlot";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [ComponentRange.OVERVIEW_LAYOUT_TYPE]: Overview,

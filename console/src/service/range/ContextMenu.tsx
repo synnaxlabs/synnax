@@ -28,6 +28,8 @@ import { LinePlot } from "@/component/lineplot";
 import { Range } from "@/component/range";
 import { Link } from "@/service/link";
 import { Ontology } from "@/service/ontology";
+import { useAddToActivePlot } from "@/service/range/useAddToActivePlot";
+import { useAddToNewPlot } from "@/service/range/useAddToNewPlot";
 import { Session } from "@/session";
 import {
   selectState as selectRange,
@@ -166,8 +168,8 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
 
   const rng = ranges.find((r) => r.key === key);
   const activeLayout = Session.Layout.useSelectActiveMosaicLayout();
-  const addToActivePlot = Range.useAddToActivePlot();
-  const addToNewPlot = Range.useAddToNewPlot();
+  const addToActivePlot = useAddToActivePlot();
+  const addToNewPlot = useAddToNewPlot();
   const activeRange = useSelectState();
   const openCreate = Range.useCreateModal();
   const handleSetActive = () => {

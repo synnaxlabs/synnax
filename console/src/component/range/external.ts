@@ -14,7 +14,5 @@ export * from "@/component/range/overview/Details";
 export * from "@/component/range/overview/layout";
 export * from "@/component/range/overview/MetaData";
 export * from "@/component/range/Select";
-export * from "@/component/range/useAddToActivePlot";
-export * from "@/component/range/useAddToNewPlot";
 export * from "@/component/range/useCreateModal";
 export * from "@/component/range/useListenForChanges";

@@ -47,6 +47,7 @@ import {
   useDownloadAsCSV,
 } from "@/component/lineplot/useDownloadAsCSV";
 import { Range } from "@/component/range";
+import { Range as ServiceRange } from "@/service/range";
 import { Session } from "@/session";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
@@ -63,7 +64,7 @@ const RangeAnnotationContextMenu = ({
   const downloadAsCSV = useDownloadAsCSV();
   const handleDownloadAsCSV = () =>
     downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
-  const addRangeToNewPlot = Range.useAddToNewPlot();
+  const addRangeToNewPlot = ServiceRange.useAddToNewPlot();
   const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
   const placeLayout = Session.Layout.usePlacer();
   const handleViewDetails = () => {

@@ -141,7 +141,10 @@ export const List = ({
                   request={request}
                   onRequestChange={handleRequestChange}
                 />
-                <Range.Filters request={request} onRequestChange={handleRequestChange} />
+                <Range.Filters
+                  request={request}
+                  onRequestChange={handleRequestChange}
+                />
               </>
             )}
           </Flex.Box>
