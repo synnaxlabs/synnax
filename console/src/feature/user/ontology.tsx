@@ -11,7 +11,7 @@ import { ontology, type user } from "@synnaxlabs/client";
 import { Access, type Flux, Icon, Menu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { ContextMenu } from "@/platform/context-menu";
 import { useAssignRoleModal } from "@/platform/user/useAssignRoleModal";
 

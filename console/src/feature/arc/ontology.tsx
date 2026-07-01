@@ -11,7 +11,7 @@ import { type ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { create } from "@/platform/arc/layout";
 import { type Session } from "@/session";
 

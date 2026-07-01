@@ -10,7 +10,7 @@
 import { type device, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { type Ontology } from "@/feature/ontology";
+import { type Ontology } from "@/platform/ontology";
 import { type Task } from "@/feature/task";
 import { Task as ComponentTask } from "@/platform/task";
 import { Session } from "@/session";

@@ -15,7 +15,7 @@ import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
-import { View as ServiceView } from "@/feature/view";
+import { View as ServiceView } from "@/platform/view";
 import { Label } from "@/platform/label";
 import { type Layout } from "@/platform/layout";
 import { Item } from "@/platform/range/list/Item";

@@ -20,7 +20,7 @@ import {
 import { isValidElement, useCallback } from "react";
 import { useStore } from "react-redux";
 
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { type UseListReturn } from "@/platform/palette/list";
 import { Session } from "@/session";
 import { type Action, type State } from "@/session/store";

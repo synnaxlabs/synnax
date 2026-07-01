@@ -10,7 +10,7 @@
 import { context } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { type Services } from "@/feature/ontology/service";
+import { type Services } from "@/platform/ontology/service";
 
 const [Context, useContext] = context.create<Services>({
   displayName: "Ontology.Context",

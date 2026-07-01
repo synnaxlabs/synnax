@@ -13,7 +13,7 @@ import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { contextMenu } from "@/feature/status/list/ContextMenu";
-import { View as ServiceView } from "@/feature/view";
+import { View as ServiceView } from "@/platform/view";
 import { Label } from "@/platform/label";
 import { type Layout } from "@/platform/layout";
 import { Filter } from "@/platform/status/filter";

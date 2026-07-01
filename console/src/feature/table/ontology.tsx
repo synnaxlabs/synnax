@@ -11,8 +11,8 @@ import { ontology, type Synnax, table } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Mosaic, Table as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
-import { Group } from "@/feature/group";
-import { Ontology } from "@/feature/ontology";
+import { Group } from "@/platform/group";
+import { Ontology } from "@/platform/ontology";
 import { useExport } from "@/feature/table/export";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";

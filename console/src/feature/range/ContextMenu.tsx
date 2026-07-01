@@ -22,7 +22,7 @@ import {
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { useAddToActivePlot } from "@/feature/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/feature/range/useAddToNewPlot";
 import { Cluster } from "@/platform/cluster";

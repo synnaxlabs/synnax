@@ -16,7 +16,7 @@ import { useToggleEnabled } from "@/feature/ethercat/device/queries";
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
-import { type Ontology } from "@/feature/ontology";
+import { type Ontology } from "@/platform/ontology";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] = [
   {

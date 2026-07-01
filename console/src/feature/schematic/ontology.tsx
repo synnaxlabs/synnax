@@ -21,8 +21,8 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Group } from "@/feature/group";
-import { Ontology } from "@/feature/ontology";
+import { Group } from "@/platform/group";
+import { Ontology } from "@/platform/ontology";
 import { Range } from "@/feature/range";
 import { useExport } from "@/feature/schematic/export";
 import { Cluster } from "@/platform/cluster";

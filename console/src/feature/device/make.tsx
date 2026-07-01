@@ -17,7 +17,7 @@ import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
-import { type Ontology } from "@/feature/ontology";
+import { type Ontology } from "@/platform/ontology";
 import { OPC } from "@/feature/opc";
 
 export const makeZ = z.enum([

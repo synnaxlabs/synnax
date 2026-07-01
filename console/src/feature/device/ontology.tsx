@@ -14,8 +14,8 @@ import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
-import { Group } from "@/feature/group";
-import { Ontology } from "@/feature/ontology";
+import { Group } from "@/platform/group";
+import { Ontology } from "@/platform/ontology";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";

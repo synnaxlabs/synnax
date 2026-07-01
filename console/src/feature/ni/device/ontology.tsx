@@ -13,7 +13,7 @@ import { Menu } from "@synnaxlabs/pluto";
 import { Device as CommonDevice } from "@/feature/device";
 import { useConfigureModal } from "@/feature/ni/device/useConfigureModal";
 import { Task } from "@/feature/ni/task";
-import { type Ontology } from "@/feature/ontology";
+import { type Ontology } from "@/platform/ontology";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] = [
   {

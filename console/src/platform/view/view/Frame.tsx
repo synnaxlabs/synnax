@@ -34,7 +34,7 @@ import {
   useState,
 } from "react";
 
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";

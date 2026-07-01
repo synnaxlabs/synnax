@@ -43,9 +43,9 @@ import {
 
 import { Nav as AppNav } from "@/app/nav";
 import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
-import { Layout as ServiceLayout } from "@/feature/layout";
+import { Layout as ServiceLayout } from "@/platform/layout";
 import { LinePlot } from "@/feature/lineplot";
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { Project } from "@/feature/project";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";

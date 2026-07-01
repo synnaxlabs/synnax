@@ -11,7 +11,7 @@ import { type ontology, type ranger } from "@synnaxlabs/client";
 import { type Haul, Icon, List, Ranger, Select, Telem, Text } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, strings } from "@synnaxlabs/x";
 
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 import { add } from "@/session/range/slice";

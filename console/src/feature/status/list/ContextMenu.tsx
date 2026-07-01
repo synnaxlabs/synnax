@@ -11,7 +11,7 @@ import { status } from "@synnaxlabs/client";
 import { Access, Component, type Flux, Icon, Menu, Status } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";

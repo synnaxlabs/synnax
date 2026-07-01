@@ -13,7 +13,7 @@ import { Menu } from "@synnaxlabs/pluto";
 import { Device as CommonDevice } from "@/feature/device";
 import { useConnectModal } from "@/feature/modbus/device/useConnectModal";
 import { Task } from "@/feature/modbus/task";
-import { type Ontology } from "@/feature/ontology";
+import { type Ontology } from "@/platform/ontology";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] = [
   { itemKey: "modbus.readTask", label: "Create read task", layout: Task.READ_LAYOUT },

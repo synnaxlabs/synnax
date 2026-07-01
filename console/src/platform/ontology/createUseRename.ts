@@ -12,7 +12,7 @@ import { type Flux, Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type TreeContextMenuProps } from "@/feature/ontology/service";
+import { type TreeContextMenuProps } from "@/platform/ontology/service";
 
 export interface CreateUseRenameArgs<K extends record.Key> {
   query: Flux.UseUpdate<record.KeyedNamed<K>>;

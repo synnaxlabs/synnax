@@ -11,7 +11,7 @@ import { project } from "@synnaxlabs/client";
 import { Access, Icon, Project } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { Project as CProject } from "@/platform/project";

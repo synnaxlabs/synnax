@@ -19,7 +19,7 @@ import { useTriggers } from "@/app/useTriggers";
 import { Auth } from "@/feature/auth";
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
-import { Layout } from "@/feature/layout";
+import { Layout } from "@/platform/layout";
 import { Project as ServiceProject } from "@/feature/project";
 import { Project } from "@/platform/project";
 import { Range } from "@/platform/range";

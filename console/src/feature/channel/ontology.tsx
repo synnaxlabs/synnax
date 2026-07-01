@@ -25,9 +25,9 @@ import {
 import { id, primitive } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
-import { Group } from "@/feature/group";
+import { Group } from "@/platform/group";
 import { LinePlot as ServiceLinePlot } from "@/feature/lineplot";
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { Channel } from "@/platform/channel";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";

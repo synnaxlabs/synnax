@@ -10,10 +10,10 @@
 import { group, ontology } from "@synnaxlabs/client";
 import { Access, Flux, Group, Icon, Menu, Tree } from "@synnaxlabs/pluto";
 
-import { ContextMenuItem } from "@/feature/group/ContextMenuItem";
-import { useCreateEmpty } from "@/feature/group/useCreateEmpty";
-import { useCreateFromSelection } from "@/feature/group/useCreateFromSelection";
-import { Ontology } from "@/feature/ontology";
+import { ContextMenuItem } from "@/platform/group/ContextMenuItem";
+import { useCreateEmpty } from "@/platform/group/useCreateEmpty";
+import { useCreateFromSelection } from "@/platform/group/useCreateFromSelection";
+import { Ontology } from "@/platform/ontology";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Link } from "@/platform/link";

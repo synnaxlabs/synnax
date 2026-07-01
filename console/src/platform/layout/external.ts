@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/platform/layout/Content";
 export * from "@/platform/layout/context";
 export * from "@/platform/layout/layout";
 export * from "@/platform/layout/Menu";
+export * from "@/platform/layout/useDropOutside";
 export * from "@/platform/layout/useFluxName";
+export * from "@/platform/layout/Window";

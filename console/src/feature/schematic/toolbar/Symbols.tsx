@@ -28,7 +28,7 @@ import {
 import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
-import { useConfirmDelete } from "@/feature/ontology/hooks";
+import { useConfirmDelete } from "@/platform/ontology/hooks";
 import { Symbol as ServiceSymbol } from "@/feature/schematic/symbol";
 import {
   useExport as useExportSymbol,

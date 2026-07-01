@@ -9,8 +9,8 @@
 
 import { Access, Menu } from "@synnaxlabs/pluto";
 
-import { Group } from "@/feature/group";
-import { type TreeContextMenu } from "@/feature/ontology/service";
+import { Group } from "@/platform/group";
+import { type TreeContextMenu } from "@/platform/ontology/service";
 import { ContextMenu } from "@/platform/context-menu";
 
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {

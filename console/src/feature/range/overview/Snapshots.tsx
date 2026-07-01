@@ -27,7 +27,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { Ontology as ServiceOntology } from "@/feature/ontology";
+import { Ontology as ServiceOntology } from "@/platform/ontology";
 import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/feature/task/layouts";
 import { CSS } from "@/platform/css";
 import { create } from "@/platform/schematic/layout";

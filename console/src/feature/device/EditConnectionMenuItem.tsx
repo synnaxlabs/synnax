@@ -10,7 +10,7 @@
 import { type device } from "@synnaxlabs/client";
 import { Icon, Menu } from "@synnaxlabs/pluto";
 
-import { type Ontology } from "@/feature/ontology";
+import { type Ontology } from "@/platform/ontology";
 
 export interface EditConnectionMenuItemProps extends Pick<
   Ontology.TreeContextMenuProps,

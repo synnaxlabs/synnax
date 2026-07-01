@@ -7,10 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/feature/ontology/CopyPropertiesContextMenuItem";
-export * from "@/feature/ontology/createUseDelete";
-export * from "@/feature/ontology/createUseRename";
-export * from "@/feature/ontology/hooks";
-export * from "@/feature/ontology/service";
-export * from "@/feature/ontology/ServicesProvider";
-export * from "@/feature/ontology/Tree";
+export * from "@/platform/group/ContextMenuItem";
+export * from "@/platform/group/ontology";
+export * from "@/platform/group/useCreateEmpty";
+export * from "@/platform/group/useCreateFromSelection";

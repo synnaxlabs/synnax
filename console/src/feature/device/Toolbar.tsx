@@ -11,7 +11,7 @@ import { device } from "@synnaxlabs/client";
 import { Access, Device, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
 

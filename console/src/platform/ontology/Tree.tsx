@@ -44,17 +44,17 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
-import { Layout } from "@/feature/layout";
-import { DefaultContextMenu } from "@/feature/ontology/DefaultContextMenu";
-import { MultipleSelectionContextMenu } from "@/feature/ontology/MultipleSelectionContextMenu";
+import { Layout } from "@/platform/layout";
+import { DefaultContextMenu } from "@/platform/ontology/DefaultContextMenu";
+import { MultipleSelectionContextMenu } from "@/platform/ontology/MultipleSelectionContextMenu";
 import {
   type BaseProps,
   type GetResource,
   type TreeContextMenuProps,
   type TreeItemProps,
   type TreeState,
-} from "@/feature/ontology/service";
-import { useServices } from "@/feature/ontology/ServicesProvider";
+} from "@/platform/ontology/service";
+import { useServices } from "@/platform/ontology/ServicesProvider";
 import { Session } from "@/session";
 import { type Action, type State } from "@/session/store";
 

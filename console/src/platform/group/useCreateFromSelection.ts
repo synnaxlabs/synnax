@@ -12,8 +12,8 @@ import { Flux, Group, Text, Tree } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { getResourcesToGroup } from "@/feature/group/getResourcesToGroup";
-import { type Ontology } from "@/feature/ontology";
+import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
+import { type Ontology } from "@/platform/ontology";
 
 export interface CreateFromSelection {
   (props: Ontology.TreeContextMenuProps): void;

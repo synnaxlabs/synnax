@@ -28,10 +28,10 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Group } from "@/feature/group";
+import { Group } from "@/platform/group";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { useExport } from "@/feature/project/export";
 import { Table } from "@/feature/table";
 import { Cluster } from "@/platform/cluster";

@@ -10,7 +10,7 @@
 import { access } from "@synnaxlabs/client";
 import { Access, Icon, Menu, User } from "@synnaxlabs/pluto";
 
-import { Ontology } from "@/feature/ontology";
+import { Ontology } from "@/platform/ontology";
 import { ContextMenu } from "@/platform/context-menu";
 
 const useDelete = Ontology.createUseDelete({
