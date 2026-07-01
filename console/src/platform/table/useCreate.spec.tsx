@@ -22,8 +22,8 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { useCreate } from "@/platform/table/useCreate";
 import { LAYOUT_TYPE } from "@/platform/table/layout";
+import { useCreate } from "@/platform/table/useCreate";
 import { Session } from "@/session";
 
 const client: Synnax = createTestClient();

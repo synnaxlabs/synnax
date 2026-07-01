@@ -11,8 +11,8 @@ import { ontology, type user } from "@synnaxlabs/client";
 import { Access, type Flux, Icon, Menu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Ontology } from "@/platform/ontology";
 import { ContextMenu } from "@/platform/context-menu";
+import { Ontology } from "@/platform/ontology";
 import { useAssignRoleModal } from "@/platform/user/useAssignRoleModal";
 
 const useDelete = Ontology.createUseDelete({

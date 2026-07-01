@@ -15,9 +15,9 @@ import { Component, Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 
-import { Content } from "@/platform/layout/Content";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { Content } from "@/platform/layout/Content";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 

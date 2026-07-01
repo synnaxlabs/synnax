@@ -17,8 +17,8 @@ import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
-import { type Ontology } from "@/platform/ontology";
 import { OPC } from "@/feature/opc";
+import { type Ontology } from "@/platform/ontology";
 
 export const makeZ = z.enum([
   EtherCAT.Device.MAKE,

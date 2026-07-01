@@ -43,14 +43,13 @@ import {
 
 import { Nav as AppNav } from "@/app/nav";
 import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
-import { Layout as ServiceLayout } from "@/platform/layout";
 import { LinePlot } from "@/feature/lineplot";
-import { Ontology } from "@/platform/ontology";
 import { Project } from "@/feature/project";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
+import { Ontology } from "@/platform/ontology";
 import { Session } from "@/session";
 
 const EmptyContent = (): ReactElement => {
@@ -344,11 +343,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     root: mosaic,
     onSelect: handleSelect,
     children: ({ tabKey, visible }) => (
-      <ServiceLayout.Content
-        key={tabKey}
-        layoutKey={tabKey}
-        forceHidden={visible === false}
-      />
+      <Layout.Content key={tabKey} layoutKey={tabKey} forceHidden={visible === false} />
     ),
   });
 

@@ -15,7 +15,6 @@ import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
-import { View as ServiceView } from "@/platform/view";
 import { Label } from "@/platform/label";
 import { type Layout } from "@/platform/layout";
 import { Item } from "@/platform/range/list/Item";
@@ -38,9 +37,9 @@ const item = Component.renderProp(Item);
 const contextMenu = Component.renderProp(ContextMenu);
 
 export const Explorer: Layout.Renderer = () => (
-  <ServiceView.Frame resourceType="range" icon="Range">
+  <View.Frame resourceType="range" icon="Range">
     <Internal />
-  </ServiceView.Frame>
+  </View.Frame>
 );
 
 const Internal = () => {

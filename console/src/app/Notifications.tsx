@@ -9,8 +9,8 @@
 
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/platform/cluster";
 import { Device } from "@/feature/device";
+import { Cluster } from "@/platform/cluster";
 import { Notifications as Base } from "@/platform/notifications";
 import { Version } from "@/platform/version";
 

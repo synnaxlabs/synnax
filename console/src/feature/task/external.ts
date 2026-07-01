@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { EtherCAT } from "@/feature/ethercat";
-import { type Export } from "@/platform/export";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
@@ -17,6 +16,7 @@ import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/feature/task/Selector";
 import { TOOLBAR } from "@/feature/task/Toolbar";
+import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";

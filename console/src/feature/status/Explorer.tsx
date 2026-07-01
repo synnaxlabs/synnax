@@ -13,7 +13,6 @@ import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { contextMenu } from "@/feature/status/list/ContextMenu";
-import { View as ServiceView } from "@/platform/view";
 import { Label } from "@/platform/label";
 import { type Layout } from "@/platform/layout";
 import { Filter } from "@/platform/status/filter";
@@ -35,9 +34,9 @@ export const EXPLORER_LAYOUT: Session.Layout.BaseState = {
 const item = Component.renderProp(Item);
 
 export const Explorer: Layout.Renderer = () => (
-  <ServiceView.Frame resourceType="status" icon="Status">
+  <View.Frame resourceType="status" icon="Status">
     <Internal />
-  </ServiceView.Frame>
+  </View.Frame>
 );
 
 const Internal = () => {

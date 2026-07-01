@@ -11,8 +11,8 @@ import { type arc } from "@synnaxlabs/client";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useCreateModal } from "@/platform/arc/useCreateModal";
 import { create } from "@/platform/arc/layout";
+import { useCreateModal } from "@/platform/arc/useCreateModal";
 import { Session } from "@/session";
 
 interface CreateArgs extends Partial<Pick<arc.New, "key" | "name" | "mode">> {}

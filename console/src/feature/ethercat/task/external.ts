@@ -15,10 +15,10 @@ import {
   WRITE_TYPE,
 } from "@/feature/ethercat/task/types";
 import { Write, WRITE_LAYOUT, WriteSelectable } from "@/feature/ethercat/task/Write";
-import { type Export } from "@/platform/export";
 import { createIngester } from "@/feature/task/createIngester";
 import { extract } from "@/feature/task/export";
 import { type Layout as TaskLayout } from "@/feature/task/Form";
+import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";

@@ -12,9 +12,9 @@ import { Access, Icon, Menu, Rack, Text, Tree } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { Arc } from "@/feature/arc";
+import { ContextMenu } from "@/platform/context-menu";
 import { Group } from "@/platform/group";
 import { Ontology } from "@/platform/ontology";
-import { ContextMenu } from "@/platform/context-menu";
 
 const CreateArcIcon = Icon.createComposite(Icon.Arc, {
   topRight: Icon.Add,

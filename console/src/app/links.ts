@@ -9,7 +9,6 @@
 
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
-import { Cluster } from "@/platform/cluster";
 import { Device } from "@/feature/device";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
@@ -18,6 +17,7 @@ import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { Cluster } from "@/platform/cluster";
 import { Link } from "@/platform/link";
 
 export const useLinks = (): void => {

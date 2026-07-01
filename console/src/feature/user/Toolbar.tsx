@@ -12,8 +12,8 @@ import { Access, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { type Feature } from "@/feature";
-import { Ontology } from "@/platform/ontology";
 import { Empty } from "@/platform/empty";
+import { Ontology } from "@/platform/ontology";
 import { Toolbar } from "@/platform/toolbar";
 import { useRegisterModal } from "@/platform/user/useRegisterModal";
 

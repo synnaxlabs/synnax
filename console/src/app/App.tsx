@@ -33,11 +33,8 @@ import { Selector, SELECTOR_LAYOUT_TYPE } from "@/app/Selector";
 import { SERVICES } from "@/app/services";
 import { Arc } from "@/feature/arc";
 import { Docs } from "@/feature/docs";
-import { Export } from "@/platform/export";
-import { Layout as ServiceLayout } from "@/platform/layout";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
-import { Ontology } from "@/platform/ontology";
 import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Status } from "@/feature/status";
@@ -45,8 +42,10 @@ import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { Vis } from "@/feature/vis";
 import { Errors } from "@/platform/errors";
+import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
+import { Ontology } from "@/platform/ontology";
 import { Palette } from "@/platform/palette";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
@@ -141,7 +140,7 @@ const AppUnderContext = (): ReactElement => {
     >
       <Vis.Canvas>
         <Session.Modals.Provider>
-          <ServiceLayout.Window />
+          <Layout.Window />
         </Session.Modals.Provider>
       </Vis.Canvas>
     </Pluto.Provider>

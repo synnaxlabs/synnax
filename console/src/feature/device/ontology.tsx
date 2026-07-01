@@ -14,12 +14,12 @@ import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
-import { Group } from "@/platform/group";
-import { Ontology } from "@/platform/ontology";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
+import { Ontology } from "@/platform/ontology";
 
 const useDelete = Ontology.createUseDelete({
   type: "Device",

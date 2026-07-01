@@ -10,8 +10,8 @@
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/platform/cluster";
 import { Docs } from "@/feature/docs";
+import { Cluster } from "@/platform/cluster";
 import { Nav as ConsoleNav } from "@/platform/nav";
 import { Project } from "@/platform/project";
 import { User } from "@/platform/user";

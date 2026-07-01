@@ -11,13 +11,13 @@ import { ontology, type Synnax, table } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Mosaic, Table as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
-import { Group } from "@/platform/group";
-import { Ontology } from "@/platform/ontology";
 import { useExport } from "@/feature/table/export";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
+import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
+import { Ontology } from "@/platform/ontology";
 import { Table } from "@/platform/table";
 import { Session } from "@/session";
 

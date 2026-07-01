@@ -11,9 +11,9 @@ import { type device } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/pluto";
 
 import { Device as CommonDevice } from "@/feature/device";
-import { type Ontology } from "@/platform/ontology";
 import { useConnectModal } from "@/feature/opc/device/useConnectModal";
 import { Task } from "@/feature/opc/task";
+import { type Ontology } from "@/platform/ontology";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] = [
   { itemKey: "opc.readTask", label: "Create read task", layout: Task.READ_LAYOUT },

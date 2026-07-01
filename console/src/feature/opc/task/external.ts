@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Export } from "@/platform/export";
 import { Read, READ_LAYOUT, ReadSelectable } from "@/feature/opc/task/Read";
 import {
   READ_SCHEMAS,
@@ -19,6 +18,7 @@ import { Write, WRITE_LAYOUT, WriteSelectable } from "@/feature/opc/task/Write";
 import { createIngester } from "@/feature/task/createIngester";
 import { extract } from "@/feature/task/export";
 import { type Layout as TaskLayout } from "@/feature/task/Form";
+import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";

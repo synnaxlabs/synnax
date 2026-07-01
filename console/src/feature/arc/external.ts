@@ -25,8 +25,8 @@ export * from "@/feature/arc/link";
 export * from "@/feature/arc/ontology";
 export * from "@/feature/arc/palette";
 export * from "@/feature/arc/toolbar/Toolbar";
-export * from "@/platform/arc/useCreateModal";
 export * from "@/platform/arc/layout";
+export * from "@/platform/arc/useCreateModal";
 
 export const EDITOR_LAYOUT_TYPE = LAYOUT_TYPE;
 export type EditorLayoutType = typeof EDITOR_LAYOUT_TYPE;

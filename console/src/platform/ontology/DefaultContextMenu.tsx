@@ -11,9 +11,9 @@ import { group, type ontology } from "@synnaxlabs/client";
 import { Access, Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { ContextMenu } from "@/platform/context-menu";
 import { Group } from "@/platform/group";
 import { type TreeState } from "@/platform/ontology/service";
-import { ContextMenu } from "@/platform/context-menu";
 
 export interface DefaultContextMenuProps {
   root: ontology.ID;

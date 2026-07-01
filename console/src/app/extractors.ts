@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Arc } from "@/feature/arc";
-import { type Export } from "@/platform/export";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { type Export } from "@/platform/export";
 
 export const EXTRACTORS: Export.Extractors = {
   ...Arc.EXTRACTORS,
