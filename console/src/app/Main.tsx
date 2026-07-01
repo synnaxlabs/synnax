@@ -17,7 +17,7 @@ import { Nav } from "@/app/nav";
 import { Notifications } from "@/app/Notifications";
 import { useTriggers } from "@/app/useTriggers";
 import { Auth } from "@/feature/auth";
-import { Cluster } from "@/feature/cluster";
+import { Cluster } from "@/platform/cluster";
 import { Device } from "@/feature/device";
 import { Layout } from "@/platform/layout";
 import { Project as ServiceProject } from "@/feature/project";

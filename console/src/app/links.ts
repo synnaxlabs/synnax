@@ -9,7 +9,7 @@
 
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
-import { Cluster } from "@/feature/cluster";
+import { Cluster } from "@/platform/cluster";
 import { Device } from "@/feature/device";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";

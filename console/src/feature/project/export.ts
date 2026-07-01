@@ -11,8 +11,8 @@ import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 
-import { Export } from "@/feature/export";
-import { useExtractors } from "@/feature/export/ExtractorsProvider";
+import { Export } from "@/platform/export";
+import { useExtractors } from "@/platform/export/ExtractorsProvider";
 import { purgeExcludedLayouts } from "@/feature/project/purgeExcludedLayouts";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";

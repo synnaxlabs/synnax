@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/feature/cluster";
+import { Cluster } from "@/platform/cluster";
 import { Device } from "@/feature/device";
 import { Notifications as Base } from "@/platform/notifications";
 import { Version } from "@/platform/version";

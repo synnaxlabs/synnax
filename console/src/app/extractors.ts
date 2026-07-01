@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Arc } from "@/feature/arc";
-import { type Export } from "@/feature/export";
+import { type Export } from "@/platform/export";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";

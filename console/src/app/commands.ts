@@ -9,13 +9,13 @@
 
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
-import { Cluster } from "@/feature/cluster";
+import { Cluster } from "@/platform/cluster";
 import { Device } from "@/feature/device";
 import { Docs } from "@/feature/docs";
 import { Label } from "@/feature/label";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
-import { Persist } from "@/feature/persist";
+import { Persist } from "@/platform/persist";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";

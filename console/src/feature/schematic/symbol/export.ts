@@ -11,7 +11,7 @@ import { DisconnectedError, group, type Synnax as Client } from "@synnaxlabs/cli
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Export } from "@/feature/export";
+import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 import { type Symbol } from "@/platform/schematic/symbol";

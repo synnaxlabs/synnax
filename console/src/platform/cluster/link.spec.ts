@@ -11,7 +11,7 @@ import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { Cluster } from "@/feature/cluster";
+import { Cluster } from "@/platform/cluster";
 import { Session } from "@/session";
 import { type State } from "@/session/store";
 

@@ -24,7 +24,7 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { LoginNav } from "@/feature/auth/LoginNav";
-import { Cluster } from "@/feature/cluster";
+import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 

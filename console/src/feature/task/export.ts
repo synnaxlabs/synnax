@@ -9,7 +9,7 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { Export } from "@/feature/export";
+import { Export } from "@/platform/export";
 import { Session } from "@/session";
 
 export const extract: Export.Extractor = async (key, { client, store }) => {

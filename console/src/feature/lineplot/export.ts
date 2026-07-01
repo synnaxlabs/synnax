@@ -9,7 +9,7 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { Export } from "@/feature/export";
+import { Export } from "@/platform/export";
 import { LAYOUT_TYPE } from "@/platform/lineplot/layout";
 import { Session } from "@/session";
 

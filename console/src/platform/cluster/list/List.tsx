@@ -21,8 +21,8 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
-import { Item } from "@/feature/cluster/list/Item";
-import { useConnectModal } from "@/feature/cluster/useConnectModal";
+import { Item } from "@/platform/cluster/list/Item";
+import { useConnectModal } from "@/platform/cluster/useConnectModal";
 import { Layout } from "@/platform/layout";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";

@@ -9,7 +9,7 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { Export } from "@/feature/export";
+import { Export } from "@/platform/export";
 import { LAYOUT_TYPE } from "@/platform/log/layout";
 
 export const VERSION = "2.0.0";

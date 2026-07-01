@@ -12,7 +12,7 @@ import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/feature/arc/Explorer";
 import { extract } from "@/feature/arc/imex/export";
 import { ingest } from "@/feature/arc/imex/import";
 import { Selectable } from "@/feature/arc/Selectable";
-import { type Export } from "@/feature/export";
+import { type Export } from "@/platform/export";
 import { LAYOUT_TYPE } from "@/platform/arc/layout";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";

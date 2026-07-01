@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/cluster/Connect.css";
+import "@/platform/cluster/Connect.css";
 
 import { checkConnection, type connection } from "@synnaxlabs/client";
 import {

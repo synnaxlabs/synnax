@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { sanitizeFileName } from "@/feature/export/sanitize";
+import { sanitizeFileName } from "@/platform/export/sanitize";
 
 describe("sanitizeFileName", () => {
   it("returns ordinary names unchanged", () => {

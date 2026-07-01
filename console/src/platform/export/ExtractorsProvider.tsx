@@ -10,7 +10,7 @@
 import { context } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { type Extractors } from "@/feature/export/extractor";
+import { type Extractors } from "@/platform/export/extractor";
 
 const [Context, useContext] = context.create<Extractors>({
   displayName: "Export.Context",

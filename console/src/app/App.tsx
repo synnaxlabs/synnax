@@ -33,7 +33,7 @@ import { Selector, SELECTOR_LAYOUT_TYPE } from "@/app/Selector";
 import { SERVICES } from "@/app/services";
 import { Arc } from "@/feature/arc";
 import { Docs } from "@/feature/docs";
-import { Export } from "@/feature/export";
+import { Export } from "@/platform/export";
 import { Layout as ServiceLayout } from "@/platform/layout";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";

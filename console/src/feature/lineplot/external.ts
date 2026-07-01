@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Export } from "@/feature/export";
+import { type Export } from "@/platform/export";
 import { ContextMenu } from "@/feature/lineplot/ContextMenu";
 import { extract } from "@/feature/lineplot/export";
 import { LinePlot } from "@/feature/lineplot/LinePlot";

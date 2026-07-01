@@ -9,7 +9,7 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { Export } from "@/feature/export";
+import { Export } from "@/platform/export";
 
 export const VERSION = "6.0.0";
 
