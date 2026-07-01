@@ -117,14 +117,14 @@ var _ = Describe("Factories", func() {
 
 		It("Should skip non-module children of the ambient prelude", func() {
 			ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
-			ambient.AddChild(&symbol.Symbol{Name: "global_const", Kind: symbol.KindGlobalConstant})
+			ambient.AddChild(&symbol.Symbol{Name: "value", Kind: symbol.KindVariable})
 			ambient.AddChild(&symbol.Symbol{Name: "time", Kind: symbol.KindModule})
 			root := symbol.NewRoot(nil, nil)
 			ambient.AddChild(root)
 
 			symbol.AutoImportModules(root)
 
-			Expect(root.FindChild("global_const")).To(BeNil())
+			Expect(root.FindChild("value")).To(BeNil())
 			Expect(root.FindChild("time")).ToNot(BeNil())
 		})
 	})

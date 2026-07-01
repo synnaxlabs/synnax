@@ -1905,7 +1905,7 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Channel writes", func() {
-		It("Writes a global constant to a channel", func(ctx SpecContext) {
+		It("Writes a top-level variable to a channel", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd":    {types.U8(), 100},
 				"const_output": {types.F32(), 101},
@@ -1925,28 +1925,6 @@ var _ = Describe("Sequence", func() {
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
 			Expect(lastF32(out, 101)).To(BeNumerically("~", 42.0, 0.001))
-		})
-
-		It("Writes a computed arithmetic expression to a channel", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"start_cmd":    {types.U8(), 100},
-				"const_output": {types.F32(), 101},
-			})
-			h := newRuntimeHarness(ctx, `
-				SOME_CONST f32 := -49.5
-
-				sequence main {
-				    SOME_CONST * 2 => const_output
-				}
-				start_cmd => main`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Uint8T},
-				channels.Digest{Key: 101, DataType: telem.Float32T},
-			)
-			defer h.Close(ctx)
-
-			trigger(h, ctx, 100)
-			out, _ := h.Flush()
-			Expect(lastF32(out, 101)).To(BeNumerically("~", -99.0, 0.001))
 		})
 
 		It("Writes a string literal to a string channel", func(ctx SpecContext) {
@@ -2484,5 +2462,93 @@ var _ = Describe("Sequence", func() {
 				}
 				start_cmd => main`, uint32(105), uint32(104)),
 		)
+	})
+
+	Describe("Variable seeding on declaration", func() {
+		It("Seeds a variable declared in a sequence body", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    my_var := "hello"
+				    my_var -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("hello"))
+		})
+
+		It("Seeds a variable declared in a stage body", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    stage read {
+				        my_var := "hello"
+				        my_var -> out
+				    }
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("hello"))
+		})
+
+		It("Reflects a flow write to a seeded variable", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    my_var := "hello"
+				    "updated" -> my_var
+				    my_var -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("updated"))
+		})
+
+		It("Shares a sequence-scoped variable with a nested stage", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    my_var := "seed"
+				    stage write {
+				        "updated" -> my_var
+				        my_var -> out
+				    }
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("updated"))
+		})
 	})
 })

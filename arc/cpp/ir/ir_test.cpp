@@ -105,6 +105,13 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     original.root.liveness = Liveness::Always;
     original.root.strata.push_back(Members{scope_member(std::move(main))});
 
+    original.var_channels = {7, 8};
+    VarSeed seed;
+    seed.channel = 7;
+    seed.type.kind = types::Kind::F64;
+    seed.value = 42.5;
+    original.var_seeds.push_back(seed);
+
     const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto reconstructed = ASSERT_NIL_P(IR::from_proto(pb));
     ASSERT_EQ(reconstructed.functions.size(), 1);
@@ -121,6 +128,13 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     ASSERT_EQ(m.scope->transitions.size(), 1);
     // An exit transition leaves target_key unset (nullopt).
     ASSERT_FALSE(m.scope->transitions[0].target_key.has_value());
+    ASSERT_EQ(reconstructed.var_channels.size(), 2);
+    ASSERT_EQ(reconstructed.var_channels[0], 7u);
+    ASSERT_EQ(reconstructed.var_channels[1], 8u);
+    ASSERT_EQ(reconstructed.var_seeds.size(), 1);
+    ASSERT_EQ(reconstructed.var_seeds[0].channel, 7u);
+    ASSERT_EQ(reconstructed.var_seeds[0].type.kind, types::Kind::F64);
+    ASSERT_DOUBLE_EQ(reconstructed.var_seeds[0].value.get<double>(), 42.5);
 }
 
 /// @brief it should access nodes by key using node()

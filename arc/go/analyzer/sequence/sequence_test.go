@@ -189,7 +189,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage step1 {
 					}
 				}
-			`, "conflicts with existing symbol"),
+			`, "conflicts with existing sequence"),
 			Entry("duplicate stage names within sequence", `
 				sequence main {
 					stage step1 {
@@ -197,7 +197,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage step1 {
 					}
 				}
-			`, "conflicts with existing symbol"),
+			`, "conflicts with existing stage"),
 		)
 	})
 
@@ -369,6 +369,22 @@ var _ = Describe("Sequence Analyzer", func() {
 					level f64 := 0
 					stage s1 {
 						pressure -> level
+					}
+				}
+			`),
+			Entry("value variable is a standalone flow source", `
+				sequence main {
+					level f64 := 0
+					stage s1 {
+						level -> valve_cmd
+					}
+				}
+			`),
+			Entry("channel alias is a flow source", `
+				sequence main {
+					p := pressure
+					stage s1 {
+						p -> valve_cmd
 					}
 				}
 			`),

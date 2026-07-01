@@ -66,6 +66,13 @@ func newRuntimeHarness(
 	root := symbol.NewRoot(nil, ambient)
 	prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
 
+	seeds := make(map[uint32]telem.Series, len(prog.VarSeeds))
+	for _, vs := range prog.VarSeeds {
+		seeds[vs.Channel] = telem.NewSeriesFromAny(vs.Value, types.ToTelem(vs.Type))
+	}
+	for _, key := range prog.VarChannels {
+		channelDigests = append(channelDigests, channels.Digest{Key: key, Variable: true, Seed: seeds[key]})
+	}
 	nodeState := node.New(prog.IR)
 	channelState := channels.NewProgramState(channelDigests)
 	seriesState := series.NewProgramState()

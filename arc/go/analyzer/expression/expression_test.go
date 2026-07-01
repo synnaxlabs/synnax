@@ -919,7 +919,7 @@ var _ = Describe("Expressions", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing symbol"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing variable"))
 		})
 	})
 

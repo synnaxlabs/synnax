@@ -194,6 +194,52 @@ var _ = Describe("Text", func() {
 			prog := MustSucceed(text.Compile(ctx, inter))
 			Expect(prog.WASM).ToNot(BeEmpty())
 		})
+
+		It("Should back a stage-local variable with read and write nodes", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				stage s1 {
+					counter i64 := 0
+					count_ch -> counter
+					counter -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.VarChannels).To(HaveLen(1))
+			varKey := inter.VarChannels[0]
+			sawRead, sawWrite := false, false
+			for _, n := range inter.Nodes {
+				if _, ok := n.Channels.Read[varKey]; ok {
+					sawRead = true
+				}
+				if _, ok := n.Channels.Write[varKey]; ok {
+					sawWrite = true
+				}
+			}
+			Expect(sawRead).To(BeTrue(), "expected an on-node reading the var channel")
+			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
+		})
+
+		It("Should assign distinct keys to stage-local variables in sibling stages", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				stage s1 {
+					x i64 := 0
+					count_ch -> x
+				}
+				stage s2 {
+					y i64 := 0
+					count_ch -> y
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.VarChannels).To(HaveLen(2))
+			Expect(inter.VarChannels[0]).ToNot(Equal(inter.VarChannels[1]))
+		})
 	})
 
 	Describe("Parse", func() {
@@ -1195,57 +1241,6 @@ time.wait{duration=500ms} -> output`
 				Expect(node.Inputs[0].Name).To(Equal("sensor"))
 				Expect(node.Inputs[1].Name).To(Equal("setpoint"))
 				Expect(node.Inputs[1].Value).To(Equal(100.0))
-			})
-
-			It("Should handle global constant as flow source to channel", func(ctx SpecContext) {
-				resolver := []symbol.Symbol{
-					{Name: "my_channel", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
-				}
-				source := `
-				SETPOINT := 42
-
-				SETPOINT => my_channel
-				`
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				constNode := findNodeByKey(inter.Nodes, "const_SETPOINT_0")
-				Expect(constNode.Type).To(Equal("constant"))
-				Expect(constNode.Inputs).To(HaveLen(1))
-				Expect(constNode.Inputs[0].Value).To(Equal(int64(42)))
-				Expect(constNode.Channels.Read).To(BeEmpty())
-				Expect(constNode.Channels.Write).To(BeEmpty())
-
-				writeNode := findNodeByType(inter.Nodes, "write")
-				Expect(writeNode.Channels.Write).To(HaveLen(1))
-				Expect(lo.HasKey(writeNode.Channels.Write, uint32(10001))).To(BeTrue())
-			})
-
-			It("Should handle global constant as flow source in a sequence stage", func(ctx SpecContext) {
-				resolver := []symbol.Symbol{
-					{Name: "drive_speed_sp", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
-				}
-				source := `
-				DRIVE_SP := 2500
-
-				sequence main {
-				    stage init {
-				        DRIVE_SP => drive_speed_sp
-				    }
-				}`
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				for _, n := range inter.Nodes {
-					for key := range n.Channels.Read {
-						Expect(key).ToNot(Equal(uint32(0)), "channel key 0 should not appear in any node's Read set")
-					}
-					for key := range n.Channels.Write {
-						Expect(key).ToNot(Equal(uint32(0)), "channel key 0 should not appear in any node's Write set")
-					}
-				}
 			})
 		})
 
