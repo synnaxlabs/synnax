@@ -43,20 +43,20 @@ func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
 			return graph.Graph{}, err
 		}
 	}
-	configs := make(map[string]msgpack.EncodedJSON, len(old.Nodes))
+	inputs := make(map[string]msgpack.EncodedJSON, len(old.Nodes))
 	for _, v := range old.Nodes {
 		cfg := msgpack.EncodedJSON{}
 		for k, val := range v.Config {
 			cfg[k] = val
 		}
 		cfg["type"] = v.Type
-		configs[v.Key] = cfg
+		inputs[v.Key] = cfg
 	}
 	return graph.Graph{
 		Functions: functions,
 		Edges:     edges,
 		Nodes:     nodes,
-		Inputs:    configs,
+		Inputs:    inputs,
 	}, nil
 }
 
