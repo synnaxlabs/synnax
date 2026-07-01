@@ -10,13 +10,13 @@
 import { Errors, Icon } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
+import { createSelectorLayout, useSelectorVisible } from "@/app/vis/Selector";
+import { type LayoutType } from "@/app/vis/types";
 import { Arc } from "@/feature/arc";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
-import { createSelectorLayout, useSelectorVisible } from "@/feature/vis/Selector";
-import { type LayoutType } from "@/feature/vis/types";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";

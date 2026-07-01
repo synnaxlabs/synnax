@@ -9,9 +9,9 @@
 
 import { uuid } from "@synnaxlabs/x";
 
+import { Vis } from "@/app/vis";
 import { Arc } from "@/feature/arc";
 import { Task } from "@/feature/task";
-import { Vis } from "@/feature/vis";
 import { type Layout } from "@/platform/layout";
 import { Selector as BaseSelector } from "@/platform/selector";
 import { type Session } from "@/session";
