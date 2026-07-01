@@ -306,12 +306,12 @@ func add(x f64, y f64) f64 {
 			Expect(funcDecl.FUNC()).NotTo(BeNil())
 			Expect(funcDecl.IDENTIFIER().GetText()).To(Equal("add"))
 
-			params := funcDecl.InputList()
+			params := funcDecl.TriggerList()
 			Expect(params).NotTo(BeNil())
-			Expect(params.AllInput()).To(HaveLen(2))
+			Expect(params.AllTrigger()).To(HaveLen(2))
 
-			Expect(params.Input(0).IDENTIFIER().GetText()).To(Equal("x"))
-			Expect(params.Input(0).Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
+			Expect(params.Trigger(0).IDENTIFIER().GetText()).To(Equal("x"))
+			Expect(params.Trigger(0).Type_().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
 
 			returnType := funcDecl.OutputType()
 			Expect(returnType).NotTo(BeNil())
@@ -335,16 +335,16 @@ func process(input chan f64, output chan f64) {
 }`)
 
 			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
-			params := funcDecl.InputList()
+			params := funcDecl.TriggerList()
 
 			// First parameter: input chan f64
-			param1 := params.Input(0)
+			param1 := params.Trigger(0)
 			Expect(param1.IDENTIFIER().GetText()).To(Equal("input"))
 			Expect(param1.Type_().ChannelType().CHAN()).NotTo(BeNil())
 			Expect(param1.Type_().ChannelType().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
 
 			// Second parameter: output chan f64
-			param2 := params.Input(1)
+			param2 := params.Trigger(1)
 			Expect(param2.IDENTIFIER().GetText()).To(Equal("output"))
 			Expect(param2.Type_().ChannelType().CHAN()).NotTo(BeNil())
 		})
@@ -369,16 +369,16 @@ func controller{
 			Expect(taskDecl.IDENTIFIER().GetText()).To(Equal("controller"))
 
 			// Config block
-			config := taskDecl.ConfigBlock()
+			config := taskDecl.InputBlock()
 			Expect(config).NotTo(BeNil())
-			Expect(config.ConfigList()).NotTo(BeNil())
-			Expect(config.ConfigList().AllConfig()).To(HaveLen(3))
+			Expect(config.InputList()).NotTo(BeNil())
+			Expect(config.InputList().AllInput()).To(HaveLen(3))
 
 			// Runtime parameters
-			params := taskDecl.InputList()
+			params := taskDecl.TriggerList()
 			Expect(params).NotTo(BeNil())
-			Expect(params.AllInput()).To(HaveLen(1))
-			Expect(params.Input(0).IDENTIFIER().GetText()).To(Equal("enable"))
+			Expect(params.AllTrigger()).To(HaveLen(1))
+			Expect(params.Trigger(0).IDENTIFIER().GetText()).To(Equal("enable"))
 
 			// Raw
 			block := taskDecl.Block()
@@ -440,10 +440,10 @@ controller{
 			Expect(invocation.IDENTIFIER().GetText()).To(Equal("controller"))
 
 			// Config values
-			config := invocation.ConfigValues()
+			config := invocation.InputValues()
 			Expect(config).NotTo(BeNil())
-			Expect(config.NamedConfigValues()).NotTo(BeNil())
-			Expect(config.NamedConfigValues().AllNamedConfigValue()).To(HaveLen(3))
+			Expect(config.NamedInputValues()).NotTo(BeNil())
+			Expect(config.NamedInputValues().AllNamedInputValue()).To(HaveLen(3))
 		})
 
 		It("Should parse func invocation with anonymous config", func() {
@@ -456,10 +456,10 @@ controller{
 			Expect(invocation.IDENTIFIER().GetText()).To(Equal("any"))
 
 			// Anonymous config values
-			config := invocation.ConfigValues()
+			config := invocation.InputValues()
 			Expect(config).NotTo(BeNil())
-			Expect(config.AnonymousConfigValues()).NotTo(BeNil())
-			Expect(config.AnonymousConfigValues().AllExpression()).To(HaveLen(2))
+			Expect(config.AnonymousInputValues()).NotTo(BeNil())
+			Expect(config.AnonymousInputValues().AllExpression()).To(HaveLen(2))
 
 			// Check the second node also has func invocation
 			node2 := flow.FlowNode(1)
@@ -485,11 +485,11 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			invocation := node.Function()
 
 			// Verify anonymous config
-			config := invocation.ConfigValues()
+			config := invocation.InputValues()
 			Expect(config).NotTo(BeNil())
-			Expect(config.AnonymousConfigValues()).NotTo(BeNil())
+			Expect(config.AnonymousInputValues()).NotTo(BeNil())
 
-			exprs := config.AnonymousConfigValues().AllExpression()
+			exprs := config.AnonymousInputValues().AllExpression()
 			Expect(exprs).To(HaveLen(2))
 
 			// First expression should be ox_pt_1
@@ -539,12 +539,12 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			Expect(node2.Function().IDENTIFIER().GetText()).To(Equal("average"))
 
 			// Verify average has empty config
-			avgConfig := node2.Function().ConfigValues()
+			avgConfig := node2.Function().InputValues()
 			Expect(avgConfig).NotTo(BeNil())
 			Expect(avgConfig.LBRACE()).NotTo(BeNil())
 			Expect(avgConfig.RBRACE()).NotTo(BeNil())
-			Expect(avgConfig.NamedConfigValues()).To(BeNil())
-			Expect(avgConfig.AnonymousConfigValues()).To(BeNil())
+			Expect(avgConfig.NamedInputValues()).To(BeNil())
+			Expect(avgConfig.AnonymousInputValues()).To(BeNil())
 
 			// Check final node (channel)
 			node3 := flow.FlowNode(2)

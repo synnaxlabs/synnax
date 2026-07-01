@@ -438,7 +438,7 @@ var _ = Describe("Formatter", func() {
 		Entry("extra paren", "x := foo(1))", "x := foo(1)"),
 	)
 
-	DescribeTable("Config Values (Function Instantiation)",
+	DescribeTable("Input Values (Function Instantiation)",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
@@ -480,7 +480,7 @@ var _ = Describe("Formatter", func() {
 			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}\n"),
 	)
 
-	DescribeTable("Config Block Formatting",
+	DescribeTable("Input Block Formatting",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},

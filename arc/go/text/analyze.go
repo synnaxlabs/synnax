@@ -565,7 +565,7 @@ func analyzeFunctionNode(
 		Outputs:  slices.Clone(freshType.Outputs),
 	}
 	var ok bool
-	n.Inputs, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Inputs, n, sym)
+	n.Inputs, ok = extractInputValues(acontext.Child(ctx, ctx.AST.InputValues()), n.Inputs, n, sym)
 	if !ok {
 		return nodeResult{}, false
 	}
@@ -1091,8 +1091,8 @@ func analyzeFlow(
 	return p.nodes, p.edges, p.inlineMembers, p.transitionEmitted, true
 }
 
-func extractConfigValues(
-	ctx acontext.Context[parser.IConfigValuesContext],
+func extractInputValues(
+	ctx acontext.Context[parser.IInputValuesContext],
 	config types.Params,
 	node ir.Node,
 	fnSym *symbol.Symbol,
@@ -1157,8 +1157,8 @@ func extractConfigValues(
 		return parsedValue.Value, true
 	}
 
-	if named := ctx.AST.NamedConfigValues(); named != nil {
-		for _, cv := range named.AllNamedConfigValue() {
+	if named := ctx.AST.NamedInputValues(); named != nil {
+		for _, cv := range named.AllNamedInputValue() {
 			key := cv.IDENTIFIER().GetText()
 			idx := config.GetIndex(key)
 			if expr := cv.Expression(); expr != nil {
@@ -1169,7 +1169,7 @@ func extractConfigValues(
 				config[idx].Value = value
 			}
 		}
-	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
+	} else if anon := ctx.AST.AnonymousInputValues(); anon != nil {
 		exprs := anon.AllExpression()
 		pos := 0
 		for i := range config {

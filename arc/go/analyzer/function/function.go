@@ -50,9 +50,9 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			// The brace and parens blocks concatenate into one Inputs list; the
 			// trigger is the first parens-block param, if any.
 			var inputs, outputs types.Params
-			collectConfig(ctx, fn.ConfigBlock(), &inputs)
+			collectConfig(ctx, fn.InputBlock(), &inputs)
 			parensStart := len(inputs)
-			collectInputs(acontext.Child(ctx, fn.InputList()), &inputs)
+			collectInputs(acontext.Child(ctx, fn.TriggerList()), &inputs)
 			collectOutputs(ctx, fn.OutputType(), &outputs)
 
 			trigger := symbol.TriggerOnly
@@ -80,14 +80,14 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 // collectConfig extracts config parameter types without adding them to scope.
 func collectConfig[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	configBlock parser.IConfigBlockContext,
+	configBlock parser.IInputBlockContext,
 	config *types.Params,
 ) {
-	if configBlock == nil || configBlock.ConfigList() == nil {
+	if configBlock == nil || configBlock.InputList() == nil {
 		return
 	}
 	seenOptional := false
-	for _, cfg := range configBlock.ConfigList().AllConfig() {
+	for _, cfg := range configBlock.InputList().AllInput() {
 		configName := cfg.IDENTIFIER().GetText()
 		var configType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
@@ -123,14 +123,14 @@ func collectConfig[T antlr.ParserRuleContext](
 
 // collectInputs extracts input parameter types without adding them to scope.
 func collectInputs(
-	ctx acontext.Context[parser.IInputListContext],
+	ctx acontext.Context[parser.ITriggerListContext],
 	inputs *types.Params,
 ) {
 	if ctx.AST == nil {
 		return
 	}
 	seenOptional := false
-	for _, input := range ctx.AST.AllInput() {
+	for _, input := range ctx.AST.AllTrigger() {
 		var inputType types.Type
 		if typeCtx := input.Type_(); typeCtx != nil {
 			inputType, _ = atypes.InferFromTypeContext(typeCtx)
@@ -216,8 +216,8 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 
 	// Add inputs and outputs to the function's scope
 	// (types are already populated by CollectDeclarations)
-	addConfigToScope(ctx, ctx.AST.ConfigBlock(), fn)
-	addInputsToScope(acontext.Child(ctx, ctx.AST.InputList()).WithScope(fn))
+	addConfigToScope(ctx, ctx.AST.InputBlock(), fn)
+	addInputsToScope(acontext.Child(ctx, ctx.AST.TriggerList()).WithScope(fn))
 	addOutputsToScope(ctx, ctx.AST.OutputType(), fn)
 
 	if block := ctx.AST.Block(); block != nil {
@@ -328,13 +328,13 @@ func checkOutputAssignedInIfStmt(ifStmt parser.IIfStatementContext, outputName s
 // addInputsToScope adds input parameters to the function's scope.
 // The input types are already collected in fn.Type.Inputs by CollectDeclarations.
 func addInputsToScope(
-	ctx acontext.Context[parser.IInputListContext],
+	ctx acontext.Context[parser.ITriggerListContext],
 ) {
 	if ctx.AST == nil {
 		return
 	}
 
-	for _, input := range ctx.AST.AllInput() {
+	for _, input := range ctx.AST.AllTrigger() {
 		var inputType types.Type
 		if typeCtx := input.Type_(); typeCtx != nil {
 			inputType, _ = atypes.InferFromTypeContext(typeCtx)
@@ -398,13 +398,13 @@ func IfStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
 // The config types are already collected in fn.Type.Inputs by CollectDeclarations.
 func addConfigToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	configBlock parser.IConfigBlockContext,
+	configBlock parser.IInputBlockContext,
 	scope *symbol.Symbol,
 ) {
-	if configBlock == nil || configBlock.ConfigList() == nil {
+	if configBlock == nil || configBlock.InputList() == nil {
 		return
 	}
-	for _, cfg := range configBlock.ConfigList().AllConfig() {
+	for _, cfg := range configBlock.InputList().AllInput() {
 		configName := cfg.IDENTIFIER().GetText()
 		var configType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
