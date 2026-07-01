@@ -11,7 +11,7 @@ import { log } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { anyStateZ } from "@/service/log/import";
+import { anyStateZ } from "@/session/log/migrations";
 
 const V0_ZERO = { key: "", version: "0.0.0", channels: [], remoteCreated: false };
 const V1_ZERO = {

@@ -12,7 +12,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { renderLog } from "@/component/log/toolbar/testutil";
-import { Toolbar } from "@/component/log/toolbar/Toolbar";
+import { Toolbar } from "@/service/log/toolbar/Toolbar";
 import { Session } from "@/session";
 import { type ConsolePreloadedState } from "@/testutil/testutil";
 

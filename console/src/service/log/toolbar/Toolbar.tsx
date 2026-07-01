@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/component/log/toolbar/Toolbar.css";
+import "@/service/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
 import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
