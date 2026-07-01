@@ -84,7 +84,6 @@ var _ = Describe("Scope", func() {
 			Entry("StatefulVariable", symbol.KindStatefulVariable),
 			Entry("Input", symbol.KindInput),
 			Entry("Output", symbol.KindOutput),
-			Entry("Config", symbol.KindConfig),
 			Entry("LoopVariable", symbol.KindLoopVariable),
 		)
 
@@ -156,7 +155,7 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should allow shadowing global symbols from resolver", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "x", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
 			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -164,7 +163,7 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should resolve to local symbol when shadowing global", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "x", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
 			localScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -175,7 +174,7 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should resolve to local symbol when shadowing global in nested scope", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "x", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
@@ -317,12 +316,12 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should resolve from global resolver", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "pi", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
 			resolved := MustSucceed(rootScope.Resolve(bCtx, "pi"))
 			Expect(resolved.Name).To(Equal("pi"))
-			Expect(resolved.Kind).To(Equal(symbol.KindConfig))
+			Expect(resolved.Kind).To(Equal(symbol.KindInput))
 		})
 		It("Should prioritize local over parent scope", func(bCtx SpecContext) {
 			rootScope := symbol.NewRoot(nil, nil)
@@ -507,7 +506,7 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should resolve symbols from global resolver", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "pi", Kind: symbol.KindInput, Type: types.F64()},
 				{Name: "print", Kind: symbol.KindFunction},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
@@ -530,7 +529,7 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should deduplicate symbols across all sources", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "x", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
 			rootX := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -693,7 +692,7 @@ var _ = Describe("Scope", func() {
 				fnSym.Channels = types.NewChannels()
 				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
 					Name: "channel",
-					Kind: symbol.KindConfig,
+					Kind: symbol.KindInput,
 					Type: types.Chan(types.F64()),
 				}))
 				internalID := uint32(configParam.ID)
@@ -712,7 +711,7 @@ var _ = Describe("Scope", func() {
 				fnSym.Channels = types.NewChannels()
 				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
 					Name: "channel",
-					Kind: symbol.KindConfig,
+					Kind: symbol.KindInput,
 					Type: types.Chan(types.F64()),
 				}))
 				internalID := uint32(configParam.ID)
@@ -732,7 +731,7 @@ var _ = Describe("Scope", func() {
 				fnSym.Channels = types.NewChannels()
 				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
 					Name: "channel",
-					Kind: symbol.KindConfig,
+					Kind: symbol.KindInput,
 					Type: types.Chan(types.F64()),
 				}))
 				internalID := uint32(configParam.ID)
