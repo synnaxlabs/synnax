@@ -9,8 +9,8 @@
 
 import { Editor } from "@/feature/arc/editor";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/feature/arc/Explorer";
-import { extract } from "@/feature/arc/imex/export";
-import { ingest } from "@/feature/arc/imex/import";
+import { extract } from "@/feature/arc/export";
+import { ingest } from "@/feature/arc/import";
 import { Selectable } from "@/feature/arc/Selectable";
 import { LAYOUT_TYPE } from "@/platform/arc/layout";
 import { type Export } from "@/platform/export";
@@ -20,7 +20,8 @@ import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/arc/editor";
 export * from "@/feature/arc/Explorer";
-export * from "@/feature/arc/imex";
+export * from "@/feature/arc/export";
+export * from "@/feature/arc/import";
 export * from "@/feature/arc/link";
 export * from "@/feature/arc/ontology";
 export * from "@/feature/arc/palette";

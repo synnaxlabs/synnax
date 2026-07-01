@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 
 import { Graph } from "@/feature/arc/editor/toolbar/graph";
 import { Text } from "@/feature/arc/editor/toolbar/text";
-import { useExport } from "@/feature/arc/imex/export";
+import { useExport } from "@/feature/arc/export";
 
 const Internal = (): ReactElement | null => {
   const mode = Arc.useSelectMode();

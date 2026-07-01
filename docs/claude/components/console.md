@@ -123,6 +123,26 @@ genuinely layer-3. An unmigrated domain (e.g. `ni`) still has full form componen
 sitting under `service/ni/task/*.tsx` with imports pointing at deleted paths like
 `@/hardware/ni/...` — that's expected mid-migration state, not a bug to route around.
 
+## Testing
+
+When writing or editing any console unit test (`console/src/**/*.spec.ts[x]`), follow the
+**`console-testing` skill** — it carries the full rules with correct/incorrect examples.
+The four highest-value ones:
+
+- **Test through the public namespace, never a domain's internal file** — including the
+  thing under test itself (`Nav.Bar.Top`, not `@/app/nav/bar/Top`). The only exemption is
+  a co-located `testutil` file. This is blackbox testing, the same discipline as Go
+  `package foo_test`.
+- **Prefer real infrastructure over mocks.** Default to a real client (`createTestClient`)
+  + real flux stores via `@/testutil` for anything touching data; drop to a preloaded
+  store for pure logic; inject spies with `vi.fn()` (that's DI, not a mock); reach for
+  `vi.mock` only for unmockable runtime seams.
+- **Never stub DOM primitives** (`getBoundingClientRect`, canvas) **or substitute a child
+  component** with a placeholder. Render the real thing.
+- **One home per shared helper.** Hoist to the nearest shared `testutil` on the second
+  use; never copy scaffolding between spec files. Cross-package helpers must be
+  vitest-free.
+
 ## Development Modes
 
 ### Tauri Development Mode

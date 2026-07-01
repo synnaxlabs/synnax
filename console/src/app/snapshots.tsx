@@ -10,9 +10,9 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
-import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/app/task/layouts";
+import { Task } from "@/feature/task";
 import { type Range } from "@/platform/range";
-import { create as createSchematic } from "@/platform/schematic/layout";
+import { Schematic } from "@/platform/schematic";
 
 export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
   schematic: {
@@ -20,7 +20,7 @@ export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
       if (client == null) throw new DisconnectedError();
       const s = await client.schematics.retrieve({ key });
-      placeLayout(createSchematic({ key: s.key, name: s.name, editable: false }));
+      placeLayout(Schematic.create({ key: s.key, name: s.name, editable: false }));
     },
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
@@ -30,7 +30,7 @@ export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
   task: {
     icon: <Icon.Task />,
     onClick: async ({ id: { key } }, { client, placeLayout }) =>
-      await retrieveAndPlaceTaskLayout(client, key, placeLayout),
+      await Task.retrieveAndPlaceLayout(client, key, placeLayout),
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
       await client.tasks.delete(key);

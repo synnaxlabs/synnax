@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { type Device as PlutoDevice, Flux, Icon, Menu } from "@synnaxlabs/pluto";
+import { type Device as PDevice, Flux, Icon, Menu } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { useToggleEnabled } from "@/feature/ethercat/device/queries";
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
-import { Device as CommonDevice } from "@/platform/device";
+import { Device as Platform } from "@/platform/device";
 import { type Ontology } from "@/platform/ontology";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] = [
+const TASK_CONTEXT_MENU_ITEM_CONFIGS: Platform.TaskContextMenuItemConfig[] = [
   {
     itemKey: "ethercat.readTask",
     label: "Create read task",
@@ -33,7 +33,7 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] =
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const keys = props.selection.ids.map((id) => id.key);
-  const store = Flux.useStore<PlutoDevice.FluxSubStore>();
+  const store = Flux.useStore<PDevice.FluxSubStore>();
   const { update: toggleEnabled } = useToggleEnabled();
   const configure = useConfigureModal();
   const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
@@ -57,10 +57,10 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
 
   return (
     <>
-      <CommonDevice.ConfigureMenuItem {...props} onConfigure={onConfigure} />
-      <CommonDevice.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
+      <Platform.ConfigureMenuItem {...props} onConfigure={onConfigure} />
+      <Platform.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
       <Menu.Divider />
-      <CommonDevice.TaskContextMenuItems
+      <Platform.TaskContextMenuItems
         {...props}
         onConfigure={onConfigure}
         taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}

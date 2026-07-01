@@ -15,8 +15,7 @@ import {
 } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Aether, Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
-import { aether, eraser, flux, status, synnax } from "@synnaxlabs/pluto/ether";
+import { eraser } from "@synnaxlabs/pluto/ether";
 import {
   render,
   renderHook,
@@ -25,27 +24,13 @@ import {
   type RenderOptions,
   type RenderResult,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 
 import { Session } from "@/session";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
-const consoleReducer = combineReducers({
-  [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
-  [Drift.SLICE_NAME]: Drift.reducer,
-  [Session.Log.SLICE_NAME]: Session.Log.reducer,
-  [Session.Project.SLICE_NAME]: Session.Project.reducer,
-  [Session.Cluster.SLICE_NAME]: Session.Cluster.reducer,
-  [Session.Nav.SLICE_NAME]: Session.Nav.reducer,
-});
-
-export type ConsolePreloadedState = {
-  [Session.Layout.SLICE_NAME]?: Session.Layout.SliceState;
-  [Session.Log.SLICE_NAME]?: Session.Log.SliceState;
-  [Session.Project.SLICE_NAME]?: Session.Project.SliceState;
-  [Session.Cluster.SLICE_NAME]?: Session.Cluster.SliceState;
-  [Session.Nav.SLICE_NAME]?: Session.Nav.SliceState;
-};
+export type ConsolePreloadedState = Partial<Session.State>;
 
 export interface ConsoleTestProviderOptions {
   preloadedState?: ConsolePreloadedState;
@@ -56,58 +41,30 @@ export const createTestStore = (
 ): EnhancedStore => {
   const { preloadedState } = options;
   return configureStore({
-    reducer: consoleReducer,
-    preloadedState,
-    middleware: (getDefault) => getDefault().concat(Session.Nav.MIDDLEWARE),
+    reducer: Session.reducer as Reducer<Session.State>,
+    // combineReducers fills any slice omitted from the partial preloaded state.
+    preloadedState: preloadedState as Session.State | undefined,
+    middleware: (getDefault) => getDefault().concat(...Session.BASE_MIDDLEWARE),
   });
 };
 
-const AETHER_REGISTRY: aether.ComponentRegistry = {
-  ...synnax.REGISTRY,
-  ...status.REGISTRY,
-  ...eraser.REGISTRY,
-  ...flux.createRegistry({ storeConfig: {} }),
+// The eraser aether component is required by console widgets but is not part of pluto's
+// default test registry, so it is injected via additionalRegistry.
+const ADDITIONAL_REGISTRY = eraser.REGISTRY;
+
+const composeConsole = (
+  SynnaxWrapper: FC<PropsWithChildren>,
+  store: EnhancedStore,
+): FC<PropsWithChildren> => {
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <SynnaxWrapper>
+      <Provider store={store}>
+        <Session.Modals.Provider>{children}</Session.Modals.Provider>
+      </Provider>
+    </SynnaxWrapper>
+  );
+  return Wrapper;
 };
-
-const AetherTestProvider = ({ children }: PropsWithChildren): ReactElement => {
-  const worker = useMemo(() => {
-    const [workerSide, mainSide] = aether.createMockPair();
-    aether.render({ worker: workerSide, registry: AETHER_REGISTRY });
-    return mainSide;
-  }, []);
-  return <Aether.Provider worker={worker}>{children}</Aether.Provider>;
-};
-
-const createFluxClient = (client: Client | null): Flux.Client =>
-  new Flux.Client({
-    client,
-    storeConfig: { ...Pluto.FLUX_STORE_CONFIG },
-    handleError: status.createErrorHandler(console.error),
-    handleAsyncError: status.createAsyncErrorHandler(console.error),
-  });
-
-export const ConsoleTestProvider = ({
-  store,
-  client,
-  fluxClient,
-  children,
-}: PropsWithChildren<{
-  store: EnhancedStore;
-  client: Client | null;
-  fluxClient: Flux.Client;
-}>): ReactElement => (
-  <AetherTestProvider>
-    <Status.Aggregator>
-      <Synnax.TestProvider client={client}>
-        <Flux.Provider client={fluxClient}>
-          <Provider store={store}>
-            <Session.Modals.Provider>{children}</Session.Modals.Provider>
-          </Provider>
-        </Flux.Provider>
-      </Synnax.TestProvider>
-    </Status.Aggregator>
-  </AetherTestProvider>
-);
 
 export interface RenderWithConsoleOptions extends RenderOptions {
   preloadedState?: ConsolePreloadedState;
@@ -123,14 +80,9 @@ export const renderWithConsole = (
     store = createTestStore({ preloadedState }),
     ...rest
   } = options;
-  const Wrapper = ({ children }: PropsWithChildren) => (
-    <ConsoleTestProvider
-      store={store}
-      client={null}
-      fluxClient={createFluxClient(null)}
-    >
-      {children}
-    </ConsoleTestProvider>
+  const Wrapper = composeConsole(
+    createSynnaxWrapper({ client: null, additionalRegistry: ADDITIONAL_REGISTRY }),
+    store,
   );
   return { ...render(ui, { wrapper: Wrapper, ...rest }), store };
 };
@@ -181,11 +133,9 @@ export const renderHookWithConsole = <Result, Props>(
     client = null,
     ...rest
   } = options;
-  const fluxClient = createFluxClient(client);
-  const Wrapper = ({ children }: PropsWithChildren) => (
-    <ConsoleTestProvider store={store} client={client} fluxClient={fluxClient}>
-      {children}
-    </ConsoleTestProvider>
+  const Wrapper = composeConsole(
+    createSynnaxWrapper({ client, additionalRegistry: ADDITIONAL_REGISTRY }),
+    store,
   );
   return { ...renderHook(cb, { wrapper: Wrapper, ...rest }), store };
 };
@@ -212,12 +162,9 @@ export const createConsoleWrapper = async ({
   wrapper: FC<PropsWithChildren>;
   store: EnhancedStore;
 }> => {
-  const fluxClient = createFluxClient(client);
-  await fluxClient.awaitInitialized();
-  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <ConsoleTestProvider store={store} client={client} fluxClient={fluxClient}>
-      {children}
-    </ConsoleTestProvider>
-  );
-  return { wrapper, store };
+  const SynnaxWrapper = await createAsyncSynnaxWrapper({
+    client,
+    additionalRegistry: ADDITIONAL_REGISTRY,
+  });
+  return { wrapper: composeConsole(SynnaxWrapper, store), store };
 };

@@ -9,7 +9,6 @@
 
 import { type Layout } from "@/session/layout";
 
-export * from "@/session/arc/migrations";
 export * from "@/session/arc/selectors";
 export * from "@/session/arc/slice";
 

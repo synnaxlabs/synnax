@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Device } from "@/app/device";
-import { Task } from "@/app/task";
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
+import { Cluster } from "@/feature/cluster";
+import { Device } from "@/feature/device";
 import { LinePlot } from "@/feature/lineplot";
+import { Link } from "@/feature/link";
 import { Log } from "@/feature/log";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
-import { Cluster } from "@/platform/cluster";
-import { Link } from "@/platform/link";
+import { Task } from "@/feature/task";
 
-export const useLinks = (): void => {
-  const handlers = {
+export const useLinks = (): void =>
+  Link.useDeep(Cluster.useLink(), {
     arc: Arc.useLink(),
     channel: Channel.useLink(),
     device: Device.useLink(),
@@ -32,6 +32,4 @@ export const useLinks = (): void => {
     table: Table.useLink(),
     task: Task.useLink(),
     project: Project.useLink(),
-  };
-  Link.useDeep(Cluster.useLink(), handlers);
-};
+  });

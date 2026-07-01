@@ -24,12 +24,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { ContextMenu } from "@/feature/arc/ContextMenu";
 import { EXPLORER_LAYOUT } from "@/feature/arc/Explorer";
-import { useRename } from "@/feature/arc/useRename";
-import { useTask } from "@/feature/arc/useTask";
-import { create as createLayout } from "@/platform/arc/layout";
-import { useCreate } from "@/platform/arc/useCreate";
+import { Arc as Platform } from "@/platform/arc";
+import { ContextMenu } from "@/platform/arc/ContextMenu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Layout } from "@/platform/layout";
@@ -60,7 +57,7 @@ const Content = () => {
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
-  const { update: handleRename } = useRename(getItem);
+  const { update: handleRename } = Platform.useRename(getItem);
 
   const handleEdit = useCallback(
     (key: arc.Key) => {
@@ -72,12 +69,12 @@ const Content = () => {
           description: `Arc with key ${key} not found`,
         });
       const { name } = retrieved;
-      placeLayout(createLayout({ key, name }));
+      placeLayout(Platform.create({ key, name }));
     },
     [getItem, addStatus, placeLayout],
   );
 
-  const create = useCreate();
+  const create = Platform.useCreate();
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} getItem={getItem} />,
@@ -175,7 +172,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
     running,
     onStartStop,
     taskStatus: status,
-  } = useTask(itemKey, arcItem?.name ?? "");
+  } = Platform.useTask(itemKey, arcItem?.name ?? "");
   let statusMessage = "Stopped";
   if (status.variant === "success" && running) statusMessage = "Running";
   else if (status.variant === "error") statusMessage = "Error";

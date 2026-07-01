@@ -10,16 +10,16 @@
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Cluster } from "@/feature/cluster";
 import { Docs } from "@/feature/docs";
-import { Cluster } from "@/platform/cluster";
-import { Nav as ConsoleNav } from "@/platform/nav";
+import { Nav as Platform } from "@/platform/nav";
 import { Project } from "@/platform/project";
 import { User } from "@/platform/user";
 import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 
 export const Top = (): ReactElement | null => (
-  <ConsoleNav.Bar location="top" size="6.5rem">
+  <Platform.Bar location="top" size="6.5rem">
     <Nav.Bar.Start data-tauri-drag-region gap="large">
       <Window.Controls visibleIfOS="macOS" />
       <Project.Selector />
@@ -32,5 +32,5 @@ export const Top = (): ReactElement | null => (
       <Docs.OpenButton />
       <Window.Controls visibleIfOS="Windows" />
     </Nav.Bar.End>
-  </ConsoleNav.Bar>
+  </Platform.Bar>
 );

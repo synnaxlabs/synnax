@@ -18,4 +18,3 @@ export * from "@/platform/device/TaskContextMenuItems";
 export * from "@/platform/device/types";
 export * from "@/platform/device/use";
 export * from "@/platform/device/useChangeIdentifier";
-export * from "@/platform/device/useListenForChanges";

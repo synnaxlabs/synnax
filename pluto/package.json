@@ -99,6 +99,11 @@
       "import": "./dist/ether.js",
       "require": "./dist/ether.cjs"
     },
+    "./testutil": {
+      "types": "./dist/src/testutil/index.d.ts",
+      "import": "./dist/testutil.js",
+      "require": "./dist/testutil.cjs"
+    },
     "./flex": {
       "types": "./dist/src/flex/index.d.ts",
       "import": "./dist/flex.js",

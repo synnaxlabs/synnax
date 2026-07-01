@@ -14,11 +14,7 @@ import { Button, CSS as PCSS, Icon, Input, Nav, Select, Text } from "@synnaxlabs
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { Body } from "@/platform/modals/Body";
-import { createPrompt } from "@/platform/modals/factory";
-import { Footer } from "@/platform/modals/Footer";
-import { Frame } from "@/platform/modals/Frame";
-import { Header } from "@/platform/modals/Header";
+import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 export interface CreateModalResult {
@@ -70,7 +66,7 @@ const ArcModeSelectButton = ({
   );
 };
 
-export const useCreateModal = createPrompt<CreateModalResult, CreateModalParams>(
+export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModalParams>(
   ({ initialName, initialMode, close }) => {
     const [name, setName] = useState(initialName ?? "");
     const [mode, setMode] = useState<arc.Mode>(initialMode ?? "graph");
@@ -99,9 +95,9 @@ export const useCreateModal = createPrompt<CreateModalResult, CreateModalParams>
     );
 
     return (
-      <Frame className={CSS.B("arc-create-modal")}>
-        <Header icon={<Icon.Arc />}>Arc.Create Automation</Header>
-        <Body>
+      <Modals.Frame className={CSS.B("arc-create-modal")}>
+        <Modals.Header icon={<Icon.Arc />}>Arc.Create Automation</Modals.Header>
+        <Modals.Body>
           <Input.Item
             label="Name"
             required
@@ -142,9 +138,9 @@ export const useCreateModal = createPrompt<CreateModalResult, CreateModalParams>
               />
             </Select.Buttons>
           </Input.Item>
-        </Body>
-        <Footer>{footer}</Footer>
-      </Frame>
+        </Modals.Body>
+        <Modals.Footer>{footer}</Modals.Footer>
+      </Modals.Frame>
     );
   },
 );

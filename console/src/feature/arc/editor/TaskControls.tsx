@@ -14,7 +14,7 @@ import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
-import { useTask } from "@/feature/arc/useTask";
+import { useTask } from "@/platform/arc/useTask";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 

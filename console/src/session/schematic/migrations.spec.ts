@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { anyStateZ } from "@/session/schematic/migrations";
+import { Schematic } from "@/session/schematic";
 
 const V0_ZERO = {
   version: "0.0.0",
@@ -71,7 +71,7 @@ describe("schematic state migrations", () => {
     ["5.0.0", V5_ZERO],
     ["6.0.0", V6_ZERO],
   ])("should migrate state from %s to latest", (_version, state) => {
-    const migrated = anyStateZ.parse(state);
+    const migrated = Schematic.anyStateZ.parse(state);
     expect(migrated.version).toBe("6.0.0");
     expect(migrated.toolbar.activeTab).toBe("symbols");
     expect(migrated.selected).toEqual([]);
@@ -80,7 +80,7 @@ describe("schematic state migrations", () => {
   });
 
   it("should park v5 graph state into pendingUpload as typed v6 configs", () => {
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
       edges: [
@@ -105,7 +105,7 @@ describe("schematic state migrations", () => {
   });
 
   it("should rename nodePropsZ.key to .variant when migrating v5 → v6", () => {
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       props: { n1: { key: "valve", color: "#ff0000" }, n2: { key: "tank" } },
     });
@@ -117,7 +117,7 @@ describe("schematic state migrations", () => {
   });
 
   it("should move edge.data segments/color/variant into the configs record", () => {
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       edges: [
         {
@@ -150,7 +150,7 @@ describe("schematic state migrations", () => {
   it("should strip legacy stumps from full-path edge segments", () => {
     // Real OX Pre-Valve -> OX MPV edge from a 0.55 schematic: the stored full path
     // includes both stumps, which would double on render and fold a pigtail.
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       edges: [
         {
@@ -185,7 +185,7 @@ describe("schematic state migrations", () => {
     // A single segment shorter than two stumps (real 0.55 edge, 11.88px) has no
     // strippable middle; subtracting a full stump from each end would flip it into a
     // self-crossing spur, so it must be cleared to an empty (auto-routed) edge.
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       edges: [
         {
@@ -200,12 +200,12 @@ describe("schematic state migrations", () => {
   });
 
   it("should add an empty selected array when migrating to v6", () => {
-    const migrated = anyStateZ.parse(V5_ZERO);
+    const migrated = Schematic.anyStateZ.parse(V5_ZERO);
     expect(migrated.selected).toEqual([]);
   });
 
   it("should preserve legend visibility, position, and parsed colors", () => {
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       legend: {
         visible: true,
@@ -225,7 +225,7 @@ describe("schematic state migrations", () => {
   });
 
   it("should migrate a v5 state whose legend has no colors", () => {
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       legend: {
         visible: true,
@@ -236,7 +236,7 @@ describe("schematic state migrations", () => {
   });
 
   it("should preserve non-pipe edge variants when migrating v5 → v6", () => {
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       edges: [{ key: "e1", source: "n1", target: "n2", data: { variant: "electric" } }],
     });
@@ -244,7 +244,7 @@ describe("schematic state migrations", () => {
   });
 
   it("should normalize null source/target handles to empty strings", () => {
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       edges: [
         {
@@ -261,7 +261,7 @@ describe("schematic state migrations", () => {
   });
 
   it("should fall back to pipe defaults when an edge has no data", () => {
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       edges: [{ key: "e1", source: "n1", target: "n2" }],
     });
@@ -273,7 +273,7 @@ describe("schematic state migrations", () => {
   });
 
   it("should strip stale selected and unknown fields from migrated nodes", () => {
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V5_ZERO,
       nodes: [
         { key: "n1", position: { x: 10, y: 20 }, selected: true, staleField: "junk" },
@@ -289,7 +289,7 @@ describe("schematic state migrations", () => {
   });
 
   it("should migrate a populated v0 state through every version to v6", () => {
-    const migrated = anyStateZ.parse({
+    const migrated = Schematic.anyStateZ.parse({
       ...V0_ZERO,
       nodes: [{ key: "n1", position: { x: 10, y: 20 } }],
       edges: [
@@ -317,5 +317,67 @@ describe("schematic state migrations", () => {
       color: "#abcdef",
     });
     expect(migrated.selected).toEqual([]);
+  });
+});
+
+const configsOf = (s: { configs?: unknown }): record.Unknown =>
+  typeof s.configs === "object" && s.configs != null ? { ...s.configs } : {};
+
+const LEGACY_V2 = {
+  version: "2.0.0",
+  key: "88aee41e-53b7-4a76-9df9-aceccc220089",
+  type: "schematic",
+  name: "Schematic",
+  editable: true,
+  fitViewOnResize: false,
+  snapshot: false,
+  remoteCreated: false,
+  control: "released",
+  viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+  viewportMode: "select",
+  legend: { visible: false, position: { x: 50, y: 50, units: { x: "px", y: "px" } } },
+  nodes: [
+    {
+      key: "n1",
+      position: { x: -300, y: -3.5 },
+      type: "custom",
+      width: 230,
+      height: 112,
+      zIndex: 4,
+    },
+  ],
+  edges: [],
+  props: { n1: { key: "valve", color: [28, 28, 28, 1] } },
+};
+
+const TYPED_EXPORT = {
+  key: "88aee41e-53b7-4a76-9df9-aceccc220089",
+  name: "Schematic",
+  type: "schematic",
+  version: "6.0.0",
+  snapshot: false,
+  nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
+  edges: [],
+  configs: { n1: { variant: "valve", color: [28, 28, 28, 1] } },
+};
+
+describe("schematic import", () => {
+  describe("parseImport", () => {
+    it("should migrate a legacy console export, preserving every symbol config", () => {
+      const out = Schematic.parseImport(LEGACY_V2, undefined);
+      expect(out.nodes).toHaveLength(1);
+      expect(configsOf(out).n1).toMatchObject({ variant: "valve" });
+    });
+
+    it("should import a typed schematic export directly, preserving configs", () => {
+      const out = Schematic.parseImport(TYPED_EXPORT, undefined);
+      expect(out.nodes).toHaveLength(1);
+      expect(configsOf(out).n1).toMatchObject({ variant: "valve" });
+    });
+
+    it("should not silently drop configs by parsing a legacy file as a typed one", () => {
+      const out = Schematic.parseImport(LEGACY_V2, undefined);
+      expect(configsOf(out)).not.toEqual({});
+    });
   });
 });

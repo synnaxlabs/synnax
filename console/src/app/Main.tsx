@@ -11,13 +11,13 @@ import { Drift } from "@synnaxlabs/drift";
 import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Device } from "@/app/device";
 import { useLinks } from "@/app/links";
 import { Mosaic } from "@/app/Mosaic";
 import { Nav } from "@/app/nav";
 import { Notifications } from "@/app/Notifications";
 import { useTriggers } from "@/app/useTriggers";
 import { Auth } from "@/feature/auth";
+import { Device } from "@/feature/device";
 import { Project as ServiceProject } from "@/feature/project";
 import { Cluster } from "@/platform/cluster";
 import { Layout } from "@/platform/layout";

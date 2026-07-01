@@ -10,6 +10,7 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
+import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
@@ -19,13 +20,17 @@ import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 
-const AetherProvider = aetherTest.createProvider({
-  ...synnax.REGISTRY,
-  ...status.REGISTRY,
-  ...flux.createRegistry({ storeConfig: {} }),
-});
-
-const newWrapper = (client: Client | null, fluxClient: Flux.Client) => {
+const newWrapper = (
+  client: Client | null,
+  fluxClient: Flux.Client,
+  additionalRegistry?: aether.ComponentRegistry,
+) => {
+  const AetherProvider = aetherTest.createProvider({
+    ...synnax.REGISTRY,
+    ...status.REGISTRY,
+    ...flux.createRegistry({ storeConfig: {} }),
+    ...additionalRegistry,
+  });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
@@ -41,32 +46,36 @@ const newWrapper = (client: Client | null, fluxClient: Flux.Client) => {
 export interface CreateSynnaxWrapperArgs {
   client: Client | null;
   excludeFluxStores?: string[];
+  /** Overrides the flux error handler. Defaults to logging via console.error. */
+  handleError?: status.ErrorHandler;
+  /** Overrides the flux async error handler. Defaults to logging via console.error. */
+  handleAsyncError?: status.AsyncErrorHandler;
+  /** Extra aether components merged into the test render registry. */
+  additionalRegistry?: aether.ComponentRegistry;
 }
 
 const createFluxClient = (args: CreateSynnaxWrapperArgs): Flux.Client => {
-  const { client, excludeFluxStores } = args;
+  const { client, excludeFluxStores, handleError, handleAsyncError } = args;
   const storeConfig = { ...Pluto.FLUX_STORE_CONFIG };
   if (excludeFluxStores)
     excludeFluxStores.forEach((store) => delete storeConfig[store]);
   return new Flux.Client({
     client,
     storeConfig,
-    handleError: status.createErrorHandler(console.error),
-    handleAsyncError: status.createAsyncErrorHandler(console.error),
+    handleError: handleError ?? status.createErrorHandler(console.error),
+    handleAsyncError: handleAsyncError ?? status.createAsyncErrorHandler(console.error),
   });
 };
 
-export const createSynnaxWrapper = ({
-  client,
-  excludeFluxStores,
-}: CreateSynnaxWrapperArgs): FC<PropsWithChildren> =>
-  newWrapper(client, createFluxClient({ client, excludeFluxStores }));
+export const createSynnaxWrapper = (
+  args: CreateSynnaxWrapperArgs,
+): FC<PropsWithChildren> =>
+  newWrapper(args.client, createFluxClient(args), args.additionalRegistry);
 
 export const createAsyncSynnaxWrapper = async (
   args: CreateSynnaxWrapperArgs,
 ): Promise<FC<PropsWithChildren>> => {
-  const { client } = args;
   const fluxClient = createFluxClient(args);
   await fluxClient.awaitInitialized();
-  return newWrapper(client, fluxClient);
+  return newWrapper(args.client, fluxClient, args.additionalRegistry);
 };

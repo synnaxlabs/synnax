@@ -11,7 +11,6 @@ import { kv, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Persist } from "@/session/persist";
-import { type SugaredKV } from "@/session/persist/kv";
 
 interface MockState {
   mock: { value: string };
@@ -49,7 +48,7 @@ describe("Persist", () => {
     it("should open a blank v2 store if the v1 store is empty", async () => {
       const v1Store = new kv.MockAsync();
       const v2Store = new kv.MockAsync();
-      const openKV = (path: string): SugaredKV => {
+      const openKV = (path: string): Persist.SugaredKV => {
         if (path === Persist.V1_STORE_PATH) return v1Store;
         if (path === Persist.V2_STORE_PATH) return v2Store;
         throw new Error(`Unknown path: ${path}`);
@@ -72,7 +71,7 @@ describe("Persist", () => {
         },
       };
       await v1Store.set(persistedStateKey, persistedState);
-      const openKV = (path: string): SugaredKV => {
+      const openKV = (path: string): Persist.SugaredKV => {
         if (path === Persist.V1_STORE_PATH) return v1Store;
         if (path === Persist.V2_STORE_PATH) return v2Store;
         throw new Error(`Unknown path: ${path}`);

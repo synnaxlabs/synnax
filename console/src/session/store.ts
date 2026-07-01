@@ -61,7 +61,7 @@ const ZERO_STATE: State = {
   [Theme.SLICE_NAME]: Theme.ZERO_SLICE_STATE,
 };
 
-const reducer = combineReducers({
+export const reducer = combineReducers({
   [Arc.SLICE_NAME]: Arc.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
@@ -140,7 +140,7 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
   };
 };
 
-const BASE_MIDDLEWARE = [...Layout.MIDDLEWARE, ...Nav.MIDDLEWARE];
+export const BASE_MIDDLEWARE = [...Layout.MIDDLEWARE, ...Nav.MIDDLEWARE];
 
 export const createStore = async (): Promise<Store> => {
   const { initialState, persistMiddleware } = await openPersist();

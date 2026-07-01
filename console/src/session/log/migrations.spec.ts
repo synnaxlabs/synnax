@@ -11,7 +11,7 @@ import { log } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { anyStateZ } from "@/session/log/migrations";
+import { Log } from "@/session/log";
 
 const V0_ZERO = { key: "", version: "0.0.0", channels: [], remoteCreated: false };
 const V1_ZERO = {
@@ -42,19 +42,19 @@ const v1Channel = (channel: number, channelColor = "", precision = -1) => ({
 describe("log state migrations", () => {
   describe("identity", () => {
     it("should leave a v2 state unchanged", () => {
-      expect(anyStateZ.parse(V2_ZERO)).toMatchObject(V2_ZERO);
+      expect(Log.anyStateZ.parse(V2_ZERO)).toMatchObject(V2_ZERO);
     });
 
     it("should stamp the latest version on every input", () => {
       [V0_ZERO, V1_ZERO, V2_ZERO].forEach((state) =>
-        expect(anyStateZ.parse(state).version).toBe("2.0.0"),
+        expect(Log.anyStateZ.parse(state).version).toBe("2.0.0"),
       );
     });
   });
 
   describe("body -> pendingUpload", () => {
     it("should park a v0 body in pendingUpload with default channel config", () => {
-      const migrated = anyStateZ.parse({
+      const migrated = Log.anyStateZ.parse({
         ...V0_ZERO,
         key: "test",
         channels: [1, 2],
@@ -67,7 +67,7 @@ describe("log state migrations", () => {
     });
 
     it("should park a v1 body in pendingUpload, preserving display config", () => {
-      const migrated = anyStateZ.parse({
+      const migrated = Log.anyStateZ.parse({
         ...V1_ZERO,
         key: "test",
         remoteCreated: false,
@@ -88,7 +88,7 @@ describe("log state migrations", () => {
     });
 
     it("should leave pendingUpload undefined for a remoteCreated log", () => {
-      const migrated = anyStateZ.parse({
+      const migrated = Log.anyStateZ.parse({
         ...V1_ZERO,
         key: "test",
         remoteCreated: true,
@@ -98,7 +98,7 @@ describe("log state migrations", () => {
     });
 
     it("should preserve the toolbar tab through migration", () => {
-      const migrated = anyStateZ.parse({
+      const migrated = Log.anyStateZ.parse({
         ...V1_ZERO,
         key: "test",
         toolbar: { activeTab: "properties" },
@@ -109,7 +109,7 @@ describe("log state migrations", () => {
 
   describe("v1 color migration into pendingUpload", () => {
     const migratedColor = (channelColor: string) =>
-      anyStateZ.parse({
+      Log.anyStateZ.parse({
         ...V1_ZERO,
         key: "test",
         remoteCreated: false,
@@ -131,15 +131,15 @@ describe("log state migrations", () => {
 
   describe("anyStateZ", () => {
     it("should parse a v2 state as-is", () => {
-      expect(anyStateZ.parse(V2_ZERO).version).toBe("2.0.0");
+      expect(Log.anyStateZ.parse(V2_ZERO).version).toBe("2.0.0");
     });
 
     it("should parse and migrate a v0 state", () => {
-      expect(anyStateZ.parse(V0_ZERO).version).toBe("2.0.0");
+      expect(Log.anyStateZ.parse(V0_ZERO).version).toBe("2.0.0");
     });
 
     it("should parse a persisted v1 log export into a pendingUpload", () => {
-      const result = anyStateZ.parse({
+      const result = Log.anyStateZ.parse({
         key: "424ef02f-6ec3-4af6-bdd2-242964a747d8",
         version: "1.0.0",
         channels: [

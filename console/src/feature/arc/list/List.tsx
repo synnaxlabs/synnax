@@ -19,9 +19,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
-import { ContextMenu } from "@/feature/arc/ContextMenu";
 import { Item, type ItemProps } from "@/feature/arc/list/Item";
-import { useRename } from "@/feature/arc/useRename";
+import { Arc } from "@/platform/arc";
+import { ContextMenu } from "@/platform/arc/ContextMenu";
 
 export interface ListProps
   extends
@@ -45,7 +45,7 @@ export const List = ({
   const [value, setValue] = useState<arc.Key[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const menuProps = Menu.useContextMenu();
-  const { update: handleRename } = useRename(getItem);
+  const { update: handleRename } = Arc.useRename(getItem);
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} getItem={getItem} textIdPrefix={textIdPrefix} />,

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { anyStateZ } from "@/session/table/migrations";
+import { Table } from "@/session/table";
 
 const populatedV0State = (overrides: Record<string, unknown> = {}) => ({
   key: "11111111-1111-1111-1111-111111111111",
@@ -57,19 +58,19 @@ describe("table state migrations", () => {
     ["0.0.0", V0_ZERO],
     ["1.0.0", V1_ZERO],
   ])("should migrate state from %s to latest", (_version, state) => {
-    const migrated = anyStateZ.parse(state);
+    const migrated = Table.anyStateZ.parse(state);
     expect(migrated.version).toBe("1.0.0");
     expect(migrated.editable).toBeDefined();
     expect(migrated.selectedCells).toEqual([]);
   });
 
   it("should not produce a pendingUpload when v0 was remoteCreated", () => {
-    const migrated = anyStateZ.parse(populatedV0State({ remoteCreated: true }));
+    const migrated = Table.anyStateZ.parse(populatedV0State({ remoteCreated: true }));
     expect(migrated.pendingUpload).toBeUndefined();
   });
 
   it("should project v0 layout + cells into pendingUpload when not remoteCreated", () => {
-    const upload = anyStateZ.parse(
+    const upload = Table.anyStateZ.parse(
       populatedV0State({ remoteCreated: false }),
     ).pendingUpload;
     if (upload == null) throw new Error("expected pendingUpload to be defined");
@@ -84,7 +85,7 @@ describe("table state migrations", () => {
   });
 
   it("should drop the per-cell selected flag from pendingUpload", () => {
-    const upload = anyStateZ.parse(
+    const upload = Table.anyStateZ.parse(
       populatedV0State({
         remoteCreated: false,
         cells: {
@@ -98,10 +99,72 @@ describe("table state migrations", () => {
   });
 
   it("should preserve editable and lastSelected across migration", () => {
-    const migrated = anyStateZ.parse(
+    const migrated = Table.anyStateZ.parse(
       populatedV0State({ editable: false, lastSelected: "b" }),
     );
     expect(migrated.editable).toBe(false);
     expect(migrated.lastSelected).toEqual("b");
+  });
+});
+
+// A legacy v0 console export parks its structural model under layout.rows /
+// layout.columns and stores a per-cell `selected` flag. It carries a valid uuid key and
+// (in the swallow-prone case) a name, so the lenient typed tableZ would accept it
+// directly — dropping the layout and yielding empty rows/columns.
+const LEGACY_V0 = {
+  version: "0.0.0",
+  type: "table",
+  key: "88aee41e-53b7-4a76-9df9-aceccc220089",
+  name: "My Table",
+  lastSelected: null,
+  editable: true,
+  remoteCreated: false,
+  layout: {
+    rows: [{ size: 36, cells: [{ key: "c1" }, { key: "c2" }] }],
+    columns: [{ size: 72 }, { size: 72 }],
+  },
+  cells: {
+    c1: { key: "c1", variant: "text", selected: false, props: { value: "hello" } },
+    c2: { key: "c2", variant: "value", selected: false, props: {} },
+  },
+};
+
+const TYPED_EXPORT = {
+  key: "88aee41e-53b7-4a76-9df9-aceccc220089",
+  name: "My Table",
+  type: "table",
+  version: "1.0.0",
+  rows: [{ size: 36, cells: ["c1", "c2"] }],
+  columns: [{ size: 72 }, { size: 72 }],
+  cells: {
+    c1: { key: "c1", variant: "text", props: { value: "hello" } },
+    c2: { key: "c2", variant: "value", props: {} },
+  },
+};
+
+const cellsOf = (t: { cells?: unknown }): record.Unknown =>
+  typeof t.cells === "object" && t.cells != null ? { ...t.cells } : {};
+
+describe("table import", () => {
+  describe("parseImport", () => {
+    it("should migrate a legacy console export, preserving rows, columns, and cells", () => {
+      const out = Table.parseImport(LEGACY_V0, undefined);
+      expect(out.rows).toHaveLength(1);
+      expect(out.columns).toHaveLength(2);
+      expect(Object.keys(cellsOf(out))).toEqual(["c1", "c2"]);
+    });
+
+    it("should not silently drop the layout by parsing a legacy file as a typed one", () => {
+      const out = Table.parseImport(LEGACY_V0, undefined);
+      expect(out.rows).not.toHaveLength(0);
+      expect(out.columns).not.toHaveLength(0);
+    });
+
+    it("should import a typed table export directly, preserving structure", () => {
+      const out = Table.parseImport(TYPED_EXPORT, undefined);
+      expect(out.rows).toHaveLength(1);
+      expect(out.columns).toHaveLength(2);
+      expect(Object.keys(cellsOf(out))).toEqual(["c1", "c2"]);
+    });
   });
 });

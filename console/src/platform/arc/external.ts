@@ -9,3 +9,5 @@
 
 export * from "@/platform/arc/layout";
 export * from "@/platform/arc/useCreate";
+export * from "@/platform/arc/useRename";
+export * from "@/platform/arc/useTask";
