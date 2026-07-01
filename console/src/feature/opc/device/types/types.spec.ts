@@ -9,18 +9,18 @@
 
 import { describe, expect, it } from "vitest";
 
-import { propertiesZ, ZERO_PROPERTIES } from "@/feature/opc/device/types";
+import { OPC } from "@/feature/opc";
 import * as v0 from "@/feature/opc/device/types/v0";
 import { testPropertiesSchema } from "@/platform/device/testutil";
 
 // OPC uses versioned schemas — empty `{}` is not valid for either version.
-testPropertiesSchema("OPC UA", propertiesZ, ZERO_PROPERTIES, [], {
+testPropertiesSchema("OPC UA", OPC.Device.propertiesZ, OPC.Device.ZERO_PROPERTIES, [], {
   testEmpty: false,
 });
 
 describe("OPC UA propertiesZ v0 migration", () => {
   it("should migrate v0 properties through the union", () => {
-    const result = propertiesZ.safeParse(v0.ZERO_PROPERTIES);
+    const result = OPC.Device.propertiesZ.safeParse(v0.ZERO_PROPERTIES);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.version).toBe("1.0.0");
@@ -33,7 +33,7 @@ describe("OPC UA propertiesZ v0 migration", () => {
       ...v0.ZERO_PROPERTIES,
       read: { index: 42, channels: { "ns=2;s=Tag1": 100 } },
     };
-    const result = propertiesZ.safeParse(v0Props);
+    const result = OPC.Device.propertiesZ.safeParse(v0Props);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.version).toBe("1.0.0");

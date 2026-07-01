@@ -14,32 +14,21 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  useCommonNetwork,
-  useRetrieveObservable,
-  useRetrieveSlave,
-  useRetrieveSlaveStateful,
-  useToggleEnabled,
-} from "@/feature/ethercat/device/queries";
-import {
-  MAKE,
-  type makeZ,
-  type modelZ,
-  SLAVE_MODEL,
-  SLAVE_SCHEMAS,
-  type SlaveProperties,
-  type slavePropertiesZ,
-  ZERO_SLAVE_PROPERTIES,
-} from "@/feature/ethercat/device/types";
-import { type Channel } from "@/feature/ethercat/task/types";
+import { EtherCAT } from "@/feature/ethercat";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
 const createSlaveDevice = async (
   rackKey: number,
-  properties: Partial<SlaveProperties> = {},
-): Promise<device.Device<typeof slavePropertiesZ, typeof makeZ, typeof modelZ>> => {
+  properties: Partial<EtherCAT.Device.SlaveProperties> = {},
+): Promise<
+  device.Device<
+    typeof EtherCAT.Device.slavePropertiesZ,
+    typeof EtherCAT.Device.makeZ,
+    typeof EtherCAT.Device.modelZ
+  >
+> => {
   const key = id.create();
   return await client.devices.create(
     {
@@ -47,11 +36,11 @@ const createSlaveDevice = async (
       name: properties.name ?? `EtherCAT Slave ${key}`,
       rack: rackKey,
       location: "test-location",
-      make: MAKE,
-      model: SLAVE_MODEL,
-      properties: { ...ZERO_SLAVE_PROPERTIES, ...properties },
+      make: EtherCAT.Device.MAKE,
+      model: EtherCAT.Device.SLAVE_MODEL,
+      properties: { ...EtherCAT.Device.ZERO_SLAVE_PROPERTIES, ...properties },
     },
-    SLAVE_SCHEMAS,
+    EtherCAT.Device.SLAVE_SCHEMAS,
   );
 };
 
@@ -72,9 +61,12 @@ describe("EtherCAT Device queries", () => {
         position: 1,
       });
 
-      const { result } = renderHook(() => useRetrieveSlave({ key: dev.key }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => EtherCAT.Device.useRetrieveSlave({ key: dev.key }),
+        {
+          wrapper,
+        },
+      );
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
@@ -87,9 +79,12 @@ describe("EtherCAT Device queries", () => {
         network: "eth0",
       });
 
-      const { result } = renderHook(() => useRetrieveSlave({ key: dev.key }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => EtherCAT.Device.useRetrieveSlave({ key: dev.key }),
+        {
+          wrapper,
+        },
+      );
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.name).toEqual("Original Name");
@@ -136,9 +131,12 @@ describe("EtherCAT Device queries", () => {
         enabled: true,
       });
 
-      const { result } = renderHook(() => useRetrieveSlave({ key: dev.key }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => EtherCAT.Device.useRetrieveSlave({ key: dev.key }),
+        {
+          wrapper,
+        },
+      );
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.properties?.pdos?.inputs).toHaveLength(1);
@@ -152,7 +150,9 @@ describe("EtherCAT Device queries", () => {
     it("should provide stateful retrieval with loading states", async () => {
       const dev = await createSlaveDevice(rack.key, { name: "Stateful Test" });
 
-      const { result } = renderHook(() => useRetrieveSlaveStateful(), { wrapper });
+      const { result } = renderHook(() => EtherCAT.Device.useRetrieveSlaveStateful(), {
+        wrapper,
+      });
 
       expect(result.current.variant).toEqual("loading");
 
@@ -174,9 +174,12 @@ describe("EtherCAT Device queries", () => {
 
       const onChange = vi.fn();
 
-      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => EtherCAT.Device.useRetrieveObservable({ onChange }),
+        {
+          wrapper,
+        },
+      );
 
       await act(async () => {
         result.current.retrieve({ key: dev.key });
@@ -199,9 +202,12 @@ describe("EtherCAT Device queries", () => {
 
       const onChange = vi.fn();
 
-      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => EtherCAT.Device.useRetrieveObservable({ onChange }),
+        {
+          wrapper,
+        },
+      );
 
       await act(async () => {
         result.current.retrieve({ key: dev.key });
@@ -234,7 +240,7 @@ describe("EtherCAT Device queries", () => {
         network: "test-network",
       });
 
-      const channels: Channel[] = [
+      const channels: EtherCAT.Task.Channel[] = [
         {
           type: "automatic",
           device: dev.key,
@@ -246,21 +252,25 @@ describe("EtherCAT Device queries", () => {
         },
       ];
 
-      const { result } = renderHook(() => useCommonNetwork(channels), { wrapper });
+      const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
+        wrapper,
+      });
 
       await waitFor(() => expect(result.current).toEqual("test-network"));
     });
 
     it("should return empty string when channels array is empty", async () => {
-      const channels: Channel[] = [];
+      const channels: EtherCAT.Task.Channel[] = [];
 
-      const { result } = renderHook(() => useCommonNetwork(channels), { wrapper });
+      const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
+        wrapper,
+      });
 
       expect(result.current).toEqual("");
     });
 
     it("should return empty string when no channels have devices", async () => {
-      const channels: Channel[] = [
+      const channels: EtherCAT.Task.Channel[] = [
         {
           type: "automatic",
           device: "",
@@ -272,7 +282,9 @@ describe("EtherCAT Device queries", () => {
         },
       ];
 
-      const { result } = renderHook(() => useCommonNetwork(channels), { wrapper });
+      const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
+        wrapper,
+      });
 
       expect(result.current).toEqual("");
     });
@@ -283,7 +295,7 @@ describe("EtherCAT Device queries", () => {
         network: "original-network",
       });
 
-      const channels: Channel[] = [
+      const channels: EtherCAT.Task.Channel[] = [
         {
           type: "automatic",
           device: dev.key,
@@ -295,7 +307,9 @@ describe("EtherCAT Device queries", () => {
         },
       ];
 
-      const { result } = renderHook(() => useCommonNetwork(channels), { wrapper });
+      const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
+        wrapper,
+      });
 
       await waitFor(() => expect(result.current).toEqual("original-network"));
 
@@ -320,7 +334,7 @@ describe("EtherCAT Device queries", () => {
 
       const { result } = renderHook(
         () => ({
-          toggle: useToggleEnabled(),
+          toggle: EtherCAT.Device.useToggleEnabled(),
           store: Flux.useStore<Device.FluxSubStore>(),
         }),
         { wrapper },
@@ -332,7 +346,7 @@ describe("EtherCAT Device queries", () => {
 
       const updated = await client.devices.retrieve({
         key: dev.key,
-        schemas: SLAVE_SCHEMAS,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated.properties.enabled).toBe(false);
     });
@@ -346,7 +360,7 @@ describe("EtherCAT Device queries", () => {
 
       const { result } = renderHook(
         () => ({
-          toggle: useToggleEnabled(),
+          toggle: EtherCAT.Device.useToggleEnabled(),
           store: Flux.useStore<Device.FluxSubStore>(),
         }),
         { wrapper },
@@ -358,7 +372,7 @@ describe("EtherCAT Device queries", () => {
 
       const updated = await client.devices.retrieve({
         key: dev.key,
-        schemas: SLAVE_SCHEMAS,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated.properties.enabled).toBe(true);
     });
@@ -372,7 +386,7 @@ describe("EtherCAT Device queries", () => {
 
       const { result } = renderHook(
         () => ({
-          toggle: useToggleEnabled(),
+          toggle: EtherCAT.Device.useToggleEnabled(),
           store: Flux.useStore<Device.FluxSubStore>(),
         }),
         { wrapper },
@@ -384,7 +398,7 @@ describe("EtherCAT Device queries", () => {
 
       const updated = await client.devices.retrieve({
         key: dev.key,
-        schemas: SLAVE_SCHEMAS,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated.properties.enabled).toBe(false);
     });
@@ -403,7 +417,7 @@ describe("EtherCAT Device queries", () => {
 
       const { result } = renderHook(
         () => ({
-          toggle: useToggleEnabled(),
+          toggle: EtherCAT.Device.useToggleEnabled(),
           store: Flux.useStore<Device.FluxSubStore>(),
         }),
         { wrapper },
@@ -415,11 +429,11 @@ describe("EtherCAT Device queries", () => {
 
       const updated1 = await client.devices.retrieve({
         key: dev1.key,
-        schemas: SLAVE_SCHEMAS,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       const updated2 = await client.devices.retrieve({
         key: dev2.key,
-        schemas: SLAVE_SCHEMAS,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated1.properties.enabled).toBe(false);
       expect(updated2.properties.enabled).toBe(false);
@@ -439,7 +453,7 @@ describe("EtherCAT Device queries", () => {
 
       const { result } = renderHook(
         () => ({
-          toggle: useToggleEnabled(),
+          toggle: EtherCAT.Device.useToggleEnabled(),
           store: Flux.useStore<Device.FluxSubStore>(),
         }),
         { wrapper },
@@ -454,11 +468,11 @@ describe("EtherCAT Device queries", () => {
 
       const updated1 = await client.devices.retrieve({
         key: dev1.key,
-        schemas: SLAVE_SCHEMAS,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       const updated2 = await client.devices.retrieve({
         key: dev2.key,
-        schemas: SLAVE_SCHEMAS,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated1.properties.enabled).toBe(true);
       expect(updated2.properties.enabled).toBe(true);

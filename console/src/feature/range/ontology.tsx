@@ -14,7 +14,6 @@ import { type CrudeTimeRange, strings } from "@synnaxlabs/x";
 import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
-import { add } from "@/session/range/slice";
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
@@ -29,7 +28,7 @@ const handleSelect: Ontology.HandleSelect = ({
   );
   handleError(async () => {
     const ranges = await client.ranges.retrieve(selection.map((s) => s.id.key));
-    Session.Range.fromClient(ranges).forEach((r) => store.dispatch(add(r)));
+    store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
     const first = ranges[0];
     placeLayout({ ...Range.OVERVIEW_LAYOUT, name: first.name, key: first.key });
   }, `Failed to select ${names}`);

@@ -12,7 +12,7 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { useLink } from "@/feature/task/link";
+import { Task } from "@/feature/task";
 import { Session } from "@/session";
 import { renderLinkHook } from "@/testutil/testutil";
 
@@ -26,7 +26,7 @@ describe("Task.useLink", () => {
       type: NI.Task.ANALOG_READ_TYPE,
       config: {},
     });
-    const { handler, store } = renderLinkHook(useLink);
+    const { handler, store } = renderLinkHook(Task.useLink);
     await handler({ client, key: String(task.key) });
     const placed = Session.Layout.selectByFilter(
       store.getState(),

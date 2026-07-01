@@ -11,8 +11,6 @@ import { type ranger } from "@synnaxlabs/client";
 
 import { Button } from "@/platform/button";
 import { Session } from "@/session";
-import { useSelectState } from "@/session/range/selectors";
-import { add, remove } from "@/session/range/slice";
 
 export interface FavoriteButtonProps extends Omit<
   Button.FavoriteProps,
@@ -22,12 +20,13 @@ export interface FavoriteButtonProps extends Omit<
 }
 
 export const FavoriteButton = ({ range, ...rest }: FavoriteButtonProps) => {
-  const sliceRange = useSelectState(range.key);
+  const sliceRange = Session.Range.useSelectState(range.key);
   const dispatch = Session.useDispatch();
   const isFavorite = sliceRange != null;
   const handleFavorite = () => {
-    if (!isFavorite) Session.Range.fromClient(range).forEach((r) => dispatch(add(r)));
-    else dispatch(remove({ keys: [range.key] }));
+    if (!isFavorite)
+      Session.Range.fromClient(range).forEach((r) => dispatch(Session.Range.add(r)));
+    else dispatch(Session.Range.remove({ keys: [range.key] }));
   };
   return (
     <Button.Favorite {...rest} isFavorite={isFavorite} onFavorite={handleFavorite} />

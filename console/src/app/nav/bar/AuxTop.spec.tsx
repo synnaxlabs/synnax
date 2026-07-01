@@ -19,7 +19,7 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
   return { ...actual, OS: { ...OS, use: () => "macOS" } };
 });
 
-import { AuxTop } from "@/app/nav/bar/AuxTop";
+import { Bar } from "@/app/nav/bar";
 import { renderBar, TIMEOUT, withActiveProject } from "@/app/nav/bar/testutil";
 import { Session } from "@/session";
 
@@ -55,31 +55,31 @@ const bottom = (store: { getState: () => unknown }) =>
 describe("app/nav/bar/AuxTop", () => {
   describe("title", () => {
     it("should render the active project name", async () => {
-      await renderBar(<AuxTop />, withActiveProject());
+      await renderBar(<Bar.AuxTop />, withActiveProject());
       expect(await screen.findByText(/- Ops/, {}, TIMEOUT)).toBeDefined();
     });
 
     it("should render the active mosaic tab name alongside the project", async () => {
-      await renderBar(<AuxTop />, withActiveTab("My Plot"));
+      await renderBar(<Bar.AuxTop />, withActiveTab("My Plot"));
       expect(await screen.findByText(/My Plot - Ops/, {}, TIMEOUT)).toBeDefined();
     });
   });
 
   describe("controls", () => {
     it("should render the controls toggle button", async () => {
-      await renderBar(<AuxTop />, withActiveProject());
+      await renderBar(<Bar.AuxTop />, withActiveProject());
       expect(await screen.findByText("Controls", {}, TIMEOUT)).toBeDefined();
     });
 
     it("should toggle the bottom drawer open when clicked", async () => {
-      const { store } = await renderBar(<AuxTop />, withActiveProject());
+      const { store } = await renderBar(<Bar.AuxTop />, withActiveProject());
       fireEvent.click(await screen.findByText("Controls", {}, TIMEOUT));
       await waitFor(() => expect(bottom(store).visible).toBe(true));
       expect(bottom(store).hover).toBe(true);
     });
 
     it("should drop the hover on a second toggle, keeping the drawer pinned", async () => {
-      const { store } = await renderBar(<AuxTop />, withActiveProject());
+      const { store } = await renderBar(<Bar.AuxTop />, withActiveProject());
       const button = await screen.findByText("Controls", {}, TIMEOUT);
       fireEvent.click(button);
       fireEvent.click(button);

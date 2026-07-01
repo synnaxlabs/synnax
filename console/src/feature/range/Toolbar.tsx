@@ -37,12 +37,6 @@ import { type Nav } from "@/platform/nav";
 import { useCreateModal } from "@/platform/range/useCreateModal";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
-import {
-  selectState as selectRange,
-  useSelectState,
-  useSelectStaticKeys,
-} from "@/session/range/selectors";
-import { add, rename, select, type StaticState } from "@/session/range/slice";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
@@ -58,11 +52,11 @@ const NoRanges = (): ReactElement => {
 
 const List = (): ReactElement => {
   const dispatch = Session.useDispatch();
-  const activeRange = useSelectState();
-  const data = useSelectStaticKeys();
+  const activeRange = Session.Range.useSelectState();
+  const data = Session.Range.useSelectStaticKeys();
 
   const handleSelect = (key: string): void => {
-    dispatch(select(key));
+    dispatch(Session.Range.select(key));
   };
 
   const dropProps = Haul.useDrop({
@@ -70,9 +64,12 @@ const List = (): ReactElement => {
     canDrop: Ranger.canDropHaulItem,
     onDrop: ({ items }) => {
       const dropped = Ranger.filterHaulItems(items);
-      dropped.forEach(({ data }) =>
-        dispatch(add({ ...data, persisted: true, variant: "static" })),
-      );
+      const ranges = dropped.map<Session.Range.StaticState>(({ data }) => ({
+        ...data,
+        persisted: true,
+        variant: "static",
+      }));
+      Session.Range.add(ranges);
       return dropped;
     },
   });
@@ -80,7 +77,7 @@ const List = (): ReactElement => {
   const menuProps = Menu.useContextMenu();
 
   return (
-    <Select.Frame<string, StaticState>
+    <Select.Frame<string, Session.Range.StaticState>
       data={data}
       value={activeRange?.key}
       onChange={handleSelect}
@@ -104,12 +101,12 @@ export const useRename = () => {
     beforeUpdate: useCallback(
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {
         const { key, name } = data;
-        const rng = selectRange(store.getState(), key);
+        const rng = Session.Range.selectState(store.getState(), key);
         if (rng == null) return data;
         const oldName = rng.name;
         if (!rng.persisted) return false;
-        store.dispatch(rename({ key, name }));
-        rollbacks.push(() => store.dispatch(rename({ key, name: oldName })));
+        store.dispatch(Session.Range.rename({ key, name }));
+        rollbacks.push(() => store.dispatch(Session.Range.rename({ key, name: oldName })));
         return data;
       },
       [store],
@@ -119,7 +116,7 @@ export const useRename = () => {
 
 const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   const { itemKey } = props;
-  const entry = useSelectState(itemKey);
+  const entry = Session.Range.useSelectState(itemKey);
   const isLocal = entry != null && !entry.persisted;
   const labels =
     Ranger.useLabels(itemKey, {

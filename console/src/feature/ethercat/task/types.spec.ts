@@ -9,18 +9,20 @@
 
 import { describe, expect, it } from "vitest";
 
-import { READ_SCHEMAS, WRITE_SCHEMAS } from "@/feature/ethercat/task/types";
+import { EtherCAT } from "@/feature/ethercat";
 
 describe("EtherCAT Task statusData", () => {
   describe("readStatusDataZ", () => {
     it("should accept null", () => {
-      expect(READ_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+      expect(EtherCAT.Task.READ_SCHEMAS.statusData.safeParse(null).success).toBe(true);
     });
     it("should accept undefined", () => {
-      expect(READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+      expect(EtherCAT.Task.READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(
+        true,
+      );
     });
     it("should accept a valid status object", () => {
-      const result = READ_SCHEMAS.statusData.safeParse({
+      const result = EtherCAT.Task.READ_SCHEMAS.statusData.safeParse({
         running: true,
         message: "ok",
         errors: [{ message: "err", path: "/dev" }],
@@ -31,13 +33,15 @@ describe("EtherCAT Task statusData", () => {
 
   describe("writeStatusDataZ", () => {
     it("should accept null", () => {
-      expect(WRITE_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+      expect(EtherCAT.Task.WRITE_SCHEMAS.statusData.safeParse(null).success).toBe(true);
     });
     it("should accept undefined", () => {
-      expect(WRITE_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+      expect(EtherCAT.Task.WRITE_SCHEMAS.statusData.safeParse(undefined).success).toBe(
+        true,
+      );
     });
     it("should accept a valid status object", () => {
-      const result = WRITE_SCHEMAS.statusData.safeParse({
+      const result = EtherCAT.Task.WRITE_SCHEMAS.statusData.safeParse({
         running: false,
         message: "ok",
         errors: [{ message: "err", path: "/dev" }],

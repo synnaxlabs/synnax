@@ -9,39 +9,19 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  analogReadConfigZ,
-  analogWriteConfigZ,
-  counterReadConfigZ,
-  digitalReadConfigZ,
-  digitalWriteConfigZ,
-  type Scale,
-  SCALE_SCHEMAS,
-  ZERO_AI_CHANNEL,
-  ZERO_ANALOG_READ_PAYLOAD,
-  ZERO_ANALOG_WRITE_PAYLOAD,
-  ZERO_AO_CHANNEL,
-  ZERO_CI_CHANNEL,
-  ZERO_CI_CHANNELS,
-  ZERO_COUNTER_READ_PAYLOAD,
-  ZERO_DI_CHANNEL,
-  ZERO_DIGITAL_READ_PAYLOAD,
-  ZERO_DIGITAL_WRITE_PAYLOAD,
-  ZERO_DO_CHANNEL,
-  ZERO_SCALES,
-} from "@/feature/ni/task/types";
+import { NI } from "@/feature/ni";
 
 interface ScaleExpectation {
-  scale: Scale;
+  scale: NI.Task.Scale;
   result: boolean;
 }
 
 describe("scales", () => {
   const expectations: ScaleExpectation[] = [
-    { scale: ZERO_SCALES.none, result: true },
-    { scale: ZERO_SCALES.linear, result: true },
-    { scale: ZERO_SCALES.map, result: true },
-    { scale: ZERO_SCALES.table, result: true },
+    { scale: NI.Task.ZERO_SCALES.none, result: true },
+    { scale: NI.Task.ZERO_SCALES.linear, result: true },
+    { scale: NI.Task.ZERO_SCALES.map, result: true },
+    { scale: NI.Task.ZERO_SCALES.table, result: true },
     {
       scale: {
         type: "linear",
@@ -101,7 +81,7 @@ describe("scales", () => {
   expectations.forEach(({ scale, result }) => {
     const { type } = scale;
     it(`should be able to parse ${type} scale`, () => {
-      expect(SCALE_SCHEMAS[type].safeParse(scale).success).toEqual(result);
+      expect(NI.Task.SCALE_SCHEMAS[type].safeParse(scale).success).toEqual(result);
     });
   });
 });
@@ -109,11 +89,11 @@ describe("scales", () => {
 describe("analog read task", () => {
   it("should be able to parse a valid task", () => {
     expect(
-      analogReadConfigZ.safeParse({
-        ...ZERO_ANALOG_READ_PAYLOAD.config,
+      NI.Task.analogReadConfigZ.safeParse({
+        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
         streamRate: 1000,
         sampleRate: 2000,
-        channels: [{ ...ZERO_AI_CHANNEL, key: "0", device: "34" }],
+        channels: [{ ...NI.Task.ZERO_AI_CHANNEL, key: "0", device: "34" }],
       }).success,
     ).toEqual(true);
   });
@@ -121,13 +101,13 @@ describe("analog read task", () => {
   describe("should be able to parse a task on multiple devices", () => {
     it("should properly parse a task with the same ports on different devices", () => {
       expect(
-        analogReadConfigZ.safeParse({
-          ...ZERO_ANALOG_READ_PAYLOAD.config,
+        NI.Task.analogReadConfigZ.safeParse({
+          ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
           streamRate: 1000,
           sampleRate: 2000,
           channels: [
-            { ...ZERO_AI_CHANNEL, key: "0", device: "34", port: 0 },
-            { ...ZERO_AI_CHANNEL, key: "1", device: "35", port: 0 },
+            { ...NI.Task.ZERO_AI_CHANNEL, key: "0", device: "34", port: 0 },
+            { ...NI.Task.ZERO_AI_CHANNEL, key: "1", device: "35", port: 0 },
           ],
         }).success,
       ).toEqual(true);
@@ -135,13 +115,13 @@ describe("analog read task", () => {
 
     it("should properly parse a task with the same ports on the same device", () => {
       expect(
-        analogReadConfigZ.safeParse({
-          ...ZERO_ANALOG_READ_PAYLOAD.config,
+        NI.Task.analogReadConfigZ.safeParse({
+          ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
           streamRate: 1000,
           sampleRate: 2000,
           channels: [
-            { ...ZERO_AI_CHANNEL, key: "0", device: "34", port: 0 },
-            { ...ZERO_AI_CHANNEL, key: "1", device: "34", port: 0 },
+            { ...NI.Task.ZERO_AI_CHANNEL, key: "0", device: "34", port: 0 },
+            { ...NI.Task.ZERO_AI_CHANNEL, key: "1", device: "34", port: 0 },
           ],
         }).success,
       ).toEqual(false);
@@ -151,33 +131,33 @@ describe("analog read task", () => {
   describe("sample rate limits", () => {
     it("should accept sample rate at 1 MHz (max limit)", () => {
       expect(
-        analogReadConfigZ.safeParse({
-          ...ZERO_ANALOG_READ_PAYLOAD.config,
+        NI.Task.analogReadConfigZ.safeParse({
+          ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
           streamRate: 20000,
           sampleRate: 1000000,
-          channels: [{ ...ZERO_AI_CHANNEL, key: "0", device: "34" }],
+          channels: [{ ...NI.Task.ZERO_AI_CHANNEL, key: "0", device: "34" }],
         }).success,
       ).toEqual(true);
     });
 
     it("should reject sample rate exceeding 1 MHz", () => {
       expect(
-        analogReadConfigZ.safeParse({
-          ...ZERO_ANALOG_READ_PAYLOAD.config,
+        NI.Task.analogReadConfigZ.safeParse({
+          ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
           streamRate: 20000,
           sampleRate: 1000001,
-          channels: [{ ...ZERO_AI_CHANNEL, key: "0", device: "34" }],
+          channels: [{ ...NI.Task.ZERO_AI_CHANNEL, key: "0", device: "34" }],
         }).success,
       ).toEqual(false);
     });
 
     it("should reject negative sample rate", () => {
       expect(
-        analogReadConfigZ.safeParse({
-          ...ZERO_ANALOG_READ_PAYLOAD.config,
+        NI.Task.analogReadConfigZ.safeParse({
+          ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
           streamRate: 1000,
           sampleRate: -1,
-          channels: [{ ...ZERO_AI_CHANNEL, key: "0", device: "34" }],
+          channels: [{ ...NI.Task.ZERO_AI_CHANNEL, key: "0", device: "34" }],
         }).success,
       ).toEqual(false);
     });
@@ -186,10 +166,10 @@ describe("analog read task", () => {
   describe("analog write task", () => {
     it("should be able to parse a valid task", () => {
       expect(
-        analogWriteConfigZ.safeParse({
-          ...ZERO_ANALOG_WRITE_PAYLOAD.config,
+        NI.Task.analogWriteConfigZ.safeParse({
+          ...NI.Task.ZERO_ANALOG_WRITE_PAYLOAD.config,
           device: "Dev1",
-          channels: [{ ...ZERO_AO_CHANNEL, key: "0" }],
+          channels: [{ ...NI.Task.ZERO_AO_CHANNEL, key: "0" }],
         }).success,
       ).toEqual(true);
     });
@@ -198,10 +178,10 @@ describe("analog read task", () => {
   describe("digital read task", () => {
     it("should be able to parse a valid task", () => {
       expect(
-        digitalReadConfigZ.safeParse({
-          ...ZERO_DIGITAL_READ_PAYLOAD.config,
+        NI.Task.digitalReadConfigZ.safeParse({
+          ...NI.Task.ZERO_DIGITAL_READ_PAYLOAD.config,
           device: "Dev1",
-          channels: [{ ...ZERO_DI_CHANNEL, key: "0" }],
+          channels: [{ ...NI.Task.ZERO_DI_CHANNEL, key: "0" }],
         }).success,
       ).toEqual(true);
     });
@@ -210,10 +190,10 @@ describe("analog read task", () => {
   describe("digital write task", () => {
     it("should be able to parse a valid task", () => {
       expect(
-        digitalWriteConfigZ.safeParse({
-          ...ZERO_DIGITAL_WRITE_PAYLOAD.config,
+        NI.Task.digitalWriteConfigZ.safeParse({
+          ...NI.Task.ZERO_DIGITAL_WRITE_PAYLOAD.config,
           device: "Dev1",
-          channels: [{ ...ZERO_DO_CHANNEL, key: "0" }],
+          channels: [{ ...NI.Task.ZERO_DO_CHANNEL, key: "0" }],
         }).success,
       ).toEqual(true);
     });
@@ -222,24 +202,24 @@ describe("analog read task", () => {
   describe("counter read task", () => {
     it("should be able to parse a valid task", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
-          channels: [{ ...ZERO_CI_CHANNEL, key: "0", device: "Dev1" }],
+          channels: [{ ...NI.Task.ZERO_CI_CHANNEL, key: "0", device: "Dev1" }],
         }).success,
       ).toEqual(true);
     });
 
     it("should fail to parse a task with duplicate ports on the same device", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
           channels: [
-            { ...ZERO_CI_CHANNEL, key: "0", device: "Dev1", port: 0 },
-            { ...ZERO_CI_CHANNEL, key: "1", device: "Dev1", port: 0 },
+            { ...NI.Task.ZERO_CI_CHANNEL, key: "0", device: "Dev1", port: 0 },
+            { ...NI.Task.ZERO_CI_CHANNEL, key: "1", device: "Dev1", port: 0 },
           ],
         }).success,
       ).toEqual(false);
@@ -247,13 +227,13 @@ describe("analog read task", () => {
 
     it("should properly parse a task with the same ports on different devices", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
           channels: [
-            { ...ZERO_CI_CHANNEL, key: "0", device: "Dev1", port: 0 },
-            { ...ZERO_CI_CHANNEL, key: "1", device: "Dev2", port: 0 },
+            { ...NI.Task.ZERO_CI_CHANNEL, key: "0", device: "Dev1", port: 0 },
+            { ...NI.Task.ZERO_CI_CHANNEL, key: "1", device: "Dev2", port: 0 },
           ],
         }).success,
       ).toEqual(true);
@@ -261,35 +241,47 @@ describe("analog read task", () => {
 
     it("should fail to parse a task with sample rate less than stream rate", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 1000,
           sampleRate: 500,
-          channels: [{ ...ZERO_CI_CHANNEL, key: "0", device: "Dev1" }],
+          channels: [{ ...NI.Task.ZERO_CI_CHANNEL, key: "0", device: "Dev1" }],
         }).success,
       ).toEqual(false);
     });
 
     it("should be able to parse a task with ci_edge_count channels", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
-          channels: [{ ...ZERO_CI_CHANNELS.ci_edge_count, key: "0", device: "Dev1" }],
+          channels: [
+            { ...NI.Task.ZERO_CI_CHANNELS.ci_edge_count, key: "0", device: "Dev1" },
+          ],
         }).success,
       ).toEqual(true);
     });
 
     it("should be able to parse a task with mixed ci_frequency and ci_edge_count channels", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
           channels: [
-            { ...ZERO_CI_CHANNELS.ci_frequency, key: "0", device: "Dev1", port: 0 },
-            { ...ZERO_CI_CHANNELS.ci_edge_count, key: "1", device: "Dev1", port: 1 },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_frequency,
+              key: "0",
+              device: "Dev1",
+              port: 0,
+            },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_edge_count,
+              key: "1",
+              device: "Dev1",
+              port: 1,
+            },
           ],
         }).success,
       ).toEqual(true);
@@ -297,25 +289,42 @@ describe("analog read task", () => {
 
     it("should be able to parse a task with ci_period channels", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
-          channels: [{ ...ZERO_CI_CHANNELS.ci_period, key: "0", device: "Dev1" }],
+          channels: [
+            { ...NI.Task.ZERO_CI_CHANNELS.ci_period, key: "0", device: "Dev1" },
+          ],
         }).success,
       ).toEqual(true);
     });
 
     it("should be able to parse a task with mixed ci_frequency, ci_edge_count, and ci_period channels", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
           channels: [
-            { ...ZERO_CI_CHANNELS.ci_frequency, key: "0", device: "Dev1", port: 0 },
-            { ...ZERO_CI_CHANNELS.ci_edge_count, key: "1", device: "Dev1", port: 1 },
-            { ...ZERO_CI_CHANNELS.ci_period, key: "2", device: "Dev1", port: 2 },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_frequency,
+              key: "0",
+              device: "Dev1",
+              port: 0,
+            },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_edge_count,
+              key: "1",
+              device: "Dev1",
+              port: 1,
+            },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_period,
+              key: "2",
+              device: "Dev1",
+              port: 2,
+            },
           ],
         }).success,
       ).toEqual(true);
@@ -323,50 +332,86 @@ describe("analog read task", () => {
 
     it("should be able to parse a task with ci_pulse_width channels", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
-          channels: [{ ...ZERO_CI_CHANNELS.ci_pulse_width, key: "0", device: "Dev1" }],
+          channels: [
+            { ...NI.Task.ZERO_CI_CHANNELS.ci_pulse_width, key: "0", device: "Dev1" },
+          ],
         }).success,
       ).toEqual(true);
     });
 
     it("should be able to parse a task with ci_semi_period channels", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
-          channels: [{ ...ZERO_CI_CHANNELS.ci_semi_period, key: "0", device: "Dev1" }],
+          channels: [
+            { ...NI.Task.ZERO_CI_CHANNELS.ci_semi_period, key: "0", device: "Dev1" },
+          ],
         }).success,
       ).toEqual(true);
     });
 
     it("should be able to parse a task with ci_two_edge_sep channels", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
-          channels: [{ ...ZERO_CI_CHANNELS.ci_two_edge_sep, key: "0", device: "Dev1" }],
+          channels: [
+            { ...NI.Task.ZERO_CI_CHANNELS.ci_two_edge_sep, key: "0", device: "Dev1" },
+          ],
         }).success,
       ).toEqual(true);
     });
 
     it("should be able to parse a task with all CI channel types", () => {
       expect(
-        counterReadConfigZ.safeParse({
-          ...ZERO_COUNTER_READ_PAYLOAD.config,
+        NI.Task.counterReadConfigZ.safeParse({
+          ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
           streamRate: 25,
           sampleRate: 1000,
           channels: [
-            { ...ZERO_CI_CHANNELS.ci_frequency, key: "0", device: "Dev1", port: 0 },
-            { ...ZERO_CI_CHANNELS.ci_edge_count, key: "1", device: "Dev1", port: 1 },
-            { ...ZERO_CI_CHANNELS.ci_period, key: "2", device: "Dev1", port: 2 },
-            { ...ZERO_CI_CHANNELS.ci_pulse_width, key: "3", device: "Dev1", port: 3 },
-            { ...ZERO_CI_CHANNELS.ci_semi_period, key: "4", device: "Dev1", port: 4 },
-            { ...ZERO_CI_CHANNELS.ci_two_edge_sep, key: "5", device: "Dev1", port: 5 },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_frequency,
+              key: "0",
+              device: "Dev1",
+              port: 0,
+            },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_edge_count,
+              key: "1",
+              device: "Dev1",
+              port: 1,
+            },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_period,
+              key: "2",
+              device: "Dev1",
+              port: 2,
+            },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_pulse_width,
+              key: "3",
+              device: "Dev1",
+              port: 3,
+            },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_semi_period,
+              key: "4",
+              device: "Dev1",
+              port: 4,
+            },
+            {
+              ...NI.Task.ZERO_CI_CHANNELS.ci_two_edge_sep,
+              key: "5",
+              device: "Dev1",
+              port: 5,
+            },
           ],
         }).success,
       ).toEqual(true);
@@ -377,11 +422,11 @@ describe("analog read task", () => {
     // filtered out during task configuration. This matches the behavior of Analog Read and Digital Read tasks.
     // it("should fail to parse a task with no enabled channels", () => {
     //   expect(
-    //     counterReadConfigZ.safeParse({
-    //       ...ZERO_COUNTER_READ_PAYLOAD.config,
+    //     NI.Task.counterReadConfigZ.safeParse({
+    //       ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
     //       streamRate: 25,
     //       sampleRate: 1000,
-    //       channels: [{ ...ZERO_CI_CHANNEL, key: "0", device: "Dev1", enabled: false }],
+    //       channels: [{ ...NI.Task.ZERO_CI_CHANNEL, key: "0", device: "Dev1", enabled: false }],
     //     }).success,
     //   ).toEqual(false);
     // });

@@ -26,9 +26,10 @@ import {
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
+import { Item, type ItemProps } from "@/feature/range/list/Item";
+import { Filters, SelectFilters } from "@/feature/range/list/SelectFilters";
 import { Empty } from "@/platform/empty";
 import { Range } from "@/platform/range";
-import { type ItemProps } from "@/platform/range/list/Item";
 
 export interface ListProps
   extends
@@ -137,14 +138,11 @@ export const List = ({
           >
             {enableFilters && (
               <>
-                <Range.SelectFilters
+                <SelectFilters
                   request={request}
                   onRequestChange={handleRequestChange}
                 />
-                <Range.Filters
-                  request={request}
-                  onRequestChange={handleRequestChange}
-                />
+                <Filters request={request} onRequestChange={handleRequestChange} />
               </>
             )}
           </Flex.Box>
@@ -156,7 +154,7 @@ export const List = ({
           onContextMenu={menuProps.open}
         >
           {({ key, ...rest }) => (
-            <Range.Item
+            <Item
               key={key}
               {...rest}
               showParent={showParent}

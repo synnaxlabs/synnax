@@ -8,8 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/range/FavoriteButton";
-export * from "@/platform/range/list/Item";
-export * from "@/platform/range/list/SelectFilters";
 export * from "@/platform/range/overview/Details";
 export * from "@/platform/range/overview/layout";
 export * from "@/platform/range/overview/MetaData";

@@ -11,7 +11,7 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Left } from "@/app/nav/bar/Left";
+import { Bar } from "@/app/nav/bar";
 import { renderBar, TIMEOUT } from "@/app/nav/bar/testutil";
 import { Session } from "@/session";
 
@@ -46,20 +46,20 @@ const bottom = (store: { getState: () => unknown }) =>
 describe("app/nav/bar/Left", () => {
   describe("rendering", () => {
     it("should render a nav button for each access-granted toolbar", async () => {
-      const { container } = await renderBar(<Left />);
+      const { container } = await renderBar(<Bar.Left />);
       for (const icon of ["device", "task", "arc", "range", "channel", "project"])
         await findItem(container, icon);
     });
 
     it("should render the visualization toolbar in the bottom section", async () => {
-      const { container } = await renderBar(<Left />);
+      const { container } = await renderBar(<Bar.Left />);
       await findItem(container, "visualize");
     });
   });
 
   describe("left selection", () => {
     it("should dispatch selectLeft and pin the item when clicked", async () => {
-      const { container, store } = await renderBar(<Left />);
+      const { container, store } = await renderBar(<Bar.Left />);
       fireEvent.click(await findItem(container, "range"));
       await waitFor(() => expect(left(store).selected).toBe("range"));
       expect(left(store).hover).toBe(false);
@@ -67,7 +67,7 @@ describe("app/nav/bar/Left", () => {
 
     it("should deselect when the pinned item is clicked again", async () => {
       const { container, store } = await renderBar(
-        <Left />,
+        <Bar.Left />,
         navState({
           left: { ...Session.Nav.ZERO_WINDOW_STATE.left, selected: "range" },
         }),
@@ -78,7 +78,7 @@ describe("app/nav/bar/Left", () => {
 
     it("should mark the selected item with the selected class", async () => {
       const { container } = await renderBar(
-        <Left />,
+        <Bar.Left />,
         navState({
           left: { ...Session.Nav.ZERO_WINDOW_STATE.left, selected: "range" },
         }),
@@ -90,14 +90,14 @@ describe("app/nav/bar/Left", () => {
 
   describe("bottom selection", () => {
     it("should dispatch selectBottom and show the bottom drawer when clicked", async () => {
-      const { container, store } = await renderBar(<Left />);
+      const { container, store } = await renderBar(<Bar.Left />);
       fireEvent.click(await findItem(container, "visualize"));
       await waitFor(() => expect(bottom(store).visible).toBe(true));
     });
 
     it("should mark the bottom item selected when the drawer is visible", async () => {
       const { container } = await renderBar(
-        <Left />,
+        <Bar.Left />,
         navState({
           bottom: { ...Session.Nav.ZERO_WINDOW_STATE.bottom, visible: true },
         }),

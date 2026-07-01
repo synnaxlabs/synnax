@@ -11,8 +11,8 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Log } from "@/feature/log";
 import { renderLog } from "@/feature/log/toolbar/testutil";
-import { Toolbar } from "@/feature/log/toolbar/Toolbar";
 import { Session } from "@/session";
 import { type ConsolePreloadedState } from "@/testutil/testutil";
 
@@ -43,7 +43,7 @@ const preloadedState = (
 });
 
 const renderToolbar = (name = "Test Log") =>
-  renderLog(Toolbar, {
+  renderLog(Log.Toolbar, {
     log: { name },
     preloadedState: (key) => preloadedState(key, name),
   });

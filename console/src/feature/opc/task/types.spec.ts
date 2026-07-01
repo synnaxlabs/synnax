@@ -9,31 +9,27 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  type OutputChannel,
-  SCAN_SCHEMAS,
-  WRITE_SCHEMAS,
-} from "@/feature/opc/task/types";
+import { OPC } from "@/feature/opc";
 
 describe("OPC Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {
-    const result = SCAN_SCHEMAS.config.safeParse(null);
+    const result = OPC.Task.SCAN_SCHEMAS.config.safeParse(null);
     expect(result.success).toBe(true);
     expect(result.data).toEqual({});
   });
 
   it("should parse undefined scan config as empty object", () => {
-    const result = SCAN_SCHEMAS.config.safeParse(undefined);
+    const result = OPC.Task.SCAN_SCHEMAS.config.safeParse(undefined);
     expect(result.success).toBe(true);
     expect(result.data).toEqual({});
   });
 
   it("should accept null statusData", () => {
-    expect(SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+    expect(OPC.Task.SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
   });
 
   it("should accept undefined statusData", () => {
-    expect(SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+    expect(OPC.Task.SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
   });
 });
 
@@ -50,11 +46,11 @@ describe("OPC Write Task Types", () => {
           nodeId: "1",
           name: "test",
           nodeName: "test",
-        } as OutputChannel,
+        } as OPC.Task.OutputChannel,
       ],
       device: "1",
     };
-    const result = WRITE_SCHEMAS.config.safeParse(config);
+    const result = OPC.Task.WRITE_SCHEMAS.config.safeParse(config);
     expect(result.success).toBe(true);
     expect(result.data?.channels[0].cmdChannel).toBe(432);
   });

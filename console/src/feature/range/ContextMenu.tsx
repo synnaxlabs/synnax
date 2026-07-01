@@ -32,30 +32,18 @@ import { Range } from "@/platform/range";
 import { useAddToActivePlot } from "@/platform/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/platform/range/useAddToNewPlot";
 import { Session } from "@/session";
-import {
-  selectState as selectRange,
-  useSelectMultiple,
-  useSelectState,
-} from "@/session/range/selectors";
-import {
-  add,
-  clearSelected,
-  remove,
-  select,
-  type State as RangeRecord,
-  type StoreState,
-} from "@/session/range/slice";
+
 
 export const fetchIfNotInState = async (
-  store: Store<StoreState>,
+  store: Store<Session.Range.StoreState>,
   client: Client,
   key: string,
-): Promise<RangeRecord> => {
-  const existing = selectRange(store.getState(), key);
+): Promise<Session.Range.State> => {
+  const existing = Session.Range.selectState(store.getState(), key);
   if (existing == null) {
-    const range = Session.Range.fromClient(await client.ranges.retrieve(key));
-    range.forEach((r) => store.dispatch(add(r)));
-    return range[0];
+    const ranges = Session.Range.fromClient(await client.ranges.retrieve(key));
+    store.dispatch(Session.Range.add(ranges));
+    return ranges[0];
   }
   return existing;
 };
@@ -93,9 +81,9 @@ const useViewDetails = (): ((key: string) => void) => {
 const useDelete = () => {
   const dispatch = Session.useDispatch();
   const remover = Layout.useRemover();
-  const ranges = useSelectMultiple();
+  const ranges = Session.Range.useSelectMultiple();
   const handleRemove = (keys: string[]): void => {
-    dispatch(remove({ keys }));
+    dispatch(Session.Range.remove({ keys }));
   };
   const confirm = Ontology.useConfirmDelete({
     type: "Range",
@@ -119,13 +107,13 @@ const useDelete = () => {
 
 const usePersist = () => {
   const dispatch = Session.useDispatch();
-  const ranges = useSelectMultiple();
+  const ranges = Session.Range.useSelectMultiple();
   const { update } = Ranger.useCreate();
   return useCallback(
     (key: string) => {
       const range = ranges.find((r) => r.key === key);
       if (range == null || range.variant === "dynamic") return;
-      dispatch(add({ ...range, persisted: true }));
+      dispatch(Session.Range.add({ ...range, persisted: true }));
       update(range);
     },
     [dispatch, ranges],
@@ -135,7 +123,7 @@ const usePersist = () => {
 export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const dispatch = Session.useDispatch();
   const client = Synnax.use();
-  const ranges = useSelectMultiple();
+  const ranges = Session.Range.useSelectMultiple();
   const id = ranger.ontologyID(key ?? "");
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const hasUpdatePermission = Access.useUpdateGranted(id);
@@ -148,20 +136,20 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   );
 
   const handleRemove = (keys: string[]): void => {
-    dispatch(remove({ keys }));
+    dispatch(Session.Range.remove({ keys }));
   };
 
   const rng = ranges.find((r) => r.key === key);
   const activeLayout = Session.Layout.useSelectActiveMosaicLayout();
   const addToActivePlot = useAddToActivePlot();
   const addToNewPlot = useAddToNewPlot();
-  const activeRange = useSelectState();
+  const activeRange = Session.Range.useSelectState();
   const openCreate = Range.useCreateModal();
   const handleSetActive = () => {
-    dispatch(select(key));
+    dispatch(Session.Range.select(key));
   };
   const handleClearActive = () => {
-    dispatch(clearSelected());
+    dispatch(Session.Range.clearSelected());
   };
   const handleViewDetails = useViewDetails();
   const handleAddChildRange = () => {

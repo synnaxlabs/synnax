@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ALERT_SCHEMAS, ZERO_ALERT_TASK_CONFIG } from "@/feature/pagerduty/task/types";
+import { PagerDuty } from "@/feature/pagerduty";
 
 describe("PagerDuty Alert Task Types", () => {
   describe("config schema", () => {
@@ -29,7 +29,7 @@ describe("PagerDuty Alert Task Types", () => {
           },
         ],
       };
-      const result = ALERT_SCHEMAS.config.safeParse(config);
+      const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.routingKey).toBe("a".repeat(32));
@@ -45,13 +45,13 @@ describe("PagerDuty Alert Task Types", () => {
         routingKey: "tooshort",
         alerts: [{ key: "a", status: "s", enabled: true }],
       };
-      const result = ALERT_SCHEMAS.config.safeParse(config);
+      const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
     it("should reject an empty routing key", () => {
-      const result = ALERT_SCHEMAS.config.safeParse({
-        ...ZERO_ALERT_TASK_CONFIG,
+      const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse({
+        ...PagerDuty.Task.ZERO_ALERT_TASK_CONFIG,
         alerts: [{ key: "a", status: "s", enabled: true }],
       });
       expect(result.success).toBe(false);
@@ -62,14 +62,14 @@ describe("PagerDuty Alert Task Types", () => {
         routingKey: "b".repeat(32),
         alerts: [{ key: "a", status: "s", enabled: true }],
       };
-      const result = ALERT_SCHEMAS.config.safeParse(config);
+      const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) expect(result.data.autoStart).toBe(false);
     });
 
     it("should default alerts to an empty array", () => {
       const config = { routingKey: "c".repeat(32) };
-      const result = ALERT_SCHEMAS.config.safeParse(config);
+      const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);
       // Empty array fails the refine (at least one enabled alert required)
       expect(result.success).toBe(false);
     });
@@ -82,7 +82,7 @@ describe("PagerDuty Alert Task Types", () => {
           { key: "b", status: "s2", enabled: false },
         ],
       };
-      const result = ALERT_SCHEMAS.config.safeParse(config);
+      const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
   });
@@ -93,7 +93,7 @@ describe("PagerDuty Alert Task Types", () => {
         routingKey: "e".repeat(32),
         alerts: [{ key: "a", status: "", enabled: true }],
       };
-      const result = ALERT_SCHEMAS.config.safeParse(config);
+      const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -102,7 +102,7 @@ describe("PagerDuty Alert Task Types", () => {
         routingKey: "f".repeat(32),
         alerts: [{ key: "a", status: "my-status" }],
       };
-      const result = ALERT_SCHEMAS.config.safeParse(config);
+      const result = PagerDuty.Task.ALERT_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) {
         const alert = result.data.alerts[0];

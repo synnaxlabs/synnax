@@ -9,33 +9,30 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Device } from "@/feature/labjack/device";
+import { LabJack } from "@/feature/labjack";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
-import {
-  type Channel,
-  ZERO_INPUT_CHANNELS,
-  ZERO_OUTPUT_CHANNEL,
-} from "@/feature/labjack/task/types";
 
 describe("getOpenPort", () => {
   // We'll use the T4 model for our tests.
-  const model: Device.Model = Device.T4_MODEL;
+  const model: LabJack.Device.Model = LabJack.Device.T4_MODEL;
 
   it("returns the first available port for a given type when none are in use", () => {
-    const channels: Channel[] = [];
-    const type = Device.AI_PORT_TYPE;
+    const channels: LabJack.Task.Channel[] = [];
+    const type = LabJack.Device.AI_PORT_TYPE;
     const port = getOpenPort(channels, model, [type]);
 
     // The expected port is the first port in the list for the given type.
-    const expectedPort = Device.PORTS[model][type][0];
+    const expectedPort = LabJack.Device.PORTS[model][type][0];
     expect(port).toEqual(expectedPort);
   });
 
   it("skips ports that are already in use", () => {
-    const type = Device.AI_PORT_TYPE;
-    const aiPorts = Device.PORTS[model][type];
+    const type = LabJack.Device.AI_PORT_TYPE;
+    const aiPorts = LabJack.Device.PORTS[model][type];
     // Mark the first port as in use.
-    const channels: Channel[] = [{ ...ZERO_INPUT_CHANNELS.AI, port: aiPorts[0].key }];
+    const channels: LabJack.Task.Channel[] = [
+      { ...LabJack.Task.ZERO_INPUT_CHANNELS.AI, port: aiPorts[0].key },
+    ];
     const port = getOpenPort(channels, model, [type]);
 
     // The expected port is the second port from the AI ports list.
@@ -44,11 +41,11 @@ describe("getOpenPort", () => {
   });
 
   it("returns null if all ports for the given type are in use", () => {
-    const type = Device.AI_PORT_TYPE;
-    const aiPorts = Device.PORTS[model][type];
+    const type = LabJack.Device.AI_PORT_TYPE;
+    const aiPorts = LabJack.Device.PORTS[model][type];
     // Mark every port for this type as in use.
-    const channels: Channel[] = aiPorts.map(({ key }) => ({
-      ...ZERO_INPUT_CHANNELS.AI,
+    const channels: LabJack.Task.Channel[] = aiPorts.map(({ key }) => ({
+      ...LabJack.Task.ZERO_INPUT_CHANNELS.AI,
       port: key,
     }));
     const port = getOpenPort(channels, model, [type]);
@@ -58,31 +55,34 @@ describe("getOpenPort", () => {
   it("returns the first available port from the first type that has an available port when multiple types are provided", () => {
     // For this test, we supply two port types.
     // Mark all DI ports as in use and leave AO ports free.
-    const type1 = Device.DI_PORT_TYPE;
-    const type2 = Device.AO_PORT_TYPE;
-    const diPorts = Device.PORTS[model][type1];
-    const channels: Channel[] = diPorts.map(({ key }) => ({
-      ...ZERO_INPUT_CHANNELS.DI,
+    const type1 = LabJack.Device.DI_PORT_TYPE;
+    const type2 = LabJack.Device.AO_PORT_TYPE;
+    const diPorts = LabJack.Device.PORTS[model][type1];
+    const channels: LabJack.Task.Channel[] = diPorts.map(({ key }) => ({
+      ...LabJack.Task.ZERO_INPUT_CHANNELS.DI,
       port: key,
     }));
 
     const port = getOpenPort(channels, model, [type1, type2]);
     // Since all DI ports are taken, we expect the first AO port.
-    const expectedPort = Device.PORTS[model][type2][0];
+    const expectedPort = LabJack.Device.PORTS[model][type2][0];
     expect(port).toEqual(expectedPort);
   });
 
   it("returns null when multiple types are provided but all ports are in use", () => {
-    const type1 = Device.AI_PORT_TYPE;
-    const type2 = Device.AO_PORT_TYPE;
-    const aiPorts = Device.PORTS[model][type1];
-    const aoPorts = Device.PORTS[model][type2];
+    const type1 = LabJack.Device.AI_PORT_TYPE;
+    const type2 = LabJack.Device.AO_PORT_TYPE;
+    const aiPorts = LabJack.Device.PORTS[model][type1];
+    const aoPorts = LabJack.Device.PORTS[model][type2];
 
     // Mark all ports for both AI and AO as in use.
-    const channels: Channel[] = [
-      ...aiPorts.map(({ key }) => ({ ...ZERO_INPUT_CHANNELS.AI, port: key })),
+    const channels: LabJack.Task.Channel[] = [
+      ...aiPorts.map(({ key }) => ({
+        ...LabJack.Task.ZERO_INPUT_CHANNELS.AI,
+        port: key,
+      })),
       ...aoPorts.map(({ key }) => ({
-        ...ZERO_OUTPUT_CHANNEL,
+        ...LabJack.Task.ZERO_OUTPUT_CHANNEL,
         type: "AO" as const,
         port: key,
       })),

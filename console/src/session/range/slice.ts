@@ -9,7 +9,12 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type ranger } from "@synnaxlabs/client";
-import { type NumericTimeRange, numericTimeRangeZ, TimeSpan } from "@synnaxlabs/x";
+import {
+  array,
+  type NumericTimeRange,
+  numericTimeRangeZ,
+  TimeSpan,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const baseStateZ = z.object({
@@ -90,7 +95,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export type AddPayload = State & { switchActive?: boolean };
+export type AddPayload = State | State[];
 
 interface RemovePayload {
   keys: string[];
@@ -111,12 +116,11 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    add: (
-      state,
-      { payload: { switchActive = true, ...range } }: PayloadAction<AddPayload>,
-    ) => {
-      if (switchActive === true) state.selected = range.key;
-      state.ranges = [...state.ranges.filter((r) => r.key !== range.key), range];
+    add: (state, { payload: range }: PayloadAction<AddPayload>) => {
+      const ranges = array.toArray(range);
+      const keys = ranges.map(({ key }) => key);
+      state.ranges = [...state.ranges.filter((r) => !keys.includes(r.key)), ...ranges];
+      if (ranges.length > 0) state.selected = ranges[ranges.length - 1].key;
     },
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       if (state.selected != null && keys.includes(state.selected))

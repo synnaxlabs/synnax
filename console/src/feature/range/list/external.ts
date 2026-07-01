@@ -8,4 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/range/list/ContextMenu";
+export * from "@/feature/range/list/Item";
 export * from "@/feature/range/list/List";
+export * from "@/feature/range/list/SelectFilters";

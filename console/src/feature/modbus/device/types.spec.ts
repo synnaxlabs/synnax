@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { SCHEMAS, ZERO_PROPERTIES } from "@/feature/modbus/device/types";
+import { Modbus } from "@/feature/modbus";
 import { testPropertiesSchema } from "@/platform/device/testutil";
 
-testPropertiesSchema("Modbus", SCHEMAS.properties, ZERO_PROPERTIES, [
+testPropertiesSchema(
+  "Modbus",
+  Modbus.Device.SCHEMAS.properties,
+  Modbus.Device.ZERO_PROPERTIES,
   [
-    "properties with only connection config",
-    { connection: { host: "192.168.1.10", port: 502 } },
+    [
+      "properties with only connection config",
+      { connection: { host: "192.168.1.10", port: 502 } },
+    ],
   ],
-]);
+);

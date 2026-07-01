@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { propertiesZ, ZERO_PROPERTIES } from "@/feature/ni/device/types";
+import { NI } from "@/feature/ni";
 import { testPropertiesSchema } from "@/platform/device/testutil";
 
-testPropertiesSchema("NI", propertiesZ, ZERO_PROPERTIES, [
+testPropertiesSchema("NI", NI.Device.propertiesZ, NI.Device.ZERO_PROPERTIES, [
   [
     "properties missing counterInput (pre-SY-3060)",
     {

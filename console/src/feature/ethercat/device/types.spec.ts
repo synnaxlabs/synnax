@@ -7,28 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  slavePropertiesZ,
-  ZERO_SLAVE_PROPERTIES,
-} from "@/feature/ethercat/device/types";
+import { EtherCAT } from "@/feature/ethercat";
 import { testPropertiesSchema } from "@/platform/device/testutil";
 
-testPropertiesSchema("EtherCAT", slavePropertiesZ, ZERO_SLAVE_PROPERTIES, [
+testPropertiesSchema(
+  "EtherCAT",
+  EtherCAT.Device.slavePropertiesZ,
+  EtherCAT.Device.ZERO_SLAVE_PROPERTIES,
   [
-    "scan-only properties (identifier and position only)",
-    { identifier: "EL3004", position: 1 },
+    [
+      "scan-only properties (identifier and position only)",
+      { identifier: "EL3004", position: 1 },
+    ],
+    [
+      "properties missing PDOs",
+      {
+        identifier: "EL3004",
+        serial: 12345,
+        vendorId: 2,
+        productCode: 0x0bbc3052,
+        revision: 0,
+        name: "EL3004",
+        network: "eth0",
+        position: 1,
+      },
+    ],
   ],
-  [
-    "properties missing PDOs",
-    {
-      identifier: "EL3004",
-      serial: 12345,
-      vendorId: 2,
-      productCode: 0x0bbc3052,
-      revision: 0,
-      name: "EL3004",
-      network: "eth0",
-      position: 1,
-    },
-  ],
-]);
+);

@@ -9,52 +9,41 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  checkDuplicateKeys,
-  headerEntryZ,
-  headersZ,
-  healthCheckZ,
-  type Properties,
-  propertiesZ,
-  queryParamEntryZ,
-  queryParamsZ,
-  ZERO_HEALTH_CHECK,
-  ZERO_PROPERTIES,
-} from "@/feature/http/device/types";
+import { HTTP } from "@/feature/http";
 
 describe("HTTP Device Properties", () => {
   describe("propertiesZ", () => {
     it("should validate ZERO_PROPERTIES", () => {
-      propertiesZ.parse(ZERO_PROPERTIES);
+      HTTP.Device.propertiesZ.parse(HTTP.Device.ZERO_PROPERTIES);
     });
 
     it("should validate a v1 config with none auth", () => {
-      const config: Properties = {
+      const config: HTTP.Device.Properties = {
         secure: true,
         verifySsl: false,
         timeoutMs: 500,
         auth: { type: "none" },
-        healthCheck: ZERO_HEALTH_CHECK,
+        healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
         write: {},
         read: {},
         version: 1,
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.auth.type).toBe("none");
     });
 
     it("should validate a v1 config with bearer auth", () => {
-      const config: Properties = {
+      const config: HTTP.Device.Properties = {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
         auth: { type: "bearer", token: "my-token" },
-        healthCheck: ZERO_HEALTH_CHECK,
+        healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
         write: {},
         read: {},
         version: 1,
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.auth).toEqual({ type: "bearer", token: "my-token" });
     });
 
@@ -67,22 +56,22 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = propertiesZ.safeParse(config);
+      const result = HTTP.Device.propertiesZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
     it("should validate a v1 config with basic auth", () => {
-      const config: Properties = {
+      const config: HTTP.Device.Properties = {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
         auth: { type: "basic", username: "user", password: "pass" },
-        healthCheck: ZERO_HEALTH_CHECK,
+        healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
         write: {},
         read: {},
         version: 1,
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.auth).toEqual({
         type: "basic",
         username: "user",
@@ -99,7 +88,7 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = propertiesZ.safeParse(config);
+      const result = HTTP.Device.propertiesZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -112,12 +101,12 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = propertiesZ.safeParse(config);
+      const result = HTTP.Device.propertiesZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
     it("should validate a v1 config with api_key header auth", () => {
-      const config: Properties = {
+      const config: HTTP.Device.Properties = {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
@@ -127,12 +116,12 @@ describe("HTTP Device Properties", () => {
           header: "X-API-Key",
           key: "secret",
         },
-        healthCheck: ZERO_HEALTH_CHECK,
+        healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
         write: {},
         read: {},
         version: 1,
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.auth).toEqual({
         type: "api_key",
         sendAs: "header",
@@ -150,12 +139,12 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = propertiesZ.safeParse(config);
+      const result = HTTP.Device.propertiesZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
     it("should validate a v1 config with api_key query_param auth", () => {
-      const config: Properties = {
+      const config: HTTP.Device.Properties = {
         secure: false,
         verifySsl: false,
         timeoutMs: 200,
@@ -165,12 +154,12 @@ describe("HTTP Device Properties", () => {
           parameter: "api_key",
           key: "secret",
         },
-        healthCheck: ZERO_HEALTH_CHECK,
+        healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
         write: {},
         read: {},
         version: 1,
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.auth).toEqual({
         type: "api_key",
         sendAs: "query_param",
@@ -193,7 +182,7 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = propertiesZ.safeParse(config);
+      const result = HTTP.Device.propertiesZ.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -206,29 +195,29 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = propertiesZ.safeParse(config);
+      const result = HTTP.Device.propertiesZ.safeParse(config);
       expect(result.success).toBe(false);
     });
   });
 
   describe("healthCheckZ", () => {
     it("should validate a GET health check without response validation", () => {
-      const config: Properties = {
-        ...ZERO_PROPERTIES,
+      const config: HTTP.Device.Properties = {
+        ...HTTP.Device.ZERO_PROPERTIES,
         healthCheck: {
           method: "GET",
           path: "/health",
           validateResponse: false,
         },
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.healthCheck.method).toBe("GET");
       expect(result.healthCheck.validateResponse).toBe(false);
     });
 
     it("should validate a GET health check with response validation", () => {
-      const config: Properties = {
-        ...ZERO_PROPERTIES,
+      const config: HTTP.Device.Properties = {
+        ...HTTP.Device.ZERO_PROPERTIES,
         healthCheck: {
           method: "GET",
           path: "/health",
@@ -240,13 +229,13 @@ describe("HTTP Device Properties", () => {
           },
         },
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.healthCheck.validateResponse).toBe(true);
     });
 
     it("should validate a POST health check without response validation", () => {
-      const config: Properties = {
-        ...ZERO_PROPERTIES,
+      const config: HTTP.Device.Properties = {
+        ...HTTP.Device.ZERO_PROPERTIES,
         healthCheck: {
           method: "POST",
           path: "/health",
@@ -254,14 +243,14 @@ describe("HTTP Device Properties", () => {
           validateResponse: false,
         },
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.healthCheck.method).toBe("POST");
       expect(result.healthCheck.validateResponse).toBe(false);
     });
 
     it("should validate a POST health check with response validation", () => {
-      const config: Properties = {
-        ...ZERO_PROPERTIES,
+      const config: HTTP.Device.Properties = {
+        ...HTTP.Device.ZERO_PROPERTIES,
         healthCheck: {
           method: "POST",
           path: "/health",
@@ -274,27 +263,27 @@ describe("HTTP Device Properties", () => {
           },
         },
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.healthCheck.method).toBe("POST");
       expect(result.healthCheck.validateResponse).toBe(true);
     });
 
     it("should validate a POST health check without body", () => {
-      const config: Properties = {
-        ...ZERO_PROPERTIES,
+      const config: HTTP.Device.Properties = {
+        ...HTTP.Device.ZERO_PROPERTIES,
         healthCheck: {
           method: "POST",
           path: "/health",
           validateResponse: false,
         },
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.healthCheck.method).toBe("POST");
     });
 
     it("should validate health check with headers and query params", () => {
-      const config: Properties = {
-        ...ZERO_PROPERTIES,
+      const config: HTTP.Device.Properties = {
+        ...HTTP.Device.ZERO_PROPERTIES,
         healthCheck: {
           method: "GET",
           path: "/health",
@@ -303,12 +292,12 @@ describe("HTTP Device Properties", () => {
           validateResponse: false,
         },
       };
-      const result = propertiesZ.parse(config);
+      const result = HTTP.Device.propertiesZ.parse(config);
       expect(result.healthCheck.path).toBe("/health");
     });
 
     it("should reject validateResponse true without response field", () => {
-      const result = healthCheckZ.safeParse({
+      const result = HTTP.Device.healthCheckZ.safeParse({
         method: "GET",
         path: "/health",
         validateResponse: true,
@@ -317,7 +306,7 @@ describe("HTTP Device Properties", () => {
     });
 
     it("should reject validateResponse true with invalid pointer", () => {
-      const result = healthCheckZ.safeParse({
+      const result = HTTP.Device.healthCheckZ.safeParse({
         method: "GET",
         path: "/health",
         validateResponse: true,
@@ -339,7 +328,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "none" },
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.version).toBe(1);
       expect(result.auth).toEqual({ type: "none" });
     });
@@ -352,7 +341,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "bearer", token: "my-token" },
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.version).toBe(1);
       expect(result.auth).toEqual({ type: "bearer", token: "my-token" });
     });
@@ -365,7 +354,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "basic", username: "user", password: "pass" },
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.version).toBe(1);
       expect(result.auth).toEqual({
         type: "basic",
@@ -382,7 +371,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "api_key", header: "X-API-Key", key: "secret" },
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.version).toBe(1);
       expect(result.auth).toEqual({
         type: "api_key",
@@ -401,7 +390,7 @@ describe("HTTP Device Properties", () => {
         queryParams: { api_key: "secret" },
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.version).toBe(1);
       expect(result.auth).toEqual({
         type: "api_key",
@@ -420,7 +409,7 @@ describe("HTTP Device Properties", () => {
         queryParams: {},
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.version).toBe(1);
       expect(result.auth).toEqual({ type: "none" });
     });
@@ -434,7 +423,7 @@ describe("HTTP Device Properties", () => {
         headers: { "Content-Type": "application/json" },
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result).not.toHaveProperty("headers");
     });
 
@@ -443,7 +432,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "none" },
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.secure).toBe(true);
       expect(result.verifySsl).toBe(true);
       expect(result.timeoutMs).toBeGreaterThan(0);
@@ -457,7 +446,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "none" },
         readIndexes: { "/api/data": 42, "/api/status": 99 },
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.read).toEqual({
         "/api/data": { index: 42, channels: {} },
         "/api/status": { index: 99, channels: {} },
@@ -473,7 +462,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "none" },
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.read).toEqual({});
     });
 
@@ -482,7 +471,7 @@ describe("HTTP Device Properties", () => {
         auth: { type: "none" },
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.write).toEqual({});
     });
 
@@ -491,31 +480,34 @@ describe("HTTP Device Properties", () => {
         auth: { type: "none" },
         readIndexes: {},
       };
-      const result = propertiesZ.parse(v0Config);
-      expect(result.healthCheck).toEqual(ZERO_HEALTH_CHECK);
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
+      expect(result.healthCheck).toEqual(HTTP.Device.ZERO_HEALTH_CHECK);
     });
   });
 
   describe("headerEntryZ", () => {
     it("should validate a valid header entry", () => {
-      const result = headerEntryZ.safeParse({ name: "Accept", value: "text/html" });
+      const result = HTTP.Device.headerEntryZ.safeParse({
+        name: "Accept",
+        value: "text/html",
+      });
       expect(result.success).toBe(true);
     });
 
     it("should reject a header entry missing name", () => {
-      const result = headerEntryZ.safeParse({ value: "text/html" });
+      const result = HTTP.Device.headerEntryZ.safeParse({ value: "text/html" });
       expect(result.success).toBe(false);
     });
 
     it("should reject a header entry missing value", () => {
-      const result = headerEntryZ.safeParse({ name: "Accept" });
+      const result = HTTP.Device.headerEntryZ.safeParse({ name: "Accept" });
       expect(result.success).toBe(false);
     });
   });
 
   describe("queryParamEntryZ", () => {
     it("should validate a valid query param entry", () => {
-      const result = queryParamEntryZ.safeParse({
+      const result = HTTP.Device.queryParamEntryZ.safeParse({
         parameter: "limit",
         value: "10",
       });
@@ -523,24 +515,29 @@ describe("HTTP Device Properties", () => {
     });
 
     it("should reject an entry missing parameter", () => {
-      const result = queryParamEntryZ.safeParse({ value: "10" });
+      const result = HTTP.Device.queryParamEntryZ.safeParse({ value: "10" });
       expect(result.success).toBe(false);
     });
 
     it("should reject an entry missing value", () => {
-      const result = queryParamEntryZ.safeParse({ parameter: "limit" });
+      const result = HTTP.Device.queryParamEntryZ.safeParse({ parameter: "limit" });
       expect(result.success).toBe(false);
     });
   });
 
   describe("headersZ", () => {
     it("should validate a v1 header array", () => {
-      const result = headersZ.parse([{ name: "Accept", value: "application/json" }]);
+      const result = HTTP.Device.headersZ.parse([
+        { name: "Accept", value: "application/json" },
+      ]);
       expect(result).toEqual([{ name: "Accept", value: "application/json" }]);
     });
 
     it("should migrate a v0 header record to v1 array", () => {
-      const result = headersZ.parse({ Accept: "application/json", "X-Key": "val" });
+      const result = HTTP.Device.headersZ.parse({
+        Accept: "application/json",
+        "X-Key": "val",
+      });
       expect(result).toEqual([
         { name: "Accept", value: "application/json" },
         { name: "X-Key", value: "val" },
@@ -548,7 +545,7 @@ describe("HTTP Device Properties", () => {
     });
 
     it("should reject duplicate header names", () => {
-      const result = headersZ.safeParse([
+      const result = HTTP.Device.headersZ.safeParse([
         { name: "Accept", value: "text/plain" },
         { name: "Accept", value: "application/json" },
       ]);
@@ -556,12 +553,12 @@ describe("HTTP Device Properties", () => {
     });
 
     it("should accept an empty array", () => {
-      const result = headersZ.parse([]);
+      const result = HTTP.Device.headersZ.parse([]);
       expect(result).toEqual([]);
     });
 
     it("should skip duplicate check for empty name", () => {
-      const result = headersZ.safeParse([
+      const result = HTTP.Device.headersZ.safeParse([
         { name: "", value: "a" },
         { name: "", value: "b" },
       ]);
@@ -571,12 +568,14 @@ describe("HTTP Device Properties", () => {
 
   describe("queryParamsZ", () => {
     it("should validate a v1 query param array", () => {
-      const result = queryParamsZ.parse([{ parameter: "limit", value: "10" }]);
+      const result = HTTP.Device.queryParamsZ.parse([
+        { parameter: "limit", value: "10" },
+      ]);
       expect(result).toEqual([{ parameter: "limit", value: "10" }]);
     });
 
     it("should migrate a v0 query param record to v1 array", () => {
-      const result = queryParamsZ.parse({ limit: "10", offset: "20" });
+      const result = HTTP.Device.queryParamsZ.parse({ limit: "10", offset: "20" });
       expect(result).toEqual([
         { parameter: "limit", value: "10" },
         { parameter: "offset", value: "20" },
@@ -584,7 +583,7 @@ describe("HTTP Device Properties", () => {
     });
 
     it("should reject duplicate parameter names", () => {
-      const result = queryParamsZ.safeParse([
+      const result = HTTP.Device.queryParamsZ.safeParse([
         { parameter: "limit", value: "10" },
         { parameter: "limit", value: "20" },
       ]);
@@ -592,12 +591,12 @@ describe("HTTP Device Properties", () => {
     });
 
     it("should accept an empty array", () => {
-      const result = queryParamsZ.parse([]);
+      const result = HTTP.Device.queryParamsZ.parse([]);
       expect(result).toEqual([]);
     });
 
     it("should skip duplicate check for empty parameter", () => {
-      const result = queryParamsZ.safeParse([
+      const result = HTTP.Device.queryParamsZ.safeParse([
         { parameter: "", value: "a" },
         { parameter: "", value: "b" },
       ]);
@@ -609,20 +608,20 @@ describe("HTTP Device Properties", () => {
     it("should add an issue for duplicate keys", () => {
       const issues: unknown[] = [];
       const value = [{ name: "a" }, { name: "a" }];
-      checkDuplicateKeys("name", "header")({ value, issues });
+      HTTP.Device.checkDuplicateKeys("name", "header")({ value, issues });
       expect(issues).toHaveLength(1);
     });
 
     it("should not add issues when keys are unique", () => {
       const issues: unknown[] = [];
       const value = [{ name: "a" }, { name: "b" }];
-      checkDuplicateKeys("name", "header")({ value, issues });
+      HTTP.Device.checkDuplicateKeys("name", "header")({ value, issues });
       expect(issues).toHaveLength(0);
     });
 
     it("should handle undefined value", () => {
       const issues: unknown[] = [];
-      checkDuplicateKeys("name", "header")({ value: undefined, issues });
+      HTTP.Device.checkDuplicateKeys("name", "header")({ value: undefined, issues });
       expect(issues).toHaveLength(0);
     });
   });

@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Task } from "@/feature/ni/task";
+import { NI } from "@/feature/ni";
 import {
   createAIChannel,
   createAOChannel,
@@ -21,7 +21,7 @@ import {
 describe("createChannel", () => {
   describe("createDIChannel", () => {
     it("should create a new DI channel with line 0 when no channels exist", () => {
-      const channels: Task.DIChannel[] = [];
+      const channels: NI.Task.DIChannel[] = [];
       const result = createDIChannel(channels);
       expect(result).toEqual({
         channel: 0,
@@ -34,9 +34,9 @@ describe("createChannel", () => {
       });
     });
     it("should create a new DI channel with the next available line number", () => {
-      const channels: Task.DIChannel[] = [
-        { ...Task.ZERO_DI_CHANNEL, key: "1", line: 0, channel: 3 },
-        { ...Task.ZERO_DI_CHANNEL, key: "2", line: 1, channel: 4 },
+      const channels: NI.Task.DIChannel[] = [
+        { ...NI.Task.ZERO_DI_CHANNEL, key: "1", line: 0, channel: 3 },
+        { ...NI.Task.ZERO_DI_CHANNEL, key: "2", line: 1, channel: 4 },
       ];
       const result = createDIChannel(channels);
       expect(result.line).toBe(2);
@@ -49,7 +49,7 @@ describe("createChannel", () => {
 
   describe("createDOChannel", () => {
     it("should create a new DO channel with line 0 when no channels exist", () => {
-      const channels: Task.DOChannel[] = [];
+      const channels: NI.Task.DOChannel[] = [];
       const result = createDOChannel(channels);
       expect(result).toEqual({
         cmdChannel: 0,
@@ -65,9 +65,9 @@ describe("createChannel", () => {
     });
 
     it("should create a new DO channel with the next available line number", () => {
-      const channels: Task.DOChannel[] = [
-        { ...Task.ZERO_DO_CHANNEL, key: "1", line: 0 },
-        { ...Task.ZERO_DO_CHANNEL, key: "2", line: 1 },
+      const channels: NI.Task.DOChannel[] = [
+        { ...NI.Task.ZERO_DO_CHANNEL, key: "1", line: 0 },
+        { ...NI.Task.ZERO_DO_CHANNEL, key: "2", line: 1 },
       ];
       const result = createDOChannel(channels);
       expect(result.line).toBe(2);
@@ -79,7 +79,7 @@ describe("createChannel", () => {
 
   describe("createAIChannel", () => {
     it("should create a new AI channel with port 0 when no channels exist", () => {
-      const channels: Task.AIChannel[] = [];
+      const channels: NI.Task.AIChannel[] = [];
       const result = createAIChannel(channels);
       expect(result.port).toBe(0);
       expect(result.key).toBeDefined();
@@ -87,9 +87,9 @@ describe("createChannel", () => {
     });
 
     it("should create a new AI channel with the next available port number", () => {
-      const channels: Task.AIChannel[] = [
-        { ...Task.ZERO_AI_CHANNEL, key: "1", port: 0 },
-        { ...Task.ZERO_AI_CHANNEL, key: "2", port: 1 },
+      const channels: NI.Task.AIChannel[] = [
+        { ...NI.Task.ZERO_AI_CHANNEL, key: "1", port: 0 },
+        { ...NI.Task.ZERO_AI_CHANNEL, key: "2", port: 1 },
       ];
       const result = createAIChannel(channels);
       expect(result.port).toBe(2);
@@ -97,9 +97,9 @@ describe("createChannel", () => {
     });
 
     it("should copy properties from the specified index channel", () => {
-      const channels: Task.AIChannel[] = [
-        { ...Task.ZERO_AI_CHANNELS.ai_accel, key: "1", port: 0, channel: 3 },
-        { ...Task.ZERO_AI_CHANNELS.ai_bridge, key: "2", port: 1 },
+      const channels: NI.Task.AIChannel[] = [
+        { ...NI.Task.ZERO_AI_CHANNELS.ai_accel, key: "1", port: 0, channel: 3 },
+        { ...NI.Task.ZERO_AI_CHANNELS.ai_bridge, key: "2", port: 1 },
       ];
       const result = createAIChannel(channels, "1");
       expect(result.type).toBe("ai_accel");
@@ -111,11 +111,11 @@ describe("createChannel", () => {
     });
 
     it("should correctly increment port when duplicating with multiple existing channels", () => {
-      const channels: Task.AIChannel[] = [
-        { ...Task.ZERO_AI_CHANNEL, key: "1", port: 0 },
-        { ...Task.ZERO_AI_CHANNEL, key: "2", port: 1 },
-        { ...Task.ZERO_AI_CHANNEL, key: "3", port: 2 },
-        { ...Task.ZERO_AI_CHANNEL, key: "4", port: 3 },
+      const channels: NI.Task.AIChannel[] = [
+        { ...NI.Task.ZERO_AI_CHANNEL, key: "1", port: 0 },
+        { ...NI.Task.ZERO_AI_CHANNEL, key: "2", port: 1 },
+        { ...NI.Task.ZERO_AI_CHANNEL, key: "3", port: 2 },
+        { ...NI.Task.ZERO_AI_CHANNEL, key: "4", port: 3 },
       ];
       const firstDuplicate = createAIChannel(channels, "1");
       expect(firstDuplicate.port).toBe(4);
@@ -129,10 +129,10 @@ describe("createChannel", () => {
     });
 
     it("should handle non-sequential ports correctly", () => {
-      const channels: Task.AIChannel[] = [
-        { ...Task.ZERO_AI_CHANNEL, key: "1", port: 0 },
-        { ...Task.ZERO_AI_CHANNEL, key: "2", port: 2 },
-        { ...Task.ZERO_AI_CHANNEL, key: "3", port: 5 },
+      const channels: NI.Task.AIChannel[] = [
+        { ...NI.Task.ZERO_AI_CHANNEL, key: "1", port: 0 },
+        { ...NI.Task.ZERO_AI_CHANNEL, key: "2", port: 2 },
+        { ...NI.Task.ZERO_AI_CHANNEL, key: "3", port: 5 },
       ];
       const result = createAIChannel(channels, "1");
       expect(result.port).toBe(1);
@@ -141,7 +141,7 @@ describe("createChannel", () => {
 
   describe("createAOChannel", () => {
     it("should create a new AO channel with port 0 when no channels exist", () => {
-      const channels: Task.AOChannel[] = [];
+      const channels: NI.Task.AOChannel[] = [];
       const result = createAOChannel(channels);
       expect(result.port).toBe(0);
       expect(result.key.length).toBeGreaterThan(0);
@@ -150,9 +150,21 @@ describe("createChannel", () => {
     });
 
     it("should create a new AI channel with the next available port number", () => {
-      const channels: Task.AOChannel[] = [
-        { ...Task.ZERO_AO_CHANNEL, key: "1", port: 0, cmdChannel: 3, stateChannel: 10 },
-        { ...Task.ZERO_AO_CHANNEL, key: "2", port: 1, cmdChannel: 4, stateChannel: 11 },
+      const channels: NI.Task.AOChannel[] = [
+        {
+          ...NI.Task.ZERO_AO_CHANNEL,
+          key: "1",
+          port: 0,
+          cmdChannel: 3,
+          stateChannel: 10,
+        },
+        {
+          ...NI.Task.ZERO_AO_CHANNEL,
+          key: "2",
+          port: 1,
+          cmdChannel: 4,
+          stateChannel: 11,
+        },
       ];
       const result = createAOChannel(channels);
       expect(result.port).toBe(2);
@@ -162,16 +174,16 @@ describe("createChannel", () => {
     });
 
     it("should copy properties from the specified index channel", () => {
-      const channels: Task.AOChannel[] = [
+      const channels: NI.Task.AOChannel[] = [
         {
-          ...Task.ZERO_AO_CHANNELS.ao_func_gen,
+          ...NI.Task.ZERO_AO_CHANNELS.ao_func_gen,
           key: "1",
           port: 0,
           cmdChannel: 3,
           stateChannel: 10,
         },
         {
-          ...Task.ZERO_AO_CHANNELS.ao_current,
+          ...NI.Task.ZERO_AO_CHANNELS.ao_current,
           key: "2",
           port: 1,
           cmdChannel: 4,
@@ -191,7 +203,7 @@ describe("createChannel", () => {
 
   describe("createCIChannel", () => {
     it("should create a new CI channel with port 0 when no channels exist", () => {
-      const channels: Task.CIChannel[] = [];
+      const channels: NI.Task.CIChannel[] = [];
       const result = createCIChannel(channels);
       expect(result.port).toBe(0);
       expect(result.key).toBeDefined();
@@ -200,9 +212,9 @@ describe("createChannel", () => {
     });
 
     it("should create a new CI channel with the next available port number", () => {
-      const channels: Task.CIChannel[] = [
-        { ...Task.ZERO_CI_CHANNEL, key: "1", port: 0 },
-        { ...Task.ZERO_CI_CHANNEL, key: "2", port: 1 },
+      const channels: NI.Task.CIChannel[] = [
+        { ...NI.Task.ZERO_CI_CHANNEL, key: "1", port: 0 },
+        { ...NI.Task.ZERO_CI_CHANNEL, key: "2", port: 1 },
       ];
       const result = createCIChannel(channels);
       expect(result.port).toBe(2);
@@ -210,9 +222,9 @@ describe("createChannel", () => {
     });
 
     it("should copy properties from the specified index channel", () => {
-      const channels: Task.CIChannel[] = [
-        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "1", port: 0, channel: 3 },
-        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      const channels: NI.Task.CIChannel[] = [
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_frequency, key: "1", port: 0, channel: 3 },
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
       ];
       const result = createCIChannel(channels, "1");
       expect(result.type).toBe("ci_frequency");
@@ -224,9 +236,9 @@ describe("createChannel", () => {
     });
 
     it("should copy properties from ci_edge_count channel type", () => {
-      const channels: Task.CIChannel[] = [
-        { ...Task.ZERO_CI_CHANNELS.ci_edge_count, key: "1", port: 0, channel: 3 },
-        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      const channels: NI.Task.CIChannel[] = [
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_edge_count, key: "1", port: 0, channel: 3 },
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
       ];
       const result = createCIChannel(channels, "1");
       expect(result.type).toBe("ci_edge_count");
@@ -238,9 +250,9 @@ describe("createChannel", () => {
     });
 
     it("should copy properties from ci_period channel type", () => {
-      const channels: Task.CIChannel[] = [
-        { ...Task.ZERO_CI_CHANNELS.ci_period, key: "1", port: 0, channel: 3 },
-        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      const channels: NI.Task.CIChannel[] = [
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_period, key: "1", port: 0, channel: 3 },
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
       ];
       const result = createCIChannel(channels, "1");
       expect(result.type).toBe("ci_period");
@@ -252,9 +264,9 @@ describe("createChannel", () => {
     });
 
     it("should copy properties from ci_pulse_width channel type", () => {
-      const channels: Task.CIChannel[] = [
-        { ...Task.ZERO_CI_CHANNELS.ci_pulse_width, key: "1", port: 0, channel: 3 },
-        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      const channels: NI.Task.CIChannel[] = [
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_pulse_width, key: "1", port: 0, channel: 3 },
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
       ];
       const result = createCIChannel(channels, "1");
       expect(result.type).toBe("ci_pulse_width");
@@ -266,9 +278,9 @@ describe("createChannel", () => {
     });
 
     it("should copy properties from ci_semi_period channel type", () => {
-      const channels: Task.CIChannel[] = [
-        { ...Task.ZERO_CI_CHANNELS.ci_semi_period, key: "1", port: 0, channel: 3 },
-        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      const channels: NI.Task.CIChannel[] = [
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_semi_period, key: "1", port: 0, channel: 3 },
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
       ];
       const result = createCIChannel(channels, "1");
       expect(result.type).toBe("ci_semi_period");
@@ -280,9 +292,9 @@ describe("createChannel", () => {
     });
 
     it("should copy properties from ci_two_edge_sep channel type", () => {
-      const channels: Task.CIChannel[] = [
-        { ...Task.ZERO_CI_CHANNELS.ci_two_edge_sep, key: "1", port: 0, channel: 3 },
-        { ...Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
+      const channels: NI.Task.CIChannel[] = [
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_two_edge_sep, key: "1", port: 0, channel: 3 },
+        { ...NI.Task.ZERO_CI_CHANNELS.ci_frequency, key: "2", port: 1 },
       ];
       const result = createCIChannel(channels, "1");
       expect(result.type).toBe("ci_two_edge_sep");

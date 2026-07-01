@@ -9,23 +9,20 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  type OutputChannel,
-  READ_SCHEMAS,
-  WRITE_SCHEMAS,
-  ZERO_WRITE_PAYLOAD,
-} from "@/feature/labjack/task/types";
+import { LabJack } from "@/feature/labjack";
 import { Task } from "@/platform/task";
 
 describe("readStatusDataZ", () => {
   it("should accept null", () => {
-    expect(READ_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+    expect(LabJack.Task.READ_SCHEMAS.statusData.safeParse(null).success).toBe(true);
   });
   it("should accept undefined", () => {
-    expect(READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+    expect(LabJack.Task.READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(
+      true,
+    );
   });
   it("should accept a valid errors object", () => {
-    const result = READ_SCHEMAS.statusData.safeParse({
+    const result = LabJack.Task.READ_SCHEMAS.statusData.safeParse({
       errors: [{ message: "bad", path: "/dev/ai0" }],
     });
     expect(result.success).toBe(true);
@@ -33,7 +30,7 @@ describe("readStatusDataZ", () => {
 });
 
 describe("readConfigZ", () => {
-  const readConfigZ = READ_SCHEMAS.config;
+  const readConfigZ = LabJack.Task.READ_SCHEMAS.config;
   it("should validate a valid read configuration", () => {
     const validConfig = {
       ...Task.ZERO_BASE_CONFIG,
@@ -213,10 +210,10 @@ describe("readConfigZ", () => {
 });
 
 describe("writeConfigZ", () => {
-  const writeConfigZ = WRITE_SCHEMAS.config;
+  const writeConfigZ = LabJack.Task.WRITE_SCHEMAS.config;
   it("should validate a valid write configuration", () => {
     const validConfig = {
-      ...ZERO_WRITE_PAYLOAD.config,
+      ...LabJack.Task.ZERO_WRITE_PAYLOAD.config,
       device: "labjack",
       channels: [
         {
@@ -443,7 +440,7 @@ describe("writeConfigZ", () => {
     const result = writeConfigZ.safeParse(v0Config);
     expect(result.success).toBe(true);
     expect(result.data?.channels.length).toBe(2);
-    const channels = result.data?.channels as OutputChannel[];
+    const channels = result.data?.channels as LabJack.Task.OutputChannel[];
     channels.forEach((ch, i) => {
       expect(ch.cmdChannel).toBe(inputChannels[i].cmdKey);
       expect(ch.stateChannel).toBe(inputChannels[i].stateKey);

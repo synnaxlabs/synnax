@@ -51,15 +51,6 @@ describe("range slice", () => {
       expect(next.selected).toEqual(STATIC.key);
     });
 
-    it("should not select the range when switchActive is false", () => {
-      const next = Range.reducer(
-        emptyState(),
-        Range.add({ ...DYNAMIC, switchActive: false }),
-      );
-      expect(next.ranges).toEqual([DYNAMIC]);
-      expect(next.selected).toBeUndefined();
-    });
-
     it("should replace an existing range with the same key", () => {
       const renamed: Range.StaticState = { ...STATIC, name: "Replaced" };
       const next = Range.reducer(stateWith([STATIC]), Range.add(renamed));

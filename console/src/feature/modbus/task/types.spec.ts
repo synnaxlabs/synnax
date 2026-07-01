@@ -9,26 +9,26 @@
 
 import { describe, expect, it } from "vitest";
 
-import { SCAN_SCHEMAS } from "@/feature/modbus/task/types";
+import { Modbus } from "@/feature/modbus";
 
 describe("Modbus Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {
-    const result = SCAN_SCHEMAS.config.safeParse(null);
+    const result = Modbus.Task.SCAN_SCHEMAS.config.safeParse(null);
     expect(result.success).toBe(true);
     expect(result.data).toEqual({});
   });
 
   it("should parse undefined scan config as empty object", () => {
-    const result = SCAN_SCHEMAS.config.safeParse(undefined);
+    const result = Modbus.Task.SCAN_SCHEMAS.config.safeParse(undefined);
     expect(result.success).toBe(true);
     expect(result.data).toEqual({});
   });
 
   it("should accept null statusData", () => {
-    expect(SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+    expect(Modbus.Task.SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
   });
 
   it("should accept undefined statusData", () => {
-    expect(SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+    expect(Modbus.Task.SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
   });
 });

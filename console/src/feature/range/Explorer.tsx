@@ -15,10 +15,10 @@ import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
+import { Item } from "@/feature/range/list/Item";
 import { Label } from "@/platform/label";
 import { type Layout } from "@/platform/layout";
-import { Item } from "@/platform/range/list/Item";
-import { useCreateModal } from "@/platform/range/useCreateModal";
+import { Range } from "@/platform/range";
 import { View } from "@/platform/view";
 import { type Session } from "@/session";
 
@@ -47,7 +47,7 @@ const Internal = () => {
     initialQuery: View.useContext().getInitialView().query,
     sort: Ranger.sortByStage,
   });
-  const openCreate = useCreateModal();
+  const openCreate = Range.useCreateModal();
   const handleCreate = useCallback(() => openCreate(), [openCreate]);
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (

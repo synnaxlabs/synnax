@@ -10,13 +10,7 @@
 import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import {
-  READ_SCHEMAS,
-  READ_TYPE,
-  SCAN_SCHEMAS,
-  WRITE_SCHEMAS,
-  WRITE_TYPE,
-} from "@/feature/http/task/types";
+import { HTTP } from "@/feature/http";
 
 describe("HTTP Task Types", () => {
   const readField = {
@@ -29,7 +23,9 @@ describe("HTTP Task Types", () => {
 
   describe("READ_SCHEMAS", () => {
     it("should validate the type literal", () => {
-      expect(READ_SCHEMAS.type.parse(READ_TYPE)).toBe(READ_TYPE);
+      expect(HTTP.Task.READ_SCHEMAS.type.parse(HTTP.Task.READ_TYPE)).toBe(
+        HTTP.Task.READ_TYPE,
+      );
     });
 
     it("should validate a config with a GET endpoint", () => {
@@ -47,7 +43,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints).toHaveLength(1);
       expect(result.endpoints[0].method).toBe("GET");
     });
@@ -66,7 +62,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].method).toBe("POST");
     });
 
@@ -85,7 +81,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].headers).toEqual([
         { name: "Accept", value: "application/json" },
       ]);
@@ -100,7 +96,7 @@ describe("HTTP Task Types", () => {
         rate: 0,
         endpoints: [],
       };
-      const result = READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -110,20 +106,20 @@ describe("HTTP Task Types", () => {
         rate: -1,
         endpoints: [],
       };
-      const result = READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
     it("should validate statusData as running/message object", () => {
-      READ_SCHEMAS.statusData.parse({ running: true, message: "ok" });
+      HTTP.Task.READ_SCHEMAS.statusData.parse({ running: true, message: "ok" });
     });
 
     it("should validate statusData as null", () => {
-      READ_SCHEMAS.statusData.parse(null);
+      HTTP.Task.READ_SCHEMAS.statusData.parse(null);
     });
 
     it("should validate statusData as undefined", () => {
-      expect(READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+      expect(HTTP.Task.READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
     });
   });
 
@@ -149,7 +145,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].fields[0].pointer).toBe("/data/temperature");
     });
 
@@ -173,7 +169,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -196,7 +192,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].fields[0].timestampFormat).toBe("iso8601");
     });
 
@@ -221,7 +217,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -247,7 +243,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].fields[0].enumValues).toEqual([
         { label: "ON", value: 1 },
         { label: "OFF", value: 0 },
@@ -276,7 +272,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
   });
@@ -301,7 +297,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].fields[0].enumValues).toEqual([
         { label: "ON", value: 1 },
         { label: "OFF", value: 0 },
@@ -323,7 +319,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].index).toBeNull();
     });
 
@@ -344,7 +340,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -365,7 +361,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -383,7 +379,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].headers).toEqual([
         { name: "Accept", value: "application/json" },
       ]);
@@ -403,7 +399,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = READ_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].queryParams).toEqual([
         { parameter: "limit", value: "10" },
       ]);
@@ -412,7 +408,9 @@ describe("HTTP Task Types", () => {
 
   describe("WRITE_SCHEMAS", () => {
     it("should validate the type literal", () => {
-      expect(WRITE_SCHEMAS.type.parse(WRITE_TYPE)).toBe(WRITE_TYPE);
+      expect(HTTP.Task.WRITE_SCHEMAS.type.parse(HTTP.Task.WRITE_TYPE)).toBe(
+        HTTP.Task.WRITE_TYPE,
+      );
     });
 
     it("should validate a config with a POST endpoint", () => {
@@ -429,7 +427,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints).toHaveLength(1);
       expect(result.endpoints[0].method).toBe("POST");
     });
@@ -448,7 +446,7 @@ describe("HTTP Task Types", () => {
             },
           ],
         };
-        const result = WRITE_SCHEMAS.config.parse(config);
+        const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
         expect(result.endpoints[0].method).toBe(method);
       }
     });
@@ -466,7 +464,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -483,7 +481,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].enabled).toBe(true);
     });
 
@@ -502,7 +500,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].headers).toEqual([{ name: "X-Custom", value: "val" }]);
       expect(result.endpoints[0].queryParams).toEqual([
         { parameter: "key", value: "abc" },
@@ -526,7 +524,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -547,7 +545,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
   });
@@ -567,7 +565,7 @@ describe("HTTP Task Types", () => {
             },
           ],
         };
-        const result = WRITE_SCHEMAS.config.parse(config);
+        const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
         expect(result.endpoints[0].channel.jsonType).toBe(jsonType);
       }
     });
@@ -585,7 +583,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -610,7 +608,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].channel.enumValues).toHaveLength(2);
     });
 
@@ -635,7 +633,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -657,7 +655,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].channel.timeFormat).toBe("unix_ms");
     });
   });
@@ -684,7 +682,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -701,7 +699,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].channel.pointer).toBe("");
     });
 
@@ -726,7 +724,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -758,7 +756,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -783,7 +781,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
 
@@ -800,7 +798,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
   });
@@ -827,7 +825,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].fields[0].type).toBe("static");
     });
 
@@ -851,7 +849,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].fields[0].type).toBe("generated");
     });
 
@@ -876,7 +874,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].fields[0].type).toBe("generated");
     });
 
@@ -900,7 +898,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.safeParse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
       expect(result.success).toBe(false);
     });
   });
@@ -920,7 +918,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].headers).toEqual([{ name: "X-Custom", value: "val" }]);
     });
 
@@ -938,7 +936,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = WRITE_SCHEMAS.config.parse(config);
+      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].queryParams).toEqual([
         { parameter: "key", value: "abc" },
       ]);
@@ -949,18 +947,18 @@ describe("HTTP Task Types", () => {
 describe("HTTP Scan Task", () => {
   describe("config", () => {
     it("should accept null", () => {
-      expect(SCAN_SCHEMAS.config.safeParse(null).success).toBe(true);
+      expect(HTTP.Task.SCAN_SCHEMAS.config.safeParse(null).success).toBe(true);
     });
     it("should accept undefined", () => {
-      expect(SCAN_SCHEMAS.config.safeParse(undefined).success).toBe(true);
+      expect(HTTP.Task.SCAN_SCHEMAS.config.safeParse(undefined).success).toBe(true);
     });
   });
   describe("statusData", () => {
     it("should accept null", () => {
-      expect(SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+      expect(HTTP.Task.SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
     });
     it("should accept undefined", () => {
-      expect(SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+      expect(HTTP.Task.SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
     });
   });
 });

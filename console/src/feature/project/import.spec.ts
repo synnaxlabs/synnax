@@ -7,21 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  combineReducers,
-  configureStore,
-  type Reducer,
-  type Store,
-  type UnknownAction,
-} from "@reduxjs/toolkit";
 import { createTestClient, project, type Synnax } from "@synnaxlabs/client";
-import { Drift } from "@synnaxlabs/drift";
-import { Access, Flux, Pluto, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { Access, Flux, type Pluto } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
-import { Provider } from "react-redux";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { Schematic } from "@/feature/schematic";
@@ -29,6 +19,7 @@ import { Table } from "@/feature/table";
 import { type Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
+import { createConsoleWrapper, type TestStore } from "@/testutil/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -66,14 +57,6 @@ const TABLE_DATA = {
   cells: { c1: { key: "c1", variant: "text", props: { value: "hello" } } },
 };
 
-const rootReducer = combineReducers({
-  [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
-  [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
-  [Session.Table.SLICE_NAME]: Session.Table.reducer,
-  [Session.Project.SLICE_NAME]: Session.Project.reducer,
-  [Drift.SLICE_NAME]: Drift.reducer,
-}) as unknown as Reducer<Record<string, unknown>, UnknownAction>;
-
 // An exported layout slice with a schematic and a table tab, each keyed to match the
 // resource key in the corresponding component file.
 const exportedSlice = (): Session.Layout.SliceState => {
@@ -101,10 +84,10 @@ const exportedSlice = (): Session.Layout.SliceState => {
   return s;
 };
 
-const layoutsOfType = (store: Store, type: string): Session.Layout.State[] =>
-  Object.values(
-    Session.Layout.selectSliceState(store.getState() as never).layouts,
-  ).filter((l) => l.type === type);
+const layoutsOfType = (store: TestStore, type: string): Session.Layout.State[] =>
+  Object.values(Session.Layout.selectSliceState(store.getState()).layouts).filter(
+    (l) => l.type === type,
+  );
 
 interface HarnessValue {
   placer: Layout.Placer;
@@ -113,29 +96,8 @@ interface HarnessValue {
 }
 
 describe("project import", () => {
-  let fluxClient: Flux.Client;
-
-  beforeAll(async () => {
-    fluxClient = new Flux.Client({
-      client,
-      storeConfig: Pluto.FLUX_STORE_CONFIG,
-      handleError: () => {},
-      handleAsyncError: async () => {},
-    });
-    await fluxClient.awaitInitialized();
-  });
-
-  const runImport = async (fileList: Import.File[] = files()): Promise<Store> => {
-    const store = configureStore({ reducer: rootReducer });
-    const wrapper = ({ children }: PropsWithChildren): ReactElement => (
-      <Provider store={store}>
-        <Status.Aggregator>
-          <PSynnax.TestProvider client={client}>
-            <Flux.Provider client={fluxClient}>{children}</Flux.Provider>
-          </PSynnax.TestProvider>
-        </Status.Aggregator>
-      </Provider>
-    );
+  const runImport = async (fileList: Import.File[] = files()): Promise<TestStore> => {
+    const { wrapper, store } = await createConsoleWrapper({ client });
     const { result } = renderHook<HarnessValue, unknown>(
       () => ({
         placer: Layout.usePlacer(),

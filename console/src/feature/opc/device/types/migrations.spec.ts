@@ -9,13 +9,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type AnyProperties, migrateProperties } from "@/feature/opc/device/types";
+import { OPC } from "@/feature/opc";
 import * as v0 from "@/feature/opc/device/types/v0";
 import * as v1 from "@/feature/opc/device/types/v1";
 
 interface TestCase {
   description: string;
-  input: AnyProperties;
+  input: OPC.Device.AnyProperties;
   output: v1.Properties;
 }
 
@@ -77,5 +77,5 @@ const TEST_RECORD: TestCase[] = [
 
 describe("migrations", () =>
   TEST_RECORD.forEach(({ description, input, output }) =>
-    it(description, () => expect(migrateProperties(input)).toEqual(output)),
+    it(description, () => expect(OPC.Device.migrateProperties(input)).toEqual(output)),
   ));

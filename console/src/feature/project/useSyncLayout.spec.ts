@@ -13,7 +13,7 @@ import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useSyncLayout } from "@/feature/project/useSyncLayout";
+import { Project } from "@/feature/project";
 import { Session } from "@/session";
 import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil/testutil";
 
@@ -35,7 +35,7 @@ describe("useSyncLayout", () => {
     });
     const { result } = renderHook(
       () => {
-        useSyncLayout();
+        Project.useSyncLayout();
         return Access.useLoadPermissions({});
       },
       { wrapper },
@@ -77,7 +77,7 @@ describe("useSyncLayout", () => {
     });
     const { result } = renderHook(
       () => {
-        useSyncLayout();
+        Project.useSyncLayout();
         return {
           logout: Session.useLogout(),
           notifications: Status.useNotifications(),
