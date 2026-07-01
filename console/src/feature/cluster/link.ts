@@ -12,7 +12,7 @@ import { Synnax, useSyncedRef } from "@synnaxlabs/pluto";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type Link } from "@/feature/link";
+import { type Link } from "@/platform/link";
 import { Session } from "@/session";
 import { type State } from "@/session/store";
 

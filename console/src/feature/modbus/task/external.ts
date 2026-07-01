@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type Export } from "@/feature/export";
-import { type Import } from "@/feature/import";
 import { Read, READ_LAYOUT, ReadSelectable } from "@/feature/modbus/task/Read";
 import {
   READ_SCHEMAS,
@@ -20,6 +19,7 @@ import { Write, WRITE_LAYOUT, WriteSelectable } from "@/feature/modbus/task/Writ
 import { createIngester } from "@/feature/task/createIngester";
 import { extract } from "@/feature/task/export";
 import { type Layout as TaskLayout } from "@/feature/task/Form";
+import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
 

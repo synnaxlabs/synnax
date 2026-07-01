@@ -13,7 +13,7 @@ import { strings } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 
-import { type ClusterConnect, type Handler, PREFIX } from "@/feature/link/types";
+import { type ClusterConnect, type Handler, PREFIX } from "@/platform/link/types";
 import { Session } from "@/session";
 
 const BASE_LINK = `${PREFIX}<cluster-key>`;

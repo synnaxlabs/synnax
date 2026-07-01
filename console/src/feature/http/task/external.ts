@@ -16,10 +16,10 @@ import {
   WRITE_TYPE,
 } from "@/feature/http/task/types";
 import { Write, WRITE_LAYOUT, WriteSelectable } from "@/feature/http/task/Write";
-import { type Import } from "@/feature/import";
 import { createIngester } from "@/feature/task/createIngester";
 import { extract } from "@/feature/task/export";
 import { type Layout as TaskLayout } from "@/feature/task/Form";
+import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
 

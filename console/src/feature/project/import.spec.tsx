@@ -23,10 +23,10 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Import } from "@/feature/import";
 import { Project } from "@/feature/project";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
+import { type Import } from "@/platform/import";
 import { Session } from "@/session";
 
 const client: Synnax = createTestClient();

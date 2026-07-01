@@ -27,12 +27,12 @@ import { useCallback, useMemo } from "react";
 
 import { Group } from "@/feature/group";
 import { LinePlot as ServiceLinePlot } from "@/feature/lineplot";
-import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { Channel } from "@/platform/channel";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { LinePlot } from "@/platform/lineplot";
+import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({

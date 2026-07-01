@@ -10,7 +10,7 @@
 import { context } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { type FileIngesters } from "@/feature/import/ingester";
+import { type FileIngesters } from "@/platform/import/ingester";
 
 const [Context, useContext] = context.create<FileIngesters>({
   displayName: "Import.Context",

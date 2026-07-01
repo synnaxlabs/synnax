@@ -10,7 +10,6 @@
 import { EtherCAT } from "@/feature/ethercat";
 import { type Export } from "@/feature/export";
 import { HTTP } from "@/feature/http";
-import { type Import } from "@/feature/import";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
@@ -18,6 +17,7 @@ import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/feature/task/Selector";
 import { TOOLBAR } from "@/feature/task/Toolbar";
+import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { type Palette } from "@/platform/palette";

@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import { type Link } from "@/feature/link";
+import { type Link } from "@/platform/link";
 import { create } from "@/platform/log/layout";
 import { Session } from "@/session";
 

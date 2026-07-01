@@ -12,12 +12,12 @@ import { Access, Icon, Menu, Mosaic, Table as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
 import { Group } from "@/feature/group";
-import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { useExport } from "@/feature/table/export";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
+import { Link } from "@/platform/link";
 import { Table } from "@/platform/table";
 import { Session } from "@/session";
 

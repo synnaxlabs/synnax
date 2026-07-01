@@ -12,7 +12,6 @@ import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { Group } from "@/feature/group";
-import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { Range } from "@/feature/range";
 import { useExport } from "@/feature/task/export";
@@ -21,6 +20,7 @@ import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
+import { Link } from "@/platform/link";
 import { type FormLayoutArgs } from "@/platform/task/Form";
 import { Session } from "@/session";
 

@@ -10,7 +10,7 @@
 import { useCallback } from "react";
 
 import { getMake, useConfigureModal } from "@/feature/device/make";
-import { type Link } from "@/feature/link";
+import { type Link } from "@/platform/link";
 
 export const useLink = (): Link.Handler => {
   const configure = useConfigureModal();

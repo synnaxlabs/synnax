@@ -22,13 +22,13 @@ import {
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { useAddToActivePlot } from "@/feature/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/feature/range/useAddToNewPlot";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { LinePlot } from "@/platform/lineplot";
+import { Link } from "@/platform/link";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 import {

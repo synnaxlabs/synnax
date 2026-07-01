@@ -21,11 +21,11 @@ import {
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { create } from "@/platform/arc/layout";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
 export interface ContextMenuProps extends Menu.ContextMenuMenuProps {

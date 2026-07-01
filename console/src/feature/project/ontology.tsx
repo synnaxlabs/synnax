@@ -29,9 +29,7 @@ import { array, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Group } from "@/feature/group";
-import { Import } from "@/feature/import";
 import { LinePlot } from "@/feature/lineplot";
-import { Link } from "@/feature/link";
 import { Log } from "@/feature/log";
 import { Ontology } from "@/feature/ontology";
 import { useExport } from "@/feature/project/export";
@@ -39,6 +37,8 @@ import { Table } from "@/feature/table";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
+import { Import } from "@/platform/import";
+import { Link } from "@/platform/link";
 import { Schematic as CSchematic } from "@/platform/schematic";
 import { Session } from "@/session";
 

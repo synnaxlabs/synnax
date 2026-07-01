@@ -13,12 +13,12 @@ import { array, strings } from "@synnaxlabs/x";
 
 import { Group } from "@/feature/group";
 import { useExport } from "@/feature/lineplot/export";
-import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { create } from "@/platform/lineplot/layout";
+import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
 const useDelete = Ontology.createUseDelete({

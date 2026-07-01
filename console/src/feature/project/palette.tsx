@@ -11,9 +11,9 @@ import { project } from "@synnaxlabs/client";
 import { Access, Project as PProject } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useFileIngesters } from "@/feature/import/FileIngestersProvider";
 import { useExport } from "@/feature/project/export";
 import { import_ } from "@/feature/project/import";
+import { useFileIngesters } from "@/platform/import/FileIngestersProvider";
 import { Palette } from "@/platform/palette";
 import { Project } from "@/platform/project";
 

@@ -14,12 +14,12 @@ import { errors } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { ZodError } from "zod";
 
-import { useFileIngesters } from "@/feature/import/FileIngestersProvider";
+import { useFileIngesters } from "@/platform/import/FileIngestersProvider";
 import {
   type FileIngesterContext,
   type FileIngesters,
-} from "@/feature/import/ingester";
-import { trimFileName } from "@/feature/import/trimFileName";
+} from "@/platform/import/ingester";
+import { trimFileName } from "@/platform/import/trimFileName";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 

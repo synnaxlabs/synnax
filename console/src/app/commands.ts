@@ -12,7 +12,6 @@ import { Channel } from "@/feature/channel";
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
 import { Docs } from "@/feature/docs";
-import { Import } from "@/feature/import";
 import { Label } from "@/feature/label";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
@@ -25,6 +24,7 @@ import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
 import { Framer } from "@/platform/framer";
+import { Import } from "@/platform/import";
 import { type Palette } from "@/platform/palette";
 import { Theme } from "@/platform/theme";
 

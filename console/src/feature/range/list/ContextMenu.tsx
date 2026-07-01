@@ -10,11 +10,11 @@
 import { ranger } from "@synnaxlabs/client";
 import { Access, Divider, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
 
-import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";

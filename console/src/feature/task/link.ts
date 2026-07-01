@@ -9,8 +9,8 @@
 
 import { useCallback } from "react";
 
-import { type Link } from "@/feature/link";
 import { retrieveAndPlaceLayout } from "@/feature/task/layouts";
+import { type Link } from "@/platform/link";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {

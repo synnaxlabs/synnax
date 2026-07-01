@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Export } from "@/feature/export";
-import { type Import } from "@/feature/import";
 import { Alert, ALERT_LAYOUT, AlertSelectable } from "@/feature/pagerduty/task/Alert";
 import { ALERT_SCHEMAS, ALERT_TYPE } from "@/feature/pagerduty/task/types";
 import { createIngester } from "@/feature/task/createIngester";
 import { extract } from "@/feature/task/export";
 import { type Layout as TaskLayout } from "@/feature/task/Form";
+import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
 

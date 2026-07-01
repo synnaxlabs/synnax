@@ -15,11 +15,11 @@ import { useMemo } from "react";
 
 import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
 import { Group } from "@/feature/group";
-import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { Link } from "@/platform/link";
 
 const useDelete = Ontology.createUseDelete({
   type: "Device",

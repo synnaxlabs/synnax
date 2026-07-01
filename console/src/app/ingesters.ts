@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Arc } from "@/feature/arc";
-import { type Import } from "@/feature/import";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { type Import } from "@/platform/import";
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   ...Arc.FILE_INGESTERS,

@@ -10,7 +10,7 @@
 import { DisconnectedError, table } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { type Import } from "@/feature/import";
+import { type Import } from "@/platform/import";
 import { create, LAYOUT_TYPE } from "@/platform/table/layout";
 import { Session } from "@/session";
 

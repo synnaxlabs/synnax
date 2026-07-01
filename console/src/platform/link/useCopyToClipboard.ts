@@ -10,8 +10,8 @@
 import { type ontology } from "@synnaxlabs/client";
 import { useCallback } from "react";
 
-import { PREFIX } from "@/feature/link/types";
 import { useCopy } from "@/platform/clipboard/useCopy";
+import { PREFIX } from "@/platform/link/types";
 
 export interface CopyToClipboardArgs {
   clusterKey: string;

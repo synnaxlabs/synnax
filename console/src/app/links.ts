@@ -12,13 +12,13 @@ import { Channel } from "@/feature/channel";
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
 import { LinePlot } from "@/feature/lineplot";
-import { Link } from "@/feature/link";
 import { Log } from "@/feature/log";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { Link } from "@/platform/link";
 
 export const useLinks = (): void => {
   const handlers = {

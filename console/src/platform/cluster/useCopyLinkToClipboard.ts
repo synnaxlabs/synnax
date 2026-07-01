@@ -11,7 +11,7 @@ import { type ontology } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Link } from "@/feature/link";
+import { Link } from "@/platform/link";
 import { useSelectSelectedKey } from "@/session/cluster/selectors";
 
 export interface CopyLinkToClipboardArgs {

@@ -13,10 +13,10 @@ import { Access, Flux, Group, Icon, Menu, Tree } from "@synnaxlabs/pluto";
 import { ContextMenuItem } from "@/feature/group/ContextMenuItem";
 import { useCreateEmpty } from "@/feature/group/useCreateEmpty";
 import { useCreateFromSelection } from "@/feature/group/useCreateFromSelection";
-import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
+import { Link } from "@/platform/link";
 
 const useRename = Ontology.createUseRename({
   query: Group.useRename,

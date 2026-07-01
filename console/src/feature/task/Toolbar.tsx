@@ -28,7 +28,6 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
-import { Link } from "@/feature/link";
 import { Range } from "@/feature/range";
 import { useExport } from "@/feature/task/export";
 import { createLayout } from "@/feature/task/layouts";
@@ -41,6 +40,7 @@ import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
+import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
 import { type Task as CommonTask } from "@/platform/task";

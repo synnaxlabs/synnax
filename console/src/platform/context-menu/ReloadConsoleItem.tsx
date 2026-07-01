@@ -11,7 +11,7 @@ import { reloadWindow } from "@synnaxlabs/drift";
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { Link } from "@/feature/link";
+import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
 export const ReloadConsoleItem = (): ReactElement => {

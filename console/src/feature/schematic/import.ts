@@ -10,7 +10,7 @@
 import { DisconnectedError, schematic } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { type Import } from "@/feature/import";
+import { type Import } from "@/platform/import";
 import { Schematic as CSchematic } from "@/platform/schematic";
 import { Session } from "@/session";
 

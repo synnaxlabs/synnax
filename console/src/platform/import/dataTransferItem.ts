@@ -11,9 +11,9 @@ import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { type Pluto } from "@synnaxlabs/pluto";
 
-import { ingestComponent } from "@/feature/import/import";
-import { type DirectoryIngester, type FileIngesters } from "@/feature/import/ingester";
-import { trimFileName } from "@/feature/import/trimFileName";
+import { ingestComponent } from "@/platform/import/import";
+import { type DirectoryIngester, type FileIngesters } from "@/platform/import/ingester";
+import { trimFileName } from "@/platform/import/trimFileName";
 import { Session } from "@/session";
 
 interface DirectoryContent {

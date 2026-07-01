@@ -12,9 +12,9 @@ import { DisconnectedError, project, type Synnax } from "@synnaxlabs/client";
 import { Access, Mosaic, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 
-import { type Import } from "@/feature/import";
 import { LAYOUT_FILE_NAME } from "@/feature/project/export";
 import { migrateLayout } from "@/feature/project/layoutMigrations";
+import { type Import } from "@/platform/import";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 

@@ -10,8 +10,8 @@
 import { arc, DisconnectedError } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { type Import } from "@/feature/import";
 import { create } from "@/platform/arc/layout";
+import { type Import } from "@/platform/import";
 import { Session } from "@/session";
 
 export const ingest: Import.FileIngester = async (

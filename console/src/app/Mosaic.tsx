@@ -43,13 +43,13 @@ import {
 
 import { Nav as AppNav } from "@/app/nav";
 import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
-import { Import } from "@/feature/import";
 import { Layout as ServiceLayout } from "@/feature/layout";
 import { LinePlot } from "@/feature/lineplot";
 import { Ontology } from "@/feature/ontology";
 import { Project } from "@/feature/project";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 

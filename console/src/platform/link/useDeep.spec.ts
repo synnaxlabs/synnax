@@ -13,7 +13,7 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Link } from "@/feature/link";
+import { Link } from "@/platform/link";
 import { renderHookWithConsole } from "@/testutil/testutil";
 
 // useDeep dispatches Drift.focusWindow as a side effect of routing. Routing itself does
