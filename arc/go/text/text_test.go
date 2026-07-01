@@ -333,8 +333,8 @@ var _ = Describe("Text", func() {
 			)
 		})
 
-		Context("Config Values", func() {
-			It("Should extract named config values", func(ctx SpecContext) {
+		Context("Input Values", func() {
+			It("Should extract named input values", func(ctx SpecContext) {
 				source := `
 				func processor{threshold i64, scale f64} () i64 {
 				    return threshold
@@ -359,7 +359,7 @@ var _ = Describe("Text", func() {
 				Expect(node.Inputs[1].Value).To(Equal(2.5))
 			})
 
-			It("Should handle simple config with multiple values", func(ctx SpecContext) {
+			It("Should handle simple input with multiple values", func(ctx SpecContext) {
 				source := `
 				func calculator{a i64, b i64, c i64} () i64 {
 				    return a + b + c
@@ -376,16 +376,16 @@ var _ = Describe("Text", func() {
 				Expect(node.Type).To(Equal("calculator"))
 				Expect(node.Inputs).To(HaveLen(3))
 
-				configValues := map[string]int64{
+				inputValues := map[string]int64{
 					"a": 10, "b": 20, "c": 30,
 				}
 				for i, cfg := range node.Inputs {
 					Expect(cfg.Type).To(Equal(types.I64()))
-					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
+					Expect(cfg.Value).To(Equal(inputValues[cfg.Name]), "input[%d] '%s' value mismatch", i, cfg.Name)
 				}
 			})
 
-			It("Should handle negated integer config value", func(ctx SpecContext) {
+			It("Should handle negated integer input value", func(ctx SpecContext) {
 				source := `
 				func processor{
 					threshold i64
@@ -408,7 +408,7 @@ var _ = Describe("Text", func() {
 				Expect(node.Inputs[0].Value).To(Equal(int64(-100)))
 			})
 
-			It("Should handle negated float config value", func(ctx SpecContext) {
+			It("Should handle negated float input value", func(ctx SpecContext) {
 				source := `
 				func scaler{
 					factor f64
@@ -431,7 +431,7 @@ var _ = Describe("Text", func() {
 				Expect(node.Inputs[0].Value).To(Equal(-2.5))
 			})
 
-			It("Should handle negated time unit config value", func(ctx SpecContext) {
+			It("Should handle negated time unit input value", func(ctx SpecContext) {
 				source := `
 				import time
 				time_trigger -> time.wait{duration=-3h} -> wait_out
@@ -452,7 +452,7 @@ var _ = Describe("Text", func() {
 				Expect(waitNode.Inputs[0].Value).To(Equal(telem.TimeSpan(-threeHoursNanos)))
 			})
 
-			It("Should resolve channel name to channel ID in config parameter", func(ctx SpecContext) {
+			It("Should resolve channel name to channel ID in input parameter", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10042},
 				}
@@ -476,7 +476,7 @@ var _ = Describe("Text", func() {
 				Expect(readerNode.Channels.Read).To(HaveKey(uint32(10042)))
 			})
 
-			It("Should produce diagnostic error when channel config type mismatches", func(ctx SpecContext) {
+			It("Should produce diagnostic error when channel input type mismatches", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10043},
 				}
@@ -516,7 +516,7 @@ var _ = Describe("Text", func() {
 				Expect(diagStr).To(ContainSubstring("unknown_sensor"))
 			})
 
-			It("Should reject read channel for config param requiring write channel", func(ctx SpecContext) {
+			It("Should reject read channel for input param requiring write channel", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "read_sensor",
@@ -536,7 +536,7 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeFalse())
 			})
 
-			It("Should reject read channel for qualified control.set_authority config param", func(ctx SpecContext) {
+			It("Should reject read channel for qualified control.set_authority input param", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "read_sensor",
@@ -850,7 +850,7 @@ time.wait{duration=500ms} -> output`
 				Expect(writerNode.Channels.Read).NotTo(HaveKey(uint32(10055)))
 			})
 
-			It("Should register separate write channels when function with channel config is used multiple times", func(ctx SpecContext) {
+			It("Should register separate write channels when function with channel input is used multiple times", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "toggle_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10011},
 					{Name: "toggle_2", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10012},
@@ -913,7 +913,7 @@ time.wait{duration=500ms} -> output`
 				Expect(node.Channels.Write).To(BeEmpty(), "should not have any write channels")
 			})
 
-			It("Should resolve read-only config param channel in Channels.Read", func(ctx SpecContext) {
+			It("Should resolve read-only input param channel in Channels.Read", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "do_0_state", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10201},
 					{Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10202},
@@ -950,7 +950,7 @@ time.wait{duration=500ms} -> output`
 				Expect(node.Inputs[1].Value).To(Equal(uint32(10203)))
 			})
 
-			It("Should handle config values using global constants", func(ctx SpecContext) {
+			It("Should handle input values using global constants", func(ctx SpecContext) {
 				source := `
 				A := 10
 				B := 20
@@ -971,16 +971,16 @@ time.wait{duration=500ms} -> output`
 				Expect(node.Type).To(Equal("calculator"))
 				Expect(node.Inputs).To(HaveLen(3))
 
-				configValues := map[string]int64{
+				inputValues := map[string]int64{
 					"a": 10, "b": 20, "c": 30,
 				}
 				for i, cfg := range node.Inputs {
 					Expect(cfg.Type).To(Equal(types.I64()))
-					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
+					Expect(cfg.Value).To(Equal(inputValues[cfg.Name]), "input[%d] '%s' value mismatch", i, cfg.Name)
 				}
 			})
 
-			It("Should handle f64 global constants in config", func(ctx SpecContext) {
+			It("Should handle f64 global constants in input", func(ctx SpecContext) {
 				source := `
 				SCALE := 2.5
 				OFFSET := 0.1
@@ -999,7 +999,7 @@ time.wait{duration=500ms} -> output`
 				node := findNodeByKey(inter.Nodes, "transform_0")
 				Expect(node.Inputs).To(HaveLen(3))
 
-				configValues := map[string]float64{
+				inputValues := map[string]float64{
 					"scale": 2.5, "offset": 0.1,
 				}
 				for _, cfg := range node.Inputs {
@@ -1007,11 +1007,11 @@ time.wait{duration=500ms} -> output`
 						continue
 					}
 					Expect(cfg.Type).To(Equal(types.F64()))
-					Expect(cfg.Value).To(Equal(configValues[cfg.Name]))
+					Expect(cfg.Value).To(Equal(inputValues[cfg.Name]))
 				}
 			})
 
-			It("Should handle mixed literal and constant config values", func(ctx SpecContext) {
+			It("Should handle mixed literal and constant input values", func(ctx SpecContext) {
 				source := `
 				THRESHOLD := 100
 
@@ -1039,7 +1039,7 @@ time.wait{duration=500ms} -> output`
 				}
 			})
 
-			It("Should handle typed global constants in config", func(ctx SpecContext) {
+			It("Should handle typed global constants in input", func(ctx SpecContext) {
 				source := `
 				MAX_VALUE i32 := 255
 
@@ -1061,7 +1061,7 @@ time.wait{duration=500ms} -> output`
 				Expect(node.Inputs[0].Value).To(Equal(int32(255)))
 			})
 
-			It("Should resolve anonymous config values by position into IR nodes", func(ctx SpecContext) {
+			It("Should resolve anonymous input values by position into IR nodes", func(ctx SpecContext) {
 				source := `
 				func transform{scale f64, offset f64} (x f64) f64 {
 				    return x * scale + offset
@@ -1082,7 +1082,7 @@ time.wait{duration=500ms} -> output`
 				Expect(node.Inputs[1].Value).To(Equal(0.1))
 			})
 
-			It("Should resolve partial anonymous config with defaults into IR nodes", func(ctx SpecContext) {
+			It("Should resolve partial anonymous input with defaults into IR nodes", func(ctx SpecContext) {
 				source := `
 				func controller{setpoint f64, gain f64 = 1.0} (x f64) f64 {
 				    return x
@@ -1103,7 +1103,7 @@ time.wait{duration=500ms} -> output`
 				Expect(node.Inputs[1].Value).To(Equal(1.0))
 			})
 
-			It("Should resolve channel identifier as anonymous config into IR", func(ctx SpecContext) {
+			It("Should resolve channel identifier as anonymous input into IR", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10001},
 				}
@@ -3434,7 +3434,7 @@ time.wait{duration=500ms} -> output`
 	})
 
 	Describe("Authority Analysis", func() {
-		It("Should include authority config in IR with simple form", func(ctx SpecContext) {
+		It("Should include authority input in IR with simple form", func(ctx SpecContext) {
 			resolver := []symbol.Symbol{
 				{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
 			}
@@ -3528,9 +3528,9 @@ time.wait{duration=500ms} -> output`
 			Expect(module.Output.WASM).ToNot(BeEmpty())
 		})
 
-		It("Should compile function with channel config param assigned to intermediate variable", func(ctx SpecContext) {
+		It("Should compile function with channel input param assigned to intermediate variable", func(ctx SpecContext) {
 			// This is the exact user pattern that was failing:
-			// sp := set_point (where set_point is a chan f32 config param)
+			// sp := set_point (where set_point is a chan f32 input param)
 			resolver := []symbol.Symbol{
 				{
 					Name: "virt_1",
@@ -3586,9 +3586,9 @@ time.wait{duration=500ms} -> output`
 			Expect(module.Output.WASM).ToNot(BeEmpty())
 		})
 
-		It("Should compile function with channel config param assigned to intermediate variable and written to", func(ctx SpecContext) {
+		It("Should compile function with channel input param assigned to intermediate variable and written to", func(ctx SpecContext) {
 			// Test that writing to an intermediate variable correctly tracks the channel
-			// out := output (config param with channel type)
+			// out := output (input param with channel type)
 			// out = value * 2.0 (write to channel through intermediate variable)
 			resolver := []symbol.Symbol{
 				{

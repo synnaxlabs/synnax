@@ -184,7 +184,7 @@ var _ = Describe("Channel", func() {
 				node := MustSucceed(factory.Create(ctx, cfg))
 				Expect(node).ToNot(BeNil())
 			})
-			It("Should parse channel from config", func(ctx SpecContext) {
+			It("Should parse channel from input", func(ctx SpecContext) {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
@@ -235,7 +235,7 @@ var _ = Describe("Channel", func() {
 				Expect(err).To(Equal(query.ErrNotFound))
 				Expect(node).To(BeNil())
 			})
-			It("Should return error for invalid config", func(ctx SpecContext) {
+			It("Should return error for invalid input", func(ctx SpecContext) {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "on",

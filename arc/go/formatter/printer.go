@@ -997,7 +997,7 @@ func (p *printer) handleComma(idx int, tokens []antlr.Token) {
 }
 
 // isTrailingCommaInInlinedBlock reports whether the comma at idx is the final
-// separator in a input values or input block that is being collapsed onto
+// separator in an input values or input block that is being collapsed onto
 // a single line (i.e., the next non-whitespace token is the closing brace).
 // Such trailing commas must be dropped so the inlined form reads cleanly.
 func (p *printer) isTrailingCommaInInlinedBlock(idx int, tokens []antlr.Token) bool {

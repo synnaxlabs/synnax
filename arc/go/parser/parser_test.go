@@ -351,7 +351,7 @@ func process(input chan f64, output chan f64) {
 	})
 
 	Describe("Tasks", func() {
-		It("Should parse function with config block", func() {
+		It("Should parse function with input block", func() {
 			prog := mustParseProgram(`
 func controller{
     setpoint f64,
@@ -368,17 +368,17 @@ func controller{
 			Expect(taskDecl.FUNC()).NotTo(BeNil())
 			Expect(taskDecl.IDENTIFIER().GetText()).To(Equal("controller"))
 
-			// Config block
-			config := taskDecl.InputBlock()
-			Expect(config).NotTo(BeNil())
-			Expect(config.InputList()).NotTo(BeNil())
-			Expect(config.InputList().AllInput()).To(HaveLen(3))
+			// Input block
+			inputBlock := taskDecl.InputBlock()
+			Expect(inputBlock).NotTo(BeNil())
+			Expect(inputBlock.InputList()).NotTo(BeNil())
+			Expect(inputBlock.InputList().AllInput()).To(HaveLen(3))
 
-			// Runtime parameters
-			params := taskDecl.TriggerList()
-			Expect(params).NotTo(BeNil())
-			Expect(params.AllTrigger()).To(HaveLen(1))
-			Expect(params.Trigger(0).IDENTIFIER().GetText()).To(Equal("enable"))
+			// Triggers
+			triggers := taskDecl.TriggerList()
+			Expect(triggers).NotTo(BeNil())
+			Expect(triggers.AllTrigger()).To(HaveLen(1))
+			Expect(triggers.Trigger(0).IDENTIFIER().GetText()).To(Equal("enable"))
 
 			// Raw
 			block := taskDecl.Block()
@@ -425,7 +425,7 @@ func doubler{
 			Expect(node3.Identifier().IDENTIFIER().GetText()).To(Equal("actuator"))
 		})
 
-		It("Should parse func invocation with named config", func() {
+		It("Should parse func invocation with named input", func() {
 			prog := mustParseProgram(`
 controller{
     setpoint=100,
@@ -439,14 +439,14 @@ controller{
 
 			Expect(invocation.IDENTIFIER().GetText()).To(Equal("controller"))
 
-			// Config values
-			config := invocation.InputValues()
-			Expect(config).NotTo(BeNil())
-			Expect(config.NamedInputValues()).NotTo(BeNil())
-			Expect(config.NamedInputValues().AllNamedInputValue()).To(HaveLen(3))
+			// Input values
+			input := invocation.InputValues()
+			Expect(input).NotTo(BeNil())
+			Expect(input.NamedInputValues()).NotTo(BeNil())
+			Expect(input.NamedInputValues().AllNamedInputValue()).To(HaveLen(3))
 		})
 
-		It("Should parse func invocation with anonymous config", func() {
+		It("Should parse func invocation with anonymous input", func() {
 			prog := mustParseProgram(`any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
@@ -455,11 +455,11 @@ controller{
 
 			Expect(invocation.IDENTIFIER().GetText()).To(Equal("any"))
 
-			// Anonymous config values
-			config := invocation.InputValues()
-			Expect(config).NotTo(BeNil())
-			Expect(config.AnonymousInputValues()).NotTo(BeNil())
-			Expect(config.AnonymousInputValues().AllExpression()).To(HaveLen(2))
+			// Anonymous input values
+			input := invocation.InputValues()
+			Expect(input).NotTo(BeNil())
+			Expect(input.AnonymousInputValues()).NotTo(BeNil())
+			Expect(input.AnonymousInputValues().AllExpression()).To(HaveLen(2))
 
 			// Check the second node also has func invocation
 			node2 := flow.FlowNode(1)
@@ -467,7 +467,7 @@ controller{
 			Expect(node2.Function().IDENTIFIER().GetText()).To(Equal("average"))
 		})
 
-		It("Should parse func invocation with anonymous config in flow", func() {
+		It("Should parse func invocation with anonymous input in flow", func() {
 			prog := mustParseProgram(`
 func average {} (first chan f64, second chan f64) chan f64 {
     return (first + second) / 2
@@ -484,12 +484,12 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			node := flow.FlowNode(0)
 			invocation := node.Function()
 
-			// Verify anonymous config
-			config := invocation.InputValues()
-			Expect(config).NotTo(BeNil())
-			Expect(config.AnonymousInputValues()).NotTo(BeNil())
+			// Verify anonymous input
+			input := invocation.InputValues()
+			Expect(input).NotTo(BeNil())
+			Expect(input.AnonymousInputValues()).NotTo(BeNil())
 
-			exprs := config.AnonymousInputValues().AllExpression()
+			exprs := input.AnonymousInputValues().AllExpression()
 			Expect(exprs).To(HaveLen(2))
 
 			// First expression should be ox_pt_1
@@ -513,7 +513,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			Expect(relational.GT(0)).NotTo(BeNil())
 		})
 
-		It("Should parse empty config in flow chains", func() {
+		It("Should parse empty input in flow chains", func() {
 			prog := mustParseProgram(`
 func average {} (first chan f64, second chan f64) chan f64 {
     return (first + second) / 2
@@ -533,18 +533,18 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			Expect(node1.Function()).NotTo(BeNil())
 			Expect(node1.Function().IDENTIFIER().GetText()).To(Equal("any"))
 
-			// Check middle func invocation (average with empty config)
+			// Check middle func invocation (average with empty input)
 			node2 := flow.FlowNode(1)
 			Expect(node2.Function()).NotTo(BeNil())
 			Expect(node2.Function().IDENTIFIER().GetText()).To(Equal("average"))
 
-			// Verify average has empty config
-			avgConfig := node2.Function().InputValues()
-			Expect(avgConfig).NotTo(BeNil())
-			Expect(avgConfig.LBRACE()).NotTo(BeNil())
-			Expect(avgConfig.RBRACE()).NotTo(BeNil())
-			Expect(avgConfig.NamedInputValues()).To(BeNil())
-			Expect(avgConfig.AnonymousInputValues()).To(BeNil())
+			// Verify average has empty input
+			avgInput := node2.Function().InputValues()
+			Expect(avgInput).NotTo(BeNil())
+			Expect(avgInput.LBRACE()).NotTo(BeNil())
+			Expect(avgInput.RBRACE()).NotTo(BeNil())
+			Expect(avgInput.NamedInputValues()).To(BeNil())
+			Expect(avgInput.AnonymousInputValues()).To(BeNil())
 
 			// Check final node (channel)
 			node3 := flow.FlowNode(2)
@@ -552,7 +552,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			Expect(node3.Identifier().IDENTIFIER().GetText()).To(Equal("ox_pt_avg"))
 		})
 
-		It("Should fail parsing mixed named and anonymous config values", func() {
+		It("Should fail parsing mixed named and anonymous input values", func() {
 			// Note: 'stage' is now a reserved keyword, so we use a different function name
 			Expect(parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`)).Error().To(MatchError(ContainSubstring("1:22 error: mismatched input")))
 		})

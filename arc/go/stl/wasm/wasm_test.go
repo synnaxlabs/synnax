@@ -667,8 +667,8 @@ var _ = Describe("WASM", func() {
 		})
 	})
 
-	Describe("TimeSpan Config Values", func() {
-		It("Should thread duration literal config values through the analyzer, compiler, and runtime", func(ctx SpecContext) {
+	Describe("TimeSpan Input Values", func() {
+		It("Should thread duration literal input values through the analyzer, compiler, and runtime", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "trigger_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 			}
@@ -1686,12 +1686,12 @@ trigger_ch -> emit_period{period=1s}
 		})
 	})
 
-	Describe("Config Parameters", func() {
-		It("Should pass config values to WASM function", func(ctx SpecContext) {
+	Describe("Input Parameters", func() {
+		It("Should pass input values to WASM function", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
-						Key:     "add_config",
+						Key:     "add_input",
 						Inputs:  types.Params{{Name: "x", Type: types.I64()}, {Name: "y", Type: types.I64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 						Body:    ir.Body{Raw: `{ return x + y }`},
@@ -1704,14 +1704,14 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Nodes: []graph.Node{
 					{Key: "input_source"},
-					{Key: "add_config"},
+					{Key: "add_input"},
 				},
 				Inputs: map[string]msgpack.EncodedJSON{
 					"input_source": {"type": "input_source"},
-					"add_config":   {"type": "add_config", "x": int64(10)},
+					"add_input":    {"type": "add_input", "x": int64(10)},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add_config", Param: "y"}}},
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add_input", Param: "y"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1720,19 +1720,19 @@ trigger_ch -> emit_period{period=1s}
 			// Set up input source output
 			h.SetInput("input_source", 0, telem.NewSeriesV[int64](5), telem.NewSeriesSecondsTSV(1))
 
-			n := h.CreateNode(ctx, "add_config")
-			h.NextChanged(ctx, n, "add_config")
+			n := h.CreateNode(ctx, "add_input")
+			h.NextChanged(ctx, n, "add_input")
 
-			output := h.Output("add_config", 0)
+			output := h.Output("add_input", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[int64](output)[0]).To(Equal(int64(15)))
 		})
 
-		It("Should handle multiple config parameters", func(ctx SpecContext) {
+		It("Should handle multiple input parameters", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
-						Key:     "multi_config",
+						Key:     "multi_input",
 						Inputs:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}, {Name: "c", Type: types.I32()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 						Body:    ir.Body{Raw: `{ return a + b + c }`},
@@ -1745,14 +1745,14 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Nodes: []graph.Node{
 					{Key: "input_source"},
-					{Key: "multi_config"},
+					{Key: "multi_input"},
 				},
 				Inputs: map[string]msgpack.EncodedJSON{
 					"input_source": {"type": "input_source"},
-					"multi_config": {"type": "multi_config", "a": int32(5), "b": int32(10)},
+					"multi_input":  {"type": "multi_input", "a": int32(5), "b": int32(10)},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "multi_config", Param: "c"}}},
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "multi_input", Param: "c"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1760,19 +1760,19 @@ trigger_ch -> emit_period{period=1s}
 
 			h.SetInput("input_source", 0, telem.NewSeriesV[int32](3), telem.NewSeriesSecondsTSV(1))
 
-			n := h.CreateNode(ctx, "multi_config")
-			h.NextChanged(ctx, n, "multi_config")
+			n := h.CreateNode(ctx, "multi_input")
+			h.NextChanged(ctx, n, "multi_input")
 
-			output := h.Output("multi_config", 0)
+			output := h.Output("multi_input", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[int32](output)[0]).To(Equal(int32(18)))
 		})
 
-		It("Should handle float64 config parameters", func(ctx SpecContext) {
+		It("Should handle float64 input parameters", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
-						Key:     "scale_config",
+						Key:     "scale_input",
 						Inputs:  types.Params{{Name: "factor", Type: types.F64()}, {Name: "value", Type: types.F64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 						Body:    ir.Body{Raw: `{ return value * factor }`},
@@ -1785,14 +1785,14 @@ trigger_ch -> emit_period{period=1s}
 				},
 				Nodes: []graph.Node{
 					{Key: "input_source"},
-					{Key: "scale_config"},
+					{Key: "scale_input"},
 				},
 				Inputs: map[string]msgpack.EncodedJSON{
 					"input_source": {"type": "input_source"},
-					"scale_config": {"type": "scale_config", "factor": 2.5},
+					"scale_input":  {"type": "scale_input", "factor": 2.5},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_config", Param: "value"}}},
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_input", Param: "value"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1800,15 +1800,15 @@ trigger_ch -> emit_period{period=1s}
 
 			h.SetInput("input_source", 0, telem.NewSeriesV[float64](10.0), telem.NewSeriesSecondsTSV(1))
 
-			n := h.CreateNode(ctx, "scale_config")
-			h.NextChanged(ctx, n, "scale_config")
+			n := h.CreateNode(ctx, "scale_input")
+			h.NextChanged(ctx, n, "scale_input")
 
-			output := h.Output("scale_config", 0)
+			output := h.Output("scale_input", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[float64](output)[0]).To(Equal(25.0))
 		})
 
-		It("Should handle negative i64 config parameter", func(ctx SpecContext) {
+		It("Should handle negative i64 input parameter", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -1849,7 +1849,7 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[int64](output)[0]).To(Equal(int64(50)))
 		})
 
-		It("Should handle negative f64 config parameter", func(ctx SpecContext) {
+		It("Should handle negative f64 input parameter", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -2364,11 +2364,11 @@ trigger_ch -> emit_period{period=1s}
 		})
 	})
 
-	Describe("Channel Config Parameter Arithmetic", func() {
+	Describe("Channel Input Parameter Arithmetic", func() {
 		// Regression test for: "cannot pop the 2nd f32 operand for f32.add:
 		// type mismatch: expected f32, but was i32"
-		// Bug occurred when reading from a channel config parameter and performing arithmetic.
-		It("Should read from channel config param and perform f32 arithmetic", func(ctx SpecContext) {
+		// Bug occurred when reading from a channel input parameter and performing arithmetic.
+		It("Should read from channel input param and perform f32 arithmetic", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 			}
@@ -2410,7 +2410,7 @@ trigger_ch -> emit_period{period=1s}
 		})
 
 		// Test matching the user's original example with stateful variable and conditional
-		It("Should handle channel config param with stateful variable and conditional", func(ctx SpecContext) {
+		It("Should handle channel input param with stateful variable and conditional", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 			}
@@ -2511,14 +2511,14 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(2.0)))
 		})
 
-		It("Should handle multiple channel config parameters", func(ctx SpecContext) {
+		It("Should handle multiple channel input parameters", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 				{Name: "pressure_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 101},
 				{Name: "output_sum", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 102},
 			}
 
-			// Function that reads from two channel config params and writes their sum to a third
+			// Function that reads from two channel input params and writes their sum to a third
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -2567,7 +2567,7 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(102).Series[0])[0]).To(BeNumerically("~", float32(126.8), 0.01))
 		})
 
-		It("Should handle multiple channel config params with different operations", func(ctx SpecContext) {
+		It("Should handle multiple channel input params with different operations", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "input_a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
 				{Name: "input_b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 201},
@@ -2576,7 +2576,7 @@ trigger_ch -> emit_period{period=1s}
 				{Name: "out_product", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 204},
 			}
 
-			// Function that performs multiple operations on channel config params
+			// Function that performs multiple operations on channel input params
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -2641,13 +2641,13 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[float64](outFr.Get(204).Series[0])[0]).To(Equal(float64(30.0)))
 		})
 
-		It("Should handle channel config param used multiple times in expression", func(ctx SpecContext) {
+		It("Should handle channel input param used multiple times in expression", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "value_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 300},
 				{Name: "squared_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 301},
 			}
 
-			// Function that reads from a channel config param twice (squaring it)
+			// Function that reads from a channel input param twice (squaring it)
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -2702,8 +2702,8 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0]).To(Equal(float32(0.25)))
 		})
 
-		It("Should handle mixed channel and non-channel config params", func(ctx SpecContext) {
-			// This tests the tolerance_alarm pattern: some config params are channels,
+		It("Should handle mixed channel and non-channel input params", func(ctx SpecContext) {
+			// This tests the tolerance_alarm pattern: some input params are channels,
 			// others are plain values (f32, i64)
 			chans := []symbol.Symbol{
 				{Name: "set_point_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 400},
@@ -2810,7 +2810,7 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
 		})
 
-		It("Should handle intermediate variable assignment from channel config param", func(ctx SpecContext) {
+		It("Should handle intermediate variable assignment from channel input param", func(ctx SpecContext) {
 			// This is the EXACT user code that was failing.
 			// The key pattern is: sp := set_point (where set_point is chan f32)
 			chans := []symbol.Symbol{
@@ -2918,7 +2918,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 
 		It("Should handle writing to channel through intermediate variable", func(ctx SpecContext) {
 			// Test that writing to an intermediate variable correctly writes to the channel
-			// out := output (config param with channel type)
+			// out := output (input param with channel type)
 			// out = value * 2.0 (write to channel through intermediate variable)
 			chans := []symbol.Symbol{
 				{Name: "input_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
@@ -2955,9 +2955,9 @@ input_ch -> writer{output=write_target} -> sink_ch
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](50.0))
 		})
 
-		It("Should handle nested intermediate variable assignments from channel config param", func(ctx SpecContext) {
+		It("Should handle nested intermediate variable assignments from channel input param", func(ctx SpecContext) {
 			// Test that we can chain intermediate variable assignments:
-			// out := output      (from config param)
+			// out := output      (from input param)
 			// out2 := out        (from intermediate variable)
 			// out2 = value * 3.0 (write through second intermediate)
 			chans := []symbol.Symbol{
@@ -3164,7 +3164,7 @@ input_ch -> checker{} -> output_ch
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 		})
 
-		It("Should write to separate channels when function with channel config is used multiple times", func(ctx SpecContext) {
+		It("Should write to separate channels when function with channel input is used multiple times", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "input_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 101},
 				{Name: "input_2", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 102},
@@ -3263,8 +3263,8 @@ input_ch -> count_local{} -> sink_ch
 		})
 	})
 
-	Describe("String config params", func() {
-		It("should create and execute a node with a string config param without error", func(ctx SpecContext) {
+	Describe("String input params", func() {
+		It("should create and execute a node with a string input param without error", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{{
 					Key:     "log_fn",

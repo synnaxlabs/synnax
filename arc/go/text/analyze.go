@@ -1118,7 +1118,7 @@ func extractInputValues(
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
-			symbol.ResolveConfigChannel(&node.Channels, fnSym, paramName, channelKey, sym.Name)
+			symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, channelKey, sym.Name)
 			return channelKey, true
 		}
 

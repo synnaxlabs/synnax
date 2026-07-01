@@ -118,7 +118,7 @@ var _ = Describe("Control", func() {
 			}
 			Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
 		})
-		It("Should parse channel config with specific channel", func(ctx SpecContext) {
+		It("Should parse channel input with specific channel", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -138,7 +138,7 @@ var _ = Describe("Control", func() {
 			Expect(changes[0].Channel).ToNot(BeNil())
 			Expect(*changes[0].Channel).To(Equal(uint32(42)))
 		})
-		It("Should parse channel config with zero (global)", func(ctx SpecContext) {
+		It("Should parse channel input with zero (global)", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",

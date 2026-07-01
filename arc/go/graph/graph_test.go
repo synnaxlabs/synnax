@@ -27,7 +27,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// nodeSpec describes a graph node together with its function type and configuration
+// nodeSpec describes a graph node together with its function type and inputs
 // parameter values, which now live in the graph's Inputs map rather than on the node.
 type nodeSpec struct {
 	key string
@@ -36,17 +36,17 @@ type nodeSpec struct {
 }
 
 // buildNodes converts node specs into the graph's Nodes slice plus the Inputs map,
-// keying each config by node key and storing the function type under "type".
+// keying each input by node key and storing the function type under "type".
 func buildNodes(specs ...nodeSpec) (graph.Nodes, map[string]msgpack.EncodedJSON) {
 	nodes := make(graph.Nodes, len(specs))
-	configs := make(map[string]msgpack.EncodedJSON, len(specs))
+	inputs := make(map[string]msgpack.EncodedJSON, len(specs))
 	for i, s := range specs {
 		nodes[i] = graph.Node{Key: s.key}
 		cfg := msgpack.EncodedJSON{"type": s.typ}
 		maps.Copy(cfg, s.cfg)
-		configs[s.key] = cfg
+		inputs[s.key] = cfg
 	}
-	return nodes, configs
+	return nodes, inputs
 }
 
 var _ = Describe("Graph", func() {
@@ -130,7 +130,7 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should correctly analyze a complete program", func(ctx SpecContext) {
-			nodes, configs := buildNodes(
+			nodes, inputs := buildNodes(
 				nodeSpec{key: "first", typ: "on", cfg: map[string]any{"channel": 12}},
 				nodeSpec{key: "printer", typ: "printer"},
 			)
@@ -153,7 +153,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:  nodes,
-				Inputs: configs,
+				Inputs: inputs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: arc.Handle{Node: "first", Param: ir.DefaultOutputParam},
@@ -186,7 +186,7 @@ var _ = Describe("Graph", func() {
 		Describe("Polymorphic Stages", func() {
 			It("Should correctly infer types for polymorphic stages from F32 inputs", func(ctx SpecContext) {
 				constraint := types.NumericConstraint()
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "source1", typ: "f32_source"},
 					nodeSpec{key: "source2", typ: "f32_source"},
 					nodeSpec{key: "adder", typ: "polymorphic_add"},
@@ -211,7 +211,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "source1", Param: ir.DefaultOutputParam},
@@ -251,7 +251,7 @@ var _ = Describe("Graph", func() {
 
 			It("Should correctly infer types for polymorphic stages from I64 inputs", func(ctx SpecContext) {
 				constraint := types.NumericConstraint()
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "int_source1", typ: "i64_source"},
 					nodeSpec{key: "int_source2", typ: "i64_source"},
 					nodeSpec{key: "multiplier", typ: "polymorphic_multiply"},
@@ -276,7 +276,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "int_source1", Param: ir.DefaultOutputParam},
@@ -307,7 +307,7 @@ var _ = Describe("Graph", func() {
 
 			It("Should handle chained polymorphic stages", func(ctx SpecContext) {
 				constraint := types.NumericConstraint()
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "src1", typ: "f64_source"},
 					nodeSpec{key: "src2", typ: "f64_source"},
 					nodeSpec{key: "add1", typ: "poly_add"},
@@ -343,7 +343,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
@@ -379,7 +379,7 @@ var _ = Describe("Graph", func() {
 
 			It("Should detect type mismatches in polymorphic edge connections", func(ctx SpecContext) {
 				constraint := types.NumericConstraint()
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "float_src", typ: "f32_source"},
 					nodeSpec{key: "int_src", typ: "i64_source"},
 					nodeSpec{key: "adder", typ: "poly_add"},
@@ -410,7 +410,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "float_src", Param: ir.DefaultOutputParam},
@@ -431,7 +431,7 @@ var _ = Describe("Graph", func() {
 
 			It("Should detect non-numeric type mismatches with polymorphic stages", func(ctx SpecContext) {
 				constraint := types.NumericConstraint()
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "str_src", typ: "string_source"},
 					nodeSpec{key: "numeric_stage", typ: "poly_numeric"},
 				)
@@ -454,7 +454,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "str_src", Param: ir.DefaultOutputParam},
@@ -470,7 +470,7 @@ var _ = Describe("Graph", func() {
 			})
 
 			It("Should handle missing edge connections", func(ctx SpecContext) {
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "src", typ: "source"},
 					nodeSpec{key: "snk", typ: "sink"},
 				)
@@ -490,7 +490,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
@@ -505,7 +505,7 @@ var _ = Describe("Graph", func() {
 			})
 
 			It("Should handle invalid parameter references in edges", func(ctx SpecContext) {
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "src", typ: "source"},
 					nodeSpec{key: "snk", typ: "sink"},
 				)
@@ -525,7 +525,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
@@ -540,7 +540,7 @@ var _ = Describe("Graph", func() {
 			})
 
 			It("Should handle concrete type mismatches in edges", func(ctx SpecContext) {
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "str_src", typ: "string_source"},
 					nodeSpec{key: "num_snk", typ: "number_sink"},
 				)
@@ -560,7 +560,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "str_src", Param: ir.DefaultOutputParam},
@@ -577,7 +577,7 @@ var _ = Describe("Graph", func() {
 
 		Describe("Integration", func() {
 			It("Should parse and analyze a complete alarm system graph", func(ctx SpecContext) {
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": 12}},
 					nodeSpec{key: "constant", typ: "constant", cfg: map[string]any{"value": 10}},
 					nodeSpec{key: "ge", typ: "ge"},
@@ -598,7 +598,7 @@ var _ = Describe("Graph", func() {
 				)
 				g := arc.Graph{
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: arc.Handle{Node: "on", Param: ir.DefaultOutputParam},
@@ -616,7 +616,7 @@ var _ = Describe("Graph", func() {
 							Source: arc.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
 							Target: arc.Handle{Node: "select", Param: ir.DefaultInputParam},
 						}},
-						// status_success/error fulfilled by config; no edges needed.
+						// status_success/error fulfilled by input; no edges needed.
 					},
 				}
 
@@ -719,10 +719,10 @@ var _ = Describe("Graph", func() {
 				// on -> ge.a, constant -> ge.b
 				// ge -> stable_for
 				// stable_for -> select
-				// status_success and status_error are fulfilled by config, not edges.
+				// status_success and status_error are fulfilled by input, not edges.
 				Expect(inter.Edges).To(HaveLen(4))
 
-				// Verify configuration was parsed correctly
+				// Verify inputs were parsed correctly
 				Expect(parsed.Inputs["constant"]).To(HaveKeyWithValue("value", 10))
 				Expect(parsed.Inputs["stable_for"]).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
 
@@ -754,7 +754,7 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should analyze set_authority with a non-uint8 channel", func(ctx SpecContext) {
-			nodes, configs := buildNodes(
+			nodes, inputs := buildNodes(
 				nodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": 10057}},
 				nodeSpec{key: "set_auth", typ: "set_authority", cfg: map[string]any{
 					"value":   200,
@@ -774,7 +774,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:  nodes,
-				Inputs: configs,
+				Inputs: inputs,
 			}
 			resolver := []symbol.Symbol{{
 				Name: "f64_sensor",
@@ -788,7 +788,7 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should analyze control.set_authority with a non-uint8 channel", func(ctx SpecContext) {
-			nodes, configs := buildNodes(
+			nodes, inputs := buildNodes(
 				nodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": 10057}},
 				nodeSpec{key: "set_auth", typ: "control.set_authority", cfg: map[string]any{
 					"value":   200,
@@ -808,7 +808,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:  nodes,
-				Inputs: configs,
+				Inputs: inputs,
 			}
 			resolver := []symbol.Symbol{{
 				Name: "f64_sensor",
@@ -822,7 +822,7 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should reject set_authority with a read channel", func(ctx SpecContext) {
-			nodes, configs := buildNodes(
+			nodes, inputs := buildNodes(
 				nodeSpec{key: "set_auth", typ: "set_authority", cfg: map[string]any{
 					"value":   200,
 					"channel": 10058,
@@ -830,7 +830,7 @@ var _ = Describe("Graph", func() {
 			)
 			g := arc.Graph{
 				Nodes:  nodes,
-				Inputs: configs,
+				Inputs: inputs,
 			}
 			resolver := []symbol.Symbol{{
 				Name: "f64_sensor",
@@ -846,7 +846,7 @@ var _ = Describe("Graph", func() {
 		Describe("Edge Validation", func() {
 			Describe("Type Matching", func() {
 				It("Should validate series type matching", func(ctx SpecContext) {
-					nodes, configs := buildNodes(
+					nodes, inputs := buildNodes(
 						nodeSpec{key: "src", typ: "series_f32_source"},
 						nodeSpec{key: "snk_mismatch", typ: "series_i64_sink"},
 					)
@@ -866,7 +866,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 						Nodes:  nodes,
-						Inputs: configs,
+						Inputs: inputs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
 								Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
@@ -881,7 +881,7 @@ var _ = Describe("Graph", func() {
 				})
 
 				It("Should succeed when all required inputs are connected", func(ctx SpecContext) {
-					nodes, configs := buildNodes(
+					nodes, inputs := buildNodes(
 						nodeSpec{key: "src1", typ: "source"},
 						nodeSpec{key: "src2", typ: "source"},
 						nodeSpec{key: "dual", typ: "dual_input"},
@@ -906,7 +906,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 						Nodes:  nodes,
-						Inputs: configs,
+						Inputs: inputs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
 								Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
@@ -925,7 +925,7 @@ var _ = Describe("Graph", func() {
 				})
 
 				It("Should allow nodes with no inputs to exist without edges", func(ctx SpecContext) {
-					nodes, configs := buildNodes(
+					nodes, inputs := buildNodes(
 						nodeSpec{key: "src1", typ: "source_only"},
 						nodeSpec{key: "src2", typ: "source_only"},
 					)
@@ -939,7 +939,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 						Nodes:  nodes,
-						Inputs: configs,
+						Inputs: inputs,
 						Edges:  graph.Edges{},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -951,7 +951,7 @@ var _ = Describe("Graph", func() {
 
 			Describe("Missing Required Edges", func() {
 				It("Should return an error when a graph is missing a required edge", func(ctx SpecContext) {
-					nodes, configs := buildNodes(
+					nodes, inputs := buildNodes(
 						nodeSpec{key: "src1", typ: "source"},
 						nodeSpec{key: "add1", typ: "add"},
 					)
@@ -972,7 +972,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 						Nodes:  nodes,
-						Inputs: configs,
+						Inputs: inputs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
 								Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
@@ -987,7 +987,7 @@ var _ = Describe("Graph", func() {
 				})
 
 				It("Should not return an error when the edge is optional", func(ctx SpecContext) {
-					nodes, configs := buildNodes(
+					nodes, inputs := buildNodes(
 						nodeSpec{key: "src1", typ: "source"},
 						nodeSpec{key: "add1", typ: "add"},
 					)
@@ -1008,7 +1008,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 						Nodes:  nodes,
-						Inputs: configs,
+						Inputs: inputs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
 								Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
@@ -1026,7 +1026,7 @@ var _ = Describe("Graph", func() {
 
 		Describe("Duplicate Edge Targets", func() {
 			It("Should error when multiple edges target the same input parameter", func(ctx SpecContext) {
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "src1", typ: "source"},
 					nodeSpec{key: "src2", typ: "source"},
 					nodeSpec{key: "proc", typ: "processor"},
@@ -1050,7 +1050,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
@@ -1069,7 +1069,7 @@ var _ = Describe("Graph", func() {
 			})
 
 			It("Should allow multiple edges from the same source parameter", func(ctx SpecContext) {
-				nodes, configs := buildNodes(
+				nodes, inputs := buildNodes(
 					nodeSpec{key: "src", typ: "source"},
 					nodeSpec{key: "snk1", typ: "sink"},
 					nodeSpec{key: "snk2", typ: "sink"},
@@ -1090,7 +1090,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:  nodes,
-					Inputs: configs,
+					Inputs: inputs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
@@ -1109,7 +1109,7 @@ var _ = Describe("Graph", func() {
 			})
 		})
 
-		Describe("Malformed Node Config", func() {
+		Describe("Malformed Node Input", func() {
 			DescribeTable("Should report a clear diagnostic instead of failing to resolve an empty type",
 				func(ctx SpecContext, cfg msgpack.EncodedJSON, expected string) {
 					g := graph.Graph{
@@ -1124,7 +1124,7 @@ var _ = Describe("Graph", func() {
 				Entry("missing type key",
 					msgpack.EncodedJSON{"channel": 12},
 					"node 'n1' is missing its function type"),
-				Entry("nil config entry",
+				Entry("nil input entry",
 					msgpack.EncodedJSON(nil),
 					"node 'n1' is missing its function type"),
 				Entry("non-string type",
@@ -1137,7 +1137,7 @@ var _ = Describe("Graph", func() {
 
 	Describe("Qualified Module Names", func() {
 		It("Should analyze bare select", func(ctx SpecContext) {
-			nodes, configs := buildNodes(
+			nodes, inputs := buildNodes(
 				nodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": 100}},
 				nodeSpec{key: "sel", typ: "select"},
 			)
@@ -1154,7 +1154,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:  nodes,
-				Inputs: configs,
+				Inputs: inputs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
@@ -1175,7 +1175,7 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should analyze stable.for with qualified name", func(ctx SpecContext) {
-			nodes, configs := buildNodes(
+			nodes, inputs := buildNodes(
 				nodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": 100}},
 				nodeSpec{key: "sf", typ: "stable.for", cfg: map[string]any{
 					"duration": int(telem.Millisecond),
@@ -1194,7 +1194,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:  nodes,
-				Inputs: configs,
+				Inputs: inputs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
@@ -1214,7 +1214,7 @@ var _ = Describe("Graph", func() {
 			Expect(inter.Nodes).To(HaveLen(2))
 		})
 		It("Should analyze status.set with qualified name", func(ctx SpecContext) {
-			nodes, configs := buildNodes(
+			nodes, inputs := buildNodes(
 				nodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": 100}},
 				nodeSpec{key: "ss", typ: "status.set", cfg: map[string]any{
 					"key_or_name": "ox_alarm",
@@ -1235,7 +1235,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:  nodes,
-				Inputs: configs,
+				Inputs: inputs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},

@@ -277,8 +277,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 		})
 
-		Context("input, input, and output binding", func() {
-			It("should bind input, input, and output types correctly", func(bCtx SpecContext) {
+		Context("input, trigger, and output binding", func() {
+			It("should bind input, trigger, and output types correctly", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `
 					func controller{
 						setpoint f64,
