@@ -12,8 +12,8 @@ import { Access, Device, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Ontology } from "@/feature/ontology";
-import { type Nav } from "@/primitive/nav";
-import { Toolbar } from "@/primitive/toolbar";
+import { type Nav } from "@/platform/nav";
+import { Toolbar } from "@/platform/toolbar";
 
 const Content = (): ReactElement => {
   const { data: groupID } = Device.useRetrieveGroupID({});

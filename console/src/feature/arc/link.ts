@@ -10,7 +10,7 @@
 import { useCallback } from "react";
 
 import { type Link } from "@/feature/link";
-import { create } from "@/primitive/arc/layout";
+import { create } from "@/platform/arc/layout";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {

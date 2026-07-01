@@ -11,7 +11,7 @@ import { DisconnectedError, lineplot } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { type Import } from "@/feature/import";
-import { create, LAYOUT_TYPE } from "@/primitive/lineplot/layout";
+import { create, LAYOUT_TYPE } from "@/platform/lineplot/layout";
 import { Session } from "@/session";
 
 export const ingest: Import.FileIngester = async (

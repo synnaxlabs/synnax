@@ -11,7 +11,7 @@ import { channel, type device } from "@synnaxlabs/client";
 import { bounds, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Device } from "@/primitive/device";
+import { Device } from "@/platform/device";
 
 export const MAKE = "LabJack";
 export type Make = typeof MAKE;

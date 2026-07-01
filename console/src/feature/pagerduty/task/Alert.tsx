@@ -36,10 +36,10 @@ import {
   ZERO_ALERT_PAYLOAD,
 } from "@/feature/pagerduty/task/types";
 import { Task as ServiceTask } from "@/feature/task";
-import { ContextMenu } from "@/primitive/context-menu";
-import { Empty } from "@/primitive/empty";
-import { Selector } from "@/primitive/selector";
-import { Task } from "@/primitive/task";
+import { ContextMenu } from "@/platform/context-menu";
+import { Empty } from "@/platform/empty";
+import { Selector } from "@/platform/selector";
+import { Task } from "@/platform/task";
 
 export const ALERT_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

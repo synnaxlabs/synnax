@@ -11,8 +11,8 @@ import { Log as Base } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { ContextMenu } from "@/primitive/context-menu";
-import { Empty } from "@/primitive/empty";
+import { ContextMenu } from "@/platform/context-menu";
+import { Empty } from "@/platform/empty";
 import { Session } from "@/session";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;

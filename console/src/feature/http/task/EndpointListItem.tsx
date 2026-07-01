@@ -12,7 +12,7 @@ import "@/feature/http/task/EndpointListItem.css";
 import { Component, Form as PForm, type List, Select, Text } from "@synnaxlabs/pluto";
 import { type ReactNode } from "react";
 
-import { CSS } from "@/primitive/css";
+import { CSS } from "@/platform/css";
 
 export interface EndpointListItemProps extends List.ItemProps<string> {
   extra?: ReactNode;

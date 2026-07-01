@@ -10,9 +10,9 @@
 import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Nav as ConsoleNav } from "@/primitive/nav";
-import { Version } from "@/primitive/version";
-import { Window } from "@/primitive/window";
+import { Nav as ConsoleNav } from "@/platform/nav";
+import { Version } from "@/platform/version";
+import { Window } from "@/platform/window";
 
 export const LoginNav = (): ReactElement => {
   const os = OS.use();

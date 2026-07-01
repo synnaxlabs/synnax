@@ -26,10 +26,10 @@ import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { useAddToActivePlot } from "@/feature/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/feature/range/useAddToNewPlot";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu as CMenu } from "@/primitive/context-menu";
-import { LinePlot } from "@/primitive/lineplot";
-import { Range } from "@/primitive/range";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { LinePlot } from "@/platform/lineplot";
+import { Range } from "@/platform/range";
 import { Session } from "@/session";
 import {
   selectState as selectRange,

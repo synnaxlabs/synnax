@@ -15,8 +15,8 @@ import { useCreateEmpty } from "@/feature/group/useCreateEmpty";
 import { useCreateFromSelection } from "@/feature/group/useCreateFromSelection";
 import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu } from "@/primitive/context-menu";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu } from "@/platform/context-menu";
 
 const useRename = Ontology.createUseRename({
   query: Group.useRename,

@@ -11,10 +11,10 @@ import { Control, Diagram, Menu, Schematic as Base, Viewport } from "@synnaxlabs
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
-import { ContextMenu } from "@/primitive/context-menu";
-import { Controller } from "@/primitive/schematic/Controller";
-import { Controls } from "@/primitive/schematic/Controls";
-import { Legend } from "@/primitive/schematic/Legend";
+import { ContextMenu } from "@/platform/context-menu";
+import { Controller } from "@/platform/schematic/Controller";
+import { Controls } from "@/platform/schematic/Controls";
+import { Legend } from "@/platform/schematic/Legend";
 import { Session } from "@/session";
 
 export interface SchematicProps {

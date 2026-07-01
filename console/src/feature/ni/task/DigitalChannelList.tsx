@@ -13,8 +13,8 @@ import { type Component, Flex, Form, Select, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { type DigitalChannel } from "@/feature/ni/task/types";
-import { CSS } from "@/primitive/css";
-import { Task } from "@/primitive/task";
+import { CSS } from "@/platform/css";
+import { Task } from "@/platform/task";
 
 interface ListItemProps<C extends DigitalChannel> extends Omit<
   Task.ChannelListItemProps,

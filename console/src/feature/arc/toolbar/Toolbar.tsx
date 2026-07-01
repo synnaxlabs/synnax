@@ -26,14 +26,14 @@ import { type ReactElement, useCallback, useState } from "react";
 
 import { ContextMenu } from "@/feature/arc/ContextMenu";
 import { EXPLORER_LAYOUT } from "@/feature/arc/Explorer";
-import { create as createLayout } from "@/primitive/arc/layout";
-import { useCreate } from "@/primitive/arc/useCreate";
-import { useRename } from "@/primitive/arc/useRename";
-import { useTask } from "@/primitive/arc/useTask";
-import { CSS } from "@/primitive/css";
-import { Empty } from "@/primitive/empty";
-import { type Nav } from "@/primitive/nav";
-import { Toolbar } from "@/primitive/toolbar";
+import { create as createLayout } from "@/platform/arc/layout";
+import { useCreate } from "@/platform/arc/useCreate";
+import { useRename } from "@/platform/arc/useRename";
+import { useTask } from "@/platform/arc/useTask";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { type Nav } from "@/platform/nav";
+import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 interface EmptyContentProps {

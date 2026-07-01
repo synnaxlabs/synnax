@@ -12,11 +12,11 @@ import { Access, Channel, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Ontology } from "@/feature/ontology";
-import { useCalculatedModal } from "@/primitive/channel/useCalculatedModal";
-import { useCreateModal } from "@/primitive/channel/useCreateModal";
-import { Empty } from "@/primitive/empty";
-import { type Nav } from "@/primitive/nav";
-import { Toolbar } from "@/primitive/toolbar";
+import { useCalculatedModal } from "@/platform/channel/useCalculatedModal";
+import { useCreateModal } from "@/platform/channel/useCreateModal";
+import { Empty } from "@/platform/empty";
+import { type Nav } from "@/platform/nav";
+import { Toolbar } from "@/platform/toolbar";
 
 const Actions = (): ReactElement | null => {
   const openCreate = useCreateModal();

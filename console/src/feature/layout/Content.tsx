@@ -10,7 +10,7 @@
 import { Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
-import { Layout } from "@/primitive/layout";
+import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 /** LayoutContentProps are the props for the LayoutContent component. */

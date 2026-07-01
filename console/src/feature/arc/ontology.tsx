@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 
 import { Ontology } from "@/feature/ontology";
-import { create } from "@/primitive/arc/layout";
+import { create } from "@/platform/arc/layout";
 import { type Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({

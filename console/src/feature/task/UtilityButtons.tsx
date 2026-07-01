@@ -13,8 +13,8 @@ import { binary, primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { useExport } from "@/feature/task/export";
-import { Cluster } from "@/primitive/cluster";
-import { Task } from "@/primitive/task";
+import { Cluster } from "@/platform/cluster";
+import { Task } from "@/platform/task";
 
 export const UtilityButtons = () => {
   const ctx = Form.useContext();

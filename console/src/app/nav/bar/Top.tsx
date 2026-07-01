@@ -12,11 +12,11 @@ import { type ReactElement } from "react";
 
 import { Cluster } from "@/feature/cluster";
 import { Docs } from "@/feature/docs";
-import { Nav as ConsoleNav } from "@/primitive/nav";
-import { Project } from "@/primitive/project";
-import { User } from "@/primitive/user";
-import { Version } from "@/primitive/version";
-import { Window } from "@/primitive/window";
+import { Nav as ConsoleNav } from "@/platform/nav";
+import { Project } from "@/platform/project";
+import { User } from "@/platform/user";
+import { Version } from "@/platform/version";
+import { Window } from "@/platform/window";
 
 export const Top = (): ReactElement | null => (
   <ConsoleNav.Bar location="top" size="6.5rem">

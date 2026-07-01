@@ -14,10 +14,10 @@ import { Access, Button, Icon, Table as Base } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { ContextMenu } from "@/primitive/context-menu";
-import { CSS } from "@/primitive/css";
-import { Layout } from "@/primitive/layout";
-import { Vis } from "@/primitive/vis";
+import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
+import { Layout } from "@/platform/layout";
+import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
 const Internal: Layout.Renderer = ({ visible }) => {

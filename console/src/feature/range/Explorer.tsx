@@ -16,11 +16,11 @@ import { useCallback } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
 import { View as ServiceView } from "@/feature/view";
-import { Label } from "@/primitive/label";
-import { type Layout } from "@/primitive/layout";
-import { Item } from "@/primitive/range/list/Item";
-import { useCreateModal } from "@/primitive/range/useCreateModal";
-import { View } from "@/primitive/view";
+import { Label } from "@/platform/label";
+import { type Layout } from "@/platform/layout";
+import { Item } from "@/platform/range/list/Item";
+import { useCreateModal } from "@/platform/range/useCreateModal";
+import { View } from "@/platform/view";
 import { type Session } from "@/session";
 
 export const EXPLORER_LAYOUT_TYPE = "range_explorer";

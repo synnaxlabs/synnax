@@ -25,7 +25,7 @@ import { z } from "zod";
 
 import { LoginNav } from "@/feature/auth/LoginNav";
 import { Cluster } from "@/feature/cluster";
-import { CSS } from "@/primitive/css";
+import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];

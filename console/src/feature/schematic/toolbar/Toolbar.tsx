@@ -15,13 +15,13 @@ import { type ReactElement, useCallback, useMemo } from "react";
 
 import { useExport } from "@/feature/schematic/export";
 import { Symbols } from "@/feature/schematic/toolbar/Symbols";
-import { Cluster } from "@/primitive/cluster";
-import { CSS } from "@/primitive/css";
-import { Empty } from "@/primitive/empty";
-import { Export } from "@/primitive/export";
-import { Control } from "@/primitive/schematic/toolbar/Control";
-import { Properties } from "@/primitive/schematic/toolbar/Properties";
-import { Toolbar as Base } from "@/primitive/toolbar";
+import { Cluster } from "@/platform/cluster";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { Export } from "@/platform/export";
+import { Control } from "@/platform/schematic/toolbar/Control";
+import { Properties } from "@/platform/schematic/toolbar/Properties";
+import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const TABS = [

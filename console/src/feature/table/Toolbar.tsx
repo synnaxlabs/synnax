@@ -27,11 +27,11 @@ import { color, deep, record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { useExport } from "@/feature/table/export";
-import { Cluster } from "@/primitive/cluster";
-import { CSS } from "@/primitive/css";
-import { Empty } from "@/primitive/empty";
-import { Export } from "@/primitive/export";
-import { Toolbar as Base } from "@/primitive/toolbar";
+import { Cluster } from "@/platform/cluster";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { Export } from "@/platform/export";
+import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const Internal = (): ReactElement => {

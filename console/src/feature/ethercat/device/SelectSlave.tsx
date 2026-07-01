@@ -19,7 +19,7 @@ import {
 } from "@/feature/ethercat/device/types";
 import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { type Channel } from "@/feature/ethercat/task/types";
-import { Device } from "@/primitive/device";
+import { Device } from "@/platform/device";
 
 export interface SelectSlaveProps {
   /** Path to the slave device field in the form. */

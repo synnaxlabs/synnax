@@ -11,8 +11,8 @@ import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Items } from "@/app/nav/items";
-import { Nav as ComponentNav } from "@/primitive/nav";
-import { Palette } from "@/primitive/palette";
+import { Nav as ComponentNav } from "@/platform/nav";
+import { Palette } from "@/platform/palette";
 import { Session } from "@/session";
 
 const BottomMenu = () => {

@@ -31,10 +31,10 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/feature/modbus/task/types";
-import { CSS } from "@/primitive/css";
-import { type Device as CommonDevice } from "@/primitive/device";
-import { Modals } from "@/primitive/modals";
-import { Triggers } from "@/primitive/triggers";
+import { CSS } from "@/platform/css";
+import { type Device as CommonDevice } from "@/platform/device";
+import { Modals } from "@/platform/modals";
+import { Triggers } from "@/platform/triggers";
 
 const useForm = PDevice.createForm(SCHEMAS);
 

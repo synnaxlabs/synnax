@@ -11,8 +11,8 @@ import { arc } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { EXPLORER_LAYOUT } from "@/feature/arc/Explorer";
-import { useCreate } from "@/primitive/arc/useCreate";
-import { Palette } from "@/primitive/palette";
+import { useCreate } from "@/platform/arc/useCreate";
+import { Palette } from "@/platform/palette";
 
 const useCreateVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);

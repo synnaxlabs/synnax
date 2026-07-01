@@ -14,12 +14,12 @@ import { useCallback } from "react";
 
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { View as ServiceView } from "@/feature/view";
-import { Label } from "@/primitive/label";
-import { type Layout } from "@/primitive/layout";
-import { Filter } from "@/primitive/status/filter";
-import { Item } from "@/primitive/status/list/Item";
-import { useCreateModal } from "@/primitive/status/useCreateModal";
-import { View } from "@/primitive/view";
+import { Label } from "@/platform/label";
+import { type Layout } from "@/platform/layout";
+import { Filter } from "@/platform/status/filter";
+import { Item } from "@/platform/status/list/Item";
+import { useCreateModal } from "@/platform/status/useCreateModal";
+import { View } from "@/platform/view";
 import { type Session } from "@/session";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";

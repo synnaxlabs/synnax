@@ -14,8 +14,8 @@ import { strings } from "@synnaxlabs/x";
 import { Export } from "@/feature/export";
 import { useExtractors } from "@/feature/export/ExtractorsProvider";
 import { purgeExcludedLayouts } from "@/feature/project/purgeExcludedLayouts";
-import { Modals } from "@/primitive/modals";
-import { Runtime } from "@/primitive/runtime";
+import { Modals } from "@/platform/modals";
+import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 import { type Store } from "@/session/store";
 

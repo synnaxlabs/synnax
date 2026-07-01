@@ -40,14 +40,14 @@ import {
 } from "react";
 
 import { Range as ServiceRange } from "@/feature/range";
-import { ContextMenu } from "@/primitive/context-menu";
-import { CSS } from "@/primitive/css";
-import { Controls } from "@/primitive/lineplot/Controls";
+import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
+import { Controls } from "@/platform/lineplot/Controls";
 import {
   type DownloadLine,
   useDownloadAsCSV,
-} from "@/primitive/lineplot/useDownloadAsCSV";
-import { Range } from "@/primitive/range";
+} from "@/platform/lineplot/useDownloadAsCSV";
+import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };

@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Palette } from "@/primitive/palette";
+import { Palette } from "@/platform/palette";
 import { clearState } from "@/session/persist/state";
 
 const COMMAND_NAME = "Clear local storage";

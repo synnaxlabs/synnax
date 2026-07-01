@@ -45,10 +45,10 @@ import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { Vis } from "@/feature/vis";
-import { Errors } from "@/primitive/errors";
-import { Layout } from "@/primitive/layout";
-import { Palette } from "@/primitive/palette";
-import { Runtime } from "@/primitive/runtime";
+import { Errors } from "@/platform/errors";
+import { Layout } from "@/platform/layout";
+import { Palette } from "@/platform/palette";
+import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 import WorkerURL from "@/worker?worker&url";
 

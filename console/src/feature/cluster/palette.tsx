@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Palette } from "@/primitive/palette";
+import { Palette } from "@/platform/palette";
 import { Session } from "@/session";
 
 const COMMAND_NAME = "Log out";

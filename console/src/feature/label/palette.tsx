@@ -10,8 +10,8 @@
 import { label } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { useEditModal } from "@/primitive/label/useEditModal";
-import { Palette } from "@/primitive/palette";
+import { useEditModal } from "@/platform/label/useEditModal";
+import { Palette } from "@/platform/palette";
 
 export const EditCommand = Palette.createCommand({
   key: "edit_labels",

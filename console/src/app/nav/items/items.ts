@@ -16,7 +16,7 @@ import { Status } from "@/feature/status";
 import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
 import { Vis } from "@/feature/vis";
-import { type Nav } from "@/primitive/nav";
+import { type Nav } from "@/platform/nav";
 
 export const DEFAULT_SIZE = 200;
 

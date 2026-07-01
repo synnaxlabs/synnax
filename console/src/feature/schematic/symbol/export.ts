@@ -12,9 +12,9 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Export } from "@/feature/export";
-import { Modals } from "@/primitive/modals";
-import { Runtime } from "@/primitive/runtime";
-import { type Symbol } from "@/primitive/schematic/symbol";
+import { Modals } from "@/platform/modals";
+import { Runtime } from "@/platform/runtime";
+import { type Symbol } from "@/platform/schematic/symbol";
 
 export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();

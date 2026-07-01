@@ -11,8 +11,8 @@ import { schematic } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Schematic } from "@/primitive/schematic";
-import { Selector } from "@/primitive/selector";
+import { Schematic } from "@/platform/schematic";
+import { Selector } from "@/platform/selector";
 
 export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);

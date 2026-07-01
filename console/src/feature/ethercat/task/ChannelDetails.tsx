@@ -19,7 +19,7 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_OUTPUT_CHANNELS,
 } from "@/feature/ethercat/task/types";
-import { type Task } from "@/primitive/task";
+import { type Task } from "@/platform/task";
 
 const INPUT_PROPS = { showDragHandle: false };
 

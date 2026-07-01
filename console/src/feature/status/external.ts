@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/feature/status/Explorer";
-import { type Layout } from "@/primitive/layout";
+import { type Layout } from "@/platform/layout";
 
 export * from "@/feature/status/Explorer";
 export * from "@/feature/status/palette";

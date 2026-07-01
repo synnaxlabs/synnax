@@ -30,11 +30,11 @@ import { type ReactElement, useCallback } from "react";
 
 import { ContextMenu } from "@/feature/range/ContextMenu";
 import { EXPLORER_LAYOUT } from "@/feature/range/Explorer";
-import { CSS } from "@/primitive/css";
-import { Empty } from "@/primitive/empty";
-import { type Nav } from "@/primitive/nav";
-import { useCreateModal } from "@/primitive/range/useCreateModal";
-import { Toolbar } from "@/primitive/toolbar";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { type Nav } from "@/platform/nav";
+import { useCreateModal } from "@/platform/range/useCreateModal";
+import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 import {
   selectState as selectRange,

@@ -12,7 +12,7 @@ import { caseconv, id } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
-import { Task } from "@/primitive/task";
+import { Task } from "@/platform/task";
 
 export const PREFIX = "ethercat";
 

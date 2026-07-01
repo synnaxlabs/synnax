@@ -45,11 +45,11 @@ import {
   ZERO_WRITE_PAYLOAD,
 } from "@/feature/http/task/types";
 import { Task as ServiceTask } from "@/feature/task";
-import { CSS } from "@/primitive/css";
-import { Empty } from "@/primitive/empty";
-import { KeyValueEditor } from "@/primitive/form/KeyValueEditor";
-import { Selector } from "@/primitive/selector";
-import { Task } from "@/primitive/task";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { KeyValueEditor } from "@/platform/form/KeyValueEditor";
+import { Selector } from "@/platform/selector";
+import { Task } from "@/platform/task";
 
 export const WRITE_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

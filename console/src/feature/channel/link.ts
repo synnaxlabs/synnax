@@ -11,7 +11,7 @@ import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type Link } from "@/feature/link";
-import { LinePlot } from "@/primitive/lineplot";
+import { LinePlot } from "@/platform/lineplot";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {

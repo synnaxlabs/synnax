@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/pluto";
 
 import { MAKE } from "@/feature/labjack/device/types";
 import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
-import { Device } from "@/primitive/device";
+import { Device } from "@/platform/device";
 
 export const Select = () => {
   const configure = useConfigureModal();

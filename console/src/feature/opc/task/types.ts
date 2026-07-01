@@ -12,7 +12,7 @@ import { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { connectionConfigZ } from "@/feature/opc/device/types";
-import { Task } from "@/primitive/task";
+import { Task } from "@/platform/task";
 
 export const PREFIX = "opc";
 

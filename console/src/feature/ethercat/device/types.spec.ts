@@ -11,7 +11,7 @@ import {
   slavePropertiesZ,
   ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
-import { testPropertiesSchema } from "@/primitive/device/testutil";
+import { testPropertiesSchema } from "@/platform/device/testutil";
 
 testPropertiesSchema("EtherCAT", slavePropertiesZ, ZERO_SLAVE_PROPERTIES, [
   [

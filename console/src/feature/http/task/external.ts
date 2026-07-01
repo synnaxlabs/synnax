@@ -20,8 +20,8 @@ import { type Import } from "@/feature/import";
 import { createIngester } from "@/feature/task/createIngester";
 import { extract } from "@/feature/task/export";
 import { type Layout as TaskLayout } from "@/feature/task/Form";
-import { type Layout } from "@/primitive/layout";
-import { type Selector } from "@/primitive/selector";
+import { type Layout } from "@/platform/layout";
+import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/http/task/palette";
 export * from "@/feature/http/task/Read";

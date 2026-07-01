@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/feature/vis/Selector";
-import { type Layout } from "@/primitive/layout";
+import { type Layout } from "@/platform/layout";
 
 export * from "@/feature/vis/Selector";
 export * from "@/feature/vis/Toolbar";
-export * from "@/primitive/vis/Canvas";
+export * from "@/platform/vis/Canvas";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [SELECTOR_LAYOUT_TYPE]: Selector,

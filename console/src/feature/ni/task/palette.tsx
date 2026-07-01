@@ -17,7 +17,7 @@ import { COUNTER_READ_LAYOUT } from "@/feature/ni/task/CounterRead";
 import { DIGITAL_READ_LAYOUT } from "@/feature/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/feature/ni/task/DigitalWrite";
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/ni/task/types";
-import { Palette } from "@/primitive/palette";
+import { Palette } from "@/platform/palette";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 

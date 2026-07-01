@@ -12,7 +12,7 @@ import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { LAYOUT_TYPE } from "@/primitive/lineplot/layout";
+import { LAYOUT_TYPE } from "@/platform/lineplot/layout";
 import { Session } from "@/session";
 import { add } from "@/session/range/slice";
 

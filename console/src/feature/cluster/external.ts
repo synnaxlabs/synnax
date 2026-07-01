@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { versionOutdatedAdapter } from "@/feature/cluster/notification";
-import { type Notifications } from "@/primitive/notifications";
+import { type Notifications } from "@/platform/notifications";
 
 export * from "@/feature/cluster/Badges";
 export * from "@/feature/cluster/detectConnection";

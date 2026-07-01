@@ -29,9 +29,9 @@ import {
   ZERO_READ_PAYLOAD,
 } from "@/feature/labjack/task/types";
 import { Task as ServiceTask } from "@/feature/task";
-import { Device as CommonDevice } from "@/primitive/device";
-import { Selector } from "@/primitive/selector";
-import { Task } from "@/primitive/task";
+import { Device as CommonDevice } from "@/platform/device";
+import { Selector } from "@/platform/selector";
+import { Task } from "@/platform/task";
 
 export const READ_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

@@ -17,7 +17,7 @@ import {
   type InputChannel,
   type OutputChannel,
 } from "@/feature/ethercat/task/types";
-import { Device as CommonDevice } from "@/primitive/device";
+import { Device as CommonDevice } from "@/platform/device";
 
 type Channel = InputChannel | OutputChannel;
 

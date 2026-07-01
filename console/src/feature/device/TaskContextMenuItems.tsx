@@ -12,7 +12,7 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { type Ontology } from "@/feature/ontology";
 import { type Task } from "@/feature/task";
-import { Task as ComponentTask } from "@/primitive/task";
+import { Task as ComponentTask } from "@/platform/task";
 import { Session } from "@/session";
 
 export interface TaskContextMenuItemConfig {

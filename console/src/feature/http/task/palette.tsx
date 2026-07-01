@@ -12,7 +12,7 @@ import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { READ_LAYOUT } from "@/feature/http/task/Read";
 import { WRITE_LAYOUT } from "@/feature/http/task/Write";
-import { Palette } from "@/primitive/palette";
+import { Palette } from "@/platform/palette";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 

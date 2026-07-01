@@ -15,11 +15,11 @@ import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { UtilityButtons } from "@/feature/task/UtilityButtons";
-import { CSS } from "@/primitive/css";
-import { type Layout } from "@/primitive/layout";
-import { useConfirm } from "@/primitive/modals/useConfirm";
-import { Task } from "@/primitive/task";
-import { type FormLayoutArgs, useIsSnapshot } from "@/primitive/task/Form";
+import { CSS } from "@/platform/css";
+import { type Layout } from "@/platform/layout";
+import { useConfirm } from "@/platform/modals/useConfirm";
+import { Task } from "@/platform/task";
+import { type FormLayoutArgs, useIsSnapshot } from "@/platform/task/Form";
 import { Session } from "@/session";
 
 export interface Layout extends Session.Layout.BaseState<FormLayoutArgs> {}

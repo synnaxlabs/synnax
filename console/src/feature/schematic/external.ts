@@ -13,16 +13,16 @@ import { extract } from "@/feature/schematic/export";
 import { FILE_INGESTERS } from "@/feature/schematic/import";
 import { Schematic } from "@/feature/schematic/Schematic";
 import { Selectable } from "@/feature/schematic/Selectable";
-import { type Layout } from "@/primitive/layout";
-import { LAYOUT_TYPE } from "@/primitive/schematic/layout";
-import { type Selector } from "@/primitive/selector";
+import { type Layout } from "@/platform/layout";
+import { LAYOUT_TYPE } from "@/platform/schematic/layout";
+import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/schematic/link";
 export * from "@/feature/schematic/ontology";
 export * from "@/feature/schematic/palette";
 export * from "@/feature/schematic/toolbar/Toolbar";
-export * from "@/primitive/schematic/layout";
-export * from "@/primitive/schematic/useCreate";
+export * from "@/platform/schematic/layout";
+export * from "@/platform/schematic/useCreate";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,

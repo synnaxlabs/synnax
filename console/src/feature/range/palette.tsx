@@ -11,8 +11,8 @@ import { ranger } from "@synnaxlabs/client";
 import { Access, Icon, Ranger } from "@synnaxlabs/pluto";
 
 import { EXPLORER_LAYOUT } from "@/feature/range/Explorer";
-import { Palette } from "@/primitive/palette";
-import { Range } from "@/primitive/range";
+import { Palette } from "@/platform/palette";
+import { Range } from "@/platform/range";
 
 export const CreateCommand = Palette.createCommand({
   key: "define_range",

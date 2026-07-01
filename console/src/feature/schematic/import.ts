@@ -11,7 +11,7 @@ import { DisconnectedError, schematic } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { type Import } from "@/feature/import";
-import { Schematic as CSchematic } from "@/primitive/schematic";
+import { Schematic as CSchematic } from "@/platform/schematic";
 import { Session } from "@/session";
 
 export const ingest: Import.FileIngester = async (

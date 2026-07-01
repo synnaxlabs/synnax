@@ -14,7 +14,7 @@ import { useCallback, useMemo } from "react";
 import { Arc } from "@/feature/arc";
 import { Group } from "@/feature/group";
 import { Ontology } from "@/feature/ontology";
-import { ContextMenu } from "@/primitive/context-menu";
+import { ContextMenu } from "@/platform/context-menu";
 
 const CreateArcIcon = Icon.createComposite(Icon.Arc, {
   topRight: Icon.Add,

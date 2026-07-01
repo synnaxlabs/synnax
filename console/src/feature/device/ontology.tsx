@@ -17,9 +17,9 @@ import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
 import { Group } from "@/feature/group";
 import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu } from "@/primitive/context-menu";
-import { CSS } from "@/primitive/css";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 
 const useDelete = Ontology.createUseDelete({
   type: "Device",

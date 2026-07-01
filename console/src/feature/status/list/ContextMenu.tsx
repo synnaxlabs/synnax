@@ -12,8 +12,8 @@ import { Access, Component, type Flux, Icon, Menu, Status } from "@synnaxlabs/pl
 import { useCallback, useMemo } from "react";
 
 import { Ontology } from "@/feature/ontology";
-import { ContextMenu as CMenu } from "@/primitive/context-menu";
-import { Modals } from "@/primitive/modals";
+import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 import { useSelectFavoriteSet } from "@/session/status/selectors";
 import { addFavorites, removeFavorites } from "@/session/status/slice";

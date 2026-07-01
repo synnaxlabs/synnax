@@ -12,8 +12,8 @@ import { uuid } from "@synnaxlabs/x";
 import { Arc } from "@/feature/arc";
 import { Task } from "@/feature/task";
 import { Vis } from "@/feature/vis";
-import { type Layout } from "@/primitive/layout";
-import { Selector as BaseSelector } from "@/primitive/selector";
+import { type Layout } from "@/platform/layout";
+import { Selector as BaseSelector } from "@/platform/selector";
 import { type Session } from "@/session";
 
 const SELECTABLES: BaseSelector.Selectable[] = [

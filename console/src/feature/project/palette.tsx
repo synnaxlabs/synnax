@@ -14,8 +14,8 @@ import { useCallback } from "react";
 import { useFileIngesters } from "@/feature/import/FileIngestersProvider";
 import { useExport } from "@/feature/project/export";
 import { import_ } from "@/feature/project/import";
-import { Palette } from "@/primitive/palette";
-import { Project } from "@/primitive/project";
+import { Palette } from "@/platform/palette";
+import { Project } from "@/platform/project";
 
 const useCreateVisible = () => Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);

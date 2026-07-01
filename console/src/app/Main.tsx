@@ -21,9 +21,9 @@ import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
 import { Layout } from "@/feature/layout";
 import { Project as ServiceProject } from "@/feature/project";
-import { Project } from "@/primitive/project";
-import { Range } from "@/primitive/range";
-import { Status } from "@/primitive/status";
+import { Project } from "@/platform/project";
+import { Range } from "@/platform/range";
+import { Status } from "@/platform/status";
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});

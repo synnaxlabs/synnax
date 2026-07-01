@@ -12,7 +12,7 @@ import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
 import { getIcon, getMake, type Make, useConfigureModal } from "@/feature/device/make";
 import { getKeyFromStatus } from "@/feature/device/useListenForChanges";
-import { type Notifications } from "@/primitive/notifications";
+import { type Notifications } from "@/platform/notifications";
 
 const shouldShowConfigureButton = (make: Make): boolean =>
   make === "NI" || make === "LabJack" || make === "ethercat";

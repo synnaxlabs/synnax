@@ -11,8 +11,8 @@ import { TOOLBAR } from "@/feature/device/Toolbar";
 import { HTTP } from "@/feature/http";
 import { Modbus } from "@/feature/modbus";
 import { OPC } from "@/feature/opc";
-import { type Nav } from "@/primitive/nav";
-import { type Palette } from "@/primitive/palette";
+import { type Nav } from "@/platform/nav";
+import { type Palette } from "@/platform/palette";
 
 export * from "@/feature/device/ChangeIdentifierMenuItem";
 export * from "@/feature/device/ConfigureMenuItem";

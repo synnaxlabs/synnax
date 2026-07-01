@@ -17,9 +17,9 @@ import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { createSelectorLayout, useSelectorVisible } from "@/feature/vis/Selector";
 import { type LayoutType } from "@/feature/vis/types";
-import { Empty } from "@/primitive/empty";
-import { type Nav } from "@/primitive/nav";
-import { Toolbar } from "@/primitive/toolbar";
+import { Empty } from "@/platform/empty";
+import { type Nav } from "@/platform/nav";
+import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 interface ToolbarProps {

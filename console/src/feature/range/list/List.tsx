@@ -26,9 +26,9 @@ import {
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
-import { Empty } from "@/primitive/empty";
-import { Range } from "@/primitive/range";
-import { type ItemProps } from "@/primitive/range/list/Item";
+import { Empty } from "@/platform/empty";
+import { Range } from "@/platform/range";
+import { type ItemProps } from "@/platform/range/list/Item";
 
 export interface ListProps
   extends

@@ -33,7 +33,7 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { retrieveScanTask } from "@/feature/opc/device/retrieveScanTask";
 import { type ConnectionConfig, type Device } from "@/feature/opc/device/types";
 import { BROWSE_COMMAND_TYPE, type ScannedNode } from "@/feature/opc/task/types";
-import { CSS } from "@/primitive/css";
+import { CSS } from "@/platform/css";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,

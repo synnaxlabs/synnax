@@ -13,10 +13,10 @@ import { Access, Divider, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/p
 import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu as CMenu } from "@/primitive/context-menu";
-import { Modals } from "@/primitive/modals";
-import { Range } from "@/primitive/range";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { Modals } from "@/platform/modals";
+import { Range } from "@/platform/range";
 import { Session } from "@/session";
 import { useSelectKeys } from "@/session/range/selectors";
 import { add, remove } from "@/session/range/slice";

@@ -13,9 +13,9 @@ import { Flex, Ranger } from "@synnaxlabs/pluto";
 
 import { ChildRanges } from "@/feature/range/overview/ChildRanges";
 import { Snapshots } from "@/feature/range/overview/Snapshots";
-import { CSS } from "@/primitive/css";
-import { Layout } from "@/primitive/layout";
-import { Range } from "@/primitive/range";
+import { CSS } from "@/platform/css";
+import { Layout } from "@/platform/layout";
+import { Range } from "@/platform/range";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
   <Flex.Box

@@ -23,7 +23,7 @@ import {
   ZERO_DI_CHANNEL,
   ZERO_DO_CHANNEL,
 } from "@/feature/ni/task/types";
-import { Task } from "@/primitive/task";
+import { Task } from "@/platform/task";
 
 const createDigitalChannel = <C extends DigitalChannel>(
   channels: C[],

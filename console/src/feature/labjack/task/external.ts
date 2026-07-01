@@ -20,8 +20,8 @@ import { Write, WRITE_LAYOUT, WriteSelectable } from "@/feature/labjack/task/Wri
 import { createIngester } from "@/feature/task/createIngester";
 import { extract } from "@/feature/task/export";
 import { type Layout as TaskLayout } from "@/feature/task/Form";
-import { type Layout } from "@/primitive/layout";
-import { type Selector } from "@/primitive/selector";
+import { type Layout } from "@/platform/layout";
+import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/labjack/task/palette";
 export * from "@/feature/labjack/task/Read";

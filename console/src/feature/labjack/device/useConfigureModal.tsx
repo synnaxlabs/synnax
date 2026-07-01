@@ -10,8 +10,8 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { ZERO_PROPERTIES } from "@/feature/labjack/device/types";
-import { Device } from "@/primitive/device";
-import { Modals } from "@/primitive/modals";
+import { Device } from "@/platform/device";
+import { Modals } from "@/platform/modals";
 
 export const useConfigureModal = Modals.create<Device.ConfigureParams>(
   ({ deviceKey, close }) => (

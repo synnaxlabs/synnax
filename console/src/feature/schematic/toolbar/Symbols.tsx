@@ -38,12 +38,12 @@ import {
   useImport as useImportSymbol,
   useImportGroup,
 } from "@/feature/schematic/symbol/import";
-import { ContextMenu } from "@/primitive/context-menu";
-import { CSS } from "@/primitive/css";
-import { Empty } from "@/primitive/empty";
-import { Export } from "@/primitive/export";
-import { Modals } from "@/primitive/modals";
-import { Symbol } from "@/primitive/schematic/symbol";
+import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { Export } from "@/platform/export";
+import { Modals } from "@/platform/modals";
+import { Symbol } from "@/platform/schematic/symbol";
 import { Session } from "@/session";
 
 const HAUL_DRAG_PROPS: Haul.UseDragProps = {

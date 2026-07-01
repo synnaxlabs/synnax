@@ -12,10 +12,10 @@ import { Access, Icon, Project } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Ontology } from "@/feature/ontology";
-import { Empty } from "@/primitive/empty";
-import { type Nav } from "@/primitive/nav";
-import { Project as CProject } from "@/primitive/project";
-import { Toolbar } from "@/primitive/toolbar";
+import { Empty } from "@/platform/empty";
+import { type Nav } from "@/platform/nav";
+import { Project as CProject } from "@/platform/project";
+import { Toolbar } from "@/platform/toolbar";
 
 const Actions = (): ReactElement | null => {
   const openCreate = CProject.useCreateModal();

@@ -10,8 +10,8 @@
 import { user } from "@synnaxlabs/client";
 import { Access, User as PUser } from "@synnaxlabs/pluto";
 
-import { Palette } from "@/primitive/palette";
-import { useRegisterModal } from "@/primitive/user/useRegisterModal";
+import { Palette } from "@/platform/palette";
+import { useRegisterModal } from "@/platform/user/useRegisterModal";
 
 const RegisterCommand = Palette.createCommand({
   key: "register_user",

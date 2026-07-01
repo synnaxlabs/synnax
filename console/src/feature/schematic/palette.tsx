@@ -10,8 +10,8 @@
 import { schematic } from "@synnaxlabs/client";
 import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
 
-import { Palette } from "@/primitive/palette";
-import { Schematic as CSchematic } from "@/primitive/schematic";
+import { Palette } from "@/platform/palette";
+import { Schematic as CSchematic } from "@/platform/schematic";
 
 const useCreate = () => CSchematic.useCreate({});
 

@@ -20,7 +20,7 @@ import {
   type FileIngesters,
 } from "@/feature/import/ingester";
 import { trimFileName } from "@/feature/import/trimFileName";
-import { Runtime } from "@/primitive/runtime";
+import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
 export const ingestComponent = async (

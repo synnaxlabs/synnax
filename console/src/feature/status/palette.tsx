@@ -11,8 +11,8 @@ import { status } from "@synnaxlabs/client";
 import { Access, Icon, Status } from "@synnaxlabs/pluto";
 
 import { EXPLORER_LAYOUT } from "@/feature/status/Explorer";
-import { Palette } from "@/primitive/palette";
-import { Status as CStatus } from "@/primitive/status";
+import { Palette } from "@/platform/palette";
+import { Status as CStatus } from "@/platform/status";
 
 const CreateCommand = Palette.createCommand({
   key: "create_status",

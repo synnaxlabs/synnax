@@ -10,7 +10,7 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/feature/export";
-import { LAYOUT_TYPE } from "@/primitive/table/layout";
+import { LAYOUT_TYPE } from "@/platform/table/layout";
 import { Session } from "@/session";
 
 export const VERSION = "1.0.0";

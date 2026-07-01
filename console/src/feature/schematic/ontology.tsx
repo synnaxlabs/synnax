@@ -26,10 +26,10 @@ import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
 import { Range } from "@/feature/range";
 import { useExport } from "@/feature/schematic/export";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu } from "@/primitive/context-menu";
-import { Export } from "@/primitive/export";
-import { Schematic } from "@/primitive/schematic";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu } from "@/platform/context-menu";
+import { Export } from "@/platform/export";
+import { Schematic } from "@/platform/schematic";
 import { Session } from "@/session";
 
 const useDelete = Ontology.createUseDelete({

@@ -14,9 +14,9 @@ import { ingest } from "@/feature/arc/imex/import";
 import { Selectable } from "@/feature/arc/Selectable";
 import { type Export } from "@/feature/export";
 import { type Import } from "@/feature/import";
-import { LAYOUT_TYPE } from "@/primitive/arc/layout";
-import { type Layout } from "@/primitive/layout";
-import { type Selector } from "@/primitive/selector";
+import { LAYOUT_TYPE } from "@/platform/arc/layout";
+import { type Layout } from "@/platform/layout";
+import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/arc/editor";
 export * from "@/feature/arc/Explorer";
@@ -25,9 +25,9 @@ export * from "@/feature/arc/link";
 export * from "@/feature/arc/ontology";
 export * from "@/feature/arc/palette";
 export * from "@/feature/arc/toolbar/Toolbar";
-export * from "@/primitive/arc/layout";
-export * from "@/primitive/arc/useCreate";
-export * from "@/primitive/arc/useCreateModal";
+export * from "@/platform/arc/layout";
+export * from "@/platform/arc/useCreate";
+export * from "@/platform/arc/useCreateModal";
 
 export const EDITOR_LAYOUT_TYPE = LAYOUT_TYPE;
 export type EditorLayoutType = typeof EDITOR_LAYOUT_TYPE;

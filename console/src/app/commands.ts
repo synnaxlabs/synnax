@@ -24,9 +24,9 @@ import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
-import { Framer } from "@/primitive/framer";
-import { type Palette } from "@/primitive/palette";
-import { Theme } from "@/primitive/theme";
+import { Framer } from "@/platform/framer";
+import { type Palette } from "@/platform/palette";
+import { Theme } from "@/platform/theme";
 
 export const COMMANDS: Palette.Command[] = [
   ...Channel.COMMANDS,

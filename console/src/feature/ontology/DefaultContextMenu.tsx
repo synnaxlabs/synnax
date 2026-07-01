@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 
 import { Group } from "@/feature/group";
 import { type TreeState } from "@/feature/ontology/service";
-import { ContextMenu } from "@/primitive/context-menu";
+import { ContextMenu } from "@/platform/context-menu";
 
 export interface DefaultContextMenuProps {
   root: ontology.ID;

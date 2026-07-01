@@ -13,8 +13,8 @@ import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
-import { type Layout } from "@/primitive/layout";
-import { Selector as BaseSelector } from "@/primitive/selector";
+import { type Layout } from "@/platform/layout";
+import { Selector as BaseSelector } from "@/platform/selector";
 import { type Session } from "@/session";
 
 export const SELECTABLES: BaseSelector.Selectable[] = [

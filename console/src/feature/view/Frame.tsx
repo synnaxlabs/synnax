@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/primitive/view/View.css";
+import "@/platform/view/View.css";
 
 import { type ontology, UnexpectedError, view } from "@synnaxlabs/client";
 import {
@@ -35,16 +35,16 @@ import {
 } from "react";
 
 import { Ontology } from "@/feature/ontology";
-import { ContextMenu as CMenu } from "@/primitive/context-menu";
-import { CSS } from "@/primitive/css";
-import { Modals } from "@/primitive/modals";
+import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
 import {
   Context,
   type StaticView,
   useContext,
   type View,
-} from "@/primitive/view/context";
-import { Vis } from "@/primitive/vis";
+} from "@/platform/view/context";
+import { Vis } from "@/platform/vis";
 
 export interface FrameProps extends PropsWithChildren {
   resourceType: ontology.ResourceType;

@@ -20,7 +20,7 @@ import {
   type Units,
   ZERO_SCALES,
 } from "@/feature/ni/task/types";
-import { FS } from "@/primitive/fs";
+import { FS } from "@/platform/fs";
 
 const SelectCustomScaleTypeField = Form.buildSelectField<
   ScaleType,

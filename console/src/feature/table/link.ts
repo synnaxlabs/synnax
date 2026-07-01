@@ -10,7 +10,7 @@
 import { useCallback } from "react";
 
 import { type Link } from "@/feature/link";
-import { Table } from "@/primitive/table";
+import { Table } from "@/platform/table";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {

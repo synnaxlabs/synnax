@@ -32,8 +32,8 @@ import {
   ZERO_WRITE_PAYLOAD,
 } from "@/feature/ethercat/task/types";
 import { Task as ServiceTask } from "@/feature/task";
-import { Selector } from "@/primitive/selector";
-import { Task } from "@/primitive/task";
+import { Selector } from "@/platform/selector";
+import { Task } from "@/platform/task";
 
 export const WRITE_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

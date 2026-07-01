@@ -15,7 +15,7 @@ import { deep, uuid } from "@synnaxlabs/x";
 import { type Import } from "@/feature/import";
 import { LAYOUT_FILE_NAME } from "@/feature/project/export";
 import { migrateLayout } from "@/feature/project/layoutMigrations";
-import { Runtime } from "@/primitive/runtime";
+import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
 // Rewrites every reference to an imported component's original key with the key of the

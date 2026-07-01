@@ -11,7 +11,7 @@ import { type task } from "@synnaxlabs/client";
 import { DataType, id, record } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { Task } from "@/primitive/task";
+import { Task } from "@/platform/task";
 
 export const PREFIX = "modbus";
 

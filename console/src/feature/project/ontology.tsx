@@ -36,10 +36,10 @@ import { Log } from "@/feature/log";
 import { Ontology } from "@/feature/ontology";
 import { useExport } from "@/feature/project/export";
 import { Table } from "@/feature/table";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu } from "@/primitive/context-menu";
-import { Export } from "@/primitive/export";
-import { Schematic as CSchematic } from "@/primitive/schematic";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu } from "@/platform/context-menu";
+import { Export } from "@/platform/export";
+import { Schematic as CSchematic } from "@/platform/schematic";
 import { Session } from "@/session";
 
 const useDelete = Ontology.createUseDelete({

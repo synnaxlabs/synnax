@@ -11,8 +11,8 @@ import { Dialog, Icon } from "@synnaxlabs/pluto";
 
 import { MAKE } from "@/feature/opc/device/types";
 import { useConnectModal } from "@/feature/opc/device/useConnectModal";
-import { Device as CommonDevice } from "@/primitive/device";
-import { Empty } from "@/primitive/empty";
+import { Device as CommonDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 
 const EmptyContent = () => {
   const connect = useConnectModal();

@@ -29,10 +29,10 @@ import { Group } from "@/feature/group";
 import { LinePlot as ServiceLinePlot } from "@/feature/lineplot";
 import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
-import { Channel } from "@/primitive/channel";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu } from "@/primitive/context-menu";
-import { LinePlot } from "@/primitive/lineplot";
+import { Channel } from "@/platform/channel";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu } from "@/platform/context-menu";
+import { LinePlot } from "@/platform/lineplot";
 import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({

@@ -22,7 +22,7 @@ import {
 import { caseconv } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
-import { CSS } from "@/primitive/css";
+import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 import { useSelectState } from "@/session/cluster/selectors";
 import { type Cluster, rename } from "@/session/cluster/slice";

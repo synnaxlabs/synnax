@@ -48,9 +48,9 @@ import { Layout as ServiceLayout } from "@/feature/layout";
 import { LinePlot } from "@/feature/lineplot";
 import { Ontology } from "@/feature/ontology";
 import { Project } from "@/feature/project";
-import { ContextMenu as CMenu } from "@/primitive/context-menu";
-import { CSS } from "@/primitive/css";
-import { Layout } from "@/primitive/layout";
+import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
+import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 const EmptyContent = (): ReactElement => {

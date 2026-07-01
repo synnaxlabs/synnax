@@ -15,10 +15,10 @@ import { Group } from "@/feature/group";
 import { useExport } from "@/feature/lineplot/export";
 import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu } from "@/primitive/context-menu";
-import { Export } from "@/primitive/export";
-import { create } from "@/primitive/lineplot/layout";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu } from "@/platform/context-menu";
+import { Export } from "@/platform/export";
+import { create } from "@/platform/lineplot/layout";
 import { Session } from "@/session";
 
 const useDelete = Ontology.createUseDelete({

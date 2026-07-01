@@ -45,11 +45,11 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/feature/http/task/types";
-import { CSS } from "@/primitive/css";
-import { type Device as CommonDevice } from "@/primitive/device";
-import { KeyValueEditor } from "@/primitive/form/KeyValueEditor";
-import { Modals } from "@/primitive/modals";
-import { Triggers } from "@/primitive/triggers";
+import { CSS } from "@/platform/css";
+import { type Device as CommonDevice } from "@/platform/device";
+import { KeyValueEditor } from "@/platform/form/KeyValueEditor";
+import { Modals } from "@/platform/modals";
+import { Triggers } from "@/platform/triggers";
 
 const INITIAL_VALUES: Device = {
   key: "",

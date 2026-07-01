@@ -37,11 +37,11 @@ import {
   ZERO_PROPERTIES,
 } from "@/feature/opc/device/types";
 import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/opc/task/types";
-import { CSS } from "@/primitive/css";
-import { type Device as CommonDevice } from "@/primitive/device";
-import { FS } from "@/primitive/fs";
-import { Modals } from "@/primitive/modals";
-import { Triggers } from "@/primitive/triggers";
+import { CSS } from "@/platform/css";
+import { type Device as CommonDevice } from "@/platform/device";
+import { FS } from "@/platform/fs";
+import { Modals } from "@/platform/modals";
+import { Triggers } from "@/platform/triggers";
 
 const useForm = PDevice.createForm(SCHEMAS);
 

@@ -10,7 +10,7 @@
 import { channel, type device } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { Device } from "@/primitive/device";
+import { Device } from "@/platform/device";
 
 export const MAKE = "NI";
 export type Make = typeof MAKE;

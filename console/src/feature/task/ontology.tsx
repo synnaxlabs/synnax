@@ -18,10 +18,10 @@ import { Range } from "@/feature/range";
 import { useExport } from "@/feature/task/export";
 import { createLayout, retrieveAndPlaceLayout } from "@/feature/task/layouts";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu } from "@/primitive/context-menu";
-import { Export } from "@/primitive/export";
-import { type FormLayoutArgs } from "@/primitive/task/Form";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu } from "@/platform/context-menu";
+import { Export } from "@/platform/export";
+import { type FormLayoutArgs } from "@/platform/task/Form";
 import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({

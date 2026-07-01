@@ -11,7 +11,7 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { type Extractor } from "@/feature/export/extractor";
-import { Runtime } from "@/primitive/runtime";
+import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
 const FILTERS: Runtime.FileFilter[] = [{ name: "JSON", extensions: ["json"] }];

@@ -11,8 +11,8 @@ import { Dialog } from "@synnaxlabs/pluto";
 
 import { MAKE } from "@/feature/modbus/device/types";
 import { useConnectModal } from "@/feature/modbus/device/useConnectModal";
-import { Device } from "@/primitive/device";
-import { Empty } from "@/primitive/empty";
+import { Device } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 
 const EmptyContent = () => {
   const connect = useConnectModal();

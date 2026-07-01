@@ -11,7 +11,7 @@ import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { create as createLinePlot } from "@/primitive/lineplot/layout";
+import { create as createLinePlot } from "@/platform/lineplot/layout";
 import { Session } from "@/session";
 import { add } from "@/session/range/slice";
 

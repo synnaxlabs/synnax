@@ -36,15 +36,15 @@ import { SELECTOR_LAYOUT } from "@/feature/task/Selector";
 import { getIcon, parseType } from "@/feature/task/types";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu as CMenu } from "@/primitive/context-menu";
-import { CSS } from "@/primitive/css";
-import { Empty } from "@/primitive/empty";
-import { Export } from "@/primitive/export";
-import { Modals } from "@/primitive/modals";
-import { type Nav } from "@/primitive/nav";
-import { type Task as CommonTask } from "@/primitive/task";
-import { Toolbar } from "@/primitive/toolbar";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { Export } from "@/platform/export";
+import { Modals } from "@/platform/modals";
+import { type Nav } from "@/platform/nav";
+import { type Task as CommonTask } from "@/platform/task";
+import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const EmptyContent = () => {

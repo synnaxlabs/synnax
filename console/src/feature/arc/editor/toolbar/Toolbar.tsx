@@ -11,8 +11,8 @@ import { Arc } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useExport } from "@/feature/arc/imex/export";
-import { Graph } from "@/primitive/arc/editor/toolbar/graph";
-import { Text } from "@/primitive/arc/editor/toolbar/text";
+import { Graph } from "@/platform/arc/editor/toolbar/graph";
+import { Text } from "@/platform/arc/editor/toolbar/text";
 
 const Internal = (): ReactElement | null => {
   const mode = Arc.useSelectMode();

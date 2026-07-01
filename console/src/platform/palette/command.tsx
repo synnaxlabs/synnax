@@ -1,0 +1,253 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type Synnax as Client } from "@synnaxlabs/client";
+import {
+  Component,
+  context,
+  Flex,
+  Flux,
+  type Icon,
+  List,
+  type Pluto,
+  Select,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
+import { type compare } from "@synnaxlabs/x";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useMemo,
+} from "react";
+
+import { Modals } from "@/platform/modals";
+import { type UseListReturn } from "@/platform/palette/list";
+import { Session } from "@/session";
+
+export interface CommandProps extends List.ItemProps<string> {
+  placeLayout: Session.Layout.Placer;
+  confirm: Modals.PromptConfirm;
+  rename: Modals.PromptRename;
+  handleError: Status.ErrorHandler;
+  addStatus: Status.Adder;
+  store: Session.Store;
+  fluxStore: Pluto.FluxStore;
+  client: Client | null;
+}
+
+export interface Command extends FC<CommandProps> {
+  key: string;
+  commandName: string;
+  sortOrder?: number;
+  useVisible?: () => boolean;
+}
+
+export interface CommandListItemProps extends List.ItemProps<string> {
+  name: string;
+  icon?: Icon.ReactElement;
+  onSelect: () => void;
+  endContent?: ReactElement;
+}
+
+const SYNTHETIC_CLICK_DETAIL = 0;
+
+const BaseCommandListItem = ({
+  name,
+  icon,
+  onSelect,
+  endContent,
+  itemKey,
+  ...props
+}: CommandListItemProps & Record<string, unknown>): ReactElement => {
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // Only trigger on the synthetic click, which means we won't accidentally call
+      // `onSelect` twice.
+      if (e.detail === SYNTHETIC_CLICK_DETAIL) onSelect();
+    },
+    [onSelect],
+  );
+  return (
+    <Select.ListItem
+      highlightHovered
+      justify="between"
+      align="center"
+      onClick={handleClick}
+      itemKey={itemKey}
+      data-command-key={itemKey}
+      {...props}
+    >
+      <Text.Text weight={400} gap="medium">
+        {icon}
+        {name}
+      </Text.Text>
+      {endContent != null && <Flex.Box x>{endContent}</Flex.Box>}
+    </Select.ListItem>
+  );
+};
+
+export const CommandListItem = Component.removeProps(BaseCommandListItem, [
+  "placeLayout",
+  "confirm",
+  "rename",
+  "handleError",
+  "addStatus",
+  "store",
+  "fluxStore",
+  "client",
+]);
+
+export interface SimpleCommandConfig {
+  key: string;
+  name: string;
+  icon?: Icon.ReactElement;
+  layout: Session.Layout.PlacerArgs;
+  useVisible?: () => boolean;
+  sortOrder?: number;
+}
+
+export const createSimpleCommand = ({
+  key,
+  name,
+  icon,
+  layout,
+  useVisible,
+  sortOrder,
+}: SimpleCommandConfig): Command => {
+  const C: Command = ({ placeLayout, ...listProps }) => {
+    const handleSelect = useCallback(() => placeLayout(layout), [placeLayout]);
+    return (
+      <CommandListItem {...listProps} name={name} icon={icon} onSelect={handleSelect} />
+    );
+  };
+  C.key = key;
+  C.commandName = name;
+  C.sortOrder = sortOrder;
+  C.useVisible = useVisible;
+  return C;
+};
+
+export interface CommandConfig {
+  key: string;
+  name: string;
+  icon?: Icon.ReactElement;
+  /** A hook returning the callback to invoke when the command is selected. */
+  useOnSelect: () => () => void;
+  useVisible?: () => boolean;
+  sortOrder?: number;
+}
+
+/**
+ * createCommand builds a Command whose onSelect is produced by a hook. On render the
+ * command calls useOnSelect and binds its returned callback to the list item, suiting
+ * commands that open a modal or otherwise act through a hook rather than placing a
+ * layout (see createSimpleCommand for the layout case).
+ */
+export const createCommand = ({
+  key,
+  name,
+  icon,
+  useOnSelect,
+  useVisible,
+  sortOrder,
+}: CommandConfig): Command => {
+  const C: Command = (listProps) => (
+    <CommandListItem {...listProps} name={name} icon={icon} onSelect={useOnSelect()} />
+  );
+  C.key = key;
+  C.commandName = name;
+  C.sortOrder = sortOrder;
+  C.useVisible = useVisible;
+  return C;
+};
+
+const [CommandContext, useCommandContext] = context.create<Command[]>({
+  defaultValue: [],
+  displayName: "Palette.CommandContext",
+});
+export { useCommandContext };
+
+export interface CommandProviderProps extends PropsWithChildren {
+  commands: Command[];
+}
+
+export const CommandProvider = ({ commands, ...rest }: CommandProviderProps) => (
+  <CommandContext value={commands} {...rest} />
+);
+
+const sort: compare.Comparator<Command> = (a, b) => {
+  if (a.sortOrder != null && b.sortOrder != null) return a.sortOrder - b.sortOrder;
+  return a.commandName.localeCompare(b.commandName);
+};
+
+export const useCommandList = (): UseListReturn<Command> => {
+  const store = Session.useStore();
+  const client = Synnax.use();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
+  const commands = useCommandContext();
+
+  const visibilities = commands.map((cmd) => cmd.useVisible?.() ?? true);
+  const visibleCommands = useMemo(
+    () => commands.filter((_, i) => visibilities[i]),
+    [commands, visibilities],
+  );
+
+  const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
+  const placeLayout = Session.Layout.usePlacer();
+  const confirm = Modals.useConfirm();
+  const rename = Modals.useRename();
+
+  const commandProps = useMemo(
+    () => ({
+      placeLayout,
+      confirm,
+      rename,
+      handleError,
+      addStatus,
+      store,
+      fluxStore,
+      client,
+    }),
+    [placeLayout, confirm, rename, handleError, addStatus, store, fluxStore, client],
+  );
+
+  const commandMap = useMemo(
+    () => new Map(commands.map((cmd) => [cmd.key, cmd])),
+    [commands],
+  );
+
+  const handleSelect = useCallback((key: string) => {
+    const element = document.querySelector(`[data-command-key="${key}"]`);
+    if (element == null || !(element instanceof HTMLElement)) return;
+    element.click();
+  }, []);
+
+  const listItem = useMemo(
+    () =>
+      Component.renderProp((props: List.ItemProps<string>): ReactElement | null => {
+        const cmd = commandMap.get(props.itemKey);
+        if (cmd == null) return null;
+        const Cmd = cmd;
+        return <Cmd {...commandProps} {...props} />;
+      }),
+    [commandMap, commandProps],
+  );
+
+  const listProps = List.useStaticData<string, Command>({
+    data: visibleCommands,
+    sort,
+  });
+
+  return { ...listProps, handleSelect, listItem };
+};

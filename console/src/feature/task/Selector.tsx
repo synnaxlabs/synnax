@@ -17,7 +17,7 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
-import { Selector as BaseSelector } from "@/primitive/selector";
+import { Selector as BaseSelector } from "@/platform/selector";
 import { type Session } from "@/session";
 
 const withTaskVisibility = (

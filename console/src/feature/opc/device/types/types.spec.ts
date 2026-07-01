@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { propertiesZ, ZERO_PROPERTIES } from "@/feature/opc/device/types";
 import * as v0 from "@/feature/opc/device/types/v0";
-import { testPropertiesSchema } from "@/primitive/device/testutil";
+import { testPropertiesSchema } from "@/platform/device/testutil";
 
 // OPC uses versioned schemas — empty `{}` is not valid for either version.
 testPropertiesSchema("OPC UA", propertiesZ, ZERO_PROPERTIES, [], {

@@ -10,8 +10,8 @@
 import { table } from "@synnaxlabs/client";
 import { Access, Table } from "@synnaxlabs/pluto";
 
-import { Palette } from "@/primitive/palette";
-import { useCreate } from "@/primitive/table/useCreate";
+import { Palette } from "@/platform/palette";
+import { useCreate } from "@/platform/table/useCreate";
 
 const COMMAND_NAME = "Create a table";
 

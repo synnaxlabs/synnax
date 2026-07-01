@@ -27,11 +27,11 @@ import { type ReactElement, useEffect, useState } from "react";
 
 import { EXPLORER_LAYOUT } from "@/feature/status/Explorer";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
-import { CSS } from "@/primitive/css";
-import { Empty } from "@/primitive/empty";
-import { type Nav } from "@/primitive/nav";
-import { useCreateModal } from "@/primitive/status/useCreateModal";
-import { Toolbar } from "@/primitive/toolbar";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { type Nav } from "@/platform/nav";
+import { useCreateModal } from "@/platform/status/useCreateModal";
+import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 import { useSelectFavorites } from "@/session/status/selectors";
 import { removeFavorites } from "@/session/status/slice";

@@ -15,7 +15,7 @@ import {
   WRITE_SCHEMAS,
   ZERO_WRITE_PAYLOAD,
 } from "@/feature/labjack/task/types";
-import { Task } from "@/primitive/task";
+import { Task } from "@/platform/task";
 
 describe("readStatusDataZ", () => {
   it("should accept null", () => {

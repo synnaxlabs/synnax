@@ -11,9 +11,9 @@ import { arc } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { LAYOUT_TYPE } from "@/primitive/arc/layout";
-import { useCreate } from "@/primitive/arc/useCreate";
-import { Selector } from "@/primitive/selector";
+import { LAYOUT_TYPE } from "@/platform/arc/layout";
+import { useCreate } from "@/platform/arc/useCreate";
+import { Selector } from "@/platform/selector";
 
 export const Selectable: Selector.Selectable = ({ layoutKey }) => {
   const create = useCreate();

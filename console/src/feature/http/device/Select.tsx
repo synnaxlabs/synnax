@@ -12,8 +12,8 @@ import { useCallback } from "react";
 
 import { MAKE } from "@/feature/http/device/types";
 import { useConnectModal } from "@/feature/http/device/useConnectModal";
-import { Device } from "@/primitive/device";
-import { Empty } from "@/primitive/empty";
+import { Device } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 
 const EmptyContent = () => {
   const connect = useConnectModal();

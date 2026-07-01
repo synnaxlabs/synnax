@@ -24,10 +24,10 @@ import { useCallback, useState } from "react";
 
 import { Device } from "@/feature/opc/device";
 import { type Channel } from "@/feature/opc/task/types";
-import { CSS } from "@/primitive/css";
-import { Device as CommonDevice } from "@/primitive/device";
-import { Task } from "@/primitive/task";
-import { ChannelName } from "@/primitive/task/ChannelName";
+import { CSS } from "@/platform/css";
+import { Device as CommonDevice } from "@/platform/device";
+import { Task } from "@/platform/task";
+import { ChannelName } from "@/platform/task/ChannelName";
 
 export interface ExtraItemProps {
   path: string;

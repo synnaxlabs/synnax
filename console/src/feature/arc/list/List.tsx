@@ -20,8 +20,8 @@ import {
 import { useCallback, useState } from "react";
 
 import { ContextMenu } from "@/feature/arc/ContextMenu";
-import { Item, type ItemProps } from "@/primitive/arc/list/Item";
-import { useRename } from "@/primitive/arc/useRename";
+import { Item, type ItemProps } from "@/platform/arc/list/Item";
+import { useRename } from "@/platform/arc/useRename";
 
 export interface ListProps
   extends

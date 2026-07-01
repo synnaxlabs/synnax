@@ -24,9 +24,9 @@ import { caseconv, uuid } from "@synnaxlabs/x";
 import { useState } from "react";
 import { type z } from "zod";
 
-import { CSS } from "@/primitive/css";
-import { Modals } from "@/primitive/modals";
-import { Triggers } from "@/primitive/triggers";
+import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
+import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
 import { useSelectAllNames, useSelectState } from "@/session/cluster/selectors";
 import { changeKey, clusterZ, set } from "@/session/cluster/slice";

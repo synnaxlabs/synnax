@@ -11,8 +11,8 @@ import { table } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Selector } from "@/primitive/selector";
-import { Table } from "@/primitive/table";
+import { Selector } from "@/platform/selector";
+import { Table } from "@/platform/table";
 
 export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
   const hasCreatePermission = Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);

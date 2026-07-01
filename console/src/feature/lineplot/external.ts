@@ -12,9 +12,9 @@ import { ContextMenu } from "@/feature/lineplot/ContextMenu";
 import { extract } from "@/feature/lineplot/export";
 import { LinePlot } from "@/feature/lineplot/LinePlot";
 import { Selectable } from "@/feature/lineplot/Selectable";
-import { type Layout } from "@/primitive/layout";
-import { LAYOUT_TYPE } from "@/primitive/lineplot/layout";
-import { type Selector } from "@/primitive/selector";
+import { type Layout } from "@/platform/layout";
+import { LAYOUT_TYPE } from "@/platform/lineplot/layout";
+import { type Selector } from "@/platform/selector";
 
 export * as ImEx from "@/feature/lineplot/imex";
 export * from "@/feature/lineplot/link";
@@ -22,9 +22,9 @@ export * from "@/feature/lineplot/ontology";
 export * from "@/feature/lineplot/palette";
 export * from "@/feature/lineplot/toolbar";
 export * from "@/feature/lineplot/useTriggerHold";
-export * from "@/primitive/lineplot/addChannelsToActivePlot";
-export * from "@/primitive/lineplot/layout";
-export * from "@/primitive/lineplot/useCreate";
+export * from "@/platform/lineplot/addChannelsToActivePlot";
+export * from "@/platform/lineplot/layout";
+export * from "@/platform/lineplot/useCreate";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,

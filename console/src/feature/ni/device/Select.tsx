@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/pluto";
 
 import { MAKE } from "@/feature/ni/device/types";
 import { useConfigureModal } from "@/feature/ni/device/useConfigureModal";
-import { Device } from "@/primitive/device";
+import { Device } from "@/platform/device";
 
 export interface SelectProps extends Omit<
   Device.SelectProps,

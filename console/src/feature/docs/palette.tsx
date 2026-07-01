@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { LAYOUT } from "@/primitive/docs/Docs";
-import { Palette } from "@/primitive/palette";
+import { LAYOUT } from "@/platform/docs/Docs";
+import { Palette } from "@/platform/palette";
 
 export const ReadCommand = Palette.createSimpleCommand({
   key: "read_the_docs",

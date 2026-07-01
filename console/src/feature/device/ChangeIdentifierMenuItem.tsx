@@ -12,8 +12,8 @@ import { Access, Device, Icon, Menu } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 
 import { type Ontology } from "@/feature/ontology";
-import { Device as CDevice } from "@/primitive/device";
-import { Modals } from "@/primitive/modals";
+import { Device as CDevice } from "@/platform/device";
+import { Modals } from "@/platform/modals";
 
 export interface ChangeIdentifierMenuItemProps extends Pick<
   Ontology.TreeContextMenuProps,

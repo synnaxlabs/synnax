@@ -29,9 +29,9 @@ import {
   ZERO_READ_PAYLOAD,
 } from "@/feature/modbus/task/types";
 import { Task as ServiceTask } from "@/feature/task";
-import { CSS } from "@/primitive/css";
-import { Selector } from "@/primitive/selector";
-import { Task } from "@/primitive/task";
+import { CSS } from "@/platform/css";
+import { Selector } from "@/platform/selector";
+import { Task } from "@/platform/task";
 
 export const READ_LAYOUT = {
   ...ServiceTask.LAYOUT,

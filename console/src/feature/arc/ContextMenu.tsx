@@ -23,9 +23,9 @@ import { useCallback } from "react";
 
 import { Link } from "@/feature/link";
 import { Ontology } from "@/feature/ontology";
-import { create } from "@/primitive/arc/layout";
-import { Cluster } from "@/primitive/cluster";
-import { ContextMenu as CMenu } from "@/primitive/context-menu";
+import { create } from "@/platform/arc/layout";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { Session } from "@/session";
 
 export interface ContextMenuProps extends Menu.ContextMenuMenuProps {

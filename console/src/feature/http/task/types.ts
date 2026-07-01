@@ -16,7 +16,7 @@ import {
   headersZ,
   queryParamsZ,
 } from "@/feature/http/device/types";
-import { Task } from "@/primitive/task";
+import { Task } from "@/platform/task";
 
 export type { HeaderEntry, QueryParamEntry } from "@/feature/http/device/types";
 

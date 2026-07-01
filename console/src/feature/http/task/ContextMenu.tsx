@@ -9,8 +9,8 @@
 
 import { Icon, Menu } from "@synnaxlabs/pluto";
 
-import { ContextMenu as CMenu } from "@/primitive/context-menu";
-import { Task } from "@/primitive/task";
+import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { Task } from "@/platform/task";
 
 export interface ContextMenuProps {
   keys: string[];

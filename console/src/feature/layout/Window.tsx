@@ -16,9 +16,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 
 import { Content } from "@/feature/layout/Content";
-import { ContextMenu } from "@/primitive/context-menu";
-import { CSS } from "@/primitive/css";
-import { Modals } from "@/primitive/modals";
+import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
 export const DefaultContextMenu = (): ReactElement => (

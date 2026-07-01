@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
-import { Notifications as Base } from "@/primitive/notifications";
-import { Version } from "@/primitive/version";
+import { Notifications as Base } from "@/platform/notifications";
+import { Version } from "@/platform/version";
 
 const NOTIFICATION_ADAPTERS: Base.Adapter[] = [
   ...Cluster.NOTIFICATION_ADAPTERS,

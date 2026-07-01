@@ -11,7 +11,7 @@ import { Button, Flex, Header, Icon, Ranger } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { List } from "@/feature/range/list/List";
-import { Range } from "@/primitive/range";
+import { Range } from "@/platform/range";
 
 export interface ChildRangesProps {
   rangeKey: string;

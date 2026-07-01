@@ -11,7 +11,7 @@ import { device } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { useConnectModal } from "@/feature/modbus/device/useConnectModal";
-import { Palette } from "@/primitive/palette";
+import { Palette } from "@/platform/palette";
 
 const ConnectServerCommand = Palette.createCommand({
   key: "modbus_connect_server",

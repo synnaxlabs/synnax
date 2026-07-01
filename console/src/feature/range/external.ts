@@ -9,8 +9,8 @@
 
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/feature/range/Explorer";
 import { Overview } from "@/feature/range/overview/Overview";
-import { type Layout } from "@/primitive/layout";
-import { Range as ComponentRange } from "@/primitive/range";
+import { type Layout } from "@/platform/layout";
+import { Range as ComponentRange } from "@/platform/range";
 
 export * from "@/feature/range/ContextMenu";
 export * from "@/feature/range/Explorer";

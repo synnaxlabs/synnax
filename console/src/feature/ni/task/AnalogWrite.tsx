@@ -28,9 +28,9 @@ import {
   ZERO_ANALOG_WRITE_PAYLOAD,
 } from "@/feature/ni/task/types";
 import { Task as ServiceTask } from "@/feature/task";
-import { Device as CommonDevice } from "@/primitive/device";
-import { Selector } from "@/primitive/selector";
-import { Task } from "@/primitive/task";
+import { Device as CommonDevice } from "@/platform/device";
+import { Selector } from "@/platform/selector";
+import { Task } from "@/platform/task";
 
 export const ANALOG_WRITE_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,
