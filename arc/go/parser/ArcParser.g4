@@ -234,12 +234,9 @@ anonymousInputValues
     : expression (COMMA expression)* COMMA?
     ;
 
-arguments
-    : LPAREN argumentList? RPAREN
-    ;
-
 argumentList
-    : expression (COMMA expression)* COMMA?
+    : namedInputValues
+    | anonymousInputValues
     ;
 
 // =============================================================================

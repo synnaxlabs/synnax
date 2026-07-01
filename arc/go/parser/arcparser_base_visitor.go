@@ -160,10 +160,6 @@ func (v *BaseArcParserVisitor) VisitAnonymousInputValues(ctx *AnonymousInputValu
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitArguments(ctx *ArgumentsContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseArcParserVisitor) VisitArgumentList(ctx *ArgumentListContext) interface{} {
 	return v.VisitChildren(ctx)
 }

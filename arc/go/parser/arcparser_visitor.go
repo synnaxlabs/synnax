@@ -124,9 +124,6 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#anonymousInputValues.
 	VisitAnonymousInputValues(ctx *AnonymousInputValuesContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#arguments.
-	VisitArguments(ctx *ArgumentsContext) interface{}
-
 	// Visit a parse tree produced by ArcParser#argumentList.
 	VisitArgumentList(ctx *ArgumentListContext) interface{}
 

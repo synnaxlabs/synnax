@@ -124,9 +124,6 @@ type ArcParserListener interface {
 	// EnterAnonymousInputValues is called when entering the anonymousInputValues production.
 	EnterAnonymousInputValues(c *AnonymousInputValuesContext)
 
-	// EnterArguments is called when entering the arguments production.
-	EnterArguments(c *ArgumentsContext)
-
 	// EnterArgumentList is called when entering the argumentList production.
 	EnterArgumentList(c *ArgumentListContext)
 
@@ -360,9 +357,6 @@ type ArcParserListener interface {
 
 	// ExitAnonymousInputValues is called when exiting the anonymousInputValues production.
 	ExitAnonymousInputValues(c *AnonymousInputValuesContext)
-
-	// ExitArguments is called when exiting the arguments production.
-	ExitArguments(c *ArgumentsContext)
 
 	// ExitArgumentList is called when exiting the argumentList production.
 	ExitArgumentList(c *ArgumentListContext)
