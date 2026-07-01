@@ -30,3 +30,4 @@ export const ImEx = { FILE_INGESTERS };
 export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: Log };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
+export * from "@/platform/log/useCreate";

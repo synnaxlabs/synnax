@@ -34,3 +34,4 @@ export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: LinePlot };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
+export * from "@/platform/lineplot/useCreate";

@@ -41,3 +41,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
+export * from "@/platform/arc/useCreate";

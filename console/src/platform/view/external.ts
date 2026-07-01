@@ -16,3 +16,4 @@ export * from "@/platform/view/Form";
 export * from "@/platform/view/Items";
 export * from "@/platform/view/Search";
 export * from "@/platform/view/Toolbar";
+export * from "@/platform/view/Frame";
