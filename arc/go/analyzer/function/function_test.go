@@ -75,26 +75,26 @@ var _ = Describe("Function Analyzer", func() {
 				Expect(ctx.Scope.Children()[1].Name).To(Equal("second"))
 			})
 		})
-		Describe("config parameter collection", func() {
-			It("should collect function with only config params", func(bCtx SpecContext) {
+		Describe("input parameter collection", func() {
+			It("should collect function with only input params", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{x i32}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(HaveLen(1))
 				Expect(fn.Type.Inputs[0]).To(Equal(types.Param{Name: "x", Type: types.I32()}))
 				Expect(fn.Type.Outputs).To(BeEmpty())
 			})
-			It("should collect config with channel type", func(bCtx SpecContext) {
+			It("should collect input with channel type", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{sensor chan f64}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(HaveLen(1))
 				Expect(fn.Type.Inputs[0]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
 			})
-			It("should handle empty config block", func(bCtx SpecContext) {
+			It("should handle empty input block", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(BeEmpty())
 			})
-			It("should collect config with default value", func(bCtx SpecContext) {
+			It("should collect input with default value", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{gain f64 = 1.0}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(HaveLen(1))
@@ -102,7 +102,7 @@ var _ = Describe("Function Analyzer", func() {
 				Expect(fn.Type.Inputs[0].Type).To(Equal(types.F64()))
 				Expect(fn.Type.Inputs[0].Value).To(Equal(1.0))
 			})
-			It("should collect mixed required and optional config params", func(bCtx SpecContext) {
+			It("should collect mixed required and optional input params", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{setpoint f64, gain f64 = 1.0}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(HaveLen(2))
@@ -111,14 +111,14 @@ var _ = Describe("Function Analyzer", func() {
 				Expect(fn.Type.Inputs[1].Name).To(Equal("gain"))
 				Expect(fn.Type.Inputs[1].Value).To(Equal(1.0))
 			})
-			It("should reject required config after optional config", func(bCtx SpecContext) {
+			It("should reject required input after optional input", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx,
 					`func foo{gain f64 = 1.0, setpoint f64}() {}`,
 					nil,
-					ContainSubstring("required config parameter setpoint cannot follow optional config parameters"),
+					ContainSubstring("required input parameter setpoint cannot follow optional input parameters"),
 				)
 			})
-			It("should reject invalid default value for config", func(bCtx SpecContext) {
+			It("should reject invalid default value for input", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx,
 					`func foo{x i8 = 128}() {}`,
 					nil,
@@ -277,8 +277,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 		})
 
-		Context("config, input, and output binding", func() {
-			It("should bind config, input, and output types correctly", func(bCtx SpecContext) {
+		Context("input, input, and output binding", func() {
+			It("should bind input, input, and output types correctly", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `
 					func controller{
 						setpoint f64,
@@ -313,8 +313,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 		})
 
-		Context("config parameter errors", func() {
-			It("should diagnose duplicate config parameter names", func(bCtx SpecContext) {
+		Context("input parameter errors", func() {
+			It("should diagnose duplicate input parameter names", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx, `
 					func controller{
 						gain f64,
