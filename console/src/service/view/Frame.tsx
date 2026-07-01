@@ -37,9 +37,14 @@ import {
 import { ContextMenu as CMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
 import { Modals } from "@/component/modals";
+import {
+  Context,
+  type StaticView,
+  useContext,
+  type View,
+} from "@/component/view/context";
 import { Vis } from "@/component/vis";
 import { Ontology } from "@/service/ontology";
-import { Context, type StaticView, useContext, type View } from "@/component/view/context";
 
 export interface FrameProps extends PropsWithChildren {
   resourceType: ontology.ResourceType;

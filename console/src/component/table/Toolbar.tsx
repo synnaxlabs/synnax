@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/service/table/Table.css";
+import "@/component/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
 import {

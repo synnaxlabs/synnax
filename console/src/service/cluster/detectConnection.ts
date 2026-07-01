@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Cluster } from "@/session/cluster/slice";
 import { Session } from "@/session";
+import { type Cluster } from "@/session/cluster/slice";
 
 export interface ConnectionParams extends Pick<
   Cluster,

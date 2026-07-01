@@ -79,7 +79,9 @@ export const Splash = (): ReactElement => {
       const p = getItem(key);
       if (p == null) throw new UnexpectedError(`Project ${key} not found`);
       dispatch(Session.Project.select(p.key));
-      dispatch(Session.Layout.setProject({ slice: p.layout as Session.Layout.SliceState }));
+      dispatch(
+        Session.Layout.setProject({ slice: p.layout as Session.Layout.SliceState }),
+      );
     },
     [dispatch, getItem],
   );
@@ -88,7 +90,7 @@ export const Splash = (): ReactElement => {
     query: {},
     initialValues: { name: "", layout: Session.Layout.ZERO_SLICE_STATE },
     afterSave: ({ value }) => {
-      const { key, name } = value();
+      const { key } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
       dispatch(Session.Project.select(key));
     },

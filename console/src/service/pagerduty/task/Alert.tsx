@@ -28,8 +28,8 @@ import { type FC, useCallback, useState } from "react";
 
 import { ContextMenu } from "@/component/context-menu";
 import { Empty } from "@/component/empty";
+import { Selector } from "@/component/selector";
 import { Task } from "@/component/task";
-import { Task as ServiceTask } from "@/service/task";
 import {
   ALERT_SCHEMAS,
   ALERT_TYPE,
@@ -39,7 +39,7 @@ import {
   ZERO_ALERT_CONFIG,
   ZERO_ALERT_PAYLOAD,
 } from "@/service/pagerduty/task/types";
-import { Selector } from "@/component/selector";
+import { Task as ServiceTask } from "@/service/task";
 
 export const ALERT_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

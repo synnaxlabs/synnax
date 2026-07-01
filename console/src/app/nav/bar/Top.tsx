@@ -11,10 +11,10 @@ import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Nav as ConsoleNav } from "@/component/nav";
+import { Project } from "@/component/project";
 import { User } from "@/component/user";
 import { Version } from "@/component/version";
 import { Window } from "@/component/window";
-import { Project } from "@/component/project";
 import { Cluster } from "@/service/cluster";
 import { Docs } from "@/service/docs";
 

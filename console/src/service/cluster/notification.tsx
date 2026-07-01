@@ -9,8 +9,8 @@
 
 import { Button, Synnax } from "@synnaxlabs/pluto";
 
-import { Version } from "@/component/version";
 import { type Notifications } from "@/component/notifications";
+import { Version } from "@/component/version";
 
 export const versionOutdatedAdapter: Notifications.Adapter<
   typeof Synnax.statusDetailsSchema

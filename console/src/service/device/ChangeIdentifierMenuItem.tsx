@@ -13,7 +13,7 @@ import { errors } from "@synnaxlabs/x";
 
 import { Device as CDevice } from "@/component/device";
 import { Modals } from "@/component/modals";
-import { Ontology } from "@/service/ontology";
+import { type Ontology } from "@/service/ontology";
 
 export interface ChangeIdentifierMenuItemProps extends Pick<
   Ontology.TreeContextMenuProps,

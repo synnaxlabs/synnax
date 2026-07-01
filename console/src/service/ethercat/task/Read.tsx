@@ -12,6 +12,7 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { Selector } from "@/component/selector";
 import { Task } from "@/component/task";
 import { ReadChannelDetails } from "@/service/ethercat/task/ChannelDetails";
 import {
@@ -33,7 +34,6 @@ import {
   ZERO_READ_PAYLOAD,
 } from "@/service/ethercat/task/types";
 import { Task as ServiceTask } from "@/service/task";
-import { Selector } from "@/component/selector";
 
 export const READ_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,
@@ -100,10 +100,7 @@ const READ_INDEX_OPTIONS = {
   nameSuffix: "_time" as const,
 };
 
-const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
-  client,
-  config,
-) => {
+const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<InputChannel>(client, config.channels);
 

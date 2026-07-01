@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/service/schematic/symbols/edit/Edit.css";
+import "@/component/schematic/symbol/edit/Edit.css";
 
 import { ontology, type schematic } from "@synnaxlabs/client";
 import {

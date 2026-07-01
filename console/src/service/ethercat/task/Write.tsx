@@ -12,6 +12,7 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { Selector } from "@/component/selector";
 import { Task } from "@/component/task";
 import { WriteChannelDetails } from "@/service/ethercat/task/ChannelDetails";
 import {
@@ -33,7 +34,6 @@ import {
   ZERO_WRITE_PAYLOAD,
 } from "@/service/ethercat/task/types";
 import { Task as ServiceTask } from "@/service/task";
-import { Selector } from "@/component/selector";
 
 export const WRITE_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

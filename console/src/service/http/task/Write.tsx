@@ -27,11 +27,11 @@ import {
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useMemo, useState } from "react";
 
+import { CSS } from "@/component/css";
 import { Empty } from "@/component/empty";
 import { KeyValueEditor } from "@/component/form/KeyValueEditor";
-import { CSS } from "@/component/css";
+import { Selector } from "@/component/selector";
 import { Task } from "@/component/task";
-import { Task as ServiceTask } from "@/service/task";
 import { Device } from "@/service/http/device";
 import { ContextMenu } from "@/service/http/task/ContextMenu";
 import { EndpointListItem } from "@/service/http/task/EndpointListItem";
@@ -49,7 +49,7 @@ import {
   ZERO_WRITE_ENDPOINT,
   ZERO_WRITE_PAYLOAD,
 } from "@/service/http/task/types";
-import { Selector } from "@/component/selector";
+import { Task as ServiceTask } from "@/service/task";
 
 export const WRITE_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

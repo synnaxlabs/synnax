@@ -28,11 +28,11 @@ import {
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
+import { CSS } from "@/component/css";
 import { Empty } from "@/component/empty";
 import { KeyValueEditor } from "@/component/form/KeyValueEditor";
-import { CSS } from "@/component/css";
+import { Selector } from "@/component/selector";
 import { Task } from "@/component/task";
-import { Task as ServiceTask } from "@/service/task";
 import { ChannelList as BaseChannelList } from "@/component/task/ChannelList";
 import { Device } from "@/service/http/device";
 import { ContextMenu } from "@/service/http/task/ContextMenu";
@@ -50,7 +50,7 @@ import {
   ZERO_READ_FIELD,
   ZERO_READ_PAYLOAD,
 } from "@/service/http/task/types";
-import { Selector } from "@/component/selector";
+import { Task as ServiceTask } from "@/service/task";
 
 export const READ_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,
@@ -225,9 +225,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
     const nonIndex = fields.filter((f) => !isTimingField(f));
     const last = nonIndex[nonIndex.length - 1];
     const field: ReadField = {
-      ...(last != null
-        ? { ...last, ...Task.READ_CHANNEL_OVERRIDE }
-        : ZERO_READ_FIELD),
+      ...(last != null ? { ...last, ...Task.READ_CHANNEL_OVERRIDE } : ZERO_READ_FIELD),
       key: id.create(),
     };
     push(field);
@@ -614,10 +612,7 @@ const retrieveChannel = async (
 const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
   (await retrieveChannel(client, key)) != null;
 
-const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
-  client,
-  config,
-) => {
+const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
     schemas: Device.SCHEMAS,

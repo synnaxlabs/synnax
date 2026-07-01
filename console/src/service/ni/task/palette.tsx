@@ -11,12 +11,12 @@ import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { Palette } from "@/component/palette";
 import { ANALOG_READ_LAYOUT } from "@/service/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/service/ni/task/AnalogWrite";
 import { COUNTER_READ_LAYOUT } from "@/service/ni/task/CounterRead";
 import { DIGITAL_READ_LAYOUT } from "@/service/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/service/ni/task/DigitalWrite";
-import { Palette } from "@/component/palette";
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/service/ni/task/types";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);

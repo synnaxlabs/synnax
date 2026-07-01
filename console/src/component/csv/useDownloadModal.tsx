@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/csv/DownloadModal.css";
+import "@/component/csv/DownloadModal.css";
 
 import { channel } from "@synnaxlabs/client";
 import {
@@ -30,9 +30,9 @@ import {
 import { z } from "zod";
 
 import { CSS } from "@/component/css";
+import { useDownload } from "@/component/csv/useDownload";
 import { Modals } from "@/component/modals";
 import { Triggers } from "@/component/triggers";
-import { useDownload } from "@/component/csv/useDownload";
 
 export interface DownloadModalParams {
   channelNames?: Record<channel.Key, string>;

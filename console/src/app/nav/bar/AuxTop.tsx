@@ -13,8 +13,8 @@ import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Items } from "@/app/nav/items";
-import { Nav as ComponentNav } from "@/component/nav";
 import { CSS } from "@/component/css";
+import { Nav as ComponentNav } from "@/component/nav";
 import { Window } from "@/component/window";
 import { Session } from "@/session";
 

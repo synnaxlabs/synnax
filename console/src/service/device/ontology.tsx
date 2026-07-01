@@ -16,8 +16,8 @@ import { useMemo } from "react";
 import { Cluster } from "@/component/cluster";
 import { ContextMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
-import { Group } from "@/service/group";
 import { getContextMenuItems, getIcon, getMake } from "@/service/device/make";
+import { Group } from "@/service/group";
 import { Link } from "@/service/link";
 import { Ontology } from "@/service/ontology";
 

@@ -10,7 +10,6 @@
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type SliceState as LayoutSliceState } from "@/session/layout/slice";
 import * as v0 from "@/service/project/layoutMigrations/v0";
 import * as v1 from "@/service/project/layoutMigrations/v1";
 import * as v2 from "@/service/project/layoutMigrations/v2";
@@ -23,6 +22,7 @@ import * as v8 from "@/service/project/layoutMigrations/v8";
 import * as v9 from "@/service/project/layoutMigrations/v9";
 import * as v10 from "@/service/project/layoutMigrations/v10";
 import * as v11 from "@/service/project/layoutMigrations/v11";
+import { type SliceState as LayoutSliceState } from "@/session/layout/slice";
 
 export type State<A = unknown> = v0.State<A>;
 export type SliceState = v11.SliceState;

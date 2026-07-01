@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/components/toolbar/Header.css";
+import "@/component/toolbar/Header.css";
 
 import { Button, Flex, Header as PHeader } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";

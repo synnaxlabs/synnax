@@ -29,9 +29,11 @@ import {
 import { json } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { KeyValueEditor } from "@/component/form/KeyValueEditor";
 import { CSS } from "@/component/css";
 import { type Device as CommonDevice } from "@/component/device";
+import { KeyValueEditor } from "@/component/form/KeyValueEditor";
+import { Modals } from "@/component/modals";
+import { Triggers } from "@/component/triggers";
 import {
   type APIKeyAuthConfigSendAs,
   type AuthType,
@@ -48,8 +50,6 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/service/http/task/types";
-import { Modals } from "@/component/modals";
-import { Triggers } from "@/component/triggers";
 
 const INITIAL_VALUES: Device = {
   key: "",

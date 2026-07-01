@@ -15,8 +15,8 @@ import { createPrompt, type Prompt } from "@/component/modals/factory";
 import { Footer } from "@/component/modals/Footer";
 import { Frame } from "@/component/modals/Frame";
 import { Header } from "@/component/modals/Header";
-import { type ContentProps } from "@/session/modals/Context";
 import { Triggers } from "@/component/triggers";
+import { type ContentProps } from "@/session/modals/Context";
 
 interface ButtonProps {
   variant?: status.Variant;

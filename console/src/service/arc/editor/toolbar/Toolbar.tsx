@@ -12,11 +12,21 @@ import { type ReactElement } from "react";
 
 import { Graph } from "@/component/arc/editor/toolbar/graph";
 import { Text } from "@/component/arc/editor/toolbar/text";
+import { useExport } from "@/service/arc/imex/export";
 
-interface ToolbarProps extends Graph.ToolbarProps {}
-
-export const Toolbar = (props: ToolbarProps): ReactElement | null => {
+const Internal = (): ReactElement | null => {
   const mode = Arc.useSelectMode();
+  const handleExport = useExport();
   const C = mode === "text" ? Text.Toolbar : Graph.Toolbar;
-  return <C {...props} />;
+  return <C onExport={handleExport} />;
 };
+
+export interface ToolbarProps {
+  layoutKey: string;
+}
+
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
+  <Arc.Suspended arcKey={layoutKey}>
+    <Internal />
+  </Arc.Suspended>
+);

@@ -18,8 +18,8 @@ import { memo, type ReactElement, useEffect } from "react";
 import { ContextMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
 import { Modals } from "@/component/modals";
-import { Session } from "@/session";
 import { Content } from "@/service/layout/Content";
+import { Session } from "@/session";
 
 export const DefaultContextMenu = (): ReactElement => (
   <ContextMenu.Menu>

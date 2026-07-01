@@ -12,11 +12,10 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { Task } from "@/component/task";
 import { Selector } from "@/component/selector";
+import { Task } from "@/component/task";
 import { Device } from "@/service/opc/device";
 import { type ChannelKeyAndIDGetter, Form } from "@/service/opc/task/Form";
-import { Task as ServiceTask } from "@/service/task";
 import {
   type InputChannel,
   READ_SCHEMAS,
@@ -25,6 +24,7 @@ import {
   type ReadSchemas,
   ZERO_READ_PAYLOAD,
 } from "@/service/opc/task/types";
+import { Task as ServiceTask } from "@/service/task";
 
 export const READ_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

@@ -35,7 +35,7 @@ import { Empty } from "@/component/empty";
 import { Export } from "@/component/export";
 import { Modals } from "@/component/modals";
 import { type Nav } from "@/component/nav";
-import { Task as CommonTask } from "@/component/task";
+import { type Task as CommonTask } from "@/component/task";
 import { Toolbar } from "@/component/toolbar";
 import { Link } from "@/service/link";
 import { Range } from "@/service/range";

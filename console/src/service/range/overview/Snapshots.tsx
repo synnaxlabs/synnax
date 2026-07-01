@@ -29,8 +29,8 @@ import { type FC } from "react";
 
 import { CSS } from "@/component/css";
 import { create } from "@/component/schematic/layout";
-import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/service/task/layouts";
 import { Ontology as ServiceOntology } from "@/service/ontology";
+import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/service/task/layouts";
 import { Session } from "@/session";
 
 interface SnapshotCtx {

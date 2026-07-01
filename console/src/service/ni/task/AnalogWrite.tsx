@@ -13,8 +13,8 @@ import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Device as CommonDevice } from "@/component/device";
+import { Selector } from "@/component/selector";
 import { Task } from "@/component/task";
-import { Task as ServiceTask } from "@/service/task";
 import { Device } from "@/service/ni/device";
 import { AOChannelForm } from "@/service/ni/task/AOChannelForm";
 import { createAOChannel } from "@/service/ni/task/createChannel";
@@ -30,7 +30,7 @@ import {
   type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
 } from "@/service/ni/task/types";
-import { Selector } from "@/component/selector";
+import { Task as ServiceTask } from "@/service/task";
 
 export const ANALOG_WRITE_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

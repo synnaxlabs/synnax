@@ -24,16 +24,16 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
+import { EXPLORER_LAYOUT } from "@/component/arc/Explorer";
 import { create as createLayout } from "@/component/arc/layout";
+import { useCreate } from "@/component/arc/useCreate";
 import { useRename } from "@/component/arc/useRename";
 import { useTask } from "@/component/arc/useTask";
-import { EXPLORER_LAYOUT } from "@/component/arc/Explorer";
-import { Empty } from "@/component/empty";
 import { CSS } from "@/component/css";
+import { Empty } from "@/component/empty";
 import { type Nav } from "@/component/nav";
 import { Toolbar } from "@/component/toolbar";
 import { ContextMenu } from "@/service/arc/ContextMenu";
-import { useCreate } from "@/component/arc/useCreate";
 import { Session } from "@/session";
 
 interface EmptyContentProps {

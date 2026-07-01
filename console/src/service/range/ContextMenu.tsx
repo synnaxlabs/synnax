@@ -31,15 +31,15 @@ import { Ontology } from "@/service/ontology";
 import { Session } from "@/session";
 import {
   selectState as selectRange,
-  useSelectState,
   useSelectMultiple,
+  useSelectState,
 } from "@/session/range/selectors";
 import {
   add,
   clearSelected,
-  type State as RangeRecord,
   remove,
   select,
+  type State as RangeRecord,
   type StoreState,
 } from "@/session/range/slice";
 

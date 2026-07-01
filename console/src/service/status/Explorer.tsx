@@ -12,15 +12,15 @@ import { Access, Button, Component, Icon, Status } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type Layout } from "@/component/layout";
 import { Label } from "@/component/label";
+import { type Layout } from "@/component/layout";
 import { Filter } from "@/component/status/filter";
-import { contextMenu } from "@/service/status/list/ContextMenu";
 import { Item } from "@/component/status/list/Item";
-import { View } from "@/component/view";
-import { Session } from "@/session";
-import { View as ServiceView } from "@/service/view";
 import { useCreateModal } from "@/component/status/useCreateModal";
+import { View } from "@/component/view";
+import { contextMenu } from "@/service/status/list/ContextMenu";
+import { View as ServiceView } from "@/service/view";
+import { type Session } from "@/session";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";
 

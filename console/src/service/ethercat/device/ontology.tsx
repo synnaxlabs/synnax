@@ -12,25 +12,24 @@ import { type Device as PlutoDevice, Flux, Icon, Menu } from "@synnaxlabs/pluto"
 import { useCallback, useMemo } from "react";
 
 import { Device as CommonDevice } from "@/service/device";
-import { useConfigureModal } from "@/service/ethercat/device/useConfigureModal";
 import { useToggleEnabled } from "@/service/ethercat/device/queries";
 import { type SlaveDevice } from "@/service/ethercat/device/types";
+import { useConfigureModal } from "@/service/ethercat/device/useConfigureModal";
 import { Task } from "@/service/ethercat/task";
 import { type Ontology } from "@/service/ontology";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] =
-  [
-    {
-      itemKey: "ethercat.readTask",
-      label: "Create read task",
-      layout: Task.READ_LAYOUT,
-    },
-    {
-      itemKey: "ethercat.writeTask",
-      label: "Create write task",
-      layout: Task.WRITE_LAYOUT,
-    },
-  ];
+const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] = [
+  {
+    itemKey: "ethercat.readTask",
+    label: "Create read task",
+    layout: Task.READ_LAYOUT,
+  },
+  {
+    itemKey: "ethercat.writeTask",
+    label: "Create write task",
+    layout: Task.WRITE_LAYOUT,
+  },
+];
 
 export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const keys = props.selection.ids.map((id) => id.key);

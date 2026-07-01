@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/selector/Selector.css";
+import "@/component/selector/Selector.css";
 
 import { Eraser, Flex, Status, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";

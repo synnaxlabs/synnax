@@ -9,8 +9,8 @@
 
 import { useCallback } from "react";
 
-import { type Link } from "@/service/link";
 import { create } from "@/component/log/layout";
+import { type Link } from "@/service/link";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {

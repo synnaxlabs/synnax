@@ -24,8 +24,8 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/component/css";
-import { Cluster } from "@/service/cluster";
 import { LoginNav } from "@/service/auth/LoginNav";
+import { Cluster } from "@/service/cluster";
 import { Session } from "@/session";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];

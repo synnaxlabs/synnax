@@ -13,8 +13,8 @@ import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Session } from "@/session";
 import { useSyncLayout } from "@/service/project/useSyncLayout";
+import { Session } from "@/session";
 import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil/testutil";
 
 const client: Synnax = createTestClient();
@@ -71,14 +71,17 @@ describe("useSyncLayout", () => {
       name: `sync-${id.create()}`,
       layout: {},
     });
-    const { wrapper, store } = await createConsoleWrapper({
+    const { wrapper } = await createConsoleWrapper({
       client,
       preloadedState: preloadWithActive(proj.key),
     });
     const { result } = renderHook(
       () => {
         useSyncLayout();
-        return { logout: Session.useLogout(), notifications: Status.useNotifications() };
+        return {
+          logout: Session.useLogout(),
+          notifications: Status.useNotifications(),
+        };
       },
       { wrapper },
     );

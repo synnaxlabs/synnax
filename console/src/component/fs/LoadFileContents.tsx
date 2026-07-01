@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/fs/LoadFileContents.css";
+import "@/component/fs/LoadFileContents.css";
 
 import { Button, Flex, Icon, type Input, Status } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";

@@ -10,18 +10,12 @@
 import "@/service/task/Form.css";
 
 import { task } from "@synnaxlabs/client";
-import {
-  Device,
-  Flex,
-  Form as PForm,
-  Input,
-  Task as PTask,
-} from "@synnaxlabs/pluto";
+import { Device, Flex, Form as PForm, Input, Task as PTask } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/component/css";
-import { Layout } from "@/component/layout";
+import { type Layout } from "@/component/layout";
 import { useConfirm } from "@/component/modals/useConfirm";
 import { Task } from "@/component/task";
 import { type FormLayoutArgs, useIsSnapshot } from "@/component/task/Form";
@@ -68,10 +62,8 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
 }: Task.WrapFormArgs<S>): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = Session.useStore();
-    const { deviceKey, taskKey, rackKey, config } = Session.Layout.selectArgs<FormLayoutArgs>(
-      store.getState(),
-      layoutKey,
-    );
+    const { deviceKey, taskKey, rackKey, config } =
+      Session.Layout.selectArgs<FormLayoutArgs>(store.getState(), layoutKey);
     const dispatch = Session.useDispatch();
     const handleUnsavedChanges = useCallback(
       (unsavedChanges: boolean) =>

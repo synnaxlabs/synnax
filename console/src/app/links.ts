@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Project } from "@/service/project";
-import { Range } from "@/service/range";
 import { Arc } from "@/service/arc";
 import { Channel } from "@/service/channel";
 import { Cluster } from "@/service/cluster";
@@ -16,6 +14,8 @@ import { Device } from "@/service/device";
 import { LinePlot } from "@/service/lineplot";
 import { Link } from "@/service/link";
 import { Log } from "@/service/log";
+import { Project } from "@/service/project";
+import { Range } from "@/service/range";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
 import { Task } from "@/service/task";

@@ -19,9 +19,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
-import { ContextMenu } from "@/service/arc/ContextMenu";
 import { Item, type ItemProps } from "@/component/arc/list/Item";
 import { useRename } from "@/component/arc/useRename";
+import { ContextMenu } from "@/service/arc/ContextMenu";
 
 export interface ListProps
   extends

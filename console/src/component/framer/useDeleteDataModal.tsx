@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/framer/DeleteModal.css";
+import "@/component/framer/DeleteModal.css";
 
 import { channel, DisconnectedError } from "@synnaxlabs/client";
 import {

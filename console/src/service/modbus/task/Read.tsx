@@ -19,7 +19,6 @@ import { Selector } from "@/component/selector";
 import { Task } from "@/component/task";
 import { Device } from "@/service/modbus/device";
 import { SelectInputChannelTypeField } from "@/service/modbus/task/SelectInputChannelTypeField";
-import { Task as ServiceTask } from "@/service/task";
 import {
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
@@ -32,6 +31,7 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/service/modbus/task/types";
+import { Task as ServiceTask } from "@/service/task";
 
 export const READ_LAYOUT = {
   ...ServiceTask.LAYOUT,
@@ -164,9 +164,7 @@ const channelName = (deviceName: string, channel: InputChannel) => {
   return s;
 };
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
-  deviceKey,
-}) => ({
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => ({
   ...ZERO_READ_PAYLOAD,
   config: {
     ...ZERO_READ_PAYLOAD.config,
@@ -174,10 +172,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   },
 });
 
-const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
-  client,
-  config,
-) => {
+const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
     schemas: Device.SCHEMAS,

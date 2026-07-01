@@ -9,10 +9,10 @@
 
 import { type Nav } from "@/component/nav";
 import { type Palette } from "@/component/palette";
+import { TOOLBAR } from "@/service/device/Toolbar";
 import { HTTP } from "@/service/http";
 import { Modbus } from "@/service/modbus";
 import { OPC } from "@/service/opc";
-import { TOOLBAR } from "@/service/device/Toolbar";
 
 export * from "@/service/device/ChangeIdentifierMenuItem";
 export * from "@/service/device/ConfigureMenuItem";

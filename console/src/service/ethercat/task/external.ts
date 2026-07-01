@@ -9,8 +9,6 @@
 
 import { type Layout } from "@/component/layout";
 import { type Selector } from "@/component/selector";
-import { type Export } from "@/service/export";
-import { type Import } from "@/service/import";
 import { Read, READ_LAYOUT, ReadSelectable } from "@/service/ethercat/task/Read";
 import {
   READ_SCHEMAS,
@@ -19,6 +17,8 @@ import {
   WRITE_TYPE,
 } from "@/service/ethercat/task/types";
 import { Write, WRITE_LAYOUT, WriteSelectable } from "@/service/ethercat/task/Write";
+import { type Export } from "@/service/export";
+import { type Import } from "@/service/import";
 import { createIngester } from "@/service/task/createIngester";
 import { extract } from "@/service/task/export";
 import { type Layout as TaskLayout } from "@/service/task/Form";

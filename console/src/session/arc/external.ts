@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/session/layout";
+import { type Layout } from "@/session/layout";
 
 export * from "@/session/arc/selectors";
 export * from "@/session/arc/slice";

@@ -10,10 +10,10 @@
 import { type Layout } from "@/component/layout";
 import { type Nav } from "@/component/nav";
 import { type Palette } from "@/component/palette";
-import { type Export } from "@/service/export";
-import { type Import } from "@/service/import";
 import { EtherCAT } from "@/service/ethercat";
+import { type Export } from "@/service/export";
 import { HTTP } from "@/service/http";
+import { type Import } from "@/service/import";
 import { LabJack } from "@/service/labjack";
 import { Modbus } from "@/service/modbus";
 import { NI } from "@/service/ni";

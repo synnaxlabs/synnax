@@ -9,7 +9,6 @@
 
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useStore } from "react-redux";
 
 import { LinePlot } from "@/component/lineplot";
 import { type Link } from "@/service/link";
@@ -21,7 +20,8 @@ export const useLink = (): Link.Handler => {
   return useCallback(
     async ({ client, key }) => {
       const channel = await client.channels.retrieve(key);
-      const project = Session.Project.selectOptionalSelected(store.getState()) ?? uuid.ZERO;
+      const project =
+        Session.Project.selectOptionalSelected(store.getState()) ?? uuid.ZERO;
       const activeRange =
         Session.Range.selectSelectedKey(store.getState()) ?? Session.Range.RECENT_KEY;
       const { key: plotKey, name } = await client.lineplots.create(project, {

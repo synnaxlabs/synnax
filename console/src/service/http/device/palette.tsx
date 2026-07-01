@@ -10,8 +10,8 @@
 import { device } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { useConnectModal } from "@/service/http/device/useConnectModal";
 import { Palette } from "@/component/palette";
+import { useConnectModal } from "@/service/http/device/useConnectModal";
 
 const ConnectServerCommand = Palette.createCommand({
   key: "http_connect_server",

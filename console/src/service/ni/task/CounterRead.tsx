@@ -13,8 +13,8 @@ import { errors, id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Device as CommonDevice } from "@/component/device";
+import { Selector } from "@/component/selector";
 import { Task } from "@/component/task";
-import { Task as ServiceTask } from "@/service/task";
 import { Device } from "@/service/ni/device";
 import { CIChannelForm } from "@/service/ni/task/CIChannelForm";
 import { createCIChannel } from "@/service/ni/task/createChannel";
@@ -31,7 +31,7 @@ import {
   ZERO_CI_CHANNEL,
   ZERO_COUNTER_READ_PAYLOAD,
 } from "@/service/ni/task/types";
-import { Selector } from "@/component/selector";
+import { Task as ServiceTask } from "@/service/task";
 
 export const COUNTER_READ_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

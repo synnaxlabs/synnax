@@ -13,7 +13,7 @@ import { strings } from "@synnaxlabs/x";
 
 import { create } from "@/component/arc/layout";
 import { Ontology } from "@/service/ontology";
-import { Session } from "@/session";
+import { type Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({
   client,

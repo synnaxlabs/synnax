@@ -25,8 +25,8 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { type Device as CommonDevice } from "@/component/device";
 import { CSS } from "@/component/css";
+import { type Device as CommonDevice } from "@/component/device";
 import { Modals } from "@/component/modals";
 import { Triggers } from "@/component/triggers";
 import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/service/modbus/device/types";

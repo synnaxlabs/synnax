@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/component/layout";
-import { LinePlot } from "@/component/lineplot/LinePlot";
 import { ContextMenu } from "@/component/lineplot/ContextMenu";
 import { LAYOUT_TYPE } from "@/component/lineplot/layout";
+import { LinePlot } from "@/component/lineplot/LinePlot";
 import { type Selector } from "@/component/selector";
 import { type Export } from "@/service/export";
 import { extract } from "@/service/lineplot/export";
@@ -18,8 +18,8 @@ import { Selectable } from "@/service/lineplot/Selectable";
 
 export * from "@/component/lineplot/layout";
 export * from "@/component/lineplot/toolbar";
-export * as ImEx from "@/service/lineplot/imex";
 export * from "@/service/lineplot/addChannelsToActivePlot";
+export * as ImEx from "@/service/lineplot/imex";
 export * from "@/service/lineplot/link";
 export * from "@/service/lineplot/ontology";
 export * from "@/service/lineplot/palette";

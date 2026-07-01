@@ -7,27 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Editor } from "@/component/arc/editor";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/component/arc/Explorer";
-import { Layout } from "@/component/layout";
-import { Selector } from "@/component/selector";
-import { Export } from "@/service/export";
+import { LAYOUT_TYPE } from "@/component/arc/layout";
+import { type Layout } from "@/component/layout";
+import { type Selector } from "@/component/selector";
+import { Editor } from "@/service/arc/editor";
 import { extract } from "@/service/arc/imex/export";
 import { ingest } from "@/service/arc/imex/import";
-import { LAYOUT_TYPE } from "@/component/arc/layout";
-import { Import } from "@/service/import";
 import { Selectable } from "@/service/arc/Selectable";
+import { type Export } from "@/service/export";
+import { type Import } from "@/service/import";
 
-export * from "@/component/arc/editor";
 export * from "@/component/arc/Explorer";
 export * from "@/component/arc/layout";
+export * from "@/component/arc/useCreate";
+export * from "@/component/arc/useCreateModal";
+export * from "@/service/arc/editor";
 export * from "@/service/arc/imex";
 export * from "@/service/arc/link";
 export * from "@/service/arc/ontology";
 export * from "@/service/arc/palette";
 export * from "@/service/arc/toolbar/Toolbar";
-export * from "@/component/arc/useCreate";
-export * from "@/component/arc/useCreateModal";
 
 export const EDITOR_LAYOUT_TYPE = LAYOUT_TYPE;
 export type EditorLayoutType = typeof EDITOR_LAYOUT_TYPE;

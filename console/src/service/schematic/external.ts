@@ -9,8 +9,8 @@
 
 import { type Layout } from "@/component/layout";
 import { ContextMenu } from "@/component/schematic/ContextMenu";
-import { Schematic } from "@/component/schematic/Schematic";
 import { LAYOUT_TYPE } from "@/component/schematic/layout";
+import { Schematic } from "@/component/schematic/Schematic";
 import { type Selector } from "@/component/selector";
 import { type Export } from "@/service/export";
 import { extract } from "@/service/schematic/export";

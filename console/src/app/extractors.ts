@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Export } from "@/service/export";
 import { Arc } from "@/service/arc";
+import { type Export } from "@/service/export";
 import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
 import { Schematic } from "@/service/schematic";

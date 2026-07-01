@@ -10,8 +10,8 @@
 import { ranger } from "@synnaxlabs/client";
 import { Access, Icon, Ranger } from "@synnaxlabs/pluto";
 
-import { Range } from "@/component/range";
 import { Palette } from "@/component/palette";
+import { Range } from "@/component/range";
 import { EXPLORER_LAYOUT } from "@/service/range/Explorer";
 
 export const CreateCommand = Palette.createCommand({

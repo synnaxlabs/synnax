@@ -10,8 +10,8 @@
 import { Dialog } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Empty } from "@/component/empty";
 import { Device } from "@/component/device";
+import { Empty } from "@/component/empty";
 import { MAKE } from "@/service/http/device/types";
 import { useConnectModal } from "@/service/http/device/useConnectModal";
 

@@ -15,13 +15,13 @@ import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Label } from "@/component/label";
+import { type Layout } from "@/component/layout";
 import { Item } from "@/component/range/list/Item";
 import { useCreateModal } from "@/component/range/useCreateModal";
-import { type Layout } from "@/component/layout";
 import { View } from "@/component/view";
 import { ContextMenu } from "@/service/range/list/ContextMenu";
 import { View as ServiceView } from "@/service/view";
-import { Session } from "@/session";
+import { type Session } from "@/session";
 
 export const EXPLORER_LAYOUT_TYPE = "range_explorer";
 

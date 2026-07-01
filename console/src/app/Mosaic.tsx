@@ -40,8 +40,9 @@ import {
   useEffect,
   useLayoutEffect,
 } from "react";
-import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
+
 import { Nav as AppNav } from "@/app/nav";
+import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
 import { ContextMenu as CMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
 import { Layout } from "@/component/layout";
@@ -343,7 +344,11 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     root: mosaic,
     onSelect: handleSelect,
     children: ({ tabKey, visible }) => (
-      <ServiceLayout.Content key={tabKey} layoutKey={tabKey} forceHidden={visible === false} />
+      <ServiceLayout.Content
+        key={tabKey}
+        layoutKey={tabKey}
+        forceHidden={visible === false}
+      />
     ),
   });
 

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
 import { Items } from "@/app/nav/items";
 import { Service } from "@/service";

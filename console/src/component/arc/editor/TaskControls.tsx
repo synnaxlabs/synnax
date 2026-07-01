@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/service/arc/editor/Controls.css";
+import "@/component/arc/editor/TaskControls.css";
 
 import { type rack, task } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
+import { useTask } from "@/component/arc/useTask";
 import { CSS } from "@/component/css";
 import { Task } from "@/component/task";
-import { useTask } from "@/component/arc/useTask";
 
 const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "arc" };
 

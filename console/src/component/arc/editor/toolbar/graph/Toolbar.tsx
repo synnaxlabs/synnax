@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/service/arc/editor/toolbar/graph/Toolbar.css";
+import "@/component/arc/editor/toolbar/graph/Toolbar.css";
 
 import { arc } from "@synnaxlabs/client";
 import { Arc, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
 
 import { Stages } from "@/component/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/component/arc/editor/toolbar/graph/Properties";

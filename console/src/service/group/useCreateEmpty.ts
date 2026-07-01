@@ -12,7 +12,7 @@ import { type Flux, Group, Text, Tree } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Ontology } from "@/service/ontology";
+import { type Ontology } from "@/service/ontology";
 
 export interface UseCreateEmptyProps {
   parent: ontology.ID;

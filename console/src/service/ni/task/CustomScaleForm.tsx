@@ -13,6 +13,7 @@ import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
 import { z } from "zod";
 
+import { FS } from "@/component/fs";
 import {
   type Scale,
   SCALE_SCHEMAS,
@@ -20,7 +21,6 @@ import {
   type Units,
   ZERO_SCALES,
 } from "@/service/ni/task/types";
-import { FS } from "@/component/fs";
 
 const SelectCustomScaleTypeField = Form.buildSelectField<
   ScaleType,

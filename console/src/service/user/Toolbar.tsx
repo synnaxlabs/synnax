@@ -14,8 +14,8 @@ import { type ReactElement } from "react";
 import { Empty } from "@/component/empty";
 import { Toolbar } from "@/component/toolbar";
 import { useRegisterModal } from "@/component/user/useRegisterModal";
-import { Ontology } from "@/service/ontology";
 import { type Service } from "@/service";
+import { Ontology } from "@/service/ontology";
 
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});

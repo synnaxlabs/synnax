@@ -15,7 +15,7 @@ import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
-import { Session } from "@/session";
+import { type Session } from "@/session";
 
 export const SELECTABLES: BaseSelector.Selectable[] = [
   ...LinePlot.SELECTABLES,

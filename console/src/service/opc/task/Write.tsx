@@ -13,10 +13,9 @@ import { caseconv, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { ContextMenu } from "@/component/context-menu";
-import { Task } from "@/component/task";
 import { Selector } from "@/component/selector";
+import { Task } from "@/component/task";
 import { Device } from "@/service/opc/device";
-import { Task as ServiceTask } from "@/service/task";
 import { type ChannelKeyAndIDGetter, Form } from "@/service/opc/task/Form";
 import {
   type OutputChannel,
@@ -25,6 +24,7 @@ import {
   type WriteSchemas,
   ZERO_WRITE_PAYLOAD,
 } from "@/service/opc/task/types";
+import { Task as ServiceTask } from "@/service/task";
 
 export const WRITE_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

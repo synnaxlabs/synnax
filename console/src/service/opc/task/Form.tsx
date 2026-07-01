@@ -23,9 +23,9 @@ import {
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/component/css";
-import { ChannelName } from "@/component/task/ChannelName";
 import { Device as CommonDevice } from "@/component/device";
 import { Task } from "@/component/task";
+import { ChannelName } from "@/component/task/ChannelName";
 import { Device } from "@/service/opc/device";
 import { type Channel } from "@/service/opc/task/types";
 

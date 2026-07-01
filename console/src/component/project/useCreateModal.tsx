@@ -26,11 +26,13 @@ export const useCreateModal = Modals.create(({ close }) => {
       layout: Session.Layout.ZERO_SLICE_STATE,
     },
     afterSave: ({ value }) => {
-      const { key, name, layout } = value();
+      const { key, layout } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
       dispatch(Session.Project.select(key));
       if (active != null)
-        dispatch(Session.Layout.setProject({ slice: layout as Session.Layout.SliceState }));
+        dispatch(
+          Session.Layout.setProject({ slice: layout as Session.Layout.SliceState }),
+        );
       close();
     },
   });

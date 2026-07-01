@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/components/form/KeyValueEditor.css";
+import "@/component/form/KeyValueEditor.css";
 
 import { Button, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
 import { useEffect } from "react";

@@ -13,8 +13,8 @@ import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Device as CommonDevice } from "@/component/device";
+import { Selector } from "@/component/selector";
 import { Task } from "@/component/task";
-import { Task as ServiceTask } from "@/service/task";
 import { Device } from "@/service/ni/device";
 import { createDIChannel } from "@/service/ni/task/createChannel";
 import {
@@ -30,7 +30,7 @@ import {
   type DigitalReadSchemas,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/service/ni/task/types";
-import { Selector } from "@/component/selector";
+import { Task as ServiceTask } from "@/service/task";
 
 export const DIGITAL_READ_LAYOUT: ServiceTask.Layout = {
   ...ServiceTask.LAYOUT,

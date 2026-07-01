@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/channel/Calculated.css";
+import "@/component/channel/CalculatedModal.css";
 
 import { channel, status, TimeSpan } from "@synnaxlabs/client";
 import {

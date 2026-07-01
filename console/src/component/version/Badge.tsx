@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/service/version/Badge.css";
+import "@/component/version/Badge.css";
 
 import { Button } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";

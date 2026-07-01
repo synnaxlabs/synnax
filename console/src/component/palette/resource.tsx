@@ -20,10 +20,10 @@ import {
 import { isValidElement, useCallback } from "react";
 import { useStore } from "react-redux";
 
-import { Ontology } from "@/service/ontology";
 import { type UseListReturn } from "@/component/palette/list";
-import { type Action, type State } from "@/session/store";
+import { Ontology } from "@/service/ontology";
 import { Session } from "@/session";
+import { type Action, type State } from "@/session/store";
 
 interface OntologyListItemProps extends List.ItemProps<string> {}
 

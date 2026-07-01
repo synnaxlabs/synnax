@@ -30,8 +30,8 @@ import { Cluster } from "@/component/cluster";
 import { ContextMenu } from "@/component/context-menu";
 import { LinePlot } from "@/component/lineplot";
 import { Group } from "@/service/group";
-import { Link } from "@/service/link";
 import { LinePlot as ServiceLinePlot } from "@/service/lineplot";
+import { Link } from "@/service/link";
 import { Ontology } from "@/service/ontology";
 import { Session } from "@/session";
 
@@ -56,14 +56,20 @@ const handleSelect: Ontology.HandleSelect = ({
   switch (layout?.type) {
     case LinePlot.LAYOUT_TYPE: {
       handleError(
-        () => ServiceLinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
+        () =>
+          ServiceLinePlot.addChannelsToActivePlot(
+            client,
+            layout.key,
+            nonVirtualSelection,
+          ),
         "Failed to add channels to plot",
       );
       break;
     }
     default: {
       const project = Session.Project.selectSelected(state);
-      const activeRange = Session.Range.selectSelectedKey(state) ?? Session.Range.RECENT_KEY;
+      const activeRange =
+        Session.Range.selectSelectedKey(state) ?? Session.Range.RECENT_KEY;
       handleError(async () => {
         const { key, name } = await client.lineplots.create(project, {
           name: "Line Plot",

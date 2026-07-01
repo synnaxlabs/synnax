@@ -12,7 +12,6 @@ import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
-import { useDispatch } from "react-redux";
 
 import { type ClusterConnect, type Handler, PREFIX } from "@/service/link/types";
 import { Session } from "@/session";

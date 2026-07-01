@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Range as ComponentRange } from "@/component/range";
 import { type Layout } from "@/component/layout";
+import { Range as ComponentRange } from "@/component/range";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/service/range/Explorer";
 import { Overview } from "@/service/range/overview/Overview";
 

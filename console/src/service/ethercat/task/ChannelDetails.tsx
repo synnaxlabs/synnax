@@ -10,7 +10,7 @@
 import { Component, Flex, Form as PForm, Telem } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { Task } from "@/component/task";
+import { type Task } from "@/component/task";
 import { SelectSlave } from "@/service/ethercat/device/SelectSlave";
 import { SelectChannelModeField } from "@/service/ethercat/task/SelectChannelModeField";
 import { SelectPDOField } from "@/service/ethercat/task/SelectPDOField";
