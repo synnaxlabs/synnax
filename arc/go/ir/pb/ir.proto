@@ -136,6 +136,8 @@ message Node {
   repeated .arc.types.pb.Param outputs = 4;
   // channels contains channel read/write mappings.
   .arc.types.pb.Channels channels = 5;
+  // is_var is true when this node reads or writes a reactive value variable.
+  bool is_var = 6;
 }
 
 // Authorities holds the static authority declarations from an Arc program.

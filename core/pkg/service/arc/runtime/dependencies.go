@@ -102,9 +102,8 @@ func NewDependencies(
 	channelDigests := make([]stlchannels.Digest, 0, len(channels)+len(varChannels))
 	for key := range varChannels {
 		channelDigests = append(channelDigests, stlchannels.Digest{
-			Key:      key,
-			Variable: true,
-			Seed:     seeds[key],
+			Key:  key,
+			Seed: seeds[key],
 		})
 	}
 	for _, ch := range channels {

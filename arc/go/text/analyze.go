@@ -457,6 +457,7 @@ func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (no
 		Channels: types.NewChannels(),
 		Inputs:   types.Params{{Name: "channel", Type: chanType, Value: chKey}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: valType}},
+		IsVar:    isVarChannel(sym),
 	}
 	n.Channels.Read[chKey] = sym.Name
 	return newNodeResult(n, "", ir.DefaultOutputParam), true
@@ -475,6 +476,7 @@ func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (n
 			{Name: "channel", Type: chanType, Value: chKey},
 		},
 		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		IsVar:   isVarChannel(sym),
 	}
 	n.Channels.Write[chKey] = sym.Name
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true

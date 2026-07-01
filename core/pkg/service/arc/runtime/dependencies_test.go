@@ -108,7 +108,6 @@ var _ = Describe("Dependencies", Ordered, func() {
 			var hasVarDigest bool
 			for _, d := range deps.ChannelDigests {
 				if d.Key == varKey {
-					Expect(d.Variable).To(BeTrue())
 					hasVarDigest = true
 				}
 			}

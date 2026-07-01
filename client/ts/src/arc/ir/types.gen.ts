@@ -63,6 +63,8 @@ export const nodeZ = z.object({
   outputs: types.paramsZ,
   /** channels contains channel read/write mappings. */
   channels: types.channelsZ,
+  /** isVar is true when this node reads or writes a reactive value variable. */
+  isVar: z.boolean().default(false),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 

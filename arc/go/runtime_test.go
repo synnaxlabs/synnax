@@ -71,7 +71,7 @@ func newRuntimeHarness(
 		seeds[vs.Channel] = telem.NewSeriesFromAny(vs.Value, types.ToTelem(vs.Type))
 	}
 	for _, key := range prog.VarChannels {
-		channelDigests = append(channelDigests, channels.Digest{Key: key, Variable: true, Seed: seeds[key]})
+		channelDigests = append(channelDigests, channels.Digest{Key: key, Seed: seeds[key]})
 	}
 	nodeState := node.New(prog.IR)
 	channelState := channels.NewProgramState(channelDigests)

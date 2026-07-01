@@ -707,7 +707,9 @@ type Node struct {
 	// outputs contains output parameter type signatures.
 	Outputs []*pb.Param `protobuf:"bytes,4,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	// channels contains channel read/write mappings.
-	Channels      *pb.Channels `protobuf:"bytes,5,opt,name=channels,proto3" json:"channels,omitempty"`
+	Channels *pb.Channels `protobuf:"bytes,5,opt,name=channels,proto3" json:"channels,omitempty"`
+	// is_var is true when this node reads or writes a reactive value variable.
+	IsVar         bool `protobuf:"varint,6,opt,name=is_var,json=isVar,proto3" json:"is_var,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -775,6 +777,13 @@ func (x *Node) GetChannels() *pb.Channels {
 		return x.Channels
 	}
 	return nil
+}
+
+func (x *Node) GetIsVar() bool {
+	if x != nil {
+		return x.IsVar
+	}
+	return false
 }
 
 // Authorities holds the static authority declarations from an Arc program.
@@ -1043,13 +1052,14 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x04body\x18\x02 \x01(\v2\x0f.arc.ir.pb.BodyR\x04body\x12+\n" +
 	"\x06inputs\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
 	"\aoutputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
-	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xbc\x01\n" +
+	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xd3\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12+\n" +
 	"\x06inputs\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
 	"\aoutputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
-	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xb7\x01\n" +
+	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\x12\x15\n" +
+	"\x06is_var\x18\x06 \x01(\bR\x05isVar\"\xb7\x01\n" +
 	"\vAuthorities\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\rH\x00R\adefault\x88\x01\x01\x12@\n" +
 	"\bchannels\x18\x02 \x03(\v2$.arc.ir.pb.Authorities.ChannelsEntryR\bchannels\x1a;\n" +

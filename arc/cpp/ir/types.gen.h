@@ -103,6 +103,8 @@ struct Node {
     ::arc::types::Params outputs;
     /// @brief channels contains channel read/write mappings.
     ::arc::types::Channels channels;
+    /// @brief is_var is true when this node reads or writes a reactive value variable.
+    bool is_var = false;
 
     static Node parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

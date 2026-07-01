@@ -161,6 +161,8 @@ type Node struct {
 	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write mappings.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
+	// IsVar is true when this node reads or writes a reactive value variable.
+	IsVar bool `json:"is_var" msgpack:"is_var"`
 }
 
 // Authorities holds the static authority declarations from an Arc program.

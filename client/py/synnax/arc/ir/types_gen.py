@@ -68,6 +68,7 @@ class Node(BaseModel):
         inputs: Contains input parameter type signatures.
         outputs: Contains output parameter type signatures.
         channels: Contains channel read/write mappings.
+        is_var: Is true when this node reads or writes a reactive value variable.
     """
 
     key: str
@@ -75,6 +76,7 @@ class Node(BaseModel):
     inputs: types.Params = Field(default_factory=list)
     outputs: types.Params = Field(default_factory=list)
     channels: types.Channels
+    is_var: bool = False
 
 
 class Authorities(BaseModel):

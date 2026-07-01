@@ -145,12 +145,12 @@ var _ = Describe("Text", func() {
 			varKey := inter.VarChannels[0]
 			sawRead, sawWrite := false, false
 			for _, n := range inter.Nodes {
-				if _, ok := n.Channels.Read[varKey]; ok {
-					sawRead = true
-				}
-				if _, ok := n.Channels.Write[varKey]; ok {
-					sawWrite = true
-				}
+				_, reads := n.Channels.Read[varKey]
+				_, writes := n.Channels.Write[varKey]
+				sawRead = sawRead || reads
+				sawWrite = sawWrite || writes
+				Expect(n.IsVar).To(Equal(reads || writes),
+					"IsVar must be set iff the node touches the var channel")
 			}
 			Expect(sawRead).To(BeTrue(), "expected an on-node reading the var channel")
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
@@ -211,12 +211,12 @@ var _ = Describe("Text", func() {
 			varKey := inter.VarChannels[0]
 			sawRead, sawWrite := false, false
 			for _, n := range inter.Nodes {
-				if _, ok := n.Channels.Read[varKey]; ok {
-					sawRead = true
-				}
-				if _, ok := n.Channels.Write[varKey]; ok {
-					sawWrite = true
-				}
+				_, reads := n.Channels.Read[varKey]
+				_, writes := n.Channels.Write[varKey]
+				sawRead = sawRead || reads
+				sawWrite = sawWrite || writes
+				Expect(n.IsVar).To(Equal(reads || writes),
+					"IsVar must be set iff the node touches the var channel")
 			}
 			Expect(sawRead).To(BeTrue(), "expected an on-node reading the var channel")
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")

@@ -263,6 +263,7 @@ inline std::pair<::arc::ir::pb::Node, x::errors::Error> Node::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_channels() = v;
     }
+    pb.set_is_var(this->is_var);
     return {pb, x::errors::NIL};
 }
 
@@ -286,6 +287,7 @@ Node::from_proto(const ::arc::ir::pb::Node &pb) {
         if (err) return {{}, err};
         cpp.channels = v;
     }
+    cpp.is_var = pb.is_var();
     return {cpp, x::errors::NIL};
 }
 

@@ -129,13 +129,20 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			State: cfg.State,
 			key:   nodeCfg.Channel,
 			state: h.state,
+			isVar: cfg.Node.IsVar,
 		}, nil
 	}
 	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
 	if err != nil {
 		return nil, err
 	}
-	return &sink{State: cfg.State, state: h.state, key: nodeCfg.Channel, inputIdx: inputIdx}, nil
+	return &sink{
+		State:    cfg.State,
+		state:    h.state,
+		key:      nodeCfg.Channel,
+		isVar:    cfg.Node.IsVar,
+		inputIdx: inputIdx,
+	}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -150,6 +157,7 @@ type source struct {
 	*node.State
 	state         *ProgramState
 	key           uint32
+	isVar         bool
 	highWaterMark telem.Alignment
 	clock         telem.MonoClock
 }
@@ -168,7 +176,7 @@ func (s *source) Reset() {
 	ab := data.Series[len(data.Series)-1].AlignmentBounds()
 	// A variable read emits its current value on (re)activation; a plain channel
 	// read skips everything already buffered before it became active.
-	if s.state.varChannels.Contains(s.key) {
+	if s.isVar {
 		s.highWaterMark = ab.Lower
 		return
 	}
@@ -214,6 +222,7 @@ type sink struct {
 	*node.State
 	state    *ProgramState
 	key      uint32
+	isVar    bool
 	inputIdx int
 }
 
@@ -226,7 +235,11 @@ func (s *sink) Next(ctx node.Context) {
 	if data.Len() == 0 {
 		return
 	}
-	s.state.writeChannel(s.key, data, time)
+	if s.isVar {
+		s.state.appendVarRead(s.key, data.DeepCopy())
+	} else {
+		s.state.writeChannel(s.key, data, time)
+	}
 	lastTS := telem.ValueAt[telem.TimeStamp](time, -1)
 	out := s.Output(0)
 	out.Resize(1)

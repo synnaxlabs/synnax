@@ -67,25 +67,12 @@ var _ = Describe("ProgramState", func() {
 	})
 
 	Describe("Variable Channels", func() {
-		It("Should loop writes back into reads instead of flushing", func() {
+		It("Should seed the read buffer from a digest seed", func() {
 			cs := channels.NewProgramState([]channels.Digest{
-				{Key: 7, DataType: telem.Int64T, Variable: true},
+				{Key: 7, DataType: telem.Int64T, Seed: telem.NewSeriesV[int64](42)},
 			})
-			cs.WriteValue(7, telem.NewSeriesV[int64](42))
 			ser := MustBeOk(cs.ReadValue(7))
 			Expect(telem.ValueAt[int64](ser, 0)).To(Equal(int64(42)))
-			_, changed := cs.Flush(telem.Frame[uint32]{})
-			Expect(changed).To(BeFalse())
-		})
-
-		It("Should keep the latest value across multiple writes", func() {
-			cs := channels.NewProgramState([]channels.Digest{
-				{Key: 7, DataType: telem.Int64T, Variable: true},
-			})
-			cs.WriteValue(7, telem.NewSeriesV[int64](1))
-			cs.WriteValue(7, telem.NewSeriesV[int64](2))
-			ser := MustBeOk(cs.ReadValue(7))
-			Expect(telem.ValueAt[int64](ser, 0)).To(Equal(int64(2)))
 		})
 	})
 
