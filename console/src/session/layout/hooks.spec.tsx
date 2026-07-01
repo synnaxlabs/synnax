@@ -201,4 +201,48 @@ describe("layout hooks", () => {
       result.current.modals.clear();
     });
   });
+
+  describe("useOpenInNewWindow", () => {
+    it("should create a mosaic window and move the layout's tab into it", () => {
+      const store = configureStore({
+        reducer: combineReducers({
+          [Layout.SLICE_NAME]: Layout.reducer,
+          [Drift.SLICE_NAME]: Drift.reducer,
+        }),
+      });
+      const wrapper = ({ children }: PropsWithChildren) => (
+        <Provider store={store}>
+          <Modals.Provider>{children}</Modals.Provider>
+        </Provider>
+      );
+      const { result } = renderHook(
+        () => ({
+          placer: Layout.usePlacer(),
+          openInNewWindow: Layout.useOpenInNewWindow(),
+        }),
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.placer({
+          key: "plot-1",
+          location: "mosaic",
+          type: "lineplot",
+          name: "Plot 1",
+        });
+      });
+      expect(select(store.getState(), "plot-1")?.windowKey).toEqual(Drift.MAIN_WINDOW);
+
+      act(() => {
+        result.current.openInNewWindow("plot-1");
+      });
+
+      const layouts = store.getState()[Layout.SLICE_NAME].layouts;
+      const newWindow = Object.values(layouts).find(
+        (l) => l.type === Layout.MOSAIC_WINDOW_TYPE,
+      );
+      expect(newWindow).toBeDefined();
+      expect(select(store.getState(), "plot-1")?.windowKey).toEqual(newWindow?.key);
+    });
+  });
 });

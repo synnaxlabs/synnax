@@ -9,12 +9,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type Cluster, reducer, set, ZERO_SLICE_STATE } from "@/session/cluster/slice";
+import { Cluster } from "@/session/cluster";
 
 const TEMP_KEY = "temp-uuid-1234";
 const REAL_KEY = "real-cluster-key-5678";
 
-const BASE_CLUSTER: Cluster = {
+const BASE_CLUSTER: Cluster.Cluster = {
   key: TEMP_KEY,
   name: "My Cluster",
   host: "example.com",
@@ -27,20 +27,25 @@ const BASE_CLUSTER: Cluster = {
 describe("purgeDuplicateClusters", () => {
   it("should remove a temp-keyed cluster when a real key is set for the same host/port", () => {
     // Simulate Connect form saving a cluster with a temp key
-    let state = reducer(ZERO_SLICE_STATE, set(BASE_CLUSTER));
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
     expect(state.clusters[TEMP_KEY]).toBeDefined();
 
     // Simulate Login page setting the cluster with the real key
-    state = reducer(state, set({ ...BASE_CLUSTER, key: REAL_KEY }));
+    state = Cluster.reducer(state, Cluster.set({ ...BASE_CLUSTER, key: REAL_KEY }));
     expect(state.clusters[REAL_KEY]).toBeDefined();
     expect(state.clusters[TEMP_KEY]).toBeUndefined();
   });
 
   it("should keep the newly set cluster and not the old duplicate", () => {
-    let state = reducer(ZERO_SLICE_STATE, set(BASE_CLUSTER));
-    state = reducer(
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(
       state,
-      set({ ...BASE_CLUSTER, key: REAL_KEY, username: "synnax", password: "seldon" }),
+      Cluster.set({
+        ...BASE_CLUSTER,
+        key: REAL_KEY,
+        username: "synnax",
+        password: "seldon",
+      }),
     );
     expect(
       Object.keys(state.clusters).filter(
@@ -52,9 +57,134 @@ describe("purgeDuplicateClusters", () => {
   });
 
   it("should not purge clusters with different host/port", () => {
-    let state = reducer(ZERO_SLICE_STATE, set(BASE_CLUSTER));
-    state = reducer(state, set({ ...BASE_CLUSTER, key: REAL_KEY, host: "other.com" }));
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(
+      state,
+      Cluster.set({ ...BASE_CLUSTER, key: REAL_KEY, host: "other.com" }),
+    );
     expect(state.clusters[TEMP_KEY]).toBeDefined();
     expect(state.clusters[REAL_KEY]).toBeDefined();
+  });
+
+  it("should not purge a duplicate that differs only in secure flag", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(
+      state,
+      Cluster.set({ ...BASE_CLUSTER, key: REAL_KEY, secure: true }),
+    );
+    expect(state.clusters[TEMP_KEY]).toBeDefined();
+    expect(state.clusters[REAL_KEY]).toBeDefined();
+  });
+});
+
+describe("set", () => {
+  it("should add a new cluster keyed by its key", () => {
+    const state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    expect(state.clusters[TEMP_KEY]).toEqual(BASE_CLUSTER);
+  });
+
+  it("should overwrite an existing cluster with the same key", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(
+      state,
+      Cluster.set({ ...BASE_CLUSTER, name: "Renamed Inline" }),
+    );
+    expect(state.clusters[TEMP_KEY].name).toBe("Renamed Inline");
+  });
+});
+
+describe("remove", () => {
+  it("should remove a single cluster by key", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(state, Cluster.remove(TEMP_KEY));
+    expect(state.clusters[TEMP_KEY]).toBeUndefined();
+  });
+
+  it("should remove multiple clusters by key", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(
+      state,
+      Cluster.set({ ...BASE_CLUSTER, key: REAL_KEY, host: "other.com" }),
+    );
+    state = Cluster.reducer(state, Cluster.remove([TEMP_KEY, REAL_KEY]));
+    expect(state.clusters[TEMP_KEY]).toBeUndefined();
+    expect(state.clusters[REAL_KEY]).toBeUndefined();
+  });
+
+  it("should leave the default clusters untouched when removing a missing key", () => {
+    const state = Cluster.reducer(
+      Cluster.ZERO_SLICE_STATE,
+      Cluster.remove("does-not-exist"),
+    );
+    expect(Object.keys(state.clusters)).toEqual(
+      Object.keys(Cluster.ZERO_SLICE_STATE.clusters),
+    );
+  });
+});
+
+describe("select / clearSelected", () => {
+  it("should set the selected key", () => {
+    const state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.select(TEMP_KEY));
+    expect(state.selected).toBe(TEMP_KEY);
+  });
+
+  it("should clear the selected key", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.select(TEMP_KEY));
+    state = Cluster.reducer(state, Cluster.clearSelected());
+    expect(state.selected).toBeUndefined();
+  });
+});
+
+describe("rename", () => {
+  it("should rename a cluster in place", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(state, Cluster.rename({ key: TEMP_KEY, name: "New Name" }));
+    expect(state.clusters[TEMP_KEY].name).toBe("New Name");
+  });
+
+  it("should throw when renaming to a name owned by another cluster", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(
+      state,
+      Cluster.set({ ...BASE_CLUSTER, key: REAL_KEY, host: "other.com" }),
+    );
+    expect(() =>
+      Cluster.reducer(
+        state,
+        Cluster.rename({ key: REAL_KEY, name: BASE_CLUSTER.name }),
+      ),
+    ).toThrow(/already exists/);
+  });
+});
+
+describe("changeKey", () => {
+  it("should move a cluster from the old key to the new key", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(
+      state,
+      Cluster.changeKey({ oldKey: TEMP_KEY, newKey: REAL_KEY }),
+    );
+    expect(state.clusters[TEMP_KEY]).toBeUndefined();
+    expect(state.clusters[REAL_KEY]).toEqual({ ...BASE_CLUSTER, key: REAL_KEY });
+  });
+
+  it("should re-point the selected key when the changed cluster was selected", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(state, Cluster.select(TEMP_KEY));
+    state = Cluster.reducer(
+      state,
+      Cluster.changeKey({ oldKey: TEMP_KEY, newKey: REAL_KEY }),
+    );
+    expect(state.selected).toBe(REAL_KEY);
+  });
+
+  it("should leave the selected key untouched when a different cluster changes key", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(state, Cluster.select("LOCAL"));
+    state = Cluster.reducer(
+      state,
+      Cluster.changeKey({ oldKey: TEMP_KEY, newKey: REAL_KEY }),
+    );
+    expect(state.selected).toBe("LOCAL");
   });
 });

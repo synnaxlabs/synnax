@@ -141,3 +141,73 @@ describe("Select.Select.useMemo", () => {
     expect(result.current).toEqual({ key: "b", value: 2 });
   });
 });
+
+describe("Select.byKeys", () => {
+  const A: Item = { key: "a", value: 1 };
+  const B: Item = { key: "b", value: 2 };
+  const C: Item = { key: "c", value: 3 };
+
+  it("returns every value of a record when no keys are provided", () => {
+    const result = Select.byKeys<string, Item>({ a: A, b: B, c: C });
+    expect(result).toEqual([A, B, C]);
+  });
+
+  it("returns the array unchanged when passed an array and no keys", () => {
+    const arr = [A, B, C];
+    expect(Select.byKeys<string, Item>(arr)).toBe(arr);
+  });
+
+  it("filters a record down to the requested keys, preserving record order", () => {
+    expect(Select.byKeys<string, Item>({ a: A, b: B, c: C }, ["c", "a"])).toEqual([
+      A,
+      C,
+    ]);
+  });
+
+  it("filters an array down to the requested keys", () => {
+    expect(Select.byKeys<string, Item>([A, B, C], ["b"])).toEqual([B]);
+  });
+
+  it("ignores keys that are not present", () => {
+    expect(Select.byKeys<string, Item>({ a: A, b: B }, ["a", "z"])).toEqual([A]);
+  });
+
+  it("returns an empty array when the key filter matches nothing", () => {
+    expect(Select.byKeys<string, Item>({ a: A }, ["z"])).toEqual([]);
+  });
+});
+
+describe("Select.byKey", () => {
+  const A: Item = { key: "a", value: 1 };
+  const B: Item = { key: "b", value: 2 };
+  const record = { a: A, b: B };
+
+  it("resolves a value by its record key", () => {
+    expect(Select.byKey(record, "a")).toBe(A);
+  });
+
+  it("falls back to the default key when key is null", () => {
+    expect(Select.byKey(record, null, "b")).toBe(B);
+  });
+
+  it("prefers the explicit key over the default key", () => {
+    expect(Select.byKey(record, "a", "b")).toBe(A);
+  });
+
+  it("returns undefined when both key and default are null", () => {
+    expect(Select.byKey(record, null, null)).toBeUndefined();
+  });
+
+  it("returns undefined when key is undefined and no default is given", () => {
+    expect(Select.byKey(record)).toBeUndefined();
+  });
+
+  it("falls back to a linear scan on the key field when the record lookup misses", () => {
+    const misKeyed = { "record-key": { key: "a", value: 1 } };
+    expect(Select.byKey(misKeyed, "a")).toEqual({ key: "a", value: 1 });
+  });
+
+  it("returns undefined when the key matches neither the record nor any value", () => {
+    expect(Select.byKey(record, "missing")).toBeUndefined();
+  });
+});

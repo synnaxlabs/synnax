@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { kv } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { kv, TimeSpan } from "@synnaxlabs/x";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Persist } from "@/session/persist";
 import { type SugaredKV } from "@/session/persist/kv";
@@ -19,6 +19,29 @@ interface MockState {
 
 const ZERO_MOCK_STATE: MockState = {
   mock: { value: "0.0.0" },
+};
+
+// A minimal engine double matching the shape Persist.middleware consumes.
+const makeEngine = () => ({
+  persist: vi.fn().mockResolvedValue(undefined),
+  revert: vi.fn().mockResolvedValue(undefined),
+  clear: vi.fn().mockResolvedValue(undefined),
+  initialState: undefined as MockState | undefined,
+});
+
+// Drives an action straight through the middleware chain, capturing what next saw.
+const drive = (
+  engine: ReturnType<typeof makeEngine>,
+  state: MockState,
+  action: { type: string },
+  debounce = TimeSpan.ZERO,
+) => {
+  const next = vi.fn((a: unknown) => a);
+  const store = { getState: () => state, dispatch: vi.fn() };
+  const result = Persist.middleware<MockState>(engine, debounce)(store as never)(next)(
+    action,
+  );
+  return { next, result };
 };
 
 describe("Persist", () => {
@@ -231,5 +254,140 @@ describe("Persist", () => {
         c: 5,
       });
     });
+
+    it("should fall back to the initial state when the migrator throws", async () => {
+      const store = new kv.MockAsync();
+      const engine1 = await Persist.open({
+        initial: ZERO_MOCK_STATE,
+        openKV: () => store,
+      });
+      await engine1.persist({ mock: { value: "1.2.3" } });
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const migrator = () => {
+        throw new Error("migration failed");
+      };
+      const engine2 = await Persist.open({
+        initial: ZERO_MOCK_STATE,
+        migrator,
+        openKV: () => store,
+      });
+      expect(engine2.initialState).toEqual(ZERO_MOCK_STATE);
+      expect(errorSpy).toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+  });
+
+  describe("exclude function", () => {
+    it("should apply a function exclude to transform the persisted state", async () => {
+      type State = MockState & { secret: string };
+      const state: State = { mock: { ...ZERO_MOCK_STATE.mock }, secret: "hunter2" };
+      const store = new kv.MockAsync();
+      const stripSecret = (s: State): State => ({ ...s, secret: "" });
+      const engine = await Persist.open<State>({
+        exclude: [stripSecret],
+        initial: state,
+        openKV: () => store,
+      });
+      await engine.persist(state);
+      await expect(store.get(Persist.persistedStateKey(1))).resolves.toEqual({
+        mock: { ...ZERO_MOCK_STATE.mock },
+        secret: "",
+      });
+    });
+  });
+});
+
+describe("Persist.middleware", () => {
+  it("should pass the action through to next and return its result", () => {
+    const engine = makeEngine();
+    const action = { type: "any/action" };
+    const { next, result } = drive(engine, ZERO_MOCK_STATE, action);
+    expect(next).toHaveBeenCalledWith(action);
+    expect(result).toBe(action);
+  });
+
+  it("should persist the current store state after a normal action", () => {
+    const engine = makeEngine();
+    const state: MockState = { mock: { value: "9.9.9" } };
+    drive(engine, state, { type: "any/action" });
+    expect(engine.persist).toHaveBeenCalledWith(state);
+    expect(engine.revert).not.toHaveBeenCalled();
+    expect(engine.clear).not.toHaveBeenCalled();
+  });
+
+  // The revert/clear branches trigger a window reload, which jsdom cannot perform; the
+  // production code swallows that failure via .catch, so we suppress the expected log.
+  it("should revert instead of persisting on a revertState action", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const engine = makeEngine();
+    drive(engine, ZERO_MOCK_STATE, Persist.revertState());
+    expect(engine.revert).toHaveBeenCalledOnce();
+    expect(engine.persist).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("should clear instead of persisting on a clearState action", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const engine = makeEngine();
+    drive(engine, ZERO_MOCK_STATE, Persist.clearState());
+    expect(engine.clear).toHaveBeenCalledOnce();
+    expect(engine.persist).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("should coalesce rapid dispatches into a single persist when debounced", () => {
+    vi.useFakeTimers();
+    try {
+      const engine = makeEngine();
+      const state: MockState = { mock: { value: "1.0.0" } };
+      const next = vi.fn((a: unknown) => a);
+      const store = { getState: () => state, dispatch: vi.fn() };
+      const dispatch = Persist.middleware<MockState>(
+        engine,
+        TimeSpan.milliseconds(250),
+      )(store as never)(next);
+      dispatch({ type: "a" });
+      dispatch({ type: "b" });
+      dispatch({ type: "c" });
+      expect(engine.persist).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(250);
+      expect(engine.persist).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("Persist.hardClearAndReload", () => {
+  const V2_PREFIX = `${Persist.V2_STORE_PATH}:`;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    localStorage.clear();
+    // The reload after clearing is a no-op under jsdom and its failure is swallowed by
+    // the production .catch; suppress the expected error log.
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    errorSpy.mockRestore();
+    localStorage.clear();
+  });
+
+  it("should clear the persisted store scoped to the v2 path", async () => {
+    localStorage.setItem(`${V2_PREFIX}console-version`, JSON.stringify({ version: 1 }));
+    localStorage.setItem(
+      `${V2_PREFIX}${Persist.persistedStateKey(1)}`,
+      JSON.stringify(ZERO_MOCK_STATE),
+    );
+    localStorage.setItem("unrelated:key", "keep-me");
+    Persist.hardClearAndReload();
+    await vi.waitFor(() => {
+      expect(localStorage.getItem(`${V2_PREFIX}console-version`)).toBeNull();
+    });
+    expect(
+      localStorage.getItem(`${V2_PREFIX}${Persist.persistedStateKey(1)}`),
+    ).toBeNull();
+    expect(localStorage.getItem("unrelated:key")).toBe("keep-me");
   });
 });

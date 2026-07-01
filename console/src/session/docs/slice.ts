@@ -21,7 +21,7 @@ export interface Location extends z.infer<typeof locationZ> {}
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
-  location: locationZ,
+  location: locationZ.prefault({}),
 });
 
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
