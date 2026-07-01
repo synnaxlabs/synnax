@@ -2,24 +2,29 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "status",
-    hdrs = ["status.h"],
+    name = "ranges",
+    hdrs = ["ranges.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/runtime/node",
         "//arc/cpp/stl",
+        "//arc/cpp/types",
         "//client/cpp:synnax",
         "//client/cpp/status",
         "//driver/arc:reporter",
+        "//x/cpp/color",
         "//x/cpp/errors",
+        "//x/cpp/mem",
+        "//x/cpp/telem",
+        "//x/cpp/uuid",
     ],
 )
 
 cc_test(
-    name = "status_test",
-    srcs = ["status_test.cpp"],
+    name = "ranges_test",
+    srcs = ["ranges_test.cpp"],
     deps = [
-        ":status",
+        ":ranges",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",

@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
@@ -76,6 +77,7 @@ var _ = Describe("Task", Ordered, func() {
 		statusSvc  *status.Service
 		channelSvc *channel.Service
 		framerSvc  *framer.Service
+		rangerSvc  *ranger.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -102,6 +104,13 @@ var _ = Describe("Task", Ordered, func() {
 			Channel: channelSvc,
 			Status:  statusSvc,
 		}))
+		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Label:    labelSvc,
+			Search:   node.Search,
+		}))
 	})
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
@@ -110,6 +119,7 @@ var _ = Describe("Task", Ordered, func() {
 			Framer:     framerSvc,
 			Status:     statusSvc,
 			GetProgram: getModule,
+			Ranger:     rangerSvc,
 		}))
 	}
 
@@ -245,6 +255,7 @@ var _ = Describe("Task", Ordered, func() {
 				Channel: channelSvc,
 				Framer:  framerSvc,
 				Status:  statusSvc,
+				Ranger:  rangerSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
 					return svcarc.Arc{}, nil
 				},
@@ -271,6 +282,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -287,6 +299,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -303,6 +316,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 2),
@@ -327,6 +341,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 3),
@@ -403,6 +418,58 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Details.Running).To(BeTrue())
 		})
 
+	})
+
+	Describe("FactoryConfig", func() {
+		full := func() arctask.FactoryConfig {
+			return arctask.FactoryConfig{
+				Channel:    channelSvc,
+				Framer:     framerSvc,
+				Status:     statusSvc,
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Ranger:     rangerSvc,
+			}
+		}
+
+		Describe("Validate", func() {
+			It("Should succeed when all required fields are set", func() {
+				Expect(full().Validate()).To(Succeed())
+			})
+
+			DescribeTable("Should fail when a required field is missing",
+				func(clear func(*arctask.FactoryConfig), field string) {
+					cfg := full()
+					clear(&cfg)
+					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
+				},
+				Entry("channel", func(c *arctask.FactoryConfig) { c.Channel = nil }, "channel"),
+				Entry("framer", func(c *arctask.FactoryConfig) { c.Framer = nil }, "framer"),
+				Entry("status", func(c *arctask.FactoryConfig) { c.Status = nil }, "status"),
+				Entry("get_program", func(c *arctask.FactoryConfig) { c.GetProgram = nil }, "get_program"),
+				Entry("ranger", func(c *arctask.FactoryConfig) { c.Ranger = nil }, "ranger"),
+			)
+		})
+
+		Describe("Override", func() {
+			It("Should prefer the other config's fields when set", func() {
+				src := full()
+				merged := arctask.FactoryConfig{}.Override(src)
+				Expect(merged.Channel).To(BeIdenticalTo(src.Channel))
+				Expect(merged.Framer).To(BeIdenticalTo(src.Framer))
+				Expect(merged.Status).To(BeIdenticalTo(src.Status))
+				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
+				Expect(merged.GetProgram).ToNot(BeNil())
+			})
+
+			It("Should preserve the receiver's fields when other's are nil", func() {
+				src := full()
+				merged := src.Override(arctask.FactoryConfig{})
+				Expect(merged.Channel).To(BeIdenticalTo(src.Channel))
+				Expect(merged.Framer).To(BeIdenticalTo(src.Framer))
+				Expect(merged.Status).To(BeIdenticalTo(src.Status))
+				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
+			})
+		})
 	})
 
 	Describe("Task Lifecycle", func() {

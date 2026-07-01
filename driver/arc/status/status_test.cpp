@@ -99,7 +99,7 @@ std::string unique_name(const std::string &prefix) {
     return ir;
 }
 
-} // namespace
+}
 
 TEST(StatusModuleTest, HandlesSet) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());

@@ -9,17 +9,15 @@
 
 #pragma once
 
+#include <functional>
 #include <string>
-#include <utility>
 
-#include "x/cpp/color/json.gen.h"
-#include "x/cpp/color/proto.gen.h"
-#include "x/cpp/color/types.gen.h"
-#include "x/cpp/errors/errors.h"
+namespace driver::arc {
 
-namespace x::color {
+/// @brief Reporter surfaces a stdlib-originated failure as a task-level status,
+/// mirroring the Go-side taskreporter.Reporter so failures land as warnings rather
+/// than silent log lines. Shared across the Arc driver stdlib modules.
+using Reporter = std::function<
+    void(const std::string &variant, const std::string &message)>;
 
-/// @brief from_css parses a CSS color: a '#'-prefixed hex or an rgb()/rgba() value.
-/// Mirrors the Go color.FromCSS.
-std::pair<Color, x::errors::Error> from_css(const std::string &input);
 }

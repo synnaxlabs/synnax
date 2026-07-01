@@ -24,6 +24,7 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/arc/ranges/ranges.h"
 #include "driver/arc/status/status.h"
 #include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
@@ -167,6 +168,13 @@ public:
             .factories =
                 {
                     std::make_shared<::driver::arc::status::Module>(
+                        ctx->client,
+                        [task_ptr = task.get()](
+                            const std::string &,
+                            const std::string &message
+                        ) { task_ptr->state.send_warning(message); }
+                    ),
+                    std::make_shared<::driver::arc::ranges::Module>(
                         ctx->client,
                         [task_ptr = task.get()](
                             const std::string &,
