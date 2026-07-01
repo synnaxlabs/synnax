@@ -13,13 +13,13 @@ import { useCallback } from "react";
 
 import { create } from "@/platform/arc/layout";
 import { useCreateModal } from "@/platform/arc/useCreateModal";
-import { Session } from "@/session";
+import { Layout } from "@/platform/layout";
 
 interface CreateArgs extends Partial<Pick<arc.New, "key" | "name" | "mode">> {}
 
 export const useCreate = (): ((args?: CreateArgs) => void) => {
   const openModal = useCreateModal();
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const { update } = Arc.useCreate({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<arc.New>) => {

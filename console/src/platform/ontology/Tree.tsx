@@ -55,7 +55,6 @@ import {
   type TreeState,
 } from "@/platform/ontology/service";
 import { useServices } from "@/platform/ontology/ServicesProvider";
-import { Session } from "@/session";
 import { type Action, type State } from "@/session/store";
 
 interface InternalProps {
@@ -359,8 +358,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [expand, contract, setLoading, handleError, setResource, nodesRef, setNodes],
   );
 
-  const placeLayout = Session.Layout.usePlacer();
-  const removeLayout = Session.Layout.useRemover();
+  const placeLayout = Layout.usePlacer();
+  const removeLayout = Layout.useRemover();
   const addStatus = Status.useAdder();
   const store = useStore<State, Action>();
 

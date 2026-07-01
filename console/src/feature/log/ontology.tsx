@@ -16,6 +16,7 @@ import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
+import { type Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { create } from "@/platform/log/layout";
 import { Ontology } from "@/platform/ontology";
@@ -92,7 +93,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const loadLog = async (
   client: Synnax,
   { key }: ontology.ID,
-  placeLayout: Session.Layout.Placer,
+  placeLayout: Layout.Placer,
 ) => {
   const l = await client.logs.retrieve({ key });
   placeLayout(create({ key: l.key, name: l.name }));

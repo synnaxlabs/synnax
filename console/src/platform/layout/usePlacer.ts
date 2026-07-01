@@ -11,30 +11,22 @@ import { type PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { id } from "@synnaxlabs/x";
 import { type Dispatch, useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
-import { place, type State } from "@/session/layout/slice";
-import {
-  type Action as RootAction,
-  type State as RootState,
-  type Store,
-} from "@/session/store";
+import { Session } from "@/session";
 
 export interface CreatorProps {
   dispatch: Dispatch<PayloadAction<unknown>>;
-  store: Store;
+  store: Session.Store;
   windowKey: string;
 }
 
-export interface BaseState<A = unknown>
-  extends Omit<State<A>, "windowKey" | "key">, Partial<Pick<State<A>, "key">> {}
-
 /** A function that creates a layout given a set of utilities. */
 export interface Creator<A = unknown> {
-  (props: CreatorProps): BaseState<A>;
+  (props: CreatorProps): Session.Layout.BaseState<A>;
 }
 
-export type PlacerArgs<A = unknown> = BaseState<A> | Creator<A>;
+export type PlacerArgs<A = unknown> = Session.Layout.BaseState<A> | Creator<A>;
 
 /** A function that places a layout using the given properties or creation func. */
 export interface Placer<A = unknown> {
@@ -53,7 +45,7 @@ export interface Placer<A = unknown> {
  */
 export const usePlacer = <A = unknown>(): Placer<A> => {
   const dispatch = useDispatch();
-  const store = useStore<RootState, RootAction>();
+  const store = Session.useStore();
   const windowKey = useSelectWindowKey();
   return useCallback(
     (base) => {
@@ -61,7 +53,7 @@ export const usePlacer = <A = unknown>(): Placer<A> => {
       const layout =
         typeof base === "function" ? base({ dispatch, store, windowKey }) : base;
       const key = layout.key ?? id.create();
-      dispatch(place({ ...layout, windowKey, key }));
+      dispatch(Session.Layout.place({ ...layout, windowKey, key }));
       return { windowKey, key };
     },
     [dispatch, store, windowKey],

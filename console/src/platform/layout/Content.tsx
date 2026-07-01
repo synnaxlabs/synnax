@@ -29,7 +29,7 @@ export interface ContentProps {
 export const Content = memo(
   ({ layoutKey, forceHidden }: ContentProps): ReactElement => {
     const type = Session.Layout.useSelectType(layoutKey) ?? "";
-    const handleClose = Session.Layout.useRemover(layoutKey);
+    const handleClose = Layout.useRemover(layoutKey);
     const Renderer = Layout.useRenderer(type);
     const { focused } = Session.Layout.useSelectFocused();
     const isFocused = focused === layoutKey;

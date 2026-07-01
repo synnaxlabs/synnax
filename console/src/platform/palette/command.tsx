@@ -30,12 +30,13 @@ import {
   useMemo,
 } from "react";
 
+import { Layout } from "@/platform/layout";
 import { Modals } from "@/platform/modals";
 import { type UseListReturn } from "@/platform/palette/list";
 import { Session } from "@/session";
 
 export interface CommandProps extends List.ItemProps<string> {
-  placeLayout: Session.Layout.Placer;
+  placeLayout: Layout.Placer;
   confirm: Modals.PromptConfirm;
   rename: Modals.PromptRename;
   handleError: Status.ErrorHandler;
@@ -111,7 +112,7 @@ export interface SimpleCommandConfig {
   key: string;
   name: string;
   icon?: Icon.ReactElement;
-  layout: Session.Layout.PlacerArgs;
+  layout: Layout.PlacerArgs;
   useVisible?: () => boolean;
   sortOrder?: number;
 }
@@ -204,7 +205,7 @@ export const useCommandList = (): UseListReturn<Command> => {
 
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const confirm = Modals.useConfirm();
   const rename = Modals.useRename();
 

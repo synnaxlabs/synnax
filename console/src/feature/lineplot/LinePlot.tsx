@@ -46,6 +46,7 @@ import {
 } from "@/feature/lineplot/useDownloadAsCSV";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { Layout } from "@/platform/layout";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
@@ -65,7 +66,7 @@ const RangeAnnotationContextMenu = ({
     downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
   const addRangeToNewPlot = Range.useAddToNewPlot();
   const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const handleViewDetails = () => {
     placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
   };

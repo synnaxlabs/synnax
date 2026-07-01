@@ -11,6 +11,7 @@ import { type project } from "@synnaxlabs/client";
 import { type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { Layout } from "@/platform/layout";
 import { useMaybeChange } from "@/platform/project/useMaybeChange";
 import { Session } from "@/session";
 
@@ -44,7 +45,7 @@ export interface CreateUseCreateArgs<Input, Output extends CreatedRecord> {
   // useCreate is the Pluto flux hook that persists the record on the server.
   useCreate: UseFluxCreate<Input, Output>;
   // createLayout builds the layout placed once the record exists on the server.
-  createSessionState: (record: Pick<Output, "key" | "name">) => Session.Layout.Creator;
+  createSessionState: (record: Pick<Output, "key" | "name">) => Layout.Creator;
   // toCreateParams assembles the create body, including the resource's default name and
   // any per-render default fields. Constructed at the concrete call site so Input needs
   // no cast; a caller override in overrides wins by spreading over the defaults.
@@ -67,7 +68,7 @@ export const createUseCreate =
   ({ project }: UseCreateProps): ((init?: Partial<Input>) => void) => {
     const activeProject = Session.Project.useSelectSelected();
     const maybeChangeProject = useMaybeChange();
-    const placeLayout = Session.Layout.usePlacer();
+    const placeLayout = Layout.usePlacer();
     const store = Session.useStore();
     project ??= activeProject;
     const { update } = useCreate({

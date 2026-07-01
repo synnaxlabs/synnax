@@ -13,4 +13,7 @@ export * from "@/platform/layout/layout";
 export * from "@/platform/layout/Menu";
 export * from "@/platform/layout/useDropOutside";
 export * from "@/platform/layout/useFluxName";
+export * from "@/platform/layout/useOpenInNewWindow";
+export * from "@/platform/layout/usePlacer";
+export * from "@/platform/layout/useRemover";
 export * from "@/platform/layout/Window";

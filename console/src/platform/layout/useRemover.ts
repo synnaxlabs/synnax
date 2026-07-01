@@ -10,11 +10,10 @@
 import { Icon, Status, useMemoCompare } from "@synnaxlabs/pluto";
 import { compare, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
-import { useConfirm } from "@/platform/modals/useConfirm";
-import { select } from "@/session/layout/selectors";
-import { remove, type State, type StoreState } from "@/session/layout/slice";
+import { Modals } from "@/platform/modals";
+import { Session } from "@/session";
 
 /** A function that removes a layout. */
 export interface Remover {
@@ -31,8 +30,8 @@ export interface Remover {
  */
 export const useRemover = (...baseKeys: string[]): Remover => {
   const dispatch = useDispatch();
-  const store = useStore<StoreState>();
-  const promptConfirm = useConfirm();
+  const store = Session.useStore();
+  const promptConfirm = Modals.useConfirm();
   const handleError = Status.useErrorHandler();
   const memoKeys = useMemoCompare(
     () => baseKeys,
@@ -44,10 +43,12 @@ export const useRemover = (...baseKeys: string[]): Remover => {
     (...keysAlt): void => {
       const keys = unique.unique([...keysAlt, ...memoKeys]);
       const unsavedLayouts = keys
-        .map((key) => select(store.getState(), key))
-        .filter((layout) => layout != null && layout.unsavedChanges == true) as State[];
+        .map((key) => Session.Layout.select(store.getState(), key))
+        .filter(
+          (layout) => layout != null && layout.unsavedChanges == true,
+        ) as Session.Layout.State[];
       if (unsavedLayouts.length == 0) {
-        dispatch(remove({ keys }));
+        dispatch(Session.Layout.remove({ keys }));
         return;
       }
       handleError(async () => {
@@ -64,7 +65,9 @@ export const useRemover = (...baseKeys: string[]): Remover => {
           });
           results.push(result);
         }
-        dispatch(remove({ keys: keys.filter((_, i) => results[i] === true) }));
+        dispatch(
+          Session.Layout.remove({ keys: keys.filter((_, i) => results[i] === true) }),
+        );
       }, "Failed to remove layouts");
     },
     [memoKeys, dispatch, store, promptConfirm],

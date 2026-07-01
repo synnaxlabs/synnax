@@ -32,9 +32,9 @@ import { create as createLayout } from "@/platform/arc/layout";
 import { useCreate } from "@/platform/arc/useCreate";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
-import { Session } from "@/session";
 
 interface EmptyContentProps {
   onCreate: () => void;
@@ -55,7 +55,7 @@ const Content = () => {
   const [selected, setSelected] = useState<arc.Key[]>([]);
   const addStatus = Status.useAdder();
   const menuProps = Menu.useContextMenu();
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
@@ -127,7 +127,7 @@ interface ActionsProps {
 }
 
 const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;

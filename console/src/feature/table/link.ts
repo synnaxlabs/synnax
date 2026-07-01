@@ -9,12 +9,12 @@
 
 import { useCallback } from "react";
 
+import { Layout } from "@/platform/layout";
 import { type Link } from "@/platform/link";
 import { Table } from "@/platform/table";
-import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {
       const { name } = await client.tables.retrieve({ key });

@@ -10,6 +10,7 @@
 import { lineplot } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
+import { type Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 export const LAYOUT_TYPE = "lineplot";
@@ -23,7 +24,7 @@ export interface CreateArg
 // create constructs a Layout for a line plot, placing it in the mosaic. The plot's
 // document must already exist on the server; use useCreate to create a fresh plot.
 export const create =
-  (initial: CreateArg = {}): Session.Layout.Creator =>
+  (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key = lineplot.keyZ.safeParse(initial.key).data ?? uuid.create();

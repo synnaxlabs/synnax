@@ -15,6 +15,7 @@ import { deep, uuid } from "@synnaxlabs/x";
 import { LAYOUT_FILE_NAME } from "@/feature/project/export";
 import { migrateLayout } from "@/feature/project/layoutMigrations";
 import { type Import } from "@/platform/import";
+import { type Layout } from "@/platform/layout";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
@@ -101,7 +102,7 @@ export interface IngestContext {
   handleError: Status.ErrorHandler;
   client: Synnax | null;
   fileIngesters: Import.FileIngesters;
-  placeLayout: Session.Layout.Placer;
+  placeLayout: Layout.Placer;
   store: Store;
   fluxStore: Pluto.FluxStore;
 }

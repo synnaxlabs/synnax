@@ -10,6 +10,7 @@
 import { arc } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
+import { type Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 export const LAYOUT_TYPE = "arc";
@@ -21,7 +22,7 @@ export interface CreateArg
 }
 
 export const create =
-  (initial: CreateArg = {}): Session.Layout.Creator =>
+  (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Arc Editor", location = "mosaic", tab, ...rest } = initial;
     const key = arc.keyZ.safeParse(initial.key).data ?? uuid.create();

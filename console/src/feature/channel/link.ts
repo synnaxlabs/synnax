@@ -10,13 +10,14 @@
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { Layout } from "@/platform/layout";
 import { LinePlot } from "@/platform/lineplot";
 import { type Link } from "@/platform/link";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
   const store = Session.useStore();
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {
       const channel = await client.channels.retrieve(key);

@@ -11,11 +11,11 @@ import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { context, type Icon } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { type Session } from "@/session";
+import { type Layout } from "@/platform/layout";
 
 export interface SnapshotContext {
   client: Client | null;
-  placeLayout: Session.Layout.Placer;
+  placeLayout: Layout.Placer;
 }
 
 export interface SnapshotService {

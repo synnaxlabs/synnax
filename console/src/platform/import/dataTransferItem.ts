@@ -14,6 +14,7 @@ import { type Pluto } from "@synnaxlabs/pluto";
 import { ingestComponent } from "@/platform/import/import";
 import { type DirectoryIngester, type FileIngesters } from "@/platform/import/ingester";
 import { trimFileName } from "@/platform/import/trimFileName";
+import { type Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 interface DirectoryContent {
@@ -67,7 +68,7 @@ interface DataTransferItemContext {
   fileIngesters: FileIngesters;
   ingestDirectory: DirectoryIngester;
   layout: Partial<Session.Layout.State>;
-  placeLayout: Session.Layout.Placer;
+  placeLayout: Layout.Placer;
   store: Store;
   fluxStore: Pluto.FluxStore;
 }

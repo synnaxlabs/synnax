@@ -32,6 +32,7 @@ import { ContextMenu } from "@/feature/range/ContextMenu";
 import { EXPLORER_LAYOUT } from "@/feature/range/Explorer";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { useCreateModal } from "@/platform/range/useCreateModal";
 import { Toolbar } from "@/platform/toolbar";
@@ -44,7 +45,7 @@ import {
 import { add, rename, select, type StaticState } from "@/session/range/slice";
 
 const NoRanges = (): ReactElement => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
@@ -170,7 +171,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
 });
 
 const Actions = (): ReactElement | null => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);

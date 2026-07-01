@@ -27,6 +27,7 @@ import { Project } from "@/feature/project";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { type Import } from "@/platform/import";
+import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 const client: Synnax = createTestClient();
@@ -106,7 +107,7 @@ const layoutsOfType = (store: Store, type: string): Session.Layout.State[] =>
   ).filter((l) => l.type === type);
 
 interface HarnessValue {
-  placer: Session.Layout.Placer;
+  placer: Layout.Placer;
   fluxStore: Pluto.FluxStore;
   granted: boolean;
 }
@@ -137,7 +138,7 @@ describe("project import", () => {
     );
     const { result } = renderHook<HarnessValue, unknown>(
       () => ({
-        placer: Session.Layout.usePlacer(),
+        placer: Layout.usePlacer(),
         fluxStore: Flux.useStore<Pluto.FluxStore>(),
         granted: Access.useUpdateGranted(project.TYPE_ONTOLOGY_ID),
       }),

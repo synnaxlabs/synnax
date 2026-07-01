@@ -27,6 +27,7 @@ import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
+import { type Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
@@ -177,7 +178,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const loadSchematic = async (
   client: Synnax,
   { key }: ontology.ID,
-  placeLayout: Session.Layout.Placer,
+  placeLayout: Layout.Placer,
 ) => {
   const schematic = await client.schematics.retrieve({ key });
   placeLayout(Schematic.create({ key: schematic.key, name: schematic.name }));

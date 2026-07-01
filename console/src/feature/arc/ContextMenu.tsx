@@ -24,6 +24,7 @@ import { useCallback } from "react";
 import { create } from "@/platform/arc/layout";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
 import { Session } from "@/session";
@@ -45,7 +46,7 @@ export const ContextMenu = ({
   const isSingle = keys.length === 1;
 
   const dispatch = Session.useDispatch();
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const addStatus = Status.useAdder();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const confirm = Ontology.useConfirmDelete({

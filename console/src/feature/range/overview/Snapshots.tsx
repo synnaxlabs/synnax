@@ -23,15 +23,15 @@ import {
 import { type FC } from "react";
 
 import { CSS } from "@/platform/css";
+import { Layout } from "@/platform/layout";
 import { Ontology as ServiceOntology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
-import { Session } from "@/session";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
   const entry = List.useItem<string, ontology.Resource>(itemKey);
   const services = Range.useSnapshotServices();
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const promptConfirm = ServiceOntology.useConfirmDelete({ type: "Snapshot" });

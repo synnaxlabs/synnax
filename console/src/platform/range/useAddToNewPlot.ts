@@ -11,6 +11,7 @@ import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { Layout } from "@/platform/layout";
 import { create as createLinePlot } from "@/platform/lineplot/layout";
 import { Session } from "@/session";
 import { add } from "@/session/range/slice";
@@ -19,7 +20,7 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const store = Session.useStore();
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
     onChange: useCallback(

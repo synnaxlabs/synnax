@@ -10,6 +10,7 @@
 import { log } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
+import { type Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 export const LAYOUT_TYPE = "log";
@@ -20,7 +21,7 @@ export interface CreateArg extends Partial<Session.Layout.BaseState> {
 }
 
 export const create =
-  (initial: CreateArg = {}): Session.Layout.Creator =>
+  (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Log", location = "mosaic", window, tab } = initial;
     const key = log.keyZ.safeParse(initial.key).data ?? uuid.create();

@@ -16,10 +16,11 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
-import { type Layout } from "@/platform/task/Form";
+import { type Layout } from "@/platform/layout";
+import { type Layout as TaskLayout } from "@/platform/task/Form";
 import { type Session } from "@/session";
 
-const ZERO_LAYOUTS: Record<string, Layout> = {
+const ZERO_LAYOUTS: Record<string, TaskLayout> = {
   ...EtherCAT.Task.ZERO_LAYOUTS,
   ...HTTP.Task.ZERO_LAYOUTS,
   ...LabJack.Task.ZERO_LAYOUTS,
@@ -42,7 +43,7 @@ export const createLayout = ({
 export const retrieveAndPlaceLayout = async (
   client: Synnax | null,
   key: task.Key,
-  placeLayout: Session.Layout.Placer,
+  placeLayout: Layout.Placer,
 ) => {
   if (client == null) throw new DisconnectedError();
   const t = await client.tasks.retrieve({ key });

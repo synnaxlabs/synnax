@@ -20,6 +20,7 @@ import {
   type FileIngesters,
 } from "@/platform/import/ingester";
 import { trimFileName } from "@/platform/import/trimFileName";
+import { Layout } from "@/platform/layout";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
@@ -58,7 +59,7 @@ const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 interface ImportComponentArgs {
   handleError: Status.ErrorHandler;
   client: Client | null;
-  placeLayout: Session.Layout.Placer;
+  placeLayout: Layout.Placer;
   store: Store;
   projectKey?: string;
   fluxStore: Pluto.FluxStore;
@@ -109,7 +110,7 @@ const importComponent = ({
 };
 
 export const useImport = (): ((projectKey?: string) => void) => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const store = Session.useStore();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();

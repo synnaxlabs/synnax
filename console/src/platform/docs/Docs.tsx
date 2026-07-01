@@ -15,6 +15,7 @@ import { url } from "@synnaxlabs/x";
 import { memo, type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
+import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 const HOST = new url.URL({
@@ -85,7 +86,7 @@ export const Docs = memo(() => {
 Docs.displayName = "DocsLayoutRenderer";
 
 export const OpenButton = (): ReactElement => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const handleDocs = (): void => {
     placeLayout(LAYOUT);
   };

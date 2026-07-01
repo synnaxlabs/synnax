@@ -18,6 +18,7 @@ import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Empty } from "@/platform/empty";
+import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -35,7 +36,7 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
 };
 
 const NoVis = (): ReactElement => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const handleCreateNewVisualization = () => {
     placeLayout(createSelectorLayout());
   };

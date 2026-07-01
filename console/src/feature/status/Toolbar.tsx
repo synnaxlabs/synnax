@@ -29,6 +29,7 @@ import { EXPLORER_LAYOUT } from "@/feature/status/Explorer";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { useCreateModal } from "@/platform/status/useCreateModal";
 import { Toolbar } from "@/platform/toolbar";
@@ -37,7 +38,7 @@ import { useSelectFavorites } from "@/session/status/selectors";
 import { removeFavorites } from "@/session/status/slice";
 
 const NoStatuses = (): ReactElement => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
@@ -136,7 +137,7 @@ const Content = (): ReactElement => (
 );
 
 const Actions = (): ReactElement | null => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);

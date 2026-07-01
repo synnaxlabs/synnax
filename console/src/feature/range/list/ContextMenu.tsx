@@ -13,6 +13,7 @@ import { Access, Divider, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/p
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Ontology } from "@/platform/ontology";
@@ -30,7 +31,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const openCreate = Range.useCreateModal();
   const favoriteKeys = useSelectKeys();
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));

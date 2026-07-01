@@ -105,7 +105,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
   const focused = tabKey === focusedKey;
   const handleClose = () =>
     windowKey != null && dispatch(Session.Layout.setFocus({ windowKey, key: null }));
-  const openInNewWindow = Session.Layout.useOpenInNewWindow();
+  const openInNewWindow = Layout.useOpenInNewWindow();
   const handleOpenInNewWindow = () => {
     openInNewWindow(tabKey);
     handleClose();
@@ -230,8 +230,8 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = Session.useStore();
   const activeTab = Session.Layout.useSelectActiveMosaicTabState();
   const client = Synnax.use();
-  const placeLayout = Session.Layout.usePlacer();
-  const removeLayout = Session.Layout.useRemover();
+  const placeLayout = Layout.usePlacer();
+  const removeLayout = Layout.useRemover();
   const dispatch = Session.useDispatch();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
@@ -278,7 +278,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
 
   LinePlot.useTriggerHold();
 
-  const handleClose = Session.Layout.useRemover();
+  const handleClose = Layout.useRemover();
 
   const handleSelect = useCallback(
     (tabKey: string): void => {

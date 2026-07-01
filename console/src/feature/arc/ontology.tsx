@@ -12,8 +12,8 @@ import { Icon } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 
 import { create } from "@/platform/arc/layout";
+import { type Layout } from "@/platform/layout";
 import { Ontology } from "@/platform/ontology";
-import { type Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({
   client,
@@ -33,7 +33,7 @@ const handleSelect: Ontology.HandleSelect = ({
 const load = async (
   client: Synnax,
   id: ontology.ID,
-  placeLayout: Session.Layout.Placer,
+  placeLayout: Layout.Placer,
 ) => {
   const { name, key } = await client.arcs.retrieve({ key: id.key });
   placeLayout(create({ name, key }));

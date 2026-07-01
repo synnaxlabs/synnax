@@ -35,6 +35,7 @@ import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
+import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
@@ -46,7 +47,7 @@ import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const EmptyContent = () => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
@@ -73,7 +74,7 @@ const Content = () => {
   const confirm = Modals.useConfirm();
   const menuProps = Menu.useContextMenu();
   const dispatch = Session.useDispatch();
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const { createLayout } = CommonTask.useRegistry();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({

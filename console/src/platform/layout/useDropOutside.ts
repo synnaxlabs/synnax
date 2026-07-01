@@ -15,6 +15,7 @@ import { Window } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useId, useMemo } from "react";
 import { useStore } from "react-redux";
 
+import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 const useWindowsContains = (): ((cursor: xy.XY) => boolean) => {
@@ -105,7 +106,7 @@ const useBase =
   runtime.getOS() === "macOS" ? useDropOutsideMacOS : useDropOutsideWindows;
 
 export const useDropOutside = (): void => {
-  const place = Session.Layout.usePlacer();
+  const place = Layout.usePlacer();
   const dispatch = Session.useDispatch();
   const handleDrop = useCallback(
     ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {

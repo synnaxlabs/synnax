@@ -12,6 +12,7 @@ import { Text, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
 import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
+import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 import { Modals } from "@/session/modals";
 
@@ -20,9 +21,9 @@ const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 export const useTriggers = (): void => {
   const store = Session.useStore();
   const modals = Modals.useStore("Layout.useTriggers");
-  const remove = Session.Layout.useRemover();
-  const openInNewWindow = Session.Layout.useOpenInNewWindow();
-  const placeLayout = Session.Layout.usePlacer();
+  const remove = Layout.useRemover();
+  const openInNewWindow = Layout.useOpenInNewWindow();
+  const placeLayout = Layout.usePlacer();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const createComponentEnabled = useSelectorVisible();
   Triggers.use({

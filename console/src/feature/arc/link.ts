@@ -10,11 +10,11 @@
 import { useCallback } from "react";
 
 import { create } from "@/platform/arc/layout";
+import { Layout } from "@/platform/layout";
 import { type Link } from "@/platform/link";
-import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {
       const { name } = await client.arcs.retrieve({ key });

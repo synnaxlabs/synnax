@@ -9,13 +9,14 @@
 
 import { useCallback } from "react";
 
+import { Layout } from "@/platform/layout";
 import { type Link } from "@/platform/link";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
   const dispatch = Session.useDispatch();
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {
       const range = await client.ranges.retrieve(key);

@@ -10,9 +10,9 @@
 import { type device, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
+import { Layout } from "@/platform/layout";
 import { type Ontology } from "@/platform/ontology";
 import { Task } from "@/platform/task";
-import { Session } from "@/session";
 
 export interface TaskContextMenuItemConfig {
   itemKey: string;
@@ -34,7 +34,7 @@ export const TaskContextMenuItems = ({
   selection: { ids },
   taskContextMenuItemConfigs,
 }: TaskContextMenuItemsProps) => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const firstID = ids[0];
   const first = getResource(firstID);

@@ -10,11 +10,11 @@
 import { useCallback } from "react";
 
 import { Schematic } from "@/feature/schematic";
+import { Layout } from "@/platform/layout";
 import { type Link } from "@/platform/link";
-import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {
       const { name } = await client.schematics.retrieve({ key });

@@ -11,6 +11,7 @@ import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type project, type Synnax } from "@synnaxlabs/client";
 import { type Pluto } from "@synnaxlabs/pluto";
 
+import { type Layout } from "@/platform/layout";
 import { type Session } from "@/session";
 
 export interface File {
@@ -20,7 +21,7 @@ export interface File {
 
 export interface FileIngesterContext {
   layout: Partial<Session.Layout.State>;
-  placeLayout: Session.Layout.Placer;
+  placeLayout: Layout.Placer;
   store: Pluto.FluxStore;
   client: Synnax | null;
   projectKey: project.Key;
@@ -38,7 +39,7 @@ export interface FileIngesters extends Record<string, FileIngester> {}
 interface DirectoryIngesterContext {
   client: Synnax | null;
   fileIngesters: FileIngesters;
-  placeLayout: Session.Layout.Placer;
+  placeLayout: Layout.Placer;
   store: Store;
   fluxStore: Pluto.FluxStore;
 }

@@ -13,14 +13,13 @@ import { Eraser, Flex, Status, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Layout } from "@/platform/layout";
+import { Layout } from "@/platform/layout";
 import { Modals } from "@/platform/modals";
-import { Session } from "@/session";
 
 export interface SelectableProps {
   layoutKey: string;
   rename: Modals.PromptRename;
-  onPlace: Session.Layout.Placer;
+  onPlace: Layout.Placer;
   handleError: Status.ErrorHandler;
 }
 
@@ -39,7 +38,7 @@ export const Selector = ({
   selectables,
   text,
 }: SelectorProps): ReactElement => {
-  const place = Session.Layout.usePlacer();
+  const place = Layout.usePlacer();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
   return (

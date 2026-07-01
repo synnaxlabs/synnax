@@ -14,8 +14,8 @@ import { act, type PropsWithChildren } from "react";
 import { Provider, useStore } from "react-redux";
 import { describe, expect, it } from "vitest";
 
-import { Layout } from "@/session/layout";
-import { select } from "@/session/layout/selectors";
+import { Layout } from "@/platform/layout";
+import { Session } from "@/session";
 import { Modals } from "@/session/modals";
 
 describe("layout hooks", () => {
@@ -23,7 +23,7 @@ describe("layout hooks", () => {
     it("should place a layout within the store", () => {
       const store = configureStore({
         reducer: combineReducers({
-          [Layout.SLICE_NAME]: Layout.reducer,
+          [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
           [Drift.SLICE_NAME]: Drift.reducer,
         }),
       });
@@ -50,7 +50,7 @@ describe("layout hooks", () => {
           },
         });
       });
-      const state = select(store.getState(), "test");
+      const state = Session.Layout.select(store.getState(), "test");
       expect(state).toBeDefined();
       expect(state?.key).toBe("test");
       expect(state?.location).toBe("mosaic");
@@ -61,7 +61,7 @@ describe("layout hooks", () => {
     it("should remove a layout from the store", () => {
       const store = configureStore({
         reducer: combineReducers({
-          [Layout.SLICE_NAME]: Layout.reducer,
+          [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
           [Drift.SLICE_NAME]: Drift.reducer,
         }),
       });
@@ -92,7 +92,7 @@ describe("layout hooks", () => {
       act(() => {
         result.current.remover("test");
       });
-      const state = select(store.getState(), "test");
+      const state = Session.Layout.select(store.getState(), "test");
       expect(state).toBeUndefined();
     });
   });
@@ -100,7 +100,7 @@ describe("layout hooks", () => {
     it("should select the active mosaic tab", () => {
       const store = configureStore({
         reducer: combineReducers({
-          [Layout.SLICE_NAME]: Layout.reducer,
+          [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
           [Drift.SLICE_NAME]: Drift.reducer,
         }),
       });
@@ -113,7 +113,7 @@ describe("layout hooks", () => {
         () => ({
           placer: Layout.usePlacer(),
           store: useStore(),
-          activeTab: Layout.useSelectActiveMosaicTabState(),
+          activeTab: Session.Layout.useSelectActiveMosaicTabState(),
         }),
         { wrapper },
       );
@@ -146,7 +146,7 @@ describe("layout hooks", () => {
     it("should return true for blurred if there is a modal open", () => {
       const store = configureStore({
         reducer: combineReducers({
-          [Layout.SLICE_NAME]: Layout.reducer,
+          [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
           [Drift.SLICE_NAME]: Drift.reducer,
         }),
       });
@@ -159,7 +159,7 @@ describe("layout hooks", () => {
         () => ({
           placer: Layout.usePlacer(),
           store: useStore(),
-          activeTab: Layout.useSelectActiveMosaicTabState(),
+          activeTab: Session.Layout.useSelectActiveMosaicTabState(),
           modals: Modals.useStore("test"),
         }),
         { wrapper },
@@ -206,7 +206,7 @@ describe("layout hooks", () => {
     it("should create a mosaic window and move the layout's tab into it", () => {
       const store = configureStore({
         reducer: combineReducers({
-          [Layout.SLICE_NAME]: Layout.reducer,
+          [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
           [Drift.SLICE_NAME]: Drift.reducer,
         }),
       });
@@ -231,18 +231,18 @@ describe("layout hooks", () => {
           name: "Plot 1",
         });
       });
-      expect(select(store.getState(), "plot-1")?.windowKey).toEqual(Drift.MAIN_WINDOW);
+      expect(Session.Layout.select(store.getState(), "plot-1")?.windowKey).toEqual(Drift.MAIN_WINDOW);
 
       act(() => {
         result.current.openInNewWindow("plot-1");
       });
 
-      const layouts = store.getState()[Layout.SLICE_NAME].layouts;
+      const layouts = store.getState()[Session.Layout.SLICE_NAME].layouts;
       const newWindow = Object.values(layouts).find(
-        (l) => l.type === Layout.MOSAIC_WINDOW_TYPE,
+        (l) => l.type === Session.Layout.MOSAIC_WINDOW_TYPE,
       );
       expect(newWindow).toBeDefined();
-      expect(select(store.getState(), "plot-1")?.windowKey).toEqual(newWindow?.key);
+      expect(Session.Layout.select(store.getState(), "plot-1")?.windowKey).toEqual(newWindow?.key);
     });
   });
 });

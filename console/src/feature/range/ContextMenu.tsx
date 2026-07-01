@@ -24,6 +24,7 @@ import { useCallback } from "react";
 
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { Layout } from "@/platform/layout";
 import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
@@ -73,7 +74,7 @@ export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
 
 const useViewDetails = (): ((key: string) => void) => {
   const addStatus = Status.useAdder();
-  const placeLayout = Session.Layout.usePlacer();
+  const placeLayout = Layout.usePlacer();
   const { retrieve } = Ranger.useRetrieveObservable({
     onChange: useCallback(
       ({ data, variant, status }) => {
@@ -91,7 +92,7 @@ const useViewDetails = (): ((key: string) => void) => {
 
 const useDelete = () => {
   const dispatch = Session.useDispatch();
-  const remover = Session.Layout.useRemover();
+  const remover = Layout.useRemover();
   const ranges = useSelectMultiple();
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
