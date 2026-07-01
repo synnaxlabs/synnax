@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/group/ContextMenuItem";
-export * from "@/platform/group/useCreateEmpty";
-export * from "@/platform/group/useCreateFromSelection";
+export * as Group from "@/feature/group/external";

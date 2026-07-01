@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, device } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { Device } from "@/platform/device";
-
 export type Command = "start" | "stop";
+
+export const deviceKeyZ = device.keyZ.min(1, "Must specify a device");
 
 export const channelZ = z.object({ enabled: z.boolean(), key: z.string() });
 export interface Channel extends z.infer<typeof channelZ> {}
@@ -177,7 +177,7 @@ export const validateWriteChannels = (ctx: z.core.ParsePayload<WriteChannel[]>) 
 
 export const baseConfigZ = z.object({
   autoStart: z.boolean().default(false),
-  device: Device.keyZ,
+  device: deviceKeyZ,
 });
 export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
 export const ZERO_BASE_CONFIG: BaseConfig = {

@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
 import { createPortValidator } from "@/feature/ni/task/types/validation";
-import { Device } from "@/platform/device";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "ni";
@@ -960,7 +959,7 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
-const counterChannelExtensionShape = { port: portZ, device: Device.keyZ };
+const counterChannelExtensionShape = { port: portZ, device: Task.deviceKeyZ };
 interface CounterChannelExtension extends z.infer<
   z.ZodObject<typeof counterChannelExtensionShape>
 > {}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/app/device/ontology.css";
+import "@/feature/device/ontology.css";
 
 import { device, type ontology, status } from "@synnaxlabs/client";
 import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";

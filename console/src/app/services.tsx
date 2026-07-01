@@ -14,6 +14,7 @@ import { Access } from "@/feature/access";
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
+import { Group } from "@/feature/group";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Project } from "@/feature/project";
@@ -23,7 +24,6 @@ import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { User } from "@/feature/user";
-import { Group } from "@/platform/group";
 import { Ontology } from "@/platform/ontology";
 
 const createEmptyService = (

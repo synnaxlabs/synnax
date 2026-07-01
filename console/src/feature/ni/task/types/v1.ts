@@ -12,12 +12,11 @@ import { z } from "zod";
 
 import * as v0 from "@/feature/ni/task/types/v0";
 import { createPortValidator } from "@/feature/ni/task/types/validation";
-import { Device } from "@/platform/device";
 import { Task } from "@/platform/task";
 
 const validateAnalogPorts = createPortValidator();
 
-const aiChanExtensionShape = { device: Device.keyZ };
+const aiChanExtensionShape = { device: Task.deviceKeyZ };
 
 interface AIChanExtension extends z.infer<z.ZodObject<typeof aiChanExtensionShape>> {}
 
