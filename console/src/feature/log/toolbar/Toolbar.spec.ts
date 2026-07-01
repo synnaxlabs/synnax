@@ -11,8 +11,8 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { renderLog } from "@/feature/log/toolbar/testutil";
 import { Toolbar } from "@/feature/log/toolbar/Toolbar";
-import { renderLog } from "@/platform/log/toolbar/testutil";
 import { Session } from "@/session";
 import { type ConsolePreloadedState } from "@/testutil/testutil";
 

@@ -11,8 +11,8 @@ import { log } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { useCreate } from "@/feature/log/useCreate";
 import { LAYOUT_TYPE } from "@/platform/log/layout";
-import { useCreate } from "@/platform/log/useCreate";
 import { Selector } from "@/platform/selector";
 
 export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {

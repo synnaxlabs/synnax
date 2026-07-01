@@ -11,8 +11,8 @@ import { type log } from "@synnaxlabs/client";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Properties } from "@/platform/log/toolbar/Properties";
-import { client, renderLog, TIMEOUT } from "@/platform/log/toolbar/testutil";
+import { Properties } from "@/feature/log/toolbar/Properties";
+import { client, renderLog, TIMEOUT } from "@/feature/log/toolbar/testutil";
 
 const renderProperties = async (overrides: Partial<log.New> = {}) => {
   const { key, result } = await renderLog(Properties, { log: overrides });

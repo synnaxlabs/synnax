@@ -14,11 +14,11 @@ import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { useExport } from "@/feature/log/export";
+import { Channels } from "@/feature/log/toolbar/Channels";
+import { Properties } from "@/feature/log/toolbar/Properties";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
-import { Channels } from "@/platform/log/toolbar/Channels";
-import { Properties } from "@/platform/log/toolbar/Properties";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
