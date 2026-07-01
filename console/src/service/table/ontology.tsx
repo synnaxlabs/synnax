@@ -11,20 +11,17 @@ import { ontology, type Synnax, table } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Mosaic, Table as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
-import { Cluster } from "@/cluster";
-import { ContextMenu } from "@/component";
-import { Export } from "@/export";
+import { Cluster } from "@/component/cluster";
+import { ContextMenu } from "@/component/context-menu";
+import { Export } from "@/component/export";
+import { Table } from "@/component/table";
 import { Group } from "@/service/group";
 import { Link } from "@/service/link";
-import { ImEx } from "@/service/table/imex";
-import { create } from "@/session/table/layout";
+import { Ontology } from "@/service/ontology";
+import { useExport } from "@/service/table/export";
 import { Session } from "@/session";
-import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createUseDelete";
-import { createUseRename } from "@/ontology/createUseRename";
 
-const useDelete = createUseDelete({
+const useDelete = Ontology.createUseDelete({
   type: "Table",
   query: Base.useDelete,
   convertKey: String,
@@ -35,14 +32,14 @@ const useDelete = createUseDelete({
   },
 });
 
-const useRename = createUseRename({
+const useRename = Ontology.createUseRename({
   query: Base.useRename,
   ontologyID: table.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
     const { key, name } = data;
-    store.dispatch(Layout.rename({ key, name }));
-    rollbacks.push(() => store.dispatch(Layout.rename({ key, name: oldName })));
+    store.dispatch(Session.Layout.rename({ key, name }));
+    rollbacks.push(() => store.dispatch(Session.Layout.rename({ key, name: oldName })));
     return { ...data, name };
   },
 });
@@ -54,7 +51,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = ImEx.useExport();
+  const handleExport = useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -95,10 +92,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const loadTable = async (
   client: Synnax,
   { key }: ontology.ID,
-  placeLayout: Layout.Placer,
+  placeLayout: Session.Layout.Placer,
 ) => {
   const t = await client.tables.retrieve({ key });
-  placeLayout(create({ key: t.key, name: t.name }));
+  placeLayout(Table.create({ key: t.key, name: t.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -127,7 +124,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError(async () => {
     const t = await client.tables.retrieve({ key });
     placeLayout(
-      create({
+      Table.create({
         key: t.key,
         name: t.name,
         location: "mosaic",

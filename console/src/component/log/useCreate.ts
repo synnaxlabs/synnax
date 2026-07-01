@@ -9,8 +9,8 @@
 
 import { Log } from "@synnaxlabs/pluto";
 
+import { create } from "@/component/log/layout";
 import { Project } from "@/component/project";
-import { create } from "@/service/log/layout";
 
 export const useCreate = Project.createUseCreate({
   useCreate: Log.useCreate,

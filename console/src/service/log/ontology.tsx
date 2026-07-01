@@ -14,11 +14,11 @@ import { array, strings } from "@synnaxlabs/x";
 import { Cluster } from "@/component/cluster";
 import { ContextMenu } from "@/component/context-menu";
 import { Export } from "@/component/export";
+import { create } from "@/component/log/layout";
 import { Group } from "@/service/group";
 import { Layout } from "@/service/layout";
 import { Link } from "@/service/link";
 import { useExport } from "@/service/log/export";
-import { create } from "@/service/log/layout";
 import { Ontology } from "@/service/ontology";
 import { Session } from "@/session";
 

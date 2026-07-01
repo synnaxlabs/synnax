@@ -9,14 +9,14 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { Export } from "@/export";
-import { Layout } from "@/layout";
-import { LAYOUT_TYPE } from "@/session/table/layout";
+import { LAYOUT_TYPE } from "@/component/table/layout";
+import { Export } from "@/service/export";
+import { Session } from "@/session";
 
 export const VERSION = "1.0.0";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
-  const name = Layout.select(store.getState(), key)?.name;
+  const name = Session.Layout.select(store.getState(), key)?.name;
   if (client == null) throw new DisconnectedError();
   const t = await client.tables.retrieve({ key });
   return {

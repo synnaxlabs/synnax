@@ -9,16 +9,16 @@
 
 import { useCallback } from "react";
 
-import { Layout } from "@/layout";
+import { Table } from "@/component/table";
 import { type Link } from "@/service/link";
-import { create } from "@/session/table/layout";
+import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {
       const { name } = await client.tables.retrieve({ key });
-      placeLayout(create({ key, name }));
+      placeLayout(Table.create({ key, name }));
     },
     [placeLayout],
   );

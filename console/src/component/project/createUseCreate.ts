@@ -11,7 +11,7 @@ import { type project } from "@synnaxlabs/client";
 import { type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useMaybeChange } from "@/service/project/useMaybeChange";
+import { useMaybeChange } from "@/component/project/useMaybeChange";
 import { Session } from "@/session";
 
 export interface UseCreateProps {

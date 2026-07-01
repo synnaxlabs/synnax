@@ -11,18 +11,19 @@ import { table } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
 import { Session } from "@/session";
-import { type Layout } from "@/layout";
 
 export const LAYOUT_TYPE = "table";
 export type LayoutType = typeof LAYOUT_TYPE;
 
 export interface CreateArg
-  extends Partial<Layout.BaseState>, Partial<Pick<Session.Table.State, "editable">> {
+  extends
+    Partial<Session.Layout.BaseState>,
+    Partial<Pick<Session.Table.State, "editable">> {
   key?: string;
 }
 
 export const create =
-  (initial: CreateArg = {}): Layout.Creator =>
+  (initial: CreateArg = {}): Session.Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Table", location = "mosaic", tab, ...rest } = initial;
     const key = table.keyZ.safeParse(initial.key).data ?? uuid.create();

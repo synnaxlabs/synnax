@@ -11,23 +11,22 @@ import { table } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Selector } from "@/selector";
-import { LAYOUT_TYPE } from "@/session/table/layout";
-import { useCreate } from "@/session/table/useCreate";
+import { Selector } from "@/component/selector";
+import { Table } from "@/component/table";
 
 export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
   const hasCreatePermission = Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
-  const create = useCreate({});
+  const create = Table.useCreate({});
   const handleClick = useCallback(() => create({ key }), [create, key]);
   if (!hasCreatePermission) return null;
   return (
     <Selector.Item
-      key={LAYOUT_TYPE}
+      key={Table.LAYOUT_TYPE}
       title="Table"
       icon={<Icon.Table />}
       onClick={handleClick}
     />
   );
 };
-Selectable.type = LAYOUT_TYPE;
+Selectable.type = Table.LAYOUT_TYPE;
 Selectable.useVisible = () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);

@@ -11,7 +11,7 @@ import { log } from "@synnaxlabs/client";
 import { Access, Log } from "@synnaxlabs/pluto";
 
 import { Palette } from "@/component/palette";
-import { useCreate } from "@/service/log/useCreate";
+import { useCreate } from "@/component/log/useCreate";
 
 const COMMAND_NAME = "Create a log";
 
