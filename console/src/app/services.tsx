@@ -11,6 +11,7 @@ import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Device } from "@/app/device";
+import { Rack } from "@/app/rack";
 import { Task } from "@/app/task";
 import { Access } from "@/feature/access";
 import { Arc } from "@/feature/arc";
@@ -18,7 +19,6 @@ import { Channel } from "@/feature/channel";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Project } from "@/feature/project";
-import { Rack } from "@/feature/rack";
 import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
