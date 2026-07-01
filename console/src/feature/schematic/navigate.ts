@@ -11,7 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { Flux, type Pluto, Schematic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
-import { Schematic as CSchematic } from "@/platform/schematic";
+import { Schematic as CSchematic } from "@/feature/schematic";
 import { Session } from "@/session";
 
 type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;

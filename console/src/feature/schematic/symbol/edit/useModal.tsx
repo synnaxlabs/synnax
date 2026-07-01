@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/schematic/symbol/edit/Edit.css";
+import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { ontology, type schematic } from "@synnaxlabs/client";
 import {
@@ -26,13 +26,13 @@ import {
 import { type bounds, color, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
+import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
+import { Preview } from "@/feature/schematic/symbol/edit/Preview";
+import { RegionList } from "@/feature/schematic/symbol/edit/RegionList";
+import { StateList } from "@/feature/schematic/symbol/edit/StateList";
+import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
-import { HandleList } from "@/platform/schematic/symbol/edit/HandleList";
-import { Preview } from "@/platform/schematic/symbol/edit/Preview";
-import { RegionList } from "@/platform/schematic/symbol/edit/RegionList";
-import { StateList } from "@/platform/schematic/symbol/edit/StateList";
-import { SelectVariantField } from "@/platform/schematic/symbol/SelectVariant";
 import { Triggers } from "@/platform/triggers";
 
 export interface ModalParams extends Schematic.Symbol.FormQuery {

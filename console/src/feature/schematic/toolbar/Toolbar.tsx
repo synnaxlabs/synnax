@@ -14,13 +14,13 @@ import { Breadcrumb, Flex, Icon, Schematic, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { useExport } from "@/feature/schematic/export";
+import { Control } from "@/feature/schematic/toolbar/Control";
+import { Properties } from "@/feature/schematic/toolbar/Properties";
 import { Symbols } from "@/feature/schematic/toolbar/Symbols";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
-import { Control } from "@/platform/schematic/toolbar/Control";
-import { Properties } from "@/platform/schematic/toolbar/Properties";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 

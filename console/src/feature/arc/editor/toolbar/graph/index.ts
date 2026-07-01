@@ -7,4 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Text from "@/platform/arc/editor/toolbar/text/Toolbar";
+export * as Graph from "@/feature/arc/editor/toolbar/graph/Toolbar";

@@ -43,8 +43,8 @@ import {
   useMemo,
 } from "react";
 
+import { Symbol } from "@/feature/schematic/symbol";
 import { CSS } from "@/platform/css";
-import { Symbol } from "@/platform/schematic/symbol";
 import { Session } from "@/session";
 
 export const Properties = memo((): ReactElement => {

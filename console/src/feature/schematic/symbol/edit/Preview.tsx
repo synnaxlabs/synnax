@@ -12,9 +12,9 @@ import { Button, Flex, Form, Icon, Schematic, Text, Theming } from "@synnaxlabs/
 import { box, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
+import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
+import { HandleOverlay } from "@/feature/schematic/symbol/edit/Handles";
 import { CSS } from "@/platform/css";
-import { FileDrop } from "@/platform/schematic/symbol/edit/FileDrop";
-import { HandleOverlay } from "@/platform/schematic/symbol/edit/Handles";
 
 interface PreviewProps {
   selectedState: string;

@@ -9,13 +9,11 @@
 
 import { Arc } from "@synnaxlabs/pluto";
 
-import { Graph, type GraphProps } from "@/platform/arc/editor/Graph";
-import { Text } from "@/platform/arc/editor/Text";
+import { TaskControls } from "@/feature/arc/editor/TaskControls";
 
-export interface EditorProps extends GraphProps {}
-
-export const Editor = (props: EditorProps) => {
-  const mode = Arc.useSelectMode();
-  const C = mode === "graph" ? Graph : Text;
-  return <C {...props} />;
-};
+export const Text = () => (
+  <>
+    <Arc.Text.Editor />
+    <TaskControls />
+  </>
+);

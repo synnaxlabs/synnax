@@ -28,18 +28,18 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Group } from "@/platform/group";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
-import { Ontology } from "@/platform/ontology";
 import { useExport } from "@/feature/project/export";
+import { Schematic as CSchematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
+import { Group } from "@/platform/group";
 import { Import } from "@/platform/import";
 import { Link } from "@/platform/link";
-import { Schematic as CSchematic } from "@/platform/schematic";
+import { Ontology } from "@/platform/ontology";
 import { Session } from "@/session";
 
 const useDelete = Ontology.createUseDelete({

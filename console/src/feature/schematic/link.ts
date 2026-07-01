@@ -9,8 +9,8 @@
 
 import { useCallback } from "react";
 
+import { Schematic } from "@/feature/schematic";
 import { type Link } from "@/platform/link";
-import { Schematic } from "@/platform/schematic";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {

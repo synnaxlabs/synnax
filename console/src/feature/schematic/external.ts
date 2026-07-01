@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Export } from "@/platform/export";
 import { ContextMenu } from "@/feature/schematic/ContextMenu";
 import { extract } from "@/feature/schematic/export";
 import { FILE_INGESTERS } from "@/feature/schematic/import";
 import { Schematic } from "@/feature/schematic/Schematic";
 import { Selectable } from "@/feature/schematic/Selectable";
+import { type Export } from "@/platform/export";
 import { type Layout } from "@/platform/layout";
 import { LAYOUT_TYPE } from "@/platform/schematic/layout";
 import { type Selector } from "@/platform/selector";
@@ -20,9 +20,10 @@ import { type Selector } from "@/platform/selector";
 export * from "@/feature/schematic/link";
 export * from "@/feature/schematic/ontology";
 export * from "@/feature/schematic/palette";
+export * from "@/feature/schematic/symbol";
 export * from "@/feature/schematic/toolbar/Toolbar";
+export * from "@/feature/schematic/useCreate";
 export * from "@/platform/schematic/layout";
-export * from "@/platform/schematic/useCreate";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,

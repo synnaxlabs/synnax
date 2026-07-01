@@ -19,11 +19,8 @@ import { Group, Status, Synnax } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { groupManifestZ, SYMBOL_FILE_FILTERS } from "@/feature/schematic/symbol/types";
 import { Runtime } from "@/platform/runtime";
-import {
-  groupManifestZ,
-  SYMBOL_FILE_FILTERS,
-} from "@/platform/schematic/symbol/types";
 
 const createSymbolFromData = async (
   client: Client,

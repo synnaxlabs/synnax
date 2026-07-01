@@ -10,11 +10,11 @@
 import { Control, Diagram, Menu, Schematic as Base, Viewport } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
+import { Controller } from "@/feature/schematic/Controller";
+import { Controls } from "@/feature/schematic/Controls";
+import { Legend } from "@/feature/schematic/Legend";
 import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
 import { ContextMenu } from "@/platform/context-menu";
-import { Controller } from "@/platform/schematic/Controller";
-import { Controls } from "@/platform/schematic/Controls";
-import { Legend } from "@/platform/schematic/Legend";
 import { Session } from "@/session";
 
 export interface SchematicProps {

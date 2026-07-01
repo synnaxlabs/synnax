@@ -11,10 +11,10 @@ import { DisconnectedError, group, type Synnax as Client } from "@synnaxlabs/cli
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { type Symbol } from "@/feature/schematic/symbol";
 import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
-import { type Symbol } from "@/platform/schematic/symbol";
 
 export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();

@@ -10,7 +10,7 @@
 import { Arc as Base, Diagram, Menu, Viewport } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { TaskControls } from "@/platform/arc/editor/TaskControls";
+import { TaskControls } from "@/feature/arc/editor/TaskControls";
 import { ContextMenu } from "@/platform/context-menu";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";

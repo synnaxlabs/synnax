@@ -10,9 +10,9 @@
 import { Arc } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Graph } from "@/feature/arc/editor/toolbar/graph";
+import { Text } from "@/feature/arc/editor/toolbar/text";
 import { useExport } from "@/feature/arc/imex/export";
-import { Graph } from "@/platform/arc/editor/toolbar/graph";
-import { Text } from "@/platform/arc/editor/toolbar/text";
 
 const Internal = (): ReactElement | null => {
   const mode = Arc.useSelectMode();

@@ -8,5 +8,3 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/schematic/layout";
-export * from "@/platform/schematic/symbol";
-export * from "@/platform/schematic/useCreate";

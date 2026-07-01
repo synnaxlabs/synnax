@@ -28,8 +28,7 @@ import {
 import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
-import { useConfirmDelete } from "@/platform/ontology/hooks";
-import { Symbol as ServiceSymbol } from "@/feature/schematic/symbol";
+import { Symbol } from "@/feature/schematic/symbol";
 import {
   useExport as useExportSymbol,
   useExportGroup,
@@ -43,7 +42,7 @@ import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
-import { Symbol } from "@/platform/schematic/symbol";
+import { useConfirmDelete } from "@/platform/ontology/hooks";
 import { Session } from "@/session";
 
 const HAUL_DRAG_PROPS: Haul.UseDragProps = {
@@ -426,7 +425,7 @@ const GroupListContextMenu = ({
   const item = List.useItem<group.Key, group.Group>(firstKey);
   const renameModal = Modals.useRename();
   const exportGroup = useExportGroup();
-  const deleteSymbolGroup = ServiceSymbol.useDeleteGroup();
+  const deleteSymbolGroup = Symbol.useDeleteGroup();
   const rename = Group.useRename({
     beforeUpdate: async ({ data }) => {
       const { name } = data;
