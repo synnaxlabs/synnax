@@ -17,6 +17,7 @@ import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
 import { Table as Platform } from "@/platform/table";
 
+export * from "@/feature/table/import";
 export * from "@/feature/table/link";
 export * from "@/feature/table/ontology";
 export * from "@/feature/table/palette";

@@ -19,6 +19,7 @@ import { Schematic as Platform } from "@/platform/schematic";
 import { LAYOUT_TYPE } from "@/platform/schematic/layout";
 import { type Selector } from "@/platform/selector";
 
+export * from "@/feature/schematic/import";
 export * from "@/feature/schematic/link";
 export * from "@/feature/schematic/ontology";
 export * from "@/feature/schematic/palette";

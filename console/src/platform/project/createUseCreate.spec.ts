@@ -15,7 +15,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
-import { createUseCreate } from "@/platform/project/createUseCreate";
+import { Project } from "@/platform/project";
 import { Session } from "@/session";
 import { createConsoleWrapper } from "@/testutil/testutil";
 
@@ -48,9 +48,9 @@ describe("createUseCreate", () => {
   });
 
   const buildUseCreate = (
-    args?: Partial<Parameters<typeof createUseCreate<PLog.CreateParams, log.Log>>[0]>,
+    args?: Partial<Parameters<typeof Project.createUseCreate<PLog.CreateParams, log.Log>>[0]>,
   ) =>
-    createUseCreate<PLog.CreateParams, log.Log>({
+    Project.createUseCreate<PLog.CreateParams, log.Log>({
       useCreate: PLog.useCreate,
       createSessionState: Log.create,
       toCreateParams: ({ overrides, project }) => ({

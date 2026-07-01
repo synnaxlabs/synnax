@@ -11,7 +11,7 @@ import { renderHook } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { createUseFluxName } from "@/platform/layout/useFluxName";
+import { Layout } from "@/platform/layout";
 
 interface RetrieveParams {
   onChange: (name: string) => void;
@@ -27,7 +27,7 @@ const setup = (useEnabled?: (key: string) => boolean | undefined) => {
     lastRetrieveParams = params;
     return { retrieve };
   };
-  const useName = createUseFluxName(useRename, useRetrieve, useEnabled);
+  const useName = Layout.createUseFluxName(useRename, useRetrieve, useEnabled);
   const onChange = vi.fn();
   return {
     update,

@@ -13,7 +13,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { useChangeIdentifier } from "@/platform/device/useChangeIdentifier";
+import { Device } from "@/platform/device";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -38,7 +38,7 @@ describe("useChangeIdentifier", () => {
       properties: { identifier: "old-id" },
     });
 
-    const { result } = renderHook(() => useChangeIdentifier(), { wrapper });
+    const { result } = renderHook(() => Device.useChangeIdentifier(), { wrapper });
 
     await act(async () => {
       await result.current.updateAsync({ key: dev.key, identifier: "new-id" });
@@ -61,7 +61,7 @@ describe("useChangeIdentifier", () => {
       properties: { identifier: "old-id", rate: 100, channels: [1, 2, 3] },
     });
 
-    const { result } = renderHook(() => useChangeIdentifier(), { wrapper });
+    const { result } = renderHook(() => Device.useChangeIdentifier(), { wrapper });
 
     await act(async () => {
       await result.current.updateAsync({ key: dev.key, identifier: "new-id" });
@@ -86,7 +86,7 @@ describe("useChangeIdentifier", () => {
       properties: { rate: 50 },
     });
 
-    const { result } = renderHook(() => useChangeIdentifier(), { wrapper });
+    const { result } = renderHook(() => Device.useChangeIdentifier(), { wrapper });
 
     await act(async () => {
       await result.current.updateAsync({ key: dev.key, identifier: "brand-new" });

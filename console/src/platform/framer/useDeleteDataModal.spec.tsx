@@ -20,14 +20,14 @@ import {
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { useDeleteDataModal } from "@/platform/framer/useDeleteDataModal";
+import { Framer } from "@/platform/framer";
 import { Modals } from "@/platform/modals";
 import { renderWithModals } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const Harness = (): ReactElement => {
-  const open = useDeleteDataModal();
+  const open = Framer.useDeleteDataModal();
   return <button onClick={() => open()}>open</button>;
 };
 Harness.displayName = "Harness";

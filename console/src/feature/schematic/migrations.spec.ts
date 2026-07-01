@@ -10,7 +10,7 @@
 import { color, type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Schematic } from "@/session/schematic";
+import { Schematic } from "@/feature/schematic";
 
 const V0_ZERO = {
   version: "0.0.0",

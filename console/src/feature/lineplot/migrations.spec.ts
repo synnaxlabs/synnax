@@ -10,7 +10,7 @@
 import { type lineplot } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { LinePlot } from "@/session/lineplot";
+import { LinePlot } from "@/feature/lineplot";
 
 const zeroAxis = (key: string) => ({
   key,

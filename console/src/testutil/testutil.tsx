@@ -32,20 +32,23 @@ import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax
 
 export type ConsolePreloadedState = Partial<Session.State>;
 
+/** The console test store, typed with the full production root state. */
+export type TestStore = EnhancedStore<Session.State>;
+
 export interface ConsoleTestProviderOptions {
   preloadedState?: ConsolePreloadedState;
 }
 
 export const createTestStore = (
   options: ConsoleTestProviderOptions = {},
-): EnhancedStore => {
+): TestStore => {
   const { preloadedState } = options;
   return configureStore({
     reducer: Session.reducer as Reducer<Session.State>,
     // combineReducers fills any slice omitted from the partial preloaded state.
     preloadedState: preloadedState as Session.State | undefined,
     middleware: (getDefault) => getDefault().concat(...Session.BASE_MIDDLEWARE),
-  });
+  }) as TestStore;
 };
 
 // The eraser aether component is required by console widgets but is not part of pluto's
@@ -68,7 +71,7 @@ const composeConsole = (
 
 export interface RenderWithConsoleOptions extends RenderOptions {
   preloadedState?: ConsolePreloadedState;
-  store?: EnhancedStore;
+  store?: TestStore;
 }
 
 export const renderWithConsole = (
@@ -119,7 +122,7 @@ export const renderLinkHook = <H,>(
 
 export interface RenderHookWithConsoleOptions<Props> extends RenderHookOptions<Props> {
   preloadedState?: ConsolePreloadedState;
-  store?: EnhancedStore;
+  store?: TestStore;
   client?: Client | null;
 }
 
@@ -143,7 +146,7 @@ export const renderHookWithConsole = <Result, Props>(
 export interface CreateConsoleWrapperArgs {
   client: Client | null;
   preloadedState?: ConsolePreloadedState;
-  store?: EnhancedStore;
+  store?: TestStore;
 }
 
 /**

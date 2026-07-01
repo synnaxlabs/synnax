@@ -18,6 +18,7 @@ import { type Layout } from "@/platform/layout";
 import { LAYOUT_TYPE } from "@/platform/lineplot/layout";
 import { type Selector } from "@/platform/selector";
 
+export * from "@/feature/lineplot/import";
 export * from "@/feature/lineplot/link";
 export * from "@/feature/lineplot/ontology";
 export * from "@/feature/lineplot/palette";

@@ -10,7 +10,7 @@
 import { type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Table } from "@/session/table";
+import { Table } from "@/feature/table";
 
 const populatedV0State = (overrides: Record<string, unknown> = {}) => ({
   key: "11111111-1111-1111-1111-111111111111",

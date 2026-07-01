@@ -17,6 +17,7 @@ import { type Layout } from "@/platform/layout";
 import { Log as Platform } from "@/platform/log";
 import { type Selector } from "@/platform/selector";
 
+export * from "@/feature/log/import";
 export * from "@/feature/log/link";
 export * from "@/feature/log/ontology";
 export * from "@/feature/log/palette";

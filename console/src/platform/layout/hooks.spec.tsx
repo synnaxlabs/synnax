@@ -7,38 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
-import { renderHook } from "@testing-library/react";
-import { act, type PropsWithChildren } from "react";
-import { Provider, useStore } from "react-redux";
+import { act } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 import { Modals } from "@/session/modals";
+import { renderHookWithConsole } from "@/testutil/testutil";
 
 describe("layout hooks", () => {
   describe("placing & removing", () => {
     it("should place a layout within the store", () => {
-      const store = configureStore({
-        reducer: combineReducers({
-          [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
-          [Drift.SLICE_NAME]: Drift.reducer,
-        }),
-      });
-      const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>
-          <Modals.Provider>{children}</Modals.Provider>
-        </Provider>
-      );
-      const { result } = renderHook(
-        () => ({
-          placer: Layout.usePlacer(),
-          store: useStore(),
-        }),
-        { wrapper },
-      );
+      const { result, store } = renderHookWithConsole(() => ({
+        placer: Layout.usePlacer(),
+      }));
       act(() => {
         result.current.placer({
           key: "test",
@@ -59,25 +42,10 @@ describe("layout hooks", () => {
     });
 
     it("should remove a layout from the store", () => {
-      const store = configureStore({
-        reducer: combineReducers({
-          [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
-          [Drift.SLICE_NAME]: Drift.reducer,
-        }),
-      });
-      const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>
-          <Modals.Provider>{children}</Modals.Provider>
-        </Provider>
-      );
-      const { result } = renderHook(
-        () => ({
-          placer: Layout.usePlacer(),
-          store: useStore(),
-          remover: Layout.useRemover(),
-        }),
-        { wrapper },
-      );
+      const { result, store } = renderHookWithConsole(() => ({
+        placer: Layout.usePlacer(),
+        remover: Layout.useRemover(),
+      }));
       act(() => {
         result.current.placer({
           key: "test",
@@ -98,25 +66,10 @@ describe("layout hooks", () => {
   });
   describe("useSelectActiveMosaicTab", () => {
     it("should select the active mosaic tab", () => {
-      const store = configureStore({
-        reducer: combineReducers({
-          [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
-          [Drift.SLICE_NAME]: Drift.reducer,
-        }),
-      });
-      const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>
-          <Modals.Provider>{children}</Modals.Provider>
-        </Provider>
-      );
-      const { result } = renderHook(
-        () => ({
-          placer: Layout.usePlacer(),
-          store: useStore(),
-          activeTab: Session.Layout.useSelectActiveMosaicTabState(),
-        }),
-        { wrapper },
-      );
+      const { result } = renderHookWithConsole(() => ({
+        placer: Layout.usePlacer(),
+        activeTab: Session.Layout.useSelectActiveMosaicTabState(),
+      }));
 
       // Initially there should be no active tab
       expect(result.current.activeTab).toEqual({
@@ -144,26 +97,11 @@ describe("layout hooks", () => {
       });
     });
     it("should return true for blurred if there is a modal open", () => {
-      const store = configureStore({
-        reducer: combineReducers({
-          [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
-          [Drift.SLICE_NAME]: Drift.reducer,
-        }),
-      });
-      const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>
-          <Modals.Provider>{children}</Modals.Provider>
-        </Provider>
-      );
-      const { result } = renderHook(
-        () => ({
-          placer: Layout.usePlacer(),
-          store: useStore(),
-          activeTab: Session.Layout.useSelectActiveMosaicTabState(),
-          modals: Modals.useStore("test"),
-        }),
-        { wrapper },
-      );
+      const { result } = renderHookWithConsole(() => ({
+        placer: Layout.usePlacer(),
+        activeTab: Session.Layout.useSelectActiveMosaicTabState(),
+        modals: Modals.useStore("test"),
+      }));
 
       // Place a layout in the mosaic
       act(() => {
@@ -204,24 +142,10 @@ describe("layout hooks", () => {
 
   describe("useOpenInNewWindow", () => {
     it("should create a mosaic window and move the layout's tab into it", () => {
-      const store = configureStore({
-        reducer: combineReducers({
-          [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
-          [Drift.SLICE_NAME]: Drift.reducer,
-        }),
-      });
-      const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>
-          <Modals.Provider>{children}</Modals.Provider>
-        </Provider>
-      );
-      const { result } = renderHook(
-        () => ({
-          placer: Layout.usePlacer(),
-          openInNewWindow: Layout.useOpenInNewWindow(),
-        }),
-        { wrapper },
-      );
+      const { result, store } = renderHookWithConsole(() => ({
+        placer: Layout.usePlacer(),
+        openInNewWindow: Layout.useOpenInNewWindow(),
+      }));
 
       act(() => {
         result.current.placer({
