@@ -13,7 +13,7 @@ import { id } from "@synnaxlabs/x";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useLink } from "@/feature/device/link";
+import { useLink } from "@/app/device/link";
 import { NI } from "@/feature/ni";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { renderLinkHook } from "@/testutil/testutil";

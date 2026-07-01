@@ -10,9 +10,9 @@
 import { type device } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/pluto";
 
-import { Device as CommonDevice } from "@/feature/device";
 import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
 import { Task } from "@/feature/labjack/task";
+import { Device as CommonDevice } from "@/platform/device";
 import { type Ontology } from "@/platform/ontology";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] = [

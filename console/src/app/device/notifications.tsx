@@ -10,8 +10,8 @@
 import { type device } from "@synnaxlabs/client";
 import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
-import { getIcon, getMake, type Make, useConfigureModal } from "@/feature/device/make";
-import { getKeyFromStatus } from "@/feature/device/useListenForChanges";
+import { getIcon, getMake, type Make, useConfigureModal } from "@/app/device/make";
+import { getKeyFromStatus } from "@/platform/device/useListenForChanges";
 import { type Notifications } from "@/platform/notifications";
 
 const shouldShowConfigureButton = (make: Make): boolean =>

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/device/ontology.css";
+import "@/app/device/ontology.css";
 
 import { device, type ontology, status } from "@synnaxlabs/client";
 import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
-import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
+import { getContextMenuItems, getIcon, getMake } from "@/app/device/make";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";

@@ -14,15 +14,15 @@ import { OPC } from "@/feature/opc";
 import { type Nav } from "@/platform/nav";
 import { type Palette } from "@/platform/palette";
 
-export * from "@/feature/device/ChangeIdentifierMenuItem";
-export * from "@/feature/device/ConfigureMenuItem";
-export * from "@/feature/device/EditConnectionMenuItem";
-export * from "@/feature/device/link";
-export * from "@/feature/device/notifications";
-export * from "@/feature/device/ontology";
-export * from "@/feature/device/TaskContextMenuItems";
+export * from "@/app/device/link";
+export * from "@/app/device/notifications";
+export * from "@/app/device/ontology";
 export * from "@/feature/device/Toolbar";
-export * from "@/feature/device/useListenForChanges";
+export * from "@/platform/device/ChangeIdentifierMenuItem";
+export * from "@/platform/device/ConfigureMenuItem";
+export * from "@/platform/device/EditConnectionMenuItem";
+export * from "@/platform/device/TaskContextMenuItems";
+export * from "@/platform/device/useListenForChanges";
 
 export const COMMANDS: Palette.Command[] = [
   ...HTTP.Device.COMMANDS,

@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { Device } from "@/feature/device";
+import { Device } from "@/app/device";
 import { Cluster } from "@/platform/cluster";
 import { Notifications as Base } from "@/platform/notifications";
 import { Version } from "@/platform/version";

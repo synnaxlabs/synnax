@@ -11,11 +11,11 @@ import { type device } from "@synnaxlabs/client";
 import { type Device as PlutoDevice, Flux, Icon, Menu } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
-import { Device as CommonDevice } from "@/feature/device";
 import { useToggleEnabled } from "@/feature/ethercat/device/queries";
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
+import { Device as CommonDevice } from "@/platform/device";
 import { type Ontology } from "@/platform/ontology";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] = [
