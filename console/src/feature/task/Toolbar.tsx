@@ -28,7 +28,6 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
-import { Range } from "@/feature/range";
 import { useExport } from "@/feature/task/export";
 import { createLayout } from "@/feature/task/layouts";
 import { SELECTOR_LAYOUT } from "@/feature/task/Selector";
@@ -43,6 +42,7 @@ import { Export } from "@/platform/export";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
+import { Range } from "@/platform/range";
 import { type Task as CommonTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";

@@ -20,16 +20,16 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { useCallback } from "react";
 
-import { LinePlot } from "@/feature/lineplot";
-import { useAddToActivePlot } from "@/feature/range/useAddToActivePlot";
-import { useAddToNewPlot } from "@/feature/range/useAddToNewPlot";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
+import { useAddToActivePlot } from "@/platform/range/useAddToActivePlot";
+import { useAddToNewPlot } from "@/platform/range/useAddToNewPlot";
 import { Session } from "@/session";
 import {
   selectState as selectRange,
@@ -44,22 +44,6 @@ import {
   type State as RangeRecord,
   type StoreState,
 } from "@/session/range/slice";
-
-export interface SnapshotMenuItemProps {
-  range?: RangeRecord | null;
-  onClick?: () => void;
-}
-
-export const SnapshotMenuItem = ({
-  range,
-  onClick,
-}: SnapshotMenuItemProps): ReactElement | null =>
-  range?.persisted === true ? (
-    <Menu.Item itemKey="rangeSnapshot" onClick={onClick}>
-      <Icon.Snapshot />
-      Snapshot to {range.name}
-    </Menu.Item>
-  ) : null;
 
 export const fetchIfNotInState = async (
   store: Store<StoreState>,

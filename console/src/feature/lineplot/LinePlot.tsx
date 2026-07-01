@@ -44,7 +44,6 @@ import {
   type DownloadLine,
   useDownloadAsCSV,
 } from "@/feature/lineplot/useDownloadAsCSV";
-import { Range as ServiceRange } from "@/feature/range";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
@@ -64,7 +63,7 @@ const RangeAnnotationContextMenu = ({
   const downloadAsCSV = useDownloadAsCSV();
   const handleDownloadAsCSV = () =>
     downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
-  const addRangeToNewPlot = ServiceRange.useAddToNewPlot();
+  const addRangeToNewPlot = Range.useAddToNewPlot();
   const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
   const placeLayout = Session.Layout.usePlacer();
   const handleViewDetails = () => {
