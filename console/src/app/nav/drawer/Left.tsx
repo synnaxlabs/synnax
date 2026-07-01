@@ -10,7 +10,7 @@
 import { type ReactElement, useCallback } from "react";
 
 import { Items } from "@/app/nav/items";
-import { Feature } from "@/feature";
+import { Nav } from "@/platform/nav";
 import { Session } from "@/session";
 
 export const Left = (): ReactElement => {
@@ -31,7 +31,7 @@ export const Left = (): ReactElement => {
   );
   const { initialSize = Items.DEFAULT_SIZE, sizeBounds, content } = item ?? {};
   return (
-    <Feature.Nav.Drawer
+    <Nav.Drawer
       location="left"
       size={size ?? initialSize}
       sizeBounds={sizeBounds}
@@ -42,6 +42,6 @@ export const Left = (): ReactElement => {
       onStopHover={handleStopHover}
     >
       {content}
-    </Feature.Nav.Drawer>
+    </Nav.Drawer>
   );
 };

@@ -11,8 +11,8 @@ import { user } from "@synnaxlabs/client";
 import { Access, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { type Feature } from "@/feature";
 import { Empty } from "@/platform/empty";
+import { type Nav } from "@/platform/nav";
 import { Ontology } from "@/platform/ontology";
 import { Toolbar } from "@/platform/toolbar";
 import { useRegisterModal } from "@/platform/user/useRegisterModal";
@@ -50,7 +50,7 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Feature.Nav.Item = {
+export const TOOLBAR: Nav.Item = {
   key: "user",
   icon: <Icon.User />,
   content: <Content />,
