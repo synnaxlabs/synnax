@@ -10,7 +10,7 @@
 import { channel, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { Device } from "@/feature/labjack/device";
+import * as Device from "@/feature/labjack/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "labjack";

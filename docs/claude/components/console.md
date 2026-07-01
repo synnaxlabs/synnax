@@ -14,11 +14,12 @@ monitoring dashboards.
 
 ## Layered Architecture
 
-**Status: mid-migration** (branch `sy-4443-refactor-remaining-console-slices-into-layered-architecture`).
-Some domains below follow these rules exactly (`table`, `schematic`, `lineplot`, `log`,
-`arc`, `task`/`device`/`rack`); most others are still on the pre-refactor structure and
-will not type-check cleanly until migrated. Do not assume an unmigrated domain follows
-these rules — check its actual imports first.
+**Status: mid-migration** (branch
+`sy-4443-refactor-remaining-console-slices-into-layered-architecture`). Some domains
+below follow these rules exactly (`table`, `schematic`, `lineplot`, `log`, `arc`,
+`task`/`device`/`rack`); most others are still on the pre-refactor structure and will
+not type-check cleanly until migrated. Do not assume an unmigrated domain follows these
+rules — check its actual imports first.
 
 Console's source (`console/src/`) is organized into four layers with a **strict,
 one-directional import order**:
@@ -30,17 +31,16 @@ one-directional import order**:
 4. app/        highest — composition root + app shell
 ```
 
-**A layer may only import from a layer with a strictly lower number.** `component/`
-must never import from `service/`. `session/` must never import from `component/` or
+**A layer may only import from a layer with a strictly lower number.** `component/` must
+never import from `service/`. `session/` must never import from `component/` or
 `service/`. This is a hard rule.
 
-Within a single layer, any domain folder may import any other domain folder in that
-same layer (`service/table` importing `service/group`, `service/link`,
-`service/ontology`; `component/table` importing `component/cluster`,
-`component/project`), **as long as it does not create a circular dependency**. If two
-domains in the same layer end up depending on each other, that is a signal to reconsider
-which layer the code belongs in — not something to route around with a lazy import or a
-type-only import.
+Within a single layer, any domain folder may import any other domain folder in that same
+layer (`service/table` importing `service/group`, `service/link`, `service/ontology`;
+`component/table` importing `component/cluster`, `component/project`), **as long as it
+does not create a circular dependency**. If two domains in the same layer end up
+depending on each other, that is a signal to reconsider which layer the code belongs in
+— not something to route around with a lazy import or a type-only import.
 
 ### What belongs in each layer
 
@@ -50,9 +50,10 @@ knowledge of `component/` or `service/`.
 
 **`component/<domain>/`** — the domain's actual rendered UI, plus the minimal
 state-writing needed to instantiate itself into the layout: `layout.ts` (`LAYOUT_TYPE`
-+ the `create()` layout-placer, which does dispatch into `session/`) and `useCreate.ts`.
-The dividing question for anything ambiguous: **does this code render/spawn the
-domain's own widget?** If yes, `component/`.
+
+- the `create()` layout-placer, which does dispatch into `session/`) and `useCreate.ts`.
+  The dividing question for anything ambiguous: **does this code render/spawn the
+  domain's own widget?** If yes, `component/`.
 
 **`service/<domain>/`** — everything that plugs the domain into some other
 cross-cutting, app-wide system: the ontology tree (`ontology.tsx` — context menus,
@@ -61,23 +62,23 @@ select/drag-drop handlers), the command palette (`palette.tsx`), the deep-link r
 migrations for legacy exports). The dividing question: **does this code hook the domain
 into the rest of the app?** If yes, `service/`. `service/` may freely import from
 `component/` (its own domain's and others') and `session/` to do this — e.g.
-`service/table/ontology.tsx` pulls in `component/cluster`, `component/context-menu`,
-and `component/table` to build its tree context menu.
+`service/table/ontology.tsx` pulls in `component/cluster`, `component/context-menu`, and
+`component/table` to build its tree context menu.
 
 **`app/`** — two things only: (1) pure aggregation files (`commands.ts`, `links.ts`,
 `extractors.ts`, `ingesters.ts`, `services.tsx`) that each collect every domain's
 `COMMANDS` / `useLinks` / `EXTRACTORS` / `FILE_INGESTERS` / `ONTOLOGY_SERVICE` exports
 into one global registry, and (2) the small set of extremely high-level, effectively
 singleton shell components — the main app entry, the mosaic host, the top/aux nav bars,
-the notification host. `app/` owns the *arrangement* of that chrome; any actual
+the notification host. `app/` owns the _arrangement_ of that chrome; any actual
 domain-flavored widget rendered inside it (e.g. a cluster-connection badge in the nav
 bar) still lives in that domain's own `component/`, not in `app/`.
 
 ### Not every domain needs every layer
 
-A domain only gets the layers it actually needs — a domain with no persisted state
-skips `session/`, a domain with nothing to hook into the app skips `service/`. Nothing
-is required to exist in all four layers.
+A domain only gets the layers it actually needs — a domain with no persisted state skips
+`session/`, a domain with nothing to hook into the app skips `service/`. Nothing is
+required to exist in all four layers.
 
 ### Framework domains vs. product domains
 
@@ -125,20 +126,21 @@ sitting under `service/ni/task/*.tsx` with imports pointing at deleted paths lik
 
 ## Testing
 
-When writing or editing any console unit test (`console/src/**/*.spec.ts[x]`), follow the
-**`console-testing` skill** — it carries the full rules with correct/incorrect examples.
-The four highest-value ones:
+When writing or editing any console unit test (`console/src/**/*.spec.ts[x]`), follow
+the **`console-testing` skill** — it carries the full rules with correct/incorrect
+examples. The four highest-value ones:
 
 - **Test through the public namespace, never a domain's internal file** — including the
-  thing under test itself (`Nav.Bar.Top`, not `@/app/nav/bar/Top`). The only exemption is
-  a co-located `testutil` file. This is blackbox testing, the same discipline as Go
+  thing under test itself (`Nav.Bar.Top`, not `@/app/nav/bar/Top`). The only exemption
+  is a co-located `testutil` file. This is blackbox testing, the same discipline as Go
   `package foo_test`.
-- **Prefer real infrastructure over mocks.** Default to a real client (`createTestClient`)
-  + real flux stores via `@/testutil` for anything touching data; drop to a preloaded
-  store for pure logic; inject spies with `vi.fn()` (that's DI, not a mock); reach for
-  `vi.mock` only for unmockable runtime seams.
-- **Never stub DOM primitives** (`getBoundingClientRect`, canvas) **or substitute a child
-  component** with a placeholder. Render the real thing.
+- **Prefer real infrastructure over mocks.** Default to a real client
+  (`createTestClient`)
+  - real flux stores via `@/testutil` for anything touching data; drop to a preloaded
+    store for pure logic; inject spies with `vi.fn()` (that's DI, not a mock); reach for
+    `vi.mock` only for unmockable runtime seams.
+- **Never stub DOM primitives** (`getBoundingClientRect`, canvas) **or substitute a
+  child component** with a placeholder. Render the real thing.
 - **One home per shared helper.** Hoist to the nearest shared `testutil` on the second
   use; never copy scaffolding between spec files. Cross-package helpers must be
   vitest-free.

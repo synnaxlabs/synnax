@@ -12,7 +12,9 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { Device } from "@/feature/opc/device";
+import { type HaulItem } from "@/feature/opc/device/Browser";
+import { Select } from "@/feature/opc/device/Select";
+import * as Device from "@/feature/opc/device/types";
 import { type ChannelKeyAndIDGetter, Form } from "@/feature/opc/task/Form";
 import {
   type InputChannel,
@@ -71,7 +73,7 @@ const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
   return (
     <>
-      <Device.Select />
+      <Select />
       <Flex.Box x>
         <Task.Fields.SampleRate />
         <PForm.SwitchField
@@ -100,7 +102,7 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: Device.HaulItem): InputChannel => ({
+const convertHaulItemToChannel = ({ data }: HaulItem): InputChannel => ({
   key: data.nodeId,
   nodeName: data.name,
   nodeId: data.nodeId,

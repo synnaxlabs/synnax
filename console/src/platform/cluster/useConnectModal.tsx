@@ -108,7 +108,12 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
             }),
           );
           if (state.clusterKey && state.clusterKey !== clusterKey)
-            dispatch(Session.Cluster.changeKey({ oldKey: clusterKey, newKey: state.clusterKey }));
+            dispatch(
+              Session.Cluster.changeKey({
+                oldKey: clusterKey,
+                newKey: state.clusterKey,
+              }),
+            );
         } else {
           const key = state.clusterKey || uuid.create();
           dispatch(Session.Cluster.set({ ...data, key, username: "", password: "" }));

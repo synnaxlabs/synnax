@@ -9,11 +9,13 @@
 
 import { ContextMenu } from "@/feature/schematic/ContextMenu";
 import { extract } from "@/feature/schematic/export";
-import { FILE_INGESTERS } from "@/feature/schematic/import";
+import { ingest } from "@/feature/schematic/import";
 import { Schematic } from "@/feature/schematic/Schematic";
 import { Selectable } from "@/feature/schematic/Selectable";
 import { type Export } from "@/platform/export";
+import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
+import { Schematic as Platform } from "@/platform/schematic";
 import { LAYOUT_TYPE } from "@/platform/schematic/layout";
 import { type Selector } from "@/platform/selector";
 
@@ -22,6 +24,7 @@ export * from "@/feature/schematic/ontology";
 export * from "@/feature/schematic/palette";
 export * from "@/feature/schematic/symbol";
 export * from "@/feature/schematic/toolbar/Toolbar";
+export * from "@/platform/schematic/external";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,
@@ -29,7 +32,9 @@ export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 
-export const ImEx = { FILE_INGESTERS };
+export const FILE_INGESTERS: Import.FileIngesters = {
+  [Platform.LAYOUT_TYPE]: ingest,
+};
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Schematic,

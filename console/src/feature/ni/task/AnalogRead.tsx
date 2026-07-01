@@ -12,7 +12,8 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { Device } from "@/feature/ni/device";
+import { enrich } from "@/feature/ni/device/enrich";
+import * as Device from "@/feature/ni/device/types";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
 import { createAIChannel } from "@/feature/ni/task/createChannel";
 import { SelectAIChannelTypeField } from "@/feature/ni/task/SelectAIChannelTypeField";
@@ -156,7 +157,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   }
   for (const dev of allDevices) {
     CommonDevice.checkConfigured(dev);
-    dev.properties = Device.enrich(dev.model, dev.properties);
+    dev.properties = enrich(dev.model, dev.properties);
     rackKey = dev.rack;
     let modified = false;
     let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);

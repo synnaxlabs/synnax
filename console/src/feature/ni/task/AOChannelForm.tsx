@@ -10,7 +10,7 @@
 import { Component, Divider, Flex, Form, Icon, Select } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { Device } from "@/feature/ni/device";
+import { PortField } from "@/feature/ni/device/PortField";
 import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import {
@@ -108,7 +108,7 @@ export const AOChannelForm = ({ type, path }: AOChannelFormProps) => {
   const Form = CHANNEL_FORMS[type];
   return (
     <>
-      <Device.PortField path={path} />
+      <PortField path={path} />
       <Divider.Divider x padded="bottom" />
       <Form path={path} />
     </>

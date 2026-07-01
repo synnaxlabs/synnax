@@ -12,7 +12,9 @@ import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Device } from "@/feature/opc/device";
+import { type HaulItem } from "@/feature/opc/device/Browser";
+import { Select } from "@/feature/opc/device/Select";
+import * as Device from "@/feature/opc/device/types";
 import { type ChannelKeyAndIDGetter, Form } from "@/feature/opc/task/Form";
 import {
   type OutputChannel,
@@ -40,12 +42,12 @@ export const WriteSelectable = Selector.createSimpleItem({
 
 const Properties = () => (
   <>
-    <Device.Select />
+    <Select />
     <Task.Fields.AutoStart />
   </>
 );
 
-const convertHaulItemToChannel = ({ data }: Device.HaulItem): OutputChannel => ({
+const convertHaulItemToChannel = ({ data }: HaulItem): OutputChannel => ({
   key: data.nodeId,
   nodeName: data.name,
   nodeId: data.nodeId,

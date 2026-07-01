@@ -12,7 +12,10 @@ import { Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { Device } from "@/feature/labjack/device";
+import { Select } from "@/feature/labjack/device/Select";
+import { SelectPort } from "@/feature/labjack/device/SelectPort";
+import * as Device from "@/feature/labjack/device/types";
+import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
 import { convertChannelTypeToPortType } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { FORMS } from "@/feature/labjack/task/InputChannelForms";
@@ -47,7 +50,7 @@ export const ReadSelectable = Selector.createSimpleItem({
 
 const Properties = () => (
   <>
-    <Device.Select />
+    <Select />
     <Flex.Box x>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
@@ -131,7 +134,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
         />
         <PForm.Field<string> path={`${path}.port`}>
           {({ value, onChange, variant }) => (
-            <Device.SelectPort
+            <SelectPort
               value={value}
               onChange={onChange}
               model={deviceModel}
@@ -221,7 +224,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
 
 const Form: FC<Task.FormProps<ReadSchemas>> = (props) => {
   const isSnapshot = Task.useIsSnapshot();
-  const configure = Device.useConfigureModal();
+  const configure = useConfigureModal();
   return (
     <CommonDevice.Provider
       canConfigure={!isSnapshot}

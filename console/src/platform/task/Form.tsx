@@ -17,8 +17,14 @@ import { useCallback } from "react";
 import { CSS } from "@/platform/css";
 import { type Layout } from "@/platform/layout";
 import { useConfirm } from "@/platform/modals/useConfirm";
-import { Task } from "@/platform/task";
-import { type FormLayoutArgs, useIsSnapshot } from "@/platform/task/formInfra";
+import { Controls } from "@/platform/task/controls";
+import {
+  type FormLayoutArgs,
+  useIsSnapshot,
+  type WrapFormArgs,
+} from "@/platform/task/formInfra";
+import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
+import { Rack } from "@/platform/task/Rack";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 import { Session } from "@/session";
 
@@ -43,10 +49,10 @@ const Header = ({ isSnapshot }: HeaderProps) => (
       </PForm.Field>
       <Flex.Box align="end" gap="small">
         <UtilityButtons />
-        <Task.Rack />
+        <Rack />
       </Flex.Box>
     </Flex.Box>
-    {!isSnapshot && <Task.ParentRangeButton />}
+    {!isSnapshot && <ParentRangeButton />}
   </>
 );
 
@@ -59,7 +65,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   onConfigure,
   showHeader = true,
   showControls = true,
-}: Task.WrapFormArgs<S>): Layout.Renderer => {
+}: WrapFormArgs<S>): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
     const store = Session.useStore();
     const { deviceKey, taskKey, rackKey, config } =
@@ -160,7 +166,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               />
             </Flex.Box>
             {showControls && (
-              <Task.Controls.Controls
+              <Controls.Controls
                 layoutKey={layoutKey}
                 formStatus={status}
                 onConfigure={save}

@@ -10,7 +10,7 @@
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { errors, primitive } from "@synnaxlabs/x";
 
-import { Device } from "@/feature/ethercat/device";
+import * as Device from "@/feature/ethercat/device/types";
 import {
   channelMapKey,
   getChannelByMapKey,

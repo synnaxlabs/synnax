@@ -231,7 +231,9 @@ describe("layout hooks", () => {
           name: "Plot 1",
         });
       });
-      expect(Session.Layout.select(store.getState(), "plot-1")?.windowKey).toEqual(Drift.MAIN_WINDOW);
+      expect(Session.Layout.select(store.getState(), "plot-1")?.windowKey).toEqual(
+        Drift.MAIN_WINDOW,
+      );
 
       act(() => {
         result.current.openInNewWindow("plot-1");
@@ -242,7 +244,9 @@ describe("layout hooks", () => {
         (l) => l.type === Session.Layout.MOSAIC_WINDOW_TYPE,
       );
       expect(newWindow).toBeDefined();
-      expect(Session.Layout.select(store.getState(), "plot-1")?.windowKey).toEqual(newWindow?.key);
+      expect(Session.Layout.select(store.getState(), "plot-1")?.windowKey).toEqual(
+        newWindow?.key,
+      );
     });
   });
 });

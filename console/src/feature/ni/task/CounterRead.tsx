@@ -12,7 +12,8 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { Device } from "@/feature/ni/device";
+import { enrich } from "@/feature/ni/device/enrich";
+import * as Device from "@/feature/ni/device/types";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createCIChannel } from "@/feature/ni/task/createChannel";
 import { SelectCIChannelTypeField } from "@/feature/ni/task/SelectCIChannelTypeField";
@@ -154,7 +155,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
   for (const dev of allDevices) {
     CommonDevice.checkConfigured(dev);
-    dev.properties = Device.enrich(dev.model, dev.properties);
+    dev.properties = enrich(dev.model, dev.properties);
     let devModified = false;
 
     // Initialize index for counter channels

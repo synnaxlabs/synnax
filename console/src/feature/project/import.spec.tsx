@@ -41,8 +41,8 @@ const THERMO_KEY = "cdb27884-a73f-4696-bcee-a71c1f6625bd";
 // The real ingesters for these types; the full FILE_INGESTERS registry would drag in
 // the Arc/Monaco editor, which Vitest can't load.
 const FILE_INGESTERS: Import.FileIngesters = {
-  ...Schematic.ImEx.FILE_INGESTERS,
-  ...Table.ImEx.FILE_INGESTERS,
+  ...Schematic.FILE_INGESTERS,
+  ...Table.FILE_INGESTERS,
 };
 
 const SCHEMATIC_DATA = {

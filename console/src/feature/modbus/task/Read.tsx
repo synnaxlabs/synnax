@@ -14,7 +14,8 @@ import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Device } from "@/feature/modbus/device";
+import { Select as SelectDevice } from "@/feature/modbus/device/Select";
+import * as Device from "@/feature/modbus/device/types";
 import { SelectInputChannelTypeField } from "@/feature/modbus/task/SelectInputChannelTypeField";
 import {
   INPUT_CHANNEL_SCHEMAS,
@@ -47,7 +48,7 @@ export const ReadSelectable = Selector.createSimpleItem({
 
 const Properties = () => (
   <>
-    <Device.Select />
+    <SelectDevice />
     <Flex.Box x grow>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />

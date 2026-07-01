@@ -76,7 +76,7 @@ const parseException = (
   return stat;
 };
 
-const handleException = <ExcOrFunc,>(
+const handleException = <ExcOrFunc>(
   excOrFunc: ExcOrFunc,
   add: Adder,
   message?: string,

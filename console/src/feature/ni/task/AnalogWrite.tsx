@@ -12,7 +12,9 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Device } from "@/feature/ni/device";
+import { enrich } from "@/feature/ni/device/enrich";
+import { Select } from "@/feature/ni/device/Select";
+import * as Device from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
 import { createAOChannel } from "@/feature/ni/task/createChannel";
 import { SelectAOChannelTypeField } from "@/feature/ni/task/SelectAOChannelTypeField";
@@ -46,7 +48,7 @@ export const AnalogWriteSelectable = Selector.createSimpleItem({
 
 const Properties = () => (
   <>
-    <Device.Select />
+    <Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
       <Task.Fields.DataSaving />
@@ -122,7 +124,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     schemas: Device.SCHEMAS,
   });
   CommonDevice.checkConfigured(dev);
-  dev.properties = Device.enrich(dev.model, dev.properties);
+  dev.properties = enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.analogOutput.stateIndex);
   if (!shouldCreateStateIndex)

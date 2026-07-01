@@ -27,7 +27,8 @@ import {
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useMemo, useState } from "react";
 
-import { Device } from "@/feature/http/device";
+import { Select as SelectDevice } from "@/feature/http/device/Select";
+import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
 import {
@@ -65,7 +66,7 @@ export const WriteSelectable = Selector.createSimpleItem({
 
 const Properties = () => (
   <>
-    <Device.Select />
+    <SelectDevice />
     <Flex.Box x grow>
       <Task.Fields.AutoStart />
     </Flex.Box>

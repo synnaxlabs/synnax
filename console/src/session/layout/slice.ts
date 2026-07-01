@@ -13,7 +13,6 @@ import { Color, Haul, Mosaic, Tabs } from "@synnaxlabs/pluto";
 import { deep, type direction, id, location } from "@synnaxlabs/x";
 import { z } from "zod";
 
-
 const placementLocationZ = z.enum(["window", "mosaic", "modal"]);
 
 /**
@@ -143,8 +142,7 @@ export interface State<A = unknown> {
  * key optional; the placer fills both in.
  */
 export interface BaseState<A = unknown>
-  extends Omit<State<A>, "windowKey" | "key">,
-    Partial<Pick<State<A>, "key">> {}
+  extends Omit<State<A>, "windowKey" | "key">, Partial<Pick<State<A>, "key">> {}
 
 const mosaicStateZ = z.object({
   activeTab: z.string().nullable(),

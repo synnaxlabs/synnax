@@ -30,11 +30,7 @@ const handleSelect: Ontology.HandleSelect = ({
   });
 };
 
-const load = async (
-  client: Synnax,
-  id: ontology.ID,
-  placeLayout: Layout.Placer,
-) => {
+const load = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer) => {
   const { name, key } = await client.arcs.retrieve({ key: id.key });
   placeLayout(create({ name, key }));
 };

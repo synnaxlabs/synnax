@@ -29,5 +29,3 @@ export const ingest: Import.FileIngester = async (
   );
   return log.ontologyID(created.key);
 };
-
-export const FILE_INGESTERS: Import.FileIngesters = { [LAYOUT_TYPE]: ingest };

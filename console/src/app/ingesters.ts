@@ -17,9 +17,9 @@ import { type Import } from "@/platform/import";
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   ...Arc.FILE_INGESTERS,
-  ...Log.ImEx.FILE_INGESTERS,
-  ...LinePlot.ImEx.FILE_INGESTERS,
-  ...Schematic.ImEx.FILE_INGESTERS,
-  ...Table.ImEx.FILE_INGESTERS,
+  ...Log.FILE_INGESTERS,
+  ...LinePlot.FILE_INGESTERS,
+  ...Schematic.FILE_INGESTERS,
+  ...Table.FILE_INGESTERS,
   ...Task.FILE_INGESTERS,
 };

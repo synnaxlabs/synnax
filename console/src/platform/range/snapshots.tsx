@@ -41,4 +41,6 @@ export interface SnapshotServicesProviderProps extends PropsWithChildren {
 export const SnapshotServicesProvider = ({
   services,
   ...rest
-}: SnapshotServicesProviderProps): ReactElement => <Context value={services} {...rest} />;
+}: SnapshotServicesProviderProps): ReactElement => (
+  <Context value={services} {...rest} />
+);

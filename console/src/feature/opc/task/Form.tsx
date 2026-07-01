@@ -22,7 +22,15 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
-import { Device } from "@/feature/opc/device";
+import {
+  Browser,
+  canDropHaulItem,
+  HAUL_TYPE,
+  type HaulItem,
+  isHaulItem,
+} from "@/feature/opc/device/Browser";
+import * as Device from "@/feature/opc/device/types";
+import { useConnectModal } from "@/feature/opc/device/useConnectModal";
 import { type Channel } from "@/feature/opc/task/types";
 import { CSS } from "@/platform/css";
 import { Device as CommonDevice } from "@/platform/device";
@@ -116,8 +124,8 @@ const CHANNELS_PATH = "config.channels";
 
 const VARIABLE_NODE_CLASS = "Variable";
 
-const isVariableHaulItem = (item: Haul.Item): item is Device.HaulItem =>
-  Device.isHaulItem(item) && item.data.nodeClass === VARIABLE_NODE_CLASS;
+const isVariableHaulItem = (item: Haul.Item): item is HaulItem =>
+  isHaulItem(item) && item.data.nodeClass === VARIABLE_NODE_CLASS;
 
 const canDrop = ({ items }: Haul.DraggingState): boolean =>
   items.some(isVariableHaulItem);
@@ -128,7 +136,7 @@ interface ChannelListProps<C extends Channel> extends Pick<
 > {
   children: Component.RenderProp<ExtraItemProps>;
   device: Device.Device;
-  convertHaulItemToChannel: (item: Device.HaulItem) => C;
+  convertHaulItemToChannel: (item: HaulItem) => C;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
@@ -156,12 +164,12 @@ const ChannelList = <C extends Channel>({
   );
 
   const haulProps = Haul.useDrop({
-    type: Device.HAUL_TYPE,
+    type: HAUL_TYPE,
     canDrop,
     onDrop: handleDrop,
   });
 
-  const isDragging = Device.canDropHaulItem(Haul.useDraggingState());
+  const isDragging = canDropHaulItem(Haul.useDraggingState());
 
   const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = useCallback(
@@ -203,7 +211,7 @@ export const Form = <C extends Channel>({
   contextMenuItems,
 }: FormProps<C>) => {
   const isSnapshot = Task.useIsSnapshot();
-  const connect = Device.useConnectModal();
+  const connect = useConnectModal();
   return (
     <CommonDevice.Provider
       canConfigure={!isSnapshot}
@@ -212,7 +220,7 @@ export const Form = <C extends Channel>({
     >
       {({ device }) => (
         <>
-          {!isSnapshot && <Device.Browser device={device} />}
+          {!isSnapshot && <Browser device={device} />}
           <ChannelList<C>
             device={device}
             convertHaulItemToChannel={convertHaulItemToChannel}

@@ -11,7 +11,7 @@ import { DisconnectedError, lineplot } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { type Import } from "@/platform/import";
-import { create, LAYOUT_TYPE } from "@/platform/lineplot/layout";
+import { create } from "@/platform/lineplot/layout";
 import { Session } from "@/session";
 
 export const ingest: Import.FileIngester = async (
@@ -26,5 +26,3 @@ export const ingest: Import.FileIngester = async (
   store.lineplots.set(created.key, created);
   placeLayout(create({ ...layout, key: created.key, name: created.name }));
 };
-
-export const FILE_INGESTERS: Import.FileIngesters = { [LAYOUT_TYPE]: ingest };

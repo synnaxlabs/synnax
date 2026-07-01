@@ -28,7 +28,3 @@ export const ingest: Import.FileIngester = async (
   placeLayout(Schematic.create({ ...layout, key, name, type: Schematic.LAYOUT_TYPE }));
   return schematic.ontologyID(key);
 };
-
-export const FILE_INGESTERS: Import.FileIngesters = {
-  [Schematic.LAYOUT_TYPE]: ingest,
-};

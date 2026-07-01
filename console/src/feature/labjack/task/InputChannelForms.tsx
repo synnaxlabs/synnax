@@ -11,7 +11,7 @@ import { Divider, Flex, Form as PForm, Icon, Select } from "@synnaxlabs/pluto";
 import { deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, useMemo } from "react";
 
-import { Device } from "@/feature/labjack/device";
+import * as Device from "@/feature/labjack/device/types";
 import {
   AIR_CJC_SOURCE,
   DEVICE_CJC_SOURCE,

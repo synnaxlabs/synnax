@@ -23,7 +23,8 @@ import {
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Device } from "@/feature/modbus/device";
+import { Select as SelectDevice } from "@/feature/modbus/device/Select";
+import * as Device from "@/feature/modbus/device/types";
 import { SelectOutputChannelTypeField } from "@/feature/modbus/task/SelectOutputChannelTypeField";
 import {
   OUTPUT_CHANNEL_SCHEMAS,
@@ -55,7 +56,7 @@ export const WriteSelectable = Selector.createSimpleItem({
 
 const Properties = () => (
   <>
-    <Device.Select />
+    <SelectDevice />
     <Task.Fields.AutoStart />
   </>
 );

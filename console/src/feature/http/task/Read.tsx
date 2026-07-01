@@ -28,7 +28,8 @@ import {
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
-import { Device } from "@/feature/http/device";
+import { Select as SelectDevice } from "@/feature/http/device/Select";
+import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
 import {
@@ -71,7 +72,7 @@ const RATE_INPUT_PROPS = {
 
 const Properties = () => (
   <>
-    <Device.Select />
+    <SelectDevice />
     <Flex.Box x grow>
       <PForm.NumericField
         path="config.rate"

@@ -9,14 +9,15 @@
 
 import { ContextMenu } from "@/feature/lineplot/ContextMenu";
 import { extract } from "@/feature/lineplot/export";
+import { ingest } from "@/feature/lineplot/import";
 import { LinePlot } from "@/feature/lineplot/LinePlot";
 import { Selectable } from "@/feature/lineplot/Selectable";
 import { type Export } from "@/platform/export";
+import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { LAYOUT_TYPE } from "@/platform/lineplot/layout";
 import { type Selector } from "@/platform/selector";
 
-export * as ImEx from "@/feature/lineplot/imex";
 export * from "@/feature/lineplot/link";
 export * from "@/feature/lineplot/ontology";
 export * from "@/feature/lineplot/palette";
@@ -30,6 +31,8 @@ export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
 };
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
+
+export const FILE_INGESTERS: Import.FileIngesters = { [LAYOUT_TYPE]: ingest };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: LinePlot };
 

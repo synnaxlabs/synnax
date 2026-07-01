@@ -11,7 +11,8 @@ import { Divider, Flex, Form, Select } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Device } from "@/feature/ni/device";
+import { PortField } from "@/feature/ni/device/PortField";
+import { Select as SelectDevice } from "@/feature/ni/device/Select";
 import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import {
@@ -686,8 +687,8 @@ export const CIChannelForm = ({ type, prefix }: CIChannelFormProps) => {
   return (
     <>
       <Flex.Box x wrap>
-        <Device.Select path={`${prefix}.device`} />
-        <Device.PortField path={prefix} />
+        <SelectDevice path={`${prefix}.device`} />
+        <PortField path={prefix} />
       </Flex.Box>
       <Divider.Divider x padded="bottom" />
       <Form prefix={prefix} />
