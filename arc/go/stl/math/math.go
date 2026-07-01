@@ -29,9 +29,9 @@ import (
 
 const (
 	avgSymbolName        = "avg"
-	countInputParam     = "count"
+	countInputParam      = "count"
 	derivativeSymbolName = "derivative"
-	durationInputParam  = "duration"
+	durationInputParam   = "duration"
 	maxSymbolName        = "max"
 	minSymbolName        = "min"
 	powSymbolName        = "pow"

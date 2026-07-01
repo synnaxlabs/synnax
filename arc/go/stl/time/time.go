@@ -26,12 +26,12 @@ import (
 )
 
 const (
-	intervalSymbolName  = "interval"
-	waitSymbolName      = "wait"
-	nowSymbolName       = "now"
+	intervalSymbolName = "interval"
+	waitSymbolName     = "wait"
+	nowSymbolName      = "now"
 	periodInputParam   = "period"
 	durationInputParam = "duration"
-	name                = "time"
+	name               = "time"
 )
 
 // MinTolerance is the minimum tolerance for timing comparisons,
