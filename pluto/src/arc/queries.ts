@@ -168,7 +168,7 @@ export const useSelectNodeConfig = Scope.bindHook(
   Flux.createSelector<FluxSubStore, SelectNodePropsArgs, Node.Config>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key, nodeKey }) =>
-      requireArc(store, key).graph.configs[nodeKey] as Node.Config,
+      requireArc(store, key).graph.inputs[nodeKey] as Node.Config,
   }),
 );
 

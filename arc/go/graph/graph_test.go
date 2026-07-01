@@ -152,7 +152,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 				},
-				Nodes:   nodes,
+				Nodes:  nodes,
 				Inputs: configs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
@@ -210,7 +210,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 					},
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -275,7 +275,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 					},
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -342,7 +342,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 					},
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -409,7 +409,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 					},
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -453,7 +453,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 					},
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -489,7 +489,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 					},
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -524,7 +524,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 					},
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -559,7 +559,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 					},
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -597,7 +597,7 @@ var _ = Describe("Graph", func() {
 					}},
 				)
 				g := arc.Graph{
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -691,7 +691,7 @@ var _ = Describe("Graph", func() {
 				graphWithFunctions := graph.Graph{
 					Functions: functions,
 					Nodes:     g.Nodes,
-					Inputs:   g.Inputs,
+					Inputs:    g.Inputs,
 					Edges:     g.Edges,
 				}
 
@@ -773,7 +773,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 				},
-				Nodes:   nodes,
+				Nodes:  nodes,
 				Inputs: configs,
 			}
 			resolver := []symbol.Symbol{{
@@ -807,7 +807,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 				},
-				Nodes:   nodes,
+				Nodes:  nodes,
 				Inputs: configs,
 			}
 			resolver := []symbol.Symbol{{
@@ -829,7 +829,7 @@ var _ = Describe("Graph", func() {
 				}},
 			)
 			g := arc.Graph{
-				Nodes:   nodes,
+				Nodes:  nodes,
 				Inputs: configs,
 			}
 			resolver := []symbol.Symbol{{
@@ -865,7 +865,7 @@ var _ = Describe("Graph", func() {
 								},
 							},
 						},
-						Nodes:   nodes,
+						Nodes:  nodes,
 						Inputs: configs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
@@ -905,7 +905,7 @@ var _ = Describe("Graph", func() {
 								},
 							},
 						},
-						Nodes:   nodes,
+						Nodes:  nodes,
 						Inputs: configs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
@@ -938,9 +938,9 @@ var _ = Describe("Graph", func() {
 								},
 							},
 						},
-						Nodes:   nodes,
+						Nodes:  nodes,
 						Inputs: configs,
-						Edges:   graph.Edges{},
+						Edges:  graph.Edges{},
 					}
 					g = MustSucceed(graph.Parse(g))
 					inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -971,7 +971,7 @@ var _ = Describe("Graph", func() {
 								},
 							},
 						},
-						Nodes:   nodes,
+						Nodes:  nodes,
 						Inputs: configs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
@@ -1007,7 +1007,7 @@ var _ = Describe("Graph", func() {
 								},
 							},
 						},
-						Nodes:   nodes,
+						Nodes:  nodes,
 						Inputs: configs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
@@ -1049,7 +1049,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 					},
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -1089,7 +1089,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 					},
-					Nodes:   nodes,
+					Nodes:  nodes,
 					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
@@ -1113,7 +1113,7 @@ var _ = Describe("Graph", func() {
 			DescribeTable("Should report a clear diagnostic instead of failing to resolve an empty type",
 				func(ctx SpecContext, cfg msgpack.EncodedJSON, expected string) {
 					g := graph.Graph{
-						Nodes:   graph.Nodes{{Key: "n1"}},
+						Nodes:  graph.Nodes{{Key: "n1"}},
 						Inputs: map[string]msgpack.EncodedJSON{"n1": cfg},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -1153,7 +1153,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 				},
-				Nodes:   nodes,
+				Nodes:  nodes,
 				Inputs: configs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
@@ -1193,7 +1193,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 				},
-				Nodes:   nodes,
+				Nodes:  nodes,
 				Inputs: configs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
@@ -1234,7 +1234,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 				},
-				Nodes:   nodes,
+				Nodes:  nodes,
 				Inputs: configs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{

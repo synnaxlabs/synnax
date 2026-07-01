@@ -51,7 +51,7 @@ describe("Arc queries", () => {
             kind: arc.ir.EdgeKind.continuous,
           },
         ],
-        configs: {
+        inputs: {
           n1: { type: "constant", value: 0 },
           n2: { type: "constant", value: 1 },
         },
@@ -688,7 +688,7 @@ describe("Arc queries", () => {
       expect(formData.graph).toEqual({
         nodes: [],
         edges: [],
-        configs: {},
+        inputs: {},
         functions: [],
       });
       expect(formData.text).toEqual({

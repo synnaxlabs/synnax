@@ -32,7 +32,7 @@ var _ = Describe("Control", func() {
 		It("Should create factory with state", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth"}},
-				Inputs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
+				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -52,7 +52,7 @@ var _ = Describe("Control", func() {
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth"}},
-				Inputs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
+				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -168,7 +168,7 @@ var _ = Describe("Control", func() {
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth"}},
-				Inputs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
+				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -267,7 +267,7 @@ var _ = Describe("Control", func() {
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth"}},
-				Inputs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
+				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -328,7 +328,7 @@ var _ = Describe("Control", func() {
 		It("Should always return false", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth"}},
-				Inputs:   map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
+				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))

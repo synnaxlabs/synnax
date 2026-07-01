@@ -55,7 +55,7 @@ func (m *mockFactory) ModuleName() string { return m.moduleName }
 func newTestConfig(ctx context.Context, nodeType string) node.Config {
 	g := graph.Graph{
 		Nodes:     []graph.Node{{Key: "n1"}},
-		Inputs:   map[string]msgpack.EncodedJSON{"n1": {"type": nodeType}},
+		Inputs:    map[string]msgpack.EncodedJSON{"n1": {"type": nodeType}},
 		Functions: []graph.Function{{Key: nodeType}},
 	}
 	analyzed, _ := graph.Analyze(ctx, g, symbol.NewRoot(nil, nil))
@@ -183,7 +183,7 @@ var _ = Describe("Node", func() {
 				irNode = ir.Node{Key: "test", Type: "constant"}
 				g      = graph.Graph{
 					Nodes:     []graph.Node{{Key: "test"}},
-					Inputs:   map[string]msgpack.EncodedJSON{"test": {"type": "constant"}},
+					Inputs:    map[string]msgpack.EncodedJSON{"test": {"type": "constant"}},
 					Functions: []graph.Function{{Key: "constant"}},
 				}
 				analyzed, _ = graph.Analyze(ctx, g, nil)

@@ -559,7 +559,7 @@ var _ = Describe("Task", Ordered, func() {
 				}},
 			)
 			alarmGraph := graph.Graph{
-				Nodes:   alarmNodes,
+				Nodes:  alarmNodes,
 				Inputs: alarmConfigs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
@@ -696,7 +696,7 @@ var _ = Describe("Task", Ordered, func() {
 				}},
 			)
 			reportGraph := graph.Graph{
-				Nodes:   reportNodes,
+				Nodes:  reportNodes,
 				Inputs: reportConfigs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{

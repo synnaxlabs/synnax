@@ -38,9 +38,9 @@ export const useClipboard = ({
       const a = store.arcs.get(key);
       if (a == null) return null;
       const {
-        graph: { nodes, edges, configs },
+        graph: { nodes, edges, inputs },
       } = a;
-      return { nodes, edges, configs };
+      return { nodes, edges, configs: inputs };
     },
     apply: ({ nodes, edges, newKeys }) => {
       const actions: arc.Action[] = [];

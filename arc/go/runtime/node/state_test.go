@@ -1288,7 +1288,7 @@ var _ = Describe("ProgramState", func() {
 		Describe("isSeriesTruthy helper", func() {
 			It("Should return false for empty series", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1308,7 +1308,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for series with last element 0 (float64)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1327,7 +1327,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return true for series with last element non-zero (float64)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1346,7 +1346,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for series with last element 0 (uint8)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1365,7 +1365,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return true for series with last element non-zero (uint8)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1384,7 +1384,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for series with last element 0 (int32)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1403,7 +1403,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return true for series with last element non-zero (int32)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1422,7 +1422,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for out-of-range output ordinal", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1442,7 +1442,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should check the last element only", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1465,7 +1465,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should handle timestamp type", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1486,7 +1486,7 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should treat a non-empty string as truthy and an empty string as falsy", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
 					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
@@ -1510,7 +1510,7 @@ var _ = Describe("ProgramState", func() {
 	Describe("ResolveInput", func() {
 		buildNode := func(ctx SpecContext) *node.State {
 			g := graph.Graph{
-				Nodes:   []graph.Node{{Key: "n"}},
+				Nodes:  []graph.Node{{Key: "n"}},
 				Inputs: map[string]msgpack.EncodedJSON{"n": {"type": "n"}},
 				Functions: []graph.Function{{
 					Key: "n",

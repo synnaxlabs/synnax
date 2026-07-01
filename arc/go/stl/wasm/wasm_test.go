@@ -247,7 +247,7 @@ func singleFunctionGraph(key string, outType types.Type, body string) arc.Graph 
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: outType}},
 			Body:    ir.Body{Raw: body},
 		}},
-		Nodes:   []graph.Node{{Key: key}},
+		Nodes:  []graph.Node{{Key: key}},
 		Inputs: map[string]msgpack.EncodedJSON{key: {"type": key}},
 	}
 }
