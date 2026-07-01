@@ -7,8 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/component/schematic/layout";
-export * from "@/component/schematic/Schematic";
-export * from "@/component/schematic/symbol";
-export * from "@/component/schematic/toolbar";
-export * from "@/component/schematic/useCreate";
+export * from "@/service/schematic/symbol/export";
+export * from "@/service/schematic/symbol/import";

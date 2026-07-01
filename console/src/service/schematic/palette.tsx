@@ -10,16 +10,16 @@
 import { schematic } from "@synnaxlabs/client";
 import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
 
-import { useCreate } from "@/component/schematic/useCreateseCreate";
-import { Palette } from "@/palette";
+import { Palette } from "@/component/palette";
+import { Schematic as CSchematic } from "@/component/schematic";
 
-const useCreateSchematic = () => useCreate({});
+const useCreate = () => CSchematic.useCreate({});
 
 const CreateCommand = Palette.createCommand({
   key: "create_schematic",
   name: "Create a schematic",
   icon: <PSchematic.CreateIcon />,
-  useOnSelect: useCreateSchematic,
+  useOnSelect: useCreate,
   useVisible: () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID),
 });
 

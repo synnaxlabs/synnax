@@ -10,10 +10,8 @@
 import { type schematic } from "@synnaxlabs/client";
 import { Flux, type Pluto, Schematic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
-import { useStore } from "react-redux";
 
-import { create } from "@/component/schematic/layouts/layout";
-import { Layout } from "@/layout";
+import { Schematic as CSchematic } from "@/component/schematic";
 import { Session } from "@/session";
 
 type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
@@ -21,10 +19,10 @@ type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
 const navigateToLinkedSchematic = async (
   retrieve: SchematicRetriever,
   page: string,
-  placeLayout: Layout.Placer,
+  placeLayout: Session.Layout.Placer,
 ): Promise<void> => {
   const s = await retrieve(page);
-  placeLayout(create({ key: s.key, name: s.name }));
+  placeLayout(CSchematic.create({ key: s.key, name: s.name }));
 };
 
 type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
@@ -42,7 +40,7 @@ export const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler =>
     [fluxStore, client],
   );
   const handleError = Status.useErrorHandler();
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
 
   return useCallback(
     (nodeId: string, dblClick: boolean) => {

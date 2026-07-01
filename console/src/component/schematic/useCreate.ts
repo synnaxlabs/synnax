@@ -9,8 +9,8 @@
 
 import { Schematic } from "@synnaxlabs/pluto";
 
-import { Project } from "@/project";
-import { create } from "@/service/schematic/symbols/layout";
+import { Project } from "@/component/project";
+import { create } from "@/component/schematic/layout";
 
 export const useCreate = Project.createUseCreate({
   useCreate: Schematic.useCreate,
@@ -19,8 +19,5 @@ export const useCreate = Project.createUseCreate({
     ...overrides,
     project,
   }),
-  createSessionState: ({ key, name }) => {
-    console.log("create session state");
-    return create({ key, name, editable: true });
-  },
+  createSessionState: ({ key, name }) => create({ key, name, editable: true }),
 });

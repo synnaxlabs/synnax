@@ -11,20 +11,19 @@ import { schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
 import { Session } from "@/session";
-import { type Layout } from "@/layout";
 
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;
 
 export interface CreateArg
   extends
-    Partial<Layout.BaseState>,
+    Partial<Session.Layout.BaseState>,
     Partial<Pick<Session.Schematic.State, "editable">> {
   key?: string;
 }
 
 export const create =
-  (initial: CreateArg = {}): Layout.Creator =>
+  (initial: CreateArg = {}): Session.Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Schematic", location = "mosaic", tab, ...rest } = initial;
     const key = schematic.keyZ.safeParse(initial.key).data ?? uuid.create();

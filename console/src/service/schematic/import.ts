@@ -24,8 +24,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Import } from "@/import";
-import { create, LAYOUT_TYPE } from "@/component/schematic/layouts/layout";
+import { Schematic as CSchematic } from "@/component/schematic";
+import { type Import } from "@/service/import";
 
 const STATE_MIGRATION_NAME = "schematic.state";
 
@@ -460,7 +460,9 @@ export const ingest: Import.FileIngester = async (
   const created = await client.schematics.create(projectKey, newPayload);
   const { key, name } = created;
   store.schematics.set(key, created);
-  placeLayout(create({ ...layout, key, name, type: LAYOUT_TYPE }));
+  placeLayout(
+    CSchematic.create({ ...layout, key, name, type: CSchematic.LAYOUT_TYPE }),
+  );
   return schematic.ontologyID(key);
 };
 

@@ -16,13 +16,9 @@ import { extract } from "@/service/schematic/export";
 import { Selectable } from "@/service/schematic/Selectable";
 import { ContextMenu } from "@/service/schematic/symbols/ContextMenu";
 
-export * from "@/component/schematic/layouts/layout";
-export * from "@/component/schematic/useCreateseCreate";
-export * from "@/service/schematic/imex";
 export * from "@/service/schematic/link";
 export * from "@/service/schematic/ontology";
 export * from "@/service/schematic/palette";
-export * from "@/service/schematic/symbols/toolbar";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,

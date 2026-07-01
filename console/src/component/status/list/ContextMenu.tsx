@@ -10,11 +10,11 @@
 import { status } from "@synnaxlabs/client";
 import { Access, Component, type Flux, Icon, Menu, Status } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
 
-import { ContextMenu as CMenu } from "@/component";
+import { ContextMenu as CMenu } from "@/component/context-menu";
 import { Modals } from "@/component/modals";
-import { useConfirmDelete } from "@/ontology/hooks";
+import { Ontology } from "@/service/ontology";
+import { Session } from "@/session";
 import { useSelectFavoriteSet } from "@/session/status/selectors";
 import { addFavorites, removeFavorites } from "@/session/status/slice";
 
@@ -26,7 +26,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
 
-  const confirm = useConfirmDelete({
+  const confirm = Ontology.useConfirmDelete({
     type: "Status",
     description: "This action cannot be undone.",
   });

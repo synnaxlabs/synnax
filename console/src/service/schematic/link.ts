@@ -9,16 +9,16 @@
 
 import { useCallback } from "react";
 
+import { Schematic } from "@/component/schematic";
 import { type Link } from "@/service/link";
-import { create } from "@/component/schematic/layouts/layout";
-import { Layout } from "@/layout";
+import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {
       const { name } = await client.schematics.retrieve({ key });
-      placeLayout(create({ key, name }));
+      placeLayout(Schematic.create({ key, name }));
     },
     [placeLayout],
   );
