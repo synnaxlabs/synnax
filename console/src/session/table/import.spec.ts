@@ -10,7 +10,7 @@
 import { type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { parseImport } from "@/service/table/import";
+import { parseImport } from "@/session/table/migrations";
 
 // A legacy v0 console export parks its structural model under layout.rows /
 // layout.columns and stores a per-cell `selected` flag. It carries a valid uuid key and

@@ -23,6 +23,8 @@ describe("Table.useLink", () => {
     const table = await client.tables.create(project.key, { name: "Sensor Table" });
     const { handler, store } = renderLinkHook(Table.useLink);
     await handler({ client, key: table.key });
-    expect(Session.Layout.select(store.getState(), table.key)?.name).toBe("Sensor Table");
+    expect(Session.Layout.select(store.getState(), table.key)?.name).toBe(
+      "Sensor Table",
+    );
   });
 });

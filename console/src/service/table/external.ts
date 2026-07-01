@@ -10,18 +10,18 @@
 import { type Layout } from "@/component/layout";
 import { type Selector } from "@/component/selector";
 import { LAYOUT_TYPE } from "@/component/table/layout";
-import { Table } from "@/component/table/Table";
 import { type Export } from "@/service/export";
 import { extract } from "@/service/table/export";
 import { FILE_INGESTERS } from "@/service/table/import";
 import { Selectable } from "@/service/table/Selectable";
+import { Table } from "@/service/table/Table";
 
 export * from "@/component/table/layout";
-export * from "@/component/table/Toolbar";
 export * from "@/component/table/useCreate";
 export * from "@/service/table/link";
 export * from "@/service/table/ontology";
 export * from "@/service/table/palette";
+export * from "@/service/table/Toolbar";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

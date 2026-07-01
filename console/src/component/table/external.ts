@@ -8,6 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/component/table/layout";
-export * from "@/component/table/Table";
-export * from "@/component/table/Toolbar";
 export * from "@/component/table/useCreate";
