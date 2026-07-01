@@ -40,13 +40,13 @@ T int_pow(T base, T exp) {
     return result;
 }
 
-struct WindowConfig {
+struct WindowInputs {
     x::telem::TimeSpan duration{0};
     int64_t count = 0;
 
-    static std::pair<WindowConfig, x::errors::Error>
+    static std::pair<WindowInputs, x::errors::Error>
     create(const types::Params &params) {
-        WindowConfig cfg;
+        WindowInputs cfg;
         for (size_t i = 0; i < params.size(); i++) {
             const auto &p = params[i];
             if (p.name == "duration") {
@@ -72,7 +72,7 @@ private:
     runtime::state::Node state;
     types::Kind kind;
     Op op;
-    WindowConfig cfg;
+    WindowInputs cfg;
     int64_t sample_count = 0;
     x::telem::TimeStamp start_time{0};
     x::telem::TimeStamp last_reset_time{0};
@@ -84,7 +84,7 @@ public:
         runtime::state::Node &&state,
         types::Kind kind,
         Op op,
-        WindowConfig cfg,
+        WindowInputs cfg,
         size_t input_idx,
         std::optional<size_t> reset_idx
     ):
@@ -659,7 +659,7 @@ public:
             };
         }
 
-        auto [window_cfg, err] = WindowConfig::create(cfg.node.inputs);
+        auto [window_cfg, err] = WindowInputs::create(cfg.node.inputs);
         if (err) return {nullptr, err};
 
         Aggregator::Op op;

@@ -113,25 +113,25 @@ x::telem::NowFunc make_now(x::telem::TimeStamp &current_time) {
 }
 }
 
-TEST(StableForConfigTest, CreatesConfigFromValidParams) {
+TEST(StableForInputsTest, CreatesInputsFromValidParams) {
     types::Param duration_param;
     duration_param.name = "duration";
     duration_param.type = types::Type{.kind = types::Kind::I64};
     duration_param.value = x::telem::SECOND.nanoseconds();
     types::Params params;
     params.push_back(duration_param);
-    const auto cfg = ASSERT_NIL_P(StableForConfig::create(params));
+    const auto cfg = ASSERT_NIL_P(StableForInputs::create(params));
     EXPECT_EQ(cfg.duration, x::telem::SECOND);
 }
 
-TEST(StableForConfigTest, ReturnsErrorForNullDuration) {
+TEST(StableForInputsTest, ReturnsErrorForNullDuration) {
     types::Param duration_param;
     duration_param.name = "duration";
     duration_param.type = types::Type{.kind = types::Kind::I64};
     duration_param.value = nullptr;
     types::Params params;
     params.push_back(duration_param);
-    ASSERT_OCCURRED_AS_P(StableForConfig::create(params), x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(StableForInputs::create(params), x::errors::VALIDATION);
 }
 
 TEST(StableForModuleTest, ReturnsNotFoundForWrongType) {
@@ -162,7 +162,7 @@ TEST(StableForTest, DoesNotEmitBeforeDuration) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)
@@ -189,7 +189,7 @@ TEST(StableForTest, EmitsWhenStableForDuration) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)
@@ -226,7 +226,7 @@ TEST(StableForTest, ResetsTimerOnValueChange) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)
@@ -268,7 +268,7 @@ TEST(StableForTest, DoesNotEmitSameValueTwice) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)
@@ -297,7 +297,7 @@ TEST(StableForTest, EmitsDifferentValueAfterStablePeriod) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)
@@ -335,7 +335,7 @@ TEST(StableForTest, HandlesMultipleValuesInSingleInput) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)
@@ -365,7 +365,7 @@ TEST(StableForTest, ResetClearsState) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)
@@ -392,7 +392,7 @@ TEST(StableForTest, HandlesEmptyInput) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(x::telem::SECOND.nanoseconds());
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)
@@ -410,7 +410,7 @@ TEST(StableForTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)
@@ -434,7 +434,7 @@ TEST(StableForTest, HandlesSameValueRepeatedInInput) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)
@@ -463,7 +463,7 @@ TEST(StableForTest, ResetAllowsSameValueToEmitAgain) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
     x::telem::TimeStamp current_time(0);
     StableFor node(
-        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        ASSERT_NIL_P(StableForInputs::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
         0,
         make_now(current_time)

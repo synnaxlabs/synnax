@@ -90,7 +90,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	var nodeCfg nodeConfig
+	var nodeCfg nodeInputs
 	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &nodeCfg); err != nil {
 		return nil, errors.Wrap(err, "control.set_authority config")
 	}
@@ -110,7 +110,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Number().Uint32(),
 })
 
-type nodeConfig struct {
+type nodeInputs struct {
 	Value   uint8  `json:"value"`
 	Channel uint32 `json:"channel"`
 }

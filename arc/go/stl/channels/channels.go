@@ -120,7 +120,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if !isSource && !isSink {
 		return nil, query.ErrNotFound
 	}
-	var nodeCfg config
+	var nodeCfg inputs
 	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &nodeCfg); err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Uint32().Coerce(),
 })
 
-type config struct {
+type inputs struct {
 	Channel uint32 `json:"channel"`
 }
 
