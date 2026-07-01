@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/task/Form.css";
+import "@/platform/task/Form.css";
 
 import { task } from "@synnaxlabs/client";
 import { Device, Flex, Form as PForm, Input, Task as PTask } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { UtilityButtons } from "@/feature/task/UtilityButtons";
 import { CSS } from "@/platform/css";
 import { type Layout } from "@/platform/layout";
 import { useConfirm } from "@/platform/modals/useConfirm";
 import { Task } from "@/platform/task";
-import { type FormLayoutArgs, useIsSnapshot } from "@/platform/task/Form";
+import { type FormLayoutArgs, useIsSnapshot } from "@/platform/task/formInfra";
+import { UtilityButtons } from "@/platform/task/UtilityButtons";
 import { Session } from "@/session";
 
 export interface Layout extends Session.Layout.BaseState<FormLayoutArgs> {}

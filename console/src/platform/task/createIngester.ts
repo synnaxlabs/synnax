@@ -11,8 +11,8 @@ import { task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 import { type z } from "zod";
 
-import { type Layout } from "@/feature/task/Form";
 import { type Import } from "@/platform/import";
+import { type Layout } from "@/platform/task/Form";
 
 export const createIngester =
   (configSchema: z.ZodType, zeroLayout: Layout): Import.FileIngester =>

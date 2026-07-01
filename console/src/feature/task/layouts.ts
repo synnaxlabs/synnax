@@ -16,7 +16,7 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
-import { type Layout } from "@/feature/task/Form";
+import { type Layout } from "@/platform/task/Form";
 import { type Session } from "@/session";
 
 const ZERO_LAYOUTS: Record<string, Layout> = {

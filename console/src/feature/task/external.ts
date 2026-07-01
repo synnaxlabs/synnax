@@ -22,15 +22,15 @@ import { type Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { type Palette } from "@/platform/palette";
 
-export * from "@/feature/task/createIngester";
-export * from "@/feature/task/export";
-export * from "@/feature/task/Form";
 export * from "@/feature/task/layouts";
 export * from "@/feature/task/link";
 export * from "@/feature/task/ontology";
 export * from "@/feature/task/Selector";
 export * from "@/feature/task/Toolbar";
-export * from "@/feature/task/UtilityButtons";
+export * from "@/platform/task/createIngester";
+export * from "@/platform/task/export";
+export * from "@/platform/task/Form";
+export * from "@/platform/task/UtilityButtons";
 
 export const COMMANDS: Palette.Command[] = [
   ...EtherCAT.Task.COMMANDS,
