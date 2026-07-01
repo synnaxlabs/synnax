@@ -29,6 +29,9 @@ struct Digest {
     types::ChannelKey key;
     x::telem::DataType data_type;
     types::ChannelKey index;
+    /// @brief seed, when non-null and non-empty, pre-fills the read buffer for a
+    /// variable channel so a read preceding any write observes the declared value.
+    Series seed;
 };
 
 class State {
@@ -96,6 +99,10 @@ public:
     read_series(types::ChannelKey key);
 
     void write_series(types::ChannelKey key, const Series &data, const Series &time);
+
+    /// @brief loops a variable-channel write back into the read buffer at the next
+    /// alignment so source nodes observe it as fresh data.
+    void append_var_read(types::ChannelKey key, const Series &data);
 
     /// @brief flushes read and write state directly into the provided frame, avoiding
     /// intermediate allocations.

@@ -80,6 +80,7 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     Node node;
     node.key = "init";
     node.type = "add";
+    node.is_var = true;
     original.nodes.push_back(node);
     Node node2;
     node2.key = "run";
@@ -117,6 +118,8 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     ASSERT_EQ(reconstructed.functions.size(), 1);
     ASSERT_EQ(reconstructed.functions[0].key, "test_func");
     ASSERT_EQ(reconstructed.nodes.size(), 2);
+    ASSERT_TRUE(reconstructed.nodes[0].is_var);
+    ASSERT_FALSE(reconstructed.nodes[1].is_var);
     ASSERT_EQ(reconstructed.edges.size(), 1);
     ASSERT_EQ(reconstructed.root.mode, ScopeMode::Parallel);
     ASSERT_EQ(reconstructed.root.liveness, Liveness::Always);

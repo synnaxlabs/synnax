@@ -14,8 +14,11 @@
 namespace arc::stl::channels {
 
 State::State(const std::vector<Digest> &digests) {
-    for (const auto &digest: digests)
+    for (const auto &digest: digests) {
         this->indexes[digest.key] = digest.index;
+        if (digest.seed != nullptr && !digest.seed->empty())
+            this->append_var_read(digest.key, digest.seed);
+    }
 }
 
 void State::ingest(const x::telem::Frame &frame) {
@@ -33,6 +36,19 @@ std::pair<x::telem::MultiSeries, bool> State::read_value(const types::ChannelKey
     for (const auto &s: it->second)
         ms.series.push_back(s->deep_copy());
     return {std::move(ms), true};
+}
+
+void State::append_var_read(const types::ChannelKey key, const Series &data) {
+    if (data == nullptr) return;
+    auto copy = x::mem::make_local_shared<x::telem::Series>(data->deep_copy());
+    auto &cur = this->reads[key];
+    if (cur.empty())
+        copy->alignment = x::telem::Alignment(0);
+    else
+        copy->alignment = x::telem::Alignment(
+            cur.back()->alignment.uint64() + cur.back()->size()
+        );
+    cur.push_back(std::move(copy));
 }
 
 static void append_to_write_buffer(Series &dest, const Series &src) {
