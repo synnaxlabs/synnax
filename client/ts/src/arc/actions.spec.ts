@@ -94,25 +94,25 @@ describe("arc reducer", () => {
     it("should overwrite fields present in both the existing and payload configs", () => {
       const state = empty({
         nodes: [node("n1", 0, 0)],
-        configs: { n1: cfg("constant", { value: 1 }) },
+        inputs: { n1: cfg("constant", { value: 1 }) },
       });
       const out = apply(
         state,
         arc.setNodeConfig({ key: "n1", config: cfg("constant", { value: 2 }) }),
       );
-      expect(out.graph.configs.n1).toEqual(cfg("constant", { value: 2 }));
+      expect(out.graph.inputs.n1).toEqual(cfg("constant", { value: 2 }));
     });
     it("should merge the config into the existing entry, preserving absent fields", () => {
       const state = empty({
         nodes: [node("n1", 0, 0)],
-        configs: { n1: cfg("constant", { value: 1 }) },
+        inputs: { n1: cfg("constant", { value: 1 }) },
       });
       const out = apply(state, arc.setNodeConfig({ key: "n1", config: { value: 2 } }));
-      expect(out.graph.configs.n1).toEqual(cfg("constant", { value: 2 }));
+      expect(out.graph.inputs.n1).toEqual(cfg("constant", { value: 2 }));
     });
     it("should write the config even when no entry exists yet", () => {
       const out = apply(empty(), arc.setNodeConfig({ key: "n1", config: cfg("add") }));
-      expect(out.graph.configs.n1).toEqual(cfg("add"));
+      expect(out.graph.inputs.n1).toEqual(cfg("add"));
     });
   });
 
@@ -134,12 +134,12 @@ describe("arc reducer", () => {
             kind: arc.ir.EdgeKind.continuous,
           },
         ],
-        configs: { n2: cfg("add") },
+        inputs: { n2: cfg("add") },
       });
       const out = apply(state, arc.removeNode({ key: "n2" }));
       expect(out.graph.nodes).toEqual([node("n1", 0, 0), node("n3", 2, 2)]);
       expect(out.graph.edges).toEqual([]);
-      expect(out.graph.configs.n2).toBeUndefined();
+      expect(out.graph.inputs.n2).toBeUndefined();
     });
     it("should keep unrelated edges intact", () => {
       const state = empty({
@@ -385,7 +385,7 @@ describe("arc reducer", () => {
       );
       expect(out.graph.nodes).toHaveLength(2);
       expect(out.graph.edges).toHaveLength(1);
-      expect(out.graph.configs.src).toEqual(cfg("on", { channel: 1 }));
+      expect(out.graph.inputs.src).toEqual(cfg("on", { channel: 1 }));
     });
     it("should leave state untouched when given an empty action list", () => {
       const state = empty({ nodes: [node("n1", 0, 0)] });
@@ -422,7 +422,7 @@ describe("arc reducer inverses", () => {
       Object.fromEntries(ns.map((n) => [n.key, n]));
     expect(byKey(restored.graph.nodes)).toEqual(byKey(state.graph.nodes));
     expect(restored.graph.edges).toEqual(state.graph.edges);
-    expect(restored.graph.configs).toEqual(state.graph.configs);
+    expect(restored.graph.inputs).toEqual(state.graph.inputs);
   };
 
   describe("rename", () => {
@@ -470,7 +470,7 @@ describe("arc reducer inverses", () => {
       expectGraphRoundTrip(
         empty({
           nodes: [node("n1", 0, 0)],
-          configs: { n1: cfg("constant", { value: 1 }) },
+          inputs: { n1: cfg("constant", { value: 1 }) },
         }),
         [arc.setNodeConfig({ key: "n1", config: cfg("constant", { value: 2 }) })],
       );
@@ -490,7 +490,7 @@ describe("arc reducer inverses", () => {
               kind: arc.ir.EdgeKind.continuous,
             },
           ],
-          configs: { n1: cfg("on", { channel: 1 }) },
+          inputs: { n1: cfg("on", { channel: 1 }) },
         }),
         [arc.removeNode({ key: "n1" })],
       );

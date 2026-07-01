@@ -72,8 +72,8 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 		g.Nodes = legacy.Nodes
 	}
 	// Legacy graphs stored the function type and config inline on each node with
-	// no configs map; lift them into Configs keyed by node key.
-	if g.Configs == nil {
+	// no inputs map; lift them into Inputs keyed by node key.
+	if g.Inputs == nil {
 		var legacy struct {
 			Nodes []struct {
 				Key    string               `msgpack:"key"`
@@ -85,12 +85,12 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 			return err
 		}
 		if len(legacy.Nodes) > 0 {
-			g.Configs = make(map[string]xmsgpack.EncodedJSON, len(legacy.Nodes))
+			g.Inputs = make(map[string]xmsgpack.EncodedJSON, len(legacy.Nodes))
 			for _, ln := range legacy.Nodes {
 				cfg := xmsgpack.EncodedJSON{}
 				maps.Copy(cfg, ln.Config)
 				cfg["type"] = ln.Type
-				g.Configs[ln.Key] = cfg
+				g.Inputs[ln.Key] = cfg
 			}
 		}
 	}

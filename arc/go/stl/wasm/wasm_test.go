@@ -248,7 +248,7 @@ func singleFunctionGraph(key string, outType types.Type, body string) arc.Graph 
 			Body:    ir.Body{Raw: body},
 		}},
 		Nodes:   []graph.Node{{Key: key}},
-		Configs: map[string]msgpack.EncodedJSON{key: {"type": key}},
+		Inputs: map[string]msgpack.EncodedJSON{key: {"type": key}},
 	}
 }
 
@@ -287,7 +287,7 @@ func binaryOpGraph(
 			{Key: rhsKey},
 			{Key: opKey},
 		},
-		Configs: map[string]msgpack.EncodedJSON{
+		Inputs: map[string]msgpack.EncodedJSON{
 			lhsKey: {"type": lhsKey},
 			rhsKey: {"type": rhsKey},
 			opKey:  {"type": opKey},
@@ -374,7 +374,7 @@ var _ = Describe("WASM", func() {
 					{Key: "b", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
 				Nodes: []graph.Node{{Key: "a"}, {Key: "b"}, {Key: "math_ops"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"a":        {"type": "a"},
 					"b":        {"type": "b"},
 					"math_ops": {"type": "math_ops"},
@@ -452,7 +452,7 @@ var _ = Describe("WASM", func() {
 					{Key: "c1"},
 					{Key: "c2"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"c1": {"type": "counter1"},
 					"c2": {"type": "counter2"},
 				},
@@ -498,7 +498,7 @@ var _ = Describe("WASM", func() {
 					{Key: "counter_a"},
 					{Key: "counter_b"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"counter_a": {"type": "counter"},
 					"counter_b": {"type": "counter"},
 				},
@@ -552,7 +552,7 @@ var _ = Describe("WASM", func() {
 					{Key: "x", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
 				Nodes: []graph.Node{{Key: "x"}, {Key: "add"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"x":   {"type": "x"},
 					"add": {"type": "add"},
 				},
@@ -580,7 +580,7 @@ var _ = Describe("WASM", func() {
 					{Key: "a", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
 				Nodes: []graph.Node{{Key: "a"}, {Key: "compute"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"a":       {"type": "a"},
 					"compute": {"type": "compute"},
 				},
@@ -608,7 +608,7 @@ var _ = Describe("WASM", func() {
 					{Key: "value", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}}, Body: ir.Body{Raw: `{ return 1.0 }`}},
 				},
 				Nodes: []graph.Node{{Key: "value"}, {Key: "scale"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"value": {"type": "value"},
 					"scale": {"type": "scale"},
 				},
@@ -650,7 +650,7 @@ var _ = Describe("WASM", func() {
 					{Key: "value", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}}, Body: ir.Body{Raw: `{ return 1.0 }`}},
 				},
 				Nodes: []graph.Node{{Key: "value"}, {Key: "scale"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"value": {"type": "value"},
 					"scale": {"type": "scale"},
 				},
@@ -732,7 +732,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "b", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
 				Nodes: []graph.Node{{Key: "a"}, {Key: "b"}, {Key: "math_ops"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"a":        {"type": "a"},
 					"b":        {"type": "b"},
 					"math_ops": {"type": "math_ops"},
@@ -1218,7 +1218,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "val_src"},
 					{Key: "neg_c"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"val_src": {"type": "val_src"},
 					"neg_c":   {"type": "neg_c"},
 				},
@@ -1254,7 +1254,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "val_src"},
 					{Key: "neg_cf"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"val_src": {"type": "val_src"},
 					"neg_cf":  {"type": "neg_cf"},
 				},
@@ -1293,7 +1293,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "source"},
 					{Key: "str_len"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source":  {"type": "source"},
 					"str_len": {"type": "str_len"},
 				},
@@ -1338,7 +1338,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "source"},
 					{Key: "qstr_len"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source":   {"type": "source"},
 					"qstr_len": {"type": "qstr_len"},
 				},
@@ -1392,7 +1392,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "src_b"},
 					{Key: "qstr_concat"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"src_a":       {"type": "src_a"},
 					"src_b":       {"type": "src_b"},
 					"qstr_concat": {"type": "qstr_concat"},
@@ -1454,7 +1454,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "source"},
 					{Key: "labeler"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source":  {"type": "source"},
 					"labeler": {"type": "labeler"},
 				},
@@ -1505,7 +1505,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "source"},
 					{Key: "tagger"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source": {"type": "source"},
 					"tagger": {"type": "tagger"},
 				},
@@ -1550,7 +1550,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "source"},
 					{Key: "stringify"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source":    {"type": "source"},
 					"stringify": {"type": "stringify"},
 				},
@@ -1601,7 +1601,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "source"},
 					{Key: "labeler"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source":  {"type": "source"},
 					"labeler": {"type": "labeler"},
 				},
@@ -1706,7 +1706,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "input_source"},
 					{Key: "add_config"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"input_source": {"type": "input_source"},
 					"add_config":   {"type": "add_config", "x": int64(10)},
 				},
@@ -1747,7 +1747,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "input_source"},
 					{Key: "multi_config"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"input_source": {"type": "input_source"},
 					"multi_config": {"type": "multi_config", "a": int32(5), "b": int32(10)},
 				},
@@ -1787,7 +1787,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "input_source"},
 					{Key: "scale_config"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"input_source": {"type": "input_source"},
 					"scale_config": {"type": "scale_config", "factor": 2.5},
 				},
@@ -1827,7 +1827,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "input_source"},
 					{Key: "offset_func"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"input_source": {"type": "input_source"},
 					"offset_func":  {"type": "offset_func", "offset": int64(-50)},
 				},
@@ -1868,7 +1868,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "input_source"},
 					{Key: "scale_neg"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"input_source": {"type": "input_source"},
 					"scale_neg":    {"type": "scale_neg", "factor": -3.0},
 				},
@@ -2223,7 +2223,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "trigger_source"},
 					{Key: "void_func"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"trigger_source": {"type": "trigger_source"},
 					"void_func":      {"type": "void_func"},
 				},
@@ -2267,7 +2267,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "trigger_source"},
 					{Key: "void_with_state"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"trigger_source":  {"type": "trigger_source"},
 					"void_with_state": {"type": "void_with_state"},
 				},
@@ -2387,7 +2387,7 @@ trigger_ch -> emit_period{period=1s}
 				Nodes: []graph.Node{
 					{Key: "increment_counter"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"increment_counter": {"type": "increment_counter", "counter": uint32(100)},
 				},
 				Edges: graph.Edges{},
@@ -2444,7 +2444,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "input_source"},
 					{Key: "count_rising"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"input_source": {"type": "input_source"},
 					"count_rising": {"type": "count_rising", "counter": uint32(100)},
 				},
@@ -2537,7 +2537,7 @@ trigger_ch -> emit_period{period=1s}
 				Nodes: []graph.Node{
 					{Key: "combine_sensors"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"combine_sensors": {
 						"type":     "combine_sensors",
 						"temp":     uint32(100),
@@ -2599,7 +2599,7 @@ trigger_ch -> emit_period{period=1s}
 				Nodes: []graph.Node{
 					{Key: "multi_op"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"multi_op": {
 						"type":    "multi_op",
 						"a":       uint32(200),
@@ -2665,7 +2665,7 @@ trigger_ch -> emit_period{period=1s}
 				Nodes: []graph.Node{
 					{Key: "square_value"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"square_value": {
 						"type":    "square_value",
 						"value":   uint32(300),
@@ -2749,7 +2749,7 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "value_source"},
 					{Key: "tolerance_check"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"value_source": {"type": "value_source"},
 					"tolerance_check": {
 						"type":            "tolerance_check",
@@ -3273,7 +3273,7 @@ input_ch -> count_local{} -> sink_ch
 					Body:    ir.Body{Raw: `{}`},
 				}},
 				Nodes: []graph.Node{{Key: "log_fn"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"log_fn": {"type": "log_fn", "msg": "hello"},
 				},
 			}

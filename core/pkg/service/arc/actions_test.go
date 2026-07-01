@@ -95,21 +95,21 @@ var _ = Describe("Reducer", func() {
 	Describe("SetNodeConfig", func() {
 		It("Should merge the configuration into the existing entry", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-			state.Graph.Configs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
+			state.Graph.Inputs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
 			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeConfigAction(arc.SetNodeConfigPayload{
 				Key:    "n1",
 				Config: msgpack.EncodedJSON{"offset": 2},
 			})))
-			Expect(out.Graph.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"gain": 1, "offset": 2}))
+			Expect(out.Graph.Inputs["n1"]).To(Equal(msgpack.EncodedJSON{"gain": 1, "offset": 2}))
 		})
 		It("Should overwrite fields present in both the existing and payload configs", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-			state.Graph.Configs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
+			state.Graph.Inputs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
 			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeConfigAction(arc.SetNodeConfigPayload{
 				Key:    "n1",
 				Config: msgpack.EncodedJSON{"gain": 5},
 			})))
-			Expect(out.Graph.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"gain": 5}))
+			Expect(out.Graph.Inputs["n1"]).To(Equal(msgpack.EncodedJSON{"gain": 5}))
 		})
 		It("Should write the configuration even when no node has the key", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
@@ -117,7 +117,7 @@ var _ = Describe("Reducer", func() {
 				Key:    "ghost",
 				Config: msgpack.EncodedJSON{"offset": 2},
 			})))
-			Expect(out.Graph.Configs["ghost"]).To(Equal(msgpack.EncodedJSON{"offset": 2}))
+			Expect(out.Graph.Inputs["ghost"]).To(Equal(msgpack.EncodedJSON{"offset": 2}))
 		})
 	})
 
@@ -127,7 +127,7 @@ var _ = Describe("Reducer", func() {
 				graph.Nodes{gnode("n1", 0, 0), gnode("n2", 1, 1), gnode("n3", 2, 2)},
 				graph.Edges{gedge("e1", "n1", "out", "n2", "in"), gedge("e2", "n2", "out", "n3", "in")},
 			)
-			state.Graph.Configs = map[string]msgpack.EncodedJSON{
+			state.Graph.Inputs = map[string]msgpack.EncodedJSON{
 				"n2": {"type": "stage"},
 				"n3": {"type": "stage"},
 			}
@@ -136,8 +136,8 @@ var _ = Describe("Reducer", func() {
 			})))
 			Expect(out.Graph.Nodes).To(Equal(graph.Nodes{gnode("n1", 0, 0), gnode("n3", 2, 2)}))
 			Expect(out.Graph.Edges).To(BeEmpty())
-			Expect(out.Graph.Configs).ToNot(HaveKey("n2"))
-			Expect(out.Graph.Configs).To(HaveKey("n3"))
+			Expect(out.Graph.Inputs).ToNot(HaveKey("n2"))
+			Expect(out.Graph.Inputs).To(HaveKey("n3"))
 		})
 		It("Should keep unrelated edges intact", func() {
 			state := withGraph(

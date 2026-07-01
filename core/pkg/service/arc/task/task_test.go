@@ -46,14 +46,14 @@ import (
 )
 
 // graphNodeSpec describes a graph node along with its function type and configuration
-// parameter values, which live in the graph's Configs map keyed by node key.
+// parameter values, which live in the graph's Inputs map keyed by node key.
 type graphNodeSpec struct {
 	key string
 	typ string
 	cfg map[string]any
 }
 
-// buildGraphNodes converts node specs into the graph's Nodes slice and Configs map,
+// buildGraphNodes converts node specs into the graph's Nodes slice and Inputs map,
 // storing each node's function type under the "type" key in its config entry.
 func buildGraphNodes(specs ...graphNodeSpec) (graph.Nodes, map[string]msgpack.EncodedJSON) {
 	nodes := make(graph.Nodes, len(specs))
@@ -169,7 +169,7 @@ var _ = Describe("Task", Ordered, func() {
 		nodes, configs := buildGraphNodes(
 			graphNodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": chKey}},
 		)
-		return graph.Graph{Nodes: nodes, Configs: configs}
+		return graph.Graph{Nodes: nodes, Inputs: configs}
 	}
 
 	createVirtualCh := func(ctx context.Context, prefix string, dataType telem.DataType) *channel.Channel {
@@ -528,7 +528,7 @@ var _ = Describe("Task", Ordered, func() {
 			badNodes, badConfigs := buildGraphNodes(
 				graphNodeSpec{key: "bad", typ: "nonexistent_type"},
 			)
-			badNodeGraph := graph.Graph{Nodes: badNodes, Configs: badConfigs}
+			badNodeGraph := graph.Graph{Nodes: badNodes, Inputs: badConfigs}
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Name:   "test-bad-node",
@@ -560,7 +560,7 @@ var _ = Describe("Task", Ordered, func() {
 			)
 			alarmGraph := graph.Graph{
 				Nodes:   alarmNodes,
-				Configs: alarmConfigs,
+				Inputs: alarmConfigs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},
@@ -697,7 +697,7 @@ var _ = Describe("Task", Ordered, func() {
 			)
 			reportGraph := graph.Graph{
 				Nodes:   reportNodes,
-				Configs: reportConfigs,
+				Inputs: reportConfigs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},

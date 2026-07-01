@@ -28,14 +28,14 @@ import (
 )
 
 // nodeSpec describes a graph node together with its function type and configuration
-// parameter values, which now live in the graph's Configs map rather than on the node.
+// parameter values, which now live in the graph's Inputs map rather than on the node.
 type nodeSpec struct {
 	key string
 	typ string
 	cfg map[string]any
 }
 
-// buildNodes converts node specs into the graph's Nodes slice plus the Configs map,
+// buildNodes converts node specs into the graph's Nodes slice plus the Inputs map,
 // keying each config by node key and storing the function type under "type".
 func buildNodes(specs ...nodeSpec) (graph.Nodes, map[string]msgpack.EncodedJSON) {
 	nodes := make(graph.Nodes, len(specs))
@@ -153,7 +153,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:   nodes,
-				Configs: configs,
+				Inputs: configs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: arc.Handle{Node: "first", Param: ir.DefaultOutputParam},
@@ -211,7 +211,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "source1", Param: ir.DefaultOutputParam},
@@ -276,7 +276,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "int_source1", Param: ir.DefaultOutputParam},
@@ -343,7 +343,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
@@ -410,7 +410,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "float_src", Param: ir.DefaultOutputParam},
@@ -454,7 +454,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "str_src", Param: ir.DefaultOutputParam},
@@ -490,7 +490,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
@@ -525,7 +525,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
@@ -560,7 +560,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "str_src", Param: ir.DefaultOutputParam},
@@ -598,7 +598,7 @@ var _ = Describe("Graph", func() {
 				)
 				g := arc.Graph{
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: arc.Handle{Node: "on", Param: ir.DefaultOutputParam},
@@ -691,7 +691,7 @@ var _ = Describe("Graph", func() {
 				graphWithFunctions := graph.Graph{
 					Functions: functions,
 					Nodes:     g.Nodes,
-					Configs:   g.Configs,
+					Inputs:   g.Inputs,
 					Edges:     g.Edges,
 				}
 
@@ -723,8 +723,8 @@ var _ = Describe("Graph", func() {
 				Expect(inter.Edges).To(HaveLen(4))
 
 				// Verify configuration was parsed correctly
-				Expect(parsed.Configs["constant"]).To(HaveKeyWithValue("value", 10))
-				Expect(parsed.Configs["stable_for"]).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
+				Expect(parsed.Inputs["constant"]).To(HaveKeyWithValue("value", 10))
+				Expect(parsed.Inputs["stable_for"]).To(HaveKeyWithValue("duration", int(telem.Millisecond)))
 
 				// Verify polymorphic node instances have concrete resolved types
 				// func definitions stay polymorphic, but each node instance gets concrete types
@@ -774,7 +774,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:   nodes,
-				Configs: configs,
+				Inputs: configs,
 			}
 			resolver := []symbol.Symbol{{
 				Name: "f64_sensor",
@@ -808,7 +808,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:   nodes,
-				Configs: configs,
+				Inputs: configs,
 			}
 			resolver := []symbol.Symbol{{
 				Name: "f64_sensor",
@@ -830,7 +830,7 @@ var _ = Describe("Graph", func() {
 			)
 			g := arc.Graph{
 				Nodes:   nodes,
-				Configs: configs,
+				Inputs: configs,
 			}
 			resolver := []symbol.Symbol{{
 				Name: "f64_sensor",
@@ -866,7 +866,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 						Nodes:   nodes,
-						Configs: configs,
+						Inputs: configs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
 								Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
@@ -906,7 +906,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 						Nodes:   nodes,
-						Configs: configs,
+						Inputs: configs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
 								Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
@@ -939,7 +939,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 						Nodes:   nodes,
-						Configs: configs,
+						Inputs: configs,
 						Edges:   graph.Edges{},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -972,7 +972,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 						Nodes:   nodes,
-						Configs: configs,
+						Inputs: configs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
 								Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
@@ -1008,7 +1008,7 @@ var _ = Describe("Graph", func() {
 							},
 						},
 						Nodes:   nodes,
-						Configs: configs,
+						Inputs: configs,
 						Edges: graph.Edges{
 							{Edge: ir.Edge{
 								Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
@@ -1050,7 +1050,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
@@ -1090,7 +1090,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					Nodes:   nodes,
-					Configs: configs,
+					Inputs: configs,
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
 							Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
@@ -1114,7 +1114,7 @@ var _ = Describe("Graph", func() {
 				func(ctx SpecContext, cfg msgpack.EncodedJSON, expected string) {
 					g := graph.Graph{
 						Nodes:   graph.Nodes{{Key: "n1"}},
-						Configs: map[string]msgpack.EncodedJSON{"n1": cfg},
+						Inputs: map[string]msgpack.EncodedJSON{"n1": cfg},
 					}
 					g = MustSucceed(graph.Parse(g))
 					_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -1154,7 +1154,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:   nodes,
-				Configs: configs,
+				Inputs: configs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
@@ -1194,7 +1194,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:   nodes,
-				Configs: configs,
+				Inputs: configs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
@@ -1235,7 +1235,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 				Nodes:   nodes,
-				Configs: configs,
+				Inputs: configs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},

@@ -117,7 +117,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 				Body:    calcFn.Body,
 			},
 		},
-		Configs: map[string]xmsgpack.EncodedJSON{},
+		Inputs: map[string]xmsgpack.EncodedJSON{},
 	}
 	addNode := func(key, typ string, config xmsgpack.EncodedJSON) {
 		g.Nodes = append(g.Nodes, graph.Node{Key: key})
@@ -125,7 +125,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 			config = xmsgpack.EncodedJSON{}
 		}
 		config["type"] = typ
-		g.Configs[key] = config
+		g.Inputs[key] = config
 	}
 	addNode(calculationKey, calculationKey, nil)
 	addNode(writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})

@@ -69,16 +69,16 @@ const handlers: Handlers = {
   // fields. A future ReplaceNodeConfig action can close the gap by enabling
   // wholesale replacement.
   setNodeConfig: (state, payload) => {
-    const existingRaw = state.graph.configs[payload.key];
+    const existingRaw = state.graph.inputs[payload.key];
     if (existingRaw == null) {
-      state.graph.configs[payload.key] = payload.config;
+      state.graph.inputs[payload.key] = payload.config;
       return { inverse: [], targets: [payload.key] };
     }
     const existing = actions.snapshotDraft(existingRaw);
     const restoreFields: record.Unknown = {};
     for (const k of Object.keys(payload.config))
       if (existing[k] !== undefined) restoreFields[k] = existing[k];
-    state.graph.configs[payload.key] = { ...existing, ...payload.config };
+    state.graph.inputs[payload.key] = { ...existing, ...payload.config };
     if (Object.keys(restoreFields).length === 0)
       return { inverse: [], targets: [payload.key] };
     return {
@@ -90,12 +90,12 @@ const handlers: Handlers = {
     const idx = state.graph.nodes.findIndex((n) => n.key === payload.key);
     if (idx === -1) return actions.NO_OP_RESULT;
     const oldNode = actions.snapshotDraft(state.graph.nodes[idx]);
-    const oldConfig = actions.snapshotDraft(state.graph.configs[payload.key]);
+    const oldConfig = actions.snapshotDraft(state.graph.inputs[payload.key]);
     const removedEdges = state.graph.edges
       .filter((e) => e.source.node === payload.key || e.target.node === payload.key)
       .map((e) => actions.snapshotDraft(e));
     state.graph.nodes.splice(idx, 1);
-    delete state.graph.configs[payload.key];
+    delete state.graph.inputs[payload.key];
     state.graph.edges = state.graph.edges.filter(
       (e) => e.source.node !== payload.key && e.target.node !== payload.key,
     );

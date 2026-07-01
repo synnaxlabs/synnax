@@ -46,7 +46,7 @@ export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
  * SetNodeConfig merges the given config into the entry for the given key in the
- * graph configs map. Top-level fields present in the payload overwrite
+ * graph inputs map. Top-level fields present in the payload overwrite
  * existing fields; fields absent from the payload are preserved. The
  * node's function type is held under "type".
  */

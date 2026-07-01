@@ -164,14 +164,14 @@ func GraphToPB(r graph.Graph) (*Graph, error) {
 		Edges:     edgesVal,
 		Nodes:     nodesVal,
 	}
-	if r.Configs != nil {
-		pb.Configs = make(map[string]*structpb.Struct, len(r.Configs))
-		for k, v := range r.Configs {
+	if r.Inputs != nil {
+		pb.Inputs = make(map[string]*structpb.Struct, len(r.Inputs))
+		for k, v := range r.Inputs {
 			converted, err := structpb.NewStruct(v)
 			if err != nil {
 				return nil, err
 			}
-			pb.Configs[k] = converted
+			pb.Inputs[k] = converted
 		}
 	}
 	return pb, nil
@@ -196,10 +196,10 @@ func GraphFromPB(pb *Graph) (graph.Graph, error) {
 	if err != nil {
 		return graph.Graph{}, err
 	}
-	if pb.Configs != nil {
-		r.Configs = make(map[string]msgpack.EncodedJSON, len(pb.Configs))
-		for k, v := range pb.Configs {
-			r.Configs[k] = msgpack.EncodedJSON(v.AsMap())
+	if pb.Inputs != nil {
+		r.Inputs = make(map[string]msgpack.EncodedJSON, len(pb.Inputs))
+		for k, v := range pb.Inputs {
+			r.Inputs[k] = msgpack.EncodedJSON(v.AsMap())
 		}
 	}
 	return r, nil

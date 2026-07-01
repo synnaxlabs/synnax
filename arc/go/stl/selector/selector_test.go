@@ -43,7 +43,7 @@ var _ = Describe("Select", func() {
 					{Key: "source"},
 					{Key: "select"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source": {"type": "source"},
 					"select": {"type": "select"},
 				},
@@ -103,7 +103,7 @@ var _ = Describe("Select", func() {
 					{Key: "source"},
 					{Key: "select"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source": {"type": "source"},
 					"select": {"type": "select"},
 				},
@@ -392,7 +392,7 @@ var _ = Describe("Select", func() {
 					{Key: "source"},
 					{Key: "select"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source": {"type": "source"},
 					"select": {"type": "select"},
 				},
@@ -440,7 +440,7 @@ var _ = Describe("Select", func() {
 					{Key: "source"},
 					{Key: "select"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source": {"type": "source"},
 					"select": {"type": "select"},
 				},

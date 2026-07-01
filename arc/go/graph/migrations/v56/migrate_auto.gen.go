@@ -56,7 +56,7 @@ func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
 		Functions: functions,
 		Edges:     edges,
 		Nodes:     nodes,
-		Configs:   configs,
+		Inputs:    configs,
 	}, nil
 }
 
