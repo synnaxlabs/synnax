@@ -10,7 +10,7 @@
 import { type lineplot } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
-import { parseImport } from "@/service/lineplot/import";
+import { parseImport } from "@/session/lineplot/migrations";
 
 const KEY = "88aee41e-53b7-4a76-9df9-aceccc220089";
 const LINE_KEY = "65538-88aee41e";

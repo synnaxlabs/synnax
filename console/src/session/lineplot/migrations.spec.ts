@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { anyStateZ } from "@/service/lineplot/import";
+import { anyStateZ } from "@/session/lineplot/migrations";
 
 const zeroAxis = (key: string) => ({
   key,

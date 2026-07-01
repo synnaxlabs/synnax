@@ -21,8 +21,9 @@ import { memo, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/component/css";
 import { Vis } from "@/component/vis";
-import { HOLD_TRIGGER } from "@/service/lineplot/useTriggerHold";
 import { Session } from "@/session";
+
+export const HOLD_TRIGGER: Triggers.Trigger = ["H"];
 
 export interface ControlsProps {
   hasAnnotations: boolean;

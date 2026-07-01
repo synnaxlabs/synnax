@@ -11,10 +11,10 @@ import { Errors, Icon } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { Empty } from "@/component/empty";
-import { LinePlot } from "@/component/lineplot";
 import { type Nav } from "@/component/nav";
 import { Toolbar } from "@/component/toolbar";
 import { Arc } from "@/service/arc";
+import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";

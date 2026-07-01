@@ -12,8 +12,8 @@ import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { LAYOUT_TYPE } from "@/component/lineplot/layout";
+import { useCreate } from "@/component/lineplot/useCreate";
 import { Selector } from "@/component/selector";
-import { useCreate } from "@/service/lineplot/useCreate";
 
 export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
   const hasCreatePermission = Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);

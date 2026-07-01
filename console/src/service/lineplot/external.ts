@@ -8,22 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/component/layout";
-import { ContextMenu } from "@/component/lineplot/ContextMenu";
 import { LAYOUT_TYPE } from "@/component/lineplot/layout";
-import { LinePlot } from "@/component/lineplot/LinePlot";
 import { type Selector } from "@/component/selector";
 import { type Export } from "@/service/export";
+import { ContextMenu } from "@/service/lineplot/ContextMenu";
 import { extract } from "@/service/lineplot/export";
+import { LinePlot } from "@/service/lineplot/LinePlot";
 import { Selectable } from "@/service/lineplot/Selectable";
 
+export * from "@/component/lineplot/addChannelsToActivePlot";
 export * from "@/component/lineplot/layout";
-export * from "@/component/lineplot/toolbar";
-export * from "@/service/lineplot/addChannelsToActivePlot";
+export * from "@/component/lineplot/useCreate";
 export * as ImEx from "@/service/lineplot/imex";
 export * from "@/service/lineplot/link";
 export * from "@/service/lineplot/ontology";
 export * from "@/service/lineplot/palette";
-export * from "@/service/lineplot/useCreate";
+export * from "@/service/lineplot/toolbar";
 export * from "@/service/lineplot/useTriggerHold";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {

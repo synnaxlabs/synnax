@@ -19,8 +19,6 @@ const CONFIG: Triggers.ModeConfig<"toggle"> = {
   toggle: [["H"]],
 };
 
-export const HOLD_TRIGGER: Triggers.Trigger = ["H"];
-
 export const useTriggerHold = (): void => {
   const { layoutKey: activeTab } = Session.Layout.useSelectActiveMosaicTabState();
   const dispatch = Session.useDispatch();
