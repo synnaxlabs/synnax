@@ -9,9 +9,9 @@
 
 import { useCallback } from "react";
 
-import { Schematic } from "@/feature/schematic";
 import { Layout } from "@/platform/layout";
 import { type Link } from "@/platform/link";
+import { Schematic } from "@/platform/schematic";
 
 export const useLink = (): Link.Handler => {
   const placeLayout = Layout.usePlacer();

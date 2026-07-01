@@ -11,8 +11,8 @@ import { type schematic } from "@synnaxlabs/client";
 import { Flux, type Pluto, Schematic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
-import { Schematic as CSchematic } from "@/feature/schematic";
 import { Layout } from "@/platform/layout";
+import { Schematic as Platform } from "@/platform/schematic";
 import { Session } from "@/session";
 
 type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
@@ -23,7 +23,7 @@ const navigateToLinkedSchematic = async (
   placeLayout: Layout.Placer,
 ): Promise<void> => {
   const s = await retrieve(page);
-  placeLayout(CSchematic.create({ key: s.key, name: s.name }));
+  placeLayout(Platform.create({ key: s.key, name: s.name }));
 };
 
 type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;

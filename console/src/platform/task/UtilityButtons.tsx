@@ -13,12 +13,12 @@ import { binary, primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Cluster } from "@/platform/cluster";
-import { Task } from "@/platform/task";
 import { useExport } from "@/platform/task/export";
+import { useKey } from "@/platform/task/useKey";
 
 export const UtilityButtons = () => {
   const ctx = Form.useContext();
-  const taskKey = Task.useKey();
+  const taskKey = useKey();
   const getName = () => ctx.get<string>("name").value;
   const export_ = useExport();
   const handleExport = () => taskKey != null && export_(taskKey);

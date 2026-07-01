@@ -15,7 +15,8 @@ import { type FC, type ReactElement } from "react";
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
-import { Layout } from "@/platform/layout";
+import { useOpenInNewWindow } from "@/platform/layout/useOpenInNewWindow";
+import { useRemover } from "@/platform/layout/useRemover";
 import { Session } from "@/session";
 
 interface MenuItemProps {
@@ -51,7 +52,7 @@ const useMoveIntoMainWindow = () => {
 };
 
 const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | null => {
-  const openInNewWindow = Layout.useOpenInNewWindow();
+  const openInNewWindow = useOpenInNewWindow();
   const isMain = useSelectWindowKey() === MAIN_WINDOW;
   if (!isMain) return null;
   return (
@@ -85,7 +86,7 @@ const MoveToMainWindowMenuItem = ({
 };
 
 const CloseMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
-  const remove = Layout.useRemover();
+  const remove = useRemover();
   return (
     <Menu.Item
       itemKey="close"

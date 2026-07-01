@@ -12,7 +12,7 @@ import { Status } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Link } from "@/platform/link";
-import { useSelectSelectedKey } from "@/session/cluster/selectors";
+import { Session } from "@/session";
 
 export interface CopyLinkToClipboardArgs {
   name: string;
@@ -25,7 +25,7 @@ export interface CopyLinkToClipboard {
 
 export const useCopyLinkToClipboard = (): CopyLinkToClipboard => {
   const copyLink = Link.useCopyToClipboard();
-  const clusterKey = useSelectSelectedKey();
+  const clusterKey = Session.Cluster.useSelectSelectedKey();
   const addStatus = Status.useAdder();
   return useCallback(
     (args) => {

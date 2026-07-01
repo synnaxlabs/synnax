@@ -11,15 +11,13 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 
 import { Session } from "@/session";
-import { useSelectSelectedKey } from "@/session/cluster/selectors";
-import { changeKey } from "@/session/cluster/slice";
 
 // useSyncClusterKey synchronizes the actual cluster key of the cluster to the cluster
 // key in the redux store. This is needed for a few different reasons, such as
 // connecting to a different cluster at the same address or connecting to the local or
 // demo cluster that is already defined in the initial slice state.
 export const useSyncClusterKey = () => {
-  const activeClusterKey = useSelectSelectedKey();
+  const activeClusterKey = Session.Cluster.useSelectSelectedKey();
   const { clusterKey, status } = Synnax.useConnectionState();
   const dispatch = Session.useDispatch();
   useEffect(() => {
@@ -29,6 +27,8 @@ export const useSyncClusterKey = () => {
       activeClusterKey === clusterKey
     )
       return;
-    dispatch(changeKey({ oldKey: activeClusterKey, newKey: clusterKey }));
+    dispatch(
+      Session.Cluster.changeKey({ oldKey: activeClusterKey, newKey: clusterKey }),
+    );
   }, [status]);
 };

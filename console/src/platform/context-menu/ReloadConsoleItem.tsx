@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { reloadWindow } from "@synnaxlabs/drift";
+import { Drift } from "@synnaxlabs/drift";
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
@@ -18,7 +18,7 @@ export const ReloadConsoleItem = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const handleClick = useCallback(() => {
     Link.markNextIgnored();
-    dispatch(reloadWindow({}));
+    dispatch(Drift.reloadWindow({}));
   }, [dispatch]);
   return (
     <Menu.Item onClick={handleClick} itemKey="hardReload">

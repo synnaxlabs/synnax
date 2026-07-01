@@ -28,14 +28,12 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
-import { useSelectAllNames, useSelectState } from "@/session/cluster/selectors";
-import { changeKey, clusterZ, set } from "@/session/cluster/slice";
 
 export interface ConnectModalParams {
   clusterKey?: string;
 }
 
-const baseFormSchema = clusterZ.pick({
+const baseFormSchema = Session.Cluster.clusterZ.pick({
   name: true,
   host: true,
   port: true,
@@ -61,10 +59,10 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
   ({ clusterKey, close }) => {
     const dispatch = Session.useDispatch();
     const isEdit = clusterKey != null;
-    const existing = useSelectState(clusterKey);
+    const existing = Session.Cluster.useSelectState(clusterKey);
     const [connState, setConnState] = useState<connection.State | null>(null);
     const [loading, setLoading] = useState<"test" | "submit" | null>(null);
-    const names = useSelectAllNames();
+    const names = Session.Cluster.useSelectAllNames();
     const formSchema = baseFormSchema.check(({ value: { name }, issues }) => {
       const isDuplicate = names.some(
         (n) => n === name && (!isEdit || existing?.name !== name),
@@ -102,7 +100,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
         setConnState(state);
         if (isEdit && existing != null && clusterKey != null) {
           dispatch(
-            set({
+            Session.Cluster.set({
               ...data,
               key: clusterKey,
               username: existing.username,
@@ -110,10 +108,10 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
             }),
           );
           if (state.clusterKey && state.clusterKey !== clusterKey)
-            dispatch(changeKey({ oldKey: clusterKey, newKey: state.clusterKey }));
+            dispatch(Session.Cluster.changeKey({ oldKey: clusterKey, newKey: state.clusterKey }));
         } else {
           const key = state.clusterKey || uuid.create();
-          dispatch(set({ ...data, key, username: "", password: "" }));
+          dispatch(Session.Cluster.set({ ...data, key, username: "", password: "" }));
         }
         close();
       }, "Failed to connect to cluster");

@@ -21,7 +21,6 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Schematic } from "@/feature/schematic";
 import { useExport } from "@/feature/schematic/export";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
@@ -31,6 +30,7 @@ import { type Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
+import { Schematic } from "@/platform/schematic";
 import { Session } from "@/session";
 
 const useDelete = Ontology.createUseDelete({

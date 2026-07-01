@@ -10,8 +10,8 @@
 import { DisconnectedError, schematic } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { Schematic as CSchematic } from "@/feature/schematic";
 import { type Import } from "@/platform/import";
+import { Schematic } from "@/platform/schematic";
 import { Session } from "@/session";
 
 export const ingest: Import.FileIngester = async (
@@ -25,12 +25,10 @@ export const ingest: Import.FileIngester = async (
   const created = await client.schematics.create(projectKey, newPayload);
   const { key, name } = created;
   store.schematics.set(key, created);
-  placeLayout(
-    CSchematic.create({ ...layout, key, name, type: CSchematic.LAYOUT_TYPE }),
-  );
+  placeLayout(Schematic.create({ ...layout, key, name, type: Schematic.LAYOUT_TYPE }));
   return schematic.ontologyID(key);
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [CSchematic.LAYOUT_TYPE]: ingest,
+  [Schematic.LAYOUT_TYPE]: ingest,
 };

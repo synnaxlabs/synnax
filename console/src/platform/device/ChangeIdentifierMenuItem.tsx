@@ -11,7 +11,7 @@ import { device } from "@synnaxlabs/client";
 import { Access, Device, Icon, Menu } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 
-import { Device as CDevice } from "@/platform/device";
+import { useChangeIdentifier } from "@/platform/device/useChangeIdentifier";
 import { Modals } from "@/platform/modals";
 import { type Ontology } from "@/platform/ontology";
 
@@ -29,7 +29,7 @@ export const ChangeIdentifierMenuItem = ({
   handleError,
 }: ChangeIdentifierMenuItemProps) => {
   const rename = Modals.useRename();
-  const { updateAsync } = CDevice.useChangeIdentifier();
+  const { updateAsync } = useChangeIdentifier();
   const first = getResource(ids[0]);
   const { data: deviceData } = Device.useRetrieve({ key: first.id.key });
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));

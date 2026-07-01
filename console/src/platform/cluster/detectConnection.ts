@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Session } from "@/session";
-import { type Cluster } from "@/session/cluster/slice";
 
 export interface ConnectionParams extends Pick<
-  Cluster,
+  Session.Cluster.Cluster,
   "name" | "host" | "port" | "secure"
 > {}
 
