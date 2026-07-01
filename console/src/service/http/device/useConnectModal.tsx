@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/http/device/Connect.css";
+import "@/service/http/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import {
@@ -31,7 +31,7 @@ import { useCallback } from "react";
 
 import { KeyValueEditor } from "@/component/form/KeyValueEditor";
 import { CSS } from "@/component/css";
-import { type Common } from "@/hardware/common";
+import { type Device as CommonDevice } from "@/component/device";
 import {
   type APIKeyAuthConfigSendAs,
   type AuthType,
@@ -42,12 +42,12 @@ import {
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
   ZERO_RESPONSE,
-} from "@/hardware/http/device/types";
+} from "@/service/http/device/types";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
-} from "@/hardware/http/task/types";
+} from "@/service/http/task/types";
 import { Modals } from "@/component/modals";
 import { Triggers } from "@/component/triggers";
 
@@ -108,7 +108,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
+export const useConnectModal = Modals.create<CommonDevice.ConnectParams>(
   ({ deviceKey, close }) => {
     const {
       form,

@@ -11,20 +11,17 @@ import { lineplot, ontology } from "@synnaxlabs/client";
 import { Access, Icon, LinePlot as Base, Menu, Mosaic } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
-import { Cluster } from "@/cluster";
-import { ContextMenu } from "@/component";
-import { create } from "@/service/lineplot/layout";
-import { Export } from "@/export";
-import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createUseDelete";
-import { createUseRename } from "@/ontology/createUseRename";
+import { Cluster } from "@/component/cluster";
+import { ContextMenu } from "@/component/context-menu";
+import { Export } from "@/component/export";
+import { create } from "@/component/lineplot/layout";
 import { Group } from "@/service/group";
 import { useExport } from "@/service/lineplot/export";
 import { Link } from "@/service/link";
+import { Ontology } from "@/service/ontology";
 import { Session } from "@/session";
 
-const useDelete = createUseDelete({
+const useDelete = Ontology.createUseDelete({
   type: "Line Plot",
   icon: "LinePlot",
   query: Base.useDelete,
@@ -36,14 +33,14 @@ const useDelete = createUseDelete({
   },
 });
 
-const useRename = createUseRename({
+const useRename = Ontology.createUseRename({
   query: Base.useRename,
   ontologyID: lineplot.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
     const { key, name } = data;
-    store.dispatch(Layout.rename({ key, name }));
-    rollbacks.push(() => store.dispatch(Layout.rename({ key, name: oldName })));
+    store.dispatch(Session.Layout.rename({ key, name }));
+    rollbacks.push(() => store.dispatch(Session.Layout.rename({ key, name: oldName })));
     return { ...data, name };
   },
 });

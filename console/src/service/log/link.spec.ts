@@ -12,8 +12,8 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Log } from "@/service/log";
-import { Layout } from "@/layout";
-import { renderLinkHook } from "@/testUtils";
+import { Session } from "@/session";
+import { renderLinkHook } from "@/testutil/testutil";
 
 const client = createTestClient();
 
@@ -23,6 +23,6 @@ describe("Log.useLink", () => {
     const log = await client.logs.create(project.key, { name: "Event Log" });
     const { handler, store } = renderLinkHook(Log.useLink);
     await handler({ client, key: log.key });
-    expect(Layout.select(store.getState(), log.key)?.name).toBe("Event Log");
+    expect(Session.Layout.select(store.getState(), log.key)?.name).toBe("Event Log");
   });
 });

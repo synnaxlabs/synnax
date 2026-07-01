@@ -15,7 +15,7 @@ import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { useDispatch } from "react-redux";
 
 import { type ClusterConnect, type Handler, PREFIX } from "@/service/link/types";
-import { Runtime } from "@/runtime";
+import { Session } from "@/session";
 
 const BASE_LINK = `${PREFIX}<cluster-key>`;
 
@@ -34,13 +34,13 @@ export const markNextIgnored = (): void =>
 // Deps are the runtime bindings useDeep relies on. They default to the live Tauri
 // deep-link plugin and runtime engine; tests inject fakes to drive links without Tauri.
 export interface Deps {
-  engine: Runtime.Engine;
+  engine: Session.Runtime.Engine;
   getCurrentURLs: () => Promise<string[] | null>;
   onOpenURL: (handler: (urls: string[]) => void) => Promise<UnlistenFn>;
 }
 
 const DEFAULT_DEPS: Deps = {
-  engine: Runtime.ENGINE,
+  engine: Session.Runtime.ENGINE,
   getCurrentURLs: getCurrent,
   onOpenURL: onOpenUrl,
 };

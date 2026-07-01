@@ -11,10 +11,11 @@ import { project } from "@synnaxlabs/client";
 import { Access, Project as PProject } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useFileIngesters } from "@/import/FileIngestersProvider";
-import { Palette } from "@/palette";
-import { Project } from "@/project";
-import { import_ } from "@/project/services/import";
+import { Palette } from "@/component/palette";
+import { Project } from "@/component/project";
+import { useFileIngesters } from "@/service/import/FileIngestersProvider";
+import { import_ } from "@/service/project/import";
+import { useExport } from "@/service/project/export";
 
 const useCreateVisible = () => Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
@@ -58,7 +59,7 @@ ImportProjectCommand.sortOrder = -1;
 ImportProjectCommand.useVisible = useCreateVisible;
 
 const useExportCurrentProject = (): (() => void) => {
-  const handleExport = Project.useExport();
+  const handleExport = useExport();
   return useCallback(() => handleExport(null), [handleExport]);
 };
 

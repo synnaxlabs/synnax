@@ -10,18 +10,16 @@
 import { access } from "@synnaxlabs/client";
 import { Access, Icon, Menu, User } from "@synnaxlabs/pluto";
 
-import { ContextMenu } from "@/component";
-import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createUseDelete";
-import { createUseRename } from "@/ontology/createUseRename";
+import { ContextMenu } from "@/component/context-menu";
+import { Ontology } from "@/service/ontology";
 
-const useDelete = createUseDelete({
+const useDelete = Ontology.createUseDelete({
   type: "Role",
   query: Access.Role.useDelete,
   convertKey: String,
 });
 
-const useRename = createUseRename({
+const useRename = Ontology.createUseRename({
   query: Access.Role.useRename,
   ontologyID: access.role.ontologyID,
   convertKey: String,

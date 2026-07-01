@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/modbus/task/Task.css";
+import "@/service/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import {
@@ -23,11 +23,12 @@ import {
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { ContextMenu } from "@/component";
+import { ContextMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/modbus/device";
-import { SelectOutputChannelTypeField } from "@/hardware/modbus/task/SelectOutputChannelTypeField";
+import { Selector } from "@/component/selector";
+import { Task } from "@/component/task";
+import { Device } from "@/service/modbus/device";
+import { SelectOutputChannelTypeField } from "@/service/modbus/task/SelectOutputChannelTypeField";
 import {
   OUTPUT_CHANNEL_SCHEMAS,
   type OutputChannel,
@@ -37,15 +38,15 @@ import {
   type WriteSchemas,
   ZERO_OUTPUT_CHANNELS,
   ZERO_WRITE_PAYLOAD,
-} from "@/hardware/modbus/task/types";
-import { Selector } from "@/selector";
+} from "@/service/modbus/task/types";
+import { Task as ServiceTask } from "@/service/task";
 
 export const WRITE_LAYOUT = {
-  ...Common.Task.LAYOUT,
+  ...ServiceTask.LAYOUT,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.Modbus",
-} as const satisfies Common.Task.Layout;
+} as const satisfies ServiceTask.Layout;
 
 export const WriteSelectable = Selector.createSimpleItem({
   title: "Modbus Write Task",
@@ -56,11 +57,11 @@ export const WriteSelectable = Selector.createSimpleItem({
 const Properties = () => (
   <>
     <Device.Select />
-    <Common.Task.Fields.AutoStart />
+    <Task.Fields.AutoStart />
   </>
 );
 
-const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const { type, channel } = PForm.useFieldValue<OutputChannel>(path);
@@ -101,12 +102,12 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
         )}
       </Flex.Box>
       <Flex.Box x align="center" grow justify="end">
-        <Common.Task.ChannelName
+        <Task.ChannelName
           channel={channel}
           namePath={`${path}.name`}
-          id={Common.Task.getChannelNameID(itemKey)}
+          id={Task.getChannelNameID(itemKey)}
         />
-        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -139,15 +140,15 @@ const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-interface ContextMenuItemProps extends Common.Task
-  .ContextMenuItemProps<OutputChannel> {}
+interface ContextMenuItemProps
+  extends Task.ContextMenuItemProps<OutputChannel> {}
 
 const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
   if (keys.length !== 1) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.channel;
   if (cmdChannel == null) return null;
-  const handleRename = () => Text.edit(Common.Task.getChannelNameID(key));
+  const handleRename = () => Text.edit(Task.getChannelNameID(key));
   return (
     <>
       <ContextMenu.RenameItem onClick={handleRename} />
@@ -158,8 +159,8 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => (
-  <Common.Task.Layouts.List<OutputChannel>
+const Form: FC<Task.FormProps<WriteSchemas>> = () => (
+  <Task.Layouts.List<OutputChannel>
     createChannel={getOpenChannel}
     listItem={listItem}
     contextMenuItems={contextMenuItems}
@@ -169,7 +170,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => (
 const writeMapKey = (channel: OutputChannel) =>
   `${channel.type}-${channel.address.toString()}`.replace("_", "-");
 
-const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
 }) => ({
   ...ZERO_WRITE_PAYLOAD,
@@ -179,7 +180,7 @@ const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -238,7 +239,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Write = Common.Task.wrapForm({
+export const Write = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,

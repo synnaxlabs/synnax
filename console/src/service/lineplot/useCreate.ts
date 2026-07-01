@@ -9,14 +9,15 @@
 
 import { LinePlot } from "@synnaxlabs/pluto";
 
-import { create } from "@/service/lineplot/layout";
-import { Project } from "@/project";
-import { Range } from "@/range";
+import { create } from "@/component/lineplot/layout";
+import { Project } from "@/component/project";
+import { Session } from "@/session";
 
 export const useCreate = Project.createUseCreate({
   useCreate: LinePlot.useCreate,
   toCreateParams: ({ overrides, project, store }) => {
-    const activeRange = Range.selectSelectedKey(store.getState()) ?? Range.RECENT_KEY;
+    const activeRange =
+      Session.Range.selectSelectedKey(store.getState()) ?? Session.Range.RECENT_KEY;
     return {
       name: "Line Plot",
       ranges: { x1: [activeRange] },

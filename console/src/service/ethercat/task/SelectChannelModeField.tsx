@@ -16,7 +16,7 @@ import {
   type ChannelMode,
   type InputChannel,
   type OutputChannel,
-} from "@/hardware/ethercat/task/types";
+} from "@/service/ethercat/task/types";
 
 interface ChannelModeEntry extends record.KeyedNamed<ChannelMode> {}
 

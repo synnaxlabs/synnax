@@ -7,6 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/opc/device";
-export * from "@/hardware/opc/device/services";
-export * from "@/hardware/opc/task";
+export * from "@/service/opc/device";
+export * from "@/service/opc/task";

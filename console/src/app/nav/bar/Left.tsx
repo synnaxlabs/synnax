@@ -9,12 +9,11 @@
 
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
 import { Items } from "@/app/nav/items";
-import { Service } from "@/service";
+import { Nav as ComponentNav } from "@/component/nav";
+import { Palette } from "@/component/palette";
 import { Session } from "@/session";
-import { Palette } from "@/palette";
 
 const BottomMenu = () => {
   const dispatch = Session.useDispatch();
@@ -37,7 +36,7 @@ const BottomMenu = () => {
     [dispatch],
   );
   return (
-    <Service.Nav.Menu
+    <ComponentNav.Menu
       items={Items.BOTTOM}
       selected={visible ? Items.BOTTOM.key : undefined}
       onSelect={handleSelect}
@@ -73,7 +72,7 @@ const LeftMenu = () => {
     [dispatch],
   );
   return (
-    <Service.Nav.Menu
+    <ComponentNav.Menu
       items={Items.LEFT}
       selected={selected}
       onSelect={handleSelect}
@@ -92,7 +91,7 @@ const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
 };
 
 export const Left = (): ReactElement => (
-  <Service.Nav.Bar location="left" size="8rem">
+  <ComponentNav.Bar location="left" size="8rem">
     <Nav.Bar.Start bordered align="center">
       <Palette.Palette commandSymbol=">" triggerConfig={PALETTE_TRIGGER_CONFIG} />
     </Nav.Bar.Start>
@@ -102,5 +101,5 @@ export const Left = (): ReactElement => (
     <Nav.Bar.End bordered>
       <BottomMenu />
     </Nav.Bar.End>
-  </Service.Nav.Bar>
+  </ComponentNav.Bar>
 );

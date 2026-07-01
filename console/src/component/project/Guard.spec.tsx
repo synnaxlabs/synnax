@@ -10,20 +10,19 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Guard } from "@/project/Guard";
-import { SLICE_NAME } from "@/session/project/slice";
-import { ZERO_SLICE_STATE } from "@/project/types";
-import { renderWithConsole } from "@/testUtils";
+import { Guard } from "@/component/project/Guard";
+import { Session } from "@/session";
+import { renderWithConsole } from "@/testutil/testutil";
 
 describe("project/Guard", () => {
-  const active = { key: "00000000-0000-0000-0000-000000000001", name: "Ops" };
+  const selected = "00000000-0000-0000-0000-000000000001";
 
   it("should render the splash instead of children when no project is active", () => {
     renderWithConsole(
       <Guard>
         <div>protected content</div>
       </Guard>,
-      { preloadedState: { [SLICE_NAME]: ZERO_SLICE_STATE } },
+      { preloadedState: { [Session.Project.SLICE_NAME]: Session.Project.ZERO_SLICE_STATE } },
     );
     expect(screen.queryByText("protected content")).toBeNull();
     expect(screen.getByText("New Project")).toBeDefined();
@@ -34,7 +33,14 @@ describe("project/Guard", () => {
       <Guard>
         <div>protected content</div>
       </Guard>,
-      { preloadedState: { [SLICE_NAME]: { ...ZERO_SLICE_STATE, active } } },
+      {
+        preloadedState: {
+          [Session.Project.SLICE_NAME]: {
+            ...Session.Project.ZERO_SLICE_STATE,
+            selected,
+          },
+        },
+      },
     );
     expect(screen.getByText("protected content")).toBeDefined();
     expect(screen.queryByText("New Project")).toBeNull();

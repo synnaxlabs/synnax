@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layered/service/lineplot/toolbar/Toolbar.css";
+import "@/component/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
 import { Access, Button, Flex, Icon, LinePlot, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/component/cluster";
 import { CSS } from "@/component/css";
@@ -24,6 +23,7 @@ import { Lines } from "@/component/lineplot/toolbar/Lines";
 import { Properties } from "@/component/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/component/lineplot/useDownloadAsCSV";
 import { Toolbar as Base } from "@/component/toolbar";
+import { useExport } from "@/service/lineplot/export";
 import { Session } from "@/session";
 
 interface Tab {
@@ -39,14 +39,11 @@ const TABS: Tab[] = [
   { tabKey: "annotations", name: "Rules" },
 ];
 
-export interface ToolbarProps {
-  onExport: () => void;
-}
-
-export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
+const Internal = (): ReactElement => {
   const key = LinePlot.useKey();
   const name = LinePlot.useSelectName();
-  const dispatch = useDispatch();
+  const dispatch = Session.useDispatch();
+  const handleExport = useExport();
   const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
   const content = useCallback(
@@ -103,7 +100,7 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
               >
                 <Icon.CSV />
               </Button.Button>
-              <Export.ToolbarButton onExport={onExport} />
+              <Export.ToolbarButton onExport={() => handleExport(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={lineplot.ontologyID(key)}
@@ -119,3 +116,13 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
     </Base.Content>
   );
 };
+
+export interface ToolbarProps {
+  layoutKey: string;
+}
+
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
+  <LinePlot.Suspended linePlotKey={layoutKey}>
+    <Internal />
+  </LinePlot.Suspended>
+);

@@ -8,20 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { useCallback } from "react";
-import { useDispatch } from "react-redux";
 
+import { Range } from "@/component/range";
 import { type Link } from "@/service/link";
-import { Layout } from "@/layout";
-import { Range } from "@/range";
+import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
   const dispatch = Session.useDispatch();
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {
       const range = await client.ranges.retrieve(key);
-      dispatch(Range.add({ ranges: Range.fromClientRange(range) }));
-      dispatch(Range.select(range.key));
+      Session.Range.fromClient(range).forEach((r) => dispatch(Session.Range.add(r)));
+      dispatch(Session.Range.select(range.key));
       placeLayout({ ...Range.OVERVIEW_LAYOUT, key, name: range.name });
     },
     [dispatch, placeLayout],

@@ -13,3 +13,4 @@ export * from "@/component/device/Provider";
 export * from "@/component/device/Select";
 export * from "@/component/device/types";
 export * from "@/component/device/use";
+export * from "@/component/device/useChangeIdentifier";

@@ -23,39 +23,42 @@ import {
   useInitializerRef,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
-import { useDispatch } from "react-redux";
 
 import { COMMANDS } from "@/app/commands";
-import { Cluster } from "@/cluster";
+import { EXTRACTORS } from "@/app/extractors";
+import { FILE_INGESTERS } from "@/app/ingesters";
+import { Main, MAIN_LAYOUT_TYPE } from "@/app/Main";
+import { Mosaic, MOSAIC_LAYOUT_TYPE, MosaicWindow } from "@/app/Mosaic";
+import { Selector, SELECTOR_LAYOUT_TYPE } from "@/app/Selector";
+import { SERVICES } from "@/app/services";
+import { Layout } from "@/component/layout";
 import { Errors } from "@/component/errors";
 import { Palette } from "@/component/palette";
-import { Export } from "@/export";
-import { EXTRACTORS } from "@/extractors";
-import { Hardware } from "@/hardware";
-import { Import } from "@/import";
-import { FILE_INGESTERS } from "@/ingesters";
-import { Layout } from "@/layout";
-import { Layouts } from "@/layouts";
-import { Range } from "@/range";
-import { Runtime } from "@/runtime";
+import { Runtime } from "@/component/runtime";
+import { Export } from "@/service/export";
+import { Import } from "@/service/import";
+import { Layout as ServiceLayout } from "@/service/layout";
 import { Arc } from "@/service/arc";
 import { Docs } from "@/service/docs";
 import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
 import { Ontology } from "@/service/ontology";
+import { Range } from "@/service/range";
 import { Schematic } from "@/service/schematic";
 import { Status } from "@/service/status";
 import { Table } from "@/service/table";
-import { SERVICES } from "@/services";
+import { Task } from "@/service/task";
+import { Vis } from "@/service/vis";
 import { Session } from "@/session";
-import { store } from "@/session/store";
-import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Docs.LAYOUTS,
-  ...Hardware.LAYOUTS,
-  ...Layouts.LAYOUTS,
+  ...Task.LAYOUTS,
+  [MAIN_LAYOUT_TYPE]: Main,
+  [SELECTOR_LAYOUT_TYPE]: Selector,
+  [MOSAIC_LAYOUT_TYPE]: Mosaic,
+  [Session.Layout.MOSAIC_WINDOW_TYPE]: MosaicWindow,
   ...LinePlot.LAYOUTS,
   ...Log.LAYOUTS,
   ...Range.LAYOUTS,
@@ -84,20 +87,20 @@ const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
 };
 
 const useHaulState: state.PureUse<Haul.DraggingState> = () => {
-  const hauled = Layout.useSelectHauling();
+  const hauled = Session.Layout.useSelectHauling();
   const dispatch = Session.useDispatch();
   const onHauledChange = useCallback(
-    (state: Haul.DraggingState) => dispatch(Layout.setHauled(state)),
+    (state: Haul.DraggingState) => dispatch(Session.Layout.setHauled(state)),
     [dispatch],
   );
   return [hauled, onHauledChange];
 };
 
 const useColorContextState: state.PureUse<Color.ContextState> = () => {
-  const colorContext = Layout.useSelectColorContext();
+  const colorContext = Session.Layout.useSelectColorContext();
   const dispatch = Session.useDispatch();
   const onColorContextChange = useCallback(
-    (state: Color.ContextState) => dispatch(Layout.setColorContext({ state })),
+    (state: Color.ContextState) => dispatch(Session.Layout.setColorContext({ state })),
     [dispatch],
   );
   return [colorContext, onColorContextChange];
@@ -120,7 +123,7 @@ const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
 const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
 const AppUnderContext = (): ReactElement => {
-  const cluster = Cluster.useSelect();
+  const cluster = Session.Cluster.useSelectState();
   const themingProps = Session.Theme.useProviderProps();
   useBlockDefaultDropBehavior();
   Runtime.useExternalLinkHandler();
@@ -138,7 +141,7 @@ const AppUnderContext = (): ReactElement => {
     >
       <Vis.Canvas>
         <Session.Modals.Provider>
-          <Layout.Window />
+          <ServiceLayout.Window />
         </Session.Modals.Provider>
       </Vis.Canvas>
     </Pluto.Provider>

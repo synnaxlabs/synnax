@@ -12,7 +12,6 @@ import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Session } from "@/session";
-import { Layout } from "@/layout";
 
 export type Config = Triggers.ModeConfig<"toggle">;
 
@@ -24,7 +23,7 @@ const CONFIG: Triggers.ModeConfig<"toggle"> = {
 export const HOLD_TRIGGER: Triggers.Trigger = ["H"];
 
 export const useTriggerHold = (): void => {
-  const { layoutKey: activeTab } = Layout.useSelectActiveMosaicTabState();
+  const { layoutKey: activeTab } = Session.Layout.useSelectActiveMosaicTabState();
   const dispatch = Session.useDispatch();
   const flat = Triggers.useFlattenedMemoConfig(CONFIG);
   Triggers.use({

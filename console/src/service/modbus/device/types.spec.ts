@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { testPropertiesSchema } from "@/component/device/testutil";
-import { SCHEMAS, ZERO_PROPERTIES } from "@/hardware/modbus/device/types";
+import { SCHEMAS, ZERO_PROPERTIES } from "@/service/modbus/device/types";
 
 testPropertiesSchema("Modbus", SCHEMAS.properties, ZERO_PROPERTIES, [
   [

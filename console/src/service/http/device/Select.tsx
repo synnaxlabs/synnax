@@ -10,10 +10,10 @@
 import { Dialog } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { EmptyAction } from "@/component";
-import { Common } from "@/hardware/common";
-import { MAKE } from "@/hardware/http/device/types";
-import { useConnectModal } from "@/hardware/http/device/useConnectModal";
+import { Empty } from "@/component/empty";
+import { Device } from "@/component/device";
+import { MAKE } from "@/service/http/device/types";
+import { useConnectModal } from "@/service/http/device/useConnectModal";
 
 const EmptyContent = () => {
   const connect = useConnectModal();
@@ -23,7 +23,7 @@ const EmptyContent = () => {
     close();
   }, [connect, close]);
   return (
-    <EmptyAction
+    <Empty.Action
       message="No HTTP servers connected."
       action="Connect a new server"
       onClick={handleClick}
@@ -36,7 +36,7 @@ const emptyContent = <EmptyContent />;
 export const Select = () => {
   const connect = useConnectModal();
   return (
-    <Common.Device.Select
+    <Device.Select
       onConfigure={(deviceKey) => connect({ deviceKey })}
       emptyContent={emptyContent}
       label="HTTP server"

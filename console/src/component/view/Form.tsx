@@ -24,7 +24,7 @@ import {
   useState,
 } from "react";
 
-import { FormContext, useContext } from "@/view/context";
+import { FormContext, useContext } from "@/component/view/context";
 
 export type Query = List.PagerParams;
 

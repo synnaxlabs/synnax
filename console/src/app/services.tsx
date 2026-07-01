@@ -10,19 +10,21 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Access } from "@/access";
-import { Ontology } from "@/ontology";
-import { ProjectServices } from "@/project/services";
-import { RangeServices } from "@/range/services";
+import { Access } from "@/service/access";
 import { Arc } from "@/service/arc";
-import { ChannelServices } from "@/service/channel";
-import { GroupServices } from "@/service/group/services";
-import { Hardware } from "@/service/hardware";
+import { Channel } from "@/service/channel";
+import { Device } from "@/service/device";
+import { Group } from "@/service/group";
 import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
+import { Ontology } from "@/service/ontology";
+import { Project } from "@/service/project";
+import { Rack } from "@/service/rack";
+import { Range } from "@/service/range";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
-import { UserServices } from "@/service/user";
+import { Task } from "@/service/task";
+import { User } from "@/service/user";
 
 const createEmptyService = (
   type: ontology.ResourceType,
@@ -36,19 +38,19 @@ const createEmptyService = (
 export const SERVICES: Ontology.Services = {
   schematic: Schematic.ONTOLOGY_SERVICE,
   schematic_symbol: createEmptyService("schematic_symbol", <Icon.Schematic />),
-  user: UserServices.ONTOLOGY_SERVICE,
+  user: User.ONTOLOGY_SERVICE,
   builtin: createEmptyService("builtin"),
   node: createEmptyService("node", <Icon.Node />),
-  group: GroupServices.ONTOLOGY_SERVICE,
-  range: RangeServices.ONTOLOGY_SERVICE,
-  project: ProjectServices.ONTOLOGY_SERVICE,
+  group: Group.ONTOLOGY_SERVICE,
+  range: Range.ONTOLOGY_SERVICE,
+  project: Project.ONTOLOGY_SERVICE,
   lineplot: LinePlot.ONTOLOGY_SERVICE,
   "range-alias": createEmptyService("range-alias"),
   label: createEmptyService("label", <Icon.Label />),
-  rack: Hardware.Rack.ONTOLOGY_SERVICE,
-  task: Hardware.Task.ONTOLOGY_SERVICE,
-  device: Hardware.Device.ONTOLOGY_SERVICE,
-  channel: ChannelServices.ONTOLOGY_SERVICE,
+  rack: Rack.ONTOLOGY_SERVICE,
+  task: Task.ONTOLOGY_SERVICE,
+  device: Device.ONTOLOGY_SERVICE,
+  channel: Channel.ONTOLOGY_SERVICE,
   framer: createEmptyService("framer"),
   policy: Access.Policy.ONTOLOGY_SERVICE,
   log: Log.ONTOLOGY_SERVICE,

@@ -10,15 +10,15 @@
 import { ranger } from "@synnaxlabs/client";
 import { Access, Icon, Ranger } from "@synnaxlabs/pluto";
 
-import { Palette } from "@/palette";
-import { Range } from "@/range";
-import { useCreateModal } from "@/range/useCreateModal";
+import { Range } from "@/component/range";
+import { Palette } from "@/component/palette";
+import { EXPLORER_LAYOUT } from "@/service/range/Explorer";
 
 export const CreateCommand = Palette.createCommand({
   key: "define_range",
   name: "Create a range",
   icon: <Ranger.CreateIcon />,
-  useOnSelect: useCreateModal,
+  useOnSelect: Range.useCreateModal,
   useVisible: () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
 });
 
@@ -26,7 +26,7 @@ export const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open_explorer",
   name: "Open the Range Explorer",
   icon: <Icon.Explore />,
-  layout: Range.EXPLORER_LAYOUT,
+  layout: EXPLORER_LAYOUT,
   useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
 });
 

@@ -9,7 +9,7 @@
 
 import { deep, id } from "@synnaxlabs/x";
 
-import { Common } from "@/hardware/common";
+import { Task } from "@/component/task";
 import {
   type AIChannel,
   type AnalogChannel,
@@ -23,7 +23,7 @@ import {
   ZERO_CI_CHANNEL,
   ZERO_DI_CHANNEL,
   ZERO_DO_CHANNEL,
-} from "@/hardware/ni/task/types";
+} from "@/service/ni/task/types";
 
 const createDigitalChannel = <C extends DigitalChannel>(
   channels: C[],
@@ -64,7 +64,7 @@ export const createAIChannel = (channels: AIChannel[], key?: string): AIChannel 
   createAnalogChannel(
     channels,
     ZERO_AI_CHANNEL,
-    Common.Task.READ_CHANNEL_OVERRIDE,
+    Task.READ_CHANNEL_OVERRIDE,
     key,
   );
 
@@ -72,7 +72,7 @@ export const createAOChannel = (channels: AOChannel[], key?: string): AOChannel 
   createAnalogChannel(
     channels,
     ZERO_AO_CHANNEL,
-    Common.Task.WRITE_CHANNEL_OVERRIDE,
+    Task.WRITE_CHANNEL_OVERRIDE,
     key,
   );
 
@@ -101,6 +101,6 @@ export const createCIChannel = (channels: CIChannel[], key?: string): CIChannel 
   createCounterChannel(
     channels,
     ZERO_CI_CHANNEL,
-    Common.Task.READ_CHANNEL_OVERRIDE,
+    Task.READ_CHANNEL_OVERRIDE,
     key,
   );

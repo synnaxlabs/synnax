@@ -14,25 +14,20 @@ import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { Layout } from "@/component/layout";
-import { Project } from "@/project";
+import { createUseCreate } from "@/component/project/createUseCreate";
 import { Log } from "@/service/log";
-import { createConsoleWrapper } from "@/testUtils";
+import { Session } from "@/session";
+import { createConsoleWrapper } from "@/testutil/testutil";
 
 const client: Synnax = createTestClient();
 
-const stripLayout = (proj: project.Project): Project.Project => {
-  const { layout: _, ...rest } = proj;
-  return rest;
-};
-
-const activeState = (proj: project.Project): Project.SliceState => ({
-  ...Project.ZERO_SLICE_STATE,
-  active: stripLayout(proj),
+const activeState = (proj: project.Project): Session.Project.SliceState => ({
+  ...Session.Project.ZERO_SLICE_STATE,
+  selected: proj.key,
 });
 
-const placedLog = (store: EnhancedStore): Layout.State | undefined =>
-  Layout.selectByFilter(store.getState(), (l) => l.type === Log.LAYOUT_TYPE);
+const placedLog = (store: EnhancedStore): Session.Layout.State | undefined =>
+  Session.Layout.selectByFilter(store.getState(), (l) => l.type === Log.LAYOUT_TYPE);
 
 const projectParents = async (logKey: string): Promise<string[]> =>
   (await client.ontology.retrieveParents(log.ontologyID(logKey))).map((r) => r.id.key);
@@ -54,10 +49,10 @@ describe("createUseCreate", () => {
 
   const buildUseCreate = (
     args?: Partial<
-      Parameters<typeof Project.createUseCreate<PLog.CreateParams, log.Log>>[0]
+      Parameters<typeof createUseCreate<PLog.CreateParams, log.Log>>[0]
     >,
   ) =>
-    Project.createUseCreate<PLog.CreateParams, log.Log>({
+    createUseCreate<PLog.CreateParams, log.Log>({
       useCreate: PLog.useCreate,
       createSessionState: Log.create,
       toCreateParams: ({ overrides, project }) => ({
@@ -71,7 +66,7 @@ describe("createUseCreate", () => {
   it("creates the record under the active project with the default name and places its layout", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Project.SLICE_NAME]: activeState(projectA) },
+      preloadedState: { [Session.Project.SLICE_NAME]: activeState(projectA) },
     });
     const useCreate = buildUseCreate();
     const { result } = renderHook(() => useCreate({}), { wrapper });
@@ -89,13 +84,13 @@ describe("createUseCreate", () => {
     expect(await projectParents(layout.key)).toEqual([projectA.key]);
     // The record was created in the already-active project, so the switch is a
     // no-op and the active project stays put.
-    expect(Project.selectActiveKey(store.getState())).toBe(projectA.key);
+    expect(Session.Project.selectSelected(store.getState())).toBe(projectA.key);
   });
 
   it("prefers caller init over defaults, and passes defaults through for unspecified fields", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Project.SLICE_NAME]: activeState(projectA) },
+      preloadedState: { [Session.Project.SLICE_NAME]: activeState(projectA) },
     });
     const useCreate = buildUseCreate({
       toCreateParams: ({ overrides, project }) => ({
@@ -120,7 +115,7 @@ describe("createUseCreate", () => {
   it("creates the record under the project passed to the hook over the active one", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Project.SLICE_NAME]: activeState(projectA) },
+      preloadedState: { [Session.Project.SLICE_NAME]: activeState(projectA) },
     });
     const useCreate = buildUseCreate();
     const { result } = renderHook(() => useCreate({ project: projectB.key }), {
@@ -138,7 +133,7 @@ describe("createUseCreate", () => {
   it("switches the active project to the project the record was created in", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Project.SLICE_NAME]: activeState(projectA) },
+      preloadedState: { [Session.Project.SLICE_NAME]: activeState(projectA) },
     });
     const useCreate = buildUseCreate();
     const { result } = renderHook(() => useCreate({ project: projectB.key }), {
@@ -150,7 +145,7 @@ describe("createUseCreate", () => {
     });
 
     await waitFor(() =>
-      expect(Project.selectActiveKey(store.getState())).toBe(projectB.key),
+      expect(Session.Project.selectSelected(store.getState())).toBe(projectB.key),
     );
   });
 });

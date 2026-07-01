@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { SCAN_SCHEMAS } from "@/hardware/modbus/task/types";
+import { SCAN_SCHEMAS } from "@/service/modbus/task/types";
 
 describe("Modbus Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {

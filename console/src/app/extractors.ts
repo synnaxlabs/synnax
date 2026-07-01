@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Export } from "@/export";
-import { Hardware } from "@/hardware";
+import { type Export } from "@/service/export";
 import { Arc } from "@/service/arc";
 import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
+import { Task } from "@/service/task";
 
 export const EXTRACTORS: Export.Extractors = {
   ...Arc.EXTRACTORS,
-  ...Hardware.EXTRACTORS,
   ...LinePlot.EXTRACTORS,
   ...Log.EXTRACTORS,
   ...Schematic.EXTRACTORS,
   ...Table.EXTRACTORS,
+  ...Task.EXTRACTORS,
 };

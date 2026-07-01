@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/task/Toolbar.css";
+import "@/service/task/Toolbar.css";
 
 import { task, UnexpectedError } from "@synnaxlabs/client";
 import {
@@ -27,30 +27,32 @@ import {
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
-import { ContextMenu as CMenu, EmptyAction, Toolbar } from "@/component";
+import { Cluster } from "@/component/cluster";
+import { ContextMenu as CMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
+import { Empty } from "@/component/empty";
+import { Export } from "@/component/export";
 import { Modals } from "@/component/modals";
-import { Export } from "@/export";
-import { Common } from "@/hardware/common";
-import { createLayout } from "@/hardware/task/layouts";
-import { SELECTOR_LAYOUT } from "@/hardware/task/Selector";
-import { getIcon, parseType } from "@/hardware/task/types";
-import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
-import { useSetDataSaving } from "@/hardware/task/useSetDataSaving";
-import { Layout } from "@/layout";
-import { Range } from "@/range";
-import { type Service } from "@/service";
+import { type Nav } from "@/component/nav";
+import { Task as CommonTask } from "@/component/task";
+import { Toolbar } from "@/component/toolbar";
 import { Link } from "@/service/link";
+import { Range } from "@/service/range";
+import { useExport } from "@/service/task/export";
+import { createLayout } from "@/service/task/layouts";
+import { SELECTOR_LAYOUT } from "@/service/task/Selector";
+import { getIcon, parseType } from "@/service/task/types";
+import { useRangeSnapshot } from "@/service/task/useRangeSnapshot";
+import { useSetDataSaving } from "@/service/task/useSetDataSaving";
+import { Session } from "@/session";
 
 const EmptyContent = () => {
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
-    <EmptyAction
+    <Empty.Action
       message="No existing tasks."
       action={hasCreatePermission ? "Create a task" : undefined}
       onClick={handleClick}
@@ -73,7 +75,7 @@ const Content = () => {
   const confirm = Modals.useConfirm();
   const menuProps = Menu.useContextMenu();
   const dispatch = Session.useDispatch();
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
@@ -97,8 +99,8 @@ const Content = () => {
           });
           if (!confirmed) return false;
         }
-        dispatch(Layout.rename({ key, name }));
-        rollbacks.push(() => dispatch(Layout.rename({ key, name: oldName })));
+        dispatch(Session.Layout.rename({ key, name }));
+        rollbacks.push(() => dispatch(Session.Layout.rename({ key, name: oldName })));
         return data;
       },
       [],
@@ -121,7 +123,7 @@ const Content = () => {
           confirm: { label: "Delete", variant: "error" },
         });
         if (!confirmed) return false;
-        dispatch(Layout.remove({ keys: array.toArray(keys) }));
+        dispatch(Session.Layout.remove({ keys: array.toArray(keys) }));
         return keys;
       },
       [client, dispatch, getItem],
@@ -189,7 +191,7 @@ const Content = () => {
     ],
   );
   const handleListItemStopStart = useCallback(
-    (command: Common.Task.Command, key: task.Key) => handleCommand([key], command),
+    (command: CommonTask.Command, key: task.Key) => handleCommand([key], command),
     [handleCommand],
   );
   return (
@@ -239,7 +241,7 @@ const Content = () => {
   );
 };
 
-export const TOOLBAR: Service.Nav.Item = {
+export const TOOLBAR: Nav.Item = {
   key: "task",
   icon: <Icon.Task />,
   content: <Content />,
@@ -251,7 +253,7 @@ export const TOOLBAR: Service.Nav.Item = {
 };
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
-  onStopStart: (command: Common.Task.Command) => void;
+  onStopStart: (command: CommonTask.Command) => void;
   onRename: (name: string) => void;
 }
 
@@ -329,7 +331,7 @@ const ContextMenu = ({
   onEnableDataSaving,
   onDisableDataSaving,
 }: ContextMenuProps) => {
-  const activeRange = Range.useSelect();
+  const activeRange = Session.Range.useSelectState();
   const snapshotToActiveRange = useRangeSnapshot();
   const ontologyIDs = task.ontologyID(keys);
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
@@ -367,7 +369,7 @@ const ContextMenu = ({
   const addStatus = Status.useAdder();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
-  const handleExport = Common.Task.useExport();
+  const handleExport = useExport();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;

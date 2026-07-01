@@ -11,15 +11,13 @@ import { channel, createTestClient, DataType } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { ChannelServices } from "@/channel/services";
-import { Layout } from "@/layout";
-import { Project } from "@/project";
-import { Range } from "@/range";
-import { renderLinkHook } from "@/testUtils";
+import { Channel } from "@/service/channel";
+import { Session } from "@/session";
+import { renderLinkHook } from "@/testutil/testutil";
 
 const client = createTestClient();
 
-describe("ChannelServices.useLink", () => {
+describe("Channel.useLink", () => {
   it("should create and place a line plot for the retrieved channel", async () => {
     const { layout: _, ...project } = await client.projects.create({
       name: id.create(),
@@ -30,13 +28,13 @@ describe("ChannelServices.useLink", () => {
       dataType: DataType.FLOAT32,
       virtual: true,
     });
-    const { handler, store } = renderLinkHook(ChannelServices.useLink, {
-      [Project.SLICE_NAME]: Project.reducer,
-      [Range.SLICE_NAME]: Range.reducer,
+    const { handler, store } = renderLinkHook(Channel.useLink, {
+      [Session.Project.SLICE_NAME]: Session.Project.reducer,
+      [Session.Range.SLICE_NAME]: Session.Range.reducer,
     });
-    store.dispatch(Project.select(project));
+    store.dispatch(Session.Project.select(project.key));
     await handler({ client, key: String(ch.key) });
-    const placed = Layout.selectByFilter(
+    const placed = Session.Layout.selectByFilter(
       store.getState(),
       (l) => l.name === `${ch.name} Plot`,
     );

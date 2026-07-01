@@ -10,26 +10,19 @@
 import { Drift, selectWindowKey } from "@synnaxlabs/drift";
 import { Text, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
-import { useStore } from "react-redux";
 
+import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
+import { Session } from "@/session";
 import { Modals } from "@/session/modals";
-import { selectActiveMosaicTabState, selectFocused } from "@/service/selectors";
-import { setFocus } from "@/service/slice";
-import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
-import { usePlacer } from "@/layout/usePlacer";
-import { useRemover } from "@/layout/useRemover";
-import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
-import { Runtime } from "@/runtime";
-import { type State } from "@/session/store";
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 
 export const useTriggers = (): void => {
   const store = Session.useStore();
   const modals = Modals.useStore("Layout.useTriggers");
-  const remove = useRemover();
-  const openInNewWindow = useOpenInNewWindow();
-  const placeLayout = usePlacer();
+  const remove = Session.Layout.useRemover();
+  const openInNewWindow = Session.Layout.useOpenInNewWindow();
+  const placeLayout = Session.Layout.usePlacer();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const createComponentEnabled = useSelectorVisible();
   Triggers.use({
@@ -39,12 +32,12 @@ export const useTriggers = (): void => {
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
         const state = store.getState();
-        const { layoutKey: active } = selectActiveMosaicTabState(state);
+        const { layoutKey: active } = Session.Layout.selectActiveMosaicTabState(state);
         const windowKey = selectWindowKey(state);
-        const { focused } = selectFocused(state);
+        const { focused } = Session.Layout.selectFocused(state);
         if (active == null || windowKey == null) return;
-        if (focused != null) store.dispatch(setFocus({ key: null, windowKey }));
-        else store.dispatch(setFocus({ key: active, windowKey }));
+        if (focused != null) store.dispatch(Session.Layout.setFocus({ key: null, windowKey }));
+        else store.dispatch(Session.Layout.setFocus({ key: active, windowKey }));
       },
       [store],
     ),
@@ -63,7 +56,7 @@ export const useTriggers = (): void => {
         }
         if (modals.isAnyOpen()) return modals.closeTop();
         const state = store.getState();
-        const { layoutKey: active } = selectActiveMosaicTabState(state);
+        const { layoutKey: active } = Session.Layout.selectActiveMosaicTabState(state);
         if (active != null) return remove(active);
         closeWindowTimeout.current = setTimeout(
           () => store.dispatch(Drift.closeWindow({})),
@@ -79,9 +72,9 @@ export const useTriggers = (): void => {
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
-        if (Runtime.ENGINE !== "tauri") return;
+        if (Session.Runtime.ENGINE !== "tauri") return;
         const state = store.getState();
-        const { layoutKey: active } = selectActiveMosaicTabState(state);
+        const { layoutKey: active } = Session.Layout.selectActiveMosaicTabState(state);
         if (active == null) return;
         openInNewWindow(active);
       },
@@ -95,7 +88,7 @@ export const useTriggers = (): void => {
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
         const state = store.getState();
-        const { layoutKey: active } = selectActiveMosaicTabState(state);
+        const { layoutKey: active } = Session.Layout.selectActiveMosaicTabState(state);
         if (active == null) return;
         Text.edit(`pluto-tab-${active}`);
       },

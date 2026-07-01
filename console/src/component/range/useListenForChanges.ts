@@ -10,8 +10,8 @@
 import { type ranger } from "@synnaxlabs/client";
 import { Ranger } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
-import { useDispatch } from "react-redux";
 
+import { Session } from "@/session";
 import { remove, updateRemote } from "@/session/range/slice";
 
 export const useListenForChanges = (): void => {

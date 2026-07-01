@@ -9,8 +9,8 @@
 
 import { Icon, Menu } from "@synnaxlabs/pluto";
 
-import { ContextMenu as CMenu } from "@/component";
-import { Common } from "@/hardware/common";
+import { ContextMenu as CMenu } from "@/component/context-menu";
+import { Task } from "@/component/task";
 
 export interface ContextMenuProps {
   keys: string[];
@@ -25,7 +25,7 @@ export const ContextMenu = ({
   onDelete,
   onRename,
 }: ContextMenuProps) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = Task.useIsSnapshot();
   const canAct = keys.length > 0;
   const canDuplicate = onDuplicate != null;
   const canRename = onRename != null && keys.length === 1;

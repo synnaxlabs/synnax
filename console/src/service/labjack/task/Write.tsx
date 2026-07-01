@@ -12,10 +12,12 @@ import { Component, Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/labjack/device";
-import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
-import { SelectOutputChannelType } from "@/hardware/labjack/task/SelectOutputChannelType";
+import { Device as CommonDevice } from "@/component/device";
+import { Selector } from "@/component/selector";
+import { Task } from "@/component/task";
+import { Device } from "@/service/labjack/device";
+import { getOpenPort } from "@/service/labjack/task/getOpenPort";
+import { SelectOutputChannelType } from "@/service/labjack/task/SelectOutputChannelType";
 import {
   type OutputChannel,
   type OutputChannelType,
@@ -24,11 +26,11 @@ import {
   type WriteSchemas,
   ZERO_OUTPUT_CHANNEL,
   ZERO_WRITE_PAYLOAD,
-} from "@/hardware/labjack/task/types";
-import { Selector } from "@/selector";
+} from "@/service/labjack/task/types";
+import { Task as ServiceTask } from "@/service/task";
 
-export const WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const WRITE_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.LabJack",
@@ -44,13 +46,13 @@ const Properties = () => (
   <>
     <Device.Select />
     <Flex.Box x>
-      <Common.Task.Fields.StateUpdateRate />
-      <Common.Task.Fields.DataSaving />
+      <Task.Fields.StateUpdateRate />
+      <Task.Fields.DataSaving />
     </Flex.Box>
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
+interface ChannelListItemProps extends Task.ChannelListItemProps {
   device: Device.Device;
 }
 
@@ -70,7 +72,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
             if (port === value) return;
             const existingCommandStatePair =
               device.properties[type].channels[value] ??
-              Common.Device.ZERO_COMMAND_STATE_PAIR;
+              CommonDevice.ZERO_COMMAND_STATE_PAIR;
             set(path, {
               ...item,
               cmdChannel: existingCommandStatePair.command,
@@ -100,7 +102,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
                   const port = Device.PORTS[device.model][value][0].key;
                   const existingCommandStatePair =
                     device.properties[value].channels[port] ??
-                    Common.Device.ZERO_COMMAND_STATE_PAIR;
+                    CommonDevice.ZERO_COMMAND_STATE_PAIR;
                   set(path, {
                     ...item,
                     cmdChannel: existingCommandStatePair.command,
@@ -118,14 +120,14 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
         </PForm.Field>
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
-        <Common.Task.WriteChannelNames
+        <Task.WriteChannelNames
           cmdChannel={cmdChannel}
           itemKey={item.key}
           stateChannel={stateChannel}
           cmdNamePath={`${path}.cmdChannelName`}
           stateNamePath={`${path}.stateChannelName`}
         />
-        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </List.Item>
   );
@@ -143,10 +145,10 @@ const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
   if (port == null) return null;
   const existingCommandStatePair =
     device.properties[port.type].channels[port.key] ??
-    Common.Device.ZERO_COMMAND_STATE_PAIR;
+    CommonDevice.ZERO_COMMAND_STATE_PAIR;
   return {
     ...deep.copy(last),
-    ...Common.Task.WRITE_CHANNEL_OVERRIDE,
+    ...Task.WRITE_CHANNEL_OVERRIDE,
     type: port.type,
     key: id.create(),
     port: port.key,
@@ -165,35 +167,35 @@ const ChannelList = ({ device }: ChannelListProps) => {
     [device],
   );
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
+    ({ key, ...p }: Task.ChannelListItemProps) => (
       <ChannelListItem key={key} {...p} device={device} />
     ),
     [device],
   );
   return (
-    <Common.Task.Layouts.List<OutputChannel>
+    <Task.Layouts.List<OutputChannel>
       createChannel={createChannel}
       listItem={listItem}
-      contextMenuItems={Common.Task.writeChannelContextMenuItems}
+      contextMenuItems={Task.writeChannelContextMenuItems}
     />
   );
 };
 
-const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
-  const isSnapshot = Common.Task.useIsSnapshot();
+const Form: FC<Task.FormProps<WriteSchemas>> = () => {
+  const isSnapshot = Task.useIsSnapshot();
   const configure = Device.useConfigureModal();
   return (
-    <Common.Device.Provider
+    <CommonDevice.Provider
       canConfigure={!isSnapshot}
       onConfigure={(deviceKey) => configure({ deviceKey })}
       schemas={Device.SCHEMAS}
     >
       {({ device }) => <ChannelList device={device} />}
-    </Common.Device.Provider>
+    </CommonDevice.Provider>
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
   config,
 }) => {
@@ -202,7 +204,7 @@ const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
   return { ...ZERO_WRITE_PAYLOAD, config: { ...cfg, device: deviceKey ?? cfg.device } };
 };
 
-const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -210,7 +212,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  Common.Device.checkConfigured(dev);
+  CommonDevice.checkConfigured(dev);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.writeStateIndex);
   if (!shouldCreateStateIndex)
@@ -320,7 +322,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Write = Common.Task.wrapForm({
+export const Write = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,

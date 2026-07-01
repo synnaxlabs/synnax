@@ -11,7 +11,7 @@ import { channel, type device } from "@synnaxlabs/client";
 import { bounds, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Common } from "@/hardware/common";
+import { Device } from "@/component/device";
 
 export const MAKE = "LabJack";
 export type Make = typeof MAKE;
@@ -202,7 +202,7 @@ export const PORTS: Ports = {
 };
 
 export const propertiesZ = z.object({
-  identifier: Common.Device.identifierZ.catch(""),
+  identifier: Device.identifierZ.catch(""),
   readIndex: channel.keyZ.catch(0),
   thermocoupleIndex: channel.keyZ.catch(0),
   writeStateIndex: channel.keyZ.catch(0),
@@ -212,7 +212,7 @@ export const propertiesZ = z.object({
   [AO_PORT_TYPE]: z
     .object({
       channels: z
-        .record(z.string(), Common.Device.commandStatePairZ)
+        .record(z.string(), Device.commandStatePairZ)
         .default(() => ({})),
     })
     .default(() => ({ channels: {} })),
@@ -222,7 +222,7 @@ export const propertiesZ = z.object({
   [DO_PORT_TYPE]: z
     .object({
       channels: z
-        .record(z.string(), Common.Device.commandStatePairZ)
+        .record(z.string(), Device.commandStatePairZ)
         .default(() => ({})),
     })
     .default(() => ({ channels: {} })),

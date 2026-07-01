@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/cluster/list/List.css";
+import "@/service/cluster/list/List.css";
 
 import {
   Cluster as PCluster,
@@ -21,9 +21,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/component/css";
+import { Session } from "@/session";
 import { useSelectState } from "@/session/cluster/selectors";
 import { type Cluster, rename } from "@/session/cluster/slice";
 

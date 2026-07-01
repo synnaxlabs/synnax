@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { testPropertiesSchema } from "@/component/device/testutil";
-import { propertiesZ, ZERO_PROPERTIES } from "@/hardware/labjack/device/types";
+import { propertiesZ, ZERO_PROPERTIES } from "@/service/labjack/device/types";
 
 testPropertiesSchema("LabJack", propertiesZ, ZERO_PROPERTIES, [
   [

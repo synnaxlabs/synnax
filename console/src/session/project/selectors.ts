@@ -17,7 +17,7 @@ const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 export const selectOptionalSelected = (state: StoreState): project.Key | undefined =>
   selectSliceState(state).selected;
 
-export const useSelectedOptionalSelected = (): project.Key | undefined =>
+export const useSelectOptionalSelected = (): project.Key | undefined =>
   Select.useMemo(selectOptionalSelected, []);
 
 export const selectSelected = (state: StoreState): project.Key => {

@@ -24,15 +24,17 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { EmptyAction, Toolbar } from "@/component";
-import { EXPLORER_LAYOUT } from "@/component/arc/explorer/Explorer";
+import { create as createLayout } from "@/component/arc/layout";
+import { useRename } from "@/component/arc/useRename";
+import { useTask } from "@/component/arc/useTask";
+import { EXPLORER_LAYOUT } from "@/component/arc/Explorer";
+import { Empty } from "@/component/empty";
 import { CSS } from "@/component/css";
 import { type Nav } from "@/component/nav";
-import { Layout } from "@/layout";
-import { create as createLayout } from "@/servic/arc/layout";
+import { Toolbar } from "@/component/toolbar";
 import { ContextMenu } from "@/service/arc/ContextMenu";
-import { useCreate } from "@/service/arc/useCreate";
-import { useRename, useTask } from "@/session/arc/hooks";
+import { useCreate } from "@/component/arc/useCreate";
+import { Session } from "@/session";
 
 interface EmptyContentProps {
   onCreate: () => void;
@@ -41,7 +43,7 @@ interface EmptyContentProps {
 const EmptyContent = ({ onCreate }: EmptyContentProps) => {
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   return (
-    <EmptyAction
+    <Empty.Action
       message="No existing Arcs."
       action={hasCreatePermission ? "Create an Arc" : undefined}
       onClick={onCreate}
@@ -53,7 +55,7 @@ const Content = () => {
   const [selected, setSelected] = useState<arc.Key[]>([]);
   const addStatus = Status.useAdder();
   const menuProps = Menu.useContextMenu();
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
 
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
@@ -125,7 +127,7 @@ interface ActionsProps {
 }
 
 const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;

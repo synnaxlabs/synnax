@@ -12,12 +12,14 @@ import { Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/labjack/device";
-import { convertChannelTypeToPortType } from "@/hardware/labjack/task/convertChannelTypeToPortType";
-import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
-import { FORMS } from "@/hardware/labjack/task/InputChannelForms";
-import { SelectInputChannelTypeField } from "@/hardware/labjack/task/SelectInputChannelTypeField";
+import { Device as CommonDevice } from "@/component/device";
+import { Selector } from "@/component/selector";
+import { Task } from "@/component/task";
+import { Device } from "@/service/labjack/device";
+import { convertChannelTypeToPortType } from "@/service/labjack/task/convertChannelTypeToPortType";
+import { getOpenPort } from "@/service/labjack/task/getOpenPort";
+import { FORMS } from "@/service/labjack/task/InputChannelForms";
+import { SelectInputChannelTypeField } from "@/service/labjack/task/SelectInputChannelTypeField";
 import {
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
@@ -28,11 +30,11 @@ import {
   ZERO_INPUT_CHANNEL,
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
-} from "@/hardware/labjack/task/types";
-import { Selector } from "@/selector";
+} from "@/service/labjack/task/types";
+import { Task as ServiceTask } from "@/service/task";
 
-export const READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const READ_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.LabJack",
@@ -48,10 +50,10 @@ const Properties = () => (
   <>
     <Device.Select />
     <Flex.Box x>
-      <Common.Task.Fields.SampleRate />
-      <Common.Task.Fields.StreamRate />
-      <Common.Task.Fields.DataSaving />
-      <Common.Task.Fields.AutoStart />
+      <Task.Fields.SampleRate />
+      <Task.Fields.StreamRate />
+      <Task.Fields.DataSaving />
+      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -66,7 +68,7 @@ const getRenderedPort = (
   return portInfo == null ? port : (portInfo.alias ?? portInfo.key);
 };
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
+interface ChannelListItemProps extends Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
   deviceModel: Device.Model;
 }
@@ -77,13 +79,13 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
   const port = PForm.useFieldValue<string>(`${path}.port`);
   const enabled = PForm.useFieldValue<boolean>(`${path}.enabled`);
   const type = PForm.useFieldValue<InputChannelType>(`${path}.type`);
-  const isSnapshot = Common.Task.useIsSnapshot();
-  const isRunning = Common.Task.useIsRunning();
+  const isSnapshot = Task.useIsSnapshot();
+  const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && type === "AI" && !isSnapshot;
   const canTare = enabled && isRunning;
   const renderedPort = getRenderedPort(port, deviceModel, type);
   return (
-    <Common.Task.Layouts.ListAndDetailsChannelItem
+    <Task.Layouts.ListAndDetailsChannelItem
       {...rest}
       port={renderedPort}
       canTare={canTare}
@@ -96,7 +98,7 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
   );
 };
 
-interface ChannelDetailsProps extends Common.Task.Layouts.DetailsProps {
+interface ChannelDetailsProps extends Task.Layouts.DetailsProps {
   deviceModel: Device.Model;
 }
 
@@ -174,7 +176,7 @@ const getOpenChannel = (
       channelToCopy,
       INPUT_CHANNEL_SCHEMAS[channelTypeUsed],
     ),
-    ...Common.Task.READ_CHANNEL_OVERRIDE,
+    ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
     port: port.key,
     channel: device.properties[port.type].channels[port.key] ?? 0,
@@ -188,51 +190,51 @@ interface ChannelsFormProps {
 const isChannelTareable = (channel: InputChannel) => channel.type === "AI";
 
 const ChannelsForm = ({ device }: ChannelsFormProps) => {
-  const [tare, allowTare, handleTare] = Common.Task.useTare({ isChannelTareable });
+  const [tare, allowTare, handleTare] = Task.useTare({ isChannelTareable });
   const createChannel = useCallback(
     (channels: InputChannel[], channelKeyToCopy?: string) =>
       getOpenChannel(channels, device, channelKeyToCopy),
     [device],
   );
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
+    ({ key, ...p }: Task.ChannelListItemProps) => (
       <ChannelListItem {...p} onTare={tare} key={key} deviceModel={device.model} />
     ),
     [tare, device.model],
   );
   const details = useCallback(
-    (p: Common.Task.Layouts.DetailsProps) => (
+    (p: Task.Layouts.DetailsProps) => (
       <ChannelDetails {...p} deviceModel={device.model} />
     ),
     [device.model],
   );
   return (
-    <Common.Task.Layouts.ListAndDetails<InputChannel>
+    <Task.Layouts.ListAndDetails<InputChannel>
       listItem={listItem}
       details={details}
       createChannel={createChannel}
       onTare={handleTare}
       allowTare={allowTare}
-      contextMenuItems={Common.Task.readChannelContextMenuItem}
+      contextMenuItems={Task.readChannelContextMenuItem}
     />
   );
 };
 
-const Form: FC<Common.Task.FormProps<ReadSchemas>> = (props) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
+const Form: FC<Task.FormProps<ReadSchemas>> = (props) => {
+  const isSnapshot = Task.useIsSnapshot();
   const configure = Device.useConfigureModal();
   return (
-    <Common.Device.Provider
+    <CommonDevice.Provider
       canConfigure={!isSnapshot}
       onConfigure={(deviceKey) => configure({ deviceKey })}
       schemas={Device.SCHEMAS}
     >
       {({ device }) => <ChannelsForm device={device} {...props} />}
-    </Common.Device.Provider>
+    </CommonDevice.Provider>
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
   config,
 }) => {
@@ -244,7 +246,7 @@ const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
   };
 };
 
-const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -252,7 +254,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  Common.Device.checkConfigured(dev);
+  CommonDevice.checkConfigured(dev);
   let shouldCreateIndex = false;
   if (dev.properties.readIndex)
     try {
@@ -314,7 +316,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Read = Common.Task.wrapForm({
+export const Read = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,

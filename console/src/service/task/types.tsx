@@ -10,13 +10,13 @@
 import { Icon } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 
-import { EtherCAT } from "@/hardware/ethercat";
-import { HTTP } from "@/hardware/http";
-import { LabJack } from "@/hardware/labjack";
-import { Modbus } from "@/hardware/modbus";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { PagerDuty } from "@/hardware/pagerduty";
+import { EtherCAT } from "@/service/ethercat";
+import { HTTP } from "@/service/http";
+import { LabJack } from "@/service/labjack";
+import { Modbus } from "@/service/modbus";
+import { NI } from "@/service/ni";
+import { OPC } from "@/service/opc";
+import { PagerDuty } from "@/service/pagerduty";
 
 const PREFIXES = [
   EtherCAT.Task.PREFIX,

@@ -14,8 +14,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { useConfirm } from "@/component/modals/useConfirm";
 import { select } from "@/session/layout/selectors";
-import { remove, type State } from "@/session/layout/slice";
-import { type State } from "@/session/store";
+import { remove, type State, type StoreState } from "@/session/layout/slice";
 
 /** A function that removes a layout. */
 export interface Remover {
@@ -31,8 +30,8 @@ export interface Remover {
  * the layout is in a window, the window will also be closed.
  */
 export const useRemover = (...baseKeys: string[]): Remover => {
-  const dispatch = Session.useDispatch();
-  const store = Session.useStore();
+  const dispatch = useDispatch();
+  const store = useStore<StoreState>();
   const promptConfirm = useConfirm();
   const handleError = Status.useErrorHandler();
   const memoKeys = useMemoCompare(

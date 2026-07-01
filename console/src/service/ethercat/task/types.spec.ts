@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { READ_SCHEMAS, WRITE_SCHEMAS } from "@/hardware/ethercat/task/types";
+import { READ_SCHEMAS, WRITE_SCHEMAS } from "@/service/ethercat/task/types";
 
 describe("EtherCAT Task statusData", () => {
   describe("readStatusDataZ", () => {

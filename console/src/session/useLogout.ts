@@ -20,7 +20,7 @@ export const useLogout = () => {
   return useCallback(() => {
     dispatch(Cluster.clearSelected());
     dispatch(Project.clearSelected());
-    dispatch(Layout.clearProject({}));
+    dispatch(Layout.clearProject());
     dispatch(Nav.hideAll({}));
   }, [dispatch]);
 };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/service/lineplot/body/LinePlot.css";
+import "@/component/lineplot/LinePlot.css";
 
 import { lineplot, type ranger } from "@synnaxlabs/client";
 import {
@@ -182,7 +182,7 @@ export const LinePlot = ({ focused, visible }: LinePlotProps) => {
     () => unique.unique([...ranges.x1, ...ranges.x2]),
     [ranges.x1, ranges.x2],
   );
-  const resolved = Range.useSelectMultiple(rangeKeys);
+  const resolved = Session.Range.useSelectMultiple(rangeKeys);
   const resolvedRanges = useMemo(() => {
     const m = new Map<string, Base.ResolvedRange>();
     for (const r of resolved)

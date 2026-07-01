@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/labjack/device/Select";
-export * from "@/hardware/labjack/device/SelectPort";
-export * from "@/hardware/labjack/device/types";
-export * from "@/hardware/labjack/device/useConfigureModal";
+export * from "@/service/labjack/device/ontology";
+export * from "@/service/labjack/device/Select";
+export * from "@/service/labjack/device/SelectPort";
+export * from "@/service/labjack/device/types";
+export * from "@/service/labjack/device/useConfigureModal";

@@ -12,7 +12,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { ToggleCommand } from "@/service/theme/ToggleCommand";
+import { ToggleCommand } from "@/component/theme/ToggleCommand";
 
 const renderCommand = (toggleTheme: () => void) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (

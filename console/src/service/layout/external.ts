@@ -7,15 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/service/selectors";
-export * from "@/service/slice";
-export * from "@/session/layout/middleware";
-export * from "@/layout/Content";
-export * from "@/layout/context";
-export * from "@/layout/Menu";
-export * from "@/layout/useDropOutside";
-export * from "@/layout/useFluxName";
-export * from "@/layout/useOpenInNewWindow";
-export * from "@/layout/usePlacer";
-export * from "@/layout/useRemover";
-export * from "@/layout/Window";
+export * from "@/service/layout/Content";
+export * from "@/service/layout/useDropOutside";
+export * from "@/service/layout/Window";

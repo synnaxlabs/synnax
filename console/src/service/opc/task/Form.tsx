@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/opc/task/Task.css";
+import "@/service/opc/task/Task.css";
 
 import { type channel } from "@synnaxlabs/client";
 import {
@@ -24,9 +24,10 @@ import { useCallback, useState } from "react";
 
 import { CSS } from "@/component/css";
 import { ChannelName } from "@/component/task/ChannelName";
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/opc/device";
-import { type Channel } from "@/hardware/opc/task/types";
+import { Device as CommonDevice } from "@/component/device";
+import { Task } from "@/component/task";
+import { Device } from "@/service/opc/device";
+import { type Channel } from "@/service/opc/task/types";
 
 export interface ExtraItemProps {
   path: string;
@@ -37,7 +38,7 @@ export interface ChannelKeyAndIDGetter<C extends Channel> {
 }
 
 interface ChannelListItemProps<C extends Channel> extends Omit<
-  Common.Task.ChannelListItemProps,
+  Task.ChannelListItemProps,
   "children"
 > {
   children: Component.RenderProp<ExtraItemProps>;
@@ -87,7 +88,7 @@ const ChannelListItem = <C extends Channel>({
       </Flex.Box>
       <Flex.Box direction="x" align="center">
         {children({ path })}
-        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -122,7 +123,7 @@ const canDrop = ({ items }: Haul.DraggingState): boolean =>
   items.some(isVariableHaulItem);
 
 interface ChannelListProps<C extends Channel> extends Pick<
-  Common.Task.ChannelListProps<C>,
+  Task.ChannelListProps<C>,
   "contextMenuItems"
 > {
   children: Component.RenderProp<ExtraItemProps>;
@@ -164,7 +165,7 @@ const ChannelList = <C extends Channel>({
 
   const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
+    ({ key, ...p }: Task.ChannelListItemProps) => (
       <ChannelListItem<C> key={key} {...p} getChannelKeyAndID={getChannelKeyAndID}>
         {children}
       </ChannelListItem>
@@ -172,7 +173,7 @@ const ChannelList = <C extends Channel>({
     [children],
   );
   return (
-    <Common.Task.ChannelList
+    <Task.ChannelList
       onSelect={setSelected}
       path={CHANNELS_PATH}
       emptyContent={<EmptyContent />}
@@ -201,10 +202,10 @@ export const Form = <C extends Channel>({
   getChannelKeyAndID,
   contextMenuItems,
 }: FormProps<C>) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = Task.useIsSnapshot();
   const connect = Device.useConnectModal();
   return (
-    <Common.Device.Provider
+    <CommonDevice.Provider
       canConfigure={!isSnapshot}
       onConfigure={(deviceKey) => connect({ deviceKey })}
       schemas={Device.SCHEMAS}
@@ -222,6 +223,6 @@ export const Form = <C extends Channel>({
           </ChannelList>
         </>
       )}
-    </Common.Device.Provider>
+    </CommonDevice.Provider>
   );
 };

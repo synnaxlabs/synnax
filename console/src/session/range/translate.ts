@@ -10,9 +10,9 @@
 import { type ranger } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 
-import { type Range } from "@/session/range/slice";
+import { type State } from "@/session/range/slice";
 
-export const fromClient = (ranges: ranger.Payload | ranger.Payload[]): Range[] =>
+export const fromClient = (ranges: ranger.Payload | ranger.Payload[]): State[] =>
   array.toArray(ranges).map((range) => ({
     variant: "static",
     key: range.key,

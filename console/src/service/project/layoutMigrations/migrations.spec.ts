@@ -9,16 +9,16 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type AnySliceState, migrateSlice, ZERO_SLICE_STATE } from "@/project/services/layoutMigrations";
-import * as v0 from "@/project/services/layoutMigrations/v0";
-import * as v1 from "@/project/services/layoutMigrations/v1";
-import * as v2 from "@/project/services/layoutMigrations/v2";
-import * as v3 from "@/project/services/layoutMigrations/v3";
-import * as v4 from "@/project/services/layoutMigrations/v4";
-import * as v5 from "@/project/services/layoutMigrations/v5";
-import * as v6 from "@/project/services/layoutMigrations/v6";
-import * as v7 from "@/project/services/layoutMigrations/v7";
-import * as v9 from "@/project/services/layoutMigrations/v9";
+import { type AnySliceState, migrateSlice, ZERO_SLICE_STATE } from "@/service/project/layoutMigrations";
+import * as v0 from "@/service/project/layoutMigrations/v0";
+import * as v1 from "@/service/project/layoutMigrations/v1";
+import * as v2 from "@/service/project/layoutMigrations/v2";
+import * as v3 from "@/service/project/layoutMigrations/v3";
+import * as v4 from "@/service/project/layoutMigrations/v4";
+import * as v5 from "@/service/project/layoutMigrations/v5";
+import * as v6 from "@/service/project/layoutMigrations/v6";
+import * as v7 from "@/service/project/layoutMigrations/v7";
+import * as v9 from "@/service/project/layoutMigrations/v9";
 
 const STATES: AnySliceState[] = [
   v0.ZERO_SLICE_STATE,

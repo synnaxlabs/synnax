@@ -10,8 +10,8 @@
 import { device } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { useConnectModal } from "@/hardware/opc/device/useConnectModal";
-import { Palette } from "@/palette";
+import { useConnectModal } from "@/service/opc/device/useConnectModal";
+import { Palette } from "@/component/palette";
 
 const ConnectServerCommand = Palette.createCommand({
   key: "opc_ua_connect_server",

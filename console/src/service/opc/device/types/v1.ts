@@ -11,7 +11,7 @@ import { channel, type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v0 from "@/hardware/opc/device/types/v0";
+import * as v0 from "@/service/opc/device/types/v0";
 
 const VERSION = "1.0.0";
 

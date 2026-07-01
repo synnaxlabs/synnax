@@ -11,14 +11,14 @@ import { channel, type task } from "@synnaxlabs/client";
 import { DataType, json, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Common } from "@/hardware/common";
+import { Task } from "@/component/task";
 import {
   checkDuplicateKeys,
   headersZ,
   queryParamsZ,
-} from "@/hardware/http/device/types";
+} from "@/service/http/device/types";
 
-export type { HeaderEntry, QueryParamEntry } from "@/hardware/http/device/types";
+export type { HeaderEntry, QueryParamEntry } from "@/service/http/device/types";
 
 export const PREFIX = "http";
 
@@ -38,7 +38,7 @@ const readEnumValuesZ = v1ReadEnumValuesZ.or(
   ),
 );
 
-const readFieldZ = Common.Task.readChannelZ.extend({
+const readFieldZ = Task.readChannelZ.extend({
   pointer: json.pointerZ,
   dataType: z.string(),
   timestampFormat: timeFormatZ.optional(),
@@ -50,7 +50,7 @@ const readFieldZ = Common.Task.readChannelZ.extend({
 export interface ReadField extends z.infer<typeof readFieldZ> {}
 
 export const ZERO_READ_FIELD = {
-  ...Common.Task.ZERO_READ_CHANNEL,
+  ...Task.ZERO_READ_CHANNEL,
   pointer: "",
   dataType: DataType.FLOAT64.toString(),
 } as const satisfies ReadField;
@@ -60,7 +60,7 @@ const baseReadEndpointZ = z.object({
   path: z.string(),
   headers: headersZ.optional(),
   queryParams: queryParamsZ.optional(),
-  fields: z.array(readFieldZ).check(Common.Task.validateReadChannels),
+  fields: z.array(readFieldZ).check(Task.validateReadChannels),
   index: z.string().nullable().default(null),
 });
 
@@ -88,7 +88,7 @@ export const ZERO_READ_ENDPOINT = {
   index: null,
 } as const satisfies ReadEndpoint;
 
-const readConfigZ = Common.Task.baseReadConfigZ.extend({
+const readConfigZ = Task.baseReadConfigZ.extend({
   rate: z.number().positive("Rate must be positive"),
   endpoints: z.array(readEndpointZ),
 });
@@ -96,7 +96,7 @@ const readConfigZ = Common.Task.baseReadConfigZ.extend({
 interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 const ZERO_READ_CONFIG = {
-  ...Common.Task.ZERO_BASE_READ_CONFIG,
+  ...Task.ZERO_BASE_READ_CONFIG,
   rate: 1,
   endpoints: [],
 } as const satisfies ReadConfig;

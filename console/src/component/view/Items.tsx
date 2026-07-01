@@ -12,7 +12,7 @@ import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
-import { useContext } from "@/view/context";
+import { useContext } from "@/component/view/context";
 
 export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
   List.ItemsProps<K>,

@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { nodeIDToString, parseNodeID } from "@/hardware/opc/task/nodeID";
+import { nodeIDToString, parseNodeID } from "@/service/opc/task/nodeID";
 
 describe("parseNodeID", () => {
   it("should parse a numeric node ID", () => {

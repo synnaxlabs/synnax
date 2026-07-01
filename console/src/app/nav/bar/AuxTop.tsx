@@ -8,16 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Logo } from "@synnaxlabs/media";
-import { Button, Icon, Nav, OS, Text } from "@synnaxlabs/pluto";
+import { Button, Icon, Nav, OS, Project as PProject, Text } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
-import { CSS } from "@/component/css";
 import { Items } from "@/app/nav/items";
-import { Service } from "@/service";
+import { Nav as ComponentNav } from "@/component/nav";
+import { CSS } from "@/component/css";
+import { Window } from "@/component/window";
 import { Session } from "@/session";
-import { Layout } from "@/layout";
-import { Project } from "@/project";
 
 const BottomToggleButton = (): ReactElement => {
   const dispatch = Session.useDispatch();
@@ -42,10 +41,14 @@ const BottomToggleButton = (): ReactElement => {
 
 export const AuxTop = (): ReactElement => {
   const os = OS.use();
-  const activeName = Layout.useSelectActiveMosaicTabName();
-  const activeProjectName = Project.useSelectActiveName();
+  const activeName = Session.Layout.useSelectActiveMosaicTabName();
+  const activeProjectKey = Session.Project.useSelectOptionalSelected();
+  const { data: activeProject } = PProject.useRetrieve(
+    { key: activeProjectKey ?? "" },
+    { beforeRetrieve: ({ query: { key } }) => primitive.isNonZero(key) },
+  );
   return (
-    <Service.Nav.Bar
+    <ComponentNav.Bar
       location="top"
       size="6rem"
       data-tauri-drag-region
@@ -53,7 +56,7 @@ export const AuxTop = (): ReactElement => {
       className={CSS.BE("mosaic", "bar")}
     >
       <Nav.Bar.Start data-tauri-drag-region align="center">
-        <Service.Window.Controls visibleIfOS="macOS" forceOS={os} />
+        <Window.Controls visibleIfOS="macOS" forceOS={os} />
         {os === "Windows" && (
           <>
             <Logo />
@@ -69,13 +72,13 @@ export const AuxTop = (): ReactElement => {
           data-tauri-drag-region
           style={{ cursor: "default" }}
         >
-          {activeName} {activeProjectName && `- ${activeProjectName}`}
+          {activeName} {activeProject?.name && `- ${activeProject.name}`}
         </Text.Text>
       </Nav.Bar.AbsoluteCenter>
       <Nav.Bar.End data-tauri-drag-region align="center" justify="end">
-        <Service.Window.Controls visibleIfOS="Windows" forceOS={os} />
+        <Window.Controls visibleIfOS="Windows" forceOS={os} />
         {os === "macOS" && <BottomToggleButton />}
       </Nav.Bar.End>
-    </Service.Nav.Bar>
+    </ComponentNav.Bar>
   );
 };

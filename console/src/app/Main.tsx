@@ -11,26 +11,28 @@ import { Drift } from "@synnaxlabs/drift";
 import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Auth } from "@/auth";
-import { Cluster } from "@/cluster";
-import { Hardware } from "@/hardware";
-import { App } from "@/app";
-import { Layout } from "@/layout";
-import { Mosaic } from "@/layouts/Mosaic";
-import { Notifications } from "@/layouts/Notifications";
-import { useTriggers } from "@/layouts/useTriggers";
-import { Project } from "@/project";
-import { Range } from "@/range";
-import { Status } from "@/status";
+import { useLinks } from "@/app/links";
+import { Mosaic } from "@/app/Mosaic";
+import { Nav } from "@/app/nav";
+import { Notifications } from "@/app/Notifications";
+import { useTriggers } from "@/app/useTriggers";
+import { Project } from "@/component/project";
+import { Range } from "@/component/range";
+import { Status } from "@/component/status";
+import { Auth } from "@/service/auth";
+import { Cluster } from "@/service/cluster";
+import { Device } from "@/service/device";
+import { Layout } from "@/service/layout";
+import { Project as ServiceProject } from "@/service/project";
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});
   Cluster.useSyncClusterKey();
-  Hardware.Device.useListenForChanges();
+  Device.useListenForChanges();
   Range.useListenForChanges();
   Project.useCheckCore();
   Status.useListenForChanges();
-  App.useLinks();
+  useLinks();
   useTriggers();
   return null;
 };
@@ -39,7 +41,7 @@ const SideEffect = (): null => {
 // rendered inside Project.Guard, so it mounts only once a project is active - layout
 // sync and the file-drop importer never run against the select-or-create screen.
 const ProjectSideEffect = (): null => {
-  Project.useSyncLayout();
+  ServiceProject.useSyncLayout();
   Layout.useDropOutside();
   return null;
 };
@@ -58,20 +60,20 @@ export const Main = (): ReactElement => (
     <Auth.Guard>
       <Project.Guard>
         <ProjectSideEffect />
-        <App.Nav.Bar.Top />
+        <Nav.Bar.Top />
         <Flex.Box
           x
           gap="tiny"
           grow
           style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
         >
-          <App.Nav.Bar.Left />
+          <Nav.Bar.Left />
           <Flex.Box gap="tiny" grow style={{ width: 0 }}>
             <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
-              <App.Nav.Drawer.Left />
+              <Nav.Drawer.Left />
               <Mosaic />
             </Flex.Box>
-            <App.Nav.Drawer.Bottom />
+            <Nav.Drawer.Bottom />
           </Flex.Box>
         </Flex.Box>
       </Project.Guard>

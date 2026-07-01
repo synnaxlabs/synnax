@@ -16,8 +16,8 @@ import {
   filterHaulItems,
   HAUL_TYPE,
   isHaulItem,
-} from "@/hardware/opc/device/Browser";
-import { type ScannedNode } from "@/hardware/opc/task/types";
+} from "@/service/opc/device/Browser";
+import { type ScannedNode } from "@/service/opc/task/types";
 
 const NODE: ScannedNode = {
   key: "ns=2;s=Demo.Static.Scalar.Float",

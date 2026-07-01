@@ -10,14 +10,14 @@
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { errors, primitive } from "@synnaxlabs/x";
 
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/ethercat/device";
+import { Device as CommonDevice } from "@/component/device";
+import { Device } from "@/service/ethercat/device";
 import {
   channelMapKey,
   getChannelByMapKey,
   type InputChannel,
   type OutputChannel,
-} from "@/hardware/ethercat/task/types";
+} from "@/service/ethercat/task/types";
 
 type Channel = InputChannel | OutputChannel;
 
@@ -39,7 +39,7 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
     schemas: Device.SLAVE_SCHEMAS,
   });
 
-  for (const slave of slaves) Common.Device.checkConfigured(slave);
+  for (const slave of slaves) CommonDevice.checkConfigured(slave);
 
   const networks = [...new Set(slaves.map((s) => s.properties.network))];
   if (networks.length > 1)

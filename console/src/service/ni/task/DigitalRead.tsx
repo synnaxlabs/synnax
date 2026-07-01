@@ -12,14 +12,16 @@ import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/ni/device";
-import { createDIChannel } from "@/hardware/ni/task/createChannel";
+import { Device as CommonDevice } from "@/component/device";
+import { Task } from "@/component/task";
+import { Task as ServiceTask } from "@/service/task";
+import { Device } from "@/service/ni/device";
+import { createDIChannel } from "@/service/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
-} from "@/hardware/ni/task/DigitalChannelList";
-import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
+} from "@/service/ni/task/DigitalChannelList";
+import { getDigitalChannelDeviceKey } from "@/service/ni/task/getDigitalChannelDeviceKey";
 import {
   type DIChannel,
   DIGITAL_READ_SCHEMAS,
@@ -27,11 +29,11 @@ import {
   digitalReadConfigZ,
   type DigitalReadSchemas,
   ZERO_DIGITAL_READ_PAYLOAD,
-} from "@/hardware/ni/task/types";
-import { Selector } from "@/selector";
+} from "@/service/ni/task/types";
+import { Selector } from "@/component/selector";
 
-export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const DIGITAL_READ_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   icon: "Logo.NI",
   name: ZERO_DIGITAL_READ_PAYLOAD.name,
   type: DIGITAL_READ_TYPE,
@@ -47,10 +49,10 @@ const Properties = () => (
   <>
     <Device.Select />
     <Flex.Box x>
-      <Common.Task.Fields.SampleRate />
-      <Common.Task.Fields.StreamRate />
-      <Common.Task.Fields.DataSaving />
-      <Common.Task.Fields.AutoStart />
+      <Task.Fields.SampleRate />
+      <Task.Fields.StreamRate />
+      <Task.Fields.DataSaving />
+      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -58,9 +60,9 @@ const Properties = () => (
 interface NameComponentProps extends DigitalNameComponentProps<DIChannel> {}
 
 const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
-  <Common.Task.ChannelName
+  <Task.ChannelName
     channel={channel}
-    id={Common.Task.getChannelNameID(itemKey)}
+    id={Task.getChannelNameID(itemKey)}
     level="p"
     namePath={`${path}.name`}
   />
@@ -68,16 +70,16 @@ const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC<Common.Task.FormProps<DigitalReadSchemas>> = (props) => (
+const Form: FC<Task.FormProps<DigitalReadSchemas>> = (props) => (
   <DigitalChannelList<DIChannel>
     {...props}
     createChannel={createDIChannel}
     name={name}
-    contextMenuItems={Common.Task.readChannelContextMenuItem}
+    contextMenuItems={Task.readChannelContextMenuItem}
   />
 );
 
-const getInitialValues: Common.Task.GetInitialValues<DigitalReadSchemas> = ({
+const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
   deviceKey,
   config,
 }) => {
@@ -91,7 +93,7 @@ const getInitialValues: Common.Task.GetInitialValues<DigitalReadSchemas> = ({
   };
 };
 
-const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
+const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,
   config,
 ) => {
@@ -99,7 +101,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  Common.Device.checkConfigured(dev);
+  CommonDevice.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateIndex = primitive.isZero(dev.properties.digitalInput.index);
@@ -162,7 +164,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   return [config, dev.rack];
 };
 
-export const DigitalRead = Common.Task.wrapForm({
+export const DigitalRead = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_READ_SCHEMAS,

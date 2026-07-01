@@ -12,8 +12,8 @@ import { Access, Diagram } from "@synnaxlabs/pluto";
 import { dimensions, migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Import } from "@/import";
-import { create } from "@/service/arc/layout";
+import { create } from "@/component/arc/layout";
+import { type Import } from "@/service/import";
 
 const STATE_MIGRATION_NAME = "arc.state";
 

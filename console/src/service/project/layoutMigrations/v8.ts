@@ -10,9 +10,9 @@
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type NavState } from "@/project/services/layoutMigrations/v0";
-import * as v1 from "@/project/services/layoutMigrations/v1";
-import * as v7 from "@/project/services/layoutMigrations/v7";
+import { type NavState } from "@/service/project/layoutMigrations/v0";
+import * as v1 from "@/service/project/layoutMigrations/v1";
+import * as v7 from "@/service/project/layoutMigrations/v7";
 
 export const VERSION = "8.0.0";
 

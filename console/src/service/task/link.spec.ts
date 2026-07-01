@@ -11,10 +11,10 @@ import { createTestClient } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { NI } from "@/hardware/ni";
-import { Task } from "@/hardware/task";
-import { Layout } from "@/layout";
-import { renderLinkHook } from "@/testUtils";
+import { NI } from "@/service/ni";
+import { useLink } from "@/service/task/link";
+import { Session } from "@/session";
+import { renderLinkHook } from "@/testutil/testutil";
 
 const client = createTestClient();
 
@@ -26,9 +26,9 @@ describe("Task.useLink", () => {
       type: NI.Task.ANALOG_READ_TYPE,
       config: {},
     });
-    const { handler, store } = renderLinkHook(Task.useLink);
+    const { handler, store } = renderLinkHook(useLink);
     await handler({ client, key: String(task.key) });
-    const placed = Layout.selectByFilter(
+    const placed = Session.Layout.selectByFilter(
       store.getState(),
       (l) => l.name === "Analog Read",
     );

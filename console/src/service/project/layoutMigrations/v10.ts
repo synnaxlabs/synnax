@@ -11,8 +11,8 @@ import { Mosaic } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v1 from "@/project/services/layoutMigrations/v1";
-import * as v9 from "@/project/services/layoutMigrations/v9";
+import * as v1 from "@/service/project/layoutMigrations/v1";
+import * as v9 from "@/service/project/layoutMigrations/v9";
 
 export const VERSION = "10.0.0";
 

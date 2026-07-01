@@ -28,25 +28,22 @@ import {
 import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
 import { Provider } from "react-redux";
 
-import { Cluster } from "@/cluster";
-import { Layout } from "@/layout";
-import { Project } from "@/project";
 import { Session } from "@/session";
 
 const consoleReducer = combineReducers({
-  [Layout.SLICE_NAME]: Layout.reducer,
+  [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Session.Log.SLICE_NAME]: Session.Log.reducer,
-  [Project.SLICE_NAME]: Project.reducer,
-  [Cluster.SLICE_NAME]: Cluster.reducer,
+  [Session.Project.SLICE_NAME]: Session.Project.reducer,
+  [Session.Cluster.SLICE_NAME]: Session.Cluster.reducer,
   [Session.Nav.SLICE_NAME]: Session.Nav.reducer,
 });
 
 export type ConsolePreloadedState = {
-  [Layout.SLICE_NAME]?: Layout.SliceState;
+  [Session.Layout.SLICE_NAME]?: Session.Layout.SliceState;
   [Session.Log.SLICE_NAME]?: Session.Log.SliceState;
-  [Project.SLICE_NAME]?: Project.SliceState;
-  [Cluster.SLICE_NAME]?: Cluster.SliceState;
+  [Session.Project.SLICE_NAME]?: Session.Project.SliceState;
+  [Session.Cluster.SLICE_NAME]?: Session.Cluster.SliceState;
   [Session.Nav.SLICE_NAME]?: Session.Nav.SliceState;
 };
 
@@ -151,7 +148,7 @@ export const renderLinkHook = <H,>(
 ): { handler: H; store: EnhancedStore; modals: Session.Modals.Store } => {
   const store = configureStore({
     reducer: combineReducers({
-      [Layout.SLICE_NAME]: Layout.reducer,
+      [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
       [Drift.SLICE_NAME]: Drift.reducer,
       ...extraReducers,
     }),

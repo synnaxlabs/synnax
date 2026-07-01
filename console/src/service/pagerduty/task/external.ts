@@ -7,28 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Export } from "@/export";
-import { Common } from "@/hardware/common";
-import { Alert, ALERT_LAYOUT, AlertSelectable } from "@/hardware/pagerduty/task/Alert";
-import { ALERT_SCHEMAS, ALERT_TYPE } from "@/hardware/pagerduty/task/types";
-import { type Import } from "@/import";
-import { type Layout } from "@/layout";
-import { type Selector } from "@/selector";
+import { type Layout } from "@/component/layout";
+import { type Selector } from "@/component/selector";
+import { type Export } from "@/service/export";
+import { type Import } from "@/service/import";
+import { Alert, ALERT_LAYOUT, AlertSelectable } from "@/service/pagerduty/task/Alert";
+import { ALERT_SCHEMAS, ALERT_TYPE } from "@/service/pagerduty/task/types";
+import { createIngester } from "@/service/task/createIngester";
+import { extract } from "@/service/task/export";
+import { type Layout as TaskLayout } from "@/service/task/Form";
 
-export * from "@/hardware/pagerduty/task/Alert";
-export * from "@/hardware/pagerduty/task/palette";
-export * from "@/hardware/pagerduty/task/types";
+export * from "@/service/pagerduty/task/Alert";
+export * from "@/service/pagerduty/task/palette";
+export * from "@/service/pagerduty/task/types";
 
-export const EXTRACTORS: Export.Extractors = { [ALERT_TYPE]: Common.Task.extract };
+export const EXTRACTORS: Export.Extractors = { [ALERT_TYPE]: extract };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [ALERT_TYPE]: Common.Task.createIngester(ALERT_SCHEMAS.config, ALERT_LAYOUT),
+  [ALERT_TYPE]: createIngester(ALERT_SCHEMAS.config, ALERT_LAYOUT),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = { [ALERT_TYPE]: Alert };
 
 export const SELECTABLES: Selector.Selectable[] = [AlertSelectable];
 
-export const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
+export const ZERO_LAYOUTS: Record<string, TaskLayout> = {
   [ALERT_TYPE]: ALERT_LAYOUT,
 };

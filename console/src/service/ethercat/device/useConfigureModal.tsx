@@ -9,13 +9,13 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Common } from "@/hardware/common";
-import { ZERO_SLAVE_PROPERTIES } from "@/hardware/ethercat/device/types";
+import { Device } from "@/component/device";
 import { Modals } from "@/component/modals";
+import { ZERO_SLAVE_PROPERTIES } from "@/service/ethercat/device/types";
 
-export const useConfigureModal = Modals.create<Common.Device.ConfigureParams>(
+export const useConfigureModal = Modals.create<Device.ConfigureParams>(
   ({ deviceKey, close }) => (
-    <Common.Device.Configure
+    <Device.Configure
       deviceKey={deviceKey}
       close={close}
       icon={<Icon.Logo.EtherCAT />}

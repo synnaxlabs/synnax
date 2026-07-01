@@ -11,10 +11,10 @@ import { type ontology, type ranger } from "@synnaxlabs/client";
 import { type Haul, Icon, List, Ranger, Select, Telem, Text } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, strings } from "@synnaxlabs/x";
 
-import { Ontology } from "@/ontology";
-import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
+import { Range } from "@/component/range";
+import { Ontology } from "@/service/ontology";
+import { Session } from "@/session";
 import { add } from "@/session/range/slice";
-import { fromClientRange } from "@/range/translate";
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
@@ -29,9 +29,9 @@ const handleSelect: Ontology.HandleSelect = ({
   );
   handleError(async () => {
     const ranges = await client.ranges.retrieve(selection.map((s) => s.id.key));
-    store.dispatch(add({ ranges: fromClientRange(ranges) }));
+    Session.Range.fromClient(ranges).forEach((r) => store.dispatch(add(r)));
     const first = ranges[0];
-    placeLayout({ ...OVERVIEW_LAYOUT, name: first.name, key: first.key });
+    placeLayout({ ...Range.OVERVIEW_LAYOUT, name: first.name, key: first.key });
   }, `Failed to select ${names}`);
 };
 

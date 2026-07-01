@@ -23,9 +23,9 @@ import { type NumericTimeRange } from "@synnaxlabs/x";
 import { memo, useMemo } from "react";
 
 import { CSS } from "@/component/css";
-import { Layout } from "@/layout";
-import { FavoriteButton } from "@/range/FavoriteButton";
-import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
+import { FavoriteButton } from "@/component/range/FavoriteButton";
+import { OVERVIEW_LAYOUT } from "@/component/range/overview/layout";
+import { Session } from "@/session";
 
 export interface ItemProps extends List.ItemProps<ranger.Key> {
   showParent?: boolean;
@@ -43,7 +43,7 @@ const Base = ({
 }: ItemProps) => {
   const { itemKey } = props;
   const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
     if (item == null) return undefined;

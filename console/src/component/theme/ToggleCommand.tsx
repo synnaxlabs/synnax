@@ -9,7 +9,7 @@
 
 import { Icon, Theming } from "@synnaxlabs/pluto";
 
-import { Palette } from "@/palette";
+import { Palette } from "@/component/palette";
 
 const COMMAND_NAME = "Toggle color theme";
 

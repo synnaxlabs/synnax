@@ -13,8 +13,7 @@ import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSV } from "@/component/csv";
-import { Layout } from "@/layout";
-import { Range } from "@/range";
+import { Session } from "@/session";
 
 // DownloadLine carries only the channels the CSV export pulls. CSV columns are
 // headed by the channel name, never the line's display label, so none is read.
@@ -58,9 +57,9 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
   const derived = LinePlot.useSelectLines({ key });
   const ranges = LinePlot.useSelectRanges({ key });
-  const { name } = Layout.useSelectRequired(key);
+  const { name } = Session.Layout.useSelectRequired(key);
   const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
-  const resolved = Range.useSelectMultiple(rangeKeys);
+  const resolved = Session.Range.useSelectMultiple(rangeKeys);
   return useCallback(() => {
     const now = TimeStamp.now();
     const lines: DownloadLine[] = derived.map((d) => ({

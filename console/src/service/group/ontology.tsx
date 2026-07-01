@@ -10,16 +10,15 @@
 import { group, ontology } from "@synnaxlabs/client";
 import { Access, Flux, Group, Icon, Menu, Tree } from "@synnaxlabs/pluto";
 
-import { Cluster } from "@/cluster";
-import { ContextMenu } from "@/component";
-import { ContextMenuItem } from "@/group/ContextMenuItem";
-import { useCreateEmpty } from "@/group/useCreateEmpty";
-import { useCreateFromSelection } from "@/group/useCreateFromSelection";
+import { Cluster } from "@/component/cluster";
+import { ContextMenu } from "@/component/context-menu";
+import { ContextMenuItem } from "@/service/group/ContextMenuItem";
+import { useCreateEmpty } from "@/service/group/useCreateEmpty";
+import { useCreateFromSelection } from "@/service/group/useCreateFromSelection";
 import { Link } from "@/service/link";
-import { Ontology } from "@/ontology";
-import { createUseRename } from "@/ontology/createUseRename";
+import { Ontology } from "@/service/ontology";
 
-const useRename = createUseRename({
+const useRename = Ontology.createUseRename({
   query: Group.useRename,
   ontologyID: group.ontologyID,
   convertKey: String,

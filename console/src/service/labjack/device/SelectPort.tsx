@@ -15,7 +15,7 @@ import {
   type Port,
   PORTS,
   type PortType,
-} from "@/hardware/labjack/device/types";
+} from "@/service/labjack/device/types";
 
 export interface SelectPortProps
   extends

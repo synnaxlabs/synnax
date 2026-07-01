@@ -12,14 +12,16 @@ import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/ni/device";
-import { createDOChannel } from "@/hardware/ni/task/createChannel";
+import { Device as CommonDevice } from "@/component/device";
+import { Task } from "@/component/task";
+import { Task as ServiceTask } from "@/service/task";
+import { Device } from "@/service/ni/device";
+import { createDOChannel } from "@/service/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
-} from "@/hardware/ni/task/DigitalChannelList";
-import { getDigitalChannelDeviceKey } from "@/hardware/ni/task/getDigitalChannelDeviceKey";
+} from "@/service/ni/task/DigitalChannelList";
+import { getDigitalChannelDeviceKey } from "@/service/ni/task/getDigitalChannelDeviceKey";
 import {
   DIGITAL_WRITE_SCHEMAS,
   DIGITAL_WRITE_TYPE,
@@ -27,11 +29,11 @@ import {
   type DigitalWriteSchemas,
   type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
-} from "@/hardware/ni/task/types";
-import { Selector } from "@/selector";
+} from "@/service/ni/task/types";
+import { Selector } from "@/component/selector";
 
-export const DIGITAL_WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const DIGITAL_WRITE_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   icon: "Logo.NI",
   name: ZERO_DIGITAL_WRITE_PAYLOAD.name,
   type: DIGITAL_WRITE_TYPE,
@@ -47,9 +49,9 @@ const Properties = () => (
   <>
     <Device.Select />
     <Flex.Box x>
-      <Common.Task.Fields.StateUpdateRate />
-      <Common.Task.Fields.DataSaving />
-      <Common.Task.Fields.AutoStart />
+      <Task.Fields.StateUpdateRate />
+      <Task.Fields.DataSaving />
+      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -64,7 +66,7 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
   delete filteredRest.cmdChannelName;
   delete filteredRest.stateChannelName;
   return (
-    <Common.Task.WriteChannelNames
+    <Task.WriteChannelNames
       {...rest}
       cmdNamePath={`${path}.cmdChannelName`}
       stateNamePath={`${path}.stateChannelName`}
@@ -74,16 +76,16 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC<Common.Task.FormProps<DigitalWriteSchemas>> = (props) => (
+const Form: FC<Task.FormProps<DigitalWriteSchemas>> = (props) => (
   <DigitalChannelList
     {...props}
     createChannel={createDOChannel}
     name={name}
-    contextMenuItems={Common.Task.writeChannelContextMenuItems}
+    contextMenuItems={Task.writeChannelContextMenuItems}
   />
 );
 
-const getInitialValues: Common.Task.GetInitialValues<DigitalWriteSchemas> = ({
+const getInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
   deviceKey,
   config,
 }) => {
@@ -97,7 +99,7 @@ const getInitialValues: Common.Task.GetInitialValues<DigitalWriteSchemas> = ({
   };
 };
 
-const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
+const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   client,
   config,
 ) => {
@@ -105,7 +107,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  Common.Device.checkConfigured(dev);
+  CommonDevice.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(
@@ -210,7 +212,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   return [config, dev.rack];
 };
 
-export const DigitalWrite = Common.Task.wrapForm({
+export const DigitalWrite = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,

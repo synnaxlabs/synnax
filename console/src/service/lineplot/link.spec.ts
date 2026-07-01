@@ -12,8 +12,8 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/service/lineplot";
-import { Layout } from "@/layout";
-import { renderLinkHook } from "@/testUtils";
+import { Session } from "@/session";
+import { renderLinkHook } from "@/testutil/testutil";
 
 const client = createTestClient();
 
@@ -25,6 +25,8 @@ describe("LinePlot.useLink", () => {
     });
     const { handler, store } = renderLinkHook(LinePlot.useLink);
     await handler({ client, key: linePlot.key });
-    expect(Layout.select(store.getState(), linePlot.key)?.name).toBe("Tank Pressure");
+    expect(Session.Layout.select(store.getState(), linePlot.key)?.name).toBe(
+      "Tank Pressure",
+    );
   });
 });

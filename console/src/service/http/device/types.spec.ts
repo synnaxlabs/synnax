@@ -20,7 +20,7 @@ import {
   queryParamsZ,
   ZERO_HEALTH_CHECK,
   ZERO_PROPERTIES,
-} from "@/hardware/http/device/types";
+} from "@/service/http/device/types";
 
 describe("HTTP Device Properties", () => {
   describe("propertiesZ", () => {

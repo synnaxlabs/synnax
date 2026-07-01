@@ -11,7 +11,7 @@ import { Dialog, Icon, Menu } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type CSSProperties, type PropsWithChildren, type ReactNode } from "react";
 
-import { useContext } from "@/view/context";
+import { useContext } from "@/component/view/context";
 
 export interface FilterMenuProps extends PropsWithChildren {}
 

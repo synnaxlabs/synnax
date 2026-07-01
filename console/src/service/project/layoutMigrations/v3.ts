@@ -10,8 +10,8 @@
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v1 from "@/project/services/layoutMigrations/v1";
-import * as v2 from "@/project/services/layoutMigrations/v2";
+import * as v1 from "@/service/project/layoutMigrations/v1";
+import * as v2 from "@/service/project/layoutMigrations/v2";
 
 export const VERSION = "3.0.0";
 

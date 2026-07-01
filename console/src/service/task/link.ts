@@ -9,12 +9,12 @@
 
 import { useCallback } from "react";
 
-import { retrieveAndPlaceLayout } from "@/hardware/task/layouts";
 import { type Link } from "@/service/link";
-import { Layout } from "@/layout";
+import { retrieveAndPlaceLayout } from "@/service/task/layouts";
+import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => await retrieveAndPlaceLayout(client, key, placeLayout),
     [placeLayout],

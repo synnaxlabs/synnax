@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/http/task/Form.css";
+import "@/service/http/task/Form.css";
 
 import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
 import {
@@ -28,14 +28,15 @@ import {
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
-import { EmptyAction } from "@/component";
+import { Empty } from "@/component/empty";
 import { KeyValueEditor } from "@/component/form/KeyValueEditor";
 import { CSS } from "@/component/css";
-import { Common } from "@/hardware/common";
+import { Task } from "@/component/task";
+import { Task as ServiceTask } from "@/service/task";
 import { ChannelList as BaseChannelList } from "@/component/task/ChannelList";
-import { Device } from "@/hardware/http/device";
-import { ContextMenu } from "@/hardware/http/task/ContextMenu";
-import { EndpointListItem } from "@/hardware/http/task/EndpointListItem";
+import { Device } from "@/service/http/device";
+import { ContextMenu } from "@/service/http/task/ContextMenu";
+import { EndpointListItem } from "@/service/http/task/EndpointListItem";
 import {
   READ_SCHEMAS,
   READ_TYPE,
@@ -48,11 +49,11 @@ import {
   ZERO_READ_ENDPOINT,
   ZERO_READ_FIELD,
   ZERO_READ_PAYLOAD,
-} from "@/hardware/http/task/types";
-import { Selector } from "@/selector";
+} from "@/service/http/task/types";
+import { Selector } from "@/component/selector";
 
-export const READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const READ_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.HTTP",
@@ -78,8 +79,8 @@ const Properties = () => (
         label="Rate"
         inputProps={RATE_INPUT_PROPS}
       />
-      <Common.Task.Fields.DataSaving />
-      <Common.Task.Fields.AutoStart />
+      <Task.Fields.DataSaving />
+      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -111,7 +112,7 @@ const TIME_FORMAT_DATA: Select.StaticEntry<TimeFormat>[] = [
 
 const isTimingField = (f: ReadField): boolean => f.timestampFormat != null;
 
-interface FieldListItemProps extends Common.Task.ChannelListItemProps {
+interface FieldListItemProps extends Task.ChannelListItemProps {
   epKey: string;
 }
 
@@ -151,12 +152,12 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
         </Text.Text>
       )}
       <Flex.Box x align="center" grow justify="end">
-        <Common.Task.ChannelName
+        <Task.ChannelName
           channel={fieldChannel}
           namePath={`${path}.name`}
-          id={Common.Task.getChannelNameID(itemKey)}
+          id={Task.getChannelNameID(itemKey)}
         />
-        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -213,7 +214,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
   const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
   const [selected, setSelected] = useState<string[]>([]);
   const ctx = PForm.useContext();
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = Task.useIsSnapshot();
 
   const allFields = PForm.useFieldValue<ReadField[]>(path);
   const indexKeys = new Set(allFields.filter(isTimingField).map((f) => f.key));
@@ -225,7 +226,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
     const last = nonIndex[nonIndex.length - 1];
     const field: ReadField = {
       ...(last != null
-        ? { ...last, ...Common.Task.READ_CHANNEL_OVERRIDE }
+        ? { ...last, ...Task.READ_CHANNEL_OVERRIDE }
         : ZERO_READ_FIELD),
       key: id.create(),
     };
@@ -239,7 +240,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
         .filter(({ key }) => keys.includes(key))
         .map((ch) => ({
           ...ch,
-          ...Common.Task.READ_CHANNEL_OVERRIDE,
+          ...Task.READ_CHANNEL_OVERRIDE,
           key: id.create(),
         }));
       push(duplicated);
@@ -248,7 +249,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
   );
 
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
+    ({ key, ...p }: Task.ChannelListItemProps) => (
       <FieldListItem {...p} key={key} epKey={epKey} />
     ),
     [epKey],
@@ -290,14 +291,14 @@ const FieldList = ({ epKey }: FieldListProps) => {
           </Header.Header>
         }
         emptyContent={
-          <EmptyAction
+          <Empty.Action
             message="No fields."
             action="Add a field"
             onClick={isSnapshot ? undefined : handleAdd}
           />
         }
         listItem={listItem}
-        contextMenuItems={Common.Task.readChannelContextMenuItem}
+        contextMenuItems={Task.readChannelContextMenuItem}
       />
       {selectedFieldPath != null && (
         <Flex.Box y empty className={CSS.B("enum-mapping")}>
@@ -456,13 +457,13 @@ const PATH_INPUT_PROPS = { placeholder: "/api/data" } as const;
 
 const REQUEST_BODY_INPUT_PROPS = { placeholder: '{"query": "latest"}' } as const;
 
-const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
+const Form: FC<Task.FormProps<ReadSchemas>> = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
   const { data, push, remove } = PForm.useFieldList<string, ReadEndpoint>(
     "config.endpoints",
   );
   const ctx = PForm.useContext();
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = Task.useIsSnapshot();
 
   const handleAddEndpoint = useCallback(() => {
     const ep: ReadEndpoint = { ...ZERO_READ_ENDPOINT, key: id.create() };
@@ -547,7 +548,7 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
               className={menuProps.className}
               onContextMenu={menuProps.open}
               emptyContent={
-                <EmptyAction
+                <Empty.Action
                   message="No endpoints."
                   action="Add an endpoint"
                   onClick={isSnapshot ? undefined : handleAddEndpoint}
@@ -561,7 +562,7 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
       </Flex.Box>
       <Divider.Divider y />
       <Flex.Box y grow empty>
-        <Common.Task.Layouts.DetailsHeader
+        <Task.Layouts.DetailsHeader
           path={
             selectedEndpoints.length > 0
               ? `config.endpoints.${selectedEndpoints[0]}`
@@ -581,7 +582,7 @@ const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => {
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
   config,
 }) => {
@@ -613,7 +614,7 @@ const retrieveChannel = async (
 const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
   (await retrieveChannel(client, key)) != null;
 
-const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -704,7 +705,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Read = Common.Task.wrapForm({
+export const Read = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,

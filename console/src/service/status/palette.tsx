@@ -12,6 +12,7 @@ import { Access, Icon, Status } from "@synnaxlabs/pluto";
 
 import { Palette } from "@/component/palette";
 import { Status as CStatus } from "@/component/status";
+import { EXPLORER_LAYOUT } from "@/service/status/Explorer";
 
 const CreateCommand = Palette.createCommand({
   key: "create_status",
@@ -25,7 +26,7 @@ const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open_status_explorer",
   name: "Open the Status Explorer",
   icon: <Icon.Explore />,
-  layout: CStatus.EXPLORER_LAYOUT,
+  layout: EXPLORER_LAYOUT,
   useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
 });
 

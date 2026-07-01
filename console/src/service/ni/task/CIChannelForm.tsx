@@ -11,9 +11,9 @@ import { Divider, Flex, Form, Select } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Device } from "@/hardware/ni/device";
-import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
-import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
+import { Device } from "@/service/ni/device";
+import { CustomScaleForm } from "@/service/ni/task/CustomScaleForm";
+import { MinMaxValueFields } from "@/service/ni/task/MinMaxValueFields";
 import {
   type CIAngularVelocityUnits,
   type CIChannelType,
@@ -27,7 +27,7 @@ import {
   type CIPulseWidthUnits,
   type CISemiPeriodUnits,
   type CITwoEdgeSepUnits,
-} from "@/hardware/ni/task/types";
+} from "@/service/ni/task/types";
 
 interface FormProps {
   prefix: string;

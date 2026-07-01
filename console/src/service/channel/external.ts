@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/channel/services/link";
-export * from "@/channel/services/ontology";
-export * from "@/channel/services/palette";
-export * from "@/channel/services/Toolbar";
+export * from "@/service/channel/link";
+export * from "@/service/channel/ontology";
+export * from "@/service/channel/palette";
+export * from "@/service/channel/Toolbar";

@@ -19,7 +19,7 @@ import {
   type ScaleType,
   type Units,
   ZERO_SCALES,
-} from "@/hardware/ni/task/types";
+} from "@/service/ni/task/types";
 import { FS } from "@/component/fs";
 
 const SelectCustomScaleTypeField = Form.buildSelectField<

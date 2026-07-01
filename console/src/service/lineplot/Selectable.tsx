@@ -11,8 +11,8 @@ import { lineplot } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Selector } from "@/selector";
-import { LAYOUT_TYPE } from "@/service/lineplot/layout";
+import { LAYOUT_TYPE } from "@/component/lineplot/layout";
+import { Selector } from "@/component/selector";
 import { useCreate } from "@/service/lineplot/useCreate";
 
 export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {

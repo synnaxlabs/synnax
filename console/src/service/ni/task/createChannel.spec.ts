@@ -9,14 +9,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Task } from "@/hardware/ni/task";
+import { Task } from "@/service/ni/task";
 import {
   createAIChannel,
   createAOChannel,
   createCIChannel,
   createDIChannel,
   createDOChannel,
-} from "@/hardware/ni/task/createChannel";
+} from "@/service/ni/task/createChannel";
 
 describe("createChannel", () => {
   describe("createDIChannel", () => {

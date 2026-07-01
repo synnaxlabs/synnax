@@ -10,7 +10,7 @@
 import { type kv } from "@synnaxlabs/x";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
-import { Runtime } from "@/runtime";
+import { Runtime } from "@/session/runtime";
 
 /**
  * A SugaredKV is a spiced up key-value store that provides a few extra goodies needed

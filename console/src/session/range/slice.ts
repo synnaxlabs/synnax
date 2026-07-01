@@ -12,36 +12,36 @@ import { type ranger } from "@synnaxlabs/client";
 import { type NumericTimeRange, numericTimeRangeZ, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const baseZ = z.object({
+export const baseStateZ = z.object({
   key: z.string(),
   name: z.string(),
   persisted: z.boolean(),
 });
 
-export const staticZ = baseZ.extend({
+export const staticStateZ = baseStateZ.extend({
   variant: z.literal("static"),
   timeRange: numericTimeRangeZ,
 });
 
-export interface Static extends z.infer<typeof staticZ> {}
+export interface StaticState extends z.infer<typeof staticStateZ> {}
 
-export const dynamicZ = baseZ.extend({
+export const dynamicStateZ = baseStateZ.extend({
   variant: z.literal("dynamic"),
   span: z.number(),
 });
 
-export interface Dynamic extends z.infer<typeof dynamicZ> {}
+export interface DynamicState extends z.infer<typeof dynamicStateZ> {}
 
-export const rangeZ = z.union([staticZ, dynamicZ]);
+export const stateZ = z.union([staticStateZ, dynamicStateZ]);
 
-export type Range = z.infer<typeof rangeZ>;
+export type State = z.infer<typeof stateZ>;
 
 export const RECENT_KEY = "recent";
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   selected: z.string().optional(),
-  ranges: z.array(rangeZ).default([
+  ranges: z.array(stateZ).default([
     {
       key: RECENT_KEY,
       variant: "dynamic",
@@ -90,7 +90,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export type AddPayload = Range & { switchActive?: boolean };
+export type AddPayload = State & { switchActive?: boolean };
 
 interface RemovePayload {
   keys: string[];
@@ -126,6 +126,9 @@ export const { actions, reducer } = createSlice({
     select: (state, { payload }: PayloadAction<SelectPayload>) => {
       state.selected = payload;
     },
+    clearSelected: (state) => {
+      state.selected = undefined;
+    },
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
       const r = state.ranges.find((r) => r.key === key);
       if (r == null) return;
@@ -142,6 +145,6 @@ export const { actions, reducer } = createSlice({
     },
   },
 });
-export const { add, remove, rename, select, updateRemote } = actions;
+export const { add, clearSelected, remove, rename, select, updateRemote } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

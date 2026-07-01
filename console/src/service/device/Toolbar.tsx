@@ -11,9 +11,9 @@ import { device } from "@synnaxlabs/client";
 import { Access, Device, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Toolbar } from "@/component";
-import { type Service } from "@/service";
-import { Ontology } from "@/ontology";
+import { type Nav } from "@/component/nav";
+import { Toolbar } from "@/component/toolbar";
+import { Ontology } from "@/service/ontology";
 
 const Content = (): ReactElement => {
   const { data: groupID } = Device.useRetrieveGroupID({});
@@ -27,7 +27,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Service.Nav.Item = {
+export const TOOLBAR: Nav.Item = {
   key: "device",
   icon: <Icon.Device />,
   content: <Content />,

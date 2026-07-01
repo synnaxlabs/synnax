@@ -9,17 +9,17 @@
 
 import { DisconnectedError, type Synnax, type task } from "@synnaxlabs/client";
 
-import { type Common } from "@/hardware/common";
-import { EtherCAT } from "@/hardware/ethercat";
-import { HTTP } from "@/hardware/http";
-import { LabJack } from "@/hardware/labjack";
-import { Modbus } from "@/hardware/modbus";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { PagerDuty } from "@/hardware/pagerduty";
-import { type Layout } from "@/layout";
+import { EtherCAT } from "@/service/ethercat";
+import { HTTP } from "@/service/http";
+import { LabJack } from "@/service/labjack";
+import { Modbus } from "@/service/modbus";
+import { NI } from "@/service/ni";
+import { OPC } from "@/service/opc";
+import { PagerDuty } from "@/service/pagerduty";
+import { type Layout } from "@/service/task/Form";
+import { type Session } from "@/session";
 
-const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
+const ZERO_LAYOUTS: Record<string, Layout> = {
   ...EtherCAT.Task.ZERO_LAYOUTS,
   ...HTTP.Task.ZERO_LAYOUTS,
   ...LabJack.Task.ZERO_LAYOUTS,
@@ -29,7 +29,7 @@ const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
   ...PagerDuty.Task.ZERO_LAYOUTS,
 };
 
-export const createLayout = ({ key, name, type }: task.Task): Layout.BaseState => {
+export const createLayout = ({ key, name, type }: task.Task): Session.Layout.BaseState => {
   const baseLayout = ZERO_LAYOUTS[type];
   if (baseLayout == null) throw new Error(`No layout configured for ${type}`);
   return { ...baseLayout, key, name, args: { taskKey: key } };
@@ -38,7 +38,7 @@ export const createLayout = ({ key, name, type }: task.Task): Layout.BaseState =
 export const retrieveAndPlaceLayout = async (
   client: Synnax | null,
   key: task.Key,
-  placeLayout: Layout.Placer,
+  placeLayout: Session.Layout.Placer,
 ) => {
   if (client == null) throw new DisconnectedError();
   const t = await client.tasks.retrieve({ key });

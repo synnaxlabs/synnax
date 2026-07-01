@@ -17,7 +17,7 @@ import {
   BASIC256_SHA256_SECURITY_POLICY,
   NO_SECURITY_POLICY,
   type SecurityPolicy,
-} from "@/hardware/opc/device/types";
+} from "@/service/opc/device/types";
 
 const DATA: SecurityPolicy[] = [
   NO_SECURITY_POLICY,

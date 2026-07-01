@@ -9,14 +9,14 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Common } from "@/hardware/common";
-import { MAKE } from "@/hardware/labjack/device/types";
-import { useConfigureModal } from "@/hardware/labjack/device/useConfigureModal";
+import { Device } from "@/component/device";
+import { MAKE } from "@/service/labjack/device/types";
+import { useConfigureModal } from "@/service/labjack/device/useConfigureModal";
 
 export const Select = () => {
   const configure = useConfigureModal();
   return (
-    <Common.Device.Select
+    <Device.Select
       onConfigure={(deviceKey) => configure({ deviceKey })}
       emptyContent="No LabJack devices connected."
       make={MAKE}

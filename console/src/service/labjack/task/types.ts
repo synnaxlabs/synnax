@@ -10,8 +10,8 @@
 import { channel, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/labjack/device";
+import { Task } from "@/component/task";
+import { Device } from "@/service/labjack/device";
 
 export const PREFIX = "labjack";
 
@@ -58,7 +58,7 @@ export const ZERO_SCALES: Record<ScaleType, Scale> = {
   linear: ZERO_LINEAR_SCALE,
 };
 
-const aiChannelZ = Common.Task.readChannelZ.extend({
+const aiChannelZ = Task.readChannelZ.extend({
   type: z.literal("AI"),
   range: z.number().positive().optional(),
   scale: scaleZ,
@@ -71,14 +71,14 @@ const aiChannelZ = Common.Task.readChannelZ.extend({
 interface AIChannel extends z.infer<typeof aiChannelZ> {}
 
 const ZERO_AI_CHANNEL = {
-  ...Common.Task.ZERO_READ_CHANNEL,
+  ...Task.ZERO_READ_CHANNEL,
   type: "AI",
   port: "AIN0",
   range: 10,
   scale: ZERO_SCALES.none,
 } as const satisfies AIChannel;
 
-const diChannelZ = Common.Task.readChannelZ.extend({
+const diChannelZ = Task.readChannelZ.extend({
   type: z.literal("DI"),
   port: digitalPortZ,
 });
@@ -86,7 +86,7 @@ const diChannelZ = Common.Task.readChannelZ.extend({
 interface DIChannel extends z.infer<typeof diChannelZ> {}
 
 const ZERO_DI_CHANNEL = {
-  ...Common.Task.ZERO_READ_CHANNEL,
+  ...Task.ZERO_READ_CHANNEL,
   port: "DIO4",
   type: "DI",
 } as const satisfies DIChannel;
@@ -152,7 +152,7 @@ export const ZERO_INPUT_CHANNELS = {
 
 export const ZERO_INPUT_CHANNEL = ZERO_INPUT_CHANNELS.AI;
 
-const v0BaseOutputChannelZ = Common.Task.channelZ.extend({
+const v0BaseOutputChannelZ = Task.channelZ.extend({
   cmdKey: channel.keyZ,
   stateKey: channel.keyZ,
 });
@@ -167,12 +167,12 @@ const aoChannelExtension = {
 
 const v0AOChannelZ = v0BaseOutputChannelZ.extend(aoChannelExtension);
 
-const aoChannelZ = Common.Task.writeChannelZ.extend(aoChannelExtension);
+const aoChannelZ = Task.writeChannelZ.extend(aoChannelExtension);
 
 interface AOChannel extends z.infer<typeof aoChannelZ> {}
 
 const ZERO_AO_CHANNEL = {
-  ...Common.Task.ZERO_WRITE_CHANNEL,
+  ...Task.ZERO_WRITE_CHANNEL,
   type: "AO",
   port: "DAC0",
 } as const satisfies AOChannel;
@@ -187,12 +187,12 @@ const doChannelExtension = {
 
 const v0DOChannelZ = v0BaseOutputChannelZ.extend(doChannelExtension);
 
-const doChannelZ = Common.Task.writeChannelZ.extend(doChannelExtension);
+const doChannelZ = Task.writeChannelZ.extend(doChannelExtension);
 
 interface DOChannel extends z.infer<typeof doChannelZ> {}
 
 const ZERO_DO_CHANNEL = {
-  ...Common.Task.ZERO_WRITE_CHANNEL,
+  ...Task.ZERO_WRITE_CHANNEL,
   type: "DO",
   port: "DIO4",
 } as const satisfies DOChannel;
@@ -235,21 +235,21 @@ const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-const readConfigZ = Common.Task.baseReadConfigZ
+const readConfigZ = Task.baseReadConfigZ
   .extend({
     channels: z
       .array(inputChannelZ)
-      .check(Common.Task.validateReadChannels)
+      .check(Task.validateReadChannels)
       .check(validateUniquePorts),
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
   })
-  .check(Common.Task.validateStreamRate);
+  .check(Task.validateStreamRate);
 
 interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 const ZERO_READ_CONFIG = {
-  ...Common.Task.ZERO_BASE_READ_CONFIG,
+  ...Task.ZERO_BASE_READ_CONFIG,
   channels: [],
   sampleRate: 10,
   streamRate: 5,
@@ -281,7 +281,7 @@ export const ZERO_READ_PAYLOAD = {
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-const writeConfigZ = Common.Task.baseConfigZ.extend({
+const writeConfigZ = Task.baseConfigZ.extend({
   channels: z
     .array(v0OutputChannelZ)
     .transform((channels) =>
@@ -294,7 +294,7 @@ const writeConfigZ = Common.Task.baseConfigZ.extend({
       })),
     )
     .or(z.array(outputChannelZ))
-    .check(Common.Task.validateWriteChannels)
+    .check(Task.validateWriteChannels)
     .check(validateUniquePorts),
   stateRate: z.number().positive().max(50000),
   dataSaving: z.boolean().default(true),
@@ -303,7 +303,7 @@ const writeConfigZ = Common.Task.baseConfigZ.extend({
 interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 const ZERO_WRITE_CONFIG = {
-  ...Common.Task.ZERO_BASE_CONFIG,
+  ...Task.ZERO_BASE_CONFIG,
   channels: [],
   dataSaving: true,
   stateRate: 10,

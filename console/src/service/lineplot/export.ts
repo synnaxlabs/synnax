@@ -9,12 +9,12 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { Export } from "@/export";
-import { Layout } from "@/layout";
-import { LAYOUT_TYPE } from "@/service/lineplot/layout";
+import { LAYOUT_TYPE } from "@/component/lineplot/layout";
+import { Export } from "@/service/export";
+import { Session } from "@/session";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
-  const name = Layout.select(store.getState(), key)?.name;
+  const name = Session.Layout.select(store.getState(), key)?.name;
   if (client == null) throw new DisconnectedError();
   const lp = await client.lineplots.retrieve({ key });
   return {

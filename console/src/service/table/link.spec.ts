@@ -12,8 +12,8 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Table } from "@/service/table";
-import { Layout } from "@/layout";
-import { renderLinkHook } from "@/testUtils";
+import { Session } from "@/session";
+import { renderLinkHook } from "@/testutil/testutil";
 
 const client = createTestClient();
 
@@ -23,6 +23,6 @@ describe("Table.useLink", () => {
     const table = await client.tables.create(project.key, { name: "Sensor Table" });
     const { handler, store } = renderLinkHook(Table.useLink);
     await handler({ client, key: table.key });
-    expect(Layout.select(store.getState(), table.key)?.name).toBe("Sensor Table");
+    expect(Session.Layout.select(store.getState(), table.key)?.name).toBe("Sensor Table");
   });
 });

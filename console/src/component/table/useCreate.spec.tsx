@@ -24,24 +24,22 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { LAYOUT_TYPE } from "@/component/table/layout";
 import { useCreate } from "@/component/table/useCreate";
-import { Layout } from "@/layout";
-import { Project } from "@/project";
 import { Session } from "@/session";
 
 const client: Synnax = createTestClient();
 
 interface RootState {
   [Drift.SLICE_NAME]: Drift.SliceState;
-  [Layout.SLICE_NAME]: Layout.SliceState;
+  [Session.Layout.SLICE_NAME]: Session.Layout.SliceState;
   [Session.Table.SLICE_NAME]: Session.Table.SliceState;
-  [Project.SLICE_NAME]: Project.SliceState;
+  [Session.Project.SLICE_NAME]: Session.Project.SliceState;
 }
 
 const rootReducer = combineReducers({
   [Drift.SLICE_NAME]: Drift.reducer,
-  [Layout.SLICE_NAME]: Layout.reducer,
+  [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
   [Session.Table.SLICE_NAME]: Session.Table.reducer,
-  [Project.SLICE_NAME]: Project.reducer,
+  [Session.Project.SLICE_NAME]: Session.Project.reducer,
 }) as unknown as Reducer<RootState, UnknownAction>;
 
 type RootStore = ReturnType<typeof configureStore<RootState>>;
@@ -55,11 +53,6 @@ interface BuildHarnessArgs {
   activeProject?: project.Project;
 }
 
-const stripLayout = (proj: project.Project): Omit<project.Project, "layout"> => {
-  const { layout: _, ...rest } = proj;
-  return rest;
-};
-
 const buildHarness = async ({
   activeProject,
 }: BuildHarnessArgs = {}): Promise<Harness> => {
@@ -72,11 +65,11 @@ const buildHarness = async ({
   await fluxClient.awaitInitialized();
   const preloadedState: RootState = {
     [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
-    [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
+    [Session.Layout.SLICE_NAME]: Session.Layout.ZERO_SLICE_STATE,
     [Session.Table.SLICE_NAME]: Session.Table.ZERO_SLICE_STATE,
-    [Project.SLICE_NAME]: {
-      ...Project.ZERO_SLICE_STATE,
-      active: activeProject != null ? stripLayout(activeProject) : null,
+    [Session.Project.SLICE_NAME]: {
+      ...Session.Project.ZERO_SLICE_STATE,
+      selected: activeProject?.key,
     },
   };
   const store = configureStore({ reducer: rootReducer, preloadedState });
@@ -96,7 +89,7 @@ const newProject = async (): Promise<project.Project> =>
   await client.projects.create({ name: `proj-${id.create()}`, layout: {} });
 
 const findPlacedTableLayout = (store: RootStore) =>
-  Layout.selectByFilter(store.getState(), (l) => l.type === LAYOUT_TYPE);
+  Session.Layout.selectByFilter(store.getState(), (l) => l.type === LAYOUT_TYPE);
 
 const waitForPlacedLayout = async (store: RootStore): Promise<string> => {
   let key: string | undefined;
@@ -129,7 +122,7 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const retrieved = await client.tables.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("ProvidedProject");
-      expect(Project.selectActiveKey(store.getState())).toEqual(projectB.key);
+      expect(Session.Project.selectSelected(store.getState())).toEqual(projectB.key);
     });
 
     it("falls back to the active project when no prop is given", async () => {
@@ -141,7 +134,7 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const retrieved = await client.tables.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("ActiveProject");
-      expect(Project.selectActiveKey(store.getState())).toEqual(projectA.key);
+      expect(Session.Project.selectSelected(store.getState())).toEqual(projectA.key);
     });
   });
 
@@ -155,8 +148,8 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const state = store.getState();
       expect(Session.Table.selectEditable({ state, key: placedKey })).toBe(true);
-      expect(Layout.select(state, placedKey)?.name).toEqual("Editable");
-      expect(Layout.selectType(state, placedKey)).toEqual(LAYOUT_TYPE);
+      expect(Session.Layout.select(state, placedKey)?.name).toEqual("Editable");
+      expect(Session.Layout.selectType(state, placedKey)).toEqual(LAYOUT_TYPE);
     });
 
     it("defaults the layout name to 'Table' when init does not provide one", async () => {
@@ -166,7 +159,7 @@ describe("useCreate", () => {
         result.current();
       });
       const placedKey = await waitForPlacedLayout(store);
-      expect(Layout.select(store.getState(), placedKey)?.name).toEqual("Table");
+      expect(Session.Layout.select(store.getState(), placedKey)?.name).toEqual("Table");
     });
 
     it("uses the caller-provided key for both the server table and the layout", async () => {
@@ -177,7 +170,7 @@ describe("useCreate", () => {
         result.current({ key: callerKey, name: "WithKey" });
       });
       await waitFor(() => {
-        expect(Layout.select(store.getState(), callerKey)).toBeDefined();
+        expect(Session.Layout.select(store.getState(), callerKey)).toBeDefined();
       });
       const retrieved = await client.tables.retrieve({ key: callerKey });
       expect(retrieved.key).toEqual(callerKey);
@@ -188,7 +181,7 @@ describe("useCreate", () => {
   describe("project switching", () => {
     it("does not flip the active project when the table is created in the active one", async () => {
       const { wrapper, store } = await buildHarness({ activeProject: projectA });
-      const beforeActive = Project.selectSelected(store.getState());
+      const beforeActive = Session.Project.selectSelected(store.getState());
       const { result } = renderHook(() => useCreate({ project: projectA.key }), {
         wrapper,
       });
@@ -196,7 +189,7 @@ describe("useCreate", () => {
         result.current({ name: "SameProject" });
       });
       await waitForPlacedLayout(store);
-      expect(Project.selectSelected(store.getState())).toBe(beforeActive);
+      expect(Session.Project.selectSelected(store.getState())).toBe(beforeActive);
     });
   });
 });

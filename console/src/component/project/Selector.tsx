@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/service/project/Selector.css";
+import "@/component/project/Selector.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
 import {
@@ -25,13 +25,10 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/component/css";
 import { useCreateModal } from "@/component/project/useCreateModal";
-import { Layout } from "@/layout";
-import { useSelectSelected } from "@/session/project/selectors";
-import { select } from "@/session/project/slice";
+import { Session } from "@/session";
 
 const listItem = Component.renderProp(
   (props: List.ItemProps<project.Key>): ReactElement | null => {
@@ -51,18 +48,19 @@ const DIALOG_STYLE = { minHeight: 200, minWidth: 400 };
 export const Selector = (): ReactElement | null => {
   const client = Synnax.use();
   const dispatch = Session.useDispatch();
-  const active = useSelectSelected();
+  const activeKey = Session.Project.useSelectSelected();
   const openCreate = useCreateModal();
   const [dialogVisible, setDialogVisible] = useState(false);
   const { data, retrieve, getItem, subscribe } = Project.useList();
+  const active = getItem(activeKey);
   const [search, setSearch] = useState("");
   const handleChange = useCallback(
     (key: project.Key | null) => {
       if (key == null) return;
       const proj = getItem(key);
       if (proj == null) throw new UnexpectedError(`Project ${key} not found`);
-      dispatch(select(proj));
-      dispatch(Layout.setProject({ slice: proj.layout as Layout.SliceState }));
+      dispatch(Session.Project.select(proj.key));
+      dispatch(Session.Layout.setProject({ slice: proj.layout as Session.Layout.SliceState }));
       setDialogVisible(false);
     },
     [dispatch, getItem],
@@ -74,7 +72,7 @@ export const Selector = (): ReactElement | null => {
     <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>
       <Select.Frame
         data={data}
-        value={active?.key}
+        value={activeKey}
         onChange={handleChange}
         getItem={getItem}
         subscribe={subscribe}
@@ -87,7 +85,7 @@ export const Selector = (): ReactElement | null => {
           weight={400}
         >
           <Icon.Project key="project" />
-          {active.name}
+          {active?.name}
         </Dialog.Trigger>
         <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
           <Flex.Box pack rounded>

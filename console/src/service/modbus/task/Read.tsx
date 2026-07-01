@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/modbus/task/Task.css";
+import "@/service/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
@@ -15,9 +15,11 @@ import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/component/css";
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/modbus/device";
-import { SelectInputChannelTypeField } from "@/hardware/modbus/task/SelectInputChannelTypeField";
+import { Selector } from "@/component/selector";
+import { Task } from "@/component/task";
+import { Device } from "@/service/modbus/device";
+import { SelectInputChannelTypeField } from "@/service/modbus/task/SelectInputChannelTypeField";
+import { Task as ServiceTask } from "@/service/task";
 import {
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
@@ -29,15 +31,14 @@ import {
   type TypedInput,
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
-} from "@/hardware/modbus/task/types";
-import { Selector } from "@/selector";
+} from "@/service/modbus/task/types";
 
 export const READ_LAYOUT = {
-  ...Common.Task.LAYOUT,
+  ...ServiceTask.LAYOUT,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.Modbus",
-} as const satisfies Common.Task.Layout;
+} as const satisfies ServiceTask.Layout;
 
 export const ReadSelectable = Selector.createSimpleItem({
   title: "Modbus Read Task",
@@ -49,15 +50,15 @@ const Properties = () => (
   <>
     <Device.Select />
     <Flex.Box x grow>
-      <Common.Task.Fields.SampleRate />
-      <Common.Task.Fields.StreamRate />
-      <Common.Task.Fields.DataSaving />
-      <Common.Task.Fields.AutoStart />
+      <Task.Fields.SampleRate />
+      <Task.Fields.StreamRate />
+      <Task.Fields.DataSaving />
+      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
 
-const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const { type, channel } = PForm.useFieldValue<InputChannel>(path);
@@ -104,12 +105,12 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
         )}
       </Flex.Box>
       <Flex.Box x align="center" grow justify="end">
-        <Common.Task.ChannelName
+        <Task.ChannelName
           channel={channel}
           namePath={`${path}.name`}
-          id={Common.Task.getChannelNameID(itemKey)}
+          id={Task.getChannelNameID(itemKey)}
         />
-        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -134,7 +135,7 @@ const getOpenChannel = (channels: InputChannel[]): InputChannel => {
   const channelToCopy = channels[channels.length - 1];
   return {
     ...channelToCopy,
-    ...Common.Task.READ_CHANNEL_OVERRIDE,
+    ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
     address: channelToCopy.address + 1,
   };
@@ -142,10 +143,10 @@ const getOpenChannel = (channels: InputChannel[]): InputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => (
-  <Common.Task.Layouts.List<InputChannel>
+const Form: FC<Task.FormProps<ReadSchemas>> = () => (
+  <Task.Layouts.List<InputChannel>
     createChannel={getOpenChannel}
-    contextMenuItems={Common.Task.readChannelContextMenuItem}
+    contextMenuItems={Task.readChannelContextMenuItem}
     listItem={listItem}
   />
 );
@@ -163,7 +164,7 @@ const channelName = (deviceName: string, channel: InputChannel) => {
   return s;
 };
 
-const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
 }) => ({
   ...ZERO_READ_PAYLOAD,
@@ -173,7 +174,7 @@ const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
   },
 });
 
-const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -242,7 +243,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Read = Common.Task.wrapForm({
+export const Read = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,

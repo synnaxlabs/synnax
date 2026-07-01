@@ -9,13 +9,13 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Common } from "@/hardware/common";
-import { ZERO_PROPERTIES } from "@/hardware/labjack/device/types";
+import { Device } from "@/component/device";
 import { Modals } from "@/component/modals";
+import { ZERO_PROPERTIES } from "@/service/labjack/device/types";
 
-export const useConfigureModal = Modals.create<Common.Device.ConfigureParams>(
+export const useConfigureModal = Modals.create<Device.ConfigureParams>(
   ({ deviceKey, close }) => (
-    <Common.Device.Configure
+    <Device.Configure
       deviceKey={deviceKey}
       close={close}
       icon={<Icon.Logo.LabJack />}

@@ -11,8 +11,8 @@ import { createTestClient } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/service/arc";
-import { Layout } from "@/layout";
-import { renderLinkHook } from "@/testUtils";
+import { Session } from "@/session";
+import { renderLinkHook } from "@/testutil/testutil";
 
 const client = createTestClient();
 
@@ -25,6 +25,8 @@ describe("Arc.useLink", () => {
     });
     const { handler, store } = renderLinkHook(Arc.useLink);
     await handler({ client, key: arc.key });
-    expect(Layout.select(store.getState(), arc.key)?.name).toBe("Control Sequence");
+    expect(Session.Layout.select(store.getState(), arc.key)?.name).toBe(
+      "Control Sequence",
+    );
   });
 });

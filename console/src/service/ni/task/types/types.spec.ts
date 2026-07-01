@@ -29,7 +29,7 @@ import {
   ZERO_DIGITAL_WRITE_PAYLOAD,
   ZERO_DO_CHANNEL,
   ZERO_SCALES,
-} from "@/hardware/ni/task/types";
+} from "@/service/ni/task/types";
 
 interface ScaleExpectation {
   scale: Scale;

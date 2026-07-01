@@ -11,8 +11,8 @@ import { Form as PForm, Select } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 
-import { useRetrieveSlaveStateful } from "@/hardware/ethercat/device/queries";
-import { type PDOEntry } from "@/hardware/ethercat/device/types";
+import { useRetrieveSlaveStateful } from "@/service/ethercat/device/queries";
+import { type PDOEntry } from "@/service/ethercat/device/types";
 
 export interface SelectPDOFieldProps {
   path: string;

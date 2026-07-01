@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import { type InputChannelType } from "@/hardware/labjack/task/types";
+import { type InputChannelType } from "@/service/labjack/task/types";
 
 export interface InputChannelTypeEntry extends record.KeyedNamed<InputChannelType> {}
 

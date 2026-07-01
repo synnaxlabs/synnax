@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/ethercat/device/queries";
-export * from "@/hardware/ethercat/device/SelectSlave";
-export * from "@/hardware/ethercat/device/types";
-export * from "@/hardware/ethercat/device/useConfigureModal";
+export * from "@/service/ethercat/device/ontology";
+export * from "@/service/ethercat/device/queries";
+export * from "@/service/ethercat/device/SelectSlave";
+export * from "@/service/ethercat/device/types";
+export * from "@/service/ethercat/device/useConfigureModal";

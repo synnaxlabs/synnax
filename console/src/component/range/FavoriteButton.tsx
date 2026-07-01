@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { useDispatch } from "react-redux";
 
-import { type Button } from "@/component/button";
-import { fromClientRange } from "@/range/translate";
-import { useSelect } from "@/session/range/selectors";
+import { Button } from "@/component/button";
+import { Session } from "@/session";
+import { useSelectState } from "@/session/range/selectors";
 import { add, remove } from "@/session/range/slice";
 
 export interface FavoriteButtonProps extends Omit<
@@ -23,12 +22,14 @@ export interface FavoriteButtonProps extends Omit<
 }
 
 export const FavoriteButton = ({ range, ...rest }: FavoriteButtonProps) => {
-  const sliceRange = useSelect(range.key);
+  const sliceRange = useSelectState(range.key);
   const dispatch = Session.useDispatch();
   const isFavorite = sliceRange != null;
   const handleFavorite = () => {
-    if (!isFavorite) dispatch(add(fromClientRange(range)));
+    if (!isFavorite) Session.Range.fromClient(range).forEach((r) => dispatch(add(r)));
     else dispatch(remove({ keys: [range.key] }));
   };
-  return <Base {...rest} isFavorite={isFavorite} onFavorite={handleFavorite} />;
+  return (
+    <Button.Favorite {...rest} isFavorite={isFavorite} onFavorite={handleFavorite} />
+  );
 };

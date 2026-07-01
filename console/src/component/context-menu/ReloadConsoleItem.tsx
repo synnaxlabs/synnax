@@ -10,9 +10,9 @@
 import { reloadWindow } from "@synnaxlabs/drift";
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
 import { Link } from "@/service/link";
+import { Session } from "@/session";
 
 export const ReloadConsoleItem = (): ReactElement => {
   const dispatch = Session.useDispatch();

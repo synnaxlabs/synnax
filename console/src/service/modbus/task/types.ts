@@ -11,11 +11,11 @@ import { type task } from "@synnaxlabs/client";
 import { DataType, id, record } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { Common } from "@/hardware/common";
+import { Task } from "@/component/task";
 
 export const PREFIX = "modbus";
 
-const baseInputZ = Common.Task.readChannelZ.extend({ address: z.number() });
+const baseInputZ = Task.readChannelZ.extend({ address: z.number() });
 
 const coilInputZ = baseInputZ.extend({ type: z.literal("coil_input") });
 
@@ -108,10 +108,10 @@ export const isVariableDensityInputChannel = (
 ): channel is VariableDensityInputChannel =>
   isVariableDensityInputChannelType(channel.type);
 
-const baseOutputZ = Common.Task.channelZ.extend({
+const baseOutputZ = Task.channelZ.extend({
   address: z.number(),
   channel: z.number(),
-  name: Common.Task.nameZ,
+  name: Task.nameZ,
 });
 
 const coilOutputZ = baseOutputZ.extend({ type: z.literal("coil_output") });
@@ -157,18 +157,18 @@ export const OUTPUT_CHANNEL_SCHEMAS: Record<
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-const readConfigZ = Common.Task.baseReadConfigZ
+const readConfigZ = Task.baseReadConfigZ
   .extend({
     channels: z.array(inputChannelZ),
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
   })
-  .check(Common.Task.validateStreamRate);
+  .check(Task.validateStreamRate);
 
 interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 const ZERO_READ_CONFIG = {
-  ...Common.Task.ZERO_BASE_READ_CONFIG,
+  ...Task.ZERO_BASE_READ_CONFIG,
   channels: [],
   sampleRate: 10,
   streamRate: 5,
@@ -204,14 +204,14 @@ export const ZERO_READ_PAYLOAD = {
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-const writeConfigZ = Common.Task.baseConfigZ.extend({
+const writeConfigZ = Task.baseConfigZ.extend({
   channels: z.array(outputChannelZ),
 });
 
 interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 const ZERO_WRITE_CONFIG = {
-  ...Common.Task.ZERO_BASE_CONFIG,
+  ...Task.ZERO_BASE_CONFIG,
   channels: [],
 } as const satisfies WriteConfig;
 

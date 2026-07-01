@@ -18,7 +18,7 @@ import {
   type AOChannel,
   type AOChannelType,
   ZERO_AO_CHANNELS,
-} from "@/hardware/ni/task/types";
+} from "@/service/ni/task/types";
 
 export interface Entry extends record.KeyedNamed<AOChannelType> {}
 

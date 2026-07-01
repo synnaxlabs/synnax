@@ -12,9 +12,11 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/opc/device";
-import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
+import { Task } from "@/component/task";
+import { Selector } from "@/component/selector";
+import { Device } from "@/service/opc/device";
+import { type ChannelKeyAndIDGetter, Form } from "@/service/opc/task/Form";
+import { Task as ServiceTask } from "@/service/task";
 import {
   type InputChannel,
   READ_SCHEMAS,
@@ -22,11 +24,10 @@ import {
   type ReadConfig,
   type ReadSchemas,
   ZERO_READ_PAYLOAD,
-} from "@/hardware/opc/task/types";
-import { Selector } from "@/selector";
+} from "@/service/opc/task/types";
 
-export const READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const READ_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.OPC",
@@ -73,7 +74,7 @@ const Properties = (): ReactElement => {
     <>
       <Device.Select />
       <Flex.Box x>
-        <Common.Task.Fields.SampleRate />
+        <Task.Fields.SampleRate />
         <PForm.SwitchField
           label="Array Sampling"
           path="config.arrayMode"
@@ -91,10 +92,10 @@ const Properties = (): ReactElement => {
             style={{ width: 100 }}
           />
         ) : (
-          <Common.Task.Fields.StreamRate />
+          <Task.Fields.StreamRate />
         )}
-        <Common.Task.Fields.DataSaving />
-        <Common.Task.Fields.AutoStart />
+        <Task.Fields.DataSaving />
+        <Task.Fields.AutoStart />
       </Flex.Box>
     </>
   );
@@ -113,20 +114,20 @@ const convertHaulItemToChannel = ({ data }: Device.HaulItem): InputChannel => ({
 
 const getChannelKeyAndID: ChannelKeyAndIDGetter<InputChannel> = ({ channel, key }) => ({
   key: channel,
-  id: Common.Task.getChannelNameID(key),
+  id: Task.getChannelNameID(key),
 });
 
-const TaskForm: FC<Common.Task.FormProps<ReadSchemas>> = () => (
+const TaskForm: FC<Task.FormProps<ReadSchemas>> = () => (
   <Form
     convertHaulItemToChannel={convertHaulItemToChannel}
     getChannelKeyAndID={getChannelKeyAndID}
-    contextMenuItems={Common.Task.readChannelContextMenuItem}
+    contextMenuItems={Task.readChannelContextMenuItem}
   >
     {isIndexItem}
   </Form>
 );
 
-const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
   config,
 }) => {
@@ -205,7 +206,7 @@ const determineIndexChannel = async ({
   return idxCh.key;
 };
 
-const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
   name,
@@ -266,7 +267,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   return [config, device.rack];
 };
 
-export const Read = Common.Task.wrapForm({
+export const Read = ServiceTask.wrapForm({
   type: "opc_read",
   Properties,
   Form: TaskForm,

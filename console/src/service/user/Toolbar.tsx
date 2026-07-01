@@ -11,9 +11,10 @@ import { user } from "@synnaxlabs/client";
 import { Access, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { EmptyAction, Toolbar } from "@/component";
+import { Empty } from "@/component/empty";
+import { Toolbar } from "@/component/toolbar";
 import { useRegisterModal } from "@/component/user/useRegisterModal";
-import { Ontology } from "@/ontology";
+import { Ontology } from "@/service/ontology";
 import { type Service } from "@/service";
 
 const Content = (): ReactElement => {
@@ -41,7 +42,7 @@ const EmptyContent = (): ReactElement => {
   const openRegister = useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
-    <EmptyAction
+    <Empty.Action
       message="No users."
       action={hasCreatePermission ? "Create a user" : undefined}
       onClick={() => openRegister()}

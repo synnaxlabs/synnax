@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/opc/device/Browser.css";
+import "@/service/opc/device/Browser.css";
 
 import { type rack, type status } from "@synnaxlabs/client";
 import {
@@ -31,9 +31,9 @@ import { array, type optional } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/component/css";
-import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
-import { type ConnectionConfig, type Device } from "@/hardware/opc/device/types";
-import { BROWSE_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
+import { retrieveScanTask } from "@/service/opc/device/retrieveScanTask";
+import { type ConnectionConfig, type Device } from "@/service/opc/device/types";
+import { BROWSE_COMMAND_TYPE, type ScannedNode } from "@/service/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,

@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { Range } from "@/session/range";
 
-const STATIC: Range.Static = {
+const STATIC: Range.StaticState = {
   key: "static-1",
   name: "Static 1",
   persisted: true,
@@ -19,7 +19,7 @@ const STATIC: Range.Static = {
   timeRange: { start: 0, end: 1000 },
 };
 
-const DYNAMIC: Range.Dynamic = {
+const DYNAMIC: Range.DynamicState = {
   key: "dynamic-1",
   name: "Dynamic 1",
   persisted: false,
@@ -27,7 +27,7 @@ const DYNAMIC: Range.Dynamic = {
   span: 1000,
 };
 
-const storeWith = (ranges: Range.Range[], selected?: string): Range.StoreState => ({
+const storeWith = (ranges: Range.State[], selected?: string): Range.StoreState => ({
   [Range.SLICE_NAME]: { ...Range.sliceStateZ.parse({ ranges: [] }), ranges, selected },
 });
 

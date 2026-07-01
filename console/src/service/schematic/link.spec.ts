@@ -12,8 +12,8 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Schematic } from "@/service/schematic";
-import { Layout } from "@/layout";
-import { renderLinkHook } from "@/testUtils";
+import { Session } from "@/session";
+import { renderLinkHook } from "@/testutil/testutil";
 
 const client = createTestClient();
 
@@ -25,6 +25,6 @@ describe("Schematic.useLink", () => {
     });
     const { handler, store } = renderLinkHook(Schematic.useLink);
     await handler({ client, key: schematic.key });
-    expect(Layout.select(store.getState(), schematic.key)?.name).toBe("Pump Schematic");
+    expect(Session.Layout.select(store.getState(), schematic.key)?.name).toBe("Pump Schematic");
   });
 });

@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import { type OutputChannelType } from "@/hardware/modbus/task/types";
+import { type OutputChannelType } from "@/service/modbus/task/types";
 
 export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
 

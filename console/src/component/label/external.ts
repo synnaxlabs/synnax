@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/label/filter";
-export * from "@/label/Select";
-export * from "@/label/useEditModal";
+export * from "@/component/label/filter";
+export * from "@/component/label/Select";
+export * from "@/component/label/useEditModal";

@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/service/table/Table.css";
+import "@/component/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
 import { Access, Button, Icon, Table as Base } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
-import { ContextMenu, Controls } from "@/component";
+import { ContextMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
+import { Layout } from "@/component/layout";
+import { Vis } from "@/component/vis";
 import { Session } from "@/session";
-import { Layout } from "@/layout";
 
 const Internal: Layout.Renderer = ({ visible }) => {
   const key = Base.useKey();
@@ -94,7 +94,7 @@ const TableControls = (): ReactElement | null => {
   const showHideToggle = !canEdit;
   if (!hasUpdatePermission && !showHideToggle) return null;
   return (
-    <Controls x>
+    <Vis.Controls x>
       {showHideToggle && (
         <Button.Toggle
           value={hideIndicators}
@@ -117,7 +117,7 @@ const TableControls = (): ReactElement | null => {
           {canEdit ? <Icon.EditOff /> : <Icon.Edit />}
         </Button.Toggle>
       )}
-    </Controls>
+    </Vis.Controls>
   );
 };
 

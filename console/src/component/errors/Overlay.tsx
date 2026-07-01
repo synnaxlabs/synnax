@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/errors/Overlay.css";
+import "@/component/errors/Overlay.css";
 
 import { Logo } from "@synnaxlabs/media";
 import {
@@ -32,7 +32,6 @@ import {
 } from "react";
 
 import { CSS } from "@/component/css";
-import { Version } from "@/component/version";
 import { Session } from "@/session";
 
 export interface OverlayProps extends PropsWithChildren {}
@@ -46,7 +45,7 @@ const useExtraErrorInfo = (): ExtraErrorInfo => {
   // These hooks must be called unconditionally per React rules.
   // If they throw, the error bubbles to OverlayWithoutStore which is fine.
   // We use optional chaining when building extraInfo to handle undefined values.
-  const consoleVersion = Version.use();
+  const consoleVersion = Session.Version.use();
   const connectionState = Synnax.useConnectionState();
   const extraInfo: ExtraErrorInfo = {
     consoleVersion: "unknown",

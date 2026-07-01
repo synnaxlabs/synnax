@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import { getMake, useConfigureModal } from "@/hardware/device/make";
+import { getMake, useConfigureModal } from "@/service/device/make";
 import { type Link } from "@/service/link";
 
 export const useLink = (): Link.Handler => {

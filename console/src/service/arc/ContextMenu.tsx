@@ -20,14 +20,13 @@ import {
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
-import { ContextMenu as CMenu } from "@/component";
-import { create } from "@/service/arc/layout";
+import { create } from "@/component/arc/layout";
+import { Cluster } from "@/component/cluster";
+import { ContextMenu as CMenu } from "@/component/context-menu";
 import { Link } from "@/service/link";
-import { Layout } from "@/layout";
-import { useConfirmDelete } from "@/ontology/hooks";
+import { Ontology } from "@/service/ontology";
+import { Session } from "@/session";
 
 export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
   getItem: List.GetItem<arc.Key, arc.Arc>;
@@ -46,10 +45,10 @@ export const ContextMenu = ({
   const isSingle = keys.length === 1;
 
   const dispatch = Session.useDispatch();
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   const addStatus = Status.useAdder();
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const confirm = useConfirmDelete({
+  const confirm = Ontology.useConfirmDelete({
     type: "Arc",
     description: "Deleting this Arc will permanently remove it.",
   });
@@ -60,7 +59,7 @@ export const ContextMenu = ({
         if (arcKeys.length === 0) return false;
         const arcs = getItem(arcKeys);
         if (!(await confirm(arcs))) return false;
-        dispatch(Layout.remove({ keys: arcKeys }));
+        dispatch(Session.Layout.remove({ keys: arcKeys }));
         return data;
       },
       [getItem, dispatch],

@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Device } from "@/hardware/labjack/device";
-import { convertChannelTypeToPortType } from "@/hardware/labjack/task/convertChannelTypeToPortType";
+import { Device } from "@/service/labjack/device";
+import { convertChannelTypeToPortType } from "@/service/labjack/task/convertChannelTypeToPortType";
 
 describe("convertChannelTypeToPortType", () => {
   it(`should convert "AI" to ${Device.AI_PORT_TYPE}`, () => {

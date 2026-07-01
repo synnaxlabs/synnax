@@ -9,31 +9,28 @@
 
 import { status, UnexpectedError } from "@synnaxlabs/client";
 import { Button, Form, Icon, Input, Nav, Project, Synnax } from "@synnaxlabs/pluto";
-import { useDispatch } from "react-redux";
 
 import { Modals } from "@/component/modals";
-import { Layout } from "@/layout";
-import { useSelectOptionalActiveKey } from "@/session/project/selectors";
-import { select } from "@/session/project/slice";
 import { Triggers } from "@/component/triggers";
+import { Session } from "@/session";
 
 export const useCreateModal = Modals.create(({ close }) => {
   const client = Synnax.use();
   const dispatch = Session.useDispatch();
-  const active = useSelectOptionalActiveKey();
+  const active = Session.Project.useSelectOptionalSelected();
 
   const { form, save, variant } = Project.useForm({
     query: {},
     initialValues: {
       name: "",
-      layout: Layout.ZERO_SLICE_STATE,
+      layout: Session.Layout.ZERO_SLICE_STATE,
     },
     afterSave: ({ value }) => {
       const { key, name, layout } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
-      dispatch(select({ key, name }));
+      dispatch(Session.Project.select(key));
       if (active != null)
-        dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
+        dispatch(Session.Layout.setProject({ slice: layout as Session.Layout.SliceState }));
       close();
     },
   });

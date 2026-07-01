@@ -25,18 +25,15 @@ import {
 import { id, primitive } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
-import { Cluster } from "@/cluster";
-import { ContextMenu } from "@/component";
-import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createUseDelete";
-import { createUseRename } from "@/ontology/createUseRename";
-import { Project } from "@/project";
-import { Range } from "@/range";
-import { Channel } from "@/service/channel";
+import { Channel } from "@/component/channel";
+import { Cluster } from "@/component/cluster";
+import { ContextMenu } from "@/component/context-menu";
+import { LinePlot } from "@/component/lineplot";
 import { Group } from "@/service/group";
-import { LinePlot } from "@/service/lineplot";
 import { Link } from "@/service/link";
+import { LinePlot as ServiceLinePlot } from "@/service/lineplot";
+import { Ontology } from "@/service/ontology";
+import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({
   client,
@@ -46,7 +43,7 @@ const handleSelect: Ontology.HandleSelect = ({
   handleError,
 }): void => {
   const state = store.getState();
-  const layout = Layout.selectActiveMosaicLayout(state);
+  const layout = Session.Layout.selectActiveMosaicLayout(state);
   if (selection.length === 0) return;
 
   const nonVirtualSelection = selection
@@ -59,14 +56,14 @@ const handleSelect: Ontology.HandleSelect = ({
   switch (layout?.type) {
     case LinePlot.LAYOUT_TYPE: {
       handleError(
-        () => LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
+        () => ServiceLinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
         "Failed to add channels to plot",
       );
       break;
     }
     default: {
-      const project = Project.selectActiveKey(state);
-      const activeRange = Range.selectSelectedKey(state) ?? Range.RECENT_KEY;
+      const project = Session.Project.selectSelected(state);
+      const activeRange = Session.Range.selectSelectedKey(state) ?? Session.Range.RECENT_KEY;
       handleError(async () => {
         const { key, name } = await client.lineplots.create(project, {
           name: "Line Plot",
@@ -111,7 +108,7 @@ const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] =>
 
 const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;
 
-export const useDelete = createUseDelete({
+export const useDelete = Ontology.createUseDelete({
   type: "Channel",
   query: PChannel.useDelete,
   convertKey: Number,
@@ -133,7 +130,7 @@ export const useSetAlias = ({
     ids: [firstID],
   },
 }: Ontology.TreeContextMenuProps): (() => void) => {
-  const activeRange = Range.useSelectSelectedKey();
+  const activeRange = Session.Range.useSelectSelectedKey();
   const { update } = PChannel.useUpdateAlias({ beforeUpdate: beforeSetAlias });
   return useCallback(
     () =>
@@ -146,7 +143,7 @@ export const useSetAlias = ({
   );
 };
 
-export const useRename = createUseRename({
+export const useRename = Ontology.createUseRename({
   query: PChannel.useRename,
   ontologyID: channel.ontologyID,
   convertKey: Number,
@@ -155,7 +152,7 @@ export const useRename = createUseRename({
 export const useDeleteAlias = ({
   selection: { ids },
 }: Ontology.TreeContextMenuProps): (() => void) => {
-  const activeRange = Range.useSelectSelectedKey();
+  const activeRange = Session.Range.useSelectSelectedKey();
   const { update } = PChannel.useDeleteAlias();
   return useCallback(
     () =>
@@ -184,7 +181,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const activeRange = Range.useSelect();
+  const activeRange = Session.Range.useSelectState();
   const groupFromSelection = Group.useCreateFromSelection();
   const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
@@ -282,7 +279,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps) => {
-  const activeRange = Range.useSelect();
+  const activeRange = Session.Range.useSelectState();
   const res = PChannel.useRetrieve({
     key: Number(id.key),
     rangeKey: activeRange?.key,

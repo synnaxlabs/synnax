@@ -10,9 +10,9 @@
 import { channel } from "@synnaxlabs/client";
 import { Access, Channel as PChannel } from "@synnaxlabs/pluto";
 
-import { useCalculatedModal } from "@/channel/useCalculatedModal";
-import { useCreateModal } from "@/channel/useCreateModal";
-import { Palette } from "@/palette";
+import { useCalculatedModal } from "@/component/channel/useCalculatedModal";
+import { useCreateModal } from "@/component/channel/useCreateModal";
+import { Palette } from "@/component/palette";
 
 const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
 

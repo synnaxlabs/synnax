@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/opc/device/Connect.css";
+import "@/service/opc/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import {
@@ -25,10 +25,14 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { type Common } from "@/hardware/common";
-import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
-import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
-import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
+import { type Device as CommonDevice } from "@/component/device";
+import { CSS } from "@/component/css";
+import { FS } from "@/component/fs";
+import { Modals } from "@/component/modals";
+import { Triggers } from "@/component/triggers";
+import { retrieveScanTask } from "@/service/opc/device/retrieveScanTask";
+import { SelectSecurityMode } from "@/service/opc/device/SelectSecurityMode";
+import { SelectSecurityPolicy } from "@/service/opc/device/SelectSecurityPolicy";
 import {
   type Device,
   NO_SECURITY_MODE,
@@ -36,12 +40,8 @@ import {
   type SecurityMode,
   type SecurityPolicy,
   ZERO_PROPERTIES,
-} from "@/hardware/opc/device/types";
-import { TEST_CONNECTION_COMMAND_TYPE } from "@/hardware/opc/task/types";
-import { CSS } from "@/component/css";
-import { FS } from "@/component/fs";
-import { Triggers } from "@/component/triggers";
-import { Modals } from "@/component/modals";
+} from "@/service/opc/device/types";
+import { TEST_CONNECTION_COMMAND_TYPE } from "@/service/opc/task/types";
 
 const useForm = PDevice.createForm(SCHEMAS);
 
@@ -96,7 +96,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
+export const useConnectModal = Modals.create<CommonDevice.ConnectParams>(
   ({ deviceKey, close }) => {
     const {
       form,

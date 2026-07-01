@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/component/layout";
-import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/component/status/Explorer";
+import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/service/status/Explorer";
 
+export * from "@/service/status/Explorer";
 export * from "@/service/status/palette";
-export * from "@/session/status/slice";
+export * from "@/service/status/Toolbar";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,

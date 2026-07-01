@@ -10,7 +10,7 @@
 import { Button, Form, Header as PHeader, Icon } from "@synnaxlabs/pluto";
 import { useCallback, useEffect } from "react";
 
-import { EmptyAction } from "@/component";
+import { Empty } from "@/component/empty";
 import {
   ChannelList as Base,
   type ChannelListProps as BaseProps,
@@ -51,7 +51,7 @@ interface EmptyContentProps extends HeaderProps {}
 const EmptyContent = ({ onAdd }: EmptyContentProps) => {
   const isSnapshot = useIsSnapshot();
   return (
-    <EmptyAction
+    <Empty.Action
       message="No channels in task."
       action="Add a channel"
       onClick={isSnapshot ? undefined : onAdd}

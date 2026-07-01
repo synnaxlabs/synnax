@@ -10,8 +10,8 @@
 import { kv } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Persist } from "@/persist";
-import { type SugaredKV } from "@/persist/kv";
+import { Persist } from "@/session/persist";
+import { type SugaredKV } from "@/session/persist/kv";
 
 interface MockState {
   mock: { value: string };

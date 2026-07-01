@@ -19,7 +19,7 @@ import {
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
-import { ContextMenu as CMenu } from "@/component";
+import { ContextMenu as CMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
 import { useIsSnapshot } from "@/component/task/Form";
 import { type Channel } from "@/component/task/types";

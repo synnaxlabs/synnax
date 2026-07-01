@@ -9,12 +9,13 @@
 
 import { uuid } from "@synnaxlabs/x";
 
+import { type Layout } from "@/component/layout";
+import { Selector as BaseSelector } from "@/component/selector";
 import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
-import { type Layout } from "@/layout";
-import { Selector as BaseSelector } from "@/selector";
+import { Session } from "@/session";
 
 export const SELECTABLES: BaseSelector.Selectable[] = [
   ...LinePlot.SELECTABLES,
@@ -30,7 +31,7 @@ export const useSelectorVisible = (): boolean =>
   // and never changes between renders, ensuring consistent hook order.
   SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
 
-export const createSelectorLayout = (): Layout.BaseState => ({
+export const createSelectorLayout = (): Session.Layout.BaseState => ({
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Visualize",
   location: "mosaic",

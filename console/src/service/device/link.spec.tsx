@@ -13,10 +13,10 @@ import { id } from "@synnaxlabs/x";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Device } from "@/hardware/device";
-import { NI } from "@/hardware/ni";
+import { useLink } from "@/service/device/link";
+import { NI } from "@/service/ni";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { renderLinkHook } from "@/testUtils";
+import { renderLinkHook } from "@/testutil/testutil";
 
 const client = createTestClient();
 
@@ -36,7 +36,7 @@ const createDevice = async (make: string, name: string) => {
 describe("Device.useLink", () => {
   it("should open the configure modal for the linked device", async () => {
     const device = await createDevice(NI.Device.MAKE, "cDAQ Chassis");
-    const { handler, modals } = renderLinkHook(Device.useLink);
+    const { handler, modals } = renderLinkHook(useLink);
     expect(modals.isAnyOpen()).toBe(false);
     await handler({ client, key: device.key });
     const [entry] = modals.getState();
@@ -53,7 +53,7 @@ describe("Device.useLink", () => {
 
   it("should open nothing for a device with an unrecognized make", async () => {
     const device = await createDevice("not-a-real-make", "Mystery Device");
-    const { handler, modals } = renderLinkHook(Device.useLink);
+    const { handler, modals } = renderLinkHook(useLink);
     await handler({ client, key: device.key });
     expect(modals.isAnyOpen()).toBe(false);
   });

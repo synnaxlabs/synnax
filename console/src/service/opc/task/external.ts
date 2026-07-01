@@ -7,33 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Export } from "@/export";
-import { Common } from "@/hardware/common";
-import { Read, READ_LAYOUT, ReadSelectable } from "@/hardware/opc/task/Read";
+import { type Layout } from "@/component/layout";
+import { type Selector } from "@/component/selector";
+import { type Export } from "@/service/export";
+import { type Import } from "@/service/import";
+import { Read, READ_LAYOUT, ReadSelectable } from "@/service/opc/task/Read";
 import {
   READ_SCHEMAS,
   READ_TYPE,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-} from "@/hardware/opc/task/types";
-import { Write, WRITE_LAYOUT, WriteSelectable } from "@/hardware/opc/task/Write";
-import { type Import } from "@/import";
-import { type Layout } from "@/layout";
-import { type Selector } from "@/selector";
+} from "@/service/opc/task/types";
+import { Write, WRITE_LAYOUT, WriteSelectable } from "@/service/opc/task/Write";
+import { createIngester } from "@/service/task/createIngester";
+import { extract } from "@/service/task/export";
+import { type Layout as TaskLayout } from "@/service/task/Form";
 
-export * from "@/hardware/opc/task/palette";
-export * from "@/hardware/opc/task/Read";
-export * from "@/hardware/opc/task/types";
-export * from "@/hardware/opc/task/Write";
+export * from "@/service/opc/task/palette";
+export * from "@/service/opc/task/Read";
+export * from "@/service/opc/task/types";
+export * from "@/service/opc/task/Write";
 
 export const EXTRACTORS: Export.Extractors = {
-  [READ_TYPE]: Common.Task.extract,
-  [WRITE_TYPE]: Common.Task.extract,
+  [READ_TYPE]: extract,
+  [WRITE_TYPE]: extract,
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [READ_TYPE]: Common.Task.createIngester(READ_SCHEMAS.config, READ_LAYOUT),
-  [WRITE_TYPE]: Common.Task.createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
+  [READ_TYPE]: createIngester(READ_SCHEMAS.config, READ_LAYOUT),
+  [WRITE_TYPE]: createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
@@ -43,7 +45,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 
 export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];
 
-export const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
+export const ZERO_LAYOUTS: Record<string, TaskLayout> = {
   [READ_TYPE]: READ_LAYOUT,
   [WRITE_TYPE]: WRITE_LAYOUT,
 };

@@ -16,14 +16,14 @@ import { useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/component/css";
 import { Task } from "@/component/task";
-import { Session } from "@/session";
+import { useTask } from "@/component/arc/useTask";
 
 const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "arc" };
 
 export const TaskControls = () => {
   const key = Arc.useKey();
   const name = Arc.useSelectName();
-  const { running, onStartStop, taskStatus, taskKey } = Session.Arc.useTask(key, name);
+  const { running, onStartStop, taskStatus, taskKey } = useTask(key, name);
   const taskKeyDefined = primitive.isNonZero(taskKey);
   const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
   const [expanded, setExpanded] = useState(false);

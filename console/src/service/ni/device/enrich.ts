@@ -9,8 +9,8 @@
 
 import { deep, type record } from "@synnaxlabs/x";
 
-import data from "@/hardware/ni/device/enriched.json";
-import { type Properties, ZERO_PROPERTIES } from "@/hardware/ni/device/types";
+import data from "@/service/ni/device/enriched.json";
+import { type Properties, ZERO_PROPERTIES } from "@/service/ni/device/types";
 
 interface PickedEnrichedProperties extends Pick<
   Properties,

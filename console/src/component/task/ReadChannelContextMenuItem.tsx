@@ -9,7 +9,7 @@
 
 import { Component, Menu, Text } from "@synnaxlabs/pluto";
 
-import { ContextMenu } from "@/component";
+import { ContextMenu } from "@/component/context-menu";
 import { type ContextMenuItemProps } from "@/component/task/ChannelList";
 import { getChannelNameID } from "@/component/task/getChannelNameID";
 import { type ReadChannel } from "@/component/task/types";

@@ -9,8 +9,8 @@
 
 import { Table } from "@synnaxlabs/pluto";
 
+import { Project } from "@/component/project";
 import { create } from "@/component/table/layout";
-import { Project } from "@/project";
 
 export const useCreate = Project.createUseCreate({
   useCreate: Table.useCreate,

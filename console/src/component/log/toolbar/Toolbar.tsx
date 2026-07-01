@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/service/log/toolbar/Toolbar.css";
+import "@/component/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
 import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
@@ -19,6 +19,7 @@ import { Export } from "@/component/export";
 import { Channels } from "@/component/log/toolbar/Channels";
 import { Properties } from "@/component/log/toolbar/Properties";
 import { Toolbar as Base } from "@/component/toolbar";
+import { useExport } from "@/service/log/export";
 import { Session } from "@/session";
 
 const TABS: Tabs.Tab[] = [
@@ -26,15 +27,12 @@ const TABS: Tabs.Tab[] = [
   { tabKey: "properties", name: "Properties" },
 ];
 
-export interface ToolbarProps {
-  onExport: () => void;
-}
-
-export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
+const Internal = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const selected = Session.Log.useSelectSelectedToolbarTab();
   const name = Log.useSelectName();
   const key = Log.useKey();
+  const handleExport = useExport();
   const handleTabSelect = useCallback(
     (tab: string) =>
       dispatch(
@@ -67,7 +65,7 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
           <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
-              <Export.ToolbarButton onExport={onExport} />
+              <Export.ToolbarButton onExport={() => handleExport(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(key)}
@@ -81,3 +79,13 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
     </Base.Content>
   );
 };
+
+export interface ToolbarProps {
+  layoutKey: string;
+}
+
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
+  <Log.Suspended logKey={layoutKey}>
+    <Internal />
+  </Log.Suspended>
+);

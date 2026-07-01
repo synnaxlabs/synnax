@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/project/Splash.css";
+import "@/component/project/Splash.css";
 
 import { project, status, UnexpectedError } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
@@ -25,15 +25,13 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/component/css";
 import { Nav as ServiceNav } from "@/component/nav";
 import { Triggers } from "@/component/triggers";
 import { Version } from "@/component/version";
 import { Window as ServiceWindow } from "@/component/window";
-import { Layout } from "@/layout";
-import { select } from "@/session/project/slice";
+import { Session } from "@/session";
 
 const listItem = Component.renderProp(
   (props: List.ItemProps<project.Key>): ReactElement | null => {
@@ -80,19 +78,19 @@ export const Splash = (): ReactElement => {
       if (key == null) return;
       const p = getItem(key);
       if (p == null) throw new UnexpectedError(`Project ${key} not found`);
-      dispatch(select(p));
-      dispatch(Layout.setProject({ slice: p.layout as Layout.SliceState }));
+      dispatch(Session.Project.select(p.key));
+      dispatch(Session.Layout.setProject({ slice: p.layout as Session.Layout.SliceState }));
     },
     [dispatch, getItem],
   );
 
   const { form, save, variant } = PProject.useForm({
     query: {},
-    initialValues: { name: "", layout: Layout.ZERO_SLICE_STATE },
+    initialValues: { name: "", layout: Session.Layout.ZERO_SLICE_STATE },
     afterSave: ({ value }) => {
       const { key, name } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
-      dispatch(select({ key, name }));
+      dispatch(Session.Project.select(key));
     },
   });
 

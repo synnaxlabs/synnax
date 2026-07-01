@@ -12,13 +12,13 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Common } from "@/hardware/common";
-import { ReadChannelDetails } from "@/hardware/ethercat/task/ChannelDetails";
+import { Task } from "@/component/task";
+import { ReadChannelDetails } from "@/service/ethercat/task/ChannelDetails";
 import {
   checkOrCreateIndex,
   findChannelsToCreate,
   retrieveAndValidateSlaves,
-} from "@/hardware/ethercat/task/configure";
+} from "@/service/ethercat/task/configure";
 import {
   channelMapKey,
   createInputChannel,
@@ -31,11 +31,12 @@ import {
   type ReadSchemas,
   resolvePDODataType,
   ZERO_READ_PAYLOAD,
-} from "@/hardware/ethercat/task/types";
-import { Selector } from "@/selector";
+} from "@/service/ethercat/task/types";
+import { Task as ServiceTask } from "@/service/task";
+import { Selector } from "@/component/selector";
 
-export const READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const READ_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.EtherCAT",
@@ -49,19 +50,19 @@ export const ReadSelectable = Selector.createSimpleItem({
 
 const Properties = () => (
   <Flex.Box x grow>
-    <Common.Task.Fields.SampleRate />
-    <Common.Task.Fields.StreamRate />
-    <Common.Task.Fields.DataSaving />
-    <Common.Task.Fields.AutoStart />
+    <Task.Fields.SampleRate />
+    <Task.Fields.StreamRate />
+    <Task.Fields.DataSaving />
+    <Task.Fields.AutoStart />
   </Flex.Box>
 );
 
-const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const ch = PForm.useFieldValue<InputChannel>(path);
   return (
-    <Common.Task.Layouts.ListAndDetailsChannelItem
+    <Task.Layouts.ListAndDetailsChannelItem
       {...props}
       nameDirection="y"
       port={getPortLabel(ch)}
@@ -78,16 +79,16 @@ const channelDetails = Component.renderProp(ReadChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Common.Task.FormProps<ReadSchemas>> = () => (
-  <Common.Task.Layouts.ListAndDetails<InputChannel>
+const Form: FC<Task.FormProps<ReadSchemas>> = () => (
+  <Task.Layouts.ListAndDetails<InputChannel>
     listItem={listItem}
     details={channelDetails}
     createChannel={createInputChannel}
-    contextMenuItems={Common.Task.readChannelContextMenuItem}
+    contextMenuItems={Task.readChannelContextMenuItem}
   />
 );
 
-const getInitialValues: Common.Task.GetInitialValues<ReadSchemas> = ({ config }) => {
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => {
   if (config != null)
     return { ...ZERO_READ_PAYLOAD, config: READ_SCHEMAS.config.parse(config) };
   return { ...ZERO_READ_PAYLOAD };
@@ -99,7 +100,7 @@ const READ_INDEX_OPTIONS = {
   nameSuffix: "_time" as const,
 };
 
-const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -149,7 +150,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
   return [config, rack];
 };
 
-export const Read = Common.Task.wrapForm({
+export const Read = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,

@@ -10,7 +10,7 @@
 import { lineplot } from "@synnaxlabs/client";
 import { Access, LinePlot } from "@synnaxlabs/pluto";
 
-import { Palette } from "@/palette";
+import { Palette } from "@/component/palette";
 import { useCreate } from "@/service/lineplot/useCreate";
 
 const COMMAND_NAME = "Create a line plot";

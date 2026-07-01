@@ -12,20 +12,19 @@ import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Layout } from "@/layout";
-import { Project } from "@/project";
-import { Splash } from "@/project/Splash";
-import { createConsoleWrapper, renderWithConsole } from "@/testUtils";
+import { Splash } from "@/component/project/Splash";
+import { Session } from "@/session";
+import { createConsoleWrapper, renderWithConsole } from "@/testutil/testutil";
 
 const client: Synnax = createTestClient();
 
 // A layout slice with a single placed mosaic tab, distinguishable from the zero
 // slice so the select flow can prove the project's saved layout was loaded.
-const savedLayout = (layoutKey: string): Layout.SliceState => {
-  let s = Layout.reducer(undefined, { type: "@@INIT" });
-  s = Layout.reducer(
+const savedLayout = (layoutKey: string): Session.Layout.SliceState => {
+  let s = Session.Layout.reducer(undefined, { type: "@@INIT" });
+  s = Session.Layout.reducer(
     s,
-    Layout.place({
+    Session.Layout.place({
       windowKey: "main",
       key: layoutKey,
       type: "schematic",
@@ -77,11 +76,10 @@ describe("project/Splash", () => {
       fireEvent.click(await screen.findByText(name));
 
       await waitFor(() => {
-        const active = Project.selectOptionalSelected(store.getState());
-        expect(active?.key).toEqual(proj.key);
-        expect(active?.name).toEqual(name);
+        const active = Session.Project.selectOptionalSelected(store.getState());
+        expect(active).toEqual(proj.key);
       });
-      const placed = Layout.selectByFilter(
+      const placed = Session.Layout.selectByFilter(
         store.getState(),
         (l) => l.key === layoutKey,
       );
@@ -102,11 +100,11 @@ describe("project/Splash", () => {
       fireEvent.click(screen.getByText("Create Project"));
 
       await waitFor(() => {
-        const active = Project.selectOptionalSelected(store.getState());
-        expect(active?.name).toEqual(name);
+        const active = Session.Project.selectOptionalSelected(store.getState());
+        expect(active).not.toBeUndefined();
       });
-      const active = Project.selectOptionalSelected(store.getState());
-      const created = await client.projects.retrieve(active!.key);
+      const active = Session.Project.selectOptionalSelected(store.getState());
+      const created = await client.projects.retrieve(active!);
       expect(created.name).toEqual(name);
     });
   });

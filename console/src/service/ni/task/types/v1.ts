@@ -10,13 +10,14 @@
 import { type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { Common } from "@/hardware/common";
-import * as v0 from "@/hardware/ni/task/types/v0";
-import { createPortValidator } from "@/hardware/ni/task/types/validation";
+import { Device } from "@/component/device";
+import { Task } from "@/component/task";
+import * as v0 from "@/service/ni/task/types/v0";
+import { createPortValidator } from "@/service/ni/task/types/validation";
 
 const validateAnalogPorts = createPortValidator();
 
-const aiChanExtensionShape = { device: Common.Device.keyZ };
+const aiChanExtensionShape = { device: Device.keyZ };
 
 interface AIChanExtension extends z.infer<z.ZodObject<typeof aiChanExtensionShape>> {}
 
@@ -273,10 +274,10 @@ const v1AnalogReadConfigZ = v0.baseAnalogReadConfigZ
   .extend({
     channels: z
       .array(aiChannelZ)
-      .check(Common.Task.validateReadChannels)
+      .check(Task.validateReadChannels)
       .check(validateAnalogPorts),
   })
-  .check(Common.Task.validateStreamRate);
+  .check(Task.validateStreamRate);
 
 export interface AnalogReadConfig extends z.infer<typeof v1AnalogReadConfigZ> {}
 

@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { Range } from "@/session/range";
 
-const STATIC: Range.Static = {
+const STATIC: Range.StaticState = {
   key: "static-1",
   name: "Static 1",
   persisted: true,
@@ -19,7 +19,7 @@ const STATIC: Range.Static = {
   timeRange: { start: 0, end: 1000 },
 };
 
-const DYNAMIC: Range.Dynamic = {
+const DYNAMIC: Range.DynamicState = {
   key: "dynamic-1",
   name: "Dynamic 1",
   persisted: false,
@@ -29,7 +29,7 @@ const DYNAMIC: Range.Dynamic = {
 
 const emptyState = (): Range.SliceState => Range.sliceStateZ.parse({ ranges: [] });
 
-const stateWith = (ranges: Range.Range[], selected?: string): Range.SliceState => ({
+const stateWith = (ranges: Range.State[], selected?: string): Range.SliceState => ({
   ...emptyState(),
   ranges,
   selected,
@@ -61,7 +61,7 @@ describe("range slice", () => {
     });
 
     it("should replace an existing range with the same key", () => {
-      const renamed: Range.Static = { ...STATIC, name: "Replaced" };
+      const renamed: Range.StaticState = { ...STATIC, name: "Replaced" };
       const next = Range.reducer(stateWith([STATIC]), Range.add(renamed));
       expect(next.ranges).toEqual([renamed]);
     });

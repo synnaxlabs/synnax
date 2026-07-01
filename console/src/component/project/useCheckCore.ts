@@ -9,9 +9,8 @@
 
 import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect, useRef } from "react";
-import { useDispatch } from "react-redux";
 
-import { select } from "@/session/project/slice";
+import { Session } from "@/session";
 
 // useCheckCore is a hook run to make sure that the active project is not saved when
 // switching clusters, making sure the user doesn't accidentally lose data because of a
@@ -23,6 +22,6 @@ export const useCheckCore = (): void => {
   useEffect(() => {
     if (clientKeyRef.current === currentClientKey) return;
     clientKeyRef.current = currentClientKey;
-    dispatch(select(null));
+    dispatch(Session.Project.clearSelected());
   }, [currentClientKey, dispatch]);
 };

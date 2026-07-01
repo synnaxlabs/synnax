@@ -11,8 +11,8 @@ import { Color } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v1 from "@/project/services/layoutMigrations/v1";
-import * as v3 from "@/project/services/layoutMigrations/v3";
+import * as v1 from "@/service/project/layoutMigrations/v1";
+import * as v3 from "@/service/project/layoutMigrations/v3";
 
 export const VERSION = "4.0.0";
 

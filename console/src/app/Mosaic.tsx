@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/layouts/Mosaic.css";
+import "@/app/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
@@ -40,20 +40,17 @@ import {
   useEffect,
   useLayoutEffect,
 } from "react";
-import { useDispatch, useStore } from "react-redux";
-
-import { App } from "@/app";
-import { ContextMenu as CMenu } from "@/component";
+import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
+import { Nav as AppNav } from "@/app/nav";
+import { ContextMenu as CMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
-import { Import } from "@/import";
-import { Layout } from "@/layout";
-import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
-import { Ontology } from "@/ontology";
-import { ProjectServices } from "@/project/services";
-import { Runtime } from "@/runtime";
+import { Layout } from "@/component/layout";
+import { Import } from "@/service/import";
+import { Layout as ServiceLayout } from "@/service/layout";
 import { LinePlot } from "@/service/lineplot";
+import { Ontology } from "@/service/ontology";
+import { Project } from "@/service/project";
 import { Session } from "@/session";
-import { type State, type State } from "@/session/store";
 
 const EmptyContent = (): ReactElement => {
   const createComponentEnabled = useSelectorVisible();
@@ -85,7 +82,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       </CMenu.Menu>
     );
   const layoutKey = keys[0];
-  const layout = Layout.useSelect(layoutKey);
+  const layout = Session.Layout.useSelect(layoutKey);
   if (layout == null) return null;
   const C = Layout.useContextMenuRenderer(layout.type);
   return C == null ? (
@@ -103,12 +100,12 @@ interface ModalContentProps extends Tabs.Tab {
 
 const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
   const dispatch = Session.useDispatch();
-  const layout = Layout.useSelectRequired(tabKey);
-  const { windowKey, focused: focusedKey } = Layout.useSelectFocused();
+  const layout = Session.Layout.useSelectRequired(tabKey);
+  const { windowKey, focused: focusedKey } = Session.Layout.useSelectFocused();
   const focused = tabKey === focusedKey;
   const handleClose = () =>
-    windowKey != null && dispatch(Layout.setFocus({ windowKey, key: null }));
-  const openInNewWindow = Layout.useOpenInNewWindow();
+    windowKey != null && dispatch(Session.Layout.setFocus({ windowKey, key: null }));
+  const openInNewWindow = Session.Layout.useOpenInNewWindow();
   const handleOpenInNewWindow = () => {
     openInNewWindow(tabKey);
     handleClose();
@@ -151,7 +148,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
                 </Breadcrumb.Breadcrumb>
               </Nav.Bar.Start>
               <Nav.Bar.End pack>
-                {Runtime.ENGINE === "tauri" && (
+                {Session.Runtime.ENGINE === "tauri" && (
                   <Button.Button
                     onClick={handleOpenInNewWindow}
                     size="small"
@@ -207,7 +204,7 @@ const CustomTabName = ({
 };
 
 const TabName: ComponentType<Tabs.NameProps> = (props) => {
-  const type = Layout.useSelectType(props.tabKey);
+  const type = Session.Layout.useSelectType(props.tabKey);
   const useName = Layout.useNameHook(type);
   if (useName != null) return <CustomTabName key={type} useName={useName} {...props} />;
   return <Tabs.DefaultName {...props} />;
@@ -221,7 +218,7 @@ interface MosaicProps {
 }
 
 export const Mosaic = memo((): ReactElement | null => {
-  const [windowKey, mosaic] = Layout.useSelectMosaic();
+  const [windowKey, mosaic] = Session.Layout.useSelectMosaic();
   return windowKey == null || mosaic == null ? null : (
     <Internal windowKey={windowKey} mosaic={mosaic} />
   );
@@ -231,10 +228,10 @@ Mosaic.displayName = "Mosaic";
 /** LayoutMosaic renders the central layout mosaic of the application. */
 const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = Session.useStore();
-  const activeTab = Layout.useSelectActiveMosaicTabState();
+  const activeTab = Session.Layout.useSelectActiveMosaicTabState();
   const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
-  const removeLayout = Layout.useRemover();
+  const placeLayout = Session.Layout.usePlacer();
+  const removeLayout = Session.Layout.useRemover();
   const dispatch = Session.useDispatch();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
@@ -242,7 +239,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location, index?: number): void => {
       if (windowKey == null) return;
-      dispatch(Layout.moveMosaicTab({ key, tabKey, loc, windowKey, index }));
+      dispatch(Session.Layout.moveMosaicTab({ key, tabKey, loc, windowKey, index }));
     },
     [dispatch, windowKey],
   );
@@ -263,7 +260,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
           if (client == null) return;
           services[id.type].onMosaicDrop?.({
             client,
-            store: store as State,
+            store,
             id,
             nodeKey: mosaicKey,
             location,
@@ -281,25 +278,25 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
 
   LinePlot.useTriggerHold();
 
-  const handleClose = Layout.useRemover();
+  const handleClose = Session.Layout.useRemover();
 
   const handleSelect = useCallback(
     (tabKey: string): void => {
-      dispatch(Layout.selectMosaicTab({ tabKey }));
+      dispatch(Session.Layout.selectMosaicTab({ tabKey }));
     },
     [dispatch],
   );
 
   const handleRename = useCallback(
     (tabKey: string, name: string): void => {
-      dispatch(Layout.rename({ key: tabKey, name }));
+      dispatch(Session.Layout.rename({ key: tabKey, name }));
     },
     [dispatch],
   );
 
   const handleResize = useCallback(
     (key: number, size: number) => {
-      dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
+      dispatch(Session.Layout.resizeMosaicTab({ key, size, windowKey }));
     },
     [dispatch, windowKey],
   );
@@ -313,7 +310,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             await Import.dataTransferItem(item, {
               client,
               fileIngesters,
-              ingestDirectory: ProjectServices.ingest,
+              ingestDirectory: Project.ingest,
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
               placeLayout,
               store,
@@ -346,7 +343,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     root: mosaic,
     onSelect: handleSelect,
     children: ({ tabKey, visible }) => (
-      <Layout.Content key={tabKey} layoutKey={tabKey} forceHidden={visible === false} />
+      <ServiceLayout.Content key={tabKey} layoutKey={tabKey} forceHidden={visible === false} />
     ),
   });
 
@@ -394,14 +391,14 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
 export const MosaicWindow = memo<Layout.Renderer>(
   ({ layoutKey }: Layout.RendererProps) => {
     const dispatch = Session.useDispatch();
-    const [windowKey, mosaic] = Layout.useSelectMosaic();
+    const [windowKey, mosaic] = Session.Layout.useSelectMosaic();
     useLayoutEffect(() => {
       dispatch(Session.Nav.showBottom({}));
     }, [layoutKey]);
     if (windowKey == null || mosaic == null) return null;
     return (
       <>
-        <App.Nav.Bar.AuxTop />
+        <AppNav.Bar.AuxTop />
         <Flex.Box
           y
           gap="tiny"
@@ -410,7 +407,7 @@ export const MosaicWindow = memo<Layout.Renderer>(
           style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
         >
           <Internal windowKey={windowKey} mosaic={mosaic} />
-          <App.Nav.Drawer.Bottom />
+          <AppNav.Drawer.Bottom />
         </Flex.Box>
       </>
     );

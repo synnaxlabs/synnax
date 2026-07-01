@@ -13,7 +13,7 @@ import {
   type OutputChannel,
   SCAN_SCHEMAS,
   WRITE_SCHEMAS,
-} from "@/hardware/opc/task/types";
+} from "@/service/opc/task/types";
 
 describe("OPC Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {

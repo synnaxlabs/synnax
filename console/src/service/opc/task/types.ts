@@ -11,16 +11,16 @@ import { channel, type task } from "@synnaxlabs/client";
 import { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Common } from "@/hardware/common";
-import { connectionConfigZ } from "@/hardware/opc/device/types";
+import { Task } from "@/component/task";
+import { connectionConfigZ } from "@/service/opc/device/types";
 
 export const PREFIX = "opc";
 
-const baseChannelZ = Common.Task.channelZ.extend({
+const baseChannelZ = Task.channelZ.extend({
   channel: channel.keyZ,
   nodeId: z.string(),
   nodeName: z.string(),
-  name: Common.Task.nameZ,
+  name: Task.nameZ,
   dataType: z.string().default("float32"),
 });
 
@@ -62,10 +62,10 @@ const validateNodeIDs = ({
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-const baseReadConfigZ = Common.Task.baseReadConfigZ.extend({
+const baseReadConfigZ = Task.baseReadConfigZ.extend({
   channels: z
     .array(inputChannelZ)
-    .check(Common.Task.validateReadChannels)
+    .check(Task.validateReadChannels)
     .check(validateNodeIDs)
     .check(({ value: channels, issues }) => {
       // Get indexes of channels that are marked as index channels
@@ -87,7 +87,7 @@ const baseReadConfigZ = Common.Task.baseReadConfigZ.extend({
 
 const nonArraySamplingConfigZ = baseReadConfigZ
   .extend({ arrayMode: z.literal(false), streamRate: z.number().positive().max(10000) })
-  .check(Common.Task.validateStreamRate);
+  .check(Task.validateStreamRate);
 
 const arraySamplingConfigZ = baseReadConfigZ
   .extend({ arrayMode: z.literal(true), arraySize: z.number().int().positive() })
@@ -104,7 +104,7 @@ const readConfigZ = z.discriminatedUnion("arrayMode", [
 export type ReadConfig = z.infer<typeof readConfigZ>;
 
 const ZERO_READ_CONFIG: ReadConfig = {
-  ...Common.Task.ZERO_BASE_READ_CONFIG,
+  ...Task.ZERO_BASE_READ_CONFIG,
   arrayMode: false,
   channels: [],
   sampleRate: 50,
@@ -132,10 +132,10 @@ export const ZERO_READ_PAYLOAD = {
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-const writeConfigZ = Common.Task.baseConfigZ.extend({
+const writeConfigZ = Task.baseConfigZ.extend({
   channels: z
     .array(outputChannelZ)
-    .check(Common.Task.validateChannels)
+    .check(Task.validateChannels)
     .check(({ value: channels, issues }) => {
       // Have to have a separate validation here as OPC UA write channels do not have
       // a stateChannel key.
@@ -159,7 +159,7 @@ const writeConfigZ = Common.Task.baseConfigZ.extend({
 interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 export const ZERO_WRITE_CONFIG = {
-  ...Common.Task.ZERO_BASE_CONFIG,
+  ...Task.ZERO_BASE_CONFIG,
   channels: [],
 } as const satisfies WriteConfig;
 

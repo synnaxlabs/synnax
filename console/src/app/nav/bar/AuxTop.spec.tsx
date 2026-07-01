@@ -22,16 +22,15 @@ vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
 import { AuxTop } from "@/app/nav/bar/AuxTop";
 import { renderBar, TIMEOUT, withActiveProject } from "@/app/nav/bar/testutil";
 import { Session } from "@/session";
-import { Layout } from "@/layout";
 
 const TAB = "plot-1";
 
 const withActiveTab = (name: string) =>
   withActiveProject({
-    [Layout.SLICE_NAME]: {
-      ...Layout.ZERO_SLICE_STATE,
+    [Session.Layout.SLICE_NAME]: {
+      ...Session.Layout.ZERO_SLICE_STATE,
       layouts: {
-        ...Layout.ZERO_SLICE_STATE.layouts,
+        ...Session.Layout.ZERO_SLICE_STATE.layouts,
         [TAB]: {
           key: TAB,
           name,
@@ -41,9 +40,9 @@ const withActiveTab = (name: string) =>
         },
       },
       mosaics: {
-        ...Layout.ZERO_SLICE_STATE.mosaics,
+        ...Session.Layout.ZERO_SLICE_STATE.mosaics,
         [MAIN_WINDOW]: {
-          ...Layout.ZERO_SLICE_STATE.mosaics[MAIN_WINDOW],
+          ...Session.Layout.ZERO_SLICE_STATE.mosaics[MAIN_WINDOW],
           activeTab: TAB,
         },
       },

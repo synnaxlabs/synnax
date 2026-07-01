@@ -12,8 +12,8 @@ import { color, id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Channels } from "@/service/log/toolbar/Channels";
-import { client, renderLog, TIMEOUT } from "@/service/log/toolbar/testutil";
+import { Channels } from "@/component/log/toolbar/Channels";
+import { client, renderLog, TIMEOUT } from "@/component/log/toolbar/testutil";
 
 const createChannel = async (): Promise<channel.Key> => {
   const ch = await client.channels.create({

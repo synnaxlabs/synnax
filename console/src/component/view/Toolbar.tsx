@@ -11,7 +11,7 @@ import { Divider, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/component/css";
-import { useContext } from "@/view/context";
+import { useContext } from "@/component/view/context";
 
 export interface ToolbarProps extends Flex.BoxProps {}
 

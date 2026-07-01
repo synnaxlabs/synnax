@@ -9,4 +9,8 @@
 
 export * from "@/component/arc/editor";
 export * from "@/component/arc/Explorer";
+export * from "@/component/arc/layout";
 export * from "@/component/arc/list";
+export * from "@/component/arc/useCreate";
+export * from "@/component/arc/useRename";
+export * from "@/component/arc/useTask";

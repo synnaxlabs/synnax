@@ -11,11 +11,12 @@ import { channel, group } from "@synnaxlabs/client";
 import { Access, Channel, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { EmptyAction, Toolbar } from "@/component";
 import { useCalculatedModal } from "@/component/channel/useCalculatedModal";
 import { useCreateModal } from "@/component/channel/useCreateModal";
-import { Ontology } from "@/ontology";
-import { type Service } from "@/service";
+import { Empty } from "@/component/empty";
+import { type Nav } from "@/component/nav";
+import { Toolbar } from "@/component/toolbar";
+import { Ontology } from "@/service/ontology";
 
 const Actions = (): ReactElement | null => {
   const openCreate = useCreateModal();
@@ -57,7 +58,7 @@ const EmptyContent = (): ReactElement => {
   const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   return (
-    <EmptyAction
+    <Empty.Action
       message="No channels."
       action={hasCreatePermission ? "Create a channel" : undefined}
       onClick={() => openCreate()}
@@ -65,7 +66,7 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Service.Nav.Item = {
+export const TOOLBAR: Nav.Item = {
   key: "channel",
   icon: <Icon.Channel />,
   content: <Content />,

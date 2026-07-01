@@ -11,14 +11,14 @@ import { channel, type task, UnexpectedError } from "@synnaxlabs/client";
 import { caseconv, id } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { Common } from "@/hardware/common";
-import { type SlaveDevice } from "@/hardware/ethercat/device/types";
+import { Task } from "@/component/task";
+import { type SlaveDevice } from "@/service/ethercat/device/types";
 
 export const PREFIX = "ethercat";
 
-const baseChannelZ = Common.Task.channelZ.extend({
+const baseChannelZ = Task.channelZ.extend({
   device: z.string(),
-  name: Common.Task.nameZ,
+  name: Task.nameZ,
 });
 
 const automaticChannelZ = baseChannelZ.extend({
@@ -76,8 +76,8 @@ export const ZERO_INPUT_CHANNELS = {
 const outputChannelExtensionShape = {
   cmdChannel: channel.keyZ,
   stateChannel: channel.keyZ,
-  cmdChannelName: Common.Task.nameZ,
-  stateChannelName: Common.Task.nameZ,
+  cmdChannelName: Task.nameZ,
+  stateChannelName: Task.nameZ,
 } as const;
 
 const outputChannelZ = z.union([
@@ -125,14 +125,14 @@ export type Channel = InputChannel | OutputChannel;
 
 export type ChannelMode = Channel["type"];
 
-const readConfigZ = Common.Task.baseReadConfigZ
+const readConfigZ = Task.baseReadConfigZ
   .omit({ device: true })
   .extend({
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
     channels: z.array(inputChannelZ),
   })
-  .check(Common.Task.validateStreamRate);
+  .check(Task.validateStreamRate);
 
 interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
@@ -174,7 +174,7 @@ export const ZERO_READ_PAYLOAD = {
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-const writeConfigZ = Common.Task.baseConfigZ.omit({ device: true }).extend({
+const writeConfigZ = Task.baseConfigZ.omit({ device: true }).extend({
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
   channels: z.array(outputChannelZ),
@@ -228,7 +228,7 @@ export const createInputChannel = (channels: InputChannel[]): InputChannel => {
   if (channels.length === 0)
     return { ...ZERO_AUTOMATIC_INPUT_CHANNEL, key: id.create() };
   const last = channels[channels.length - 1];
-  return { ...last, ...Common.Task.READ_CHANNEL_OVERRIDE, key: id.create() };
+  return { ...last, ...Task.READ_CHANNEL_OVERRIDE, key: id.create() };
 };
 
 /** Creates a new output channel, copying from the last channel if available. */

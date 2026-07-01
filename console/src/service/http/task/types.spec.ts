@@ -16,7 +16,7 @@ import {
   SCAN_SCHEMAS,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-} from "@/hardware/http/task/types";
+} from "@/service/http/task/types";
 
 describe("HTTP Task Types", () => {
   const readField = {

@@ -12,13 +12,13 @@ import { Icon } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { z } from "zod";
 
-import { EtherCAT } from "@/hardware/ethercat";
-import { HTTP } from "@/hardware/http";
-import { LabJack } from "@/hardware/labjack";
-import { Modbus } from "@/hardware/modbus";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { type Ontology } from "@/ontology";
+import { EtherCAT } from "@/service/ethercat";
+import { HTTP } from "@/service/http";
+import { LabJack } from "@/service/labjack";
+import { Modbus } from "@/service/modbus";
+import { NI } from "@/service/ni";
+import { OPC } from "@/service/opc";
+import { type Ontology } from "@/service/ontology";
 
 export const makeZ = z.enum([
   EtherCAT.Device.MAKE,
@@ -77,12 +77,12 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
 const CONTEXT_MENU_ITEMS: Partial<
   Record<Make, (props: Ontology.TreeContextMenuProps) => ReactElement | null>
 > = {
-  [EtherCAT.Device.MAKE]: EtherCAT.DeviceServices.ContextMenuItems,
-  [HTTP.Device.MAKE]: HTTP.DeviceServices.ContextMenuItems,
-  [LabJack.Device.MAKE]: LabJack.DeviceServices.ContextMenuItems,
-  [Modbus.Device.MAKE]: Modbus.DeviceServices.ContextMenuItems,
-  [NI.Device.MAKE]: NI.DeviceServices.ContextMenuItems,
-  [OPC.Device.MAKE]: OPC.DeviceServices.ContextMenuItems,
+  [EtherCAT.Device.MAKE]: EtherCAT.Device.ContextMenuItems,
+  [HTTP.Device.MAKE]: HTTP.Device.ContextMenuItems,
+  [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,
+  [Modbus.Device.MAKE]: Modbus.Device.ContextMenuItems,
+  [NI.Device.MAKE]: NI.Device.ContextMenuItems,
+  [OPC.Device.MAKE]: OPC.Device.ContextMenuItems,
 };
 
 export const getContextMenuItems = (make: unknown) => {

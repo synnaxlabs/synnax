@@ -24,7 +24,7 @@ import { StartStopButton } from "@/component/task/controls/StartStopButton";
 import { Status } from "@/component/task/controls/Status";
 import { useKey } from "@/component/task/useKey";
 import { useStatus } from "@/component/task/useStatus";
-import { Layout } from "@/layout";
+import { Session } from "@/session";
 
 export interface ControlsProps extends Flex.BoxProps {
   layoutKey: string;
@@ -49,7 +49,7 @@ export const Controls = ({
   const handleError = BaseStatus.useErrorHandler();
   const client = Synnax.use();
   const key = useKey();
-  const hasTriggers = Layout.useSelectActiveMosaicTabKeyAndNotBlurred() != null;
+  const hasTriggers = Session.Layout.useSelectActiveMosaicTabKeyAndNotBlurred() != null;
 
   const [expanded, setExpanded] = useState(false);
 

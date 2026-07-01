@@ -12,13 +12,13 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Common } from "@/hardware/common";
-import { WriteChannelDetails } from "@/hardware/ethercat/task/ChannelDetails";
+import { Task } from "@/component/task";
+import { WriteChannelDetails } from "@/service/ethercat/task/ChannelDetails";
 import {
   checkOrCreateIndex,
   findChannelsToCreate,
   retrieveAndValidateSlaves,
-} from "@/hardware/ethercat/task/configure";
+} from "@/service/ethercat/task/configure";
 import {
   channelMapKey,
   createOutputChannel,
@@ -31,11 +31,12 @@ import {
   WRITE_TYPE,
   type WriteSchemas,
   ZERO_WRITE_PAYLOAD,
-} from "@/hardware/ethercat/task/types";
-import { Selector } from "@/selector";
+} from "@/service/ethercat/task/types";
+import { Task as ServiceTask } from "@/service/task";
+import { Selector } from "@/component/selector";
 
-export const WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const WRITE_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.EtherCAT",
@@ -54,19 +55,19 @@ const Properties = () => (
       label="Execution Rate"
       inputProps={EXECUTION_RATE_INPUT_PROPS}
     />
-    <Common.Task.Fields.StateUpdateRate />
-    <Common.Task.Fields.AutoStart />
+    <Task.Fields.StateUpdateRate />
+    <Task.Fields.AutoStart />
   </Flex.Box>
 );
 
 const EXECUTION_RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 
-const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const ch = PForm.useFieldValue<OutputChannel>(path);
   return (
-    <Common.Task.Layouts.ListAndDetailsChannelItem
+    <Task.Layouts.ListAndDetailsChannelItem
       {...props}
       port={getPortLabel(ch)}
       path={path}
@@ -84,16 +85,16 @@ const channelDetails = Component.renderProp(WriteChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => (
-  <Common.Task.Layouts.ListAndDetails<OutputChannel>
+const Form: FC<Task.FormProps<WriteSchemas>> = () => (
+  <Task.Layouts.ListAndDetails<OutputChannel>
     listItem={listItem}
     details={channelDetails}
     createChannel={createOutputChannel}
-    contextMenuItems={Common.Task.writeChannelContextMenuItems}
+    contextMenuItems={Task.writeChannelContextMenuItems}
   />
 );
 
-const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({ config }) => {
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => {
   if (config != null)
     return { ...ZERO_WRITE_PAYLOAD, config: WRITE_SCHEMAS.config.parse(config) };
   return { ...ZERO_WRITE_PAYLOAD };
@@ -105,7 +106,7 @@ const WRITE_INDEX_OPTIONS = {
   nameSuffix: "_state_time" as const,
 };
 
-const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -186,7 +187,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, rack];
 };
 
-export const Write = Common.Task.wrapForm({
+export const Write = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,

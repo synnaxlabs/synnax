@@ -11,13 +11,12 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { renderLog } from "@/service/log/toolbar/testutil";
-import { Toolbar } from "@/service/log/toolbar/Toolbar";
+import { renderLog } from "@/component/log/toolbar/testutil";
+import { Toolbar } from "@/component/log/toolbar/Toolbar";
 import { Session } from "@/session";
-import { Layout } from "@/layout";
-import { type ConsolePreloadedState } from "@/testUtils";
+import { type ConsolePreloadedState } from "@/testutil/testutil";
 
-const layoutState = (key: string, name: string): Layout.State => ({
+const layoutState = (key: string, name: string): Session.Layout.State => ({
   key,
   windowKey: MAIN_WINDOW,
   type: "log",
@@ -30,9 +29,12 @@ const preloadedState = (
   name: string,
   logState: Partial<Session.Log.State> = {},
 ): ConsolePreloadedState => ({
-  [Layout.SLICE_NAME]: {
-    ...Layout.ZERO_SLICE_STATE,
-    layouts: { ...Layout.ZERO_SLICE_STATE.layouts, [key]: layoutState(key, name) },
+  [Session.Layout.SLICE_NAME]: {
+    ...Session.Layout.ZERO_SLICE_STATE,
+    layouts: {
+      ...Session.Layout.ZERO_SLICE_STATE.layouts,
+      [key]: layoutState(key, name),
+    },
   },
   [Session.Log.SLICE_NAME]: {
     ...Session.Log.ZERO_SLICE_STATE,

@@ -11,13 +11,10 @@ import { lineplot } from "@synnaxlabs/client";
 import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useStore } from "react-redux";
 
-import { Layout } from "@/layout";
-import { fromClientRange } from "@/range/translate";
-import { LAYOUT_TYPE } from "@/service/lineplot/layout";
+import { LAYOUT_TYPE } from "@/component/lineplot/layout";
+import { Session } from "@/session";
 import { add } from "@/session/range/slice";
-import { type State } from "@/session/store";
 
 export const useAddToActivePlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
@@ -31,9 +28,9 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
           if (variant === "error") addStatus(status);
           return;
         }
-        const active = Layout.selectActiveMosaicLayout(store.getState());
+        const active = Session.Layout.selectActiveMosaicLayout(store.getState());
         if (active == null || active.type !== LAYOUT_TYPE || client == null) return;
-        store.dispatch(add({ ranges: fromClientRange(data) }));
+        Session.Range.fromClient(data).forEach((r) => store.dispatch(add(r)));
         handleError(
           () =>
             client.lineplots.dispatch(

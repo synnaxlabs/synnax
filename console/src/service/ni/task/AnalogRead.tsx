@@ -12,11 +12,13 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/ni/device";
-import { AIChannelForm } from "@/hardware/ni/task/AIChannelForm";
-import { createAIChannel } from "@/hardware/ni/task/createChannel";
-import { SelectAIChannelTypeField } from "@/hardware/ni/task/SelectAIChannelTypeField";
+import { Device as CommonDevice } from "@/component/device";
+import { Task } from "@/component/task";
+import { Task as ServiceTask } from "@/service/task";
+import { Device } from "@/service/ni/device";
+import { AIChannelForm } from "@/service/ni/task/AIChannelForm";
+import { createAIChannel } from "@/service/ni/task/createChannel";
+import { SelectAIChannelTypeField } from "@/service/ni/task/SelectAIChannelTypeField";
 import {
   AI_CHANNEL_TYPE_ICONS,
   AI_CHANNEL_TYPE_NAMES,
@@ -28,11 +30,11 @@ import {
   type AnalogReadSchemas,
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
-} from "@/hardware/ni/task/types";
-import { Selector } from "@/selector";
+} from "@/service/ni/task/types";
+import { Selector } from "@/component/selector";
 
-export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const ANALOG_READ_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: ANALOG_READ_TYPE,
   name: ZERO_ANALOG_READ_PAYLOAD.name,
   icon: "Logo.NI",
@@ -46,29 +48,29 @@ export const AnalogReadSelectable = Selector.createSimpleItem({
 
 const Properties = () => (
   <>
-    <Common.Task.Fields.SampleRate />
+    <Task.Fields.SampleRate />
     <Flex.Box x grow>
-      <Common.Task.Fields.StreamRate />
-      <Common.Task.Fields.DataSaving />
-      <Common.Task.Fields.AutoStart />
+      <Task.Fields.StreamRate />
+      <Task.Fields.DataSaving />
+      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
 
-interface ChannelListItemProps extends Common.Task.ChannelListItemProps {
+interface ChannelListItemProps extends Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
 }
 
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const path = `config.channels.${rest.itemKey}`;
   const { port, type, channel, enabled } = PForm.useFieldValue<AIChannel>(path);
-  const isSnapshot = Common.Task.useIsSnapshot();
-  const isRunning = Common.Task.useIsRunning();
+  const isSnapshot = Task.useIsSnapshot();
+  const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = enabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
   return (
-    <Common.Task.Layouts.ListAndDetailsChannelItem
+    <Task.Layouts.ListAndDetailsChannelItem
       {...rest}
       port={port}
       canTare={canTare}
@@ -82,7 +84,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   );
 };
 
-const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
+const ChannelDetails = ({ path }: Task.Layouts.DetailsProps) => {
   const type = PForm.useFieldValue<AIChannelType>(`${path}.type`);
   return (
     <>
@@ -94,27 +96,27 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const Form: FC<Common.Task.FormProps<AnalogReadSchemas>> = () => {
-  const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>();
+const Form: FC<Task.FormProps<AnalogReadSchemas>> = () => {
+  const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
   const listItem = useCallback(
-    ({ key, ...rest }: Common.Task.ChannelListItemProps) => (
+    ({ key, ...rest }: Task.ChannelListItemProps) => (
       <ChannelListItem key={key} {...rest} onTare={tare} />
     ),
     [tare],
   );
   return (
-    <Common.Task.Layouts.ListAndDetails<AIChannel>
+    <Task.Layouts.ListAndDetails<AIChannel>
       listItem={listItem}
       details={channelDetails}
       createChannel={createAIChannel}
       onTare={handleTare}
       allowTare={allowTare}
-      contextMenuItems={Common.Task.readChannelContextMenuItem}
+      contextMenuItems={Task.readChannelContextMenuItem}
     />
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<AnalogReadSchemas> = ({
+const getInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({
   deviceKey,
   config,
 }) => {
@@ -135,7 +137,7 @@ const getInitialValues: Common.Task.GetInitialValues<AnalogReadSchemas> = ({
   };
 };
 
-const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
+const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   client,
   config,
 ) => {
@@ -154,7 +156,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
     );
   }
   for (const dev of allDevices) {
-    Common.Device.checkConfigured(dev);
+    CommonDevice.checkConfigured(dev);
     dev.properties = Device.enrich(dev.model, dev.properties);
     rackKey = dev.rack;
     let modified = false;
@@ -218,7 +220,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
   return [config, rackKey];
 };
 
-export const AnalogRead = Common.Task.wrapForm({
+export const AnalogRead = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_READ_SCHEMAS,

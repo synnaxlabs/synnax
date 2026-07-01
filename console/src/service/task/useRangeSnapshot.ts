@@ -12,11 +12,11 @@ import { type Flux, Status, Task } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Range } from "@/range";
+import { Session } from "@/session";
 
 export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
-  const rng = Range.useSelect();
+  const rng = Session.Range.useSelectState();
   const buildMessage = useCallback(
     ({ tasks }: Task.SnapshotParams) =>
       `${strings.naturalLanguageJoin(

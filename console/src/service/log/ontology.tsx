@@ -16,7 +16,6 @@ import { ContextMenu } from "@/component/context-menu";
 import { Export } from "@/component/export";
 import { create } from "@/component/log/layout";
 import { Group } from "@/service/group";
-import { Layout } from "@/service/layout";
 import { Link } from "@/service/link";
 import { useExport } from "@/service/log/export";
 import { Ontology } from "@/service/ontology";
@@ -39,8 +38,8 @@ const useRename = Ontology.createUseRename({
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
     const { key, name } = data;
-    store.dispatch(Layout.rename({ key, name }));
-    rollbacks.push(() => store.dispatch(Layout.rename({ key, name: oldName })));
+    store.dispatch(Session.Layout.rename({ key, name }));
+    rollbacks.push(() => store.dispatch(Session.Layout.rename({ key, name: oldName })));
     return { ...data, name };
   },
 });
@@ -93,7 +92,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const loadLog = async (
   client: Synnax,
   { key }: ontology.ID,
-  placeLayout: Layout.Placer,
+  placeLayout: Session.Layout.Placer,
 ) => {
   const l = await client.logs.retrieve({ key });
   placeLayout(create({ key: l.key, name: l.name }));

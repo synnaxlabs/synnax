@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/auth/Login.css";
+import "@/service/auth/Login.css";
 
 import { status, Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
@@ -21,12 +21,12 @@ import {
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { LoginNav } from "@/auth/LoginNav";
-import { Cluster } from "@/cluster";
 import { CSS } from "@/component/css";
+import { Cluster } from "@/service/cluster";
+import { LoginNav } from "@/service/auth/LoginNav";
+import { Session } from "@/session";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
@@ -54,9 +54,9 @@ export const Login = (): ReactElement => {
   const [stat, setStatus] = useState<status.Status>(() =>
     status.create({ variant: "disabled", message: "" }),
   );
-  const clusters = Cluster.useSelectMany();
+  const clusters = Session.Cluster.useSelectMany();
   const [selectedKey, setSelectedKey] = useState<string | undefined>(clusters[0]?.key);
-  const selectedCluster = Cluster.useSelect(selectedKey);
+  const selectedCluster = Session.Cluster.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
 
@@ -88,8 +88,8 @@ export const Login = (): ReactElement => {
         const message = state.message ?? "Unknown error";
         return setStatus(status.create({ variant: "error", message }));
       }
-      dispatch(Cluster.set({ ...clusterToConnect, key, ...credentials }));
-      dispatch(Cluster.setActive(key));
+      dispatch(Session.Cluster.set({ ...clusterToConnect, key, ...credentials }));
+      dispatch(Session.Cluster.select(key));
     }, "Failed to log in");
 
   const handleSelectedClusterChange = useCallback(

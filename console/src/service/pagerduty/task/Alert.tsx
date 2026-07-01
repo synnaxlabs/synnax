@@ -26,8 +26,10 @@ import {
 import { id } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
-import { ContextMenu, EmptyAction } from "@/component";
-import { Common } from "@/hardware/common";
+import { ContextMenu } from "@/component/context-menu";
+import { Empty } from "@/component/empty";
+import { Task } from "@/component/task";
+import { Task as ServiceTask } from "@/service/task";
 import {
   ALERT_SCHEMAS,
   ALERT_TYPE,
@@ -36,11 +38,11 @@ import {
   type AlertSchemas,
   ZERO_ALERT_CONFIG,
   ZERO_ALERT_PAYLOAD,
-} from "@/hardware/pagerduty/task/types";
-import { Selector } from "@/selector";
+} from "@/service/pagerduty/task/types";
+import { Selector } from "@/component/selector";
 
-export const ALERT_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const ALERT_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: ALERT_TYPE,
   name: ZERO_ALERT_PAYLOAD.name,
   icon: "Logo.PagerDuty",
@@ -64,7 +66,7 @@ const Properties = () => (
     <PForm.Field<number> path="rackKey" label="Connect from" grow>
       {selectRackRenderProp}
     </PForm.Field>
-    <Common.Task.Fields.AutoStart />
+    <Task.Fields.AutoStart />
   </Flex.Box>
 );
 
@@ -139,7 +141,7 @@ interface EmptyActionContentProps {
 }
 
 const EmptyActionContent = ({ onAdd }: EmptyActionContentProps) => (
-  <EmptyAction message="No alerts." action="Add an alert" onClick={onAdd} />
+  <Empty.Action message="No alerts." action="Add an alert" onClick={onAdd} />
 );
 
 const AlertListItem = (props: List.ItemProps<string>) => {
@@ -162,7 +164,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
           {isNotDefined ? "New alert" : status.name}
         </Text.Text>
       </Flex.Box>
-      <Common.Task.EnableDisableButton path={`config.alerts.${itemKey}.enabled`} />
+      <Task.EnableDisableButton path={`config.alerts.${itemKey}.enabled`} />
     </Select.ListItem>
   );
 };
@@ -210,7 +212,7 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
   );
 };
 
-const Form: FC<Common.Task.FormProps<AlertSchemas>> = () => {
+const Form: FC<Task.FormProps<AlertSchemas>> = () => {
   const { data, push, remove } = PForm.useFieldList<string, AlertConfig>(
     "config.alerts",
   );
@@ -291,21 +293,21 @@ const Form: FC<Common.Task.FormProps<AlertSchemas>> = () => {
       </Flex.Box>
       <Divider.Divider direction="y" />
       <Flex.Box y grow empty>
-        <Common.Task.Layouts.DetailsHeader
+        <Task.Layouts.DetailsHeader
           path={selected.length > 0 ? `config.alerts.${selected[0]}` : ""}
           disabled={selected.length === 0}
         />
         {selected.length > 0 ? (
           <AlertDetails itemKey={selected[0]} />
         ) : (
-          <EmptyAction message="No alert selected." grow />
+          <Empty.Action message="No alert selected." grow />
         )}
       </Flex.Box>
     </Flex.Box>
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<AlertSchemas> = ({ config }) => {
+const getInitialValues: Task.GetInitialValues<AlertSchemas> = ({ config }) => {
   const pld: AlertPayload = { ...ZERO_ALERT_PAYLOAD };
   if (config != null) {
     const parsed = ALERT_SCHEMAS.config.safeParse(config);
@@ -314,12 +316,12 @@ const getInitialValues: Common.Task.GetInitialValues<AlertSchemas> = ({ config }
   return pld;
 };
 
-const onConfigure: Common.Task.OnConfigure<AlertSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<AlertSchemas["config"]> = async (
   _client: Client,
   config,
 ) => [config, 0];
 
-export const Alert = Common.Task.wrapForm({
+export const Alert = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: ALERT_SCHEMAS,

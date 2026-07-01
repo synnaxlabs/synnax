@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/hardware/http/device/palette";
-export * from "@/hardware/http/device/Select";
-export * from "@/hardware/http/device/types";
-export * from "@/hardware/http/device/useConnectModal";
+export * from "@/service/http/device/ontology";
+export * from "@/service/http/device/palette";
+export * from "@/service/http/device/Select";
+export * from "@/service/http/device/types";
+export * from "@/service/http/device/useConnectModal";

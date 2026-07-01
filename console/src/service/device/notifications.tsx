@@ -10,9 +10,9 @@
 import { type device } from "@synnaxlabs/client";
 import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
-import { getIcon, getMake, type Make, useConfigureModal } from "@/hardware/device/make";
-import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";
-import { type Notifications } from "@/notifications";
+import { getIcon, getMake, type Make, useConfigureModal } from "@/service/device/make";
+import { getKeyFromStatus } from "@/service/device/useListenForChanges";
+import { type Notifications } from "@/component/notifications";
 
 const shouldShowConfigureButton = (make: Make): boolean =>
   make === "NI" || make === "LabJack" || make === "ethercat";

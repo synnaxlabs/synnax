@@ -11,7 +11,7 @@ import { Icon, Input } from "@synnaxlabs/pluto";
 import { plural } from "pluralize";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { useContext, useFormContext } from "@/view/context";
+import { useContext, useFormContext } from "@/component/view/context";
 
 export const Search = (): ReactElement | null => {
   const { search } = useFormContext("View.Search");

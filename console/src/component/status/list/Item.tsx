@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/status/list/Item.css";
+import "@/component/status/list/Item.css";
 
 import { type status } from "@synnaxlabs/client";
 import {
@@ -24,10 +24,10 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useMemo } from "react";
-import { useDispatch } from "react-redux";
 
-import { FavoriteButton } from "@/component";
+import { Button } from "@/component/button";
 import { CSS } from "@/component/css";
+import { Session } from "@/session";
 import { useSelectIsFavorite } from "@/session/status/selectors";
 import { toggleFavorite } from "@/session/status/slice";
 
@@ -109,7 +109,11 @@ export const Item = (props: ItemProps): ReactElement | null => {
             </Telem.Text.TimeSpanSince>
             <Icon.Time color={8} />
           </Text.Text>
-          <FavoriteButton isFavorite={isFavorite} onFavorite={handleFavorite} ghost />
+          <Button.Favorite
+            isFavorite={isFavorite}
+            onFavorite={handleFavorite}
+            ghost
+          />
         </Flex.Box>
       </Form.Form>
     </List.Item>

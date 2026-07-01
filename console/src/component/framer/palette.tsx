@@ -10,8 +10,8 @@
 import { framer } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { useDeleteDataModal } from "@/service/framer/useDeleteDataModal";
-import { Palette } from "@/palette";
+import { useDeleteDataModal } from "@/component/framer/useDeleteDataModal";
+import { Palette } from "@/component/palette";
 
 const DeleteDataCommand = Palette.createCommand({
   key: "delete_data",

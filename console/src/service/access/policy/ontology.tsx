@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Ontology } from "@/ontology";
+import { Ontology } from "@/service/ontology";
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,

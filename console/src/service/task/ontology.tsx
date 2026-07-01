@@ -11,20 +11,19 @@ import { ontology, task } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
-import { Cluster } from "@/cluster";
-import { ContextMenu } from "@/component";
-import { Export } from "@/export";
-import { Common } from "@/hardware/common";
-import { type FormLayoutArgs } from "@/component/task/Form";
-import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
-import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
+import { Cluster } from "@/component/cluster";
+import { ContextMenu } from "@/component/context-menu";
+import { Export } from "@/component/export";
+import { Task } from "@/component/task";
 import { Group } from "@/service/group";
 import { Link } from "@/service/link";
-import { Layout } from "@/layout";
-import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createUseDelete";
-import { createUseRename } from "@/ontology/createUseRename";
-import { Range } from "@/range";
+import { Ontology } from "@/service/ontology";
+import { Range } from "@/service/range";
+import { type FormLayoutArgs } from "@/component/task/Form";
+import { useExport } from "@/service/task/export";
+import { createLayout, retrieveAndPlaceLayout } from "@/service/task/layouts";
+import { useRangeSnapshot } from "@/service/task/useRangeSnapshot";
+import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
@@ -41,7 +40,7 @@ const handleSelect: Ontology.HandleSelect = ({
   );
 };
 
-const useDelete = createUseDelete({
+const useDelete = Ontology.createUseDelete({
   type: "Task",
   query: Base.useDelete,
   convertKey: String,
@@ -51,19 +50,19 @@ const useDelete = createUseDelete({
   },
 });
 
-export const useRename = createUseRename({
+export const useRename = Ontology.createUseRename({
   query: Base.useRename,
   ontologyID: task.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
     const { key, name } = data;
-    const layout = Layout.selectByFilter(
+    const layout = Session.Layout.selectByFilter(
       store.getState(),
       (l) => (l.args as FormLayoutArgs)?.taskKey === key,
     );
     if (layout != null) {
-      store.dispatch(Layout.rename({ key: layout.key, name }));
-      rollbacks.push(() => Layout.rename({ key: layout.key, name: oldName }));
+      store.dispatch(Session.Layout.rename({ key: layout.key, name }));
+      rollbacks.push(() => Session.Layout.rename({ key: layout.key, name: oldName }));
     }
     return { ...data, name };
   },
@@ -82,9 +81,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = Common.Task.useExport();
+  const handleExport = useExport();
   const snap = useRangeSnapshot();
-  const range = Range.useSelect();
+  const range = Session.Range.useSelectState();
   const group = Group.useCreateFromSelection();
   const rename = useRename(props);
   const ontologyIDs = useMemo(() => ids.map((id) => task.ontologyID(id.key)), [ids]);

@@ -22,13 +22,13 @@ import {
 import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
-import { Cluster } from "@/cluster";
+import { Cluster } from "@/component/cluster";
 import { CSS } from "@/component/css";
 import { CSV } from "@/component/csv";
 import { Label } from "@/component/label";
-import { Layout } from "@/layout";
-import { FavoriteButton } from "@/range/FavoriteButton";
-import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
+import { FavoriteButton } from "@/component/range/FavoriteButton";
+import { OVERVIEW_LAYOUT } from "@/component/range/overview/layout";
+import { Session } from "@/session";
 
 interface ParentRangeButtonProps {
   rangeKey: string;
@@ -38,7 +38,7 @@ const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const res = Ranger.useRetrieveParent({ id: ranger.ontologyID(rangeKey) });
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
   const Icon = Ranger.STAGE_ICONS[Ranger.getStage(parent.timeRange)];

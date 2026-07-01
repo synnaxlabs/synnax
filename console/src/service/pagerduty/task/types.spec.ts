@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ALERT_SCHEMAS, ZERO_ALERT_TASK_CONFIG } from "@/hardware/pagerduty/task/types";
+import { ALERT_SCHEMAS, ZERO_ALERT_TASK_CONFIG } from "@/service/pagerduty/task/types";
 
 describe("PagerDuty Alert Task Types", () => {
   describe("config schema", () => {

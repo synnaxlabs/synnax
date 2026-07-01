@@ -9,15 +9,16 @@
 
 import { uuid } from "@synnaxlabs/x";
 
-import { Hardware } from "@/hardware";
+import { type Layout } from "@/component/layout";
+import { Selector as BaseSelector } from "@/component/selector";
 import { Arc } from "@/service/arc";
-import { type Layout } from "@/layout";
-import { Selector as BaseSelector } from "@/selector";
-import { Vis } from "@/vis";
+import { Task } from "@/service/task";
+import { Vis } from "@/service/vis";
+import { type Session } from "@/session";
 
 const SELECTABLES: BaseSelector.Selectable[] = [
   ...Vis.SELECTABLES,
-  ...Hardware.SELECTABLES,
+  ...Task.SELECTABLES,
   ...Arc.SELECTABLES,
 ];
 
@@ -29,13 +30,13 @@ export const useSelectorVisible = (): boolean =>
 export const SELECTOR_LAYOUT_TYPE = "layoutSelector";
 
 export interface CreateSelectorLayoutArgs extends Omit<
-  Layout.BaseState,
+  Session.Layout.BaseState,
   "type" | "icon" | "location" | "name" | "key"
 > {}
 
 export const createSelectorLayout = (
   args: CreateSelectorLayoutArgs = {},
-): Layout.BaseState => ({
+): Session.Layout.BaseState => ({
   ...args,
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Visualize",

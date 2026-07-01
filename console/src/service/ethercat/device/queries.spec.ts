@@ -20,7 +20,7 @@ import {
   useRetrieveSlave,
   useRetrieveSlaveStateful,
   useToggleEnabled,
-} from "@/hardware/ethercat/device/queries";
+} from "@/service/ethercat/device/queries";
 import {
   MAKE,
   type makeZ,
@@ -30,8 +30,8 @@ import {
   type SlaveProperties,
   type slavePropertiesZ,
   ZERO_SLAVE_PROPERTIES,
-} from "@/hardware/ethercat/device/types";
-import { type Channel } from "@/hardware/ethercat/task/types";
+} from "@/service/ethercat/device/types";
+import { type Channel } from "@/service/ethercat/task/types";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();

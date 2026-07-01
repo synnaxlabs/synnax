@@ -12,8 +12,8 @@ import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { SLAVE_SCHEMAS } from "@/hardware/ethercat/device/types";
-import { type Channel } from "@/hardware/ethercat/task/types";
+import { SLAVE_SCHEMAS } from "@/service/ethercat/device/types";
+import { type Channel } from "@/service/ethercat/task/types";
 
 export const {
   useRetrieve: useRetrieveSlave,

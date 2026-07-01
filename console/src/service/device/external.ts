@@ -7,18 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TOOLBAR } from "@/hardware/device/Toolbar";
-import { HTTP } from "@/hardware/http";
-import { Modbus } from "@/hardware/modbus";
-import { OPC } from "@/hardware/opc";
-import { type Service } from "@/service";
-import { type Palette } from "@/palette";
+import { type Nav } from "@/component/nav";
+import { type Palette } from "@/component/palette";
+import { HTTP } from "@/service/http";
+import { Modbus } from "@/service/modbus";
+import { OPC } from "@/service/opc";
+import { TOOLBAR } from "@/service/device/Toolbar";
 
-export * from "@/hardware/device/link";
-export * from "@/hardware/device/notifications";
-export * from "@/hardware/device/ontology";
-export * from "@/hardware/device/Toolbar";
-export * from "@/hardware/device/useListenForChanges";
+export * from "@/service/device/ChangeIdentifierMenuItem";
+export * from "@/service/device/ConfigureMenuItem";
+export * from "@/service/device/EditConnectionMenuItem";
+export * from "@/service/device/link";
+export * from "@/service/device/notifications";
+export * from "@/service/device/ontology";
+export * from "@/service/device/TaskContextMenuItems";
+export * from "@/service/device/Toolbar";
+export * from "@/service/device/useListenForChanges";
 
 export const COMMANDS: Palette.Command[] = [
   ...HTTP.Device.COMMANDS,
@@ -26,4 +30,4 @@ export const COMMANDS: Palette.Command[] = [
   ...OPC.Device.COMMANDS,
 ];
 
-export const NAV_DRAWER_ITEMS: Service.Nav.Item[] = [TOOLBAR];
+export const NAV_DRAWER_ITEMS: Nav.Item[] = [TOOLBAR];

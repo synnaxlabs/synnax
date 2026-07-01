@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/range/Create.css";
+import "@/component/range/Create.css";
 
 import { type ranger, TimeStamp } from "@synnaxlabs/client";
 import {
@@ -23,13 +23,13 @@ import {
 } from "@synnaxlabs/pluto";
 import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
-import { useDispatch } from "react-redux";
 import { type z } from "zod";
 
 import { CSS } from "@/component/css";
 import { Label } from "@/component/label";
 import { Modals } from "@/component/modals";
 import { Triggers } from "@/component/triggers";
+import { Session } from "@/session";
 import { add } from "@/session/range/slice";
 
 export type CreateModalParams = Partial<z.infer<typeof Ranger.formSchema>>;
@@ -60,11 +60,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
         close();
         const { name, key, timeRange } = form.value();
         if (key == null) return;
-        dispatch(
-          add({
-            ranges: [{ name, key, persisted: true, variant: "static", timeRange }],
-          }),
-        );
+        dispatch(add({ name, key, persisted: true, variant: "static", timeRange }));
       },
     });
 
@@ -74,16 +70,11 @@ export const useCreateModal = Modals.create<CreateModalParams>(
       if (value.key == null) return;
       dispatch(
         add({
-          ranges: [
-            {
-              persisted: false,
-              ...value,
-              key: value.key ?? "",
-              variant: "static",
-              timeRange: new TimeRange(value.timeRange.start, value.timeRange.end)
-                .numeric,
-            },
-          ],
+          persisted: false,
+          ...value,
+          key: value.key ?? "",
+          variant: "static",
+          timeRange: new TimeRange(value.timeRange.start, value.timeRange.end).numeric,
         }),
       );
       close();

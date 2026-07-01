@@ -7,26 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Export } from "@/export";
-import { EtherCAT } from "@/hardware/ethercat";
-import { HTTP } from "@/hardware/http";
-import { LabJack } from "@/hardware/labjack";
-import { Modbus } from "@/hardware/modbus";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { PagerDuty } from "@/hardware/pagerduty";
-import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
-import { TOOLBAR } from "@/hardware/task/Toolbar";
-import { type Import } from "@/import";
-import { type Service } from "@/service";
-import { type Layout } from "@/layout";
-import { type Palette } from "@/palette";
+import { type Layout } from "@/component/layout";
+import { type Nav } from "@/component/nav";
+import { type Palette } from "@/component/palette";
+import { type Export } from "@/service/export";
+import { type Import } from "@/service/import";
+import { EtherCAT } from "@/service/ethercat";
+import { HTTP } from "@/service/http";
+import { LabJack } from "@/service/labjack";
+import { Modbus } from "@/service/modbus";
+import { NI } from "@/service/ni";
+import { OPC } from "@/service/opc";
+import { PagerDuty } from "@/service/pagerduty";
+import { Selector, SELECTOR_LAYOUT_TYPE } from "@/service/task/Selector";
+import { TOOLBAR } from "@/service/task/Toolbar";
 
-export * from "@/hardware/task/layouts";
-export * from "@/hardware/task/link";
-export * from "@/hardware/task/ontology";
-export * from "@/hardware/task/Selector";
-export * from "@/hardware/task/Toolbar";
+export * from "@/service/task/createIngester";
+export * from "@/service/task/export";
+export * from "@/service/task/Form";
+export * from "@/service/task/layouts";
+export * from "@/service/task/link";
+export * from "@/service/task/ontology";
+export * from "@/service/task/Selector";
+export * from "@/service/task/Toolbar";
+export * from "@/service/task/UtilityButtons";
 
 export const COMMANDS: Palette.Command[] = [
   ...EtherCAT.Task.COMMANDS,
@@ -69,4 +73,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [SELECTOR_LAYOUT_TYPE]: Selector,
 };
 
-export const NAV_DRAWER_ITEMS: Service.Nav.Item[] = [TOOLBAR];
+export const NAV_DRAWER_ITEMS: Nav.Item[] = [TOOLBAR];

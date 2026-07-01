@@ -7,27 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Layout } from "@/layout";
-import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/range/Explorer";
-import { OVERVIEW_LAYOUT_TYPE } from "@/range/overview/layout";
-import { Overview } from "@/range/overview/Overview";
-
-export * from "@/range/ContextMenu";
-export * from "@/range/Explorer";
-export * from "@/range/overview/layout";
-export * from "@/range/overview/Overview";
-export * from "@/range/Select";
-export * from "@/session/range/selectors";
-export * from "@/session/range/slice";
-export * from "@/session/range/slice";
-export * from "@/range/Toolbar";
-export * from "@/range/translate";
-export * from "@/range/useAddToActivePlot";
-export * from "@/range/useAddToNewPlot";
-export * from "@/range/useCreateModal";
-export * from "@/range/useListenForChanges";
-
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [OVERVIEW_LAYOUT_TYPE]: Overview,
-  [EXPLORER_LAYOUT_TYPE]: Explorer,
-};
+export * from "@/component/range/FavoriteButton";
+export * from "@/component/range/list/Item";
+export * from "@/component/range/list/SelectFilters";
+export * from "@/component/range/overview/Details";
+export * from "@/component/range/overview/layout";
+export * from "@/component/range/overview/MetaData";
+export * from "@/component/range/Select";
+export * from "@/component/range/useAddToActivePlot";
+export * from "@/component/range/useAddToNewPlot";
+export * from "@/component/range/useCreateModal";
+export * from "@/component/range/useListenForChanges";

@@ -17,7 +17,7 @@ import {
   type CIChannel,
   type CIChannelType,
   ZERO_CI_CHANNELS,
-} from "@/hardware/ni/task/types";
+} from "@/service/ni/task/types";
 
 export interface Entry extends record.KeyedNamed<CIChannelType> {}
 

@@ -10,16 +10,16 @@
 import { Component, Flex, Form as PForm, Telem } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { type Common } from "@/hardware/common";
-import { SelectSlave } from "@/hardware/ethercat/device/SelectSlave";
-import { SelectChannelModeField } from "@/hardware/ethercat/task/SelectChannelModeField";
-import { SelectPDOField } from "@/hardware/ethercat/task/SelectPDOField";
+import { Task } from "@/component/task";
+import { SelectSlave } from "@/service/ethercat/device/SelectSlave";
+import { SelectChannelModeField } from "@/service/ethercat/task/SelectChannelModeField";
+import { SelectPDOField } from "@/service/ethercat/task/SelectPDOField";
 import {
   type Channel,
   type ChannelMode,
   ZERO_INPUT_CHANNELS,
   ZERO_OUTPUT_CHANNELS,
-} from "@/hardware/ethercat/task/types";
+} from "@/service/ethercat/task/types";
 
 const INPUT_PROPS = { showDragHandle: false };
 
@@ -59,7 +59,7 @@ const renderSelectDataType = Component.renderProp(
   ),
 );
 
-export interface ChannelDetailsProps extends Common.Task.Layouts.DetailsProps {
+export interface ChannelDetailsProps extends Task.Layouts.DetailsProps {
   pdoType: "inputs" | "outputs";
   zeroChannels: Record<ChannelMode, Channel>;
 }
@@ -81,10 +81,10 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, zeroChannels }
 
 const CHANNEL_DETAILS_STYLE = { padding: "1rem" } as const;
 
-export const ReadChannelDetails: FC<Common.Task.Layouts.DetailsProps> = (props) => (
+export const ReadChannelDetails: FC<Task.Layouts.DetailsProps> = (props) => (
   <ChannelDetails {...props} pdoType="inputs" zeroChannels={ZERO_INPUT_CHANNELS} />
 );
 
-export const WriteChannelDetails: FC<Common.Task.Layouts.DetailsProps> = (props) => (
+export const WriteChannelDetails: FC<Task.Layouts.DetailsProps> = (props) => (
   <ChannelDetails {...props} pdoType="outputs" zeroChannels={ZERO_OUTPUT_CHANNELS} />
 );

@@ -14,7 +14,7 @@ import {
   type SecurityMode,
   SIGN_AND_ENCRYPT_SECURITY_MODE,
   SIGN_SECURITY_MODE,
-} from "@/hardware/opc/device/types";
+} from "@/service/opc/device/types";
 
 const DATA: SecurityMode[] = [
   NO_SECURITY_MODE,

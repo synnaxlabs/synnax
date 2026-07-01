@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/http/task/EndpointListItem.css";
+import "@/service/http/task/EndpointListItem.css";
 
 import { Component, Form as PForm, type List, Select, Text } from "@synnaxlabs/pluto";
 import { type ReactNode } from "react";

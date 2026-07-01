@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import * as v0 from "@/hardware/ni/task/types/v0";
-import * as v1 from "@/hardware/ni/task/types/v1";
+import * as v0 from "@/service/ni/task/types/v0";
+import * as v1 from "@/service/ni/task/types/v1";
 
 export const PREFIX = v0.PREFIX;
 

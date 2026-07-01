@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/modbus/device/Connect.css";
+import "@/service/modbus/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import {
@@ -25,16 +25,16 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { type Device as CommonDevice } from "@/component/device";
 import { CSS } from "@/component/css";
-import { type Common } from "@/hardware/common";
-import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/hardware/modbus/device/types";
+import { Modals } from "@/component/modals";
+import { Triggers } from "@/component/triggers";
+import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/service/modbus/device/types";
 import {
   SCAN_SCHEMAS,
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
-} from "@/hardware/modbus/task/types";
-import { Modals } from "@/component/modals";
-import { Triggers } from "@/component/triggers";
+} from "@/service/modbus/task/types";
 
 const useForm = PDevice.createForm(SCHEMAS);
 
@@ -98,7 +98,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<Common.Device.ConnectParams>(
+export const useConnectModal = Modals.create<CommonDevice.ConnectParams>(
   ({ deviceKey, close }) => {
     const {
       form,

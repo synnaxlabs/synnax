@@ -10,8 +10,8 @@
 import { describe, expect, it } from "vitest";
 
 import { testPropertiesSchema } from "@/component/device/testutil";
-import { propertiesZ, ZERO_PROPERTIES } from "@/hardware/opc/device/types";
-import * as v0 from "@/hardware/opc/device/types/v0";
+import { propertiesZ, ZERO_PROPERTIES } from "@/service/opc/device/types";
+import * as v0 from "@/service/opc/device/types/v0";
 
 // OPC uses versioned schemas — empty `{}` is not valid for either version.
 testPropertiesSchema("OPC UA", propertiesZ, ZERO_PROPERTIES, [], {

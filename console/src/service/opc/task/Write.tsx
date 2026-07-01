@@ -12,21 +12,22 @@ import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { ContextMenu } from "@/component";
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/opc/device";
-import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
+import { ContextMenu } from "@/component/context-menu";
+import { Task } from "@/component/task";
+import { Selector } from "@/component/selector";
+import { Device } from "@/service/opc/device";
+import { Task as ServiceTask } from "@/service/task";
+import { type ChannelKeyAndIDGetter, Form } from "@/service/opc/task/Form";
 import {
   type OutputChannel,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteSchemas,
   ZERO_WRITE_PAYLOAD,
-} from "@/hardware/opc/task/types";
-import { Selector } from "@/selector";
+} from "@/service/opc/task/types";
 
-export const WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const WRITE_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.OPC",
@@ -41,7 +42,7 @@ export const WriteSelectable = Selector.createSimpleItem({
 const Properties = () => (
   <>
     <Device.Select />
-    <Common.Task.Fields.AutoStart />
+    <Task.Fields.AutoStart />
   </>
 );
 
@@ -60,18 +61,17 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<OutputChannel> = ({
   key,
 }) => ({
   key: cmdChannel,
-  id: Common.Task.getChannelNameID(key, "cmd"),
+  id: Task.getChannelNameID(key, "cmd"),
 });
 
-interface ContextMenuItemProps extends Common.Task
-  .ContextMenuItemProps<OutputChannel> {}
+interface ContextMenuItemProps extends Task.ContextMenuItemProps<OutputChannel> {}
 
 const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
   if (keys.length !== 1) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.cmdChannel;
   if (cmdChannel == null) return null;
-  const handleRename = () => Text.edit(Common.Task.getChannelNameID(key, "cmd"));
+  const handleRename = () => Text.edit(Task.getChannelNameID(key, "cmd"));
   return (
     <>
       <ContextMenu.RenameItem onClick={handleRename} />
@@ -82,7 +82,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const TaskForm: FC<Common.Task.FormProps<WriteSchemas>> = () => (
+const TaskForm: FC<Task.FormProps<WriteSchemas>> = () => (
   <Form
     convertHaulItemToChannel={convertHaulItemToChannel}
     getChannelKeyAndID={getChannelKeyAndID}
@@ -93,7 +93,7 @@ const TaskForm: FC<Common.Task.FormProps<WriteSchemas>> = () => (
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
-const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
   config,
 }) => {
@@ -105,7 +105,7 @@ const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
   };
 };
 
-const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -168,7 +168,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Write = Common.Task.wrapForm({
+export const Write = ServiceTask.wrapForm({
   Properties,
   Form: TaskForm,
   schemas: WRITE_SCHEMAS,

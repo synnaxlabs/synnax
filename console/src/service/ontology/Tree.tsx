@@ -44,7 +44,7 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
-import { Layout } from "@/component/layout";
+import { Layout } from "@/service/layout";
 import { DefaultContextMenu } from "@/service/ontology/DefaultContextMenu";
 import { MultipleSelectionContextMenu } from "@/service/ontology/MultipleSelectionContextMenu";
 import {

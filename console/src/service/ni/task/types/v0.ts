@@ -11,8 +11,9 @@ import { type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 import { z } from "zod";
 
-import { Common } from "@/hardware/common";
-import { createPortValidator } from "@/hardware/ni/task/types/validation";
+import { Device } from "@/component/device";
+import { Task } from "@/component/task";
+import { createPortValidator } from "@/service/ni/task/types/validation";
 
 export const PREFIX = "ni";
 
@@ -41,12 +42,12 @@ const ZERO_DIGITAL_CHANNEL_EXTENSION = {
   line: 0,
 } as const satisfies DigitalChannelExtension;
 
-const baseAIChanZ = Common.Task.readChannelZ.extend(analogChannelExtensionShape);
+const baseAIChanZ = Task.readChannelZ.extend(analogChannelExtensionShape);
 
 interface BaseAIChan extends z.infer<typeof baseAIChanZ> {}
 
 const ZERO_BASE_AI_CHAN = {
-  ...Common.Task.ZERO_READ_CHANNEL,
+  ...Task.ZERO_READ_CHANNEL,
   ...ZERO_ANALOG_CHANNEL_EXTENSION,
 } as const satisfies BaseAIChan;
 
@@ -959,16 +960,16 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   [AI_VOLTAGE_CHAN_TYPE]: Icon.Units.Voltage,
 };
 
-const counterChannelExtensionShape = { port: portZ, device: Common.Device.keyZ };
+const counterChannelExtensionShape = { port: portZ, device: Device.keyZ };
 interface CounterChannelExtension extends z.infer<
   z.ZodObject<typeof counterChannelExtensionShape>
 > {}
 const ZERO_COUNTER_CHANNEL_EXTENSION: CounterChannelExtension = { port: 0, device: "" };
 
-const baseCIChanZ = Common.Task.readChannelZ.extend(counterChannelExtensionShape);
+const baseCIChanZ = Task.readChannelZ.extend(counterChannelExtensionShape);
 interface BaseCIChan extends z.infer<typeof baseCIChanZ> {}
 const ZERO_BASE_CI_CHAN: BaseCIChan = {
-  ...Common.Task.ZERO_READ_CHANNEL,
+  ...Task.ZERO_READ_CHANNEL,
   ...ZERO_COUNTER_CHANNEL_EXTENSION,
 };
 
@@ -1415,10 +1416,10 @@ export const ZERO_CI_CHANNELS: Record<CIChannelType, CIChannel> = {
 };
 export const ZERO_CI_CHANNEL: CIChannel = ZERO_CI_CHANNELS[CI_FREQUENCY_CHAN_TYPE];
 
-const baseAOChanZ = Common.Task.writeChannelZ.extend(analogChannelExtensionShape);
+const baseAOChanZ = Task.writeChannelZ.extend(analogChannelExtensionShape);
 interface BaseAOChan extends z.infer<typeof baseAOChanZ> {}
 const ZERO_BASE_AO_CHAN: BaseAOChan = {
-  ...Common.Task.ZERO_WRITE_CHANNEL,
+  ...Task.ZERO_WRITE_CHANNEL,
   ...ZERO_ANALOG_CHANNEL_EXTENSION,
 };
 
@@ -1523,50 +1524,50 @@ export const ZERO_AO_CHANNEL = ZERO_AO_CHANNELS[AO_VOLTAGE_CHAN_TYPE];
 const DIGITAL_INPUT_TYPE = "digital_input";
 const DIGITAL_OUTPUT_TYPE = "digital_output";
 
-const diChannelZ = Common.Task.readChannelZ
+const diChannelZ = Task.readChannelZ
   .extend(digitalChannelExtensionShape)
   .extend({
     type: z.literal(DIGITAL_INPUT_TYPE),
   });
 export interface DIChannel extends z.infer<typeof diChannelZ> {}
 export const ZERO_DI_CHANNEL: DIChannel = {
-  ...Common.Task.ZERO_READ_CHANNEL,
+  ...Task.ZERO_READ_CHANNEL,
   ...ZERO_DIGITAL_CHANNEL_EXTENSION,
   type: DIGITAL_INPUT_TYPE,
 };
 
-const doChannelZ = Common.Task.writeChannelZ
+const doChannelZ = Task.writeChannelZ
   .extend(digitalChannelExtensionShape)
   .extend({
     type: z.literal(DIGITAL_OUTPUT_TYPE),
   });
 export interface DOChannel extends z.infer<typeof doChannelZ> {}
 export const ZERO_DO_CHANNEL: DOChannel = {
-  ...Common.Task.ZERO_WRITE_CHANNEL,
+  ...Task.ZERO_WRITE_CHANNEL,
   ...ZERO_DIGITAL_CHANNEL_EXTENSION,
   type: DIGITAL_OUTPUT_TYPE,
 };
 
 export type DigitalChannel = DIChannel | DOChannel;
 
-const baseReadConfigZ = Common.Task.baseReadConfigZ.extend({
+const baseReadConfigZ = Task.baseReadConfigZ.extend({
   sampleRate: z.number().positive().max(1000000),
   streamRate: z.number().positive().max(20000),
 });
 interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
 const ZERO_BASE_READ_CONFIG: BaseReadConfig = {
-  ...Common.Task.ZERO_BASE_READ_CONFIG,
+  ...Task.ZERO_BASE_READ_CONFIG,
   sampleRate: 10,
   streamRate: 5,
 };
 
-const baseWriteConfigZ = Common.Task.baseConfigZ.extend({
+const baseWriteConfigZ = Task.baseConfigZ.extend({
   dataSaving: z.boolean().default(true),
   stateRate: z.number().positive().max(50000),
 });
 interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
 const ZERO_BASE_WRITE_CONFIG: BaseWriteConfig = {
-  ...Common.Task.ZERO_BASE_CONFIG,
+  ...Task.ZERO_BASE_CONFIG,
   dataSaving: true,
   stateRate: 10,
 };
@@ -1611,12 +1612,12 @@ const validateDigitalPortsAndLines = ({
 export const baseAnalogReadConfigZ = baseReadConfigZ.extend({
   channels: z
     .array(aiChannelZ)
-    .check(Common.Task.validateReadChannels)
+    .check(Task.validateReadChannels)
     .check(validateAnalogPorts),
 });
 
 export const analogReadConfigZ = baseAnalogReadConfigZ.check(
-  Common.Task.validateStreamRate,
+  Task.validateStreamRate,
 );
 export interface AnalogReadConfig extends z.infer<typeof analogReadConfigZ> {}
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
@@ -1658,10 +1659,10 @@ const baseCounterReadConfigZ = baseReadConfigZ
   .extend({
     channels: z
       .array(ciChannelZ)
-      .check(Common.Task.validateReadChannels)
+      .check(Task.validateReadChannels)
       .check(validateCounterPorts),
   })
-  .check(Common.Task.validateStreamRate);
+  .check(Task.validateStreamRate);
 export interface CounterReadConfig extends z.infer<typeof baseCounterReadConfigZ> {}
 export const counterReadConfigZ = z.union([
   baseReadConfigZ
@@ -1701,7 +1702,7 @@ export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
 export const analogWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
     .array(aoChannelZ)
-    .check(Common.Task.validateWriteChannels)
+    .check(Task.validateWriteChannels)
     .check(validateAnalogPorts),
 });
 export interface AnalogWriteConfig extends z.infer<typeof analogWriteConfigZ> {}
@@ -1734,10 +1735,10 @@ export const digitalReadConfigZ = baseReadConfigZ
   .extend({
     channels: z
       .array(diChannelZ)
-      .check(Common.Task.validateReadChannels)
+      .check(Task.validateReadChannels)
       .check(validateDigitalPortsAndLines),
   })
-  .check(Common.Task.validateStreamRate);
+  .check(Task.validateStreamRate);
 export interface DigitalReadConfig extends z.infer<typeof digitalReadConfigZ> {}
 const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
   ...ZERO_BASE_READ_CONFIG,
@@ -1767,7 +1768,7 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
 export const digitalWriteConfigZ = baseWriteConfigZ.extend({
   channels: z
     .array(doChannelZ)
-    .check(Common.Task.validateWriteChannels)
+    .check(Task.validateWriteChannels)
     .check(validateDigitalPortsAndLines),
 });
 export interface DigitalWriteConfig extends z.infer<typeof digitalWriteConfigZ> {}

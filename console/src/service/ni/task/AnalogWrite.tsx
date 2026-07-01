@@ -12,11 +12,13 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/ni/device";
-import { AOChannelForm } from "@/hardware/ni/task/AOChannelForm";
-import { createAOChannel } from "@/hardware/ni/task/createChannel";
-import { SelectAOChannelTypeField } from "@/hardware/ni/task/SelectAOChannelTypeField";
+import { Device as CommonDevice } from "@/component/device";
+import { Task } from "@/component/task";
+import { Task as ServiceTask } from "@/service/task";
+import { Device } from "@/service/ni/device";
+import { AOChannelForm } from "@/service/ni/task/AOChannelForm";
+import { createAOChannel } from "@/service/ni/task/createChannel";
+import { SelectAOChannelTypeField } from "@/service/ni/task/SelectAOChannelTypeField";
 import {
   ANALOG_WRITE_SCHEMAS,
   ANALOG_WRITE_TYPE,
@@ -27,11 +29,11 @@ import {
   type AOChannel,
   type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
-} from "@/hardware/ni/task/types";
-import { Selector } from "@/selector";
+} from "@/service/ni/task/types";
+import { Selector } from "@/component/selector";
 
-export const ANALOG_WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const ANALOG_WRITE_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: ANALOG_WRITE_TYPE,
   name: ZERO_ANALOG_WRITE_PAYLOAD.name,
   icon: "Logo.NI",
@@ -47,14 +49,14 @@ const Properties = () => (
   <>
     <Device.Select />
     <Flex.Box x>
-      <Common.Task.Fields.StateUpdateRate />
-      <Common.Task.Fields.DataSaving />
-      <Common.Task.Fields.AutoStart />
+      <Task.Fields.StateUpdateRate />
+      <Task.Fields.DataSaving />
+      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
 
-const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
+const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const item = PForm.useFieldValue<AOChannel>(path);
@@ -62,7 +64,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
-    <Common.Task.Layouts.ListAndDetailsChannelItem
+    <Task.Layouts.ListAndDetailsChannelItem
       {...props}
       port={port}
       hasTareButton={false}
@@ -76,7 +78,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
   );
 };
 
-const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
+const ChannelDetails = ({ path }: Task.Layouts.DetailsProps) => {
   const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
   return (
     <>
@@ -89,16 +91,16 @@ const ChannelDetails = ({ path }: Common.Task.Layouts.DetailsProps) => {
 const channelDetails = Component.renderProp(ChannelDetails);
 const channelListItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Common.Task.FormProps<AnalogWriteSchemas>> = () => (
-  <Common.Task.Layouts.ListAndDetails
+const Form: FC<Task.FormProps<AnalogWriteSchemas>> = () => (
+  <Task.Layouts.ListAndDetails
     listItem={channelListItem}
     details={channelDetails}
     createChannel={createAOChannel}
-    contextMenuItems={Common.Task.writeChannelContextMenuItems}
+    contextMenuItems={Task.writeChannelContextMenuItems}
   />
 );
 
-const getInitialValues: Common.Task.GetInitialValues<AnalogWriteSchemas> = ({
+const getInitialValues: Task.GetInitialValues<AnalogWriteSchemas> = ({
   deviceKey,
   config,
 }) => {
@@ -112,7 +114,7 @@ const getInitialValues: Common.Task.GetInitialValues<AnalogWriteSchemas> = ({
   };
 };
 
-const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
+const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
   client,
   config,
 ) => {
@@ -120,7 +122,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  Common.Device.checkConfigured(dev);
+  CommonDevice.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.analogOutput.stateIndex);
@@ -221,7 +223,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
   return [config, dev.rack];
 };
 
-export const AnalogWrite = Common.Task.wrapForm({
+export const AnalogWrite = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,

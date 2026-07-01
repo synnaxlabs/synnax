@@ -11,8 +11,8 @@ import { createTestClient } from "@synnaxlabs/client";
 import { render } from "@testing-library/react";
 import { type ReactElement } from "react";
 
-import { Project } from "@/project";
-import { type ConsolePreloadedState, createConsoleWrapper } from "@/testUtils";
+import { Session } from "@/session";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil/testutil";
 
 export const client = createTestClient();
 
@@ -20,10 +20,10 @@ export const client = createTestClient();
 // allow more than the 1s waitFor default.
 export const TIMEOUT = { timeout: 5000 };
 
-export const ACTIVE_PROJECT = {
-  key: "00000000-0000-0000-0000-000000000001",
+export const ACTIVE_PROJECT = await client.projects.create({
   name: "Ops",
-};
+  layout: {},
+});
 
 // withActiveProject seeds an active project, which the top bars require to render (in
 // production they mount inside the project guard).
@@ -31,7 +31,10 @@ export const withActiveProject = (
   state: ConsolePreloadedState = {},
 ): ConsolePreloadedState => ({
   ...state,
-  [Project.SLICE_NAME]: { ...Project.ZERO_SLICE_STATE, active: ACTIVE_PROJECT },
+  [Session.Project.SLICE_NAME]: {
+    ...Session.Project.ZERO_SLICE_STATE,
+    selected: ACTIVE_PROJECT.key,
+  },
 });
 
 // renderBar mounts ui against a real client so access-gated nav items and the user/

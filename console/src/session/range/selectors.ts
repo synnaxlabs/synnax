@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type Range,
   SLICE_NAME,
   type SliceState,
-  type Static,
+  type State,
+  type StaticState,
   type StoreState,
 } from "@/session/range/slice";
 import { Select } from "@/session/select";
@@ -27,31 +27,34 @@ export const selectSelectedKey = (state: StoreState): string | undefined =>
 export const useSelectSelectedKey = (): string | undefined =>
   Select.useMemo((state: StoreState) => selectSelectedKey(state), []);
 
-const select = (state: StoreState, key?: string): Range | undefined => {
+export const selectState = (state: StoreState, key?: string): State | undefined => {
   const { ranges } = selectSliceState(state);
   key ??= selectSelectedKey(state);
   return ranges.find((r) => r.key === key);
 };
 
-export const useSelect = (key?: string): Range | undefined =>
-  Select.useMemo((state: StoreState) => select(state, key), [key]);
+export const useSelectState = (key?: string): State | undefined =>
+  Select.useMemo((state: StoreState) => selectState(state, key), [key]);
 
-export const selectStatic = (state: StoreState, key?: string): Static | undefined => {
-  const range = select(state, key);
+export const selectStatic = (
+  state: StoreState,
+  key?: string,
+): StaticState | undefined => {
+  const range = selectState(state, key);
   if (range?.variant !== "static") return undefined;
   return range;
 };
 
-export const useSelectStatic = (key?: string): Static | undefined =>
+export const useSelectStatic = (key?: string): StaticState | undefined =>
   Select.useMemo((state: StoreState) => selectStatic(state, key), [key]);
 
-export const selectMultiple = (state: StoreState, keys?: string[]): Range[] => {
+export const selectMultiple = (state: StoreState, keys?: string[]): State[] => {
   const { ranges } = selectSliceState(state);
   if (keys == null) return ranges;
   return ranges.filter((range) => keys.includes(range.key));
 };
 
-export const useSelectMultiple = (keys?: string[]): Range[] =>
+export const useSelectMultiple = (keys?: string[]): State[] =>
   Select.useMemo((state: StoreState) => selectMultiple(state, keys), [keys]);
 
 export const selectKeys = (state: StoreState): string[] =>

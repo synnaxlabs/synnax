@@ -11,26 +11,25 @@ import { createTestClient } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Layout } from "@/layout";
-import { Range } from "@/range";
-import { RangeServices } from "@/range/services";
-import { renderLinkHook } from "@/testUtils";
+import { Range } from "@/service/range";
+import { Session } from "@/session";
+import { renderLinkHook } from "@/testutil/testutil";
 
 const client = createTestClient();
 
-describe("RangeServices.useLink", () => {
+describe("Range.useLink", () => {
   it("should add, activate, and place the retrieved range", async () => {
     const range = await client.ranges.create({
       name: "Burn Test",
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
     });
-    const { handler, store } = renderLinkHook(RangeServices.useLink, {
-      [Range.SLICE_NAME]: Range.reducer,
+    const { handler, store } = renderLinkHook(Range.useLink, {
+      [Session.Range.SLICE_NAME]: Session.Range.reducer,
     });
     await handler({ client, key: range.key });
     const state = store.getState();
-    expect(Range.selectSelectedKey(state)).toBe(range.key);
-    expect(Range.select(state, range.key)?.name).toBe("Burn Test");
-    expect(Layout.select(state, range.key)?.name).toBe("Burn Test");
+    expect(Session.Range.selectSelectedKey(state)).toBe(range.key);
+    expect(Session.Range.selectState(state, range.key)?.name).toBe("Burn Test");
+    expect(Session.Layout.select(state, range.key)?.name).toBe("Burn Test");
   });
 });

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Device } from "@/hardware/labjack/device";
-import { type ChannelType } from "@/hardware/labjack/task/types";
+import { Device } from "@/service/labjack/device";
+import { type ChannelType } from "@/service/labjack/task/types";
 
 const CHANNEL_TO_PORT_MAP = {
   AI: Device.AI_PORT_TYPE,

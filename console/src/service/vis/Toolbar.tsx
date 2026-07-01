@@ -10,16 +10,17 @@
 import { Errors, Icon } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
-import { EmptyAction, Toolbar } from "@/component";
-import { Layout } from "@/layout";
-import { type Service } from "@/service";
+import { Empty } from "@/component/empty";
+import { LinePlot } from "@/component/lineplot";
+import { type Nav } from "@/component/nav";
+import { Toolbar } from "@/component/toolbar";
 import { Arc } from "@/service/arc";
-import { LinePlot } from "@/service/lineplot";
 import { Log } from "@/service/log";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
-import { createSelectorLayout, useSelectorVisible } from "@/vis/Selector";
-import { type LayoutType } from "@/vis/types";
+import { createSelectorLayout, useSelectorVisible } from "@/service/vis/Selector";
+import { type LayoutType } from "@/service/vis/types";
+import { Session } from "@/session";
 
 interface ToolbarProps {
   layoutKey: string;
@@ -34,7 +35,7 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
 };
 
 const NoVis = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   const handleCreateNewVisualization = () => {
     placeLayout(createSelectorLayout());
   };
@@ -49,7 +50,7 @@ const NoVis = (): ReactElement => {
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
       </Toolbar.Header>
-      <EmptyAction
+      <Empty.Action
         x
         message={message}
         action={action}
@@ -60,7 +61,7 @@ const NoVis = (): ReactElement => {
 };
 
 const Content = (): ReactElement => {
-  const layout = Layout.useSelectActiveMosaicLayout();
+  const layout = Session.Layout.useSelectActiveMosaicLayout();
   if (layout == null) return <NoVis />;
   const Toolbar = TOOLBARS[layout.type as LayoutType];
   if (Toolbar == null) return <NoVis />;
@@ -71,7 +72,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Service.Nav.Item = {
+export const TOOLBAR: Nav.Item = {
   key: "visualization",
   content: <Content />,
   tooltip: "Visualize",

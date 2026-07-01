@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { LAYOUT } from "@/component/docs/Docs";
-import { Palette } from "@/palette";
+import { Palette } from "@/component/palette";
 
 export const ReadCommand = Palette.createSimpleCommand({
   key: "read_the_docs",

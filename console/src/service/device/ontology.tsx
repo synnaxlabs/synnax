@@ -7,29 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/device/ontology.css";
+import "@/service/device/ontology.css";
 
 import { device, type ontology, status } from "@synnaxlabs/client";
 import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
-import { Cluster } from "@/cluster";
-import { ContextMenu } from "@/component";
+import { Cluster } from "@/component/cluster";
+import { ContextMenu } from "@/component/context-menu";
 import { CSS } from "@/component/css";
 import { Group } from "@/service/group";
-import { getContextMenuItems, getIcon, getMake } from "@/hardware/device/make";
+import { getContextMenuItems, getIcon, getMake } from "@/service/device/make";
 import { Link } from "@/service/link";
-import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createUseDelete";
-import { createUseRename } from "@/ontology/createUseRename";
+import { Ontology } from "@/service/ontology";
 
-const useDelete = createUseDelete({
+const useDelete = Ontology.createUseDelete({
   type: "Device",
   query: Device.useDelete,
   convertKey: String,
 });
 
-const useRename = createUseRename({
+const useRename = Ontology.createUseRename({
   query: Device.useRename,
   ontologyID: device.ontologyID,
   convertKey: String,

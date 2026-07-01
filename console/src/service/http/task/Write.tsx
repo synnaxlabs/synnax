@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/http/task/Form.css";
+import "@/service/http/task/Form.css";
 
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
 import {
@@ -27,13 +27,14 @@ import {
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useMemo, useState } from "react";
 
-import { EmptyAction } from "@/component";
+import { Empty } from "@/component/empty";
 import { KeyValueEditor } from "@/component/form/KeyValueEditor";
 import { CSS } from "@/component/css";
-import { Common } from "@/hardware/common";
-import { Device } from "@/hardware/http/device";
-import { ContextMenu } from "@/hardware/http/task/ContextMenu";
-import { EndpointListItem } from "@/hardware/http/task/EndpointListItem";
+import { Task } from "@/component/task";
+import { Task as ServiceTask } from "@/service/task";
+import { Device } from "@/service/http/device";
+import { ContextMenu } from "@/service/http/task/ContextMenu";
+import { EndpointListItem } from "@/service/http/task/EndpointListItem";
 import {
   type GeneratorType,
   type TimeFormat,
@@ -47,11 +48,11 @@ import {
   ZERO_CHANNEL_FIELD,
   ZERO_WRITE_ENDPOINT,
   ZERO_WRITE_PAYLOAD,
-} from "@/hardware/http/task/types";
-import { Selector } from "@/selector";
+} from "@/service/http/task/types";
+import { Selector } from "@/component/selector";
 
-export const WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
+export const WRITE_LAYOUT: ServiceTask.Layout = {
+  ...ServiceTask.LAYOUT,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.HTTP",
@@ -67,7 +68,7 @@ const Properties = () => (
   <>
     <Device.Select />
     <Flex.Box x grow>
-      <Common.Task.Fields.AutoStart />
+      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -114,7 +115,7 @@ const WriteEndpointListItem = (props: List.ItemProps<string>) => {
   );
   const extraNode = useMemo(
     () => (
-      <Common.Task.ChannelName
+      <Task.ChannelName
         channel={channel}
         namePath={`config.endpoints.${itemKey}.channel.name`}
         id={getEndpointChannelNameID(itemKey)}
@@ -332,7 +333,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}.fields`;
   const { data, push, remove } = PForm.useFieldList<string, WriteField>(path);
   const [selected, setSelected] = useState<string[]>([]);
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = Task.useIsSnapshot();
 
   const handleAddStatic = useCallback(() => {
     const field: WriteField = {
@@ -432,7 +433,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   );
 };
 
-const EMPTY_CONTENT = <EmptyAction message="No additional fields." action="" />;
+const EMPTY_CONTENT = <Empty.Action message="No additional fields." action="" />;
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
@@ -477,13 +478,13 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
 
 const PATH_INPUT_PROPS = { placeholder: "/api/control" };
 
-const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
+const Form: FC<Task.FormProps<WriteSchemas>> = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
   const { data, push, remove } = PForm.useFieldList<string, WriteEndpoint>(
     "config.endpoints",
   );
   const ctx = PForm.useContext();
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = Task.useIsSnapshot();
 
   const handleAddEndpoint = useCallback(() => {
     const ep: WriteEndpoint = {
@@ -575,7 +576,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
               className={menuProps.className}
               onContextMenu={menuProps.open}
               emptyContent={
-                <EmptyAction
+                <Empty.Action
                   message="No endpoints."
                   action="Add an endpoint"
                   onClick={isSnapshot ? undefined : handleAddEndpoint}
@@ -589,7 +590,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
       </Flex.Box>
       <Divider.Divider y />
       <Flex.Box y grow empty>
-        <Common.Task.Layouts.DetailsHeader
+        <Task.Layouts.DetailsHeader
           path={
             selectedEndpoints.length > 0
               ? `config.endpoints.${selectedEndpoints[0]}`
@@ -609,7 +610,7 @@ const Form: FC<Common.Task.FormProps<WriteSchemas>> = () => {
   );
 };
 
-const getInitialValues: Common.Task.GetInitialValues<WriteSchemas> = ({
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
   config,
 }) => {
@@ -640,7 +641,7 @@ const retrieveChannel = async (
 const channelExists = async (client: Client, key: number): Promise<boolean> =>
   (await retrieveChannel(client, key)) != null;
 
-const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -708,7 +709,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Write = Common.Task.wrapForm({
+export const Write = ServiceTask.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,

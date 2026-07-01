@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Notifications } from "@/component/notifications";
 import { versionOutdatedAdapter } from "@/service/cluster/notification";
-import { type Notifications } from "@/notifications";
 
-export * from "@/component/cluster/CopyLinkToolbarButton";
-export * from "@/component/cluster/useCopyLinkToClipboard";
 export * from "@/service/cluster/Badges";
 export * from "@/service/cluster/detectConnection";
+export * from "@/service/cluster/link";
 export * from "@/service/cluster/list";
+export * from "@/service/cluster/palette";
 export * from "@/service/cluster/useConnectModal";
 export * from "@/service/cluster/useSyncClusterKey";
-export * from "@/session/cluster/selectors";
-export * from "@/session/cluster/slice";
 
 export const NOTIFICATION_ADAPTERS: Notifications.Adapter<any>[] = [
   versionOutdatedAdapter,

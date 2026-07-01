@@ -9,13 +9,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Device } from "@/hardware/labjack/device";
-import { getOpenPort } from "@/hardware/labjack/task/getOpenPort";
+import { Device } from "@/service/labjack/device";
+import { getOpenPort } from "@/service/labjack/task/getOpenPort";
 import {
   type Channel,
   ZERO_INPUT_CHANNELS,
   ZERO_OUTPUT_CHANNEL,
-} from "@/hardware/labjack/task/types";
+} from "@/service/labjack/task/types";
 
 describe("getOpenPort", () => {
   // We'll use the T4 model for our tests.

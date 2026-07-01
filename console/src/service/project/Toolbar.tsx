@@ -12,9 +12,9 @@ import { Access, Icon, Project } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Empty } from "@/component/empty";
+import { type Nav } from "@/component/nav";
 import { Project as CProject } from "@/component/project";
 import { Toolbar } from "@/component/toolbar";
-import { type Service } from "@/service";
 import { Ontology } from "@/service/ontology";
 
 const Actions = (): ReactElement | null => {
@@ -56,7 +56,7 @@ const EmptyContent = () => {
   );
 };
 
-export const TOOLBAR: Service.Nav.Item = {
+export const TOOLBAR: Nav.Item = {
   key: "project",
   icon: <Icon.Project />,
   content: <Content />,

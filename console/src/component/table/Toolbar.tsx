@@ -31,14 +31,12 @@ import { CSS } from "@/component/css";
 import { Empty } from "@/component/empty";
 import { Export } from "@/component/export";
 import { Toolbar as Base } from "@/component/toolbar";
+import { useExport } from "@/service/table/export";
 import { Session } from "@/session";
 
-export interface ToolbarProps {
-  onExport: () => void;
-}
-
-export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
+const Internal = (): ReactElement => {
   const key = Table.useKey();
+  const handleExport = useExport();
   const name = Table.useSelectName();
   const editable = Session.Table.useSelectEditable();
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
@@ -68,7 +66,7 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
-          <Export.ToolbarButton onExport={onExport} />
+          <Export.ToolbarButton onExport={() => handleExport(key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(key)}
@@ -89,6 +87,16 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement => {
     </Base.Content>
   );
 };
+
+export interface ToolbarProps {
+  layoutKey: string;
+}
+
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
+  <Table.Suspended tableKey={layoutKey}>
+    <Internal />
+  </Table.Suspended>
+);
 
 // buildVariantSwapActions returns one setCell action per cell whose variant
 // differs from the target. Compatible fields survive the swap.

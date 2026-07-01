@@ -10,6 +10,18 @@
 import { Arc } from "@synnaxlabs/pluto";
 
 import { List } from "@/component/arc/list/List";
+import { Session } from "@/session";
+
+export const EXPLORER_LAYOUT_TYPE = "arc_explorer";
+
+export const EXPLORER_LAYOUT: Session.Layout.State = {
+  key: EXPLORER_LAYOUT_TYPE,
+  windowKey: EXPLORER_LAYOUT_TYPE,
+  type: EXPLORER_LAYOUT_TYPE,
+  name: "Arc Explorer",
+  icon: "Explore",
+  location: "mosaic",
+};
 
 export const Explorer = () => {
   const { data, getItem, subscribe, retrieve } = Arc.useList({});

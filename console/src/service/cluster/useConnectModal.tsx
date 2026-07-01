@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/cluster/Connect.css";
+import "@/service/cluster/Connect.css";
 
 import { checkConnection, type connection } from "@synnaxlabs/client";
 import {
@@ -22,12 +22,12 @@ import {
 } from "@synnaxlabs/pluto";
 import { caseconv, uuid } from "@synnaxlabs/x";
 import { useState } from "react";
-import { useDispatch } from "react-redux";
 import { type z } from "zod";
 
 import { CSS } from "@/component/css";
 import { Modals } from "@/component/modals";
 import { Triggers } from "@/component/triggers";
+import { Session } from "@/session";
 import { useSelectAllNames, useSelectState } from "@/session/cluster/selectors";
 import { changeKey, clusterZ, set } from "@/session/cluster/slice";
 

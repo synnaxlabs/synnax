@@ -20,15 +20,16 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
 
-import { ContextMenu, EmptyAction } from "@/component";
+import { ContextMenu } from "@/component/context-menu";
+import { Empty } from "@/component/empty";
 import { Item } from "@/service/cluster/list/Item";
+import { useConnectModal } from "@/service/cluster/useConnectModal";
+import { Layout } from "@/service/layout";
+import { Link } from "@/service/link";
+import { Session } from "@/session";
 import { useSelectMany } from "@/session/cluster/selectors";
 import { changeKey, remove } from "@/session/cluster/slice";
-import { useConnectModal } from "@/service/cluster/useConnectModal";
-import { Layout } from "@/layout";
-import { Link } from "@/service/link";
 
 export interface ListProps
   extends Input.Control<string | undefined>, Omit<Flex.BoxProps, "onChange"> {}
@@ -156,7 +157,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         </Header.Header>
         <Flex.Box empty onContextMenu={menuProps.open} grow>
           {keys.length === 0 ? (
-            <EmptyAction
+            <Empty.Action
               message="No Cores added."
               action="Add a Core"
               onClick={() => openConnect()}

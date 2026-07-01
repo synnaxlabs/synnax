@@ -24,11 +24,11 @@ import { useCallback } from "react";
 import { Cluster } from "@/component/cluster";
 import { ContextMenu } from "@/component/context-menu";
 import { Export } from "@/component/export";
-import { Range } from "@/component/range";
 import { Schematic } from "@/component/schematic";
 import { Group } from "@/service/group";
 import { Link } from "@/service/link";
 import { Ontology } from "@/service/ontology";
+import { Range } from "@/service/range";
 import { useExport } from "@/service/schematic/export";
 import { Session } from "@/session";
 
@@ -69,7 +69,7 @@ const useCopy = (props: Ontology.TreeContextMenuProps): (() => void) => {
 
 export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
-  const rng = Range.useSelect();
+  const rng = Session.Range.useSelectState();
   const buildMessage = useCallback(
     ({ schematics }: Base.SnapshotParams) =>
       `${strings.naturalLanguageJoin(
@@ -125,7 +125,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const activeRange = Range.useSelect();
+  const activeRange = Session.Range.useSelectState();
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);

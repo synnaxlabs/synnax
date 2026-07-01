@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type DigitalChannel } from "@/hardware/ni/task/types";
+import { type DigitalChannel } from "@/service/ni/task/types";
 
 export const getDigitalChannelDeviceKey = ({ line, port }: DigitalChannel) =>
   `${port}l${line}`;

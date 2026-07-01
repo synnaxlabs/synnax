@@ -11,18 +11,16 @@ import { arc, rack } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Rack, Text, Tree } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
-import { ContextMenu } from "@/component";
-import { Group } from "@/service/group";
+import { ContextMenu } from "@/component/context-menu";
 import { Arc } from "@/service/arc";
-import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createUseDelete";
-import { createUseRename } from "@/ontology/createUseRename";
+import { Group } from "@/service/group";
+import { Ontology } from "@/service/ontology";
 
 const CreateArcIcon = Icon.createComposite(Icon.Arc, {
   topRight: Icon.Add,
 });
 
-const useRename = createUseRename({
+const useRename = Ontology.createUseRename({
   query: Rack.useRename,
   ontologyID: rack.ontologyID,
   convertKey: Number,
@@ -50,7 +48,7 @@ const Item = ({ id, resource, ...rest }: Ontology.TreeItemProps) => {
   );
 };
 
-const useDelete = createUseDelete({
+const useDelete = Ontology.createUseDelete({
   type: "Rack",
   query: Rack.useDelete,
   convertKey: Number,

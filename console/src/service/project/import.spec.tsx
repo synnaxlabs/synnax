@@ -23,13 +23,11 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { type Import } from "@/import";
+import { type Import } from "@/service/import";
+import { Project } from "@/service/project";
 import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
 import { Session } from "@/session";
-import { Layout } from "@/layout";
-import { Project } from "@/project";
-import { ProjectServices } from "@/project/services";
 
 const client: Synnax = createTestClient();
 
@@ -68,20 +66,20 @@ const TABLE_DATA = {
 };
 
 const rootReducer = combineReducers({
-  [Layout.SLICE_NAME]: Layout.reducer,
+  [Session.Layout.SLICE_NAME]: Session.Layout.reducer,
   [Session.Schematic.SLICE_NAME]: Session.Schematic.reducer,
   [Session.Table.SLICE_NAME]: Session.Table.reducer,
-  [Project.SLICE_NAME]: Project.reducer,
+  [Session.Project.SLICE_NAME]: Session.Project.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
 }) as unknown as Reducer<Record<string, unknown>, UnknownAction>;
 
 // An exported layout slice with a schematic and a table tab, each keyed to match the
 // resource key in the corresponding component file.
-const exportedSlice = (): Layout.SliceState => {
-  let s = Layout.reducer(undefined, { type: "@@INIT" });
-  s = Layout.reducer(
+const exportedSlice = (): Session.Layout.SliceState => {
+  let s = Session.Layout.reducer(undefined, { type: "@@INIT" });
+  s = Session.Layout.reducer(
     s,
-    Layout.place({
+    Session.Layout.place({
       windowKey: WINDOW_KEY,
       key: OPERATOR_KEY,
       type: SCHEMATIC_TYPE,
@@ -89,9 +87,9 @@ const exportedSlice = (): Layout.SliceState => {
       location: "mosaic",
     }),
   );
-  s = Layout.reducer(
+  s = Session.Layout.reducer(
     s,
-    Layout.place({
+    Session.Layout.place({
       windowKey: WINDOW_KEY,
       key: THERMO_KEY,
       type: TABLE_TYPE,
@@ -102,13 +100,13 @@ const exportedSlice = (): Layout.SliceState => {
   return s;
 };
 
-const layoutsOfType = (store: Store, type: string): Layout.State[] =>
-  Object.values(Layout.selectSliceState(store.getState() as never).layouts).filter(
-    (l) => l.type === type,
-  );
+const layoutsOfType = (store: Store, type: string): Session.Layout.State[] =>
+  Object.values(
+    Session.Layout.selectSliceState(store.getState() as never).layouts,
+  ).filter((l) => l.type === type);
 
 interface HarnessValue {
-  placer: Layout.Placer;
+  placer: Session.Layout.Placer;
   fluxStore: Pluto.FluxStore;
   granted: boolean;
 }
@@ -139,7 +137,7 @@ describe("project import", () => {
     );
     const { result } = renderHook<HarnessValue, unknown>(
       () => ({
-        placer: Layout.usePlacer(),
+        placer: Session.Layout.usePlacer(),
         fluxStore: Flux.useStore<Pluto.FluxStore>(),
         granted: Access.useUpdateGranted(project.TYPE_ONTOLOGY_ID),
       }),
@@ -147,7 +145,7 @@ describe("project import", () => {
     );
     await waitFor(() => expect(result.current.granted).toBe(true));
     await act(async () => {
-      await ProjectServices.ingest(`proj-${id.create()}`, fileList, {
+      await Project.ingest(`proj-${id.create()}`, fileList, {
         client,
         fileIngesters: FILE_INGESTERS,
         placeLayout: result.current.placer,

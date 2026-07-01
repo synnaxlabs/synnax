@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Device } from "@/hardware/labjack/device";
-import { type Channel } from "@/hardware/labjack/task/types";
+import { Device } from "@/service/labjack/device";
+import { type Channel } from "@/service/labjack/task/types";
 
 // This is a bit of a confusing type, but basically it maps the port type (AI, AO, DI,
 // DO) to the actual port object (AIPort, AOPort, DIPort, DOPort).

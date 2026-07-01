@@ -10,20 +10,18 @@
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
-import { useStore } from "react-redux";
 
-import { Export } from "@/export";
-import { useExtractors } from "@/export/ExtractorsProvider";
 import { Modals } from "@/component/modals";
-import { selectSelected } from "@/session/project/selectors";
-import { type Action, type State, type State } from "@/session/store";
-import { Layout } from "@/layout";
-import { purgeExcludedLayouts } from "@/project/purgeExcludedLayouts";
-import { Runtime } from "@/runtime";
+import { Runtime } from "@/component/runtime";
+import { Export } from "@/service/export";
+import { useExtractors } from "@/service/export/ExtractorsProvider";
+import { purgeExcludedLayouts } from "@/service/project/purgeExcludedLayouts";
+import { Session } from "@/session";
+import { type Store } from "@/session/store";
 
 export interface ExportContext {
   client: Client | null;
-  store: State;
+  store: Store;
   confirm: Modals.PromptConfirm;
   handleError: Status.ErrorHandler;
   extractors: Export.Extractors;
@@ -37,18 +35,15 @@ export const export_ = (
   let name: string = "project"; // default name for error message
   handleError(async () => {
     const storeState = store.getState();
-    const active = selectSelected(storeState);
-    let toExport: Layout.SliceState;
-    if (active.key === key || key == null) {
-      const file = Layout.selectSliceState(storeState);
-      toExport = purgeExcludedLayouts(file);
-      name = active.name;
-    } else {
-      if (client == null) throw new DisconnectedError();
-      const proj = await client.projects.retrieve(key);
-      toExport = proj.layout as Layout.SliceState;
-      name = proj.name;
-    }
+    const activeKey = Session.Project.selectSelected(storeState);
+    const targetKey = key ?? activeKey;
+    if (client == null) throw new DisconnectedError();
+    const proj = await client.projects.retrieve(targetKey);
+    name = proj.name;
+    const toExport: Session.Layout.SliceState =
+      targetKey === activeKey
+        ? purgeExcludedLayouts(Session.Layout.selectSliceState(storeState))
+        : (proj.layout as Session.Layout.SliceState);
     const directory = await Runtime.pickWritableDirectory({
       title: `Select a location to export ${name}`,
       subdirectory: Export.sanitizeFileName(name),
@@ -96,7 +91,7 @@ export const useExport = (): ((key: string | null) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
-  const store = useStore<State, Action>();
+  const store = Session.useStore();
   const confirm = Modals.useConfirm();
   const extractors = useExtractors();
   return (key: string | null) =>

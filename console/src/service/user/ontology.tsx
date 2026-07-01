@@ -11,12 +11,11 @@ import { ontology, type user } from "@synnaxlabs/client";
 import { Access, type Flux, Icon, Menu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { ContextMenu } from "@/component";
+import { ContextMenu } from "@/component/context-menu";
 import { useAssignRoleModal } from "@/component/user/useAssignRoleModal";
-import { Ontology } from "@/ontology";
-import { createUseDelete } from "@/ontology/createUseDelete";
+import { Ontology } from "@/service/ontology";
 
-const useDelete = createUseDelete({
+const useDelete = Ontology.createUseDelete({
   type: "User",
   query: User.useDelete,
   convertKey: String,

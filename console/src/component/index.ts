@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/components/context-menu";
-export * from "@/components/Controls";
-export * from "@/components/EmptyAction";
-export * from "@/components/FavoriteButton";
-export * from "@/components/form";
-export * from "@/components/toolbar";
+export * from "@/component/button";
+export * from "@/component/context-menu";
+export * from "@/component/empty";
+export * from "@/component/form";
+export * from "@/component/toolbar";
+export * from "@/component/vis";

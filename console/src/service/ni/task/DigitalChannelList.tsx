@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/hardware/ni/task/DigitalChannelList.css";
+import "@/service/ni/task/DigitalChannelList.css";
 
 import { type Component, Flex, Form, Select, Text } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { CSS } from "@/component/css";
-import { Common } from "@/hardware/common";
-import { type DigitalChannel } from "@/hardware/ni/task/types";
+import { Task } from "@/component/task";
+import { type DigitalChannel } from "@/service/ni/task/types";
 
 interface ListItemProps<C extends DigitalChannel> extends Omit<
-  Common.Task.ChannelListItemProps,
+  Task.ChannelListItemProps,
   "name"
 > {
   name: Component.RenderProp<DigitalNameComponentProps<C>>;
@@ -70,7 +70,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
         {name({ ...channel, itemKey: rest.itemKey, path })}
-        <Common.Task.EnableDisableButton path={`${path}.enabled`} />
+        <Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -78,7 +78,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
 
 export interface DigitalChannelListProps<C extends DigitalChannel>
   extends
-    Omit<Common.Task.Layouts.ListProps<C>, "listItem">,
+    Omit<Task.Layouts.ListProps<C>, "listItem">,
     Pick<ListItemProps<C>, "name"> {}
 
 export const DigitalChannelList = <C extends DigitalChannel>({
@@ -86,11 +86,11 @@ export const DigitalChannelList = <C extends DigitalChannel>({
   ...rest
 }: DigitalChannelListProps<C>) => {
   const listItem = useCallback(
-    ({ key, ...p }: Common.Task.ChannelListItemProps) => (
+    ({ key, ...p }: Task.ChannelListItemProps) => (
       <ListItem<C> key={key} {...p} name={name} />
     ),
     [name],
   );
 
-  return <Common.Task.Layouts.List<C> {...rest} listItem={listItem} />;
+  return <Task.Layouts.List<C> {...rest} listItem={listItem} />;
 };

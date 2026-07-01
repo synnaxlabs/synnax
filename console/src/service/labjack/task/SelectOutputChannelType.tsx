@@ -10,7 +10,7 @@
 import { Select } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
-import { type OutputChannelType } from "@/hardware/labjack/task/types";
+import { type OutputChannelType } from "@/service/labjack/task/types";
 
 export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
 

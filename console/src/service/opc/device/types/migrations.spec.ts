@@ -9,9 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type AnyProperties, migrateProperties } from "@/hardware/opc/device/types";
-import * as v0 from "@/hardware/opc/device/types/v0";
-import * as v1 from "@/hardware/opc/device/types/v1";
+import { type AnyProperties, migrateProperties } from "@/service/opc/device/types";
+import * as v0 from "@/service/opc/device/types/v0";
+import * as v1 from "@/service/opc/device/types/v1";
 
 interface TestCase {
   description: string;

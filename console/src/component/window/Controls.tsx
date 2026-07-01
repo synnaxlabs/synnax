@@ -16,9 +16,8 @@ import {
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
-import { Runtime } from "@/runtime";
+import { Session } from "@/session";
 
 export interface ControlsProps extends OS.ControlsProps {}
 
@@ -43,7 +42,7 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
   const handleMinimize = useCallback(() => {
     dispatch(setWindowMinimized({ value: true }));
   }, [dispatch]);
-  if (Runtime.ENGINE !== "tauri") return null;
+  if (Session.Runtime.ENGINE !== "tauri") return null;
   return window?.fullscreen === true ? null : (
     <OS.Controls
       disabled={disabled}

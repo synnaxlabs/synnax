@@ -10,8 +10,8 @@
 import { type status } from "@synnaxlabs/client";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useCallback, useEffectEvent } from "react";
-import { useDispatch } from "react-redux";
 
+import { Session } from "@/session";
 import { filterFavoritesToKeys, removeFavorites } from "@/session/status/slice";
 
 export const useListenForChanges = () => {

@@ -9,13 +9,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Common } from "@/hardware/common";
+import { Task } from "@/component/task";
 import {
   type OutputChannel,
   READ_SCHEMAS,
   WRITE_SCHEMAS,
   ZERO_WRITE_PAYLOAD,
-} from "@/hardware/labjack/task/types";
+} from "@/service/labjack/task/types";
 
 describe("readStatusDataZ", () => {
   it("should accept null", () => {
@@ -36,7 +36,7 @@ describe("readConfigZ", () => {
   const readConfigZ = READ_SCHEMAS.config;
   it("should validate a valid read configuration", () => {
     const validConfig = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
@@ -69,7 +69,7 @@ describe("readConfigZ", () => {
 
   it("should reject a configuration with duplicate ports", () => {
     const configWithDuplicatePorts = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
@@ -107,7 +107,7 @@ describe("readConfigZ", () => {
 
   it("should reject a configuration with sampleRate exceeding the maximum", () => {
     const configWithInvalidSampleRate = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
@@ -135,7 +135,7 @@ describe("readConfigZ", () => {
 
   it("should reject a configuration with streamRate exceeding the maximum", () => {
     const configWithInvalidStreamRate = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
@@ -163,7 +163,7 @@ describe("readConfigZ", () => {
 
   it("should reject a configuration with invalid stream rate refinement", () => {
     const configWithInvalidStreamRateRefinement = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       dataSaving: true,
       channels: [
@@ -188,7 +188,7 @@ describe("readConfigZ", () => {
 
   it("should validate a configuration with linear scale", () => {
     const configWithLinearScale = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
@@ -249,7 +249,7 @@ describe("writeConfigZ", () => {
 
   it("should reject a configuration with duplicate ports", () => {
     const configWithDuplicatePorts = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
@@ -286,7 +286,7 @@ describe("writeConfigZ", () => {
 
   it("should reject a configuration with duplicate cmdKeys", () => {
     const configWithDuplicateCmdKeys = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
@@ -325,7 +325,7 @@ describe("writeConfigZ", () => {
 
   it("should reject a configuration with duplicate stateKeys", () => {
     const configWithDuplicateStateKeys = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
@@ -362,7 +362,7 @@ describe("writeConfigZ", () => {
 
   it("should reject a configuration with stateRate exceeding the maximum", () => {
     const configWithInvalidStateRate = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
@@ -389,7 +389,7 @@ describe("writeConfigZ", () => {
 
   it("should validate a configuration with linear scale", () => {
     const configWithLinearScale = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       channels: [
         {
@@ -434,7 +434,7 @@ describe("writeConfigZ", () => {
       },
     ];
     const v0Config = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+      ...Task.ZERO_BASE_CONFIG,
       device: "labjack",
       stateRate: 1000,
       channels: inputChannels,

@@ -11,9 +11,9 @@ import { type ranger, task } from "@synnaxlabs/client";
 import { Button, Flex, type Flux, Icon, Ranger, Text } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
+import { Range } from "@/component/range";
 import { useKey } from "@/component/task/useKey";
-import { Layout } from "@/layout";
-import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
+import { Session } from "@/session";
 
 export const ParentRangeButton = () => {
   const taskKey = useKey();
@@ -25,10 +25,10 @@ export const ParentRangeButton = () => {
       [],
     ),
   });
-  const placeLayout = Layout.usePlacer();
+  const placeLayout = Session.Layout.usePlacer();
   if (parent == null) return null;
   const { key, name } = parent;
-  const handleClick = () => placeLayout({ ...OVERVIEW_LAYOUT, key, name });
+  const handleClick = () => placeLayout({ ...Range.OVERVIEW_LAYOUT, key, name });
   return (
     <Flex.Box x align="center" gap="small">
       <Text.Text>Snapshotted to</Text.Text>

@@ -11,8 +11,8 @@ import { type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 import z from "zod";
 
-import * as v0 from "@/hardware/opc/device/types/v0";
-import * as v1 from "@/hardware/opc/device/types/v1";
+import * as v0 from "@/service/opc/device/types/v0";
+import * as v1 from "@/service/opc/device/types/v1";
 
 export const MAKE = v0.MAKE;
 export const makeZ = v0.makeZ;

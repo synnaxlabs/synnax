@@ -30,7 +30,8 @@ import { type ReactElement } from "react";
 
 import { Cluster } from "@/component/cluster";
 import { ContextMenu } from "@/component/context-menu";
-import { Export } from "@/service/export";
+import { Export } from "@/component/export";
+import { Schematic as CSchematic } from "@/component/schematic";
 import { Group } from "@/service/group";
 import { Import } from "@/service/import";
 import { LinePlot } from "@/service/lineplot";
@@ -38,7 +39,6 @@ import { Link } from "@/service/link";
 import { Log } from "@/service/log";
 import { Ontology } from "@/service/ontology";
 import { useExport } from "@/service/project/export";
-import { Schematic } from "@/service/schematic";
 import { Table } from "@/service/table";
 import { Session } from "@/session";
 
@@ -52,7 +52,7 @@ const useDelete = Ontology.createUseDelete({
     const active = array.toArray(data).find((k) => k === activeKey);
     if (active == null) return;
     store.dispatch(Session.Project.clearSelected());
-    store.dispatch(Session.Layout.clearProject({}));
+    store.dispatch(Session.Layout.clearProject());
   },
 });
 
@@ -75,7 +75,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createLog = Log.useCreate({ project: projectKey });
   const createTable = Table.useCreate({ project: projectKey });
   const firstID = selection.ids[0];
-  const createSchematic = Schematic.useCreate({ project: projectKey });
+  const createSchematic = CSchematic.useCreate({ project: projectKey });
   const importComponent = Import.useImport();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport();
@@ -170,8 +170,10 @@ const handleSelect: Ontology.HandleSelect = ({
   );
   handleError(async () => {
     const proj = await client.projects.retrieve(selection[0].id.key);
-    store.dispatch(select(proj));
-    store.dispatch(Layout.setProject({ slice: proj.layout as Layout.SliceState }));
+    store.dispatch(Session.Project.select(proj.key));
+    store.dispatch(
+      Session.Layout.setProject({ slice: proj.layout as Session.Layout.SliceState }),
+    );
   }, `Failed to select ${names}`);
 };
 

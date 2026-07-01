@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { testPropertiesSchema } from "@/component/device/testutil";
-import { propertiesZ, ZERO_PROPERTIES } from "@/hardware/ni/device/types";
+import { propertiesZ, ZERO_PROPERTIES } from "@/service/ni/device/types";
 
 testPropertiesSchema("NI", propertiesZ, ZERO_PROPERTIES, [
   [

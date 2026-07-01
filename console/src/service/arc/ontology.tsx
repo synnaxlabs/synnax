@@ -11,9 +11,9 @@ import { type ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 
-import { create } from "@/service/arc/layout";
-import { type Layout } from "@/layout";
-import { Ontology } from "@/ontology";
+import { create } from "@/component/arc/layout";
+import { Ontology } from "@/service/ontology";
+import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({
   client,
@@ -30,7 +30,11 @@ const handleSelect: Ontology.HandleSelect = ({
   });
 };
 
-const load = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer) => {
+const load = async (
+  client: Synnax,
+  id: ontology.ID,
+  placeLayout: Session.Layout.Placer,
+) => {
   const { name, key } = await client.arcs.retrieve({ key: id.key });
   placeLayout(create({ name, key }));
 };

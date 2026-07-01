@@ -11,15 +11,15 @@ import { type device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { Common } from "@/hardware/common";
-import { useCommonNetwork } from "@/hardware/ethercat/device/queries";
+import { Device } from "@/component/device";
+import { useCommonNetwork } from "@/service/ethercat/device/queries";
 import {
   MAKE,
   SLAVE_MODEL,
   type SlaveProperties,
-} from "@/hardware/ethercat/device/types";
-import { useConfigureModal } from "@/hardware/ethercat/device/useConfigureModal";
-import { type Channel } from "@/hardware/ethercat/task/types";
+} from "@/service/ethercat/device/types";
+import { useConfigureModal } from "@/service/ethercat/device/useConfigureModal";
+import { type Channel } from "@/service/ethercat/task/types";
 
 export interface SelectSlaveProps {
   /** Path to the slave device field in the form. */
@@ -43,7 +43,7 @@ export const SelectSlave = ({
     [network],
   );
   return (
-    <Common.Device.Select
+    <Device.Select
       path={path}
       label="Slave Device"
       onConfigure={(deviceKey) => configure({ deviceKey })}

@@ -13,17 +13,14 @@ import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { logout } from "@/cluster/services/logout";
-import { Layout } from "@/layout";
-import { SLICE_NAME } from "@/session/project/slice";
-import { type Project, ZERO_SLICE_STATE } from "@/project/types";
-import { useSyncLayout } from "@/project/useSyncLayout";
-import { type ConsolePreloadedState, createConsoleWrapper } from "@/testUtils";
+import { Session } from "@/session";
+import { useSyncLayout } from "@/service/project/useSyncLayout";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil/testutil";
 
 const client: Synnax = createTestClient();
 
-const preloadWithActive = (active: Project): ConsolePreloadedState => ({
-  [SLICE_NAME]: { ...ZERO_SLICE_STATE, active },
+const preloadWithActive = (selected: string): ConsolePreloadedState => ({
+  [Session.Project.SLICE_NAME]: { ...Session.Project.ZERO_SLICE_STATE, selected },
 });
 
 describe("useSyncLayout", () => {
@@ -34,7 +31,7 @@ describe("useSyncLayout", () => {
     });
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: preloadWithActive({ key: proj.key, name: proj.name }),
+      preloadedState: preloadWithActive(proj.key),
     });
     const { result } = renderHook(
       () => {
@@ -50,7 +47,7 @@ describe("useSyncLayout", () => {
     const layoutKey = id.create();
     act(() => {
       store.dispatch(
-        Layout.place({
+        Session.Layout.place({
           windowKey: "main",
           key: layoutKey,
           type: "schematic",
@@ -76,23 +73,23 @@ describe("useSyncLayout", () => {
     });
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: preloadWithActive({ key: proj.key, name: proj.name }),
+      preloadedState: preloadWithActive(proj.key),
     });
     const { result } = renderHook(
       () => {
         useSyncLayout();
-        return Status.useNotifications();
+        return { logout: Session.useLogout(), notifications: Status.useNotifications() };
       },
       { wrapper },
     );
 
-    act(() => logout(store.dispatch));
+    act(() => result.current.logout());
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
     expect(
-      result.current.statuses.filter(({ message }) =>
+      result.current.notifications.statuses.filter(({ message }) =>
         message.includes("project layout"),
       ),
     ).toHaveLength(0);

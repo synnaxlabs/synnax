@@ -14,7 +14,7 @@ import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Link } from "@/service/link";
-import { renderHookWithConsole } from "@/testUtils";
+import { renderHookWithConsole } from "@/testutil/testutil";
 
 // useDeep dispatches Drift.focusWindow as a side effect of routing. Routing itself does
 // not depend on window state, so an identity-reducer store lets that dispatch no-op

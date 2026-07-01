@@ -13,7 +13,7 @@ import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { getResourcesToGroup } from "@/service/group/getResourcesToGroup";
-import { type Ontology } from "@/ontology";
+import { type Ontology } from "@/service/ontology";
 
 export interface CreateFromSelection {
   (props: Ontology.TreeContextMenuProps): void;

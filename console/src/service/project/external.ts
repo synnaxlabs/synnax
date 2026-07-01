@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/service/project/export";
 export * from "@/service/project/import";
 export * from "@/service/project/link";
 export * from "@/service/project/ontology";
 export * from "@/service/project/palette";
 export * from "@/service/project/Toolbar";
+export * from "@/service/project/useSyncLayout";

@@ -10,15 +10,15 @@
 import { task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { EtherCAT } from "@/hardware/ethercat";
-import { HTTP } from "@/hardware/http";
-import { LabJack } from "@/hardware/labjack";
-import { Modbus } from "@/hardware/modbus";
-import { NI } from "@/hardware/ni";
-import { OPC } from "@/hardware/opc";
-import { PagerDuty } from "@/hardware/pagerduty";
-import { type Layout } from "@/layout";
-import { Selector as BaseSelector } from "@/selector";
+import { Selector as BaseSelector } from "@/component/selector";
+import { EtherCAT } from "@/service/ethercat";
+import { HTTP } from "@/service/http";
+import { LabJack } from "@/service/labjack";
+import { Modbus } from "@/service/modbus";
+import { NI } from "@/service/ni";
+import { OPC } from "@/service/opc";
+import { PagerDuty } from "@/service/pagerduty";
+import { type Session } from "@/session";
 
 const withTaskVisibility = (
   Selectable: BaseSelector.Selectable,
@@ -44,7 +44,7 @@ export const SELECTABLES: BaseSelector.Selectable[] = [
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";
 
-export const SELECTOR_LAYOUT: Layout.BaseState = {
+export const SELECTOR_LAYOUT: Session.Layout.BaseState = {
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Task",
   location: "mosaic",

@@ -7,4 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as EtherCAT from "@/hardware/ethercat/external";
+export * as EtherCAT from "@/service/ethercat/external";

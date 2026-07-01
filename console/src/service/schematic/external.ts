@@ -7,24 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Schematic } from "@/component/schematic/body/Schematicchematic";
-import { LAYOUT_TYPE } from "@/component/schematic/layouts/layout";
-import { type Export } from "@/export";
-import { type Layout } from "@/layout";
-import { type Selector } from "@/selector";
+import { type Layout } from "@/component/layout";
+import { ContextMenu } from "@/component/schematic/ContextMenu";
+import { Schematic } from "@/component/schematic/Schematic";
+import { LAYOUT_TYPE } from "@/component/schematic/layout";
+import { type Selector } from "@/component/selector";
+import { type Export } from "@/service/export";
 import { extract } from "@/service/schematic/export";
+import { FILE_INGESTERS } from "@/service/schematic/import";
 import { Selectable } from "@/service/schematic/Selectable";
-import { ContextMenu } from "@/service/schematic/symbols/ContextMenu";
 
+export * from "@/component/schematic/layout";
+export * from "@/component/schematic/useCreate";
 export * from "@/service/schematic/link";
 export * from "@/service/schematic/ontology";
 export * from "@/service/schematic/palette";
+export * from "@/service/schematic/toolbar/Toolbar";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,
 };
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
+
+export const ImEx = { FILE_INGESTERS };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Schematic,

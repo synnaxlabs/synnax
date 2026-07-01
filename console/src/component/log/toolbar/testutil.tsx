@@ -19,7 +19,7 @@ import {
   Suspense,
 } from "react";
 
-import { type ConsolePreloadedState, createConsoleWrapper } from "@/testUtils";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil/testutil";
 
 export const client = createTestClient();
 

@@ -9,8 +9,8 @@
 
 import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
-import { useDispatch } from "react-redux";
 
+import { Session } from "@/session";
 import { useSelectSelectedKey } from "@/session/cluster/selectors";
 import { changeKey } from "@/session/cluster/slice";
 

@@ -12,12 +12,12 @@ import { type Flux, Group, Text, Tree } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type TreeState } from "@/ontology/service";
+import { Ontology } from "@/service/ontology";
 
 export interface UseCreateEmptyProps {
   parent: ontology.ID;
   root: ontology.ID;
-  state: TreeState;
+  state: Ontology.TreeState;
 }
 
 export const useCreateEmpty = ({

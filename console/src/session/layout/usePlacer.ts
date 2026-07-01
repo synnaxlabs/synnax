@@ -14,11 +14,15 @@ import { type Dispatch, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { place, type State } from "@/session/layout/slice";
-import { type Action, type State, type State } from "@/session/store";
+import {
+  type Action as RootAction,
+  type State as RootState,
+  type Store,
+} from "@/session/store";
 
 export interface CreatorProps {
   dispatch: Dispatch<PayloadAction<unknown>>;
-  store: State;
+  store: Store;
   windowKey: string;
 }
 
@@ -48,8 +52,8 @@ export interface Placer<A = unknown> {
  * when possible, but feel free to use the second method for more dynamic layout creation.
  */
 export const usePlacer = <A = unknown>(): Placer<A> => {
-  const dispatch = Session.useDispatch();
-  const store = useStore<State, Action>();
+  const dispatch = useDispatch();
+  const store = useStore<RootState, RootAction>();
   const windowKey = useSelectWindowKey();
   return useCallback(
     (base) => {

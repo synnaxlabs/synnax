@@ -11,7 +11,7 @@ import { testPropertiesSchema } from "@/component/device/testutil";
 import {
   slavePropertiesZ,
   ZERO_SLAVE_PROPERTIES,
-} from "@/hardware/ethercat/device/types";
+} from "@/service/ethercat/device/types";
 
 testPropertiesSchema("EtherCAT", slavePropertiesZ, ZERO_SLAVE_PROPERTIES, [
   [

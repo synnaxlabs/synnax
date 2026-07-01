@@ -10,14 +10,14 @@
 import { channel, type device } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { Common } from "@/hardware/common";
+import { Device } from "@/component/device";
 
 export const MAKE = "NI";
 export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
 
 export const propertiesZ = z.object({
-  identifier: Common.Device.identifierZ.catch(""),
+  identifier: Device.identifierZ.catch(""),
   analogInput: z
     .object({
       portCount: z.number().default(0),
@@ -30,7 +30,7 @@ export const propertiesZ = z.object({
       portCount: z.number().default(0),
       stateIndex: channel.keyZ.catch(0),
       channels: z
-        .record(z.string(), Common.Device.commandStatePairZ)
+        .record(z.string(), Device.commandStatePairZ)
         .default(() => ({})),
     })
     .default(() => ({ portCount: 0, stateIndex: 0, channels: {} })),
@@ -61,7 +61,7 @@ export const propertiesZ = z.object({
       lineCounts: z.array(z.number()).default(() => []),
       stateIndex: channel.keyZ.catch(0),
       channels: z
-        .record(z.string(), Common.Device.commandStatePairZ)
+        .record(z.string(), Device.commandStatePairZ)
         .default(() => ({})),
     })
     .default(() => ({ portCount: 0, lineCounts: [], stateIndex: 0, channels: {} })),

@@ -23,8 +23,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Import } from "@/import";
-import { create, LAYOUT_TYPE } from "@/service/lineplot/layout";
+import { create, LAYOUT_TYPE } from "@/component/lineplot/layout";
+import { type Import } from "@/service/import";
 
 const STATE_MIGRATION_NAME = "lineplot.state";
 

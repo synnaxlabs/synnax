@@ -10,8 +10,8 @@
 import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { ALERT_LAYOUT } from "@/hardware/pagerduty/task/Alert";
-import { Palette } from "@/palette";
+import { ALERT_LAYOUT } from "@/service/pagerduty/task/Alert";
+import { Palette } from "@/component/palette";
 
 const CreateAlertCommand = Palette.createSimpleCommand({
   key: "pagerduty_create_alert_task",

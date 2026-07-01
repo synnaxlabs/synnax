@@ -10,15 +10,15 @@
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { createMosaicWindow, moveMosaicTab } from "@/service/slice";
-import { usePlacer } from "@/layout/usePlacer";
+import { createMosaicWindow, moveMosaicTab } from "@/session/layout/slice";
+import { usePlacer } from "@/session/layout/usePlacer";
 
 interface OpenInNewWindow {
   (layoutKey: string): void;
 }
 
 export const useOpenInNewWindow = (): OpenInNewWindow => {
-  const dispatch = Session.useDispatch();
+  const dispatch = useDispatch();
   const place = usePlacer();
   return useCallback(
     (layoutKey) => {

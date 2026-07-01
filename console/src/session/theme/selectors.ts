@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Dispatch } from "@reduxjs/toolkit";
 import { type Theming } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Select } from "@/session/select";
 import {
+  type Action,
   select,
   SLICE_NAME,
   type SliceState,
@@ -28,7 +30,7 @@ export const useSelectSelected = (): string => Select.useMemo(selectSelected, []
 
 export const useProviderProps = (): Theming.ProviderProps => {
   const key = useSelectSelected();
-  const dispatch = Session.useDispatch();
+  const dispatch = useDispatch<Dispatch<Action>>();
   return useMemo<Theming.ProviderProps>(
     () => ({
       theme: { key },

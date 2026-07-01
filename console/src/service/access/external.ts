@@ -7,5 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/access/policy";
-export * from "@/access/role";
+export * from "@/service/access/policy";
+export * from "@/service/access/role";

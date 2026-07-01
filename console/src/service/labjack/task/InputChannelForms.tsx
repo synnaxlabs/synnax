@@ -11,7 +11,7 @@ import { Divider, Flex, Form as PForm, Icon, Select } from "@synnaxlabs/pluto";
 import { deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, useMemo } from "react";
 
-import { Device } from "@/hardware/labjack/device";
+import { Device } from "@/service/labjack/device";
 import {
   AIR_CJC_SOURCE,
   DEVICE_CJC_SOURCE,
@@ -22,7 +22,7 @@ import {
   type TemperatureUnits,
   type ThermocoupleType,
   ZERO_SCALES,
-} from "@/hardware/labjack/task/types";
+} from "@/service/labjack/task/types";
 
 const MaxVoltageField = PForm.buildNumericField({
   fieldKey: "range",

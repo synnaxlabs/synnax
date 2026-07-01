@@ -10,9 +10,9 @@
 import { Component, Divider, Flex, Form, Icon, Select } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { Device } from "@/hardware/ni/device";
-import { CustomScaleForm } from "@/hardware/ni/task/CustomScaleForm";
-import { MinMaxValueFields } from "@/hardware/ni/task/MinMaxValueFields";
+import { Device } from "@/service/ni/device";
+import { CustomScaleForm } from "@/service/ni/task/CustomScaleForm";
+import { MinMaxValueFields } from "@/service/ni/task/MinMaxValueFields";
 import {
   AO_CURRENT_CHAN_TYPE,
   AO_FUNC_GEN_CHAN_TYPE,
@@ -20,7 +20,7 @@ import {
   type AOChannelType,
   WAVE_TYPES,
   type WaveType,
-} from "@/hardware/ni/task/types";
+} from "@/service/ni/task/types";
 
 interface SelectWaveTypeProps extends Omit<Select.ButtonsProps<WaveType>, "keys"> {}
 

@@ -7,4 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Task from "@/hardware/labjack/task/external";
+export * as Task from "@/service/labjack/task/external";

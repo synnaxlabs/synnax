@@ -10,9 +10,9 @@
 import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { READ_LAYOUT } from "@/hardware/labjack/task/Read";
-import { WRITE_LAYOUT } from "@/hardware/labjack/task/Write";
-import { Palette } from "@/palette";
+import { Palette } from "@/component/palette";
+import { READ_LAYOUT } from "@/service/labjack/task/Read";
+import { WRITE_LAYOUT } from "@/service/labjack/task/Write";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
