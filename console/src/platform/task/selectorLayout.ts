@@ -7,4 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Task from "@/feature/task/external";
+import { type Session } from "@/session";
+
+export const SELECTOR_LAYOUT_TYPE = "taskSelector";
+
+export const SELECTOR_LAYOUT: Session.Layout.BaseState = {
+  type: SELECTOR_LAYOUT_TYPE,
+  icon: "Task",
+  location: "mosaic",
+  name: "New Task",
+};

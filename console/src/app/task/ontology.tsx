@@ -11,7 +11,7 @@ import { ontology, task } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
-import { createLayout, retrieveAndPlaceLayout } from "@/feature/task/layouts";
+import { createLayout, retrieveAndPlaceLayout } from "@/app/task/layouts";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";

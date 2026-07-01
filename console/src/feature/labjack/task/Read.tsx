@@ -28,13 +28,12 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/feature/labjack/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { Device as CommonDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const READ_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const READ_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.LabJack",
@@ -313,7 +312,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   return [config, dev.rack];
 };
 
-export const Read = ServiceTask.wrapForm({
+export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,

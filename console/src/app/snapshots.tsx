@@ -10,7 +10,7 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
-import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/feature/task/layouts";
+import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/app/task/layouts";
 import { type Range } from "@/platform/range";
 import { create as createSchematic } from "@/platform/schematic/layout";
 

@@ -35,18 +35,17 @@ import {
   ZERO_OUTPUT_CHANNELS,
   ZERO_WRITE_PAYLOAD,
 } from "@/feature/modbus/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 export const WRITE_LAYOUT = {
-  ...ServiceTask.LAYOUT,
+  ...Task.LAYOUT,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.Modbus",
-} as const satisfies ServiceTask.Layout;
+} as const satisfies Task.Layout;
 
 export const WriteSelectable = Selector.createSimpleItem({
   title: "Modbus Write Task",
@@ -236,7 +235,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Write = ServiceTask.wrapForm({
+export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,

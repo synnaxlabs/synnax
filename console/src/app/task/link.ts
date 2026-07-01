@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import { retrieveAndPlaceLayout } from "@/feature/task/layouts";
+import { retrieveAndPlaceLayout } from "@/app/task/layouts";
 import { type Link } from "@/platform/link";
 import { Session } from "@/session";
 

@@ -18,7 +18,6 @@ import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Selector as BaseSelector } from "@/platform/selector";
-import { type Session } from "@/session";
 
 const withTaskVisibility = (
   Selectable: BaseSelector.Selectable,
@@ -41,14 +40,5 @@ export const SELECTABLES: BaseSelector.Selectable[] = [
   ...OPC.Task.SELECTABLES,
   ...PagerDuty.Task.SELECTABLES,
 ].map(withTaskVisibility);
-
-export const SELECTOR_LAYOUT_TYPE = "taskSelector";
-
-export const SELECTOR_LAYOUT: Session.Layout.BaseState = {
-  type: SELECTOR_LAYOUT_TYPE,
-  icon: "Task",
-  location: "mosaic",
-  name: "New Task",
-};
 
 export const Selector = BaseSelector.createSelector(SELECTABLES, "Select a Task Type");

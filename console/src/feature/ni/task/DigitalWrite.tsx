@@ -27,13 +27,12 @@ import {
   type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/feature/ni/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { Device as CommonDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const DIGITAL_WRITE_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const DIGITAL_WRITE_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   icon: "Logo.NI",
   name: ZERO_DIGITAL_WRITE_PAYLOAD.name,
   type: DIGITAL_WRITE_TYPE,
@@ -212,7 +211,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   return [config, dev.rack];
 };
 
-export const DigitalWrite = ServiceTask.wrapForm({
+export const DigitalWrite = Task.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,

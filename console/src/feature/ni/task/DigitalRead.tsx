@@ -27,13 +27,12 @@ import {
   type DigitalReadSchemas,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { Device as CommonDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const DIGITAL_READ_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const DIGITAL_READ_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   icon: "Logo.NI",
   name: ZERO_DIGITAL_READ_PAYLOAD.name,
   type: DIGITAL_READ_TYPE,
@@ -164,7 +163,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
   return [config, dev.rack];
 };
 
-export const DigitalRead = ServiceTask.wrapForm({
+export const DigitalRead = Task.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_READ_SCHEMAS,

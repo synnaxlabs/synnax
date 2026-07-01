@@ -28,13 +28,12 @@ import {
   ZERO_CI_CHANNEL,
   ZERO_COUNTER_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { Device as CommonDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const COUNTER_READ_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const COUNTER_READ_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   type: COUNTER_READ_TYPE,
   name: ZERO_COUNTER_READ_PAYLOAD.name,
   icon: "Logo.NI",
@@ -222,7 +221,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   return [config, rackKey];
 };
 
-export const CounterRead = ServiceTask.wrapForm({
+export const CounterRead = Task.wrapForm({
   Properties,
   Form,
   schemas: COUNTER_READ_SCHEMAS,

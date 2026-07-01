@@ -44,7 +44,6 @@ import {
   ZERO_READ_FIELD,
   ZERO_READ_PAYLOAD,
 } from "@/feature/http/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { KeyValueEditor } from "@/platform/form/KeyValueEditor";
@@ -52,8 +51,8 @@ import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 import { ChannelList as BaseChannelList } from "@/platform/task/ChannelList";
 
-export const READ_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const READ_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.HTTP",
@@ -700,7 +699,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   return [config, dev.rack];
 };
 
-export const Read = ServiceTask.wrapForm({
+export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,

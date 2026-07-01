@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Task } from "@/app/task";
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
@@ -16,7 +17,6 @@ import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
-import { Task } from "@/feature/task";
 import { Cluster } from "@/platform/cluster";
 import { Link } from "@/platform/link";
 

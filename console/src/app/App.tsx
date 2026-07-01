@@ -32,6 +32,7 @@ import { Mosaic, MOSAIC_LAYOUT_TYPE, MosaicWindow } from "@/app/Mosaic";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/app/Selector";
 import { SERVICES } from "@/app/services";
 import { SNAPSHOT_SERVICES } from "@/app/snapshots";
+import { Task } from "@/app/task";
 import { Vis } from "@/app/vis";
 import { Arc } from "@/feature/arc";
 import { Docs } from "@/feature/docs";
@@ -41,7 +42,6 @@ import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
-import { Task } from "@/feature/task";
 import { Errors } from "@/platform/errors";
 import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
@@ -162,7 +162,9 @@ export const App = (): ReactElement => {
                   <Ontology.ServicesProvider services={SERVICES}>
                     <Palette.CommandProvider commands={COMMANDS}>
                       <PlatformRange.SnapshotServicesProvider services={SNAPSHOT_SERVICES}>
-                        <AppUnderContext />
+                        <Task.RegistryProvider registry={Task.REGISTRY}>
+                          <AppUnderContext />
+                        </Task.RegistryProvider>
                       </PlatformRange.SnapshotServicesProvider>
                     </Palette.CommandProvider>
                   </Ontology.ServicesProvider>

@@ -27,13 +27,12 @@ import {
   type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
 } from "@/feature/ni/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { Device as CommonDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const ANALOG_WRITE_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const ANALOG_WRITE_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   type: ANALOG_WRITE_TYPE,
   name: ZERO_ANALOG_WRITE_PAYLOAD.name,
   icon: "Logo.NI",
@@ -223,7 +222,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
   return [config, dev.rack];
 };
 
-export const AnalogWrite = ServiceTask.wrapForm({
+export const AnalogWrite = Task.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,

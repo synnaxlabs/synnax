@@ -28,13 +28,12 @@ import {
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { Device as CommonDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const ANALOG_READ_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const ANALOG_READ_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   type: ANALOG_READ_TYPE,
   name: ZERO_ANALOG_READ_PAYLOAD.name,
   icon: "Logo.NI",
@@ -220,7 +219,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   return [config, rackKey];
 };
 
-export const AnalogRead = ServiceTask.wrapForm({
+export const AnalogRead = Task.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_READ_SCHEMAS,

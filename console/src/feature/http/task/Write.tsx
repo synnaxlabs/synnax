@@ -44,15 +44,14 @@ import {
   ZERO_WRITE_ENDPOINT,
   ZERO_WRITE_PAYLOAD,
 } from "@/feature/http/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { KeyValueEditor } from "@/platform/form/KeyValueEditor";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WRITE_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const WRITE_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.HTTP",
@@ -709,7 +708,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Write = ServiceTask.wrapForm({
+export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,

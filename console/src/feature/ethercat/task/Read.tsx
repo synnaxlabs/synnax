@@ -31,12 +31,11 @@ import {
   resolvePDODataType,
   ZERO_READ_PAYLOAD,
 } from "@/feature/ethercat/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const READ_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const READ_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.EtherCAT",
@@ -147,7 +146,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   return [config, rack];
 };
 
-export const Read = ServiceTask.wrapForm({
+export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,

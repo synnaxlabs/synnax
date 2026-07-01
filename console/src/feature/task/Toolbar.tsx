@@ -28,9 +28,6 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
-import { createLayout } from "@/feature/task/layouts";
-import { SELECTOR_LAYOUT } from "@/feature/task/Selector";
-import { getIcon, parseType } from "@/feature/task/types";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
 import { Cluster } from "@/platform/cluster";
@@ -42,8 +39,9 @@ import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
 import { Range } from "@/platform/range";
-import { type Task as CommonTask } from "@/platform/task";
+import { Task as CommonTask } from "@/platform/task";
 import { useExport } from "@/platform/task/export";
+import { SELECTOR_LAYOUT } from "@/platform/task/selectorLayout";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -76,6 +74,7 @@ const Content = () => {
   const menuProps = Menu.useContextMenu();
   const dispatch = Session.useDispatch();
   const placeLayout = Session.Layout.usePlacer();
+  const { createLayout } = CommonTask.useRegistry();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
@@ -167,7 +166,7 @@ const Content = () => {
       const layout = createLayout(task);
       placeLayout(layout);
     },
-    [selected, addStatus, placeLayout],
+    [selected, addStatus, placeLayout, createLayout, getItem],
   );
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     ({ keys }) => (
@@ -259,6 +258,7 @@ interface TaskListItemProps extends List.ItemProps<task.Key> {
 
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
   const { itemKey } = rest;
+  const { getIcon, parseType } = CommonTask.useRegistry();
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
   const hasUpdatePermission = Access.useUpdateGranted(task.ontologyID(itemKey));
   const details = task_?.status?.details;

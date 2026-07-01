@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Task } from "@/app/task";
 import { Arc } from "@/feature/arc";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
-import { Task } from "@/feature/task";
 import { type Import } from "@/platform/import";
 
 export const FILE_INGESTERS: Import.FileIngesters = {

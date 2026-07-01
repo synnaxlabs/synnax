@@ -35,14 +35,13 @@ import {
   ZERO_ALERT_CONFIG,
   ZERO_ALERT_PAYLOAD,
 } from "@/feature/pagerduty/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const ALERT_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const ALERT_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   type: ALERT_TYPE,
   name: ZERO_ALERT_PAYLOAD.name,
   icon: "Logo.PagerDuty",
@@ -321,7 +320,7 @@ const onConfigure: Task.OnConfigure<AlertSchemas["config"]> = async (
   config,
 ) => [config, 0];
 
-export const Alert = ServiceTask.wrapForm({
+export const Alert = Task.wrapForm({
   Properties,
   Form,
   schemas: ALERT_SCHEMAS,

@@ -24,13 +24,12 @@ import {
   ZERO_OUTPUT_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/feature/labjack/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { Device as CommonDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WRITE_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const WRITE_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.LabJack",
@@ -322,7 +321,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Write = ServiceTask.wrapForm({
+export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,

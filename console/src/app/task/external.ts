@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createLayout } from "@/app/task/layouts";
+import { Selector } from "@/app/task/Selector";
+import { getIcon, parseType } from "@/app/task/types";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
@@ -14,23 +17,28 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
-import { Selector, SELECTOR_LAYOUT_TYPE } from "@/feature/task/Selector";
 import { TOOLBAR } from "@/feature/task/Toolbar";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { type Palette } from "@/platform/palette";
+import { type Task } from "@/platform/task";
+import { SELECTOR_LAYOUT_TYPE } from "@/platform/task/selectorLayout";
 
-export * from "@/feature/task/layouts";
-export * from "@/feature/task/link";
-export * from "@/feature/task/ontology";
-export * from "@/feature/task/Selector";
+export * from "@/app/task/layouts";
+export * from "@/app/task/link";
+export * from "@/app/task/ontology";
+export * from "@/app/task/Selector";
+export * from "@/app/task/types";
 export * from "@/feature/task/Toolbar";
 export * from "@/platform/task/createIngester";
 export * from "@/platform/task/export";
 export * from "@/platform/task/Form";
+export * from "@/platform/task/registry";
 export * from "@/platform/task/UtilityButtons";
+
+export const REGISTRY: Task.Registry = { createLayout, getIcon, parseType };
 
 export const COMMANDS: Palette.Command[] = [
   ...EtherCAT.Task.COMMANDS,

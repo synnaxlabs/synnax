@@ -11,8 +11,8 @@ import { createTestClient } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { useLink } from "@/app/task/link";
 import { NI } from "@/feature/ni";
-import { useLink } from "@/feature/task/link";
 import { Session } from "@/session";
 import { renderLinkHook } from "@/testutil/testutil";
 

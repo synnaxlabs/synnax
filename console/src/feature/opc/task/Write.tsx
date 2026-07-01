@@ -21,13 +21,12 @@ import {
   type WriteSchemas,
   ZERO_WRITE_PAYLOAD,
 } from "@/feature/opc/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { ContextMenu } from "@/platform/context-menu";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WRITE_LAYOUT: ServiceTask.Layout = {
-  ...ServiceTask.LAYOUT,
+export const WRITE_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
   type: WRITE_TYPE,
   name: ZERO_WRITE_PAYLOAD.name,
   icon: "Logo.OPC",
@@ -168,7 +167,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-export const Write = ServiceTask.wrapForm({
+export const Write = Task.wrapForm({
   Properties,
   Form: TaskForm,
   schemas: WRITE_SCHEMAS,

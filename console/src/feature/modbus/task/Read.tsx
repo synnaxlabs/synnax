@@ -28,17 +28,16 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/feature/modbus/task/types";
-import { Task as ServiceTask } from "@/feature/task";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 export const READ_LAYOUT = {
-  ...ServiceTask.LAYOUT,
+  ...Task.LAYOUT,
   type: READ_TYPE,
   name: ZERO_READ_PAYLOAD.name,
   icon: "Logo.Modbus",
-} as const satisfies ServiceTask.Layout;
+} as const satisfies Task.Layout;
 
 export const ReadSelectable = Selector.createSimpleItem({
   title: "Modbus Read Task",
@@ -238,7 +237,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   return [config, dev.rack];
 };
 
-export const Read = ServiceTask.wrapForm({
+export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
