@@ -31,6 +31,7 @@ import { Main, MAIN_LAYOUT_TYPE } from "@/app/Main";
 import { Mosaic, MOSAIC_LAYOUT_TYPE, MosaicWindow } from "@/app/Mosaic";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/app/Selector";
 import { SERVICES } from "@/app/services";
+import { SNAPSHOT_SERVICES } from "@/app/snapshots";
 import { Vis } from "@/app/vis";
 import { Arc } from "@/feature/arc";
 import { Docs } from "@/feature/docs";
@@ -47,6 +48,7 @@ import { Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
 import { Ontology } from "@/platform/ontology";
 import { Palette } from "@/platform/palette";
+import { Range as PlatformRange } from "@/platform/range";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 import WorkerURL from "@/worker?worker&url";
@@ -159,7 +161,9 @@ export const App = (): ReactElement => {
                 <Export.ExtractorsProvider extractors={EXTRACTORS}>
                   <Ontology.ServicesProvider services={SERVICES}>
                     <Palette.CommandProvider commands={COMMANDS}>
-                      <AppUnderContext />
+                      <PlatformRange.SnapshotServicesProvider services={SNAPSHOT_SERVICES}>
+                        <AppUnderContext />
+                      </PlatformRange.SnapshotServicesProvider>
                     </Palette.CommandProvider>
                   </Ontology.ServicesProvider>
                 </Export.ExtractorsProvider>

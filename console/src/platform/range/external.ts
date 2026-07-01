@@ -15,6 +15,7 @@ export * from "@/platform/range/overview/layout";
 export * from "@/platform/range/overview/MetaData";
 export * from "@/platform/range/Select";
 export * from "@/platform/range/SnapshotMenuItem";
+export * from "@/platform/range/snapshots";
 export * from "@/platform/range/useAddToActivePlot";
 export * from "@/platform/range/useAddToNewPlot";
 export * from "@/platform/range/useCreateModal";

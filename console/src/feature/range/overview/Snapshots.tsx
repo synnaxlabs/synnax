@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  DisconnectedError,
-  type ontology,
-  ranger,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { type ontology, ranger } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -27,65 +22,29 @@ import {
 } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/feature/task/layouts";
 import { CSS } from "@/platform/css";
 import { Ontology as ServiceOntology } from "@/platform/ontology";
-import { create } from "@/platform/schematic/layout";
+import { Range } from "@/platform/range";
 import { Session } from "@/session";
-
-interface SnapshotCtx {
-  client: Client | null;
-  placeLayout: Session.Layout.Placer;
-}
-
-interface SnapshotService {
-  icon: Icon.ReactElement;
-  onClick: (res: ontology.Resource, ctx: SnapshotCtx) => Promise<void>;
-  onDelete: (res: ontology.Resource, ctx: SnapshotCtx) => Promise<void>;
-}
-
-const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
-  schematic: {
-    icon: <Icon.Schematic />,
-    onClick: async ({ id: { key } }, { client, placeLayout }) => {
-      if (client == null) throw new DisconnectedError();
-      const s = await client.schematics.retrieve({ key });
-      placeLayout(create({ key: s.key, name: s.name, editable: false }));
-    },
-    onDelete: async ({ id: { key } }, { client }) => {
-      if (client == null) throw new DisconnectedError();
-      await client.schematics.delete(key);
-    },
-  },
-  task: {
-    icon: <Icon.Task />,
-    onClick: async ({ id: { key } }, { client, placeLayout }) =>
-      await retrieveAndPlaceTaskLayout(client, key, placeLayout),
-    onDelete: async ({ id: { key } }, { client }) => {
-      if (client == null) throw new DisconnectedError();
-      await client.tasks.delete(key);
-    },
-  },
-};
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
   const entry = List.useItem<string, ontology.Resource>(itemKey);
-  if (entry == null) return null;
-  const { id, name } = entry;
-  const svc = SNAPSHOTS[id.type as keyof typeof SNAPSHOTS];
+  const services = Range.useSnapshotServices();
   const placeLayout = Session.Layout.usePlacer();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
+  const promptConfirm = ServiceOntology.useConfirmDelete({ type: "Snapshot" });
+  if (entry == null) return null;
+  const { id, name } = entry;
+  const svc = services[id.type];
+  if (svc == null) return null;
   const handleSelect = () => {
     handleError(
       svc.onClick(entry, { client, placeLayout }),
       `Failed to open ${entry.name}`,
     );
   };
-  const promptConfirm = ServiceOntology.useConfirmDelete({
-    type: "Snapshot",
-  });
   const handleDelete = () => {
     handleError(async () => {
       const confirmed = await promptConfirm({ name });
