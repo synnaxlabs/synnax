@@ -224,43 +224,48 @@ func collectStageDecl(
 	}
 }
 
-// Analyze performs semantic analysis on a sequence declaration.
-// This is called during the second pass after all declarations have been collected.
-// For anonymous inline sequences, the scope is resolved by parser rule rather
-// than by name.
-func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
-	var (
-		seqScope *symbol.Symbol
-		err      error
-	)
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		seqScope, err = ctx.Scope.Resolve(ctx, id.GetText())
-	} else {
-		seqScope, err = ctx.Scope.GetChildByParserRule(ctx.AST)
+// scopeBodyItem is a body line common to sequences and stages.
+type scopeBodyItem interface {
+	VariableDeclaration() parser.IVariableDeclarationContext
+	Assignment() parser.IAssignmentContext
+	FlowStatement() parser.IFlowStatementContext
+	SingleInvocation() parser.ISingleInvocationContext
+	SequenceDeclaration() parser.ISequenceDeclarationContext
+}
+
+// analyzeScopeBodyItem analyzes one body line in the construct's own ctx.Scope.
+func analyzeScopeBodyItem[T antlr.ParserRuleContext](ctx context.Context[T], item scopeBodyItem) {
+	if varDecl := item.VariableDeclaration(); varDecl != nil {
+		statement.AnalyzeVariableDeclaration(context.Child(ctx, varDecl))
 	}
+	if assign := item.Assignment(); assign != nil {
+		rejectReactiveAssignment(ctx.Diagnostics, assign)
+	}
+	if flowStmt := item.FlowStatement(); flowStmt != nil {
+		flow.Analyze(context.Child(ctx, flowStmt))
+	}
+	if single := item.SingleInvocation(); single != nil {
+		analyzeSingleInvocation(context.Child(ctx, single))
+	}
+	if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
+		Analyze(context.Child(ctx, nestedSeq))
+	}
+}
+
+// Analyze performs second-pass semantic analysis on a sequence declaration.
+func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
+	seqScope, err := context.ResolveOwnScope(ctx)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
+	ctx = ctx.WithScope(seqScope)
 	for _, item := range ctx.AST.AllSequenceItem() {
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			analyzeStage(context.Child(ctx, stageDecl).WithScope(seqScope))
+			analyzeStage(context.Child(ctx, stageDecl))
+			continue
 		}
-		if varDecl := item.VariableDeclaration(); varDecl != nil {
-			statement.AnalyzeVariableDeclaration(context.Child(ctx, varDecl).WithScope(seqScope))
-		}
-		if assign := item.Assignment(); assign != nil {
-			rejectReactiveAssignment(ctx.Diagnostics, assign)
-		}
-		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			flow.Analyze(context.Child(ctx, flowStmt).WithScope(seqScope))
-		}
-		if single := item.SingleInvocation(); single != nil {
-			analyzeSingleInvocation(context.Child(ctx, single).WithScope(seqScope))
-		}
-		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			Analyze(context.Child(ctx, nestedSeq).WithScope(seqScope))
-		}
+		analyzeScopeBodyItem(ctx, item)
 	}
 }
 
@@ -310,29 +315,12 @@ func analyzeStage(ctx context.Context[parser.IStageDeclarationContext]) {
 	if stageBody == nil {
 		return
 	}
-	// Resolve the stage's own scope so nested sequences see their registered
-	// child scope. Top-level stages register at the root scope, so fall back
-	// to ctx.Scope when no child match is found.
-	stageScope := ctx.Scope
-	if scope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
-		stageScope = scope
+	// Top-level stages have no owned child scope; keep ctx.Scope when absent.
+	if stageScope, err := context.ResolveOwnScope(ctx); err == nil {
+		ctx = ctx.WithScope(stageScope)
 	}
 	for _, item := range stageBody.AllStageItem() {
-		if varDecl := item.VariableDeclaration(); varDecl != nil {
-			statement.AnalyzeVariableDeclaration(context.Child(ctx, varDecl).WithScope(stageScope))
-		}
-		if assign := item.Assignment(); assign != nil {
-			rejectReactiveAssignment(ctx.Diagnostics, assign)
-		}
-		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			flow.Analyze(context.Child(ctx, flowStmt).WithScope(stageScope))
-		}
-		if single := item.SingleInvocation(); single != nil {
-			analyzeSingleInvocation(context.Child(ctx, single).WithScope(stageScope))
-		}
-		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			Analyze(context.Child(ctx, nestedSeq).WithScope(stageScope))
-		}
+		analyzeScopeBodyItem(ctx, item)
 	}
 }
 

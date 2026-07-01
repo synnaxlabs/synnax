@@ -270,35 +270,6 @@ func firstOutputParam(outputs types.Params) string {
 	return ir.DefaultOutputParam
 }
 
-// identifierAST is the common shape of sequence and stage declarations: both
-// carry an optional IDENTIFIER token that is absent for anonymous inline
-// blocks.
-type identifierAST interface {
-	antlr.ParserRuleContext
-	IDENTIFIER() antlr.TerminalNode
-}
-
-// resolveDeclScope returns the symbol scope for a named or anonymous
-// declaration. Named declarations resolve by identifier; anonymous ones are
-// looked up via their parser rule (registered during the collect pass under a
-// synthesized AutoName key).
-func resolveDeclScope[T identifierAST](ctx acontext.Context[T]) (*symbol.Symbol, bool) {
-	var (
-		scope *symbol.Symbol
-		err   error
-	)
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		scope, err = ctx.Scope.Resolve(ctx, id.GetText())
-	} else {
-		scope, err = ctx.Scope.GetChildByParserRule(ctx.AST)
-	}
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return nil, false
-	}
-	return scope, true
-}
-
 func analyzeFlowNode(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	kg *keyGenerator,
@@ -1478,8 +1449,9 @@ func analyzeSequence(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	seqScope, ok := resolveDeclScope(ctx)
-	if !ok {
+	seqScope, err := acontext.ResolveOwnScope(ctx)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return ir.Scope{}, nil, nil, false
 	}
 	seqName := seqScope.Name
@@ -1610,12 +1582,9 @@ func analyzeTopLevelStage(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	// Resolve the symbol scope registered by collectTopLevelStage so that
-	// anonymous top-level stages pick up the auto-generated name and the
-	// resulting ir.Scope has a non-empty, unique Key. Without this, anonymous
-	// stages would collide at the root member level.
-	stageSym, ok := resolveDeclScope(ctx)
-	if !ok {
+	stageSym, err := acontext.ResolveOwnScope(ctx)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return ir.Scope{}, nil, nil, false
 	}
 	scope, nodes, edges, ok := analyzeStage(ctx, kg, shell)
@@ -1653,10 +1622,15 @@ func analyzeStage(
 		return scope, nodes, edges, true
 	}
 
+	stageCtx := ctx
+	if stageScope, err := acontext.ResolveOwnScope(ctx); err == nil {
+		stageCtx = ctx.WithScope(stageScope)
+	}
+
 	for _, item := range stageBody.AllStageItem() {
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			itemNodes, itemEdges, inlineMembers, _, ok := analyzeFlow(
-				acontext.Child(ctx, flowStmt),
+				acontext.Child(stageCtx, flowStmt),
 				kg,
 				shell,
 			)
@@ -1672,7 +1646,7 @@ func analyzeStage(
 			continue
 		}
 		if single := item.SingleInvocation(); single != nil {
-			node, ok := analyzeSingleInvocation(acontext.Child(ctx, single), kg)
+			node, ok := analyzeSingleInvocation(acontext.Child(stageCtx, single), kg)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
@@ -1681,16 +1655,8 @@ func analyzeStage(
 			continue
 		}
 		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
-			// The inline sequence is registered as a child of this stage's
-			// scope, not the parent sequence's scope. Look up the stage's own
-			// scope so analyzeSequence can resolve the nested seq via parser
-			// rule. Top-level stages don't have their own scope entry; in
-			// that case keep ctx.Scope.
-			seqCtx := acontext.Child(ctx, nestedSeqDecl)
-			if stageScope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
-				seqCtx = seqCtx.WithScope(stageScope)
-			}
-			subScope, subNodes, subEdges, ok := analyzeSequence(seqCtx, kg, shell)
+			subScope, subNodes, subEdges, ok := analyzeSequence(
+				acontext.Child(stageCtx, nestedSeqDecl), kg, shell)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
