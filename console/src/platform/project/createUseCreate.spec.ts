@@ -15,15 +15,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
 import { Project } from "@/platform/project";
+import { activeState } from "@/platform/project/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 const client: Synnax = createTestClient();
-
-const activeState = (proj: project.Project): Session.Project.SliceState => ({
-  ...Session.Project.ZERO_SLICE_STATE,
-  selected: proj.key,
-});
 
 const placedLog = (store: TestStore): Session.Layout.State | undefined =>
   Session.Layout.selectByFilter(store.getState(), (l) => l.type === Log.LAYOUT_TYPE);

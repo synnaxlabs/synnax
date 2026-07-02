@@ -12,9 +12,8 @@ import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { LAYOUT_TYPE } from "@/platform/lineplot/layout";
+import { LinePlot } from "@/platform/lineplot";
 import { Session } from "@/session";
-import { add } from "@/session/range/slice";
 
 export const useAddToActivePlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
@@ -29,8 +28,9 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
           return;
         }
         const active = Session.Layout.selectActiveMosaicLayout(store.getState());
-        if (active == null || active.type !== LAYOUT_TYPE || client == null) return;
-        Session.Range.fromClient(data).forEach((r) => store.dispatch(add(r)));
+        if (active == null || active.type !== LinePlot.LAYOUT_TYPE || client == null)
+          return;
+        store.dispatch(Session.Range.add(Session.Range.fromClient(data)));
         handleError(
           () =>
             client.lineplots.dispatch(

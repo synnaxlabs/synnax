@@ -16,7 +16,6 @@ export * from "@/platform/task/EnableDisableButton";
 export * from "@/platform/task/export";
 export * from "@/platform/task/fields";
 export * from "@/platform/task/Form";
-export * from "@/platform/task/formInfra";
 export * from "@/platform/task/getChannelNameID";
 export * from "@/platform/task/layouts";
 export * from "@/platform/task/ParentRangeButton";

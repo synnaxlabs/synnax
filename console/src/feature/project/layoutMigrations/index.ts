@@ -22,7 +22,10 @@ import * as v8 from "@/feature/project/layoutMigrations/v8";
 import * as v9 from "@/feature/project/layoutMigrations/v9";
 import * as v10 from "@/feature/project/layoutMigrations/v10";
 import * as v11 from "@/feature/project/layoutMigrations/v11";
-import { type SliceState as LayoutSliceState } from "@/session/layout/slice";
+import {
+  type SliceState as LayoutSliceState,
+  sliceStateZ as layoutSliceStateZ,
+} from "@/session/layout/slice";
 
 export type State<A = unknown> = v0.State<A>;
 export type SliceState = v11.SliceState;
@@ -84,11 +87,14 @@ export const anySliceStateZ = z
   .transform((state) => migrateSlice(state));
 
 /**
- * Migrates a persisted or exported layout slice of any historical version up to the
- * current layout slice state, used when importing a project from disk or loading a
- * project saved against an older schema.
+ * Migrates a persisted or exported layout slice up to the current layout slice state,
+ * used when importing a project from disk or loading a project saved against an older
+ * schema. A current-format slice is returned as-is; anything older runs through the
+ * versioned migration chain and is re-parsed so new fields pick up their defaults.
  */
 export const migrateLayout = (data: unknown): LayoutSliceState => {
+  const current = layoutSliceStateZ.safeParse(data);
+  if (current.success) return current.data;
   const { version: _version, ...rest } = anySliceStateZ.parse(data);
-  return { ...rest, version: 0 };
+  return layoutSliceStateZ.parse({ ...rest, version: 0 });
 };

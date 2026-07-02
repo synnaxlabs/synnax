@@ -10,10 +10,10 @@
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { type State as RangeRecord } from "@/session/range/slice";
+import { type Session } from "@/session";
 
 export interface SnapshotMenuItemProps {
-  range?: RangeRecord | null;
+  range?: Session.Range.State | null;
   onClick?: () => void;
 }
 

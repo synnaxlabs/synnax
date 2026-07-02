@@ -15,7 +15,7 @@ import {
   ChannelList as Base,
   type ChannelListProps as BaseProps,
 } from "@/platform/task/ChannelList";
-import { useIsSnapshot } from "@/platform/task/formInfra";
+import { useIsSnapshot } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
 
 interface HeaderProps {

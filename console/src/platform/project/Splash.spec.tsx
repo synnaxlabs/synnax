@@ -13,27 +13,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Splash } from "@/platform/project/Splash";
+import { savedLayout } from "@/platform/project/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
 const client: Synnax = createTestClient();
-
-// A layout slice with a single placed mosaic tab, distinguishable from the zero
-// slice so the select flow can prove the project's saved layout was loaded.
-const savedLayout = (layoutKey: string): Session.Layout.SliceState => {
-  let s = Session.Layout.reducer(undefined, { type: "@@INIT" });
-  s = Session.Layout.reducer(
-    s,
-    Session.Layout.place({
-      windowKey: "main",
-      key: layoutKey,
-      type: "schematic",
-      name: "Operator",
-      location: "mosaic",
-    }),
-  );
-  return s;
-};
 
 describe("project/Splash", () => {
   describe("without permissions", () => {

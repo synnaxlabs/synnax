@@ -42,7 +42,7 @@ import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
-import { useConfirmDelete } from "@/platform/ontology/hooks";
+import { useConfirmDelete } from "@/platform/ontology/useConfirmDelete";
 import { Session } from "@/session";
 
 const HAUL_DRAG_PROPS: Haul.UseDragProps = {

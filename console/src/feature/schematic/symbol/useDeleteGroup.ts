@@ -11,7 +11,7 @@ import { DisconnectedError, group, type ontology } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useConfirmDelete } from "@/platform/ontology/hooks";
+import { useConfirmDelete } from "@/platform/ontology/useConfirmDelete";
 
 export const useDeleteGroup = (): ((group: group.Group) => void) => {
   const client = Synnax.use();

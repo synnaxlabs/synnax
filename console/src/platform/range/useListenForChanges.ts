@@ -12,14 +12,13 @@ import { Ranger } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Session } from "@/session";
-import { remove, updateRemote } from "@/session/range/slice";
 
 export const useListenForChanges = (): void => {
   const dispatch = Session.useDispatch();
   const handleRangeSet = useCallback(
     ({ timeRange, ...rest }: ranger.Payload): void => {
       dispatch(
-        updateRemote({
+        Session.Range.updateRemote({
           ...rest,
           parent: undefined,
           timeRange: timeRange.numeric,
@@ -31,7 +30,7 @@ export const useListenForChanges = (): void => {
   Ranger.useSetSynchronizer(handleRangeSet);
   const handleRangeDelete = useCallback(
     (key: ranger.Key) => {
-      dispatch(remove({ keys: [key] }));
+      dispatch(Session.Range.remove({ keys: [key] }));
     },
     [dispatch],
   );

@@ -9,24 +9,79 @@
 
 import "@/platform/task/Form.css";
 
-import { task } from "@synnaxlabs/client";
-import { Device, Flex, Form as PForm, Input, Task as PTask } from "@synnaxlabs/pluto";
+import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
+import {
+  Device,
+  Flex,
+  type Flux,
+  Form as PForm,
+  Input,
+  Task as PTask,
+} from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { type FC, useCallback } from "react";
+import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { type Layout } from "@/platform/layout";
 import { useConfirm } from "@/platform/modals/useConfirm";
 import { Controls } from "@/platform/task/controls";
-import {
-  type FormLayoutArgs,
-  useIsSnapshot,
-  type WrapFormArgs,
-} from "@/platform/task/formInfra";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
+import { useStatus } from "@/platform/task/useStatus";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
 import { Session } from "@/session";
+
+export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
+  (
+    client: Synnax,
+    config: z.infer<Config>,
+    name: string,
+  ): Promise<[z.infer<Config>, rack.Key]>;
+}
+
+export interface FormLayoutArgs {
+  deviceKey?: device.Key;
+  taskKey?: task.Key;
+  rackKey?: rack.Key;
+  config?: unknown;
+}
+
+export interface getInitialValuesArgs {
+  deviceKey?: device.Key;
+  config?: unknown;
+}
+
+export interface GetInitialValues<S extends task.Schemas = task.Schemas> {
+  (args: getInitialValuesArgs): PTask.InitialValues<S>;
+}
+
+export interface FormProps<
+  S extends task.Schemas = task.Schemas,
+> extends PForm.UseReturn<PTask.FormSchema<S>> {
+  layoutKey: string;
+  status: Flux.Result<undefined>["status"];
+  onConfigure: () => void;
+}
+
+export interface WrapFormArgs<S extends task.Schemas = task.Schemas> {
+  Properties?: FC<{}>;
+  Form: FC<FormProps<S>>;
+  type: z.infer<S["type"]>;
+  onConfigure: OnConfigure<S["config"]>;
+  schemas: S;
+  getInitialValues: GetInitialValues<S>;
+  showHeader?: boolean;
+  showControls?: boolean;
+}
+
+export const useIsRunning = <Schema extends z.ZodType>(
+  ctx?: PForm.ContextValue<Schema>,
+) => useStatus(ctx)?.details.running ?? false;
+
+export const useIsSnapshot = <Schema extends z.ZodType>(
+  ctx?: PForm.ContextValue<Schema>,
+) => PForm.useFieldValue<boolean>("snapshot", { ctx });
 
 export interface Layout extends Session.Layout.BaseState<FormLayoutArgs> {}
 

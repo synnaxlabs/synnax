@@ -9,7 +9,7 @@
 
 import { Button, Form, Status } from "@synnaxlabs/pluto";
 
-import { useIsSnapshot } from "@/platform/task/formInfra";
+import { useIsSnapshot } from "@/platform/task/Form";
 
 export interface EnableDisableButtonProps extends Omit<
   Button.ToggleProps,

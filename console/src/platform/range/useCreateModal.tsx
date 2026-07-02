@@ -30,7 +30,6 @@ import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
-import { add } from "@/session/range/slice";
 
 export type CreateModalParams = Partial<z.infer<typeof Ranger.formSchema>>;
 
@@ -60,7 +59,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
         close();
         const { name, key, timeRange } = form.value();
         if (key == null) return;
-        dispatch(add({ name, key, persisted: true, variant: "static", timeRange }));
+        dispatch(Session.Range.add({ name, key, persisted: true, variant: "static", timeRange }));
       },
     });
 
@@ -69,7 +68,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
       const value = form.value();
       if (value.key == null) return;
       dispatch(
-        add({
+        Session.Range.add({
           persisted: false,
           ...value,
           key: value.key ?? "",

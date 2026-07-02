@@ -28,7 +28,7 @@ export const create =
   ({ dispatch }) => {
     const { name = "Schematic", location = "mosaic", tab, ...rest } = initial;
     const key = schematic.keyZ.safeParse(initial.key).data ?? uuid.create();
-    dispatch(Session.Schematic.internalCreate({ key, ...rest }));
+    dispatch(Session.Schematic.internalCreate({ ...rest, key }));
     return {
       key,
       location,

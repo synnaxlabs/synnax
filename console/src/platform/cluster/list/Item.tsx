@@ -10,9 +10,9 @@
 import "@/platform/cluster/list/List.css";
 
 import {
-  Cluster as PCluster,
+  Cluster,
   Flex,
-  List as BaseList,
+  List,
   Select,
   Status,
   Synnax,
@@ -24,12 +24,10 @@ import { memo, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
-import { useSelectState } from "@/session/cluster/selectors";
-import { type Cluster, rename } from "@/session/cluster/slice";
 
-interface ListItemProps extends BaseList.ItemProps<string> {
+interface ListItemProps extends List.ItemProps<string> {
   validateName: (name: string) => boolean;
-  item: Cluster;
+  item: Session.Cluster.Cluster;
   loading: boolean;
 }
 
@@ -43,9 +41,9 @@ const Base = ({
   const { selected, onSelect } = Select.useItemState(rest.itemKey);
   const handleChange = (value: string) => {
     if (!validateName(value) || item == null) return;
-    dispatch(rename({ key: item.key, name: value }));
+    dispatch(Session.Cluster.rename({ key: item.key, name: value }));
   };
-  const { data } = PCluster.useConnectionState(item);
+  const { data } = Cluster.useConnectionState(item);
   const status = data?.status ?? "disconnected";
   let statusVariant = Synnax.CONNECTION_STATE_VARIANTS[status];
   let statusMessage: string = status;
@@ -54,7 +52,7 @@ const Base = ({
     statusVariant = "loading";
   }
   return (
-    <BaseList.Item
+    <List.Item
       className={CSS(CSS.B("cluster-list-item"))}
       x
       selected={selected}
@@ -92,14 +90,13 @@ const Base = ({
           message={caseconv.capitalize(statusMessage)}
         />
       </Tooltip.Dialog>
-    </BaseList.Item>
+    </List.Item>
   );
 };
 
-const Wrapper = (props: Omit<ListItemProps, "item">): ReactElement | null => {
-  const item = useSelectState(props.itemKey);
+export const Item = memo((props: Omit<ListItemProps, "item">): ReactElement | null => {
+  const item = Session.Cluster.useSelectState(props.itemKey);
   if (item == null) return null;
   return <Base {...props} item={item} />;
-};
-
-export const Item = memo(Wrapper);
+});
+Item.displayName = "List.Item";

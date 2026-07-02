@@ -142,15 +142,36 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
 
 export const BASE_MIDDLEWARE = [...Layout.MIDDLEWARE, ...Nav.MIDDLEWARE];
 
-export const createStore = async (): Promise<Store> => {
-  const { initialState, persistMiddleware } = await openPersist();
+export interface CreateStoreOptions extends Partial<
+  Pick<
+    Drift.ConfigureStoreOptions<State, Action>,
+    "enablePrerender" | "debug" | "runtime" | "preloadedState"
+  >
+> {
+  enablePersistence?: boolean;
+}
+
+export const configureStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
+  const {
+    runtime = new Runtime.Drift<State, Action>(),
+    enablePrerender = !IS_DEV,
+    debug = false,
+    enablePersistence = true,
+  } = opts;
+  let { preloadedState } = opts;
+  const middleware: Middleware[] = [...BASE_MIDDLEWARE];
+  if (enablePersistence) {
+    const { initialState, persistMiddleware } = await openPersist();
+    preloadedState ??= initialState;
+    middleware.push(persistMiddleware);
+  }
   return await Drift.configureStore<State, Action>({
-    runtime: new Runtime.Drift(),
-    preloadedState: initialState,
-    middleware: (def) => new Tuple(...def(), ...BASE_MIDDLEWARE, persistMiddleware),
+    runtime,
+    preloadedState,
+    middleware: (def) => new Tuple(...def(), ...middleware),
     reducer,
-    enablePrerender: !IS_DEV,
-    debug: false,
+    enablePrerender,
+    debug,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };

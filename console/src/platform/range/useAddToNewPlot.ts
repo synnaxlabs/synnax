@@ -12,9 +12,8 @@ import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Layout } from "@/platform/layout";
-import { create as createLinePlot } from "@/platform/lineplot/layout";
+import { LinePlot } from "@/platform/lineplot";
 import { Session } from "@/session";
-import { add } from "@/session/range/slice";
 
 export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
@@ -30,7 +29,7 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
           return;
         }
         if (client == null) return;
-        Session.Range.fromClient(data).forEach((r) => store.dispatch(add(r)));
+        store.dispatch(Session.Range.add(Session.Range.fromClient(data)));
         const names = data.map(({ name }) => name);
         const keys = data.map(({ key }) => key);
         const project = Session.Project.selectSelected(store.getState());
@@ -39,7 +38,7 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
             name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
             ranges: { x1: keys, x2: [] },
           });
-          placeLayout(createLinePlot({ key, name }));
+          placeLayout(LinePlot.create({ key, name }));
         }, "Failed to create plot");
       },
       [store, client, addStatus, handleError, placeLayout],

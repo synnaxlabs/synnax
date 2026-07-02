@@ -28,8 +28,6 @@ import { Empty } from "@/platform/empty";
 import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
-import { useSelectMany } from "@/session/cluster/selectors";
-import { changeKey, remove } from "@/session/cluster/slice";
 
 export interface ListProps
   extends Input.Control<string | undefined>, Omit<Flex.BoxProps, "onChange"> {}
@@ -37,7 +35,7 @@ export interface ListProps
 export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const dispatch = Session.useDispatch();
-  const allClusters = useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
+  const allClusters = Session.Cluster.useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
   const keys = useMemo(() => allClusters.map((c) => c.key), [allClusters]);
   const [testing, setTesting] = useState<string | null>(null);
   const addStatus = Status.useAdder();
@@ -62,7 +60,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
       const nextCluster = allClusters.find((c) => c.key !== key);
       onChange(nextCluster?.key);
     }
-    dispatch(remove(key));
+    dispatch(Session.Cluster.remove(key));
   };
 
   const handleRename = (key: string): void => Text.edit(`cluster-dropdown-${key}`);
@@ -89,7 +87,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             message: `Connected to ${cluster.name}`,
           });
           if (state.clusterKey && state.clusterKey !== key)
-            dispatch(changeKey({ oldKey: key, newKey: state.clusterKey }));
+            dispatch(Session.Cluster.changeKey({ oldKey: key, newKey: state.clusterKey }));
         } else
           addStatus({
             variant: "error",

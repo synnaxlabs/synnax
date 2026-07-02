@@ -99,6 +99,46 @@ describe("Hardware Task Types", () => {
 
         expect(result.success).toBe(true);
       });
+
+      it("should report errors for duplicate channel names", () => {
+        const channels: Task.ReadChannel[] = [
+          {
+            ...Task.ZERO_READ_CHANNEL,
+            enabled: true,
+            key: "channel1",
+            channel: 1,
+            name: "temp",
+          },
+          {
+            ...Task.ZERO_READ_CHANNEL,
+            enabled: true,
+            key: "channel2",
+            channel: 2,
+            name: "temp",
+          },
+        ];
+
+        const result = readChannelsArrayZ.safeParse(channels);
+
+        expect(result.success).toBe(false);
+        if (!result.success)
+          expect(
+            result.error.issues.some(
+              (issue) => issue.message === "Name temp is used for multiple channels",
+            ),
+          ).toBe(true);
+      });
+
+      it("should ignore empty channel names", () => {
+        const channels: Task.ReadChannel[] = [
+          { ...Task.ZERO_READ_CHANNEL, enabled: true, key: "channel1", channel: 1 },
+          { ...Task.ZERO_READ_CHANNEL, enabled: true, key: "channel2", channel: 2 },
+        ];
+
+        const result = readChannelsArrayZ.safeParse(channels);
+
+        expect(result.success).toBe(true);
+      });
     });
 
     describe("validateWriteChannels", () => {
@@ -212,6 +252,68 @@ describe("Hardware Task Types", () => {
         const result = writeChannelsArrayZ.safeParse(channels);
 
         expect(result.success).toBe(true);
+      });
+
+      it("should report errors for duplicate cmd channel names", () => {
+        const channels: Task.WriteChannel[] = [
+          {
+            ...Task.ZERO_WRITE_CHANNEL,
+            enabled: true,
+            key: "channel1",
+            cmdChannel: 1,
+            stateChannel: 2,
+            cmdChannelName: "cmd",
+          },
+          {
+            ...Task.ZERO_WRITE_CHANNEL,
+            enabled: true,
+            key: "channel2",
+            cmdChannel: 3,
+            stateChannel: 4,
+            cmdChannelName: "cmd",
+          },
+        ];
+
+        const result = writeChannelsArrayZ.safeParse(channels);
+
+        expect(result.success).toBe(false);
+        if (!result.success)
+          expect(
+            result.error.issues.some(
+              (issue) => issue.message === "Name cmd is used for multiple channels",
+            ),
+          ).toBe(true);
+      });
+
+      it("should report errors for duplicate state channel names", () => {
+        const channels: Task.WriteChannel[] = [
+          {
+            ...Task.ZERO_WRITE_CHANNEL,
+            enabled: true,
+            key: "channel1",
+            cmdChannel: 1,
+            stateChannel: 2,
+            stateChannelName: "state",
+          },
+          {
+            ...Task.ZERO_WRITE_CHANNEL,
+            enabled: true,
+            key: "channel2",
+            cmdChannel: 3,
+            stateChannel: 4,
+            stateChannelName: "state",
+          },
+        ];
+
+        const result = writeChannelsArrayZ.safeParse(channels);
+
+        expect(result.success).toBe(false);
+        if (!result.success)
+          expect(
+            result.error.issues.some(
+              (issue) => issue.message === "Name state is used for multiple channels",
+            ),
+          ).toBe(true);
       });
     });
   });

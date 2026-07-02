@@ -133,7 +133,7 @@ describe("connectToCluster", () => {
         setActive: vi.fn(),
         poll: instantPoll(),
       }),
-    ).rejects.toThrow("auth rejected");
+    ).rejects.toThrow("Timed out connecting to cluster a");
   });
 
   it("should throw when the connection times out", async () => {

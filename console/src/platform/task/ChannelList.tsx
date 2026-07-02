@@ -21,7 +21,7 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { useIsSnapshot } from "@/platform/task/formInfra";
+import { useIsSnapshot } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
 
 export interface ContextMenuItemProps<C extends Channel> {

@@ -1,0 +1,112 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { type Layout } from "@/platform/layout";
+import { Palette } from "@/platform/palette";
+import { createPaletteWrapper } from "@/platform/palette/testutil";
+
+const layoutFor = (key: string): Layout.PlacerArgs => ({
+  key,
+  type: "cat",
+  name: `Layout ${key}`,
+  location: "mosaic",
+});
+
+describe("createSimpleCommand", () => {
+  it("should attach the static command metadata", () => {
+    const useVisible = () => true;
+    const cmd = Palette.createSimpleCommand({
+      key: "sc",
+      name: "Simple Command",
+      layout: layoutFor("sc"),
+      sortOrder: 3,
+      useVisible,
+    });
+    expect(cmd.key).toBe("sc");
+    expect(cmd.commandName).toBe("Simple Command");
+    expect(cmd.sortOrder).toBe(3);
+    expect(cmd.useVisible).toBe(useVisible);
+  });
+});
+
+describe("createCommand", () => {
+  it("should attach the static command metadata", () => {
+    const cmd = Palette.createCommand({
+      key: "cc",
+      name: "Hook Command",
+      useOnSelect: () => () => {},
+    });
+    expect(cmd.key).toBe("cc");
+    expect(cmd.commandName).toBe("Hook Command");
+    expect(cmd.sortOrder).toBeUndefined();
+    expect(cmd.useVisible).toBeUndefined();
+  });
+});
+
+describe("useCommandContext", () => {
+  it("should default to an empty command list without a provider", async () => {
+    const { wrapper } = await createPaletteWrapper();
+    const { result } = renderHook(() => Palette.useCommandContext(), { wrapper });
+    expect(result.current).toHaveLength(0);
+  });
+
+  it("should expose the commands supplied to the provider", async () => {
+    const commands = [
+      Palette.createSimpleCommand({ key: "a", name: "Alpha", layout: layoutFor("a") }),
+    ];
+    const { wrapper } = await createPaletteWrapper({ commands });
+    const { result } = renderHook(() => Palette.useCommandContext(), { wrapper });
+    expect(result.current).toBe(commands);
+  });
+});
+
+describe("useCommandList", () => {
+  it("should filter out invisible commands and sort the rest", async () => {
+    const commands = [
+      Palette.createSimpleCommand({ key: "a", name: "Alpha", layout: layoutFor("a") }),
+      Palette.createSimpleCommand({
+        key: "b",
+        name: "Beta",
+        layout: layoutFor("b"),
+        useVisible: () => false,
+      }),
+      Palette.createSimpleCommand({
+        key: "c",
+        name: "Aardvark",
+        layout: layoutFor("c"),
+      }),
+    ];
+    const { wrapper } = await createPaletteWrapper({ commands });
+    const { result } = renderHook(() => Palette.useCommandList(), { wrapper });
+    expect(result.current.data).toEqual(["c", "a"]);
+  });
+
+  it("should order commands by sortOrder when present", async () => {
+    const commands = [
+      Palette.createSimpleCommand({
+        key: "z",
+        name: "Zeta",
+        layout: layoutFor("z"),
+        sortOrder: 1,
+      }),
+      Palette.createSimpleCommand({
+        key: "y",
+        name: "Yotta",
+        layout: layoutFor("y"),
+        sortOrder: 2,
+      }),
+    ];
+    const { wrapper } = await createPaletteWrapper({ commands });
+    const { result } = renderHook(() => Palette.useCommandList(), { wrapper });
+    expect(result.current.data).toEqual(["z", "y"]);
+  });
+});

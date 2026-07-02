@@ -21,7 +21,7 @@ import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
 import { useExport } from "@/platform/task/export";
-import { type FormLayoutArgs } from "@/platform/task/formInfra";
+import { type FormLayoutArgs } from "@/platform/task/Form";
 import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({
