@@ -448,22 +448,12 @@ func analyzeForRange(
 	name string,
 	funcCall parser.IFunctionCallSuffixContext,
 ) {
-	args := funcCall.ArgumentList()
-	if args == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			ctx.AST, "range() requires 1 to 3 arguments",
-		))
+	rng, err := parser.BindRangeArgs(funcCall.ArgumentList())
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
-
-	argExprs := args.AllExpression()
-	if len(argExprs) < 1 || len(argExprs) > 3 {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			ctx.AST, "range() requires 1 to 3 arguments, got %d",
-			len(argExprs),
-		))
-		return
-	}
+	argExprs := rng.Ordered()
 
 	var argTypes []types.Type
 	for i, argExpr := range argExprs {
@@ -485,19 +475,18 @@ func analyzeForRange(
 
 	loopVarType := InferRangeType(argTypes)
 
-	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
+	if _, err = ctx.Scope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindLoopVariable,
 		Type: loopVarType,
 		AST:  clause,
-	})
-	if err != nil {
+	}); err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
 
 	addHiddenLocal(ctx, clause, "__for_limit", loopVarType)
-	if len(argExprs) >= 3 {
+	if rng.Step != nil {
 		addHiddenLocal(ctx, clause, "__for_step", loopVarType)
 	}
 }

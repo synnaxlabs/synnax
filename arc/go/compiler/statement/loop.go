@@ -105,25 +105,17 @@ func compileForRange(
 	}
 	loopCtx := ctx.WithScope(loopScope)
 
-	args := funcCall.ArgumentList().AllExpression()
+	rng, err := parser.BindRangeArgs(funcCall.ArgumentList())
+	if err != nil {
+		return err
+	}
 	varSym, err := loopScope.Resolve(ctx, name)
 	if err != nil {
 		return err
 	}
 	loopVarIdx := varSym.ID
 
-	var startExpr, endExpr, stepExpr parser.IExpressionContext
-	switch len(args) {
-	case 1:
-		endExpr = args[0]
-	case 2:
-		startExpr = args[0]
-		endExpr = args[1]
-	case 3:
-		startExpr = args[0]
-		endExpr = args[1]
-		stepExpr = args[2]
-	}
+	startExpr, endExpr, stepExpr := rng.Start, rng.Stop, rng.Step
 
 	loopVarType := varSym.Type
 

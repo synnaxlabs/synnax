@@ -369,31 +369,9 @@ func inputArguments[T antlr.ParserRuleContext](
 	if braceBlock == nil {
 		return nil
 	}
-	var args []symbol.Argument
-	if namedVals := braceBlock.NamedInputValues(); namedVals != nil {
-		for _, val := range namedVals.AllNamedInputValue() {
-			expr := val.Expression()
-			if expr == nil {
-				continue
-			}
-			expression.Analyze(context.Child(ctx, expr))
-			args = append(args, symbol.Argument{
-				Name: val.IDENTIFIER().GetText(),
-				Expr: expr,
-				AST:  val,
-			})
-		}
-		return args
-	}
-	if anonVals := braceBlock.AnonymousInputValues(); anonVals != nil {
-		for i, expr := range anonVals.AllExpression() {
-			expression.Analyze(context.Child(ctx, expr))
-			args = append(args, symbol.Argument{
-				Index: i,
-				Expr:  expr,
-				AST:   expr,
-			})
-		}
+	args := symbol.ArgumentsFrom(braceBlock.NamedInputValues(), braceBlock.AnonymousInputValues())
+	for _, arg := range args {
+		expression.Analyze(context.Child(ctx, arg.Expr))
 	}
 	return args
 }

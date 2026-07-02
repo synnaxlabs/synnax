@@ -61,6 +61,63 @@ type Argument struct {
 // findings to the analyzer's diagnostics sink.
 type ArgumentsHook func(diags *diagnostics.Diagnostics, args []Argument)
 
+// ArgumentsFrom adapts a call's argument list into the unified []Argument shape.
+func ArgumentsFrom(
+	named parser.INamedInputValuesContext,
+	anon parser.IAnonymousInputValuesContext,
+) []Argument {
+	if named != nil {
+		vals := named.AllNamedInputValue()
+		args := make([]Argument, 0, len(vals))
+		for _, val := range vals {
+			expr := val.Expression()
+			if expr == nil {
+				continue
+			}
+			args = append(args, Argument{Name: val.IDENTIFIER().GetText(), Expr: expr, AST: val})
+		}
+		return args
+	}
+	if anon != nil {
+		exprs := anon.AllExpression()
+		args := make([]Argument, 0, len(exprs))
+		for i, expr := range exprs {
+			args = append(args, Argument{Index: i, Expr: expr, AST: expr})
+		}
+		return args
+	}
+	return nil
+}
+
+// Bind lines a call's arguments up with a function's parameters, returning the
+// expression for each parameter slot or nil where no argument was given. Named
+// arguments go to the parameter with a matching name; positional arguments go by
+// order. The trigger parameter (empty in func context) is skipped when counting
+// positions, since an upstream edge feeds it rather than the call site.
+func Bind(args []Argument, params types.Params, trigger string) []parser.IExpressionContext {
+	bound := make([]parser.IExpressionContext, len(params))
+	positional := make([]int, 0, len(params))
+	for i, param := range params {
+		if param.Name == trigger {
+			continue
+		}
+		positional = append(positional, i)
+	}
+	for _, arg := range args {
+		idx := -1
+		if arg.Name != "" {
+			idx = params.GetIndex(arg.Name)
+		} else if arg.Index < len(positional) {
+			idx = positional[arg.Index]
+		}
+		if idx < 0 || idx >= len(bound) {
+			continue
+		}
+		bound[idx] = arg.Expr
+	}
+	return bound
+}
+
 // TriggerBinding declares what an upstream wire does to a symbol in flow context.
 type TriggerBinding struct {
 	// Target names the param the wire binds its value to, or empty (TriggerOnly)
