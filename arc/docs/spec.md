@@ -352,13 +352,18 @@ func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
 }
 ```
 
-**Supplying brace-block inputs:**
+**Supplying inputs:**
 
-- By name with `=`: `controller{setpoint=100.0}`
-- Positionally by declaration order: `filter{50.0}` sets the first input;
-  `average{10ms, 100}` sets the first and second. Trailing inputs with defaults may be
-  omitted.
-- Values must be literals or channel identifiers (resolved at compile time).
+Inputs are supplied either **positionally**, in declaration order, or **by name**
+(`name = value`). Named arguments may appear in any order, so a caller can skip an
+optional input while still setting a later one. A single call or instantiation is
+all-positional or all-named; the two cannot be mixed, and trailing optional inputs may
+be omitted. These rules apply wherever inputs are supplied; only the permitted values
+differ by context:
+
+- **Brace instantiation** (`filter{50.0}`, `controller{setpoint = 100.0}`): values must
+  be literals or channel identifiers, resolved at compile time.
+- **Parens call** (`clamp(x, max = 50.0)`): values are arbitrary expressions.
 
 ### Triggers
 
@@ -372,12 +377,14 @@ which input that edge feeds:
 
 ### Calling Functions (Imperative Scope)
 
-Inside function bodies, call other functions using parentheses:
+Inside function bodies, call other functions using parentheses. Arguments follow the
+input supply rules above, with values being arbitrary expressions:
 
 ```arc
 func process(x f64) f64 {
-    clamped := clamp(x, 0.0, 100.0) // function call
-    return clamped * 2.0
+    clamped := clamp(x, 0.0, 100.0) // positional
+    scaled := clamp(x, max = 50.0)  // named; min defaults, order is free
+    return clamped + scaled
 }
 ```
 
