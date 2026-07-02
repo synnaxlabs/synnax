@@ -12,7 +12,7 @@ import { render } from "@testing-library/react";
 import { type ReactElement } from "react";
 
 import { Session } from "@/session";
-import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil/testutil";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
 

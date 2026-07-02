@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import { Session } from "@/session";
-import { renderLinkHook } from "@/testutil/testutil";
+import { renderLinkHook } from "@/testutil";
 
 const client = createTestClient();
 
@@ -23,7 +23,7 @@ describe("Schematic.useLink", () => {
     const schematic = await client.schematics.create(project.key, {
       name: "Pump Schematic",
     });
-    const { handler, store } = renderLinkHook(Schematic.useLink);
+    const { handler, store } = await renderLinkHook(Schematic.useLink);
     await handler({ client, key: schematic.key });
     expect(Session.Layout.select(store.getState(), schematic.key)?.name).toBe(
       "Pump Schematic",

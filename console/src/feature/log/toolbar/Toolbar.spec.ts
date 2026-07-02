@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { Log } from "@/feature/log";
 import { renderLog } from "@/feature/log/toolbar/testutil";
 import { Session } from "@/session";
-import { type ConsolePreloadedState } from "@/testutil/testutil";
+import { type ConsolePreloadedState } from "@/testutil";
 
 const layoutState = (key: string, name: string): Session.Layout.State => ({
   key,

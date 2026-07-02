@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
-import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil/testutil";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 const client: Synnax = createTestClient();
 

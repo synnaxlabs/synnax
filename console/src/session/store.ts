@@ -44,7 +44,7 @@ const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
   ...Table.PERSIST_EXCLUDE,
 ];
 
-const ZERO_STATE: State = {
+export const ZERO_STATE: State = {
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,

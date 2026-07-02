@@ -14,12 +14,12 @@ import { describe, expect, it } from "vitest";
 import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 import { Modals } from "@/session/modals";
-import { renderHookWithConsole } from "@/testutil/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 describe("layout hooks", () => {
   describe("placing & removing", () => {
-    it("should place a layout within the store", () => {
-      const { result, store } = renderHookWithConsole(() => ({
+    it("should place a layout within the store", async () => {
+      const { result, store } = await renderHookWithConsole(() => ({
         placer: Layout.usePlacer(),
       }));
       act(() => {
@@ -41,8 +41,8 @@ describe("layout hooks", () => {
       expect(state?.name).toBe("test");
     });
 
-    it("should remove a layout from the store", () => {
-      const { result, store } = renderHookWithConsole(() => ({
+    it("should remove a layout from the store", async () => {
+      const { result, store } = await renderHookWithConsole(() => ({
         placer: Layout.usePlacer(),
         remover: Layout.useRemover(),
       }));
@@ -65,8 +65,8 @@ describe("layout hooks", () => {
     });
   });
   describe("useSelectActiveMosaicTab", () => {
-    it("should select the active mosaic tab", () => {
-      const { result } = renderHookWithConsole(() => ({
+    it("should select the active mosaic tab", async () => {
+      const { result } = await renderHookWithConsole(() => ({
         placer: Layout.usePlacer(),
         activeTab: Session.Layout.useSelectActiveMosaicTabState(),
       }));
@@ -96,8 +96,8 @@ describe("layout hooks", () => {
         layoutKey: "test-tab",
       });
     });
-    it("should return true for blurred if there is a modal open", () => {
-      const { result } = renderHookWithConsole(() => ({
+    it("should return true for blurred if there is a modal open", async () => {
+      const { result } = await renderHookWithConsole(() => ({
         placer: Layout.usePlacer(),
         activeTab: Session.Layout.useSelectActiveMosaicTabState(),
         modals: Modals.useStore("test"),
@@ -141,8 +141,8 @@ describe("layout hooks", () => {
   });
 
   describe("useOpenInNewWindow", () => {
-    it("should create a mosaic window and move the layout's tab into it", () => {
-      const { result, store } = renderHookWithConsole(() => ({
+    it("should create a mosaic window and move the layout's tab into it", async () => {
+      const { result, store } = await renderHookWithConsole(() => ({
         placer: Layout.usePlacer(),
         openInNewWindow: Layout.useOpenInNewWindow(),
       }));

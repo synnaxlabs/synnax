@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
 import { Session } from "@/session";
-import { renderLinkHook } from "@/testutil/testutil";
+import { renderLinkHook } from "@/testutil";
 
 const client = createTestClient();
 
@@ -21,7 +21,7 @@ describe("Log.useLink", () => {
   it("should place a log layout for the retrieved log", async () => {
     const project = await client.projects.create({ name: id.create(), layout: {} });
     const log = await client.logs.create(project.key, { name: "Event Log" });
-    const { handler, store } = renderLinkHook(Log.useLink);
+    const { handler, store } = await renderLinkHook(Log.useLink);
     await handler({ client, key: log.key });
     expect(Session.Layout.select(store.getState(), log.key)?.name).toBe("Event Log");
   });

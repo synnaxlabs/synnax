@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Link } from "@/feature/link";
 import { Link as Platform } from "@/platform/link";
-import { renderHookWithConsole } from "@/testutil/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 const client = (): Client => ({}) as Client;
 
@@ -25,7 +25,7 @@ interface Harness {
   openURL: (urls: string[]) => void;
 }
 
-const setup = (overrides: Partial<Link.Deps> = {}): Harness => {
+const setup = async (overrides: Partial<Link.Deps> = {}): Promise<Harness> => {
   const resolved = client();
   const connect = vi.fn(async () => resolved);
   const handlers = {
@@ -45,7 +45,7 @@ const setup = (overrides: Partial<Link.Deps> = {}): Harness => {
     onOpenURL,
     ...overrides,
   };
-  renderHookWithConsole(() => Link.useDeep(connect, handlers, deps));
+  await renderHookWithConsole(() => Link.useDeep(connect, handlers, deps));
   return { connect, handlers, deps, openURL: (urls) => openURL(urls) };
 };
 
@@ -53,7 +53,7 @@ describe("useDeep", () => {
   beforeEach(() => localStorage.clear());
 
   it("should open a resource link the app was launched from", async () => {
-    const { connect, handlers } = setup({
+    const { connect, handlers } = await setup({
       getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
     });
     await waitFor(() => expect(connect).toHaveBeenCalledWith("c1"));
@@ -65,7 +65,7 @@ describe("useDeep", () => {
   });
 
   it("should connect without placing a layout for a cluster-only link", async () => {
-    const { connect, handlers } = setup({
+    const { connect, handlers } = await setup({
       getCurrentURLs: async () => ["synnax://cluster/c1"],
     });
     await waitFor(() => expect(connect).toHaveBeenCalledWith("c1"));
@@ -74,7 +74,7 @@ describe("useDeep", () => {
   });
 
   it("should route a link opened while the app is already running", async () => {
-    const { connect, handlers, deps, openURL } = setup();
+    const { connect, handlers, deps, openURL } = await setup();
     await waitFor(() => expect(deps.onOpenURL).toHaveBeenCalled());
     expect(connect).not.toHaveBeenCalled();
     openURL(["synnax://cluster/c2/range/r9"]);
@@ -87,13 +87,15 @@ describe("useDeep", () => {
   });
 
   it("should not route a malformed link", async () => {
-    const { connect } = setup({ getCurrentURLs: async () => ["not-a-synnax-link"] });
+    const { connect } = await setup({
+      getCurrentURLs: async () => ["not-a-synnax-link"],
+    });
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(connect).not.toHaveBeenCalled();
   });
 
   it("should connect but place nothing for an unknown resource type", async () => {
-    const { connect, handlers } = setup({
+    const { connect, handlers } = await setup({
       getCurrentURLs: async () => ["synnax://cluster/c1/widget/w1"],
     });
     await waitFor(() => expect(connect).toHaveBeenCalledWith("c1"));
@@ -103,13 +105,13 @@ describe("useDeep", () => {
 
   it("should ignore the next launch link once when the ignore flag is set", async () => {
     Platform.markNextIgnored();
-    const first = setup({
+    const first = await setup({
       getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(first.connect).not.toHaveBeenCalled();
     // The flag is single-use: the hook clears it, so a later launch is handled normally.
-    const second = setup({
+    const second = await setup({
       getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
     });
     await waitFor(() => expect(second.connect).toHaveBeenCalledWith("c1"));
@@ -117,7 +119,7 @@ describe("useDeep", () => {
 
   it("should be a no-op when the engine is not tauri", async () => {
     const getCurrentURLs = vi.fn(async () => ["synnax://cluster/c1/schematic/s1"]);
-    const { connect } = setup({ engine: "web", getCurrentURLs });
+    const { connect } = await setup({ engine: "web", getCurrentURLs });
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(getCurrentURLs).not.toHaveBeenCalled();
     expect(connect).not.toHaveBeenCalled();

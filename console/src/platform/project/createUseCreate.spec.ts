@@ -16,7 +16,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Log } from "@/feature/log";
 import { Project } from "@/platform/project";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil/testutil";
+import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -38,11 +38,11 @@ describe("createUseCreate", () => {
   beforeEach(async () => {
     projectA = await client.projects.create({
       name: `proj-a-${id.create()}`,
-      layout: {},
+      layout: Session.Layout.ZERO_SLICE_STATE,
     });
     projectB = await client.projects.create({
       name: `proj-b-${id.create()}`,
-      layout: {},
+      layout: Session.Layout.ZERO_SLICE_STATE,
     });
   });
 

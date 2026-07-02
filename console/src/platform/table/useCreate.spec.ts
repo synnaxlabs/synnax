@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/platform/table";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil/testutil";
+import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -34,7 +34,10 @@ const buildHarness = async ({ activeProject }: BuildHarnessArgs = {}) =>
   });
 
 const newProject = async (): Promise<project.Project> =>
-  await client.projects.create({ name: `proj-${id.create()}`, layout: {} });
+  await client.projects.create({
+    name: `proj-${id.create()}`,
+    layout: Session.Layout.ZERO_SLICE_STATE,
+  });
 
 const findPlacedTableLayout = (store: TestStore) =>
   Session.Layout.selectByFilter(store.getState(), (l) => l.type === Table.LAYOUT_TYPE);

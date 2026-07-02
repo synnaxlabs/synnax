@@ -17,6 +17,7 @@ import {
   type Synnax,
   user,
 } from "@synnaxlabs/client";
+import { configureStore } from "@reduxjs/toolkit";
 import { Arc as PlutoArc } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -25,7 +26,7 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/session/arc";
-import { createConsoleWrapper, createTestStore } from "@/testutil/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const KEY = "arc-1";
 
@@ -102,7 +103,10 @@ describe("arc selectors", () => {
 });
 
 const storeWith = (slice: Arc.SliceState) =>
-  createTestStore({ preloadedState: { [Arc.SLICE_NAME]: slice } });
+  configureStore({
+    reducer: { [Arc.SLICE_NAME]: Arc.reducer },
+    preloadedState: { [Arc.SLICE_NAME]: slice },
+  });
 
 const wrapperFor = (
   store: ReturnType<typeof storeWith>,
@@ -242,13 +246,14 @@ interface SetupArgs {
 }
 
 const setup = async ({ editable, userClient = client }: SetupArgs) => {
-  const store = storeWith({
-    version: 0,
-    arcs: { [KEY]: Arc.stateZ.parse({ graph: { editable } }) },
-  });
   const { wrapper: Wrapper } = await createConsoleWrapper({
     client: userClient,
-    store,
+    preloadedState: {
+      [Arc.SLICE_NAME]: {
+        version: 0,
+        arcs: { [KEY]: Arc.stateZ.parse({ graph: { editable } }) },
+      },
+    },
   });
   const ScopedWrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Wrapper>

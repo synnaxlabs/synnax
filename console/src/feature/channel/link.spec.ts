@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { Session } from "@/session";
-import { renderLinkHook } from "@/testutil/testutil";
+import { renderLinkHook } from "@/testutil";
 
 const client = createTestClient();
 
@@ -28,10 +28,7 @@ describe("Channel.useLink", () => {
       dataType: DataType.FLOAT32,
       virtual: true,
     });
-    const { handler, store } = renderLinkHook(Channel.useLink, {
-      [Session.Project.SLICE_NAME]: Session.Project.reducer,
-      [Session.Range.SLICE_NAME]: Session.Range.reducer,
-    });
+    const { handler, store } = await renderLinkHook(Channel.useLink);
     store.dispatch(Session.Project.select(project.key));
     await handler({ client, key: String(ch.key) });
     const placed = Session.Layout.selectByFilter(

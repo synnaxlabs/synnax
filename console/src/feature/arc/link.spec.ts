@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { Session } from "@/session";
-import { renderLinkHook } from "@/testutil/testutil";
+import { renderLinkHook } from "@/testutil";
 
 const client = createTestClient();
 
@@ -23,7 +23,7 @@ describe("Arc.useLink", () => {
       mode: "graph",
       graph: { nodes: [], edges: [] },
     });
-    const { handler, store } = renderLinkHook(Arc.useLink);
+    const { handler, store } = await renderLinkHook(Arc.useLink);
     await handler({ client, key: arc.key });
     expect(Session.Layout.select(store.getState(), arc.key)?.name).toBe(
       "Control Sequence",

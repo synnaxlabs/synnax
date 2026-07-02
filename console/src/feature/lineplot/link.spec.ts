@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { Session } from "@/session";
-import { renderLinkHook } from "@/testutil/testutil";
+import { renderLinkHook } from "@/testutil";
 
 const client = createTestClient();
 
@@ -23,7 +23,7 @@ describe("LinePlot.useLink", () => {
     const linePlot = await client.lineplots.create(project.key, {
       name: "Tank Pressure",
     });
-    const { handler, store } = renderLinkHook(LinePlot.useLink);
+    const { handler, store } = await renderLinkHook(LinePlot.useLink);
     await handler({ client, key: linePlot.key });
     expect(Session.Layout.select(store.getState(), linePlot.key)?.name).toBe(
       "Tank Pressure",

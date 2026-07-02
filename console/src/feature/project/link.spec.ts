@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
-import { renderLinkHook } from "@/testutil/testutil";
+import { renderLinkHook } from "@/testutil";
 
 const client = createTestClient();
 
@@ -22,9 +22,7 @@ describe("Project.useLink", () => {
       name: "Engine Project",
       layout: {},
     });
-    const { handler, store } = renderLinkHook(Project.useLink, {
-      [Session.Project.SLICE_NAME]: Session.Project.reducer,
-    });
+    const { handler, store } = await renderLinkHook(Project.useLink);
     await handler({ client, key: project.key });
     expect(Session.Project.selectSelected(store.getState())).toBe(project.key);
   });

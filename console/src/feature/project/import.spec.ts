@@ -19,7 +19,7 @@ import { Table } from "@/feature/table";
 import { type Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil/testutil";
+import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 const client: Synnax = createTestClient();
 

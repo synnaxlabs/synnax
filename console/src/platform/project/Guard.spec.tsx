@@ -12,28 +12,23 @@ import { describe, expect, it } from "vitest";
 
 import { Guard } from "@/platform/project/Guard";
 import { Session } from "@/session";
-import { renderWithConsole } from "@/testutil/testutil";
+import { renderWithConsole } from "@/testutil";
 
 describe("project/Guard", () => {
   const selected = "00000000-0000-0000-0000-000000000001";
 
-  it("should render the splash instead of children when no project is active", () => {
-    renderWithConsole(
+  it("should render the splash instead of children when no project is active", async () => {
+    await renderWithConsole(
       <Guard>
         <div>protected content</div>
       </Guard>,
-      {
-        preloadedState: {
-          [Session.Project.SLICE_NAME]: Session.Project.ZERO_SLICE_STATE,
-        },
-      },
     );
     expect(screen.queryByText("protected content")).toBeNull();
     expect(screen.getByText("New Project")).toBeDefined();
   });
 
-  it("should render children when a project is active", () => {
-    renderWithConsole(
+  it("should render children when a project is active", async () => {
+    await renderWithConsole(
       <Guard>
         <div>protected content</div>
       </Guard>,

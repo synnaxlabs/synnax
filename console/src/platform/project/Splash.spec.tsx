@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Splash } from "@/platform/project/Splash";
 import { Session } from "@/session";
-import { createConsoleWrapper, renderWithConsole } from "@/testutil/testutil";
+import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -37,8 +37,8 @@ const savedLayout = (layoutKey: string): Session.Layout.SliceState => {
 
 describe("project/Splash", () => {
   describe("without permissions", () => {
-    it("should hide the project list and create form when there is no client", () => {
-      renderWithConsole(<Splash />);
+    it("should hide the project list and create form when there is no client", async () => {
+      await renderWithConsole(<Splash />);
       expect(screen.getByText("New Project")).toBeDefined();
       expect(
         screen.getByText("You do not have permission to create a project."),

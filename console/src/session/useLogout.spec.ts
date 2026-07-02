@@ -16,7 +16,7 @@ import { Cluster } from "@/session/cluster";
 import { Layout } from "@/session/layout";
 import { Nav } from "@/session/nav";
 import { Project } from "@/session/project";
-import { renderHookWithConsole } from "@/testutil/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 const PROJECT_KEY = "11111111-1111-4111-8111-111111111111";
 const MODAL_LAYOUT: Layout.State = {
@@ -28,8 +28,8 @@ const MODAL_LAYOUT: Layout.State = {
 };
 
 describe("useLogout", () => {
-  it("should clear cluster, project, layout project state, and hide nav drawers", () => {
-    const { result, store } = renderHookWithConsole(() => Session.useLogout());
+  it("should clear cluster, project, layout project state, and hide nav drawers", async () => {
+    const { result, store } = await renderHookWithConsole(() => Session.useLogout());
 
     act(() => {
       store.dispatch(Cluster.select("LOCAL"));
@@ -58,8 +58,8 @@ describe("useLogout", () => {
     expect(Nav.selectBottomVisible(after)).toBe(false);
   });
 
-  it("should return a stable callback across renders", () => {
-    const { result, rerender } = renderHookWithConsole(() => Session.useLogout());
+  it("should return a stable callback across renders", async () => {
+    const { result, rerender } = await renderHookWithConsole(() => Session.useLogout());
     const first = result.current;
     rerender();
     expect(result.current).toBe(first);

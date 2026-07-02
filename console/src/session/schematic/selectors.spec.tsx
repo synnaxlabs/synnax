@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { configureStore } from "@reduxjs/toolkit";
 import {
   access,
   channel,
@@ -25,7 +26,7 @@ import { Provider } from "react-redux";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/session/schematic";
-import { createConsoleWrapper, createTestStore } from "@/testutil/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const KEY = "schematic-1";
 
@@ -146,7 +147,10 @@ describe("schematic selectors", () => {
 });
 
 const storeWith = (slice: Schematic.SliceState) =>
-  createTestStore({ preloadedState: { [Schematic.SLICE_NAME]: slice } });
+  configureStore({
+    reducer: { [Schematic.SLICE_NAME]: Schematic.reducer },
+    preloadedState: { [Schematic.SLICE_NAME]: slice },
+  });
 
 const wrapperFor = (
   store: ReturnType<typeof storeWith>,
@@ -332,9 +336,6 @@ const baseObjects = [
   access.policy.TYPE_ONTOLOGY_ID,
 ];
 
-const sessionStore = (key: string, editable: boolean): ReturnType<typeof storeWith> =>
-  storeWith({ schematics: { [key]: Schematic.stateZ.parse({ editable }) } });
-
 const loadSchematic = async (
   Wrapper: FC<PropsWithChildren>,
   key: string,
@@ -373,10 +374,13 @@ const setup = async ({
     name: id.create(),
     snapshot,
   });
-  const store = sessionStore(created.key, editable);
   const { wrapper: Wrapper } = await createConsoleWrapper({
     client: userClient,
-    store,
+    preloadedState: {
+      [Schematic.SLICE_NAME]: {
+        schematics: { [created.key]: Schematic.stateZ.parse({ editable }) },
+      },
+    },
   });
   await loadSchematic(Wrapper, created.key);
   const ScopedWrapper = ({ children }: PropsWithChildren): ReactElement => (
