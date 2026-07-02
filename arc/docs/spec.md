@@ -363,7 +363,7 @@ differ by context:
 
 - **Brace instantiation** (`filter{50.0}`, `controller{setpoint = 100.0}`): values must
   be literals or channel identifiers, resolved at compile time.
-- **Parens call** (`clamp(x, max = 50.0)`): values are arbitrary expressions.
+- **Parens call** (`clamp(value = x, max = 50.0)`): values are arbitrary expressions.
 
 ### Triggers
 
@@ -382,8 +382,8 @@ input supply rules above, with values being arbitrary expressions:
 
 ```arc
 func process(x f64) f64 {
-    clamped := clamp(x, 0.0, 100.0) // positional
-    scaled := clamp(x, max = 50.0)  // named; min defaults, order is free
+    clamped := clamp(x, 0.0, 100.0)        // positional
+    scaled := clamp(value = x, max = 50.0) // named; order is free
     return clamped + scaled
 }
 ```
