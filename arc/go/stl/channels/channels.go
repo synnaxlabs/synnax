@@ -237,6 +237,7 @@ func (s *sink) Next(ctx node.Context) {
 	}
 	if s.isVar {
 		s.state.appendVarRead(s.key, data.DeepCopy())
+		ctx.SetDeadline(ctx.Elapsed)
 	} else {
 		s.state.writeChannel(s.key, data, time)
 	}

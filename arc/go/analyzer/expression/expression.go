@@ -28,7 +28,36 @@ import (
 func isBool(t basetypes.Type) bool            { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool         { return t.IsNumeric() }
 func isNumericOrString(t basetypes.Type) bool { return t.IsNumeric() || t.Kind == basetypes.KindString }
-func isAny(basetypes.Type) bool               { return true }
+
+// tracksChannelRead reports whether reading resolved reads from a channel: a channel
+// symbol, a chan-typed param, a channel alias, or a reactive value variable.
+func tracksChannelRead(resolved *symbol.Symbol) bool {
+	switch {
+	case resolved.Kind == symbol.KindChannel:
+		return true
+	case resolved.Type.Kind == basetypes.KindChan &&
+		(resolved.Kind == symbol.KindConfig || resolved.Kind == symbol.KindInput):
+		return true
+	case resolved.Type.Kind == basetypes.KindChan && resolved.SourceID != nil:
+		return true
+	default:
+		return isReactiveValueVar(resolved)
+	}
+}
+
+// isReactiveValueVar reports whether resolved is a value variable backed by a
+// program-local channel rather than a WASM local declared in a function body.
+func isReactiveValueVar(resolved *symbol.Symbol) bool {
+	if resolved.Kind != symbol.KindVariable && resolved.Kind != symbol.KindStatefulVariable {
+		return false
+	}
+	if resolved.Type.Kind == basetypes.KindChan || resolved.SourceID != nil {
+		return false
+	}
+	_, err := resolved.ClosestAncestorOfKind(symbol.KindFunction)
+	return errors.Is(err, query.ErrNotFound)
+}
+func isAny(basetypes.Type) bool { return true }
 
 // getSignedIntegerLiteral extracts a signed integer value from a node.
 // Supports both plain integer literals (2) and negated ones (-2).
@@ -456,15 +485,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
 		}
-		// Track channel reads for:
-		// 1. Direct channel symbols (KindChannel)
-		// 2. Params with channel type (they are the source)
-		// 3. Variables with channel type that have a SourceID
-		shouldTrackRead := resolved.Kind == symbol.KindChannel ||
-			(resolved.Type.Kind == basetypes.KindChan &&
-				(resolved.Kind == symbol.KindConfig || resolved.Kind == symbol.KindInput)) ||
-			(resolved.Type.Kind == basetypes.KindChan && resolved.SourceID != nil)
-		if shouldTrackRead {
+		if tracksChannelRead(resolved) {
 			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
 				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))

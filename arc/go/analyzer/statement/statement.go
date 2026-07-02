@@ -15,6 +15,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
+	"github.com/synnaxlabs/arc/analyzer/flow"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/ir"
@@ -68,6 +69,32 @@ func Analyze(ctx context.Context[parser.IStatementContext]) {
 // ctx.Scope, letting sequences and stages declare scoped variables.
 func AnalyzeVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) {
 	analyzeVariableDeclaration(ctx)
+	registerReactiveInitializer(ctx)
+}
+
+// registerReactiveInitializer registers a value variable's non-literal expression
+// initializer as a synthetic function so the text package can lower it to a node.
+func registerReactiveInitializer(ctx context.Context[parser.IVariableDeclarationContext]) {
+	local := ctx.AST.LocalVariable()
+	if local == nil {
+		return
+	}
+	expr := local.Expression()
+	if expr == nil {
+		return
+	}
+	sym, err := ctx.Scope.Resolve(ctx, local.IDENTIFIER().GetText())
+	if err != nil || sym.Kind != symbol.KindVariable ||
+		sym.Type.Kind == types.KindChan || sym.SourceID != nil {
+		return
+	}
+	if isLiteralExpression(context.Child(ctx, expr)) {
+		return
+	}
+	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
+		return
+	}
+	flow.AnalyzeSingleExpression(context.Child(ctx, expr))
 }
 
 // AnalyzeAssignment validates an `=` or compound assignment against the variable or

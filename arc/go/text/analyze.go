@@ -482,6 +482,36 @@ func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (n
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
+// buildExprReadTriggers builds a read node for each channel the expression
+// reads, registering any value-variable channels touched along the way.
+func buildExprReadTriggers[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) ([]nodeResult, bool) {
+	sym, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil || sym.Kind == symbol.KindConstant {
+		return nil, true
+	}
+	var reads []nodeResult
+	for _, chName := range sym.Channels.Read {
+		chanSym, rerr := ctx.Scope.Resolve(ctx, chName)
+		if rerr != nil {
+			continue
+		}
+		read, ok := buildChannelReadNode(chName, chanSym, kg)
+		if !ok {
+			return nil, false
+		}
+		if isVarChannel(chanSym) {
+			shell.varChannels.Add(channelKey(chanSym))
+		}
+		reads = append(reads, read)
+	}
+	return reads, true
+}
+
 // buildVarSeed records a value variable's declared value and channel key so the
 // runtime can pre-fill its channel with the seed before execution.
 func buildVarSeed(sym *symbol.Symbol, shell *shellBuilder) ir.VarSeed {
@@ -512,6 +542,88 @@ func collectSeededVars(root *symbol.Symbol) []*symbol.Symbol {
 	}
 	walk(root)
 	return out
+}
+
+// collectExprVars returns every reactive value variable initialized by a non-literal
+// expression rather than a seed.
+func collectExprVars(root *symbol.Symbol) []*symbol.Symbol {
+	var out []*symbol.Symbol
+	var walk func(s *symbol.Symbol)
+	walk = func(s *symbol.Symbol) {
+		for _, c := range s.Children() {
+			switch c.Kind {
+			case symbol.KindModule, symbol.KindModuleAlias, symbol.KindFunction:
+				continue
+			}
+			if c.Kind == symbol.KindVariable && isVarChannel(c) && c.DefaultValue == nil {
+				if lv, ok := c.AST.(parser.ILocalVariableContext); ok && lv.Expression() != nil {
+					out = append(out, c)
+				}
+			}
+			walk(c)
+		}
+	}
+	walk(root)
+	return out
+}
+
+// lowerVarInit lowers a value variable's expression initializer into a reactive flow
+// that computes it and writes the variable's channel.
+func lowerVarInit[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	sym *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) ([]ir.Node, []ir.Edge, bool) {
+	lv, ok := sym.AST.(parser.ILocalVariableContext)
+	if !ok {
+		return nil, nil, false
+	}
+	expr := lv.Expression()
+	if expr == nil {
+		return nil, nil, false
+	}
+	base := ctx.WithScope(sym.Parent)
+
+	write, ok := buildChannelWriteNode(sym.Name, sym, kg)
+	if !ok {
+		return nil, nil, false
+	}
+	shell.varChannels.Add(channelKey(sym))
+
+	// A bare identifier copies the referenced variable's stream directly.
+	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
+		if src, err := base.Scope.Resolve(base, primary.IDENTIFIER().GetText()); err == nil && isVarChannel(src) {
+			read, rok := buildChannelReadNode(src.Name, src, kg)
+			if !rok {
+				return nil, nil, false
+			}
+			shell.varChannels.Add(channelKey(src))
+			edge := ir.Edge{Source: read.output, Target: write.input, Kind: ir.EdgeKindContinuous}
+			return []ir.Node{read.node, write.node}, []ir.Edge{edge}, true
+		}
+	}
+
+	exprRes, ok := analyzeExpression(acontext.Child(base, expr), kg)
+	if !ok {
+		return nil, nil, false
+	}
+	reads, ok := buildExprReadTriggers(base, expr, kg, shell)
+	if !ok {
+		return nil, nil, false
+	}
+	var (
+		nodes []ir.Node
+		edges []ir.Edge
+	)
+	// Each referenced channel triggers the expression node.
+	for _, read := range reads {
+		nodes = append(nodes, read.node)
+		edges = append(edges, ir.Edge{Source: read.output, Target: exprRes.input, Kind: ir.EdgeKindContinuous})
+	}
+	nodes = append(nodes, exprRes.node, write.node)
+	edges = append(edges, ir.Edge{Source: exprRes.output, Target: write.input, Kind: ir.EdgeKindContinuous})
+	return nodes, edges, true
 }
 
 // analyzeNextToken emits a transition intent that advances the enclosing
@@ -813,6 +925,19 @@ func Analyze(
 		i.VarSeeds = append(i.VarSeeds, buildVarSeed(v, shell))
 	}
 
+	// Lower each expression-initialized value variable into a reactive flow.
+	for _, v := range collectExprVars(aCtx.Scope.Root()) {
+		nodes, edges, ok := lowerVarInit(aCtx, v, kg, shell)
+		if !ok {
+			return i, aCtx.Diagnostics
+		}
+		for _, n := range nodes {
+			rootMembers = append(rootMembers, ir.Member{NodeKey: new(n.Key)})
+		}
+		i.Nodes = append(i.Nodes, nodes...)
+		i.Edges = append(i.Edges, edges...)
+	}
+
 	// Inline bodies live as members of their enclosing scope; their flat IR
 	// still registers in the program's global node and edge lists.
 	i.Nodes = append(i.Nodes, shell.inlineNodes...)
@@ -929,27 +1054,12 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 // This enables the shorthand syntax: `ox_pt_1 > 20 => do_something{}`
 // which expands to: `ox_pt_1 -> ox_pt_1 > 20 => do_something{}`
 func (p *flowChainProcessor) injectImplicitTriggers(expr parser.IExpressionContext) bool {
-	sym, err := p.ctx.Scope.Root().GetChildByParserRule(expr)
-	if err != nil || sym.Kind == symbol.KindConstant {
-		return true // Constants don't need triggers
+	reads, ok := buildExprReadTriggers(p.ctx, expr, p.kg, p.shell)
+	if !ok {
+		return false
 	}
-
-	if len(sym.Channels.Read) == 0 {
-		return true // No channels referenced
-	}
-
-	// Create trigger node for each channel
-	for _, chName := range sym.Channels.Read {
-		chanSym, err := p.ctx.Scope.Resolve(p.ctx, chName)
-		if err != nil {
-			continue
-		}
-		result, ok := buildChannelReadNode(chName, chanSym, p.kg)
-		if !ok {
-			return false
-		}
+	for _, result := range reads {
 		p.nodes = append(p.nodes, result.node)
-
 		if p.prevNode == nil {
 			p.prevOutput = result.output
 			p.prevNode = &result.node
