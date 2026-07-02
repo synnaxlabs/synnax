@@ -110,7 +110,7 @@ func heater_control{
 
     return state
 }
-// Use interval and channel config parameters for multi-input control
+// Use interval and channel inputs for multi-input control
 func heater_ctrl{
     temp chan f64,
     enable chan u8,
@@ -197,7 +197,7 @@ func cooler_control{
 
     return state
 }
-// Similar pattern with channel config parameters
+// Similar pattern with channel inputs
 func cooler_ctrl{
     temp chan f64,
     enable chan u8,
