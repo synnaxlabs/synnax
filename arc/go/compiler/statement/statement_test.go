@@ -50,6 +50,12 @@ func compileBlock(bCtx SpecContext, source string) []byte {
 }
 
 var _ = Describe("Statement Compiler", func() {
+	It("Should compile a named-argument range identically to the positional form", func(bCtx SpecContext) {
+		named := compile(bCtx, "for i := range(stop = 5, start = 1) {\n}")
+		positional := compile(bCtx, "for i := range(1, 5) {\n}")
+		Expect(named).To(Equal(positional))
+	})
+
 	Describe("Named Output Assignment", func() {
 		compileWithOutputs := func(bCtx SpecContext, source string, outputs types.Params, memBase uint32) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))

@@ -19,9 +19,11 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Dashed names keep -> intact", func() {
@@ -735,6 +737,52 @@ stage abort {
 			Expect(scopeNodeRefs(rAbort)).ToNot(BeEmpty())
 		})
 	})
+})
+
+// Runtime coverage for named function-call arguments (SY-4390): programs run
+// through the full text → IR → WASM pipeline so a miscompiled reorder or default
+// surfaces as a wrong computed value rather than passing silently.
+var _ = Describe("Named argument calls", func() {
+	lastI64 := func(fr telem.Frame[uint32], key uint32) int64 {
+		ch := fr.Get(key)
+		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
+		s := ch.Series[len(ch.Series)-1]
+		vals := telem.UnmarshalSeries[int64](s)
+		Expect(vals).ToNot(BeEmpty())
+		return vals[len(vals)-1]
+	}
+
+	run := func(ctx SpecContext, body string) int64 {
+		resolver := channelSymbols(map[string]channelDef{
+			"trig": {types.U8(), 100},
+			"out":  {types.I64(), 101},
+		})
+		h := newRuntimeHarness(ctx, `
+			func order_probe(x i64, y i64, z i64 = 100) i64 { return x - y + z }
+			func mid(a i64, b i64 = 50, c i64 = 7) i64 { return a * 1000 + b * 10 + c }
+			func main(t u8) i64 { return `+body+` }
+			trig -> main{} -> out`, resolver,
+			channels.Digest{Key: 100, DataType: telem.Uint8T},
+			channels.Digest{Key: 101, DataType: telem.Int64T},
+		)
+		defer h.Close(ctx)
+		h.Ingest(100, telem.NewSeriesV[uint8](1))
+		h.Tick(ctx, telem.Millisecond)
+		h.channelState.ClearReads()
+		out, _ := h.Flush()
+		return lastI64(out, 101)
+	}
+
+	// order_probe is x - y + z, so a swapped x/y binding is observable at runtime:
+	// order_probe(y=3, x=10) must stay 10-3+100=107, not 3-10+100=93.
+	DescribeTable("bind by name, not position",
+		func(ctx SpecContext, body string, expected int64) {
+			Expect(run(ctx, body)).To(Equal(expected))
+		},
+		Entry("reordered names hold their binding", "order_probe(y = 3, x = 10)", int64(107)),
+		Entry("reordered with a trailing default overridden", "order_probe(z = 5, y = 3, x = 10)", int64(12)),
+		Entry("named skips a middle optional, which defaults", "mid(a = 1, c = 3)", int64(1503)),
+	)
 })
 
 // wasmImport represents a parsed WASM import entry.

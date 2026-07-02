@@ -1790,8 +1790,53 @@ sequence main {
 			Expect(parser.QualifiedName(qid)).To(Equal("math.avg"))
 			funcCalls := postfix.AllFunctionCallSuffix()
 			Expect(funcCalls).To(HaveLen(1))
-			args := funcCalls[0].ArgumentList().AllExpression()
+			args := funcCalls[0].ArgumentList().AnonymousInputValues().AllExpression()
 			Expect(args).To(HaveLen(1))
+		})
+
+		It("Should parse a function call with named arguments", func() {
+			expr := mustParseExpression(`create(name = "foo", parent = p)`)
+			funcCalls := getPostfixExpression(expr).AllFunctionCallSuffix()
+			Expect(funcCalls).To(HaveLen(1))
+			argList := funcCalls[0].ArgumentList()
+			Expect(argList.AnonymousInputValues()).To(BeNil())
+			vals := argList.NamedInputValues().AllNamedInputValue()
+			Expect(vals).To(HaveLen(2))
+			Expect(vals[0].IDENTIFIER().GetText()).To(Equal("name"))
+			Expect(vals[1].IDENTIFIER().GetText()).To(Equal("parent"))
+		})
+
+		It("Should parse a function call with anonymous arguments", func() {
+			expr := mustParseExpression("add(1, 2)")
+			funcCalls := getPostfixExpression(expr).AllFunctionCallSuffix()
+			Expect(funcCalls).To(HaveLen(1))
+			argList := funcCalls[0].ArgumentList()
+			Expect(argList.NamedInputValues()).To(BeNil())
+			Expect(argList.AnonymousInputValues().AllExpression()).To(HaveLen(2))
+		})
+
+		It("Should parse a function call with a trailing comma after named arguments", func() {
+			expr := mustParseExpression(`create(name = "foo",)`)
+			funcCalls := getPostfixExpression(expr).AllFunctionCallSuffix()
+			Expect(funcCalls).To(HaveLen(1))
+			Expect(funcCalls[0].ArgumentList().NamedInputValues().AllNamedInputValue()).To(HaveLen(1))
+		})
+
+		It("Should parse a function call with no arguments", func() {
+			expr := mustParseExpression("now()")
+			funcCalls := getPostfixExpression(expr).AllFunctionCallSuffix()
+			Expect(funcCalls).To(HaveLen(1))
+			Expect(funcCalls[0].ArgumentList()).To(BeNil())
+		})
+
+		It("Should reject a named argument with no value", func() {
+			_, diags := parser.ParseExpression("add(x =)")
+			Expect(diags.Ok()).To(BeFalse())
+		})
+
+		It("Should reject mixing anonymous and named arguments", func() {
+			_, diags := parser.ParseExpression("add(1, y = 2)")
+			Expect(diags.Ok()).To(BeFalse())
 		})
 
 		It("Should not confuse float literals with qualified identifiers", func() {

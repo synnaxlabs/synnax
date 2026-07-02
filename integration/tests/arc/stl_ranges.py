@@ -36,24 +36,24 @@ func range_test{}() {
     ranges.create("RangeFunc_Create")
 
     // RGB
-    ranges.create("RangeFunc_RGB_1", "", "rgb(255, 0, 0)")
-    ranges.create("RangeFunc_RGB_2", "", "rgb(0, 255, 0)")
-    ranges.create("RangeFunc_RGB_3", "", "rgb(0, 0, 255)")
+    ranges.create(name = "RangeFunc_RGB_1", color = "rgb(255, 0, 0)")
+    ranges.create(name = "RangeFunc_RGB_2", color = "rgb(0, 255, 0)")
+    ranges.create(name = "RangeFunc_RGB_3", color = "rgb(0, 0, 255)")
 
     // RGBA
-    ranges.create("RangeFunc_RGBA_1", "", "rgba(255, 0, 0, 0.5)")
-    ranges.create("RangeFunc_RGBA_2", "", "rgba(0, 255, 0, 0.25)")
-    ranges.create("RangeFunc_RGBA_3", "", "rgba(0, 0, 255, 0.75)")
+    ranges.create(name = "RangeFunc_RGBA_1", color = "rgba(255, 0, 0, 0.5)")
+    ranges.create(name = "RangeFunc_RGBA_2", color = "rgba(0, 255, 0, 0.25)")
+    ranges.create(name = "RangeFunc_RGBA_3", color = "rgba(0, 0, 255, 0.75)")
 
     // Hex
-    ranges.create("RangeFunc_Hex_1", "", "#112233")
-    ranges.create("RangeFunc_Hex_2", "", "#44aa66")
-    ranges.create("RangeFunc_Hex_3", "", "#ddeeff")
+    ranges.create(name = "RangeFunc_Hex_1", color = "#112233")
+    ranges.create(name = "RangeFunc_Hex_2", color = "#44aa66")
+    ranges.create(name = "RangeFunc_Hex_3", color = "#ddeeff")
 
     // Parent (key injected by the test)
-    ranges.create("RangeFunc_Child", "__PARENT_KEY__", "rgb(10, 20, 30)")
+    ranges.create(name = "RangeFunc_Child", parent = "__PARENT_KEY__", color = "rgb(10, 20, 30)")
     // Parent without a color (positional, since parent precedes color)
-    ranges.create("RangeFunc_Child_NoColor", "__PARENT_KEY__")
+    ranges.create(name = "RangeFunc_Child_NoColor", parent = "__PARENT_KEY__")
 
     // Invalid color, concatenated at runtime so the analyzer's compile-time literal
     // check can't reject it; the create must fail at runtime.

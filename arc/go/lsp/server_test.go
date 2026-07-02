@@ -444,3 +444,28 @@ var _ = Describe("External Change Notifications", func() {
 		wg.Wait()
 	})
 })
+
+var _ = Describe("Named argument diagnostics", func() {
+	var (
+		server *lsp.Server
+		uri    protocol.DocumentURI
+		client *MockClient
+	)
+
+	BeforeEach(func() {
+		server, uri, client = SetupTestServerWithClient()
+	})
+
+	It("Should report no diagnostics for a valid named paren call", func(ctx SpecContext) {
+		OpenArcDocument(server, ctx, uri,
+			"func add(x i64, y i64) i64 { return x + y }\nfunc main() i64 { return add(y = 2, x = 1) }")
+		Expect(client.Diagnostics()).To(BeEmpty())
+	})
+
+	It("Should report an unknown-parameter diagnostic for a bad named argument", func(ctx SpecContext) {
+		OpenArcDocument(server, ctx, uri,
+			"func add(x i64, y i64) i64 { return x + y }\nfunc main() i64 { return add(x = 1, y = 2, w = 3) }")
+		Expect(client.Diagnostics()).To(HaveLen(1))
+		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("unknown parameter 'w'"))
+	})
+})

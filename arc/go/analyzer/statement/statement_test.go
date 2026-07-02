@@ -2166,4 +2166,29 @@ var _ = Describe("Statement", func() {
 			)
 		})
 	})
+
+	Describe("For Range named arguments", func() {
+		analyzeRange := func(bCtx SpecContext, code string) context.Context[parser.IStatementContext] {
+			stmt := MustSucceed(parser.ParseStatement(code))
+			ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+			statement.Analyze(ctx)
+			return ctx
+		}
+
+		It("accepts range bounds bound by name", func(bCtx SpecContext) {
+			ctx := analyzeRange(bCtx, `for i := range(stop = 5, start = 1) {}`)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		DescribeTable("rejects invalid named bounds",
+			func(bCtx SpecContext, code string, expectedMsg string) {
+				ctx := analyzeRange(bCtx, code)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expectedMsg))
+			},
+			Entry("unknown bound name", `for i := range(finish = 5) {}`, "range() has no parameter 'finish'"),
+			Entry("duplicate bound", `for i := range(stop = 5, stop = 9) {}`, "range() got multiple values for 'stop'"),
+			Entry("missing stop", `for i := range(start = 1) {}`, "range() requires a 'stop' argument"),
+		)
+	})
 })

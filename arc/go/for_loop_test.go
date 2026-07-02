@@ -174,4 +174,34 @@ var _ = Describe("For loops", func() {
 			}
 			trig -> compute{} -> sum_out`, int64(5)),
 	)
+
+	// range(start=1, stop=5) yields 1,2,3,4 (sum 10). The same tokens bound by
+	// position would be range(5, 1) — empty — so a result of 10 proves the
+	// start/stop names are honored rather than dropped.
+	It("Binds range() bounds by name", func(ctx SpecContext) {
+		resolver := channelSymbols(map[string]channelDef{
+			"trig":    {types.U8(), 100},
+			"sum_out": {types.I64(), 101},
+		})
+		h := newRuntimeHarness(ctx, `
+			func sum(t u8) i64 {
+			    total i64 := 0
+			    for i := range(stop = i64(5), start = i64(1)) {
+			        total = total + i
+			    }
+			    return total
+			}
+			trig -> sum{} -> sum_out`, resolver,
+			channels.Digest{Key: 100, DataType: telem.Uint8T},
+			channels.Digest{Key: 101, DataType: telem.Int64T},
+		)
+		defer h.Close(ctx)
+
+		h.Ingest(100, telem.NewSeriesV[uint8](1))
+		h.Tick(ctx, telem.Millisecond)
+		h.channelState.ClearReads()
+
+		out, _ := h.Flush()
+		Expect(lastI64(out, 101)).To(Equal(int64(10)))
+	})
 })

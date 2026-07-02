@@ -15,9 +15,8 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// These specs exercise AnalyzeCall through the parens (positional) surface form. The
-// brace form, named-argument matching, and the externallySatisfied trigger path are
-// driven by the flow analyzer and are covered in the flow package's specs.
+// These specs exercise AnalyzeCall through the parens surface form, covering both
+// positional and named arguments. The trigger path is covered in the flow package.
 var _ = Describe("AnalyzeCall", func() {
 	Describe("Argument count", func() {
 		DescribeTable("valid argument counts",
@@ -83,5 +82,80 @@ var _ = Describe("AnalyzeCall", func() {
 				{Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 			})
 		})
+	})
+
+	Describe("Named arguments", func() {
+		DescribeTable("valid named calls",
+			func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
+			Entry("all named in order", `
+				func add(x i32, y i32) i32 { return x + y }
+				func main() { result := add(x = 10, y = 20) }
+			`),
+			Entry("all named reordered", `
+				func add(x i32, y i32) i32 { return x + y }
+				func main() { result := add(y = 20, x = 10) }
+			`),
+			Entry("named with optional omitted", `
+				func add(x i64, y i64 = 0) i64 { return x + y }
+				func main() { result := add(x = 10) }
+			`),
+			Entry("named binds a later optional, earlier one defaulted", `
+				func add(x i64 = 1, y i64 = 2) i64 { return x + y }
+				func main() { result := add(y = 5) }
+			`),
+		)
+
+		DescribeTable("invalid named calls",
+			func(ctx SpecContext, code string, expectedMsg string) {
+				expectFailure(ctx, code, nil, expectedMsg)
+			},
+			Entry("unknown parameter name", `
+				func add(x i32, y i32) i32 { return x + y }
+				func main() { result := add(x = 1, z = 2) }
+			`, "unknown parameter 'z' for func 'add'"),
+			Entry("duplicate named argument", `
+				func add(x i32, y i32) i32 { return x + y }
+				func main() { result := add(x = 1, x = 2) }
+			`, "duplicate argument for parameter 'x' of func 'add'"),
+			Entry("missing required argument via named", `
+				func add(x i32, y i32) i32 { return x + y }
+				func main() { result := add(y = 5) }
+			`, "missing required argument for parameter 'x' of func 'add'"),
+			Entry("type mismatch on named argument", `
+				func add(x i32, y i32) i32 { return x + y }
+				func main() { result := add(x = 1, y = "hello") }
+			`, "argument 'y' of 'add'"),
+		)
+	})
+
+	// len() is a positional-only builtin: it has no user-facing parameter name to
+	// bind to, so any named argument is rejected rather than silently dropped.
+	Describe("Builtin len", func() {
+		It("accepts a positional argument", func(ctx SpecContext) {
+			expectSuccess(ctx, `
+				func main() i64 {
+					data series i64 := [1, 2, 3]
+					return len(data)
+				}
+			`, nil)
+		})
+
+		DescribeTable("rejects named arguments",
+			func(ctx SpecContext, code string, expectedMsg string) {
+				expectFailure(ctx, code, nil, expectedMsg)
+			},
+			Entry("with the real parameter name", `
+				func main() i64 {
+					data series i64 := [1, 2, 3]
+					return len(input = data)
+				}
+			`, "len() does not take named arguments"),
+			Entry("with an arbitrary name", `
+				func main() i64 {
+					data series i64 := [1, 2, 3]
+					return len(n = data)
+				}
+			`, "len() does not take named arguments"),
+		)
 	})
 })
