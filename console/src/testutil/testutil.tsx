@@ -44,10 +44,7 @@ export const createTestStore = async (options: ConsoleTestProviderOptions = {}) 
   return await Drift.configureStore({
     runtime: new Drift.NoopRuntime(),
     reducer: Session.reducer,
-    preloadedState:
-      preloadedState != null
-        ? deep.copy({ ...Session.ZERO_STATE, ...preloadedState })
-        : undefined,
+    preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
     // The layout middleware is omitted: it drives real Tauri window creation, which
     // cannot run in jsdom. Everything else matches the production store.
     middleware: (getDefault) => getDefault().concat(...Session.Nav.MIDDLEWARE),
