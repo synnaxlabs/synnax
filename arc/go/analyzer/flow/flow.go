@@ -283,24 +283,46 @@ func analyzeIdentifier(
 	}
 
 	if isLastNode && prevNode != nil && (sym.Kind == symbol.KindChannel || isValueVarSink) {
-		if prevExpr := prevNode.Expression(); prevExpr != nil {
-			exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
-			chanValueType := sym.Type.Unwrap()
+		srcType, srcDesc := flowSourceType(ctx, prevNode)
+		chanValueType := sym.Type.Unwrap()
+		if srcType.IsValid() {
 			if err = atypes.Check(
 				ctx.Constraints,
-				exprType,
+				srcType,
 				chanValueType,
 				ctx.AST,
-				"expression to channel sink",
+				"flow to channel sink",
 			); err != nil {
 				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-					"expression type %s does not match channel %s value type %s",
-					exprType, name, chanValueType,
+					"%s does not match channel %s value type %s",
+					srcDesc, name, chanValueType,
 				))
 				return
 			}
 		}
 	}
+}
+
+// flowSourceType returns the value type flowing out of prevNode into a channel
+// sink, with a source descriptor for diagnostics; invalid type if unresolvable.
+func flowSourceType(
+	ctx context.Context[parser.IIdentifierContext],
+	prevNode parser.IFlowNodeContext,
+) (types.Type, string) {
+	if prevExpr := prevNode.Expression(); prevExpr != nil {
+		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
+		return exprType, fmt.Sprintf("expression type %s", exprType)
+	}
+	if prevID := prevNode.Identifier(); prevID != nil {
+		srcName := prevID.IDENTIFIER().GetText()
+		srcSym, err := ctx.Resolve(srcName)
+		if err != nil {
+			return types.Type{}, ""
+		}
+		srcValueType := srcSym.Type.Unwrap()
+		return srcValueType, fmt.Sprintf("%s value type %s", srcName, srcValueType)
+	}
+	return types.Type{}, ""
 }
 
 func resolveFunc[T antlr.ParserRuleContext](

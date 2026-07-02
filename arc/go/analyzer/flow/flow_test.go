@@ -2317,3 +2317,58 @@ var _ = Describe("Trigger in select routing branches", func() {
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 	})
 })
+
+var _ = Describe("Flow Sink Type Compatibility", func() {
+	sinkResolver := []symbol.Symbol{
+		{Name: "log_str", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
+		{Name: "num_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+		{Name: "sink_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+		{Name: "num_i64", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
+	}
+
+	type mismatchCase struct {
+		source     string
+		line       int
+		substrings []string
+	}
+
+	DescribeTable("Should report a located error when a source does not match the channel sink",
+		func(bCtx SpecContext, tc mismatchCase) {
+			ast := MustSucceed(parser.Parse(tc.source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, sinkResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse(), ctx.Diagnostics.String())
+			diag := (*ctx.Diagnostics)[0]
+			Expect(diag.Start.Line).To(Equal(tc.line))
+			for _, s := range tc.substrings {
+				Expect(diag.Message).To(ContainSubstring(s))
+			}
+		},
+		Entry("value variable source", mismatchCase{
+			source:     "z := 3\n\nz -> log_str",
+			line:       3,
+			substrings: []string{"z value type", "does not match channel log_str value type str"},
+		}),
+		Entry("channel source", mismatchCase{
+			source:     "num_f64 -> log_str",
+			line:       1,
+			substrings: []string{"num_f64 value type f64", "does not match channel log_str value type str"},
+		}),
+		Entry("expression source", mismatchCase{
+			source:     "num_f64 + 1.0 -> log_str",
+			line:       1,
+			substrings: []string{"expression type", "does not match channel log_str value type str"},
+		}),
+	)
+
+	DescribeTable("Should accept a source whose type matches the channel sink",
+		func(bCtx SpecContext, source string) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, sinkResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+		Entry("value variable to matching channel", "z := 3\n\nz -> num_i64"),
+		Entry("channel to matching channel", "num_f64 -> sink_f64"),
+	)
+})
