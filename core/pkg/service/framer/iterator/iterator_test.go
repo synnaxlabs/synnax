@@ -361,6 +361,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				})
 
 				It("Should detect circular dependencies", func(ctx SpecContext) {
+					// This test verifies that circular dependencies are caught by the
+					// topological sort.
+
+					// Create a simple 2-node cycle: A -> B -> A
 					calcA := &channel.Channel{
 						Name:       "calc_circ_a",
 						DataType:   telem.Float32T,
