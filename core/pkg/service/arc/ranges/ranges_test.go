@@ -341,19 +341,22 @@ var _ = Describe("createNode.Next", func() {
 		Expect(rep.get()).To(BeEmpty())
 	})
 
-	It("Should warn but still create the range when the color is invalid", func(ctx SpecContext) {
+	It("Should error and not create the range when the color is invalid", func(ctx SpecContext) {
 		name := "create_badcolor_" + uuid.NewString()
 		n, state := build(ctx, name, "", "not-a-color")
 		n.Next(nodeCtx(ctx))
 
-		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
-		r := MustSucceed(retrieveRange(ctx, newKey))
-		Expect(r.Name).To(Equal(name))
-		Expect(r.Color).To(BeNil())
+		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+		var matches []ranger.Range
+		Expect(rangeSvc.NewRetrieve().
+			Where(ranger.MatchNames(name)).
+			Entries(&matches).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(matches).To(BeEmpty())
 
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(status.VariantWarning))
+		Expect(calls[0].variant).To(Equal(status.VariantError))
 		Expect(calls[0].message).To(ContainSubstring("ranges.create: invalid color"))
 	})
 
@@ -373,14 +376,14 @@ var _ = Describe("createNode.Next", func() {
 		Expect(rep.get()).To(BeEmpty())
 	})
 
-	It("Should warn and emit an empty key when the parent key is not a UUID", func(ctx SpecContext) {
+	It("Should error and emit an empty key when the parent key is not a UUID", func(ctx SpecContext) {
 		n, state := build(ctx, "bad_parent_"+uuid.NewString(), "not-a-uuid", "")
 		n.Next(nodeCtx(ctx))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(status.VariantWarning))
+		Expect(calls[0].variant).To(Equal(status.VariantError))
 		Expect(calls[0].message).To(ContainSubstring("ranges.create: invalid parent key"))
 	})
 })
@@ -424,25 +427,25 @@ var _ = Describe("endNode.Next", func() {
 		Expect(rep.get()).To(BeEmpty())
 	})
 
-	It("Should warn and emit an empty key when the key is not a UUID", func(ctx SpecContext) {
+	It("Should error and emit an empty key when the key is not a UUID", func(ctx SpecContext) {
 		n, state := build(ctx, "not-a-uuid")
 		n.Next(nodeCtx(ctx))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(status.VariantWarning))
+		Expect(calls[0].variant).To(Equal(status.VariantError))
 		Expect(calls[0].message).To(ContainSubstring("ranges.end: invalid range key"))
 	})
 
-	It("Should warn when the range does not exist", func(ctx SpecContext) {
+	It("Should error when the range does not exist", func(ctx SpecContext) {
 		n, state := build(ctx, uuid.NewString())
 		n.Next(nodeCtx(ctx))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(status.VariantWarning))
+		Expect(calls[0].variant).To(Equal(status.VariantError))
 		Expect(calls[0].message).To(HavePrefix("ranges.end:"))
 	})
 })
@@ -536,7 +539,7 @@ var _ = Describe("WASM host functions", func() {
 			Expect(r.TimeRange.End).To(Equal(telem.TimeStampMax))
 		})
 
-		It("Should warn and return 0 on an invalid name handle", func(ctx SpecContext) {
+		It("Should error and return 0 on an invalid name handle", func(ctx SpecContext) {
 			colorH := strs.Create("")
 			parentH := strs.Create("")
 			res := rt.Call(ctx, "ranges", "create",
@@ -567,7 +570,7 @@ var _ = Describe("WASM host functions", func() {
 			Expect(updated.TimeRange.End).ToNot(Equal(telem.TimeStampMax))
 		})
 
-		It("Should warn and return 0 on an invalid key handle", func(ctx SpecContext) {
+		It("Should error and return 0 on an invalid key handle", func(ctx SpecContext) {
 			res := rt.Call(ctx, "ranges", "end", U32(9999))
 			Expect(AsU32(res[0])).To(Equal(uint32(0)))
 			calls := rep.get()

@@ -152,7 +152,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 			parent, pOK := heap.Get(parentH)
 			colorHex, cOK := heap.Get(colorH)
 			if !nOK || !cOK || !pOK {
-				m.report(ctx, status.VariantWarning,
+				m.report(ctx, status.VariantError,
 					"ranges.create: invalid string handle from WASM runtime")
 				return 0
 			}
@@ -162,7 +162,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 		WithFunc(func(ctx context.Context, keyH uint32) uint32 {
 			key, ok := heap.Get(keyH)
 			if !ok {
-				m.report(ctx, status.VariantWarning,
+				m.report(ctx, status.VariantError,
 					"ranges.end: invalid string handle from WASM runtime")
 				return 0
 			}
@@ -234,7 +234,7 @@ func (n *createNode) Next(ctx node.Context) {
 }
 
 // dispatchCreate creates an open range that starts now, parsing the color and
-// parent key, reporting failures as warnings so the task keeps running.
+// parent key. Any failure is reported as an error and no range is created.
 func dispatchCreate(
 	ctx context.Context,
 	rng *ranger.Service,
@@ -243,12 +243,13 @@ func dispatchCreate(
 ) string {
 	var c *color.Color
 	if colorHex != "" {
-		if parsed, err := color.FromCSS(colorHex); err != nil {
-			report(ctx, status.VariantWarning,
+		parsed, err := color.FromCSS(colorHex)
+		if err != nil {
+			report(ctx, status.VariantError,
 				fmt.Sprintf("ranges.create: invalid color %q: %v", colorHex, err))
-		} else {
-			c = &parsed
+			return ""
 		}
+		c = &parsed
 	}
 	r := ranger.Range{
 		Name:      name,
@@ -258,14 +259,14 @@ func dispatchCreate(
 	if parent != "" {
 		uid, err := uuid.Parse(parent)
 		if err != nil {
-			report(ctx, status.VariantWarning,
+			report(ctx, status.VariantError,
 				fmt.Sprintf("ranges.create: invalid parent key %q", parent))
 			return ""
 		}
 		r.Parent = &ranger.Range{Key: uid}
 	}
 	if err := rng.NewWriter(nil).Create(ctx, &r); err != nil {
-		report(ctx, status.VariantWarning, fmt.Sprintf("ranges.create: %v", err))
+		report(ctx, status.VariantError, fmt.Sprintf("ranges.create: %v", err))
 		return ""
 	}
 	return r.Key.String()
@@ -294,8 +295,8 @@ func (n *endNode) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
-// dispatchEnd sets the end bound on the range identified by key to now,
-// reporting failures as warnings so the task keeps running.
+// dispatchEnd sets the end bound on the range identified by key to now. Any
+// failure is reported as an error and the range is left unchanged.
 func dispatchEnd(
 	ctx context.Context,
 	rng *ranger.Service,
@@ -304,12 +305,12 @@ func dispatchEnd(
 ) string {
 	uid, err := uuid.Parse(key)
 	if err != nil {
-		report(ctx, status.VariantWarning,
+		report(ctx, status.VariantError,
 			fmt.Sprintf("ranges.end: invalid range key %q", key))
 		return ""
 	}
 	if err := rng.NewWriter(nil).SetEnd(ctx, uid, telem.Now()); err != nil {
-		report(ctx, status.VariantWarning, fmt.Sprintf("ranges.end: %v", err))
+		report(ctx, status.VariantError, fmt.Sprintf("ranges.end: %v", err))
 		return ""
 	}
 	return uid.String()
