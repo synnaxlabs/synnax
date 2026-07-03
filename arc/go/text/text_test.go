@@ -161,6 +161,19 @@ var _ = Describe("Text", func() {
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
 		})
 
+		It("Should reject a write to a reactive variable", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				r := count_ch + 1
+				count_ch -> r
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"cannot write to reactive variable r"))
+		})
+
 		It("Should assign distinct keys to variables in sibling sequences", func(ctx SpecContext) {
 			source := `
 			sequence a {

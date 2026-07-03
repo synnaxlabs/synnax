@@ -280,6 +280,11 @@ func analyzeIdentifier(
 			ctx.Diagnostics.Add(d)
 			return
 		}
+		if sym.VarKind == symbol.VarKindReactive {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				"cannot write to reactive variable %s; it is read-only", name))
+			return
+		}
 	}
 
 	if isLastNode && prevNode != nil && (sym.Kind == symbol.KindChannel || isValueVarSink) {
