@@ -791,7 +791,7 @@ var _ = Describe("Graph", func() {
 				Virtual:    true,
 				Expression: "return invalid_syntax {{",
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc, channel.AllowInvalidExpressions())).To(Succeed())
 			Expect(g.Add(ctx, calc)).Error().To(MatchError(ContainSubstring("bad_calc_add")))
 		})
 
@@ -807,7 +807,7 @@ var _ = Describe("Graph", func() {
 			Expect(channelSvc.Create(ctx, &calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			calc.Expression = "return invalid_syntax {{"
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc, channel.AllowInvalidExpressions())).To(Succeed())
 			Expect(g.Update(ctx, calc)).Error().To(MatchError(ContainSubstring("bad_calc_update")))
 		})
 	})

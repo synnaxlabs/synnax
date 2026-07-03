@@ -137,7 +137,7 @@ var _ = Describe("Compile", func() {
 			Virtual:    true,
 			Expression: "return invalid_syntax {{",
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &calc, channel.AllowInvalidExpressions())).To(Succeed())
 		Expect(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,

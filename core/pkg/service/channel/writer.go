@@ -45,6 +45,7 @@ type createOptions struct {
 	retrieveIfNameExists                        bool
 	overwriteIfNameExistsAndDifferentProperties bool
 	createWithoutGroupRelationship              bool
+	allowInvalidExpressions                     bool
 }
 
 // CreateOption configures the behavior of a Create or CreateMany call.
@@ -72,6 +73,17 @@ func CreateWithoutGroupRelationship() CreateOption {
 	return func(o *createOptions) { o.createWithoutGroupRelationship = true }
 }
 
+// AllowInvalidExpressions returns a CreateOption that persists calculated channels whose
+// expressions fail to analyze instead of aborting the call, leaving each channel's
+// caller-provided DataType untouched. It is intended for the calculation runtime, which
+// must tolerate expressions that are only transiently unresolvable (dependency ordering
+// during hydration, or an upstream channel that was deleted) and surfaces the failure as
+// a channel status rather than a write error. User-facing creates should omit it so an
+// invalid expression fails fast.
+func AllowInvalidExpressions() CreateOption {
+	return func(o *createOptions) { o.allowInvalidExpressions = true }
+}
+
 // Create creates a single channel, inferring the DataType if it is calculated.
 func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
 	channels := []Channel{*c}
@@ -82,25 +94,27 @@ func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 	return nil
 }
 
-// CreateMany creates multiple channels, inferring DataTypes for any calculated channels
-// in the batch whose expressions analyze successfully. Channels within the batch may
-// reference each other by name. Calculated channels whose expressions fail to analyze
-// (invalid syntax or unresolved dependencies) are still persisted with their
-// caller-provided DataType; the calculation runtime surfaces the failure as a status
-// later. Callers that want expressions validated up front should use the Service-level
-// Create or CreateMany, which fail fast on analysis errors.
+// CreateMany creates multiple channels, inferring and assigning DataTypes for any
+// calculated channels in the batch by analyzing their expressions. Channels within the
+// batch may reference each other by name.
+//
+// By default a calculated channel whose expression fails to analyze (invalid syntax or
+// unresolved dependencies) aborts the entire call with the analysis error, giving
+// user-facing creates fail-fast validation. Pass AllowInvalidExpressions to persist such
+// channels anyway with their caller-provided DataType, deferring the failure to a
+// channel status; see that option for when it is appropriate.
 func (w Writer) CreateMany(
 	ctx context.Context, channels *[]Channel, opts ...CreateOption,
 ) error {
 	if len(*channels) == 0 {
 		return nil
 	}
-	if err := w.analyzeCalculated(ctx, *channels, false); err != nil {
-		return err
-	}
 	var o createOptions
 	for _, opt := range opts {
 		opt(&o)
+	}
+	if err := w.analyzeCalculated(ctx, *channels, !o.allowInvalidExpressions); err != nil {
+		return err
 	}
 	return w.create(ctx, channels, o)
 }

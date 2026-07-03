@@ -485,7 +485,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Expression:  "invalid expression without return",
 			}}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs, channel.AllowInvalidExpressions())).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
@@ -515,7 +515,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			calcs[0].Expression = "invalid expression without return"
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calcs[0])).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &calcs[0], channel.AllowInvalidExpressions())).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
 			Eventually(func(g Gomega) {
@@ -537,7 +537,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Expression:  "invalid expression",
 			}}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs, channel.AllowInvalidExpressions())).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status

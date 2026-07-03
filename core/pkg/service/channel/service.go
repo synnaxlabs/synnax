@@ -265,10 +265,9 @@ func (s *Service) ShouldValidateNames() bool { return *s.cfg.ValidateNames }
 // fresh, transaction-less Writer. Callers that need to batch writes into a transaction
 // should use NewWriter directly.
 
-// Create creates a single channel outside of any transaction. Unlike the Writer, it
-// validates a calculated channel's expression up front, returning an analysis error
-// (invalid syntax or unresolved dependencies) instead of persisting the channel. See
-// Writer.Create.
+// Create creates a single channel outside of any transaction, validating a calculated
+// channel's expression up front (an analysis error aborts the create). It is a
+// convenience wrapper over a fresh, transaction-less Writer; see Writer.Create.
 func (s *Service) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
 	channels := []Channel{*c}
 	if err := s.CreateMany(ctx, &channels, opts...); err != nil {
@@ -278,16 +277,11 @@ func (s *Service) Create(ctx context.Context, c *Channel, opts ...CreateOption) 
 	return nil
 }
 
-// CreateMany creates multiple channels outside of any transaction. Unlike the Writer,
-// it validates calculated channel expressions up front, returning an analysis error if
-// any channel's expression fails to analyze (invalid syntax or unresolved
-// dependencies). See Writer.CreateMany.
+// CreateMany creates multiple channels outside of any transaction, validating calculated
+// channel expressions up front (an analysis error aborts the call). It is a convenience
+// wrapper over a fresh, transaction-less Writer; see Writer.CreateMany.
 func (s *Service) CreateMany(
 	ctx context.Context, channels *[]Channel, opts ...CreateOption,
 ) error {
-	w := s.NewWriter(nil)
-	if err := w.analyzeCalculated(ctx, *channels, true); err != nil {
-		return err
-	}
-	return w.CreateMany(ctx, channels, opts...)
+	return s.NewWriter(nil).CreateMany(ctx, channels, opts...)
 }
