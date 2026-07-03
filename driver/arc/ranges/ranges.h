@@ -34,7 +34,8 @@
 namespace driver::arc::ranges {
 
 /// @brief dispatch_create creates an open range that starts now, parsing the color
-/// and parent and reporting failures as warnings. Returns the new key or "".
+/// and parent and reporting failures as warnings. On any failure no range is
+/// created. Returns the new key or "".
 inline std::string dispatch_create(
     const std::shared_ptr<synnax::Synnax> &client,
     const Reporter &report,
@@ -45,13 +46,14 @@ inline std::string dispatch_create(
     std::optional<x::color::Color> c;
     if (!color_hex.empty()) {
         auto [parsed, err] = x::color::from_css(color_hex);
-        if (err)
+        if (err) {
             report(
                 synnax::status::VARIANT_WARNING,
                 "ranges.create: invalid color \"" + color_hex + "\": " + err.message()
             );
-        else
-            c = parsed;
+            return "";
+        }
+        c = parsed;
     }
     synnax::ranger::Range r;
     r.name = name;

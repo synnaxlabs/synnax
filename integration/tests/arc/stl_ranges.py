@@ -54,6 +54,11 @@ func range_test{}() {
     ranges.create("RangeFunc_Child", "__PARENT_KEY__", "rgb(10, 20, 30)")
     // Parent without a color (positional, since parent precedes color)
     ranges.create("RangeFunc_Child_NoColor", "__PARENT_KEY__")
+
+    // Invalid color, concatenated at runtime so the analyzer's compile-time
+    // literal check can't reject it; the create must fail at runtime.
+    bad_color := "not-a-" + "color"
+    ranges.create("RangeFunc_BadColor", "", bad_color)
 }
 start_stl_ranges_cmd -> range_test{}
 
@@ -136,6 +141,8 @@ CHILD_NAMES = [
     "RangeFlow_Child_NoColor",
 ]
 
+BAD_COLOR_NAME = "RangeFunc_BadColor"
+
 NAMES = [c.name for c in CASES]
 
 
@@ -145,12 +152,15 @@ class StlRanges(ArcCase):
     A single trigger runs the func body and fires every flow create, producing
     ranges with and without an explicit end, with rgb/rgba/hex colors, and under
     a parent. Each created range is verified for start, end, color, and parent.
+    An invalid color built at runtime must fail the create entirely: no range is
+    created and a warning status surfaces on the task.
     """
 
     arc_source = ARC_STL_RANGES_SOURCE
     arc_name_prefix = "ArcStlRanges"
     start_cmd_channel = "start_stl_ranges_cmd"
     subscribe_channels = [DONE]
+    collect_task_status = True
 
     def setup(self) -> None:
         self._parent = self.client.ranges.create(
@@ -167,7 +177,10 @@ class StlRanges(ArcCase):
     def teardown(self) -> None:
         with self._try_to("delete created ranges"):
             keys = [
-                r.key for r in self.client.ranges.retrieve(names=NAMES + [PARENT_NAME])
+                r.key
+                for r in self.client.ranges.retrieve(
+                    names=NAMES + [PARENT_NAME, BAD_COLOR_NAME]
+                )
             ]
             if keys:
                 self.client.ranges.delete(keys)
@@ -190,6 +203,15 @@ class StlRanges(ArcCase):
             self._verify_range(case, found[case.name], self._before, after)
 
         self._verify_parents(found)
+        self._verify_invalid_color_rejected()
+
+    def _verify_invalid_color_rejected(self) -> None:
+        if not self.wait_for_task_status(
+            self.task_key(self.arc_name), "ranges.create: invalid color"
+        ):
+            self.fail("no warning status surfaced for the invalid-color create")
+        if self.client.ranges.retrieve(names=[BAD_COLOR_NAME]):
+            self.fail(f"{BAD_COLOR_NAME} was created despite an invalid color")
 
     def _verify_parents(self, found: dict[str, sy.Range]) -> None:
         children = self.client.ontology.retrieve_children(self._parent.ontology_id)

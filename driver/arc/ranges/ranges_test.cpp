@@ -230,7 +230,7 @@ TEST(CreateRangeTest, NextParsesColor) {
     EXPECT_EQ(r.color->b, 0x38);
 }
 
-TEST(CreateRangeTest, NextWarnsOnInvalidColorButStillCreates) {
+TEST(CreateRangeTest, NextWarnsAndDoesNotCreateOnInvalidColor) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("cpp_badcolor_");
     std::vector<std::pair<std::string, std::string>> calls;
@@ -249,14 +249,10 @@ TEST(CreateRangeTest, NextWarnsOnInvalidColorButStillCreates) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
+    EXPECT_EQ(output_key(s), "");
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].first, synnax::status::VARIANT_WARNING);
     EXPECT_NE(calls[0].second.find("ranges.create: invalid color"), std::string::npos);
-
-    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(
-        ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s)))
-    ));
-    EXPECT_EQ(r.name, name);
 }
 
 TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
