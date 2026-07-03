@@ -84,9 +84,9 @@ func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 
 // CreateMany creates multiple channels, inferring and assigning DataTypes for any
 // calculated channels in the batch by analyzing their expressions. Channels within the
-// batch may reference each other by name. A calculated channel whose expression fails to
-// analyze (invalid syntax or unresolved dependencies) aborts the entire call with the
-// analysis error, so callers get fail-fast validation.
+// batch may reference each other by name. A calculated channel whose expression fails
+// to analyze (invalid syntax or unresolved dependencies) aborts the entire call with
+// the analysis error, so callers get fail-fast validation.
 func (w Writer) CreateMany(
 	ctx context.Context, channels *[]Channel, opts ...CreateOption,
 ) error {
@@ -97,29 +97,17 @@ func (w Writer) CreateMany(
 	for _, opt := range opts {
 		opt(&o)
 	}
-	if err := w.analyzeCalculated(ctx, *channels); err != nil {
-		return err
-	}
-	return w.create(ctx, channels, o)
-}
-
-// analyzeCalculated infers and assigns DataTypes for the calculated channels in the
-// batch by analyzing their expressions; channels may reference earlier ones in the batch
-// by name. Every calculated channel is analyzed, its DataType is overwritten with the
-// inferred type, and the first analysis error is returned (remaining channels are left
-// unprocessed).
-func (w Writer) analyzeCalculated(ctx context.Context, channels []Channel) error {
-	for i := range channels {
-		if !channels[i].IsCalculated() {
+	for i, ch := range *channels {
+		if !ch.IsCalculated() {
 			continue
 		}
-		result, err := w.analyzer.Analyze(ctx, channels[i])
+		result, err := w.analyzer.Analyze(ctx, ch)
 		if err != nil {
 			return err
 		}
-		channels[i].DataType = result.ChanDataType
+		(*channels)[i].DataType = result.ChanDataType
 	}
-	return nil
+	return w.create(ctx, channels, o)
 }
 
 // ChangeDataType persists dataType to the already-existing channel with the given key,
@@ -216,12 +204,14 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 		}
 	}
 
-	// Update the stored records of channels passed in with a non-zero key, applying name
-	// and (for calculated channels) expression/operations/index/data-type changes. When
-	// RetrieveIfNameExists is set the in-memory channel is reset to the stored record so
-	// the caller does not mistake an update for a no-op create.
+	// Update the stored records of channels passed in with a non-zero key, applying
+	// name and (for calculated channels) expression/operations/index/data-type changes.
+	// When RetrieveIfNameExists is set the in-memory channel is reset to the stored
+	// record so the caller does not mistake an update for a no-op create.
 	keys := KeysFromChannels(channels)
-	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k.LocalKey() != 0 })
+	existingKeys := lo.Filter(keys, func(k Key, _ int) bool {
+		return k.LocalKey() != 0
+	})
 	if len(existingKeys) != 0 {
 		if err := w.svc.table.NewUpdate().
 			Where(gorp.MatchKeys[Key, Channel](existingKeys...)).
@@ -247,9 +237,9 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 	}
 
 	if opts.overwriteIfNameExistsAndDifferentProperties {
-		// Delete existing channels of the same name whose properties differ from the ones
-		// being created, so the create can replace them. Channels that match an existing
-		// record (ignoring allocated keys) are reset to that record instead.
+		// Delete existing channels of the same name whose properties differ from the
+		// ones being created, so the create can replace them. Channels that match an
+		// existing record (ignoring allocated keys) are reset to that record instead.
 		names := Names(channels)
 		if len(names) != 0 {
 			var existing []Channel
@@ -355,8 +345,9 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 	}
 
 	// Link each calculated channel to its auto-created index channel by setting the
-	// calculated channel's LocalIndex to the index channel's assigned LocalKey. Applied to
-	// both the newly created channels and the full set (which includes existing ones).
+	// calculated channel's LocalIndex to the index channel's assigned LocalKey. Applied
+	// to both the newly created channels and the full set (which includes existing
+	// ones).
 	indexKeyByName := make(map[string]LocalKey, len(channels))
 	for _, ch := range channels {
 		if ch.IsIndex {
@@ -397,8 +388,8 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 	w.svc.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
 	w.svc.mu.Unlock()
 
-	// Persist updated LocalIndex links for existing calculated channels (those already in
-	// the table) whose index channel was just created.
+	// Persist updated LocalIndex links for existing calculated channels (those already
+	// in the table) whose index channel was just created.
 	for _, idx := range calcNeedingIndex {
 		ch := channels[idx]
 		if ch.LocalKey == 0 || ch.LocalIndex == 0 {
@@ -443,8 +434,8 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 	)
 }
 
-// validNamePattern matches valid channel names: a leading letter or underscore
-// followed by letters, digits, and underscores.
+// validNamePattern matches valid channel names: a leading letter or underscore followed
+// by letters, digits, and underscores.
 var validNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 // validateChannelNames rejects a create/rename request whose proposed names are empty,
@@ -478,7 +469,11 @@ func (w Writer) validateChannelNames(
 	for i, name := range names {
 		if namesSeen.Contains(name) {
 			return validate.PathedError(
-				errors.Wrapf(validate.ErrValidation, "duplicate channel name '%s' in request", name),
+				errors.Wrapf(
+					validate.ErrValidation,
+					"duplicate channel name '%s' in request",
+					name,
+				),
 				fmt.Sprintf("[%d].name", i),
 			)
 		}
@@ -508,7 +503,9 @@ func (w Writer) validateChannelNames(
 			continue
 		}
 		return validate.PathedError(
-			errors.Wrapf(validate.ErrValidation, "channel with name '%s' already exists", name),
+			errors.Wrapf(
+				validate.ErrValidation, "channel with name '%s' already exists", name,
+			),
 			fmt.Sprintf("[%d].name", i),
 		)
 	}
@@ -548,28 +545,36 @@ func (w Writer) rename(
 	allowInternal bool,
 ) error {
 	if len(keys) != len(names) {
-		return errors.Wrap(validate.ErrValidation, "keys and names must be the same length")
+		return errors.Wrap(
+			validate.ErrValidation,
+			"keys and names must be the same length",
+		)
 	}
 	if *w.svc.cfg.ValidateNames {
 		if err := w.validateChannelNames(ctx, keys, names, false); err != nil {
 			return err
 		}
 	}
+	renameMap := make(map[Key]string, len(keys))
+	for i, key := range keys {
+		renameMap[key] = names[i]
+	}
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
 			if c.Internal && !allowInternal {
-				return c, errors.Wrapf(validate.ErrValidation, "cannot rename internal channel %v", c)
+				return Channel{},
+					errors.Wrapf(
+						validate.ErrValidation,
+						"cannot rename internal channel %v",
+						c,
+					)
 			}
-			c.Name = names[lo.IndexOf(keys, c.Key())]
+			c.Name = renameMap[c.Key()]
 			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	renames := make(map[Key]string, len(keys))
-	for i, key := range keys {
-		renames[key] = names[i]
-	}
-	return w.svc.cfg.Channel.Rename(ctx, renames)
+	return w.svc.cfg.Channel.Rename(ctx, renameMap)
 }

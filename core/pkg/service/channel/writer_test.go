@@ -40,9 +40,10 @@ func fixedOverflowChecker(limit int) channel.IntOverflowChecker {
 
 var _ = Describe("Writer", func() {
 
-	// The external non-virtual channel set the writer maintains for overflow enforcement is
-	// not directly observable, so these specs exercise it indirectly through the overflow
-	// limit: only external non-virtual channels should count toward it.
+	// The external non-virtual channel set the writer maintains for overflow
+	// enforcement is not directly observable, so these specs exercise it indirectly
+	// through the overflow limit: only external non-virtual channels should count
+	// toward it.
 	Describe("External Channel Overflow", Ordered, func() {
 		var overflowSvc *channel.Service
 		BeforeAll(func(ctx SpecContext) {
@@ -92,7 +93,8 @@ var _ = Describe("Writer", func() {
 	})
 
 	// Name validation is enforced internally on the create/rename path, so these specs
-	// exercise it through svc.Create rather than calling the unexported validator directly.
+	// exercise it through svc.Create rather than calling the unexported validator
+	// directly.
 	Describe("Name Validation", func() {
 		DescribeTable("Should accept valid names", func(ctx SpecContext, name string) {
 			ch := channel.Channel{Name: name, DataType: telem.Float64T, Virtual: true}

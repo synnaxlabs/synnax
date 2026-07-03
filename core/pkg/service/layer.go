@@ -264,6 +264,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
+	if closer, err := calcgraph.Open(ctx, calcgraph.Config{
+		Instrumentation: cfg.Child("channel.calculation.graph"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		Status:          l.Status,
+	}); !ok(err, closer) {
+		return nil, err
+	}
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.ServiceConfig{
@@ -485,14 +493,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Signals:         l.Signals,
 		},
 	); !ok(err, l.Arc) {
-		return nil, err
-	}
-	if closer, err := calcgraph.Open(ctx, calcgraph.Config{
-		Instrumentation: cfg.Child("channel.calculation.graph"),
-		DB:              cfg.Distribution.DB,
-		Channel:         l.Channel,
-		Status:          l.Status,
-	}); !ok(err, closer) {
 		return nil, err
 	}
 	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
