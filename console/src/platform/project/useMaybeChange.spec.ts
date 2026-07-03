@@ -18,7 +18,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Project } from "@/platform/project";
-import { activeState, savedLayout } from "@/platform/project/testutil";
+import { createActiveState, createSavedLayout } from "@/platform/project/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderHookWithConsole } from "@/testutil";
 
@@ -31,7 +31,7 @@ describe("Project.useMaybeChange", () => {
   beforeAll(async () => {
     target = await client.projects.create({
       name: `proj-${id.create()}`,
-      layout: savedLayout(layoutKey),
+      layout: createSavedLayout(layoutKey),
     });
   });
 
@@ -42,7 +42,7 @@ describe("Project.useMaybeChange", () => {
     });
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Session.Project.SLICE_NAME]: activeState(active) },
+      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(active) },
     });
     const { result } = renderHook(() => Project.useMaybeChange(), { wrapper });
 
@@ -60,7 +60,7 @@ describe("Project.useMaybeChange", () => {
   it("does nothing when the target is already the active project", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Session.Project.SLICE_NAME]: activeState(target) },
+      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(target) },
     });
     const { result } = renderHook(() => Project.useMaybeChange(), { wrapper });
     const before = Session.Layout.selectSliceState(store.getState());

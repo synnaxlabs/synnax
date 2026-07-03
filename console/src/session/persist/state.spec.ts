@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type MiddlewareAPI } from "@reduxjs/toolkit";
 import { kv, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,7 +22,7 @@ const ZERO_MOCK_STATE: MockState = {
 };
 
 // A minimal engine double matching the shape Persist.middleware consumes.
-const makeEngine = () => ({
+const createEngine = () => ({
   persist: vi.fn().mockResolvedValue(undefined),
   revert: vi.fn().mockResolvedValue(undefined),
   clear: vi.fn().mockResolvedValue(undefined),
@@ -30,16 +31,14 @@ const makeEngine = () => ({
 
 // Drives an action straight through the middleware chain, capturing what next saw.
 const drive = (
-  engine: ReturnType<typeof makeEngine>,
+  engine: ReturnType<typeof createEngine>,
   state: MockState,
   action: { type: string },
   debounce = TimeSpan.ZERO,
 ) => {
   const next = vi.fn((a: unknown) => a);
-  const store = { getState: () => state, dispatch: vi.fn() };
-  const result = Persist.middleware<MockState>(engine, debounce)(store as never)(next)(
-    action,
-  );
+  const store: MiddlewareAPI = { getState: () => state, dispatch: vi.fn() };
+  const result = Persist.middleware<MockState>(engine, debounce)(store)(next)(action);
   return { next, result };
 };
 
@@ -298,7 +297,7 @@ describe("Persist", () => {
 
 describe("Persist.middleware", () => {
   it("should pass the action through to next and return its result", () => {
-    const engine = makeEngine();
+    const engine = createEngine();
     const action = { type: "any/action" };
     const { next, result } = drive(engine, ZERO_MOCK_STATE, action);
     expect(next).toHaveBeenCalledWith(action);
@@ -306,7 +305,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should persist the current store state after a normal action", () => {
-    const engine = makeEngine();
+    const engine = createEngine();
     const state: MockState = { mock: { value: "9.9.9" } };
     drive(engine, state, { type: "any/action" });
     expect(engine.persist).toHaveBeenCalledWith(state);
@@ -318,7 +317,7 @@ describe("Persist.middleware", () => {
   // production code swallows that failure via .catch, so we suppress the expected log.
   it("should revert instead of persisting on a revertState action", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const engine = makeEngine();
+    const engine = createEngine();
     drive(engine, ZERO_MOCK_STATE, Persist.revertState());
     expect(engine.revert).toHaveBeenCalledOnce();
     expect(engine.persist).not.toHaveBeenCalled();
@@ -327,7 +326,7 @@ describe("Persist.middleware", () => {
 
   it("should clear instead of persisting on a clearState action", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const engine = makeEngine();
+    const engine = createEngine();
     drive(engine, ZERO_MOCK_STATE, Persist.clearState());
     expect(engine.clear).toHaveBeenCalledOnce();
     expect(engine.persist).not.toHaveBeenCalled();
@@ -337,14 +336,14 @@ describe("Persist.middleware", () => {
   it("should coalesce rapid dispatches into a single persist when debounced", () => {
     vi.useFakeTimers();
     try {
-      const engine = makeEngine();
+      const engine = createEngine();
       const state: MockState = { mock: { value: "1.0.0" } };
       const next = vi.fn((a: unknown) => a);
-      const store = { getState: () => state, dispatch: vi.fn() };
+      const store: MiddlewareAPI = { getState: () => state, dispatch: vi.fn() };
       const dispatch = Persist.middleware<MockState>(
         engine,
         TimeSpan.milliseconds(250),
-      )(store as never)(next);
+      )(store)(next);
       dispatch({ type: "a" });
       dispatch({ type: "b" });
       dispatch({ type: "c" });

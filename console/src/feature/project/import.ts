@@ -13,7 +13,6 @@ import { Access, Mosaic, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 
 import { LAYOUT_FILE_NAME } from "@/feature/project/export";
-import { migrateLayout } from "@/feature/project/layoutMigrations";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { Runtime } from "@/platform/runtime";
@@ -61,7 +60,7 @@ export const ingest: Import.DirectoryIngester = async (
   if (client == null) throw new DisconnectedError();
   const layoutData = files.find((file) => file.name === LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${LAYOUT_FILE_NAME} not found`);
-  const layout = migrateLayout(layoutData.data);
+  const layout = Session.Layout.migrateLayout(layoutData.data);
   const projectKey = uuid.create();
   const proj: project.Project = { key: projectKey, name, layout };
   // Create the project first so imported components can be parented to it; its layout

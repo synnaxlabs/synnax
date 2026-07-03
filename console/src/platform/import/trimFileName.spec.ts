@@ -26,7 +26,7 @@ describe("trimFileName", () => {
     expect(Import.trimFileName("a.json.csv")).toEqual("a.json.csv");
   });
 
-  it("does not treat a bare .json as an extension to strip", () => {
+  it("strips a bare .json down to an empty string", () => {
     expect(Import.trimFileName(".json")).toEqual("");
   });
 

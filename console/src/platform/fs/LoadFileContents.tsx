@@ -10,7 +10,7 @@
 import "@/platform/fs/LoadFileContents.css";
 
 import { Button, Flex, Icon, type Input, Status } from "@synnaxlabs/pluto";
-import { binary } from "@synnaxlabs/x";
+import { binary, primitive } from "@synnaxlabs/x";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement, useEffect, useState } from "react";
@@ -54,13 +54,13 @@ export const InputFilePath = ({
         textColor={8}
         weight={450}
       >
-        {path == null ? (
-          "No file selected"
-        ) : (
+        {primitive.isNonZero(path) ? (
           <>
             <Icon.Attachment style={{ color: "var(--pluto-gray-l8)" }} />
             {path}
           </>
+        ) : (
+          "No file selected"
         )}
       </Button.Button>
       <Button.Button
@@ -100,7 +100,6 @@ export const InputFileContents = <P extends z.ZodType = z.ZodString>({
   const handleChange = (path: string) =>
     handleError(async () => {
       const contents = await readFile(path);
-      if (contents == null) return;
       onChange(decoder.decode<P>(contents, schema), path);
       setPath(path);
     }, "Failed to read file");

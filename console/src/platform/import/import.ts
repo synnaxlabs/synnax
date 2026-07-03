@@ -89,7 +89,7 @@ const importComponent = ({
       const proj = await client.projects.retrieve(projectKey);
       store.dispatch(Session.Project.select(proj.key));
       store.dispatch(
-        Session.Layout.setProject({ slice: proj.layout as Session.Layout.SliceState }),
+        Session.Layout.setProject({ slice: Session.Layout.migrateLayout(proj.layout) }),
       );
     }
     const activeProjectKeyAfter = Session.Project.selectSelected(store.getState());

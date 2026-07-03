@@ -9,24 +9,22 @@
 
 import { channel, createTestClient, DataType } from "@synnaxlabs/client";
 import { Channel as PChannel } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Modals } from "@/platform/modals";
+import { findButton } from "@/platform/modals/testutil";
 import { Ontology } from "@/platform/ontology";
 import {
-  buildBaseProps,
-  buildResource,
-  buildSelection,
-  buildState,
+  createBaseProps,
+  createResource,
+  createSelection,
+  createState,
 } from "@/platform/ontology/testutil";
-import { createConsoleWrapper, createTestStore } from "@/testutil";
+import { createConsoleWrapper, createTestStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-const TIMEOUT = { timeout: 5000 };
 
 const useDelete = Ontology.createUseDelete({
   type: "Channel",
@@ -46,7 +44,7 @@ DeleteHarness.displayName = "DeleteHarness";
 
 const createChannel = async () =>
   await client.channels.create({
-    name: id.create(),
+    name: uniqueName("ch"),
     dataType: DataType.TIMESTAMP,
     isIndex: true,
   });
@@ -55,9 +53,9 @@ const setup = async (ch: channel.Channel) => {
   const otgID = channel.ontologyID(ch.key);
   const store = await createTestStore();
   const props: Ontology.TreeContextMenuProps = {
-    ...buildBaseProps({ client, store }),
-    selection: buildSelection({ ids: [otgID] }),
-    state: buildState([buildResource(otgID, ch.name)]),
+    ...createBaseProps({ client, store }),
+    selection: createSelection({ ids: [otgID] }),
+    state: createState([createResource(otgID, ch.name)]),
   };
   const { wrapper: Console } = await createConsoleWrapper({ client, store });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -81,17 +79,6 @@ const channelExists = async (key: channel.Key): Promise<boolean> => {
   }
 };
 
-const clickLabel = async (label: string): Promise<void> => {
-  const button = screen
-    .getAllByText(label)
-    .map((el) => el.closest<HTMLButtonElement>("button"))
-    .find((b) => b != null);
-  if (button == null) throw new Error(`${label} button not found`);
-  await act(async () => {
-    fireEvent.click(button);
-  });
-};
-
 describe("createUseDelete", () => {
   it("should delete the selected resource after the user confirms", async () => {
     const ch = await createChannel();
@@ -102,8 +89,8 @@ describe("createUseDelete", () => {
         screen.getByText(`Are you sure you want to delete ${ch.name}?`),
       ).toBeTruthy(),
     );
-    await clickLabel("Delete");
-    await waitFor(async () => expect(await channelExists(ch.key)).toBe(false), TIMEOUT);
+    fireEvent.click(findButton("Delete"));
+    await waitFor(async () => expect(await channelExists(ch.key)).toBe(false));
   });
 
   it("should leave the resource in place when the user cancels", async () => {
@@ -115,7 +102,7 @@ describe("createUseDelete", () => {
         screen.getByText(`Are you sure you want to delete ${ch.name}?`),
       ).toBeTruthy(),
     );
-    await clickLabel("Cancel");
+    fireEvent.click(findButton("Cancel"));
     await waitFor(() =>
       expect(
         screen.queryByText(`Are you sure you want to delete ${ch.name}?`),

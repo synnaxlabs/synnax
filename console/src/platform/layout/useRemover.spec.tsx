@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Drift } from "@synnaxlabs/drift";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { act, type ReactElement } from "react";
+import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Layout } from "@/platform/layout";
+import { placeLayout } from "@/platform/layout/testutil";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-import { createTestStore, renderWithConsole, type TestStore } from "@/testutil";
+import { createTestStore, renderWithConsole } from "@/testutil";
 
 const Harness = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const remove = Layout.useRemover();
@@ -28,24 +28,9 @@ const Harness = ({ layoutKey }: { layoutKey: string }): ReactElement => {
 };
 Harness.displayName = "Harness";
 
-const placeUnsaved = (store: TestStore, key: string): void =>
-  act(() => {
-    store.dispatch(
-      Session.Layout.place({
-        key,
-        type: "remover-test",
-        name: key,
-        location: "mosaic",
-        windowKey: Drift.MAIN_WINDOW,
-        unsavedChanges: true,
-        window: { title: key },
-      }),
-    );
-  });
-
 const setup = async (key: string) => {
   const store = await createTestStore();
-  placeUnsaved(store, key);
+  placeLayout(store, key, { type: "remover-test", unsavedChanges: true });
   const result = await renderWithConsole(<Harness layoutKey={key} />, { store });
   return { ...result, store };
 };

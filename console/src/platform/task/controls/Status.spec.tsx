@@ -7,53 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
-import { id, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, screen } from "@testing-library/react";
+import { status } from "@synnaxlabs/client";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Task } from "@/platform/task";
-import { renderWithConsole } from "@/testutil";
-
-const makeStatus = (overrides: Partial<status.Status> = {}): status.Status => ({
-  key: id.create(),
-  name: "Task Status",
-  variant: "success",
-  message: "Running smoothly",
-  description: "",
-  time: TimeStamp.now(),
-  ...overrides,
-});
+import { createTaskStatus } from "@/platform/task/testutil";
+import { queryIcon, renderWithConsole } from "@/testutil";
 
 describe("Controls.Status", () => {
-  it("should render the status message", async () => {
-    await renderWithConsole(
-      <Task.Controls.Status
-        status={makeStatus({ message: "All good" })}
-        expanded={false}
-        onToggle={vi.fn()}
-      />,
-    );
-    expect(screen.getByText("All good")).toBeTruthy();
-  });
-
-  it("should render the fallback message when message is empty", async () => {
-    await renderWithConsole(
-      <Task.Controls.Status
-        status={makeStatus({ message: "" })}
-        expanded={false}
-        onToggle={vi.fn()}
-        fallbackMessage="Nothing to report"
-      />,
-    );
-    expect(screen.getByText("Nothing to report")).toBeTruthy();
-  });
-
   it("should invoke onToggle when clicked", async () => {
     const onToggle = vi.fn();
     await renderWithConsole(
       <Task.Controls.Status
-        status={makeStatus()}
+        status={createTaskStatus()}
         expanded={false}
         onToggle={onToggle}
       />,
@@ -62,38 +30,64 @@ describe("Controls.Status", () => {
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
-  it("should reveal the copy-diagnostics button and description when expanded", async () => {
+  it("should fall back to fallbackMessage when the status message is empty", async () => {
     await renderWithConsole(
       <Task.Controls.Status
-        status={makeStatus({ description: "detailed diagnostics" })}
-        expanded
-        onToggle={vi.fn()}
-      />,
-    );
-    expect(screen.getByText("Copy diagnostics")).toBeTruthy();
-    expect(screen.getByText("detailed diagnostics")).toBeTruthy();
-  });
-
-  it("should not render the copy-diagnostics button when collapsed", async () => {
-    await renderWithConsole(
-      <Task.Controls.Status
-        status={makeStatus({ description: "detailed diagnostics" })}
+        status={createTaskStatus({ message: "" })}
         expanded={false}
         onToggle={vi.fn()}
+        fallbackMessage="Nothing to report"
       />,
+    );
+    expect(screen.getByText("Nothing to report")).toBeTruthy();
+  });
+
+  it("should reveal the diagnostics and description only while expanded", async () => {
+    const stat = createTaskStatus({ description: "detailed diagnostics" });
+    const { rerender } = await renderWithConsole(
+      <Task.Controls.Status status={stat} expanded={false} onToggle={vi.fn()} />,
     );
     expect(screen.queryByText("Copy diagnostics")).toBeNull();
     expect(screen.queryByText("detailed diagnostics")).toBeNull();
+
+    rerender(<Task.Controls.Status status={stat} expanded onToggle={vi.fn()} />);
+    expect(screen.getByText("Copy diagnostics")).toBeTruthy();
+    expect(screen.getByText("detailed diagnostics")).toBeTruthy();
+
+    rerender(
+      <Task.Controls.Status status={stat} expanded={false} onToggle={vi.fn()} />,
+    );
+    expect(screen.queryByText("Copy diagnostics")).toBeNull();
   });
 
-  it("should render the loading icon for a loading status", async () => {
-    const { container } = await renderWithConsole(
+  it("should copy the full status diagnostics to the clipboard", async () => {
+    const writeText = stubClipboardWriteText();
+    const stat = createTaskStatus({ description: "detailed diagnostics" });
+    await renderWithConsole(
+      <Task.Controls.Status status={stat} expanded onToggle={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByText("Copy diagnostics"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText).toHaveBeenCalledWith(status.toString(stat));
+  });
+
+  it("should swap the status icon to a spinner for a loading status", async () => {
+    const steady = await renderWithConsole(
       <Task.Controls.Status
-        status={makeStatus({ variant: "loading", message: "Configuring" })}
+        status={createTaskStatus()}
         expanded={false}
         onToggle={vi.fn()}
       />,
     );
-    expect(container.querySelector('[aria-label="pluto-icon--loading"]')).toBeTruthy();
+    expect(queryIcon(steady.container, "loading")).toBeNull();
+
+    const loading = await renderWithConsole(
+      <Task.Controls.Status
+        status={createTaskStatus({ variant: "loading", message: "Configuring" })}
+        expanded={false}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(queryIcon(loading.container, "loading")).toBeTruthy();
   });
 });

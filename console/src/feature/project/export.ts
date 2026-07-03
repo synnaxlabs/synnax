@@ -43,7 +43,7 @@ export const export_ = (
     const toExport: Session.Layout.SliceState =
       targetKey === activeKey
         ? purgeExcludedLayouts(Session.Layout.selectSliceState(storeState))
-        : (proj.layout as Session.Layout.SliceState);
+        : Session.Layout.migrateLayout(proj.layout);
     const directory = await Runtime.pickWritableDirectory({
       title: `Select a location to export ${name}`,
       subdirectory: Export.sanitizeFileName(name),

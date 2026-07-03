@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, DataType } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
-import { render, screen, waitFor } from "@testing-library/react";
+import { Text } from "@synnaxlabs/pluto";
+import { screen, waitFor } from "@testing-library/react";
+import { act } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
-import { renderInTaskForm, TaskFormProvider } from "@/platform/task/testutil";
-import { createConsoleWrapper } from "@/testutil";
+import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
+import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
 
 describe("ChannelName", () => {
   it("should render the default name when no channel is selected", async () => {
@@ -33,23 +34,54 @@ describe("ChannelName", () => {
     await waitFor(() => expect(screen.getByText("Manually Named")).toBeTruthy());
   });
 
+  it("should write a committed rename to the form when no channel is bound", async () => {
+    const editID = Task.getChannelNameID("unbound");
+    const { form } = await renderInTaskForm(
+      <Task.ChannelName channel={0} namePath="config.name" id={editID} />,
+      { values: { config: { name: "name_before" } } },
+    );
+    Text.edit(editID);
+    const el = await awaitTextEditing(editID);
+    act(() => commitTextEdit(el, "name_after"));
+    await waitFor(() =>
+      expect(form.current?.get("config.name").value).toBe("name_after"),
+    );
+  });
+
   describe("with a live client", () => {
-    it("should resolve and display the name of a real channel", async () => {
-      const client = createTestClient();
-      const { wrapper } = await createConsoleWrapper({ client });
-      const ch = await client.channels.create({
-        name: id.create(),
+    const client = createTestClient();
+
+    const createChannel = async () =>
+      await client.channels.create({
+        name: uniqueName("chan"),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      render(
-        <TaskFormProvider values={{ name: "" }}>
-          <Task.ChannelName channel={ch.key} namePath="name" />
-        </TaskFormProvider>,
-        { wrapper },
+
+    it("should resolve and display the name of a real channel", async () => {
+      const ch = await createChannel();
+      await renderInTaskFormWithClient(
+        <Task.ChannelName channel={ch.key} namePath="name" />,
+        { client, values: { name: "" } },
       );
-      await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy(), {
-        timeout: 5000,
+      await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
+    });
+
+    it("should rename the channel on the cluster when an edit is committed", async () => {
+      const ch = await createChannel();
+      const editID = Task.getChannelNameID("live_ch");
+      await renderInTaskFormWithClient(
+        <Task.ChannelName channel={ch.key} namePath="name" id={editID} />,
+        { client, values: { name: "" } },
+      );
+      await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
+      Text.edit(editID);
+      const el = await awaitTextEditing(editID);
+      const newName = uniqueName("renamed");
+      act(() => commitTextEdit(el, newName));
+      await waitFor(async () => {
+        const renamed = await client.channels.retrieve(ch.key);
+        expect(renamed.name).toBe(newName);
       });
     });
   });

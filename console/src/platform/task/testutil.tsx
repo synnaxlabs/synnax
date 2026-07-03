@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type framer, type Synnax as Client, task } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/pluto";
-import { type RenderResult } from "@testing-library/react";
+import { id, TimeStamp } from "@synnaxlabs/x";
+import { fireEvent, render, type RenderResult } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { type z } from "zod";
 
 import {
+  createConsoleWrapper,
   renderHookWithConsole,
   renderWithConsole,
   type RenderWithConsoleOptions,
@@ -109,4 +112,93 @@ export const renderInTaskForm = async (
     rest,
   );
   return { ...result, form: formRef };
+};
+
+export interface RenderInTaskFormWithClientOptions extends RenderInTaskFormOptions {
+  client?: Client | null;
+}
+
+/**
+ * Like renderInTaskForm, but backs the console provider stack with the given client so
+ * components that reach for Synnax.use() (e.g. Controls issuing task commands) see it.
+ */
+export const renderInTaskFormWithClient = async (
+  ui: ReactElement,
+  options: RenderInTaskFormWithClientOptions = {},
+): Promise<RenderInTaskFormResult> => {
+  const { client = null, values, mode, preloadedState, store, ...rest } = options;
+  const formRef: FormRef = { current: null };
+  const defaultConfig = DEFAULT_TASK_FORM_VALUES.config as TaskFormValues;
+  const merged: TaskFormValues = {
+    ...DEFAULT_TASK_FORM_VALUES,
+    ...values,
+    config: { ...defaultConfig, ...(values?.config ?? {}) },
+  };
+  const { wrapper, store: resolvedStore } = await createConsoleWrapper({
+    client,
+    preloadedState,
+    store,
+  });
+  const result = render(
+    <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
+      {ui}
+    </TaskFormProvider>,
+    { wrapper, ...rest },
+  );
+  return { ...result, store: resolvedStore, form: formRef };
+};
+
+/**
+ * Reads command-channel frames until one carries a command for taskKey, so parallel
+ * suites writing their own task commands cannot interfere.
+ */
+export const awaitCommand = async (
+  streamer: framer.Streamer,
+  taskKey: task.Key,
+): Promise<task.Command> => {
+  for (;;) {
+    const frame = await streamer.read();
+    for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
+      const cmd = task.commandZ.parse(sample);
+      if (cmd.task === taskKey) return cmd;
+    }
+  }
+};
+
+export interface CreateTaskStatusOverrides extends Partial<
+  Omit<task.Status, "details">
+> {
+  details?: Partial<task.Status["details"]>;
+}
+
+/** Builds a fully-populated task.Status, merging `overrides` over sane defaults. */
+export const createTaskStatus = (
+  overrides: CreateTaskStatusOverrides = {},
+): task.Status => {
+  const { details, ...rest } = overrides;
+  return {
+    key: id.create(),
+    name: "Task Status",
+    variant: "success",
+    message: "Running smoothly",
+    description: "",
+    time: TimeStamp.now(),
+    ...rest,
+    details: { task: "0", running: false, cmd: "", ...details },
+  };
+};
+
+/** Finds the single non-checkbox input rendered by a task form field. */
+export const findFieldInput = (): HTMLInputElement => {
+  const input = document.body.querySelector<HTMLInputElement>(
+    "input:not([type='checkbox'])",
+  );
+  if (input == null) throw new Error("form field input not found");
+  return input;
+};
+
+/** Commits `value` into a text or numeric field input by changing and blurring it. */
+export const commitFieldInput = (input: HTMLInputElement, value: string): void => {
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
 };

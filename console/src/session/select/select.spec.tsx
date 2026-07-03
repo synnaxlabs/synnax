@@ -50,9 +50,9 @@ const testSlice = createSlice({
 
 const { setTracked, setUntracked, setItem } = testSlice.actions;
 
-const makeStore = () => configureStore({ reducer: testSlice.reducer });
+const createStore = () => configureStore({ reducer: testSlice.reducer });
 
-const wrapperFor = (store: ReturnType<typeof makeStore>) => {
+const wrapperFor = (store: ReturnType<typeof createStore>) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Provider store={store}>{children}</Provider>
   );
@@ -61,7 +61,7 @@ const wrapperFor = (store: ReturnType<typeof makeStore>) => {
 
 describe("Select.Select.useMemo", () => {
   it("returns a stable reference across a dispatch that does not touch the accessed state", () => {
-    const store = makeStore();
+    const store = createStore();
     const { result } = renderHook(
       () => Select.useMemo((s: TestState) => s.tracked, []),
       {
@@ -76,7 +76,7 @@ describe("Select.Select.useMemo", () => {
   });
 
   it("returns a new value when the accessed state changes", () => {
-    const store = makeStore();
+    const store = createStore();
     const { result } = renderHook(
       () => Select.useMemo((s: TestState) => s.tracked, []),
       {
@@ -92,7 +92,7 @@ describe("Select.Select.useMemo", () => {
   });
 
   it("keeps a constructed object stable until its inputs change", () => {
-    const store = makeStore();
+    const store = createStore();
     const { result } = renderHook(
       () => Select.useMemo((s: TestState) => ({ doubled: s.tracked.value * 2 }), []),
       { wrapper: wrapperFor(store) },
@@ -111,7 +111,7 @@ describe("Select.Select.useMemo", () => {
   });
 
   it("tracks only the accessed entry, not its siblings", () => {
-    const store = makeStore();
+    const store = createStore();
     const { result } = renderHook(
       () => Select.useMemo((s: TestState) => s.items.a, []),
       {
@@ -130,7 +130,7 @@ describe("Select.Select.useMemo", () => {
   });
 
   it("re-points the selector when its dependencies change", () => {
-    const store = makeStore();
+    const store = createStore();
     const { result, rerender } = renderHook(
       ({ key }: { key: string }) =>
         Select.useMemo((s: TestState) => s.items[key], [key]),

@@ -10,16 +10,16 @@
 import { createTestClient } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
+import { createTestDevice } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { createConsoleWrapper, renderWithConsole } from "@/testutil";
+import { findButton, renderModalOpener } from "@/platform/modals/testutil";
+import { renderWithConsole, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-const TIMEOUT = { timeout: 5000 };
 
 const useConfigureModal = Modals.create<Device.ConfigureParams>(
   ({ deviceKey, close }) => (
@@ -27,10 +27,24 @@ const useConfigureModal = Modals.create<Device.ConfigureParams>(
       deviceKey={deviceKey}
       close={close}
       icon={<Icon.Hardware />}
-      initialProperties={{}}
+      initialProperties={{ vendor: "acme" }}
     />
   ),
 );
+
+const setup = async () => {
+  const dev = await createTestDevice(client, {
+    configured: false,
+    name: uniqueName("my_sensor"),
+  });
+  const handle = await renderModalOpener(useConfigureModal, [{ deviceKey: dev.key }], {
+    client,
+  });
+  await waitFor(() => expect(screen.getByText(/enter a name/)).toBeTruthy());
+  return { dev, ...handle };
+};
+
+const nameInput = (): HTMLInputElement => screen.getByRole("textbox");
 
 describe("device Configure", () => {
   it("should not render the form while the device has not been retrieved", async () => {
@@ -45,75 +59,54 @@ describe("device Configure", () => {
     expect(screen.queryByText(/enter a name so it's easy to look up later/)).toBeNull();
   });
 
-  describe("with test client", () => {
-    const Harness = ({ deviceKey }: { deviceKey: string }): ReactElement => {
-      const open = useConfigureModal();
-      return <button onClick={() => open({ deviceKey })}>open</button>;
-    };
-    Harness.displayName = "Harness";
-
-    const setup = async () => {
-      const rack = await client.racks.create({ name: `rack-${id.create()}` });
-      const key = id.create();
-      await client.devices.create({
-        key,
-        name: "My Sensor",
-        rack: rack.key,
-        location: "loc",
-        make: "make",
-        model: "model",
-        configured: false,
-        properties: {},
-      });
-      const { wrapper: Wrapper } = await createConsoleWrapper({ client });
-      const ModalWrapper = ({ children }: PropsWithChildren): ReactElement => (
-        <Wrapper>{children}</Wrapper>
-      );
-      ModalWrapper.displayName = "ModalWrapper";
-      render(
-        <>
-          <Harness deviceKey={key} />
-          <Modals.Stack />
-        </>,
-        { wrapper: ModalWrapper },
-      );
-      fireEvent.click(screen.getByRole("button", { name: "open" }));
-      return { key };
-    };
-
-    it("should render the name step prefilled with the device name", async () => {
-      await setup();
-      await waitFor(
-        () => expect(screen.getByText(/enter a name/)).toBeTruthy(),
-        TIMEOUT,
-      );
-      const nameInput = screen.getByRole<HTMLInputElement>("textbox");
-      expect(nameInput.value).toEqual("My Sensor");
+  it("should stay on the name step and leave the device unconfigured when the name is cleared", async () => {
+    const { dev } = await setup();
+    await waitFor(() => expect(nameInput().value).toEqual(dev.name));
+    fireEvent.change(nameInput(), { target: { value: "" } });
+    await act(async () => {
+      fireEvent.click(findButton("Next"));
     });
+    expect(screen.queryByText(/short identifier/)).toBeNull();
+    const unchanged = await client.devices.retrieve({ key: dev.key });
+    expect(unchanged.configured).toBe(false);
+  });
 
-    it("should advance to the identifier step and configure the device", async () => {
-      const { key } = await setup();
-      await waitFor(
-        () => expect(screen.getByText(/enter a name/)).toBeTruthy(),
-        TIMEOUT,
-      );
-      await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: "Next" }));
-      });
-      await waitFor(
-        () => expect(screen.getByText(/short identifier/)).toBeTruthy(),
-        TIMEOUT,
-      );
-      const identifierInput = screen.getByRole<HTMLInputElement>("textbox");
-      fireEvent.change(identifierInput, { target: { value: "sensor_1" } });
-      await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: "Save" }));
-      });
-      await waitFor(async () => {
-        const updated = await client.devices.retrieve({ key });
-        expect(updated.configured).toBe(true);
-        expect(updated.properties.identifier).toEqual("sensor_1");
-      }, TIMEOUT);
+  it("should keep the modal open and the device unconfigured when the identifier is invalid", async () => {
+    const { dev } = await setup();
+    await waitFor(() => expect(nameInput().value).toEqual(dev.name));
+    await act(async () => {
+      fireEvent.click(findButton("Next"));
     });
+    await waitFor(() => expect(screen.getByText(/short identifier/)).toBeTruthy());
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "1x" } });
+    await act(async () => {
+      fireEvent.click(findButton("Save"));
+    });
+    expect(screen.getByText(/short identifier/)).toBeTruthy();
+    const unchanged = await client.devices.retrieve({ key: dev.key });
+    expect(unchanged.configured).toBe(false);
+  });
+
+  it("should configure the device with the edited name, identifier, and initial properties, then close", async () => {
+    const { dev } = await setup();
+    await waitFor(() => expect(nameInput().value).toEqual(dev.name));
+    const newName = uniqueName("renamed_sensor");
+    fireEvent.change(nameInput(), { target: { value: newName } });
+    await act(async () => {
+      fireEvent.click(findButton("Next"));
+    });
+    await waitFor(() => expect(screen.getByText(/short identifier/)).toBeTruthy());
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "sensor_1" } });
+    await act(async () => {
+      fireEvent.click(findButton("Save"));
+    });
+    await waitFor(async () => {
+      const updated = await client.devices.retrieve({ key: dev.key });
+      expect(updated.configured).toBe(true);
+      expect(updated.name).toEqual(newName);
+      expect(updated.properties.identifier).toEqual("sensor_1");
+      expect(updated.properties.vendor).toEqual("acme");
+    });
+    await waitFor(() => expect(screen.queryByText(/short identifier/)).toBeNull());
   });
 });

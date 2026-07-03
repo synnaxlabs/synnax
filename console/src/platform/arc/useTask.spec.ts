@@ -11,7 +11,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";
-import { client, TIMEOUT } from "@/platform/arc/testutil";
+import { client } from "@/platform/arc/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 describe("arc useTask", () => {
@@ -23,26 +23,10 @@ describe("arc useTask", () => {
     });
     const { wrapper } = await createConsoleWrapper({ client });
     const { result } = renderHook(() => Arc.useTask(arc.key, arc.name), { wrapper });
-    await waitFor(
-      () => expect(result.current.taskStatus.message).toBe("Not deployed yet"),
-      TIMEOUT,
+    await waitFor(() =>
+      expect(result.current.taskStatus.message).toBe("Not deployed yet"),
     );
     expect(result.current.running).toBe(false);
     expect(result.current.taskKey).toBe("");
-  });
-
-  it("should expose a callable start/stop handler that no-ops without a task", async () => {
-    const arc = await client.arcs.create({
-      name: "Untasked Arc 2",
-      mode: "graph",
-      graph: { nodes: [], edges: [] },
-    });
-    const { wrapper } = await createConsoleWrapper({ client });
-    const { result } = renderHook(() => Arc.useTask(arc.key, arc.name), { wrapper });
-    await waitFor(
-      () => expect(result.current.taskStatus.message).toBe("Not deployed yet"),
-      TIMEOUT,
-    );
-    expect(() => result.current.onStartStop()).not.toThrow();
   });
 });

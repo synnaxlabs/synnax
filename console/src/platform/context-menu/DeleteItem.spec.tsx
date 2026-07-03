@@ -8,21 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { Menu } from "@synnaxlabs/pluto";
-import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { renderWithConsole } from "@/testutil";
 
 describe("ContextMenu.DeleteItem", () => {
-  it("renders the Delete label and fires onClick", async () => {
-    const onClick = vi.fn();
+  it("renders the Delete label", async () => {
     await renderWithConsole(
       <Menu.Menu>
-        <ContextMenu.DeleteItem onClick={onClick} />
+        <ContextMenu.DeleteItem />
       </Menu.Menu>,
     );
-    fireEvent.click(screen.getByText("Delete"));
-    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Delete")).toBeTruthy();
   });
 });

@@ -12,8 +12,9 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Bar } from "@/app/nav/bar";
-import { renderBar, TIMEOUT } from "@/app/nav/bar/testutil";
+import { renderBar } from "@/app/nav/bar/testutil";
 import { Session } from "@/session";
+import { getIconButton, type TestStore } from "@/testutil";
 
 const navState = (window: Partial<Session.Nav.WindowState> = {}) => ({
   [Session.Nav.SLICE_NAME]: {
@@ -21,27 +22,16 @@ const navState = (window: Partial<Session.Nav.WindowState> = {}) => ({
   },
 });
 
-const iconButton = (container: HTMLElement, icon: string): HTMLButtonElement | null =>
-  container.querySelector(`.pluto-icon--${icon}`)?.closest("button") ?? null;
-
 // Access-gated nav items appear only once their access query resolves against the
 // cluster, so wait for the gated "range" item before asserting.
 const findItem = async (
   container: HTMLElement,
   icon: string,
-): Promise<HTMLButtonElement> => {
-  let button: HTMLButtonElement | null = null;
-  await waitFor(() => {
-    button = iconButton(container, icon);
-    if (button == null) throw new Error(`no ${icon} nav item`);
-  }, TIMEOUT);
-  return button as unknown as HTMLButtonElement;
-};
+): Promise<HTMLButtonElement> => await waitFor(() => getIconButton(container, icon));
 
-const left = (store: { getState: () => unknown }) =>
-  Session.Nav.selectWindowState(store.getState() as never).left;
-const bottom = (store: { getState: () => unknown }) =>
-  Session.Nav.selectWindowState(store.getState() as never).bottom;
+const left = (store: TestStore) => Session.Nav.selectWindowState(store.getState()).left;
+const bottom = (store: TestStore) =>
+  Session.Nav.selectWindowState(store.getState()).bottom;
 
 describe("app/nav/bar/Left", () => {
   describe("rendering", () => {

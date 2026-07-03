@@ -33,7 +33,6 @@ import { useAddToActivePlot } from "@/platform/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/platform/range/useAddToNewPlot";
 import { Session } from "@/session";
 
-
 export const fetchIfNotInState = async (
   store: Store<Session.Range.StoreState>,
   client: Client,

@@ -9,37 +9,24 @@
 
 import { Dialog } from "@synnaxlabs/pluto";
 import { render, screen } from "@testing-library/react";
-import { type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Frame, type FrameProps } from "@/platform/modals/Frame";
+import { Modals } from "@/platform/modals";
 import { Wrapper } from "@/platform/modals/testutil";
 
-const renderFrame = (props: Partial<FrameProps> = {}, children?: ReactNode) =>
-  render(
-    <Dialog.Frame variant="modal" visible>
-      <Frame {...props}>{children}</Frame>
-    </Dialog.Frame>,
-    { wrapper: Wrapper },
-  );
-
 describe("Frame", () => {
-  it("should render its children", () => {
-    renderFrame({}, <span>frame body</span>);
-    expect(screen.getByText("frame body")).toBeTruthy();
-  });
-
-  it("should apply the modal block class", () => {
-    const { baseElement } = renderFrame({}, <span>frame body</span>);
-    expect(baseElement.querySelector(".console-modal")).not.toBeNull();
-  });
-
-  it("should forward a custom className", () => {
-    const { baseElement } = renderFrame(
-      { className: "extra" },
-      <span>frame body</span>,
+  it("should render children inside the modal element and forward className", () => {
+    const { baseElement } = render(
+      <Dialog.Frame variant="modal" visible>
+        <Modals.Frame className="extra">
+          <span>frame body</span>
+        </Modals.Frame>
+      </Dialog.Frame>,
+      { wrapper: Wrapper },
     );
     const el = baseElement.querySelector(".console-modal");
+    expect(el).not.toBeNull();
     expect(el?.className).toContain("extra");
+    expect(screen.getByText("frame body")).toBeTruthy();
   });
 });

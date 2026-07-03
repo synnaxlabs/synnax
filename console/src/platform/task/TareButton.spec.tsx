@@ -14,11 +14,6 @@ import { Task } from "@/platform/task";
 import { renderWithConsole } from "@/testutil";
 
 describe("TareButton", () => {
-  it("should render a tare button", async () => {
-    const { container } = await renderWithConsole(<Task.TareButton onTare={vi.fn()} />);
-    expect(container.querySelector('[aria-label="pluto-icon--tare"]')).toBeTruthy();
-  });
-
   it("should invoke onTare when pressed", async () => {
     const onTare = vi.fn();
     await renderWithConsole(<Task.TareButton onTare={onTare} />);

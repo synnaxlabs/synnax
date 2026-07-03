@@ -35,7 +35,9 @@ export interface ListProps
 export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const dispatch = Session.useDispatch();
-  const allClusters = Session.Cluster.useSelectMany().sort((a, b) => a.name.localeCompare(b.name));
+  const allClusters = Session.Cluster.useSelectMany().sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
   const keys = useMemo(() => allClusters.map((c) => c.key), [allClusters]);
   const [testing, setTesting] = useState<string | null>(null);
   const addStatus = Status.useAdder();
@@ -87,7 +89,9 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             message: `Connected to ${cluster.name}`,
           });
           if (state.clusterKey && state.clusterKey !== key)
-            dispatch(Session.Cluster.changeKey({ oldKey: key, newKey: state.clusterKey }));
+            dispatch(
+              Session.Cluster.changeKey({ oldKey: key, newKey: state.clusterKey }),
+            );
         } else
           addStatus({
             variant: "error",

@@ -15,9 +15,7 @@ import { User } from "@/platform/user";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
-const TIMEOUT = { timeout: 5000 };
-
-const clusterState = (username: string, selected = "LOCAL") => ({
+const createClusterState = (username: string, selected = "LOCAL") => ({
   [Session.Cluster.SLICE_NAME]: {
     version: 0 as const,
     selected,
@@ -38,29 +36,25 @@ const clusterState = (username: string, selected = "LOCAL") => ({
 describe("User.Badge", () => {
   it("should fall back to the cluster username when no user is loaded", async () => {
     await renderWithConsole(<User.Badge />, {
-      preloadedState: clusterState("cluster-user"),
+      preloadedState: createClusterState("cluster-user"),
     });
     expect(screen.getByText("cluster-user")).toBeTruthy();
   });
 
-  it("should render a trigger even when there is no user or cluster", async () => {
-    const { container } = await renderWithConsole(<User.Badge />);
-    expect(container.querySelector("button")).not.toBeNull();
-  });
-
-  it("should show the retrieved user's identity against a live cluster", async () => {
+  it("should prefer the retrieved user's identity over the cluster fallback", async () => {
     const client = createTestClient();
     const { wrapper } = await createConsoleWrapper({
       client,
-      preloadedState: clusterState("synnax"),
+      preloadedState: createClusterState("fallback_user"),
     });
     render(<User.Badge />, { wrapper });
-    await waitFor(() => expect(screen.getByText("synnax")).toBeTruthy(), TIMEOUT);
+    await waitFor(() => expect(screen.getByText("synnax")).toBeTruthy());
+    expect(screen.queryByText("fallback_user")).toBeNull();
   });
 
   it("should log out of the active cluster when Log out is clicked", async () => {
     const { store } = await renderWithConsole(<User.Badge />, {
-      preloadedState: clusterState("cluster-user"),
+      preloadedState: createClusterState("cluster-user"),
     });
     expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("LOCAL");
     fireEvent.click(screen.getByText("cluster-user"));

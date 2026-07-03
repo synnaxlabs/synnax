@@ -80,7 +80,7 @@ export const Splash = (): ReactElement => {
       if (p == null) throw new UnexpectedError(`Project ${key} not found`);
       dispatch(Session.Project.select(p.key));
       dispatch(
-        Session.Layout.setProject({ slice: p.layout as Session.Layout.SliceState }),
+        Session.Layout.setProject({ slice: Session.Layout.migrateLayout(p.layout) }),
       );
     },
     [dispatch, getItem],

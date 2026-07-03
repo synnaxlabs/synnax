@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Flux, Group, Text, Tree } from "@synnaxlabs/pluto";
+import { Flux, Group, List, Text, Tree } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -50,7 +50,6 @@ const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => 
     state: { nodes, setNodes, setSelection, shape, setResource },
     group: { key },
   } = data;
-  if (selection.parentID == null) return false;
   const newID = group.ontologyID(key);
   const newIDString = ontology.idToString(newID);
   const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
@@ -72,7 +71,9 @@ const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => 
   });
   setNodes([...nextNodes]);
   setSelection([ontology.idToString(newID)]);
-  const [groupName, renamed] = await Text.asyncEdit(ontology.idToString(newID));
+  const [groupName, renamed] = await Text.asyncEdit(
+    List.itemNameID(ontology.idToString(newID)),
+  );
   if (!renamed) {
     setNodes(prevNodes);
     return false;

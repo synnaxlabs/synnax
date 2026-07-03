@@ -112,7 +112,7 @@ const baseUngroup = Flux.createUpdate<UngroupParams, Group.FluxSubStore>({
   },
   update: async ({ client, data: args }) => {
     const { selection, prevNodes } = args;
-    if (selection.parentID == null || prevNodes == null) return args;
+    if (prevNodes == null) return args;
     const resourceIDStrings = new Set(
       selection.ids.map((id) => ontology.idToString(id)),
     );
@@ -120,11 +120,10 @@ const baseUngroup = Flux.createUpdate<UngroupParams, Group.FluxSubStore>({
       const children =
         Tree.findNode({ tree: prevNodes, key: ontology.idToString(id) })?.children ??
         [];
-      const parentID = selection.parentID;
       const childKeys = ontology.parseIDs(
         children.map(({ key }) => key).filter((k) => !resourceIDStrings.has(k)),
       );
-      await client.ontology.moveChildren(id, parentID, ...childKeys);
+      await client.ontology.moveChildren(id, selection.parentID, ...childKeys);
     }
     await client.groups.delete(selection.ids.map((id) => id.key));
     return args;
@@ -136,7 +135,6 @@ const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) =
     selection,
     state: { shape, nodes, setNodes },
   } = data;
-  if (selection.parentID == null) return false;
   // Sort the groups by depth that way deeper nested groups are ungrouped first.
   selection.ids.sort(
     (a, b) =>

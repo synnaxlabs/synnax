@@ -7,34 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Drift } from "@synnaxlabs/drift";
 import { Menu as PMenu, Text as PText } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Layout } from "@/platform/layout";
+import { placeLayout } from "@/platform/layout/testutil";
 import { Session } from "@/session";
 import { createTestStore, renderWithConsole, type TestStore } from "@/testutil";
 
-const place = (store: TestStore, key: string): void =>
-  act(() => {
-    store.dispatch(
-      Session.Layout.place({
-        key,
-        type: "menu-test",
-        name: key,
-        location: "mosaic",
-        windowKey: Drift.MAIN_WINDOW,
-        window: { title: key },
-      }),
-    );
-  });
-
 const renderMenu = async (layoutKey: string, extraKeys: string[] = []) => {
   const store = await createTestStore();
-  place(store, layoutKey);
-  extraKeys.forEach((k) => place(store, k));
+  placeLayout(store, layoutKey);
+  extraKeys.forEach((k) => placeLayout(store, k));
   const result = await renderWithConsole(
     <PMenu.Menu>
       <Layout.MenuItems layoutKey={layoutKey} />
@@ -44,17 +29,13 @@ const renderMenu = async (layoutKey: string, extraKeys: string[] = []) => {
   return { ...result, store };
 };
 
-const mosaicRoot = (store: TestStore) =>
-  store.getState()[Session.Layout.SLICE_NAME].mosaics[Drift.MAIN_WINDOW].root;
+const mosaicRoot = (store: TestStore) => {
+  const [, root] = Session.Layout.selectMosaic(store.getState());
+  if (root == null) throw new Error("no mosaic for the main window");
+  return root;
+};
 
 describe("layout MenuItems", () => {
-  it("renders the focus and close items for a mosaic layout", async () => {
-    await renderMenu("l1");
-    expect(screen.getByText("Focus")).toBeTruthy();
-    expect(screen.getByText("Close")).toBeTruthy();
-    expect(screen.getByText("Rename")).toBeTruthy();
-  });
-
   it("does not render the open-in-new-window item outside of Tauri", async () => {
     await renderMenu("l1");
     expect(screen.queryByText("Open in new window")).toBeNull();
@@ -77,15 +58,14 @@ describe("layout MenuItems", () => {
     const { store } = await renderMenu("l1");
     fireEvent.click(screen.getByText("Focus"));
     await waitFor(() =>
-      expect(
-        store.getState()[Session.Layout.SLICE_NAME].mosaics[Drift.MAIN_WINDOW].focused,
-      ).toBe("l1"),
+      expect(Session.Layout.selectFocused(store.getState()).focused).toBe("l1"),
     );
   });
 
   it("does not render split items for a single-tab mosaic", async () => {
     await renderMenu("l1");
     expect(screen.queryByText("Split horizontally")).toBeNull();
+    expect(screen.queryByText("Split vertically")).toBeNull();
   });
 
   it("splits the mosaic when the split item is clicked on a multi-tab mosaic", async () => {
@@ -113,7 +93,7 @@ describe("layout MenuItems", () => {
 
   it("puts the tab element into edit mode when the rename item is clicked", async () => {
     const store = await createTestStore();
-    place(store, "l1");
+    placeLayout(store, "l1");
     await renderWithConsole(
       <>
         <PText.Editable id="pluto-tab-l1" value="Tab One" onChange={vi.fn()} />

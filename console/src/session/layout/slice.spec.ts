@@ -59,6 +59,12 @@ describe("Layout Slice", () => {
 
   const state = () => store.getState();
 
+  const mosaicRoot = () => {
+    const [, root] = Layout.selectMosaic(state());
+    if (root == null) throw new Error("mosaic root is null");
+    return root;
+  };
+
   describe("place", () => {
     it("should insert a mosaic tab and select it", () => {
       store.dispatch(Layout.place(mosaicLayout("plot-1")));
@@ -84,8 +90,7 @@ describe("Layout Slice", () => {
         },
       });
       expect(() => store.dispatch(Layout.place(layout))).not.toThrow();
-      const [, root] = Layout.selectMosaic(state());
-      expect(Mosaic.findTabNode(root!, "orphan-arc")).toBeDefined();
+      expect(Mosaic.findTabNode(mosaicRoot(), "orphan-arc")).toBeDefined();
       expect(Layout.selectActiveMosaicTabState(state()).layoutKey).toBe("orphan-arc");
     });
 
@@ -162,8 +167,7 @@ describe("Layout Slice", () => {
       store.dispatch(Layout.place(mosaicLayout("plot-1")));
       store.dispatch(Layout.rename({ key: "plot-1", name: "Renamed" }));
       expect(Layout.select(state(), "plot-1")?.name).toBe("Renamed");
-      const [, root] = Layout.selectMosaic(state());
-      const tab = Mosaic.findTabNode(root!, "plot-1")?.tabs?.find(
+      const tab = Mosaic.findTabNode(mosaicRoot(), "plot-1")?.tabs?.find(
         (t) => t.tabKey === "plot-1",
       );
       expect(tab?.name).toBe("Renamed");
@@ -217,8 +221,7 @@ describe("Layout Slice", () => {
       store.dispatch(Layout.place(mosaicLayout("plot-1")));
       store.dispatch(Layout.setUnsavedChanges({ key: "plot-1", unsavedChanges: true }));
       expect(Layout.select(state(), "plot-1")?.unsavedChanges).toBe(true);
-      const [, root] = Layout.selectMosaic(state());
-      const tab = Mosaic.findTabNode(root!, "plot-1")?.tabs?.find(
+      const tab = Mosaic.findTabNode(mosaicRoot(), "plot-1")?.tabs?.find(
         (t) => t.tabKey === "plot-1",
       );
       expect(tab?.unsavedChanges).toBe(true);
@@ -266,8 +269,7 @@ describe("Layout Slice", () => {
         }),
       );
       expect(Layout.select(state(), "plot-1")?.windowKey).toBe(MAIN_WINDOW);
-      const [, root] = Layout.selectMosaic(state());
-      expect(Mosaic.findTabNode(root!, "plot-1")).toBeDefined();
+      expect(Mosaic.findTabNode(mosaicRoot(), "plot-1")).toBeDefined();
     });
   });
 
@@ -308,11 +310,10 @@ describe("Layout Slice", () => {
           direction: "x",
         }),
       );
-      const [, root] = Layout.selectMosaic(state());
       store.dispatch(
         Layout.resizeMosaicTab({
           windowKey: MAIN_WINDOW,
-          key: root!.key,
+          key: mosaicRoot().key,
           size: 0.25,
         }),
       );
@@ -346,8 +347,7 @@ describe("Layout Slice", () => {
       };
       store.dispatch(Layout.setProject({ slice: proj }));
       expect(Layout.select(state(), "proj-orphan")).toBeDefined();
-      const [, root] = Layout.selectMosaic(state());
-      expect(Mosaic.findTabNode(root!, "proj-orphan")).toBeDefined();
+      expect(Mosaic.findTabNode(mosaicRoot(), "proj-orphan")).toBeDefined();
     });
 
     it("should fall back to the main mosaic when an orphan layout points at a missing window", () => {
@@ -362,8 +362,7 @@ describe("Layout Slice", () => {
       };
       store.dispatch(Layout.setProject({ slice: proj }));
       expect(Layout.select(state(), "stale-window-tab")?.windowKey).toBe(MAIN_WINDOW);
-      const [, root] = Layout.selectMosaic(state());
-      expect(Mosaic.findTabNode(root!, "stale-window-tab")).toBeDefined();
+      expect(Mosaic.findTabNode(mosaicRoot(), "stale-window-tab")).toBeDefined();
     });
   });
 

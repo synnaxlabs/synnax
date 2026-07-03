@@ -10,7 +10,7 @@
 import "@/feature/device/ontology.css";
 
 import { device, type ontology, status } from "@synnaxlabs/client";
-import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";
+import { Access, Device, Flex, List, Menu, Text, Tree } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { getContextMenuItems, getIcon, getMake } from "@/feature/device/make";
@@ -105,7 +105,7 @@ const Item = ({ id, resource, className, ...rest }: Ontology.TreeItemProps) => {
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
         {icon(resource)}
         <Text.MaybeEditable
-          id={itemKey}
+          id={List.itemNameID(itemKey)}
           className={CSS.B("name")}
           allowDoubleClick={false}
           value={resource.name}

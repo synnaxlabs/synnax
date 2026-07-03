@@ -15,13 +15,10 @@ import { Controls } from "@/feature/schematic/Controls";
 import { Legend } from "@/feature/schematic/Legend";
 import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
 import { ContextMenu } from "@/platform/context-menu";
+import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
-export interface SchematicProps {
-  visible: boolean;
-}
-
-export const Schematic = ({ visible }: SchematicProps) => {
+const Internal: Layout.Renderer = ({ visible }) => {
   const key = Base.useKey();
   const isSnapshot = Base.useSelectSnapshot();
   const dispatch = Session.useDispatch();
@@ -129,3 +126,13 @@ export const Schematic = ({ visible }: SchematicProps) => {
     </Controller>
   );
 };
+
+export const Schematic: Layout.Renderer = (props) => (
+  <Base.Suspended schematicKey={props.layoutKey}>
+    <Internal {...props} />
+  </Base.Suspended>
+);
+Schematic.useName = Layout.createUseFluxName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+);

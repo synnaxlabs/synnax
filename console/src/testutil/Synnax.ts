@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/client";
+import { status, type Synnax as Client } from "@synnaxlabs/client";
+import { Flux, Pluto } from "@synnaxlabs/pluto";
 import {
   createAsyncSynnaxWrapper as plutoCreateAsyncSynnaxWrapper,
   createSynnaxWrapper as plutoCreateSynnaxWrapper,
@@ -148,3 +149,16 @@ export const createAsyncSynnaxWrapper = async (
   args: CreateSynnaxWrapperArgs,
 ): Promise<FC<PropsWithChildren>> =>
   await plutoCreateAsyncSynnaxWrapper(withConsoleErrorHandlers(args));
+
+/**
+ * Builds a real pluto flux store backed by the full production store config, for code
+ * that takes a Pluto.FluxStore directly instead of reading it from the provider stack.
+ * Pass a real client for live-core specs, or null (the default) for offline ones.
+ */
+export const createTestFluxStore = (client: Client | null = null): Pluto.FluxStore =>
+  new Flux.Client({
+    client,
+    storeConfig: { ...Pluto.FLUX_STORE_CONFIG },
+    handleError: createErrorHandler(console.error),
+    handleAsyncError: createAsyncErrorHandler(console.error),
+  }).scopedStore<Pluto.FluxStore>("");

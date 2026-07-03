@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
-import { Modals } from "@/session/modals";
 import { renderHookWithConsole } from "@/testutil";
 
 describe("layout hooks", () => {
@@ -100,7 +99,7 @@ describe("layout hooks", () => {
       const { result } = await renderHookWithConsole(() => ({
         placer: Layout.usePlacer(),
         activeTab: Session.Layout.useSelectActiveMosaicTabState(),
-        modals: Modals.useStore("test"),
+        modals: Session.Modals.useStore("test"),
       }));
 
       // Place a layout in the mosaic

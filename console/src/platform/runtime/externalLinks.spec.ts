@@ -14,12 +14,10 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({
   engine: "web",
 }));
 
-vi.mock("@/session/runtime/runtime", () => ({
-  get ENGINE() {
-    return mocks.engine;
-  },
-  Drift: class {},
-}));
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 vi.mock("@tauri-apps/plugin-shell", () => ({
   open: vi.fn().mockResolvedValue(undefined),
@@ -34,7 +32,7 @@ const openMock = vi.mocked(open);
 const dispatchClick = (el: Element, type: "click" | "auxclick" = "click") =>
   el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true }));
 
-const makeAnchor = (attrs: Record<string, string>): HTMLAnchorElement => {
+const createAnchor = (attrs: Record<string, string>): HTMLAnchorElement => {
   const a = document.createElement("a");
   for (const [k, v] of Object.entries(attrs)) a.setAttribute(k, v);
   document.body.appendChild(a);
@@ -55,7 +53,7 @@ describe("Runtime.useExternalLinkHandler", () => {
   describe("web engine", () => {
     it("should not intercept target=_blank clicks", () => {
       renderHook(() => Runtime.useExternalLinkHandler());
-      const a = makeAnchor({ target: "_blank", href: "https://example.com" });
+      const a = createAnchor({ target: "_blank", href: "https://example.com" });
       dispatchClick(a);
       expect(openMock).not.toHaveBeenCalled();
     });
@@ -68,7 +66,7 @@ describe("Runtime.useExternalLinkHandler", () => {
 
     it("should open target=_blank links via the shell plugin", () => {
       renderHook(() => Runtime.useExternalLinkHandler());
-      const a = makeAnchor({ target: "_blank", href: "https://example.com" });
+      const a = createAnchor({ target: "_blank", href: "https://example.com" });
       const event = new MouseEvent("click", { bubbles: true, cancelable: true });
       a.dispatchEvent(event);
       expect(openMock).toHaveBeenCalledTimes(1);
@@ -78,7 +76,7 @@ describe("Runtime.useExternalLinkHandler", () => {
 
     it("should route the click through the resolved absolute href", () => {
       renderHook(() => Runtime.useExternalLinkHandler());
-      const a = makeAnchor({ target: "_blank", href: "/relative/path" });
+      const a = createAnchor({ target: "_blank", href: "/relative/path" });
       dispatchClick(a);
       expect(openMock).toHaveBeenCalledWith(a.href);
       expect(a.href).toContain("/relative/path");
@@ -86,7 +84,7 @@ describe("Runtime.useExternalLinkHandler", () => {
 
     it("should handle clicks on descendants of the anchor", () => {
       renderHook(() => Runtime.useExternalLinkHandler());
-      const a = makeAnchor({ target: "_blank", href: "https://example.com" });
+      const a = createAnchor({ target: "_blank", href: "https://example.com" });
       const span = document.createElement("span");
       a.appendChild(span);
       dispatchClick(span);
@@ -95,21 +93,21 @@ describe("Runtime.useExternalLinkHandler", () => {
 
     it("should intercept auxclick events", () => {
       renderHook(() => Runtime.useExternalLinkHandler());
-      const a = makeAnchor({ target: "_blank", href: "https://example.com" });
+      const a = createAnchor({ target: "_blank", href: "https://example.com" });
       dispatchClick(a, "auxclick");
       expect(openMock).toHaveBeenCalledWith(a.href);
     });
 
     it("should ignore anchors without target=_blank", () => {
       renderHook(() => Runtime.useExternalLinkHandler());
-      const a = makeAnchor({ href: "https://example.com" });
+      const a = createAnchor({ href: "https://example.com" });
       dispatchClick(a);
       expect(openMock).not.toHaveBeenCalled();
     });
 
     it("should ignore anchors with an empty href", () => {
       renderHook(() => Runtime.useExternalLinkHandler());
-      const a = makeAnchor({ target: "_blank" });
+      const a = createAnchor({ target: "_blank" });
       dispatchClick(a);
       expect(openMock).not.toHaveBeenCalled();
     });
@@ -134,7 +132,7 @@ describe("Runtime.useExternalLinkHandler", () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       openMock.mockRejectedValueOnce(new Error("no shell"));
       renderHook(() => Runtime.useExternalLinkHandler());
-      const a = makeAnchor({ target: "_blank", href: "https://example.com" });
+      const a = createAnchor({ target: "_blank", href: "https://example.com" });
       dispatchClick(a);
       await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled());
       expect(errorSpy.mock.calls[0][0]).toContain(a.href);
@@ -144,7 +142,7 @@ describe("Runtime.useExternalLinkHandler", () => {
     it("should stop intercepting after unmount", () => {
       const { unmount } = renderHook(() => Runtime.useExternalLinkHandler());
       unmount();
-      const a = makeAnchor({ target: "_blank", href: "https://example.com" });
+      const a = createAnchor({ target: "_blank", href: "https://example.com" });
       dispatchClick(a);
       expect(openMock).not.toHaveBeenCalled();
     });

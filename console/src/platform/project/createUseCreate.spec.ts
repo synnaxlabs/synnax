@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
 import { Project } from "@/platform/project";
-import { activeState } from "@/platform/project/testutil";
+import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
 
@@ -61,7 +61,7 @@ describe("createUseCreate", () => {
   it("creates the record under the active project with the default name and places its layout", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Session.Project.SLICE_NAME]: activeState(projectA) },
+      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(projectA) },
     });
     const useCreate = buildUseCreate();
     const { result } = renderHook(() => useCreate({}), { wrapper });
@@ -85,7 +85,7 @@ describe("createUseCreate", () => {
   it("prefers caller init over defaults, and passes defaults through for unspecified fields", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Session.Project.SLICE_NAME]: activeState(projectA) },
+      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(projectA) },
     });
     const useCreate = buildUseCreate({
       toCreateParams: ({ overrides, project }) => ({
@@ -110,7 +110,7 @@ describe("createUseCreate", () => {
   it("creates the record under the project passed to the hook over the active one", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Session.Project.SLICE_NAME]: activeState(projectA) },
+      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(projectA) },
     });
     const useCreate = buildUseCreate();
     const { result } = renderHook(() => useCreate({ project: projectB.key }), {
@@ -128,7 +128,7 @@ describe("createUseCreate", () => {
   it("switches the active project to the project the record was created in", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Session.Project.SLICE_NAME]: activeState(projectA) },
+      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(projectA) },
     });
     const useCreate = buildUseCreate();
     const { result } = renderHook(() => useCreate({ project: projectB.key }), {

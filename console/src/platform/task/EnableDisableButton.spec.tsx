@@ -14,13 +14,6 @@ import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 
 describe("EnableDisableButton", () => {
-  it("should render a toggle when the field is present", async () => {
-    await renderInTaskForm(<Task.EnableDisableButton path="enabled" />, {
-      values: { enabled: true },
-    });
-    expect(screen.getByRole("button")).toBeTruthy();
-  });
-
   it("should render nothing when the field value is absent", async () => {
     await renderInTaskForm(<Task.EnableDisableButton path="enabled" />, {
       values: {},

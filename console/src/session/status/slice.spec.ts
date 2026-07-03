@@ -131,7 +131,7 @@ describe("status slice", () => {
 
   describe("migrateSlice", () => {
     it("should backfill missing fields from the zero state", () => {
-      const migrated = Status.migrateSlice({ favorites: ["a"] } as Status.SliceState);
+      const migrated = Status.migrateSlice({ favorites: ["a"] });
       expect(migrated).toEqual({ version: 0, favorites: ["a"] });
     });
 

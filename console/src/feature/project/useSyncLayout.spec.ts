@@ -40,9 +40,7 @@ describe("useSyncLayout", () => {
       },
       { wrapper },
     );
-    await waitFor(() => expect(result.current.variant).toEqual("success"), {
-      timeout: 5000,
-    });
+    await waitFor(() => expect(result.current.variant).toEqual("success"));
 
     const layoutKey = id.create();
     act(() => {
@@ -57,13 +55,10 @@ describe("useSyncLayout", () => {
       );
     });
 
-    await waitFor(
-      async () => {
-        const retrieved = await client.projects.retrieve(proj.key);
-        expect(JSON.stringify(retrieved.layout)).toContain(layoutKey);
-      },
-      { timeout: 5000 },
-    );
+    await waitFor(async () => {
+      const retrieved = await client.projects.retrieve(proj.key);
+      expect(JSON.stringify(retrieved.layout)).toContain(layoutKey);
+    });
   });
 
   it("should not surface an error when logout clears the active project", async () => {
@@ -71,7 +66,7 @@ describe("useSyncLayout", () => {
       name: `sync-${id.create()}`,
       layout: {},
     });
-    const { wrapper } = await createConsoleWrapper({
+    const { wrapper, store } = await createConsoleWrapper({
       client,
       preloadedState: preloadWithActive(proj.key),
     });
@@ -87,9 +82,9 @@ describe("useSyncLayout", () => {
     );
 
     act(() => result.current.logout());
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    });
+    await waitFor(() =>
+      expect(Session.Project.selectOptionalSelected(store.getState())).toBeUndefined(),
+    );
 
     expect(
       result.current.notifications.statuses.filter(({ message }) =>

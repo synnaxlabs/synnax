@@ -9,21 +9,18 @@
 
 import { type ontology } from "@synnaxlabs/client";
 import { act } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
+import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Cluster } from "@/platform/cluster";
-import { clusterState } from "@/platform/cluster/testutil";
+import { createClusterState } from "@/platform/cluster/testutil";
 import { renderHookWithConsole } from "@/testutil";
 
 describe("useCopyLinkToClipboard", () => {
-  const writeText = vi.fn(async (_text: string) => {});
+  let writeText: Mock;
 
   beforeEach(() => {
-    writeText.mockClear();
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
+    writeText = stubClipboardWriteText();
   });
 
   afterEach(() => {
@@ -34,7 +31,7 @@ describe("useCopyLinkToClipboard", () => {
     const id: ontology.ID = { type: "channel", key: "42" };
     const { result } = await renderHookWithConsole(
       () => Cluster.useCopyLinkToClipboard(),
-      { preloadedState: clusterState([], "cluster-1") },
+      { preloadedState: createClusterState([], "cluster-1") },
     );
     await act(async () => {
       result.current({ name: "My Channel", ontologyID: id });
@@ -50,7 +47,7 @@ describe("useCopyLinkToClipboard", () => {
     const id: ontology.ID = { type: "channel", key: "42" };
     const { result } = await renderHookWithConsole(
       () => Cluster.useCopyLinkToClipboard(),
-      { preloadedState: clusterState([], undefined) },
+      { preloadedState: createClusterState([], undefined) },
     );
     await act(async () => {
       result.current({ name: "My Channel", ontologyID: id });

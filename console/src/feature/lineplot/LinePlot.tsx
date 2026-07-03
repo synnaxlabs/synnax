@@ -167,12 +167,7 @@ const ContextMenuContent = ({
   );
 };
 
-export interface LinePlotProps {
-  focused: boolean;
-  visible: boolean;
-}
-
-export const LinePlot = ({ focused, visible }: LinePlotProps) => {
+const Internal: Layout.Renderer = ({ focused, visible }) => {
   const key = Base.useKey();
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
@@ -323,3 +318,13 @@ export const LinePlot = ({ focused, visible }: LinePlotProps) => {
     </div>
   );
 };
+
+export const LinePlot: Layout.Renderer = (props) => (
+  <Base.Suspended linePlotKey={props.layoutKey}>
+    <Internal {...props} />
+  </Base.Suspended>
+);
+LinePlot.useName = Layout.createUseFluxName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+);

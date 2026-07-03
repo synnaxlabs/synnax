@@ -9,7 +9,7 @@
 
 import { type Status } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { isValidElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -19,31 +19,31 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri"; update: unknown } => ({
 }));
 
 vi.mock("@/session/runtime/runtime", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    get ENGINE() {
-      return mocks.engine;
-    },
-  };
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
 });
 
 vi.mock("@tauri-apps/plugin-updater", () => ({
   check: vi.fn(async () => mocks.update),
 }));
 
+import { check } from "@tauri-apps/plugin-updater";
+
 import { renderWithModals } from "@/platform/modals/testutil";
 import { Version } from "@/platform/version";
 import { renderHookWithConsole } from "@/testutil";
 
-const spec = (key: string): Status.NotificationSpec =>
-  ({
-    key,
-    variant: "info",
-    message: "Update available",
-    time: TimeStamp.now(),
-    count: 1,
-  }) as Status.NotificationSpec;
+const checkMock = vi.mocked(check);
+
+const spec = (key: string): Status.NotificationSpec => ({
+  key,
+  name: "Version Update",
+  variant: "info",
+  message: "Update available",
+  description: "",
+  time: TimeStamp.now(),
+  count: 1,
+});
 
 describe("version Updater", () => {
   beforeEach(() => {
@@ -75,11 +75,22 @@ describe("version Updater", () => {
   });
 
   describe("useCheckForUpdates", () => {
-    it("should never report an update available in the web engine", async () => {
+    it("should not check for updates in the web engine", async () => {
       const { result } = await renderHookWithConsole(() =>
         Version.useCheckForUpdates(),
       );
       await waitFor(() => expect(result.current).toBe(false));
+      expect(checkMock).not.toHaveBeenCalled();
+    });
+
+    it("should report no update when the check finds none in tauri", async () => {
+      mocks.engine = "tauri";
+      mocks.update = null;
+      const { result } = await renderHookWithConsole(() =>
+        Version.useCheckForUpdates(),
+      );
+      await waitFor(() => expect(checkMock).toHaveBeenCalled());
+      expect(result.current).toBe(false);
     });
 
     it("should report an update available in tauri when one is found", async () => {
@@ -93,9 +104,10 @@ describe("version Updater", () => {
   });
 
   describe("OpenUpdateDialogAction", () => {
-    it("should render an Update button", () => {
+    it("should open the version info modal when the Update button is clicked", async () => {
       renderWithModals(<Version.OpenUpdateDialogAction />);
-      expect(screen.getByRole("button", { name: "Update" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Update" }));
+      await waitFor(() => expect(screen.getByText("Up to date")).toBeTruthy());
     });
   });
 });

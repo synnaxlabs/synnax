@@ -14,12 +14,13 @@ import { describe, expect, it, vi } from "vitest";
 import { type Layout } from "@/platform/layout";
 import { Schematic } from "@/platform/schematic";
 import { Session } from "@/session";
+import { createTestStore } from "@/testutil";
 
-const invoke = (initial?: Schematic.CreateArg) => {
+const invoke = async (initial?: Schematic.CreateArg) => {
   const dispatch = vi.fn();
   const props: Layout.CreatorProps = {
     dispatch,
-    store: {} as Session.Store,
+    store: await createTestStore(),
     windowKey: "main",
   };
   const layout = Schematic.create(initial)(props);
@@ -27,8 +28,8 @@ const invoke = (initial?: Schematic.CreateArg) => {
 };
 
 describe("schematic layout create", () => {
-  it("should return a layout with the schematic defaults", () => {
-    const { layout } = invoke();
+  it("should return a layout with the schematic defaults", async () => {
+    const { layout } = await invoke();
     expect(layout.type).toBe(Schematic.LAYOUT_TYPE);
     expect(layout.name).toBe("Schematic");
     expect(layout.location).toBe("mosaic");
@@ -36,50 +37,50 @@ describe("schematic layout create", () => {
     expect(layout.window).toEqual({ navTop: true, showTitle: true });
   });
 
-  it("should dispatch an internalCreate for the layout key", () => {
-    const { dispatch, layout } = invoke();
+  it("should dispatch an internalCreate for the layout key", async () => {
+    const { dispatch, layout } = await invoke();
     expect(layout.key).toBeDefined();
     expect(dispatch).toHaveBeenCalledWith(
       Session.Schematic.internalCreate({ key: layout.key as string }),
     );
   });
 
-  it("should pass through a custom name, location, and tab", () => {
+  it("should pass through a custom name, location, and tab", async () => {
     const tab = { tabKey: "t", mosaicKey: 1 };
-    const { layout } = invoke({ name: "My Schematic", location: "window", tab });
+    const { layout } = await invoke({ name: "My Schematic", location: "window", tab });
     expect(layout.name).toBe("My Schematic");
     expect(layout.location).toBe("window");
     expect(layout.tab).toEqual(tab);
   });
 
-  it("should preserve a valid schematic key", () => {
+  it("should preserve a valid schematic key", async () => {
     const key = uuid.create();
-    const { dispatch, layout } = invoke({ key });
+    const { dispatch, layout } = await invoke({ key });
     expect(layout.key).toBe(key);
     expect(dispatch).toHaveBeenCalledWith(Session.Schematic.internalCreate({ key }));
   });
 
-  it("should generate a valid key when none is provided", () => {
-    const { layout } = invoke();
+  it("should generate a valid key when none is provided", async () => {
+    const { layout } = await invoke();
     expect(() => schematic.keyZ.parse(layout.key)).not.toThrow();
   });
 
-  it("should generate a fresh key when given an invalid one", () => {
-    const { layout } = invoke({ key: "not-a-uuid" });
+  it("should generate a fresh key when given an invalid one", async () => {
+    const { layout } = await invoke({ key: "not-a-uuid" });
     expect(layout.key).not.toBe("not-a-uuid");
     expect(() => schematic.keyZ.parse(layout.key)).not.toThrow();
   });
 
-  it("should dispatch the same key it returns for the layout", () => {
-    const { dispatch, layout } = invoke({ key: "not-a-uuid" });
+  it("should dispatch the same key it returns for the layout", async () => {
+    const { dispatch, layout } = await invoke({ key: "not-a-uuid" });
     const action = dispatch.mock.calls[0][0] as ReturnType<
       typeof Session.Schematic.internalCreate
     >;
     expect(action.payload.key).toBe(layout.key);
   });
 
-  it("should forward the editable flag to the created slice entry", () => {
-    const { dispatch } = invoke({ editable: true });
+  it("should forward the editable flag to the created slice entry", async () => {
+    const { dispatch } = await invoke({ editable: true });
     const action = dispatch.mock.calls[0][0] as ReturnType<
       typeof Session.Schematic.internalCreate
     >;

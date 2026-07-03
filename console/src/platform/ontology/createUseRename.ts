@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { type Flux, Text } from "@synnaxlabs/pluto";
+import { type Flux, List, Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -44,7 +44,7 @@ export const createUseRename =
           const { data } = query;
           const { key, name: oldName } = data;
           const [name, renamed] = await Text.asyncEdit(
-            ontology.idToString(ontologyID(key)),
+            List.itemNameID(ontology.idToString(ontologyID(key))),
           );
           if (!renamed) return false;
           if (beforeUpdate != null)

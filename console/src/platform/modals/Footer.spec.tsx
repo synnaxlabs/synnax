@@ -10,28 +10,18 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Footer } from "@/platform/modals/Footer";
+import { Modals } from "@/platform/modals";
 import { Wrapper } from "@/platform/modals/testutil";
 
 describe("Footer", () => {
-  it("should render its children", () => {
-    render(<Footer>footer content</Footer>, { wrapper: Wrapper });
-    expect(screen.getByText("footer content")).toBeTruthy();
-  });
-
-  it("should apply the modal footer element class", () => {
-    const { baseElement } = render(<Footer>footer content</Footer>, {
-      wrapper: Wrapper,
-    });
-    expect(baseElement.querySelector(".console-modal__footer")).not.toBeNull();
-  });
-
-  it("should forward a custom className", () => {
-    const { baseElement } = render(<Footer className="extra">footer content</Footer>, {
-      wrapper: Wrapper,
-    });
-    expect(baseElement.querySelector(".console-modal__footer")?.className).toContain(
-      "extra",
+  it("should render children inside the modal footer element and forward className", () => {
+    const { baseElement } = render(
+      <Modals.Footer className="extra">footer content</Modals.Footer>,
+      { wrapper: Wrapper },
     );
+    const el = baseElement.querySelector(".console-modal__footer");
+    expect(el).not.toBeNull();
+    expect(el?.className).toContain("extra");
+    expect(screen.getByText("footer content")).toBeTruthy();
   });
 });

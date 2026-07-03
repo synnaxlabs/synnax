@@ -15,15 +15,6 @@ import { Task } from "@/platform/task";
 import { renderWithConsole } from "@/testutil";
 
 describe("CreateMenuItem", () => {
-  it("should render its label", async () => {
-    await renderWithConsole(
-      <Menu.Menu>
-        <Task.CreateMenuItem itemKey="create">Create Task</Task.CreateMenuItem>
-      </Menu.Menu>,
-    );
-    expect(screen.getByText("Create Task")).toBeTruthy();
-  });
-
   it("should invoke onClick when selected", async () => {
     const onClick = vi.fn();
     await renderWithConsole(

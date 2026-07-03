@@ -14,12 +14,13 @@ import { describe, expect, it, vi } from "vitest";
 import { Arc } from "@/platform/arc";
 import { type Layout } from "@/platform/layout";
 import { Session } from "@/session";
+import { createTestStore } from "@/testutil";
 
-const invoke = (initial?: Arc.CreateArg) => {
+const invoke = async (initial?: Arc.CreateArg) => {
   const dispatch = vi.fn();
   const props: Layout.CreatorProps = {
     dispatch,
-    store: {} as Session.Store,
+    store: await createTestStore(),
     windowKey: "main",
   };
   const layout = Arc.create(initial)(props);
@@ -27,8 +28,8 @@ const invoke = (initial?: Arc.CreateArg) => {
 };
 
 describe("arc layout create", () => {
-  it("should return a layout with the arc defaults", () => {
-    const { layout } = invoke();
+  it("should return a layout with the arc defaults", async () => {
+    const { layout } = await invoke();
     expect(layout.type).toBe(Arc.LAYOUT_TYPE);
     expect(layout.name).toBe("Arc Editor");
     expect(layout.location).toBe("mosaic");
@@ -36,42 +37,42 @@ describe("arc layout create", () => {
     expect(layout.window).toEqual({ navTop: true, showTitle: true });
   });
 
-  it("should dispatch an internalCreate for the layout key", () => {
-    const { dispatch, layout } = invoke();
+  it("should dispatch an internalCreate for the layout key", async () => {
+    const { dispatch, layout } = await invoke();
     expect(layout.key).toBeDefined();
     expect(dispatch).toHaveBeenCalledWith(
       Session.Arc.internalCreate({ key: layout.key as string }),
     );
   });
 
-  it("should pass through a custom name, location, and tab", () => {
+  it("should pass through a custom name, location, and tab", async () => {
     const tab = { tabKey: "t", mosaicKey: 1 };
-    const { layout } = invoke({ name: "My Arc", location: "window", tab });
+    const { layout } = await invoke({ name: "My Arc", location: "window", tab });
     expect(layout.name).toBe("My Arc");
     expect(layout.location).toBe("window");
     expect(layout.tab).toEqual(tab);
   });
 
-  it("should preserve a valid arc key", () => {
+  it("should preserve a valid arc key", async () => {
     const key = uuid.create();
-    const { dispatch, layout } = invoke({ key });
+    const { dispatch, layout } = await invoke({ key });
     expect(layout.key).toBe(key);
     expect(dispatch).toHaveBeenCalledWith(Session.Arc.internalCreate({ key }));
   });
 
-  it("should generate a valid key when none is provided", () => {
-    const { layout } = invoke();
+  it("should generate a valid key when none is provided", async () => {
+    const { layout } = await invoke();
     expect(() => arc.keyZ.parse(layout.key)).not.toThrow();
   });
 
-  it("should generate a fresh key when given an invalid one", () => {
-    const { layout } = invoke({ key: "not-a-uuid" });
+  it("should generate a fresh key when given an invalid one", async () => {
+    const { layout } = await invoke({ key: "not-a-uuid" });
     expect(layout.key).not.toBe("not-a-uuid");
     expect(() => arc.keyZ.parse(layout.key)).not.toThrow();
   });
 
-  it("should forward graph state to the created slice entry", () => {
-    const { dispatch } = invoke({ graph: { editable: false } });
+  it("should forward graph state to the created slice entry", async () => {
+    const { dispatch } = await invoke({ graph: { editable: false } });
     const action = dispatch.mock.calls[0][0] as ReturnType<
       typeof Session.Arc.internalCreate
     >;

@@ -13,12 +13,12 @@ import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { Session } from "@/session";
-import { createTestStore, type TestStore } from "@/testutil";
+import { createTestStore, type TestStore, uniqueName } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
 const createTask = async (config: Record<string, unknown> = { sampleRate: 100 }) => {
-  const rack = await client.racks.create({ name: `rack-${id.create()}` });
+  const rack = await client.racks.create({ name: uniqueName("rack") });
   return await rack.createTask({ name: "Read Task", type: "testReadType", config });
 };
 

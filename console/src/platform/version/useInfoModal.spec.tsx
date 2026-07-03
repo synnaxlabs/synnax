@@ -24,13 +24,8 @@ const mocks = vi.hoisted(
 );
 
 vi.mock("@/session/runtime/runtime", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    get ENGINE() {
-      return mocks.engine;
-    },
-  };
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
 });
 
 vi.mock("@tauri-apps/plugin-updater", () => ({
@@ -78,9 +73,8 @@ describe("version useInfoModal", () => {
     });
     mocks.update = { version: "9.9.9", downloadAndInstall };
     openModal();
-    await waitFor(
-      () => expect(screen.getByText("Version 9.9.9 available")).toBeTruthy(),
-      { timeout: 5000 },
+    await waitFor(() =>
+      expect(screen.getByText("Version 9.9.9 available")).toBeTruthy(),
     );
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Update & Restart" }));

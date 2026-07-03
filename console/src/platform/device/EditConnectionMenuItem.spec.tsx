@@ -8,47 +8,39 @@
 // included in the file licenses/APL.txt.
 
 import { device, type ontology } from "@synnaxlabs/client";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
-import { buildSelection } from "@/platform/ontology/testutil";
-import { renderWithConsole } from "@/testutil";
+import { renderMenuItem } from "@/platform/device/testutil";
+import { createSelection } from "@/platform/ontology/testutil";
 
 const idFor = (key: string) => device.ontologyID(key);
 
 const renderItem = async (ids: ontology.ID[], onConfigure = vi.fn()) => {
-  await renderWithConsole(
-    <PMenu.Menu>
-      <Device.EditConnectionMenuItem
-        selection={buildSelection({ ids })}
-        onConfigure={onConfigure}
-      />
-    </PMenu.Menu>,
+  await renderMenuItem(
+    <Device.EditConnectionMenuItem
+      selection={createSelection({ ids })}
+      onConfigure={onConfigure}
+    />,
   );
   return onConfigure;
 };
 
 describe("EditConnectionMenuItem", () => {
-  it("should render an edit item for a single selection", async () => {
-    await renderItem([idFor("dev-1")]);
-    expect(screen.getByText("Edit connection")).toBeTruthy();
-  });
-
   it("should render nothing when nothing is selected", async () => {
     await renderItem([]);
     expect(screen.queryByText("Edit connection")).toBeNull();
   });
 
   it("should render nothing when more than one resource is selected", async () => {
-    await renderItem([idFor("dev-1"), idFor("dev-2")]);
+    await renderItem([idFor("dev_1"), idFor("dev_2")]);
     expect(screen.queryByText("Edit connection")).toBeNull();
   });
 
   it("should invoke onConfigure with the selected device key when clicked", async () => {
-    const onConfigure = await renderItem([idFor("dev-42")]);
+    const onConfigure = await renderItem([idFor("dev_42")]);
     fireEvent.click(screen.getByText("Edit connection"));
-    expect(onConfigure).toHaveBeenCalledWith("dev-42");
+    expect(onConfigure).toHaveBeenCalledWith("dev_42");
   });
 });

@@ -19,8 +19,6 @@ import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
-const TIMEOUT = { timeout: 5000 };
-
 const createRange = async (): Promise<ranger.Range> => await createTestRange(client);
 
 const preloadedFor = (range: ranger.Range) => ({
@@ -44,7 +42,7 @@ describe("Range.useListenForChanges", () => {
       expect(Session.Range.selectState(store.getState(), range.key)?.name).toBe(
         nextName,
       );
-    }, TIMEOUT);
+    });
   });
 
   it("should remove a favorited range from the slice when it is deleted remotely", async () => {
@@ -58,6 +56,6 @@ describe("Range.useListenForChanges", () => {
     await client.ranges.delete(range.key);
     await waitFor(() => {
       expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();
-    }, TIMEOUT);
+    });
   });
 });

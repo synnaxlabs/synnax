@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc, rack } from "@synnaxlabs/client";
-import { Access, Icon, Menu, Rack, Text, Tree } from "@synnaxlabs/pluto";
+import { Access, Icon, List, Menu, Rack, Text, Tree } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { Arc } from "@/feature/arc";
@@ -35,7 +35,7 @@ const Item = ({ id, resource, ...rest }: Ontology.TreeItemProps) => {
     <Tree.Item {...rest}>
       <Icon.Rack />
       <Text.MaybeEditable
-        id={itemKey}
+        id={List.itemNameID(itemKey)}
         allowDoubleClick={false}
         value={resource.name}
         overflow="ellipsis"

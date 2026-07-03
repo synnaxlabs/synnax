@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Status } from "@synnaxlabs/pluto";
 import { act, waitFor } from "@testing-library/react";
 import { type ReactElement, useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Import } from "@/platform/import";
-import { Runtime } from "@/platform/runtime";
-import { renderWithConsole } from "@/testutil/testutil";
-
-// pickFiles opens the native (Tauri) / browser file-picker dialog, an unmockable
-// runtime seam with no injection point. Stub it to hand the import flow real file
-// contents; everything downstream (parse, ingester dispatch) runs for real.
-const pickFiles = vi.spyOn(Runtime, "pickFiles");
+import {
+  CaptureStatuses,
+  fakePickedFile,
+  interceptFilePicker,
+  renderWithConsole,
+} from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -27,6 +27,7 @@ afterEach(() => {
 interface HarnessProps {
   fileIngesters: Import.FileIngesters;
   onReady: (run: (projectKey?: string) => void) => void;
+  onStatuses?: (statuses: Status.NotificationSpec[]) => void;
 }
 
 const Inner = ({ onReady }: Pick<HarnessProps, "onReady">): ReactElement => {
@@ -36,18 +37,21 @@ const Inner = ({ onReady }: Pick<HarnessProps, "onReady">): ReactElement => {
 };
 Inner.displayName = "Inner";
 
-const Harness = ({ fileIngesters, onReady }: HarnessProps): ReactElement => (
+const Harness = ({
+  fileIngesters,
+  onReady,
+  onStatuses,
+}: HarnessProps): ReactElement => (
   <Import.FileIngestersProvider fileIngesters={fileIngesters}>
     <Inner onReady={onReady} />
+    {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
   </Import.FileIngestersProvider>
 );
 Harness.displayName = "Harness";
 
 describe("useImport", () => {
   it("reads each picked file and dispatches its parsed contents to the ingester", async () => {
-    pickFiles.mockResolvedValue([
-      { name: "widget.json", path: "widget.json", read: async () => '{"type":"log"}' },
-    ]);
+    const picker = interceptFilePicker();
     const log = vi.fn();
     let run: ((projectKey?: string) => void) | undefined;
     await renderWithConsole(
@@ -56,21 +60,31 @@ describe("useImport", () => {
     );
     await waitFor(() => expect(run).toBeDefined());
     act(() => run?.());
+    await waitFor(() => expect(picker.lastInput()).toBeDefined());
+    picker.selectFiles([fakePickedFile("widget.json", '{"type":"log"}')]);
     await waitFor(() => expect(log).toHaveBeenCalledTimes(1));
     expect(log.mock.calls[0][0]).toEqual({ type: "log" });
   });
 
   it("does nothing when the file picker is cancelled", async () => {
-    pickFiles.mockResolvedValue(null);
+    const picker = interceptFilePicker();
     const log = vi.fn();
     let run: ((projectKey?: string) => void) | undefined;
+    let statuses: Status.NotificationSpec[] = [];
     await renderWithConsole(
-      <Harness fileIngesters={{ log }} onReady={(r) => (run = r)} />,
+      <Harness
+        fileIngesters={{ log }}
+        onReady={(r) => (run = r)}
+        onStatuses={(s) => (statuses = s)}
+      />,
       { preloadedState: { project: { version: 0, selected: "project-1" } } },
     );
     await waitFor(() => expect(run).toBeDefined());
     act(() => run?.());
-    await waitFor(() => expect(pickFiles).toHaveBeenCalled());
+    await waitFor(() => expect(picker.lastInput()).toBeDefined());
+    picker.cancel();
+    await act(async () => {});
     expect(log).not.toHaveBeenCalled();
+    expect(statuses).toHaveLength(0);
   });
 });

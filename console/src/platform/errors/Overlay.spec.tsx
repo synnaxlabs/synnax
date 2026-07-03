@@ -15,12 +15,10 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({
   engine: "web",
 }));
 
-vi.mock("@/session/runtime/runtime", () => ({
-  get ENGINE() {
-    return mocks.engine;
-  },
-  Drift: class {},
-}));
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 const windowControls = {
   show: vi.fn().mockResolvedValue(undefined),
@@ -62,23 +60,21 @@ describe("Errors.Overlay", () => {
   });
 
   describe("OverlayWithStore", () => {
-    it("should render its children when nothing throws", async () => {
-      await renderWithConsole(
+    it("should render children until one throws, then show the error's details", async () => {
+      const { rerender } = await renderWithConsole(
         <Errors.OverlayWithStore>
           <span>all good</span>
         </Errors.OverlayWithStore>,
       );
       expect(screen.getByText("all good")).toBeTruthy();
-    });
-
-    it("should render the fallback with the thrown error's details", async () => {
-      await renderWithConsole(
+      rerender(
         <Errors.OverlayWithStore>
           <Boom />
         </Errors.OverlayWithStore>,
       );
       expect(await screen.findByText(BOOM)).toBeTruthy();
       expect(screen.getByText("Something went wrong")).toBeTruthy();
+      expect(screen.queryByText("all good")).toBeNull();
     });
 
     it("should dispatch revertState when Reload Console is clicked", async () => {
@@ -138,17 +134,14 @@ describe("Errors.Overlay", () => {
   });
 
   describe("OverlayWithoutStore", () => {
-    it("should render its children when nothing throws", async () => {
-      await renderWithConsole(
+    it("should catch a throwing child and omit the retry button without a store", async () => {
+      const { rerender } = await renderWithConsole(
         <Errors.OverlayWithoutStore>
           <span>steady state</span>
         </Errors.OverlayWithoutStore>,
       );
       expect(screen.getByText("steady state")).toBeTruthy();
-    });
-
-    it("should render the fallback and omit the retry button without a store", async () => {
-      await renderWithConsole(
+      rerender(
         <Errors.OverlayWithoutStore>
           <Boom />
         </Errors.OverlayWithoutStore>,

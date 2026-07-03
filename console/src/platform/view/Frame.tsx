@@ -264,7 +264,9 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   return (
     <CMenu.Menu>
       {canRename && (
-        <CMenu.RenameItem onClick={() => Text.edit(filteredViews[0].key)} />
+        <CMenu.RenameItem
+          onClick={() => Text.edit(List.itemNameID(filteredViews[0].key))}
+        />
       )}
       {canDelete && (
         <CMenu.DeleteItem onClick={() => del(filteredViews.map(({ key }) => key))} />
@@ -290,7 +292,7 @@ const Item = ({ itemKey }: List.ItemProps<view.Key>): ReactElement | null => {
     <Flex.Box pack>
       <Select.Button itemKey={itemKey} size="small" justify="between">
         <Text.MaybeEditable
-          id={itemKey}
+          id={List.itemNameID(itemKey)}
           value={name}
           allowDoubleClick={false}
           color={7}

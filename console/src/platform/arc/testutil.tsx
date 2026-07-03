@@ -16,8 +16,6 @@ import { createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
 
-export const TIMEOUT = { timeout: 5000 };
-
 /**
  * Renders ui together with a live {@link Modals.Stack} inside the full console provider
  * stack backed by a real cluster client, so modal-driven arc flows (create, rename)

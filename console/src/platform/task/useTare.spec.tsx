@@ -7,16 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, DisconnectedError, type Synnax } from "@synnaxlabs/client";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import {
+  createTestClient,
+  DisconnectedError,
+  type Synnax,
+  task,
+} from "@synnaxlabs/client";
+import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
-import { TaskFormProvider, type TaskFormValues } from "@/platform/task/testutil";
-import { createConsoleWrapper } from "@/testutil";
+import {
+  awaitCommand,
+  TaskFormProvider,
+  type TaskFormValues,
+} from "@/platform/task/testutil";
+import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 interface Chan extends Task.TareableChannel {}
+
+const client = createTestClient();
+const rack = await client.racks.create({ name: uniqueName("rack") });
+
+const createTask = async () =>
+  await rack.createTask({ name: uniqueName("tsk"), type: "test_type", config: {} });
 
 const RUNNING_VALUES: TaskFormValues = {
   key: "task-1",
@@ -84,7 +99,6 @@ describe("useTare", () => {
     });
 
     it("should throw when the task has not been configured", async () => {
-      const client = createTestClient();
       const { result } = await renderUseTare(
         { status: { details: { running: true } } },
         { client },
@@ -93,37 +107,43 @@ describe("useTare", () => {
     });
 
     it("should execute a tare command for a single channel", async () => {
-      const client = createTestClient();
-      const spy = vi.spyOn(client.tasks, "executeCommand").mockResolvedValue(["cmd"]);
-      const { result } = await renderUseTare(RUNNING_VALUES, { client });
-      await act(async () => {
-        result.current[0](7);
-      });
-      await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
-      expect(spy).toHaveBeenCalledWith({
-        task: "task-1",
-        type: "tare",
-        args: { keys: [7] },
-      });
-      spy.mockRestore();
+      const tsk = await createTask();
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { result } = await renderUseTare(
+          { key: tsk.key, status: { details: { running: true } } },
+          { client },
+        );
+        await act(async () => {
+          result.current[0](7);
+        });
+        const cmd = await awaitCommand(streamer, tsk.key);
+        expect(cmd.type).toBe("tare");
+        expect(cmd.args).toEqual({ keys: [7] });
+      } finally {
+        streamer.close();
+      }
     });
   });
 
   describe("handleTare", () => {
     it("should tare only the tareable channels matching the selected keys", async () => {
-      const client = createTestClient();
-      const spy = vi.spyOn(client.tasks, "executeCommand").mockResolvedValue(["cmd"]);
-      const { result } = await renderUseTare(RUNNING_VALUES, { client });
-      await act(async () => {
-        result.current[2](["a", "b"], CHANNELS);
-      });
-      await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
-      expect(spy).toHaveBeenCalledWith({
-        task: "task-1",
-        type: "tare",
-        args: { keys: [10, 20] },
-      });
-      spy.mockRestore();
+      const tsk = await createTask();
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { result } = await renderUseTare(
+          { key: tsk.key, status: { details: { running: true } } },
+          { client },
+        );
+        await act(async () => {
+          result.current[2](["a", "b"], CHANNELS);
+        });
+        const cmd = await awaitCommand(streamer, tsk.key);
+        expect(cmd.type).toBe("tare");
+        expect(cmd.args).toEqual({ keys: [10, 20] });
+      } finally {
+        streamer.close();
+      }
     });
   });
 });

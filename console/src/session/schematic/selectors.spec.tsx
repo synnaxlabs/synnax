@@ -326,8 +326,6 @@ describe("schematic selector stability under dispatch", () => {
 
 const client = createTestClient();
 
-const TIMEOUT = { timeout: 5000 };
-
 const baseObjects = [
   channel.TYPE_ONTOLOGY_ID,
   framer.TYPE_ONTOLOGY_ID,
@@ -342,7 +340,7 @@ const loadSchematic = async (
 ): Promise<void> => {
   const Bootstrap = (): ReactElement => {
     PlutoSchematic.useEnsureRetrieved({ key });
-    return <div data-testid="loaded" />;
+    return <span>schematic loaded</span>;
   };
   let utils!: ReturnType<typeof render>;
   await act(async () => {
@@ -353,7 +351,7 @@ const loadSchematic = async (
       { wrapper: Wrapper },
     );
   });
-  await within(utils.container).findByTestId("loaded");
+  await within(utils.container).findByText("schematic loaded");
 };
 
 interface SetupArgs {
@@ -409,12 +407,12 @@ describe("useSelectEditable", () => {
     await waitFor(() => {
       expect(result.current.canEdit).toBe(true);
       expect(result.current.isCurrentlyEditable).toBe(true);
-    }, TIMEOUT);
+    });
   });
 
   it("keeps canEdit but clears isCurrentlyEditable when edit mode is off", async () => {
     const result = await setup({ editable: false });
-    await waitFor(() => expect(result.current.canEdit).toBe(true), TIMEOUT);
+    await waitFor(() => expect(result.current.canEdit).toBe(true));
     expect(result.current.isCurrentlyEditable).toBe(false);
   });
 
@@ -423,7 +421,7 @@ describe("useSelectEditable", () => {
     await waitFor(() => {
       expect(result.current.canEdit).toBe(false);
       expect(result.current.isCurrentlyEditable).toBe(false);
-    }, TIMEOUT);
+    });
   });
 
   it("blocks editing when the user lacks update permission", async () => {
@@ -436,7 +434,7 @@ describe("useSelectEditable", () => {
     await waitFor(() => {
       expect(result.current.canEdit).toBe(false);
       expect(result.current.isCurrentlyEditable).toBe(false);
-    }, TIMEOUT);
+    });
   });
 
   it("honors an explicit key override for the snapshot check without a scope", async () => {
@@ -444,6 +442,6 @@ describe("useSelectEditable", () => {
     await waitFor(() => {
       expect(result.current.canEdit).toBe(false);
       expect(result.current.isCurrentlyEditable).toBe(false);
-    }, TIMEOUT);
+    });
   });
 });

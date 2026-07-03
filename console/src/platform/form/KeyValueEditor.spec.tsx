@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { KeyValueEditor } from "@/platform/form";
-import { renderWithConsole } from "@/testutil";
+import { getBySelector, renderWithConsole } from "@/testutil";
 
 const PATH = "headers";
 
@@ -62,15 +62,10 @@ const lastHeaders = (onChange: OnChange): Row[] | undefined =>
   ).values[PATH];
 
 describe("KeyValueEditor", () => {
-  it("should render the label and no rows when the value is empty", async () => {
-    await renderWithConsole(<Harness />);
-    expect(screen.getByText("Headers")).toBeTruthy();
-    expect(screen.queryByPlaceholderText("Key")).toBeNull();
-  });
-
   it("should append an empty row when the add button is clicked", async () => {
     const onChange = vi.fn();
     await renderWithConsole(<Harness onChange={onChange} />);
+    expect(screen.queryByPlaceholderText("Key")).toBeNull();
     fireEvent.click(screen.getByRole("button"));
     await waitFor(() => expect(screen.getByPlaceholderText("Key")).toBeTruthy());
     expect(lastHeaders(onChange)).toEqual([{ name: "", value: "" }]);
@@ -106,6 +101,56 @@ describe("KeyValueEditor", () => {
     fireEvent.change(valueInput, { target: { value: "Bearer" } });
     await waitFor(() =>
       expect(lastHeaders(onChange)).toEqual([{ name: "X", value: "Bearer" }]),
+    );
+  });
+
+  it("should remove only the targeted row when several exist", async () => {
+    const onChange = vi.fn();
+    const { container } = await renderWithConsole(
+      <Harness
+        onChange={onChange}
+        initialHeaders={[
+          { name: "A", value: "1" },
+          { name: "B", value: "2" },
+          { name: "C", value: "3" },
+        ]}
+      />,
+    );
+    await screen.findByDisplayValue("B");
+    const rows = container.querySelectorAll(".console-kv-row");
+    expect(rows).toHaveLength(3);
+    fireEvent.click(getBySelector(rows[1], "button"));
+    await waitFor(() =>
+      expect(lastHeaders(onChange)).toEqual([
+        { name: "A", value: "1" },
+        { name: "C", value: "3" },
+      ]),
+    );
+    expect(screen.queryByDisplayValue("B")).toBeNull();
+  });
+
+  it("should only edit the targeted row when two rows share the same key", async () => {
+    const onChange = vi.fn();
+    const { container } = await renderWithConsole(
+      <Harness
+        onChange={onChange}
+        initialHeaders={[
+          { name: "dup", value: "first" },
+          { name: "dup", value: "second" },
+        ]}
+      />,
+    );
+    await screen.findByDisplayValue("second");
+    const rows = container.querySelectorAll(".console-kv-row");
+    const secondValueInput = rows[1].querySelector(
+      "input[placeholder='Value']",
+    ) as HTMLInputElement;
+    fireEvent.change(secondValueInput, { target: { value: "changed" } });
+    await waitFor(() =>
+      expect(lastHeaders(onChange)).toEqual([
+        { name: "dup", value: "first" },
+        { name: "dup", value: "changed" },
+      ]),
     );
   });
 

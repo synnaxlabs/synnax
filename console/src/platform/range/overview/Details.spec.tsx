@@ -8,29 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, type ranger } from "@synnaxlabs/client";
-import { id, TimeRange } from "@synnaxlabs/x";
+import { TimeRange } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
+import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
-import { createTestRange } from "@/platform/range/testutil";
+import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
-const TIMEOUT = { timeout: 5000 };
-
 const createRange = async (): Promise<ranger.Range> => await createTestRange(client);
-
-const stubClipboard = (): ReturnType<typeof vi.fn> => {
-  const writeText = vi.fn(async (_text: string) => {});
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText },
-  });
-  return writeText;
-};
 
 const buttonWithIcon = (label: string): HTMLElement => {
   const button = screen
@@ -40,60 +31,58 @@ const buttonWithIcon = (label: string): HTMLElement => {
   return button;
 };
 
+const renderDetails = async (rangeKey: string) => {
+  const { wrapper, store } = await createConsoleWrapper({ client });
+  const result = render(
+    <>
+      <Range.Details rangeKey={rangeKey} />
+      <Modals.Stack />
+    </>,
+    { wrapper },
+  );
+  return { ...result, store };
+};
+
 describe("Range.Details", () => {
-  it("should load the range's name into the form", async () => {
+  it("should rename the range on the cluster when the name field is edited", async () => {
     const range = await createRange();
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.Details rangeKey={range.key} />, { wrapper });
-    await waitFor(
-      () => expect(screen.getByDisplayValue(range.name)).toBeTruthy(),
-      TIMEOUT,
-    );
-  });
-
-  it("should render the from/to time range fields", async () => {
-    const range = await createRange();
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.Details rangeKey={range.key} />, { wrapper });
-    await waitFor(() => expect(screen.getByText("From")).toBeTruthy(), TIMEOUT);
-    expect(screen.getByText("To")).toBeTruthy();
-    expect(screen.getByText("Stage")).toBeTruthy();
-  });
-
-  it("should render the parent range button for a child range", async () => {
-    const parent = await createRange();
-    const child = await client.ranges.create({
-      name: id.create(),
-      timeRange: new TimeRange(1, 2),
-      parent,
+    await renderDetails(range.key);
+    const nameInput = await screen.findByDisplayValue(range.name, {});
+    const next = uniqueRangeName("renamed");
+    fireEvent.change(nameInput, { target: { value: next } });
+    fireEvent.blur(nameInput);
+    await waitFor(async () => {
+      const retrieved = await client.ranges.retrieve(range.key);
+      expect(retrieved.name).toEqual(next);
     });
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.Details rangeKey={child.key} />, { wrapper });
-    await waitFor(
-      () => expect(screen.getByText("Child Range of")).toBeTruthy(),
-      TIMEOUT,
-    );
-    expect(screen.getByText(parent.name)).toBeTruthy();
   });
 
   it("should place the parent range's overview layout when its button is clicked", async () => {
     const parent = await createRange();
     const child = await client.ranges.create({
-      name: id.create(),
+      name: uniqueRangeName("child"),
       timeRange: new TimeRange(1, 2),
       parent,
     });
-    const { wrapper, store } = await createConsoleWrapper({ client });
-    render(<Range.Details rangeKey={child.key} />, { wrapper });
-    fireEvent.click(await screen.findByText(parent.name, {}, TIMEOUT));
-    await waitFor(
-      () => expect(Session.Layout.select(store.getState(), parent.key)).toBeDefined(),
-      TIMEOUT,
+    const { store } = await renderDetails(child.key);
+    fireEvent.click(await screen.findByText(parent.name, {}));
+    await waitFor(() =>
+      expect(Session.Layout.select(store.getState(), parent.key)).toBeDefined(),
+    );
+  });
+
+  it("should open the CSV download modal scoped to the range", async () => {
+    const range = await createRange();
+    await renderDetails(range.key);
+    await screen.findByDisplayValue(range.name, {});
+    fireEvent.click(buttonWithIcon("csv"));
+    await waitFor(() =>
+      expect(document.body.textContent).toContain(`Download data for ${range.name}`),
     );
   });
 
   it("should copy a link to the range to the clipboard", async () => {
-    const writeText = stubClipboard();
+    const writeText = stubClipboardWriteText();
     const range = await createRange();
     const { wrapper } = await createConsoleWrapper({
       client,
@@ -116,42 +105,31 @@ describe("Range.Details", () => {
       },
     });
     render(<Range.Details rangeKey={range.key} />, { wrapper });
-    await waitFor(
-      () => expect(screen.getByDisplayValue(range.name)).toBeTruthy(),
-      TIMEOUT,
-    );
+    await screen.findByDisplayValue(range.name, {});
     fireEvent.click(buttonWithIcon("link"));
-    await waitFor(() => expect(writeText).toHaveBeenCalled(), TIMEOUT);
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
     expect(writeText.mock.calls[0][0]).toContain(range.key);
   });
 
   it("should copy Python retrieval code to the clipboard", async () => {
-    const writeText = stubClipboard();
+    const writeText = stubClipboardWriteText();
     const range = await createRange();
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.Details rangeKey={range.key} />, { wrapper });
-    await waitFor(
-      () => expect(screen.getByDisplayValue(range.name)).toBeTruthy(),
-      TIMEOUT,
-    );
+    await renderDetails(range.key);
+    await screen.findByDisplayValue(range.name, {});
     fireEvent.click(buttonWithIcon("python"));
-    await waitFor(() => expect(writeText).toHaveBeenCalled(), TIMEOUT);
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
     const copied = writeText.mock.calls[0][0];
     expect(copied).toContain("client.ranges.retrieve");
     expect(copied).toContain(range.key);
   });
 
   it("should copy TypeScript retrieval code to the clipboard", async () => {
-    const writeText = stubClipboard();
+    const writeText = stubClipboardWriteText();
     const range = await createRange();
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.Details rangeKey={range.key} />, { wrapper });
-    await waitFor(
-      () => expect(screen.getByDisplayValue(range.name)).toBeTruthy(),
-      TIMEOUT,
-    );
+    await renderDetails(range.key);
+    await screen.findByDisplayValue(range.name, {});
     fireEvent.click(buttonWithIcon("typescript"));
-    await waitFor(() => expect(writeText).toHaveBeenCalled(), TIMEOUT);
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
     const copied = writeText.mock.calls[0][0];
     expect(copied).toContain("client.ranges.retrieve");
     expect(copied).toContain(range.key);

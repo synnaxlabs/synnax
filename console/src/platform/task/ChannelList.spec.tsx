@@ -13,7 +13,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
 
 const listItem = Component.renderProp(
   ({ itemKey, ...p }: Task.ChannelListItemProps) => (
@@ -26,9 +25,9 @@ const listItem = Component.renderProp(
 interface HarnessProps {
   selected?: string[];
   onSelect?: (keys: string[]) => void;
-  onDuplicate?: (channels: Channel[], keys: string[]) => void;
-  onTare?: (keys: string[], channels: Channel[]) => void;
-  allowTare?: (keys: string[], channels: Channel[]) => boolean;
+  onDuplicate?: (channels: Task.Channel[], keys: string[]) => void;
+  onTare?: (keys: string[], channels: Task.Channel[]) => void;
+  allowTare?: (keys: string[], channels: Task.Channel[]) => boolean;
 }
 
 const Harness = ({
@@ -38,9 +37,9 @@ const Harness = ({
   onTare,
   allowTare,
 }: HarnessProps) => {
-  const { data, remove } = Form.useFieldList<string, Channel>("config.channels");
+  const { data, remove } = Form.useFieldList<string, Task.Channel>("config.channels");
   return (
-    <Task.ChannelList<Channel>
+    <Task.ChannelList<Task.Channel>
       data={data}
       remove={remove}
       path="config.channels"
@@ -57,49 +56,25 @@ const Harness = ({
 };
 Harness.displayName = "ChannelListHarness";
 
-const twoChannels = {
-  config: {
-    channels: [
-      { key: "a", enabled: true },
-      { key: "b", enabled: false },
-    ],
-  },
-};
+const CHANNEL_A: Task.Channel = { key: "a", enabled: true };
+const CHANNEL_B: Task.Channel = { key: "b", enabled: false };
+
+const twoChannels = { config: { channels: [CHANNEL_A, CHANNEL_B] } };
 
 describe("ChannelList", () => {
-  it("should render the header and an item for each channel", async () => {
-    await renderInTaskForm(<Harness />, { values: twoChannels });
-    expect(screen.getByText("My Header")).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("item-a")).toBeTruthy());
-    expect(screen.getByText("item-b")).toBeTruthy();
-  });
-
   it("should render the empty content when there are no channels", async () => {
     await renderInTaskForm(<Harness />, { values: { config: { channels: [] } } });
     await waitFor(() => expect(screen.getByText("Nothing here")).toBeTruthy());
   });
 
-  it("should invoke onSelect when an item is clicked", async () => {
+  it("should select the clicked channel", async () => {
     const onSelect = vi.fn();
     await renderInTaskForm(<Harness onSelect={onSelect} />, { values: twoChannels });
     fireEvent.click(await screen.findByText("item-a"));
-    await waitFor(() => expect(onSelect).toHaveBeenCalled());
+    await waitFor(() => expect(onSelect).toHaveBeenCalledWith(["a"]));
   });
 
   describe("context menu", () => {
-    it("should show remove and disable actions for an enabled channel", async () => {
-      await renderInTaskForm(<Harness />, { values: twoChannels });
-      fireEvent.contextMenu(await screen.findByText("item-a"));
-      await waitFor(() => expect(screen.getByText("Remove")).toBeTruthy());
-      expect(screen.getByText("Disable")).toBeTruthy();
-    });
-
-    it("should show an enable action for a disabled channel", async () => {
-      await renderInTaskForm(<Harness />, { values: twoChannels });
-      fireEvent.contextMenu(await screen.findByText("item-b"));
-      await waitFor(() => expect(screen.getByText("Enable")).toBeTruthy());
-    });
-
     it("should disable a channel through the menu", async () => {
       const { form } = await renderInTaskForm(<Harness />, { values: twoChannels });
       fireEvent.contextMenu(await screen.findByText("item-a"));
@@ -118,24 +93,39 @@ describe("ChannelList", () => {
       );
     });
 
-    it("should offer a Duplicate action and invoke onDuplicate", async () => {
+    it("should remove the channel from the form and reselect the remainder", async () => {
+      const onSelect = vi.fn();
+      const { form } = await renderInTaskForm(<Harness onSelect={onSelect} />, {
+        values: twoChannels,
+      });
+      fireEvent.contextMenu(await screen.findByText("item-a"));
+      fireEvent.click(await screen.findByText("Remove"));
+      await waitFor(() =>
+        expect(form.current?.get("config.channels").value).toEqual([CHANNEL_B]),
+      );
+      expect(onSelect).toHaveBeenCalledWith(["b"]);
+    });
+
+    it("should pass all channels and the selected keys to onDuplicate", async () => {
       const onDuplicate = vi.fn();
       await renderInTaskForm(<Harness onDuplicate={onDuplicate} />, {
         values: twoChannels,
       });
       fireEvent.contextMenu(await screen.findByText("item-a"));
       fireEvent.click(await screen.findByText("Duplicate"));
-      await waitFor(() => expect(onDuplicate).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(onDuplicate).toHaveBeenCalledWith([CHANNEL_A, CHANNEL_B], ["a"]),
+      );
     });
 
-    it("should offer a Tare action when allowed and invoke onTare", async () => {
+    it("should pass the selected keys and channels to onTare when allowed", async () => {
       const onTare = vi.fn();
       await renderInTaskForm(<Harness onTare={onTare} allowTare={() => true} />, {
         values: twoChannels,
       });
       fireEvent.contextMenu(await screen.findByText("item-a"));
       fireEvent.click(await screen.findByText("Tare"));
-      await waitFor(() => expect(onTare).toHaveBeenCalled());
+      await waitFor(() => expect(onTare).toHaveBeenCalledWith(["a"], [CHANNEL_A]));
     });
 
     it("should not offer a Tare action when disallowed", async () => {
@@ -144,6 +134,21 @@ describe("ChannelList", () => {
       });
       fireEvent.contextMenu(await screen.findByText("item-a"));
       await waitFor(() => expect(screen.getByText("Remove")).toBeTruthy());
+      expect(screen.queryByText("Tare")).toBeNull();
+    });
+
+    it("should hide all mutating actions for a snapshot task", async () => {
+      const onDuplicate = vi.fn();
+      await renderInTaskForm(
+        <Harness onDuplicate={onDuplicate} onTare={vi.fn()} allowTare={() => true} />,
+        { values: { ...twoChannels, snapshot: true } },
+      );
+      fireEvent.contextMenu(await screen.findByText("item-a"));
+      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+      expect(screen.queryByText("Remove")).toBeNull();
+      expect(screen.queryByText("Duplicate")).toBeNull();
+      expect(screen.queryByText("Disable")).toBeNull();
+      expect(screen.queryByText("Enable")).toBeNull();
       expect(screen.queryByText("Tare")).toBeNull();
     });
   });

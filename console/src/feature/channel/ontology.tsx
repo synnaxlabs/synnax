@@ -14,6 +14,7 @@ import {
   type Flux,
   type Haul,
   Icon,
+  List,
   Menu,
   Schematic as PSchematic,
   Status,
@@ -119,7 +120,7 @@ const beforeSetAlias = async ({
 }: Flux.BeforeUpdateParams<PChannel.UpdateAliasParams>) => {
   if (data.channel == null) return false;
   const [alias, renamed] = await Text.asyncEdit(
-    ontology.idToString(channel.ontologyID(data.channel)),
+    List.itemNameID(ontology.idToString(channel.ontologyID(data.channel))),
   );
   if (!renamed) return false;
   return { ...data, alias };
@@ -293,7 +294,7 @@ export const Item = ({ id, resource, icon: _, ...rest }: Ontology.TreeItemProps)
     <Tree.Item {...rest}>
       <DataTypeIcon color={10} />
       <Text.MaybeEditable
-        id={ontology.idToString(id)}
+        id={List.itemNameID(ontology.idToString(id))}
         allowDoubleClick={false}
         value={name}
         overflow="ellipsis"

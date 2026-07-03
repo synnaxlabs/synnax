@@ -8,54 +8,36 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { findButton } from "@/platform/modals/testutil";
 import { User } from "@/platform/user";
 import { openModal } from "@/platform/user/testutil";
-
-const TIMEOUT = { timeout: 5000 };
-
-const assignButton = (): HTMLButtonElement => {
-  const btn = screen
-    .getAllByText("Assign")
-    .map((el) => el.closest<HTMLButtonElement>("button"))
-    .find((b) => b != null);
-  if (btn == null) throw new Error("Assign button not found");
-  return btn;
-};
+import { uniqueName } from "@/testutil";
 
 describe("User.useAssignRoleModal", () => {
-  it("should render the default title and role field", async () => {
-    await openModal(User.useAssignRoleModal, { params: { key: id.create() } });
-    await waitFor(() => expect(screen.getByText("Assign Role")).toBeTruthy());
-    expect(screen.getByText("Role")).toBeTruthy();
-  });
-
-  it("should render a custom title when provided", async () => {
+  it("should show the custom title and disable Assign when no cluster is connected", async () => {
     await openModal(User.useAssignRoleModal, {
-      params: { key: id.create(), title: "Change Permissions" },
+      params: { userKey: uniqueName("user"), title: "Change Permissions" },
     });
     await waitFor(() => expect(screen.getByText("Change Permissions")).toBeTruthy());
+    expect(findButton("Assign").className).toContain("pluto--disabled");
   });
 
-  it("should disable Assign when no cluster is connected", async () => {
-    await openModal(User.useAssignRoleModal, { params: { key: id.create() } });
-    await waitFor(() => expect(screen.getByText("Assign Role")).toBeTruthy());
-    expect(assignButton().className).toContain("pluto--disabled");
-  });
-
-  it("should enable Assign against a live cluster with a real subject", async () => {
+  it("should fall back to the default title and enable Assign against a live cluster", async () => {
     const client = createTestClient();
-    const user = await client.users.create({
-      username: id.create(),
-      password: "password",
+    const subject = await client.users.create({
+      username: uniqueName("user"),
+      password: "password123",
     });
-    await openModal(User.useAssignRoleModal, { client, params: { key: user.key } });
-    await waitFor(
-      () => expect(assignButton().className).not.toContain("pluto--disabled"),
-      TIMEOUT,
+    await openModal(User.useAssignRoleModal, {
+      client,
+      params: { userKey: subject.key },
+    });
+    await waitFor(() => expect(screen.getByText("Assign Role")).toBeTruthy());
+    await waitFor(() =>
+      expect(findButton("Assign").className).not.toContain("pluto--disabled"),
     );
   });
 });

@@ -134,7 +134,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const initialValues = {
       ...getInitialValues({ deviceKey, config }),
       key: taskKey,
-      rackKey: (rackKey ?? taskKey == null) ? 0 : task.rackKey(taskKey),
+      rackKey: rackKey ?? (taskKey == null ? 0 : task.rackKey(taskKey)),
     };
     const confirm = useConfirm();
     const { form, status, save } = PTask.createForm({ schemas, initialValues })({

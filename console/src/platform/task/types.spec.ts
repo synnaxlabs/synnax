@@ -131,13 +131,31 @@ describe("Hardware Task Types", () => {
 
       it("should ignore empty channel names", () => {
         const channels: Task.ReadChannel[] = [
-          { ...Task.ZERO_READ_CHANNEL, enabled: true, key: "channel1", channel: 1 },
-          { ...Task.ZERO_READ_CHANNEL, enabled: true, key: "channel2", channel: 2 },
+          {
+            ...Task.ZERO_READ_CHANNEL,
+            enabled: true,
+            key: "channel1",
+            channel: 1,
+            name: "",
+          },
+          {
+            ...Task.ZERO_READ_CHANNEL,
+            enabled: true,
+            key: "channel2",
+            channel: 1,
+            name: "",
+          },
         ];
 
         const result = readChannelsArrayZ.safeParse(channels);
 
-        expect(result.success).toBe(true);
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.issues.length).toBe(2);
+          expect(
+            result.error.issues.every((issue) => !issue.message.startsWith("Name")),
+          ).toBe(true);
+        }
       });
     });
 

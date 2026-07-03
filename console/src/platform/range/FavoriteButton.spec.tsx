@@ -18,8 +18,6 @@ import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
-const TIMEOUT = { timeout: 5000 };
-
 const createRange = async () => await createTestRange(client);
 
 describe("Range.FavoriteButton", () => {
@@ -27,7 +25,7 @@ describe("Range.FavoriteButton", () => {
     const range = await createRange();
     const { wrapper, store } = await createConsoleWrapper({ client });
     render(<Range.FavoriteButton range={range} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy(), TIMEOUT);
+    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
     expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();
     expect(screen.getByRole("button").className).not.toContain(
       "favorite-button--favorite",
@@ -38,7 +36,7 @@ describe("Range.FavoriteButton", () => {
     const range = await createRange();
     const { wrapper, store } = await createConsoleWrapper({ client });
     render(<Range.FavoriteButton range={range} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy(), TIMEOUT);
+    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
     fireEvent.click(screen.getByRole("button"));
     const state = Session.Range.selectState(store.getState(), range.key);
     expect(state).toBeDefined();
@@ -59,7 +57,7 @@ describe("Range.FavoriteButton", () => {
       },
     });
     render(<Range.FavoriteButton range={range} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy(), TIMEOUT);
+    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
     expect(Session.Range.selectState(store.getState(), range.key)).toBeDefined();
     fireEvent.click(screen.getByRole("button"));
     expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();

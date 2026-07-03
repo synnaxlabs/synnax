@@ -13,12 +13,10 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({
   engine: "web",
 }));
 
-vi.mock("@/session/runtime/runtime", () => ({
-  get ENGINE() {
-    return mocks.engine;
-  },
-  Drift: class {},
-}));
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
 vi.mock("@tauri-apps/plugin-fs", () => ({ writeFile: vi.fn() }));
@@ -27,11 +25,19 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
 import { Runtime } from "@/platform/runtime";
+import {
+  captureBrowserDownloads,
+  type CapturedDownloads,
+  fakeSaveFileHandle,
+  installSaveFilePicker,
+  MOCK_OBJECT_URL,
+  removeFilePickers,
+} from "@/testutil";
 
 const saveMock = vi.mocked(save);
 const writeFileMock = vi.mocked(writeFile);
 
-const makeStream = (
+const createStream = (
   hooks: { onCancel?: () => void } = {},
 ): ReadableStream<Uint8Array> =>
   new ReadableStream<Uint8Array>({
@@ -45,25 +51,15 @@ const makeStream = (
   });
 
 describe("Runtime download", () => {
-  let createObjectURL: ReturnType<typeof vi.spyOn>;
-  let revokeObjectURL: ReturnType<typeof vi.spyOn>;
-  let click: ReturnType<typeof vi.spyOn>;
-  const clickedAnchors: HTMLAnchorElement[] = [];
+  let downloads: CapturedDownloads;
 
   beforeEach(() => {
     mocks.engine = "web";
     saveMock.mockReset();
     writeFileMock.mockReset();
     writeFileMock.mockResolvedValue(undefined);
-    clickedAnchors.length = 0;
-    delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
-    createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:mock-url");
-    revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-    click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
-      this: HTMLAnchorElement,
-    ) {
-      clickedAnchors.push(this);
-    });
+    removeFilePickers();
+    downloads = captureBrowserDownloads();
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -73,38 +69,29 @@ describe("Runtime download", () => {
     it("should create an object URL, click a download link, and revoke the URL", () => {
       const blob = new Blob(["hello"], { type: "text/plain" });
       Runtime.downloadFromBrowser(blob, "greeting.txt");
-      expect(createObjectURL).toHaveBeenCalledWith(blob);
-      expect(click).toHaveBeenCalledTimes(1);
-      expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
+      expect(downloads.blobs).toEqual([blob]);
+      expect(downloads.anchors).toHaveLength(1);
+      expect(downloads.revoked).toEqual([MOCK_OBJECT_URL]);
     });
 
     it("should set the download filename on the anchor", () => {
       Runtime.downloadFromBrowser(new Blob(["x"]), "report.csv");
-      expect(clickedAnchors).toHaveLength(1);
-      expect(clickedAnchors[0].download).toBe("report.csv");
+      expect(downloads.anchors).toHaveLength(1);
+      expect(downloads.anchors[0].download).toBe("report.csv");
     });
   });
 
   describe("downloadStream", () => {
     describe("showSaveFilePicker (case 1)", () => {
-      const installPicker = (name: string) => {
-        const writable = new WritableStream<Uint8Array>({ write() {} });
-        const fileHandle = {
-          name,
-          createWritable: vi.fn().mockResolvedValue(writable),
-        };
-        const showSaveFilePicker = vi.fn().mockResolvedValue(fileHandle);
-        (window as unknown as Record<string, unknown>).showSaveFilePicker =
-          showSaveFilePicker;
-        return { showSaveFilePicker, fileHandle };
-      };
-
       it("should pipe the stream into the chosen file and report status", async () => {
-        const { showSaveFilePicker } = installPicker("chosen.csv");
+        const showSaveFilePicker = vi
+          .fn()
+          .mockResolvedValue(fakeSaveFileHandle("chosen.csv"));
+        installSaveFilePicker(showSaveFilePicker);
         const addStatus = vi.fn();
         const onDownloadStart = vi.fn();
         await Runtime.downloadStream({
-          stream: makeStream(),
+          stream: createStream(),
           name: "data",
           extension: "csv",
           addStatus,
@@ -126,12 +113,12 @@ describe("Runtime download", () => {
 
       it("should cancel the stream and stay silent when the user aborts", async () => {
         let cancelled = false;
-        (window as unknown as Record<string, unknown>).showSaveFilePicker = vi
-          .fn()
-          .mockRejectedValue(new DOMException("aborted", "AbortError"));
+        installSaveFilePicker(
+          vi.fn().mockRejectedValue(new DOMException("aborted", "AbortError")),
+        );
         const addStatus = vi.fn();
         await Runtime.downloadStream({
-          stream: makeStream({ onCancel: () => (cancelled = true) }),
+          stream: createStream({ onCancel: () => (cancelled = true) }),
           name: "data",
           extension: "csv",
           addStatus,
@@ -141,12 +128,10 @@ describe("Runtime download", () => {
       });
 
       it("should rethrow non-abort picker errors", async () => {
-        (window as unknown as Record<string, unknown>).showSaveFilePicker = vi
-          .fn()
-          .mockRejectedValue(new Error("disk on fire"));
+        installSaveFilePicker(vi.fn().mockRejectedValue(new Error("disk on fire")));
         await expect(
           Runtime.downloadStream({
-            stream: makeStream(),
+            stream: createStream(),
             name: "data",
             extension: "csv",
             addStatus: vi.fn(),
@@ -163,7 +148,7 @@ describe("Runtime download", () => {
       it("should save via dialog and write the stream to disk", async () => {
         saveMock.mockResolvedValue("/home/user/data.csv");
         const addStatus = vi.fn();
-        const stream = makeStream();
+        const stream = createStream();
         await Runtime.downloadStream({
           stream,
           name: "data",
@@ -190,7 +175,7 @@ describe("Runtime download", () => {
         let cancelled = false;
         const addStatus = vi.fn();
         await Runtime.downloadStream({
-          stream: makeStream({ onCancel: () => (cancelled = true) }),
+          stream: createStream({ onCancel: () => (cancelled = true) }),
           name: "data",
           extension: "csv",
           addStatus,
@@ -205,13 +190,13 @@ describe("Runtime download", () => {
       it("should buffer the stream to a blob and download it", async () => {
         const addStatus = vi.fn();
         await Runtime.downloadStream({
-          stream: makeStream(),
+          stream: createStream(),
           name: "data",
           extension: "csv",
           addStatus,
         });
-        expect(createObjectURL).toHaveBeenCalledTimes(1);
-        expect(click).toHaveBeenCalledTimes(1);
+        expect(downloads.blobs).toHaveLength(1);
+        expect(downloads.anchors).toHaveLength(1);
         expect(addStatus).toHaveBeenNthCalledWith(1, {
           variant: "info",
           message: "Downloading data to Downloads",

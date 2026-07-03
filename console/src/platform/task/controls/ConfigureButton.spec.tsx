@@ -7,18 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Triggers } from "@synnaxlabs/pluto";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderWithConsole } from "@/testutil";
 
-describe("Controls.ConfigureButton", () => {
-  it("should render a Configure button", async () => {
-    await renderWithConsole(<Task.Controls.ConfigureButton onClick={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /Configure/ })).toBeTruthy();
-  });
+const pressConfigureTrigger = () => {
+  fireEvent.keyDown(document.body, { code: "ControlLeft" });
+  fireEvent.keyDown(document.body, { code: "Enter" });
+  fireEvent.keyUp(document.body, { code: "Enter" });
+  fireEvent.keyUp(document.body, { code: "ControlLeft" });
+};
 
+describe("Controls.ConfigureButton", () => {
   it("should invoke onClick when pressed", async () => {
     const onClick = vi.fn();
     await renderWithConsole(<Task.Controls.ConfigureButton onClick={onClick} />);
@@ -26,13 +29,34 @@ describe("Controls.ConfigureButton", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  it("should be disabled when the disabled prop is set", async () => {
+  it("should not invoke onClick when disabled", async () => {
     const onClick = vi.fn();
     await renderWithConsole(
       <Task.Controls.ConfigureButton onClick={onClick} disabled />,
     );
-    const button = screen.getByRole("button", { name: /Configure/ });
-    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("should invoke onClick on Control+Enter when showTrigger is set", async () => {
+    const onClick = vi.fn();
+    await renderWithConsole(
+      <Triggers.Provider>
+        <Task.Controls.ConfigureButton onClick={onClick} showTrigger />
+      </Triggers.Provider>,
+    );
+    pressConfigureTrigger();
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("should ignore Control+Enter when showTrigger is not set", async () => {
+    const onClick = vi.fn();
+    await renderWithConsole(
+      <Triggers.Provider>
+        <Task.Controls.ConfigureButton onClick={onClick} />
+      </Triggers.Provider>,
+    );
+    pressConfigureTrigger();
     expect(onClick).not.toHaveBeenCalled();
   });
 });

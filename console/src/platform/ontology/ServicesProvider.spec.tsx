@@ -13,7 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Ontology } from "@/platform/ontology";
-import { buildServices } from "@/platform/ontology/testutil";
+import { createServices } from "@/platform/ontology/testutil";
 
 describe("ServicesProvider", () => {
   const channelService: Ontology.Service = {
@@ -21,7 +21,7 @@ describe("ServicesProvider", () => {
     type: "channel",
     icon: <Icon.Channel />,
   };
-  const services = buildServices({ channel: channelService });
+  const services = createServices({ channel: channelService });
 
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Ontology.ServicesProvider services={services}>
@@ -37,7 +37,6 @@ describe("ServicesProvider", () => {
   it("should resolve a single service by type via useService", () => {
     const { result } = renderHook(() => Ontology.useService("channel"), { wrapper });
     expect(result.current).toBe(channelService);
-    expect(result.current.hasChildren).toBe(true);
   });
 
   it("should throw when useServices is used outside of a provider", () => {

@@ -12,7 +12,9 @@ import { type project } from "@synnaxlabs/client";
 import { Session } from "@/session";
 
 /** A project slice with the given project set as the active (selected) project. */
-export const activeState = (proj: project.Project): Session.Project.SliceState => ({
+export const createActiveState = (
+  proj: project.Project,
+): Session.Project.SliceState => ({
   ...Session.Project.ZERO_SLICE_STATE,
   selected: proj.key,
 });
@@ -21,7 +23,7 @@ export const activeState = (proj: project.Project): Session.Project.SliceState =
  * A layout slice with a single placed mosaic tab, distinguishable from the zero slice so
  * a select/switch flow can prove the project's saved layout was loaded.
  */
-export const savedLayout = (layoutKey: string): Session.Layout.SliceState => {
+export const createSavedLayout = (layoutKey: string): Session.Layout.SliceState => {
   let s = Session.Layout.reducer(undefined, { type: "@@INIT" });
   s = Session.Layout.reducer(
     s,

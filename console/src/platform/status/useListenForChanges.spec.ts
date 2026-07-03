@@ -8,21 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, type status } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Status } from "@/platform/status";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const TIMEOUT = { timeout: 5000 };
-
 const createStatus = async (): Promise<status.Status> =>
   await client.statuses.set({
-    name: id.create(),
+    name: uniqueName("status"),
     message: "listen test",
     variant: "success",
   });
@@ -43,6 +40,6 @@ describe("Status.useListenForChanges", () => {
     await client.statuses.delete(stat.key);
     await waitFor(() => {
       expect(Session.Status.selectFavorites(store.getState())).not.toContain(stat.key);
-    }, TIMEOUT);
+    });
   });
 });

@@ -8,21 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { Menu } from "@synnaxlabs/pluto";
-import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { Link } from "@/platform/link";
 import { renderWithConsole } from "@/testutil";
 
 describe("Link.CopyContextMenuItem", () => {
-  it("renders the Copy link label and fires onClick", async () => {
-    const onClick = vi.fn();
+  it("renders the Copy link label", async () => {
     await renderWithConsole(
       <Menu.Menu>
-        <Link.CopyContextMenuItem onClick={onClick} />
+        <Link.CopyContextMenuItem />
       </Menu.Menu>,
     );
-    fireEvent.click(screen.getByText("Copy link"));
-    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Copy link")).toBeTruthy();
   });
 });

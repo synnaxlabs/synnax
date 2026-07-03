@@ -10,41 +10,34 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Cluster } from "@/platform/cluster";
-import { cluster, clusterState, renderClusterUI } from "@/platform/cluster/testutil";
+import {
+  createCluster,
+  createClusterState,
+  renderClusterUI,
+} from "@/platform/cluster/testutil";
 import { Session } from "@/session";
 
 describe("cluster List", () => {
-  it("should render every cluster's name and address", async () => {
+  it("should call onChange with the clicked cluster's key", async () => {
+    const onChange = vi.fn();
     await renderClusterUI(
-      <Cluster.List value="a" onChange={vi.fn()} />,
-      clusterState(
-        [
-          cluster("a", { name: "Alpha", host: "alpha.host", port: 1111 }),
-          cluster("b", { name: "Bravo", host: "bravo.host", port: 2222 }),
-        ],
+      <Cluster.List value="a" onChange={onChange} />,
+      createClusterState(
+        [createCluster("a", { name: "Alpha" }), createCluster("b", { name: "Bravo" })],
         "a",
       ),
     );
-    await waitFor(() => expect(screen.getByText("Alpha")).toBeTruthy());
-    expect(screen.getByText("Bravo")).toBeTruthy();
-    expect(screen.getByText("alpha.host:1111")).toBeTruthy();
-    expect(screen.getByText("bravo.host:2222")).toBeTruthy();
-  });
-
-  it("should show the empty action when there are no clusters", async () => {
-    await renderClusterUI(
-      <Cluster.List value={undefined} onChange={vi.fn()} />,
-      clusterState([]),
-    );
-    await waitFor(() => expect(screen.getByText("No Cores added.")).toBeTruthy());
-    expect(screen.getByText("Add a Core")).toBeTruthy();
+    fireEvent.click(await screen.findByText("Bravo"));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.lastCall?.[0]).toBe("b");
   });
 
   it("should open the connect modal from the empty action", async () => {
     await renderClusterUI(
       <Cluster.List value={undefined} onChange={vi.fn()} />,
-      clusterState([]),
+      createClusterState([]),
     );
     fireEvent.click(await screen.findByText("Add a Core"));
     await waitFor(() =>
@@ -55,7 +48,7 @@ describe("cluster List", () => {
   it("should open the connect modal in edit mode from the context menu", async () => {
     await renderClusterUI(
       <Cluster.List value="a" onChange={vi.fn()} />,
-      clusterState([cluster("a", { name: "Alpha" })], "a"),
+      createClusterState([createCluster("a", { name: "Alpha" })], "a"),
     );
     fireEvent.contextMenu(await screen.findByText("Alpha"));
     fireEvent.click(await screen.findByText("Edit"));
@@ -66,27 +59,23 @@ describe("cluster List", () => {
   });
 
   it("should copy a link to the cluster from the context menu", async () => {
-    const writeText = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
+    const writeText = stubClipboardWriteText();
     await renderClusterUI(
       <Cluster.List value="a" onChange={vi.fn()} />,
-      clusterState([cluster("a", { name: "Alpha" })], "a"),
+      createClusterState([createCluster("a", { name: "Alpha" })], "a"),
     );
     fireEvent.contextMenu(await screen.findByText("Alpha"));
     fireEvent.click(await screen.findByText("Copy link"));
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(writeText.mock.calls[0][0]).toContain("a");
+    expect(writeText.mock.calls[0][0]).toBe("synnax://cluster/a");
   });
 
   it("should remove a cluster and reselect a sibling from the context menu", async () => {
     const onChange = vi.fn();
     const { store } = await renderClusterUI(
       <Cluster.List value="a" onChange={onChange} />,
-      clusterState(
-        [cluster("a", { name: "Alpha" }), cluster("b", { name: "Bravo" })],
+      createClusterState(
+        [createCluster("a", { name: "Alpha" }), createCluster("b", { name: "Bravo" })],
         "a",
       ),
     );
@@ -97,10 +86,26 @@ describe("cluster List", () => {
     expect(Session.Cluster.selectState(store.getState(), "b")).toBeDefined();
   });
 
+  it("should refresh the connection and adopt the server's cluster key from the context menu", async () => {
+    const { store } = await renderClusterUI(
+      <Cluster.List value="a" onChange={vi.fn()} />,
+      createClusterState([createCluster("a", { name: "Alpha" })], "a"),
+    );
+    fireEvent.contextMenu(await screen.findByText("Alpha"));
+    fireEvent.click(await screen.findByText("Refresh connection"));
+    await waitFor(() =>
+      expect(Session.Cluster.selectState(store.getState(), "a")).toBeUndefined(),
+    );
+    const clusters = Session.Cluster.selectMany(store.getState());
+    expect(clusters).toHaveLength(1);
+    expect(clusters[0].name).toBe("Alpha");
+    expect(clusters[0].key).not.toBe("a");
+  });
+
   it("should rename a cluster to a new name from the context menu", async () => {
     const { store } = await renderClusterUI(
       <Cluster.List value="a" onChange={vi.fn()} />,
-      clusterState([cluster("a", { name: "Alpha" })], "a"),
+      createClusterState([createCluster("a", { name: "Alpha" })], "a"),
     );
     fireEvent.contextMenu(await screen.findByText("Alpha"));
     fireEvent.click(await screen.findByText("Rename"));
@@ -116,8 +121,8 @@ describe("cluster List", () => {
   it("should reject renaming a cluster to a name already in use", async () => {
     const { store } = await renderClusterUI(
       <Cluster.List value="a" onChange={vi.fn()} />,
-      clusterState(
-        [cluster("a", { name: "Alpha" }), cluster("b", { name: "Bravo" })],
+      createClusterState(
+        [createCluster("a", { name: "Alpha" }), createCluster("b", { name: "Bravo" })],
         "a",
       ),
     );
@@ -135,7 +140,7 @@ describe("cluster List", () => {
   it("should open the connect modal from the header add button", async () => {
     await renderClusterUI(
       <Cluster.List value="a" onChange={vi.fn()} />,
-      clusterState([cluster("a", { name: "Alpha" })], "a"),
+      createClusterState([createCluster("a", { name: "Alpha" })], "a"),
     );
     const addButton = screen
       .getAllByRole("button")

@@ -13,12 +13,10 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({
   engine: "web",
 }));
 
-vi.mock("@/session/runtime/runtime", () => ({
-  get ENGINE() {
-    return mocks.engine;
-  },
-  Drift: class {},
-}));
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 vi.mock("@tauri-apps/api/path", () => ({
   sep: vi.fn(() => "/"),
@@ -43,6 +41,16 @@ import {
 } from "@tauri-apps/plugin-fs";
 
 import { Runtime } from "@/platform/runtime";
+import {
+  assertDefined,
+  captureBrowserDownloads,
+  type CapturedDownloads,
+  fakePickedFile,
+  type FilePickerInterceptor,
+  installDirectoryPicker,
+  interceptFilePicker,
+  removeFilePickers,
+} from "@/testutil";
 
 const openMock = vi.mocked(open);
 const saveMock = vi.mocked(save);
@@ -52,30 +60,11 @@ const readDirMock = vi.mocked(readDir);
 const readTextFileMock = vi.mocked(readTextFile);
 const writeTextFileMock = vi.mocked(writeTextFile);
 
-interface FakeFile {
-  name: string;
-  webkitRelativePath?: string;
-  text: () => Promise<string>;
-}
-
-const fakeFile = (name: string, contents = "content", rel?: string): FakeFile => ({
-  name,
-  webkitRelativePath: rel,
-  text: () => Promise.resolve(contents),
-});
-
-let createdInputs: HTMLInputElement[] = [];
-
-const setFiles = (input: HTMLInputElement, files: FakeFile[]): void => {
-  Object.defineProperty(input, "files", { configurable: true, value: files });
-};
-
-const lastInput = (): HTMLInputElement => createdInputs[createdInputs.length - 1];
+let picker: FilePickerInterceptor;
 
 describe("Runtime files", () => {
   beforeEach(() => {
     mocks.engine = "web";
-    createdInputs = [];
     for (const m of [
       openMock,
       saveMock,
@@ -86,11 +75,7 @@ describe("Runtime files", () => {
       writeTextFileMock,
     ])
       m.mockReset();
-    vi.spyOn(HTMLElement.prototype, "click").mockImplementation(function (
-      this: HTMLElement,
-    ) {
-      if (this instanceof HTMLInputElement) createdInputs.push(this);
-    });
+    picker = interceptFilePicker();
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -99,27 +84,24 @@ describe("Runtime files", () => {
   describe("pickFiles (browser)", () => {
     it("should map selected files into name/path/read handles", async () => {
       const p = Runtime.pickFiles({});
-      const input = lastInput();
-      setFiles(input, [fakeFile("manifest.json", "{}")]);
-      input.dispatchEvent(new Event("change"));
+      picker.selectFiles([fakePickedFile("manifest.json", "{}")]);
       const result = await p;
+      assertDefined(result);
       expect(result).toHaveLength(1);
-      expect(result![0].name).toBe("manifest.json");
-      expect(result![0].path).toBe("manifest.json");
-      await expect(result![0].read()).resolves.toBe("{}");
+      expect(result[0].name).toBe("manifest.json");
+      expect(result[0].path).toBe("manifest.json");
+      await expect(result[0].read()).resolves.toBe("{}");
     });
 
     it("should return null when no files are selected", async () => {
       const p = Runtime.pickFiles({});
-      const input = lastInput();
-      setFiles(input, []);
-      input.dispatchEvent(new Event("change"));
+      picker.selectFiles([]);
       await expect(p).resolves.toBeNull();
     });
 
     it("should return null when the picker is cancelled", async () => {
       const p = Runtime.pickFiles({});
-      lastInput().dispatchEvent(new Event("cancel"));
+      picker.cancel();
       await expect(p).resolves.toBeNull();
     });
 
@@ -128,18 +110,17 @@ describe("Runtime files", () => {
         filters: [{ name: "data", extensions: ["json", "csv"] }],
         multiple: true,
       });
-      const input = lastInput();
+      const input = picker.lastInput();
       expect(input.accept).toBe(".json,.csv");
       expect(input.multiple).toBe(true);
-      input.dispatchEvent(new Event("cancel"));
+      picker.cancel();
       await p;
     });
 
     it("should leave accept unset when there are no filters", async () => {
       const p = Runtime.pickFiles({});
-      const input = lastInput();
-      expect(input.accept).toBe("");
-      input.dispatchEvent(new Event("cancel"));
+      expect(picker.lastInput().accept).toBe("");
+      picker.cancel();
       await p;
     });
   });
@@ -158,17 +139,19 @@ describe("Runtime files", () => {
       openMock.mockResolvedValue("/tmp/data/config.json");
       readTextFileMock.mockResolvedValue("{}");
       const result = await Runtime.pickFiles({ title: "Pick" });
+      assertDefined(result);
       expect(result).toHaveLength(1);
-      expect(result![0].name).toBe("config.json");
-      expect(result![0].path).toBe("config.json");
-      await result![0].read();
+      expect(result[0].name).toBe("config.json");
+      expect(result[0].path).toBe("config.json");
+      await result[0].read();
       expect(readTextFileMock).toHaveBeenCalledWith("/tmp/data/config.json");
     });
 
     it("should resolve multiple selected paths", async () => {
       openMock.mockResolvedValue(["/a/one.json", "/b/two.json"]);
       const result = await Runtime.pickFiles({ multiple: true });
-      expect(result!.map((f) => f.name)).toEqual(["one.json", "two.json"]);
+      assertDefined(result);
+      expect(result.map((f) => f.name)).toEqual(["one.json", "two.json"]);
     });
 
     it("should return null when the dialog resolves an empty array", async () => {
@@ -178,11 +161,9 @@ describe("Runtime files", () => {
   });
 
   describe("saveFile (browser)", () => {
-    let createObjectURL: ReturnType<typeof vi.spyOn>;
+    let downloads: CapturedDownloads;
     beforeEach(() => {
-      createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:mock");
-      vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+      downloads = captureBrowserDownloads();
     });
 
     it("should download the contents and return the file name", async () => {
@@ -191,7 +172,7 @@ describe("Runtime files", () => {
         contents: "{}",
       });
       expect(result).toBe("export.json");
-      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      expect(downloads.blobs).toHaveLength(1);
     });
 
     it.each([
@@ -204,8 +185,7 @@ describe("Runtime files", () => {
       ["noext", "application/octet-stream"],
     ])("should infer the mime type of %s as %s", async (name, mime) => {
       await Runtime.saveFile({ defaultName: name, contents: "x" });
-      const blob = createObjectURL.mock.calls[0][0] as Blob;
-      expect(blob.type).toBe(mime);
+      expect(downloads.blobs[0].type).toBe(mime);
     });
   });
 
@@ -259,9 +239,10 @@ describe("Runtime files", () => {
       ]);
       readTextFileMock.mockResolvedValue("data");
       const result = await Runtime.pickDirectory();
-      expect(result!.name).toBe("project");
-      expect(result!.files.map((f) => f.name)).toEqual(["a.json", "b.json"]);
-      await result!.files[0].read();
+      assertDefined(result);
+      expect(result.name).toBe("project");
+      expect(result.files.map((f) => f.name)).toEqual(["a.json", "b.json"]);
+      await result.files[0].read();
       expect(readTextFileMock).toHaveBeenCalledWith("/tmp/project/a.json");
     });
   });
@@ -269,28 +250,26 @@ describe("Runtime files", () => {
   describe("pickDirectory (browser)", () => {
     it("should derive the root name and relative paths", async () => {
       const p = Runtime.pickDirectory();
-      const input = lastInput();
-      expect(input.webkitdirectory).toBe(true);
-      setFiles(input, [
-        fakeFile("foo.json", "1", "myroot/foo.json"),
-        fakeFile("bar.json", "2", "myroot/sub/bar.json"),
+      expect(picker.lastInput().webkitdirectory).toBe(true);
+      picker.selectFiles([
+        fakePickedFile("foo.json", "1", "myroot/foo.json"),
+        fakePickedFile("bar.json", "2", "myroot/sub/bar.json"),
       ]);
-      input.dispatchEvent(new Event("change"));
       const result = await p;
-      expect(result!.name).toBe("myroot");
-      expect(result!.files.map((f) => f.path)).toEqual(["foo.json", "sub/bar.json"]);
+      assertDefined(result);
+      expect(result.name).toBe("myroot");
+      expect(result.files.map((f) => f.path)).toEqual(["foo.json", "sub/bar.json"]);
     });
 
     it("should return null when nothing is selected", async () => {
       const p = Runtime.pickDirectory();
-      setFiles(lastInput(), []);
-      lastInput().dispatchEvent(new Event("change"));
+      picker.selectFiles([]);
       await expect(p).resolves.toBeNull();
     });
 
     it("should return null when cancelled", async () => {
       const p = Runtime.pickDirectory();
-      lastInput().dispatchEvent(new Event("cancel"));
+      picker.cancel();
       await expect(p).resolves.toBeNull();
     });
   });
@@ -313,10 +292,11 @@ describe("Runtime files", () => {
       mkdirMock.mockResolvedValue(undefined);
       writeTextFileMock.mockResolvedValue(undefined);
       const dir = await Runtime.pickWritableDirectory({ subdirectory: "out" });
-      expect(dir!.displayPath).toBe("/tmp/parent/out");
-      expect(dir!.preExisted).toBe(true);
-      await dir!.writeText("a.json", "{}");
-      await dir!.writeText("b.json", "[]");
+      assertDefined(dir);
+      expect(dir.displayPath).toBe("/tmp/parent/out");
+      expect(dir.preExisted).toBe(true);
+      await dir.writeText("a.json", "{}");
+      await dir.writeText("b.json", "[]");
       expect(mkdirMock).toHaveBeenCalledTimes(1);
       expect(mkdirMock).toHaveBeenCalledWith("/tmp/parent/out", {
         recursive: true,
@@ -329,26 +309,27 @@ describe("Runtime files", () => {
       openMock.mockResolvedValue("/tmp/parent");
       existsMock.mockResolvedValue(false);
       const dir = await Runtime.pickWritableDirectory({ subdirectory: "out" });
-      expect(dir!.preExisted).toBe(false);
+      assertDefined(dir);
+      expect(dir.preExisted).toBe(false);
     });
   });
 
   describe("pickWritableDirectory (browser)", () => {
     afterEach(() => {
-      delete (window as unknown as Record<string, unknown>).showDirectoryPicker;
+      removeFilePickers();
     });
 
     it("should throw a clear error when the browser lacks showDirectoryPicker", async () => {
-      delete (window as unknown as Record<string, unknown>).showDirectoryPicker;
+      removeFilePickers();
       await expect(
         Runtime.pickWritableDirectory({ subdirectory: "out" }),
       ).rejects.toThrow(/does not support/);
     });
 
     it("should return null when the directory picker is aborted", async () => {
-      window.showDirectoryPicker = vi
-        .fn()
-        .mockRejectedValue(new DOMException("aborted", "AbortError"));
+      installDirectoryPicker(
+        vi.fn().mockRejectedValue(new DOMException("aborted", "AbortError")),
+      );
       await expect(
         Runtime.pickWritableDirectory({ subdirectory: "out" }),
       ).resolves.toBeNull();
@@ -367,11 +348,12 @@ describe("Runtime files", () => {
         name: "Downloads",
         getDirectoryHandle: vi.fn().mockResolvedValue(subHandle),
       };
-      window.showDirectoryPicker = vi.fn().mockResolvedValue(root);
+      installDirectoryPicker(vi.fn().mockResolvedValue(root));
       const dir = await Runtime.pickWritableDirectory({ subdirectory: "out" });
-      expect(dir!.displayPath).toBe("Downloads/out");
-      expect(dir!.preExisted).toBe(true);
-      await dir!.writeText("a.json", "{}");
+      assertDefined(dir);
+      expect(dir.displayPath).toBe("Downloads/out");
+      expect(dir.preExisted).toBe(true);
+      await dir.writeText("a.json", "{}");
       expect(subHandle.getFileHandle).toHaveBeenCalledWith("a.json", {
         create: true,
       });
@@ -394,10 +376,11 @@ describe("Runtime files", () => {
         .mockImplementationOnce(() => Promise.reject(notFound))
         .mockImplementationOnce(() => Promise.resolve(createdSub));
       const root = { name: "Downloads", getDirectoryHandle };
-      window.showDirectoryPicker = vi.fn().mockResolvedValue(root);
+      installDirectoryPicker(vi.fn().mockResolvedValue(root));
       const dir = await Runtime.pickWritableDirectory({ subdirectory: "out" });
-      expect(dir!.preExisted).toBe(false);
-      await dir!.writeText("a.json", "{}");
+      assertDefined(dir);
+      expect(dir.preExisted).toBe(false);
+      await dir.writeText("a.json", "{}");
       expect(getDirectoryHandle).toHaveBeenNthCalledWith(2, "out", {
         create: true,
       });
@@ -405,9 +388,9 @@ describe("Runtime files", () => {
     });
 
     it("should rethrow non-abort errors from the directory picker", async () => {
-      window.showDirectoryPicker = vi
-        .fn()
-        .mockRejectedValue(new DOMException("denied", "SecurityError"));
+      installDirectoryPicker(
+        vi.fn().mockRejectedValue(new DOMException("denied", "SecurityError")),
+      );
       await expect(
         Runtime.pickWritableDirectory({ subdirectory: "out" }),
       ).rejects.toThrow();
@@ -420,7 +403,7 @@ describe("Runtime files", () => {
           .fn()
           .mockRejectedValue(new DOMException("boom", "SecurityError")),
       };
-      window.showDirectoryPicker = vi.fn().mockResolvedValue(root);
+      installDirectoryPicker(vi.fn().mockResolvedValue(root));
       await expect(
         Runtime.pickWritableDirectory({ subdirectory: "out" }),
       ).rejects.toThrow();

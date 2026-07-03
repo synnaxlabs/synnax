@@ -31,24 +31,30 @@ import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
 
-export type CreateModalParams = Partial<z.infer<typeof Ranger.formSchema>>;
+export type CreateModalParams = Omit<
+  Partial<z.infer<typeof Ranger.formSchema>>,
+  "key"
+> & {
+  /** When provided, the modal edits the existing range with this key. */
+  rangeKey?: string;
+};
 
 const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,
 });
 
 export const useCreateModal = Modals.create<CreateModalParams>(
-  ({ close, ...params }) => {
+  ({ close, rangeKey, ...params }) => {
     const now = useRef(Number(TimeStamp.now().valueOf())).current;
     const dispatch = Session.useDispatch();
 
     const client = Synnax.use();
     const clientExists = client != null;
     const { form, save, variant } = Ranger.useForm({
-      query: { key: params.key },
+      query: { key: rangeKey },
       autoSave: false,
       initialValues: {
-        key: uuid.create(),
+        key: rangeKey ?? uuid.create(),
         name: "",
         labels: [],
         timeRange: { start: now, end: now },
@@ -59,21 +65,29 @@ export const useCreateModal = Modals.create<CreateModalParams>(
         close();
         const { name, key, timeRange } = form.value();
         if (key == null) return;
-        dispatch(Session.Range.add({ name, key, persisted: true, variant: "static", timeRange }));
+        dispatch(
+          Session.Range.add({
+            name,
+            key,
+            persisted: true,
+            variant: "static",
+            timeRange,
+          }),
+        );
       },
     });
 
     const saveLocal = useCallback(() => {
       if (!form.validate()) return;
-      const value = form.value();
-      if (value.key == null) return;
+      const { name, key, timeRange } = form.value();
+      if (key == null) return;
       dispatch(
         Session.Range.add({
           persisted: false,
-          ...value,
-          key: value.key ?? "",
+          name,
+          key,
           variant: "static",
-          timeRange: new TimeRange(value.timeRange.start, value.timeRange.end).numeric,
+          timeRange: new TimeRange(timeRange.start, timeRange.end).numeric,
         }),
       );
       close();
@@ -81,8 +95,8 @@ export const useCreateModal = Modals.create<CreateModalParams>(
 
     // Makes sure the user doesn't have the option to select the range itself as a parent
     const recursiveParentFilter = useCallback(
-      (data: ranger.Payload) => data.key !== params.key,
-      [params.key],
+      (data: ranger.Payload) => data.key !== rangeKey,
+      [rangeKey],
     );
 
     const saveName = "Save to Synnax";

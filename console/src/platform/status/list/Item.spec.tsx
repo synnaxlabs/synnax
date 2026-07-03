@@ -9,19 +9,22 @@
 
 import { createTestClient, type status } from "@synnaxlabs/client";
 import { Component, List, Select } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/platform/status";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
 const createStatus = async (message = "a status message"): Promise<status.Status> =>
-  await client.statuses.set({ name: id.create(), message, variant: "warning" });
+  await client.statuses.set({
+    name: uniqueName("status"),
+    message,
+    variant: "warning",
+  });
 
 const item = Component.renderProp(Status.List.Item);
 

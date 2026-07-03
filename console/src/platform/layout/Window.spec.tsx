@@ -16,7 +16,7 @@ import { renderWithConsole } from "@/testutil";
 // The default store seeds a "main" layout (type "main") in the main window; register a
 // renderer for it so the window mounts its content.
 const MainRenderer: Layout.Renderer = ({ layoutKey }) => (
-  <div data-testid="main-content">{layoutKey}</div>
+  <div>{`main content:${layoutKey}`}</div>
 );
 MainRenderer.displayName = "MainRenderer";
 
@@ -27,8 +27,7 @@ describe("layout Window", () => {
         <Layout.Window />
       </Layout.RendererProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("main-content")).toBeTruthy());
-    expect(screen.getByTestId("main-content").textContent).toBe("main");
+    await waitFor(() => expect(screen.getByText("main content:main")).toBeTruthy());
   });
 
   it("opens the default context menu on right click", async () => {

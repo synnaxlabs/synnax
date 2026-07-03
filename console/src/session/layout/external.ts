@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/session/layout/middleware";
+export { migrateLayout } from "@/session/layout/migrations";
 export * from "@/session/layout/selectors";
 export * from "@/session/layout/slice";

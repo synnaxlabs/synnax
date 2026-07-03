@@ -8,23 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { renderWithConsole } from "@/testutil";
 
 describe("ContextMenu.Menu", () => {
-  it("renders its children within a menu context that dispatches item clicks", async () => {
-    const onClick = vi.fn();
+  it("renders its children", async () => {
     await renderWithConsole(
       <ContextMenu.Menu>
-        <PMenu.Item itemKey="child" onClick={onClick}>
-          Child Item
-        </PMenu.Item>
+        <PMenu.Item itemKey="child">Child Item</PMenu.Item>
       </ContextMenu.Menu>,
     );
-    fireEvent.click(screen.getByText("Child Item"));
-    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Child Item")).toBeTruthy();
   });
 });

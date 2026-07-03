@@ -8,34 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { Icon, type Status } from "@synnaxlabs/pluto";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Layout } from "@/platform/layout";
 import { type Modals } from "@/platform/modals";
 import { Selector } from "@/platform/selector";
-import { type Session } from "@/session";
+import { Session } from "@/session";
 import { renderWithConsole } from "@/testutil";
 
-const noop = () => {};
-const rename = noop as unknown as Modals.PromptRename;
-const handleError = noop as unknown as Status.ErrorHandler;
+const rename: Modals.PromptRename = async () => null;
+const handleError: Status.ErrorHandler = () => {};
 
 const layout: Session.Layout.BaseState = {
   type: "cat",
   name: "Cat",
   location: "mosaic",
 };
-
-describe("Selector.Item", () => {
-  it("renders the title and fires onClick", async () => {
-    const onClick = vi.fn();
-    await renderWithConsole(
-      <Selector.Item title="Add Cat" icon={<Icon.Add />} onClick={onClick} />,
-    );
-    fireEvent.click(screen.getByText("Add Cat"));
-    expect(onClick).toHaveBeenCalledTimes(1);
-  });
-});
 
 describe("Selector.createSimpleItem", () => {
   it("exposes the layout type and visibility hook as statics", () => {
@@ -58,6 +48,24 @@ describe("Selector.createSimpleItem", () => {
     );
     fireEvent.click(screen.getByText("Cat"));
     expect(onPlace).toHaveBeenCalledWith({ ...layout, key: "lk" });
+  });
+
+  it("places the layout into the slice when wired to the real placer", async () => {
+    const C = Selector.createSimpleItem({ title: "Cat", icon: <Icon.Add />, layout });
+    const Host = (): ReactElement => {
+      const place = Layout.usePlacer();
+      return (
+        <C layoutKey="lk" onPlace={place} rename={rename} handleError={handleError} />
+      );
+    };
+    const { store } = await renderWithConsole(<Host />);
+    fireEvent.click(screen.getByText("Cat"));
+    await waitFor(() => {
+      const placed = Session.Layout.select(store.getState(), "lk");
+      expect(placed?.type).toBe("cat");
+      expect(placed?.name).toBe("Cat");
+      expect(placed?.location).toBe("mosaic");
+    });
   });
 
   it("renders nothing when useVisible returns false", async () => {

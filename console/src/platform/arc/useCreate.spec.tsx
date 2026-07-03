@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";
-import { renderArc, TIMEOUT } from "@/platform/arc/testutil";
+import { renderArc } from "@/platform/arc/testutil";
 import { Session } from "@/session";
 
 const Harness = (): ReactElement => {
@@ -31,9 +31,8 @@ describe("arc useCreate", () => {
   it("should open the create modal with a disabled Create button", async () => {
     await renderArc(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "open" }));
-    await waitFor(
-      () => expect(screen.getByPlaceholderText("Automation Name")).toBeTruthy(),
-      TIMEOUT,
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Automation Name")).toBeTruthy(),
     );
     const create = screen.getByRole("button", { name: "Create" });
     expect(create.className).toContain("pluto--disabled");
@@ -53,11 +52,13 @@ describe("arc useCreate", () => {
       fireEvent.click(create);
     });
 
-    await waitFor(() => expect(findArcLayout(store, name)).toBeDefined(), TIMEOUT);
-    const layout = findArcLayout(store, name);
-    expect(layout?.type).toBe(Arc.LAYOUT_TYPE);
+    const layout = await waitFor(() => {
+      const placed = findArcLayout(store, name);
+      if (placed == null) throw new Error(`no arc layout named ${name}`);
+      return placed;
+    });
     expect(
-      Session.Arc.selectState({ state: store.getState(), key: layout!.key }),
+      Session.Arc.selectState({ state: store.getState(), key: layout.key }),
     ).toEqual(Session.Arc.ZERO_STATE);
   });
 });

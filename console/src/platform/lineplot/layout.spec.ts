@@ -18,11 +18,7 @@ import { createTestStore } from "@/testutil";
 const run = async (arg?: LinePlot.CreateArg) => {
   const store = await createTestStore();
   const creator = LinePlot.create(arg);
-  const layout = creator({
-    dispatch: store.dispatch,
-    store,
-    windowKey: "main",
-  } as Parameters<typeof creator>[0]);
+  const layout = creator({ dispatch: store.dispatch, store, windowKey: "main" });
   return { store, layout };
 };
 

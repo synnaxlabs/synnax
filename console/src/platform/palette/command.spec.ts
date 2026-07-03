@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { type Layout } from "@/platform/layout";
 import { Palette } from "@/platform/palette";
 import { createPaletteWrapper } from "@/platform/palette/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 const layoutFor = (key: string): Layout.PlacerArgs => ({
   key,
@@ -54,8 +55,7 @@ describe("createCommand", () => {
 
 describe("useCommandContext", () => {
   it("should default to an empty command list without a provider", async () => {
-    const { wrapper } = await createPaletteWrapper();
-    const { result } = renderHook(() => Palette.useCommandContext(), { wrapper });
+    const { result } = await renderHookWithConsole(() => Palette.useCommandContext());
     expect(result.current).toHaveLength(0);
   });
 

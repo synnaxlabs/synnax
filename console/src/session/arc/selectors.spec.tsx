@@ -230,8 +230,6 @@ describe("arc selector stability under dispatch", () => {
 
 const client = createTestClient();
 
-const TIMEOUT = { timeout: 5000 };
-
 const baseObjects = [
   channel.TYPE_ONTOLOGY_ID,
   framer.TYPE_ONTOLOGY_ID,
@@ -272,12 +270,12 @@ describe("useSelectEditable", () => {
     await waitFor(() => {
       expect(result.current.canEdit).toBe(true);
       expect(result.current.isCurrentlyEditable).toBe(true);
-    }, TIMEOUT);
+    });
   });
 
   it("keeps canEdit but clears isCurrentlyEditable when edit mode is off", async () => {
     const result = await setup({ editable: false });
-    await waitFor(() => expect(result.current.canEdit).toBe(true), TIMEOUT);
+    await waitFor(() => expect(result.current.canEdit).toBe(true));
     expect(result.current.isCurrentlyEditable).toBe(false);
   });
 
@@ -291,6 +289,6 @@ describe("useSelectEditable", () => {
     await waitFor(() => {
       expect(result.current.canEdit).toBe(false);
       expect(result.current.isCurrentlyEditable).toBe(false);
-    }, TIMEOUT);
+    });
   });
 });

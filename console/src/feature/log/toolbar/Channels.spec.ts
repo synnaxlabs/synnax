@@ -13,7 +13,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channels } from "@/feature/log/toolbar/Channels";
-import { client, renderLog, TIMEOUT } from "@/feature/log/toolbar/testutil";
+import { client, renderLog } from "@/feature/log/toolbar/testutil";
 
 const createChannel = async (): Promise<channel.Key> => {
   const ch = await client.channels.create({
@@ -40,7 +40,7 @@ describe("log/toolbar/Channels", () => {
   it("renders only the add-channel row when there are no channels", async () => {
     const { result } = await renderChannels();
     expect(await screen.findByText("Add a channel...")).toBeDefined();
-    await waitFor(() => expect(rowsIn(result)).toHaveLength(1), TIMEOUT);
+    await waitFor(() => expect(rowsIn(result)).toHaveLength(1));
   });
 
   it("renders a row for each channel plus the add row", async () => {
@@ -48,7 +48,7 @@ describe("log/toolbar/Channels", () => {
       entry(await createChannel()),
       entry(await createChannel()),
     ]);
-    await waitFor(() => expect(rowsIn(result)).toHaveLength(3), TIMEOUT);
+    await waitFor(() => expect(rowsIn(result)).toHaveLength(3));
   });
 
   it("renders the configured channel alias", async () => {
@@ -66,6 +66,6 @@ describe("log/toolbar/Channels", () => {
         ".console-log__channel-row button:not([disabled])",
       );
       expect(removeButtons.length).toBeGreaterThanOrEqual(2);
-    }, TIMEOUT);
+    });
   });
 });

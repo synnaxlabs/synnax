@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { screen } from "@testing-library/react";
+import { act } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Guard } from "@/platform/project/Guard";
+import { Project } from "@/platform/project";
 import { Session } from "@/session";
 import { renderWithConsole } from "@/testutil";
 
@@ -19,9 +20,9 @@ describe("project/Guard", () => {
 
   it("should render the splash instead of children when no project is active", async () => {
     await renderWithConsole(
-      <Guard>
+      <Project.Guard>
         <div>protected content</div>
-      </Guard>,
+      </Project.Guard>,
     );
     expect(screen.queryByText("protected content")).toBeNull();
     expect(screen.getByText("New Project")).toBeDefined();
@@ -29,9 +30,9 @@ describe("project/Guard", () => {
 
   it("should render children when a project is active", async () => {
     await renderWithConsole(
-      <Guard>
+      <Project.Guard>
         <div>protected content</div>
-      </Guard>,
+      </Project.Guard>,
       {
         preloadedState: {
           [Session.Project.SLICE_NAME]: {
@@ -43,5 +44,41 @@ describe("project/Guard", () => {
     );
     expect(screen.getByText("protected content")).toBeDefined();
     expect(screen.queryByText("New Project")).toBeNull();
+  });
+
+  it("should swap the splash for children when a project becomes active", async () => {
+    const { store } = await renderWithConsole(
+      <Project.Guard>
+        <div>protected content</div>
+      </Project.Guard>,
+    );
+    expect(screen.queryByText("protected content")).toBeNull();
+    act(() => {
+      store.dispatch(Session.Project.select(selected));
+    });
+    expect(screen.getByText("protected content")).toBeDefined();
+    expect(screen.queryByText("New Project")).toBeNull();
+  });
+
+  it("should fall back to the splash when the active project is cleared", async () => {
+    const { store } = await renderWithConsole(
+      <Project.Guard>
+        <div>protected content</div>
+      </Project.Guard>,
+      {
+        preloadedState: {
+          [Session.Project.SLICE_NAME]: {
+            ...Session.Project.ZERO_SLICE_STATE,
+            selected,
+          },
+        },
+      },
+    );
+    expect(screen.getByText("protected content")).toBeDefined();
+    act(() => {
+      store.dispatch(Session.Project.clearSelected());
+    });
+    expect(screen.queryByText("protected content")).toBeNull();
+    expect(screen.getByText("New Project")).toBeDefined();
   });
 });

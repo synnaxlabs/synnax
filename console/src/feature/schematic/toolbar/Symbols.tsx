@@ -207,7 +207,7 @@ const RemoteSymbolListContextMenu = ({
     },
   });
   const handleEdit = () => {
-    openEdit({ key: firstKey, parent: group.ontologyID(rest.groupKey) });
+    openEdit({ symbolKey: firstKey, parent: group.ontologyID(rest.groupKey) });
   };
   return (
     <ContextMenu.Menu>

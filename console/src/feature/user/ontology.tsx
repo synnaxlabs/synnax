@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type user } from "@synnaxlabs/client";
-import { Access, type Flux, Icon, Menu, Text, User } from "@synnaxlabs/pluto";
+import { Access, type Flux, Icon, List, Menu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -29,7 +29,9 @@ const useRename = ({
 }: Ontology.TreeContextMenuProps): (() => void) => {
   const beforeUpdate = useCallback(
     async ({ data }: Flux.BeforeUpdateParams<User.ChangeUsernameParams>) => {
-      const [username, renamed] = await Text.asyncEdit(ontology.idToString(firstID));
+      const [username, renamed] = await Text.asyncEdit(
+        List.itemNameID(ontology.idToString(firstID)),
+      );
       if (!renamed) return false;
       return { ...data, username };
     },
@@ -48,7 +50,7 @@ const useAssignRole = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useCallback(
     ({ selection: { ids }, state: { getResource } }: Ontology.TreeContextMenuProps) => {
       const resource = getResource(ids[0]);
-      openAssignRole({ key: ids[0].key, title: `Role.Assign.${resource.name}` });
+      openAssignRole({ userKey: ids[0].key, title: `Role.Assign.${resource.name}` });
     },
     [openAssignRole],
   );

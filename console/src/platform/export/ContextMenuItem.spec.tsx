@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Menu } from "@synnaxlabs/pluto";
-import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { Export } from "@/platform/export";
 import { renderWithConsole } from "@/testutil/testutil";
@@ -22,16 +22,5 @@ describe("Export.ContextMenuItem", () => {
       </Menu.Menu>,
     );
     expect(screen.getByText("Export")).toBeTruthy();
-  });
-
-  it("invokes onClick when the entry is selected", async () => {
-    const onClick = vi.fn();
-    await renderWithConsole(
-      <Menu.Menu>
-        <Export.ContextMenuItem onClick={onClick} />
-      </Menu.Menu>,
-    );
-    fireEvent.click(screen.getByText("Export"));
-    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

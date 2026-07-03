@@ -46,7 +46,7 @@ describe("OPC Write Task Types", () => {
           nodeId: "1",
           name: "test",
           nodeName: "test",
-        } as OPC.Task.OutputChannel,
+        },
       ],
       device: "1",
     };

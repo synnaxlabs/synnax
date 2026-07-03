@@ -11,16 +11,16 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Bar } from "@/app/nav/bar";
-import { renderBar, TIMEOUT, withActiveProject } from "@/app/nav/bar/testutil";
+import { renderBar, withActiveProject } from "@/app/nav/bar/testutil";
 
 describe("app/nav/bar/Top", () => {
   it("should render the active project name in the selector", async () => {
     await renderBar(<Bar.Top />, withActiveProject());
-    expect(await screen.findByText("Ops", {}, TIMEOUT)).toBeDefined();
+    expect(await screen.findByText("Ops", {})).toBeDefined();
   });
 
   it("should render the authenticated user from the live client", async () => {
     await renderBar(<Bar.Top />, withActiveProject());
-    expect(await screen.findByText("synnax", {}, TIMEOUT)).toBeDefined();
+    expect(await screen.findByText("synnax", {})).toBeDefined();
   });
 });

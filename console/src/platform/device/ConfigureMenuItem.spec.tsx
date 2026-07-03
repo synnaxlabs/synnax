@@ -7,102 +7,98 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, device, type ontology } from "@synnaxlabs/client";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { createTestClient, type device, type Synnax } from "@synnaxlabs/client";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import {
-  buildResource,
-  buildSelection,
-  buildState,
-} from "@/platform/ontology/testutil";
-import { createConsoleWrapper, renderWithConsole } from "@/testutil";
+  createDeviceResource,
+  createTestDevice,
+  renderMenuItem,
+} from "@/platform/device/testutil";
+import { createSelection, createState } from "@/platform/ontology/testutil";
 
 const client = createTestClient();
-const TIMEOUT = { timeout: 5000 };
 
-const resourceFor = (key: string, configured: boolean): ontology.Resource =>
-  buildResource(device.ontologyID(key), key, { configured });
+const renderItem = async (
+  devices: device.Device[],
+  itemClient: Synnax | null,
+): Promise<Mock> => {
+  const onConfigure = vi.fn();
+  const resources = devices.map(createDeviceResource);
+  await renderMenuItem(
+    <Device.ConfigureMenuItem
+      onConfigure={onConfigure}
+      selection={createSelection({ ids: resources.map((r) => r.id) })}
+      state={createState(resources)}
+    />,
+    { client: itemClient },
+  );
+  return onConfigure;
+};
 
 describe("ConfigureMenuItem", () => {
-  describe("guards", () => {
-    it("should render nothing when more than one resource is selected", async () => {
-      const a = resourceFor("dev-a", false);
-      const b = resourceFor("dev-b", false);
-      await renderWithConsole(
-        <PMenu.Menu>
-          <Device.ConfigureMenuItem
-            onConfigure={vi.fn()}
-            selection={buildSelection({ ids: [a.id, b.id] })}
-            state={buildState([a, b])}
-          />
-        </PMenu.Menu>,
-      );
-      expect(screen.queryByText("Configure")).toBeNull();
-    });
-
-    it("should render nothing when the device is already configured", async () => {
-      const r = resourceFor("dev-configured", true);
-      await renderWithConsole(
-        <PMenu.Menu>
-          <Device.ConfigureMenuItem
-            onConfigure={vi.fn()}
-            selection={buildSelection({ ids: [r.id] })}
-            state={buildState([r])}
-          />
-        </PMenu.Menu>,
-      );
-      expect(screen.queryByText("Configure")).toBeNull();
-    });
+  it("should render nothing without update permission", async () => {
+    const dev = await createTestDevice(client, { configured: false });
+    await renderItem([dev], null);
+    expect(screen.queryByText("Configure")).toBeNull();
   });
 
-  describe("with test client", () => {
-    const setup = async (onConfigure = vi.fn()) => {
-      const rack = await client.racks.create({ name: `rack-${id.create()}` });
-      const key = id.create();
-      await client.devices.create({
-        key,
-        name: "Unconfigured Device",
-        rack: rack.key,
-        location: "loc",
-        make: "make",
-        model: "model",
-        configured: false,
-        properties: {},
-      });
-      const r = resourceFor(key, false);
-      const { wrapper: Wrapper } = await createConsoleWrapper({ client });
-      const MenuWrapper = ({ children }: PropsWithChildren): ReactElement => (
-        <Wrapper>
-          <PMenu.Menu>{children}</PMenu.Menu>
-        </Wrapper>
-      );
-      MenuWrapper.displayName = "MenuWrapper";
-      render(
+  it("should render nothing when more than one device is selected", async () => {
+    const a = await createTestDevice(client, { configured: false });
+    const b = await createTestDevice(client, { configured: false });
+    const resources = [a, b].map(createDeviceResource);
+    const state = createState(resources);
+    await renderMenuItem(
+      <>
         <Device.ConfigureMenuItem
-          onConfigure={onConfigure}
-          selection={buildSelection({ ids: [r.id] })}
-          state={buildState([r])}
-        />,
-        { wrapper: MenuWrapper },
-      );
-      return { onConfigure, key };
-    };
+          onConfigure={vi.fn()}
+          selection={createSelection({ ids: [resources[0].id] })}
+          state={state}
+        />
+        <Device.ConfigureMenuItem
+          onConfigure={vi.fn()}
+          selection={createSelection({ ids: resources.map((r) => r.id) })}
+          state={state}
+        />
+      </>,
+      { client },
+    );
+    await screen.findByText("Configure");
+    expect(screen.getAllByText("Configure")).toHaveLength(1);
+  });
 
-    it("should render a configure item for a single unconfigured device with permission", async () => {
-      await setup();
-      await waitFor(() => expect(screen.getByText("Configure")).toBeTruthy(), TIMEOUT);
-    });
+  it("should render nothing when the device is already configured", async () => {
+    const dev = await createTestDevice(client, { configured: true });
+    const resource = createDeviceResource(dev);
+    const state = createState([resource]);
+    const selection = createSelection({ ids: [resource.id] });
+    await renderMenuItem(
+      <>
+        <Device.ChangeIdentifierMenuItem
+          icon="Hardware"
+          selection={selection}
+          state={state}
+          handleError={() => {}}
+        />
+        <Device.ConfigureMenuItem
+          onConfigure={vi.fn()}
+          selection={selection}
+          state={state}
+        />
+      </>,
+      { client },
+    );
+    await screen.findByText("Change identifier");
+    expect(screen.queryByText("Configure")).toBeNull();
+  });
 
-    it("should invoke onConfigure with the device key when clicked", async () => {
-      const { onConfigure, key } = await setup();
-      await waitFor(() => expect(screen.getByText("Configure")).toBeTruthy(), TIMEOUT);
-      fireEvent.click(screen.getByText("Configure"));
-      expect(onConfigure).toHaveBeenCalledWith(key);
-    });
+  it("should invoke onConfigure with the device key when clicked", async () => {
+    const dev = await createTestDevice(client, { configured: false });
+    const onConfigure = await renderItem([dev], client);
+    await waitFor(() => expect(screen.getByText("Configure")).toBeTruthy());
+    fireEvent.click(screen.getByText("Configure"));
+    expect(onConfigure).toHaveBeenCalledWith(dev.key);
   });
 });

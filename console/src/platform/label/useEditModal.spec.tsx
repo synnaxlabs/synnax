@@ -8,16 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
-import { createConsoleWrapper } from "@/testutil";
-
-const TIMEOUT = { timeout: 5000 };
+import { createConsoleWrapper, getIconButton, uniqueName } from "@/testutil";
 
 const Harness = (): ReactElement => {
   const open = Label.useEditModal();
@@ -29,6 +26,14 @@ const getAddButton = (): HTMLButtonElement => {
   const btn = document.querySelector<HTMLButtonElement>(".console-label__add-btn");
   if (btn == null) throw new Error("add button not found");
   return btn;
+};
+
+const getCreateItem = (): HTMLElement => {
+  const item = document.querySelector<HTMLElement>(
+    ".console-label__list-item.console--create",
+  );
+  if (item == null) throw new Error("create item not found");
+  return item;
 };
 
 const openModal = async () => {
@@ -46,33 +51,30 @@ const openModal = async () => {
 };
 
 describe("Label.useEditModal", () => {
-  it("should render the label editor with a search input", async () => {
-    await openModal();
-    await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
-    expect(screen.getByText("Edit")).toBeTruthy();
-  });
-
   it("should reveal the create form when the add button is clicked", async () => {
     await openModal();
     await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
+    expect(screen.getByText("Edit")).toBeTruthy();
+    expect(getCreateItem().className).toContain("pluto--hidden");
     fireEvent.click(getAddButton());
-    const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Label Name");
-    expect(nameInput).toBeTruthy();
+    await waitFor(() => {
+      const item = getCreateItem();
+      expect(item.className).toContain("pluto--visible");
+      expect(item.className).not.toContain("pluto--hidden");
+    });
   });
 
   it("should persist a new label to the cluster from the create form", async () => {
     const { client } = await openModal();
     await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
     fireEvent.click(getAddButton());
-    const name = id.create();
+    const name = uniqueName("label");
     const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Label Name");
     fireEvent.change(nameInput, { target: { value: name } });
-    const check = screen.getByLabelText("pluto-icon--check").closest("button");
-    if (check == null) throw new Error("check button not found");
-    fireEvent.click(check);
+    fireEvent.click(getIconButton(document.body, "check"));
     await waitFor(async () => {
       const found = await client.labels.retrieve({ names: [name] });
       expect(found.length).toBe(1);
-    }, TIMEOUT);
+    });
   });
 });

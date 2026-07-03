@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax as Client } from "@synnaxlabs/client";
 import {
+  fireEvent,
   render,
   renderHook,
   type RenderHookResult,
   type RenderResult,
+  screen,
 } from "@testing-library/react";
 import {
   type FC,
@@ -22,6 +25,11 @@ import {
 
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
+import {
+  type ConsolePreloadedState,
+  createConsoleWrapper,
+  type TestStore,
+} from "@/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const Base = createSynnaxWrapper({ client: null });
@@ -76,3 +84,88 @@ export const closeOf = (
 ): Session.Modals.ContentProps["close"] =>
   (store.getState().at(-1)?.render() as ReactElement<Session.Modals.ContentProps>).props
     .close;
+
+export interface RenderModalOpenerOptions {
+  /** Client backing the console wrapper; null (default) for cluster-free specs. */
+  client?: Client | null;
+  preloadedState?: ConsolePreloadedState;
+  store?: TestStore;
+}
+
+export interface ModalOpenerHandle<R> extends RenderResult {
+  store: TestStore;
+  /** The value returned by the most recent opener invocation. */
+  result: () => R | undefined;
+  /** Invokes the opener again (e.g. after the modal was closed). */
+  reopen: () => void;
+}
+
+/**
+ * Renders a modal-opener hook inside the full console provider stack with a mounted
+ * {@link Modals.Stack}, invokes the opener with args, and returns the render result,
+ * backing store, and the opener's return value (a promise for prompt-style hooks).
+ */
+export const renderModalOpener = async <Args extends unknown[], R>(
+  useOpen: () => (...args: Args) => R,
+  args: Args,
+  options: RenderModalOpenerOptions = {},
+): Promise<ModalOpenerHandle<R>> => {
+  const { client = null, preloadedState, store } = options;
+  const { wrapper, store: resolvedStore } = await createConsoleWrapper({
+    client,
+    preloadedState,
+    store,
+  });
+  const box: { current?: R } = {};
+  const Harness = (): ReactElement => {
+    const open = useOpen();
+    return <button onClick={() => (box.current = open(...args))}>open modal</button>;
+  };
+  Harness.displayName = "ModalOpenerHarness";
+  const rendered = render(
+    <>
+      <Harness />
+      <Modals.Stack />
+    </>,
+    { wrapper },
+  );
+  const reopen = () =>
+    fireEvent.click(screen.getByRole("button", { name: "open modal" }));
+  reopen();
+  return { ...rendered, store: resolvedStore, result: () => box.current, reopen };
+};
+
+/**
+ * Finds the rendered button whose subtree contains the given text. Pluto buttons nest
+ * their label, so role-name queries often miss them.
+ */
+export const findButton = (text: string): HTMLButtonElement => {
+  const btn = screen
+    .getAllByText(text)
+    .map((el) => el.closest<HTMLButtonElement>("button"))
+    .find((b) => b != null);
+  if (btn == null) throw new Error(`button with text ${text} not found`);
+  return btn;
+};
+
+/**
+ * Finds the icon-only dismiss button a modal Header renders (the only button in the
+ * document whose subtree contains no text).
+ */
+export const findDismissButton = (): HTMLButtonElement => {
+  const btn = screen
+    .getAllByRole("button")
+    .find((b) => (b.textContent ?? "").trim() === "");
+  if (btn == null) throw new Error("modal dismiss button not found");
+  return btn as HTMLButtonElement;
+};
+
+/** Finds the checkbox input backing the pluto switch field with the given label. */
+export const getSwitch = (label: string): HTMLInputElement => {
+  const input = screen
+    .getByText(label)
+    .closest("*")
+    ?.parentElement?.querySelector<HTMLInputElement>("input[type='checkbox']");
+  if (input == null) throw new Error(`switch ${label} not found`);
+  return input;
+};

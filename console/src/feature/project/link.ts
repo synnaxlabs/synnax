@@ -18,7 +18,7 @@ export const useLink = (): Link.Handler => {
     async ({ client, key }) => {
       const { layout, ...proj } = await client.projects.retrieve(key);
       dispatch(
-        Session.Layout.setProject({ slice: layout as Session.Layout.SliceState }),
+        Session.Layout.setProject({ slice: Session.Layout.migrateLayout(layout) }),
       );
       dispatch(Session.Project.select(proj.key));
     },

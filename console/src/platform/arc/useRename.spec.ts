@@ -14,7 +14,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";
-import { client, TIMEOUT } from "@/platform/arc/testutil";
+import { client } from "@/platform/arc/testutil";
 import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 import { createConsoleWrapper } from "@/testutil";
@@ -53,16 +53,12 @@ describe("arc useRename", () => {
       result.current.rename.update({ key: original.key, name: newName });
     });
 
-    await waitFor(
-      () =>
-        expect(Session.Layout.select(store.getState(), original.key)?.name).toBe(
-          newName,
-        ),
-      TIMEOUT,
+    await waitFor(() =>
+      expect(Session.Layout.select(store.getState(), original.key)?.name).toBe(newName),
     );
     await waitFor(async () => {
       const retrieved = await client.arcs.retrieve({ key: original.key });
       expect(retrieved.name).toBe(newName);
-    }, TIMEOUT);
+    });
   });
 });

@@ -11,17 +11,17 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-// AuxTop only renders the controls toggle on macOS/Windows, so pin the detected OS to
-// keep the controls assertions deterministic across host platforms (Linux CI included).
-vi.mock("@synnaxlabs/pluto", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  const OS = actual.OS as Record<string, unknown>;
-  return { ...actual, OS: { ...OS, use: () => "macOS" } };
+// AuxTop only renders the controls toggle on macOS/Windows, so pin the OS to keep the
+// controls assertions deterministic across host platforms (Linux CI included).
+await vi.hoisted(async () => {
+  const { pinOS } = await import("@/testutil/pinOS");
+  pinOS("macOS");
 });
 
 import { Bar } from "@/app/nav/bar";
-import { renderBar, TIMEOUT, withActiveProject } from "@/app/nav/bar/testutil";
+import { renderBar, withActiveProject } from "@/app/nav/bar/testutil";
 import { Session } from "@/session";
+import { type TestStore } from "@/testutil";
 
 const TAB = "plot-1";
 
@@ -49,38 +49,38 @@ const withActiveTab = (name: string) =>
     },
   });
 
-const bottom = (store: { getState: () => unknown }) =>
-  Session.Nav.selectWindowState(store.getState() as never).bottom;
+const bottom = (store: TestStore) =>
+  Session.Nav.selectWindowState(store.getState()).bottom;
 
 describe("app/nav/bar/AuxTop", () => {
   describe("title", () => {
     it("should render the active project name", async () => {
       await renderBar(<Bar.AuxTop />, withActiveProject());
-      expect(await screen.findByText(/- Ops/, {}, TIMEOUT)).toBeDefined();
+      expect(await screen.findByText(/- Ops/, {})).toBeDefined();
     });
 
     it("should render the active mosaic tab name alongside the project", async () => {
       await renderBar(<Bar.AuxTop />, withActiveTab("My Plot"));
-      expect(await screen.findByText(/My Plot - Ops/, {}, TIMEOUT)).toBeDefined();
+      expect(await screen.findByText(/My Plot - Ops/, {})).toBeDefined();
     });
   });
 
   describe("controls", () => {
     it("should render the controls toggle button", async () => {
       await renderBar(<Bar.AuxTop />, withActiveProject());
-      expect(await screen.findByText("Controls", {}, TIMEOUT)).toBeDefined();
+      expect(await screen.findByText("Controls", {})).toBeDefined();
     });
 
     it("should toggle the bottom drawer open when clicked", async () => {
       const { store } = await renderBar(<Bar.AuxTop />, withActiveProject());
-      fireEvent.click(await screen.findByText("Controls", {}, TIMEOUT));
+      fireEvent.click(await screen.findByText("Controls", {}));
       await waitFor(() => expect(bottom(store).visible).toBe(true));
       expect(bottom(store).hover).toBe(true);
     });
 
     it("should drop the hover on a second toggle, keeping the drawer pinned", async () => {
       const { store } = await renderBar(<Bar.AuxTop />, withActiveProject());
-      const button = await screen.findByText("Controls", {}, TIMEOUT);
+      const button = await screen.findByText("Controls", {});
       fireEvent.click(button);
       fireEvent.click(button);
       await waitFor(() => expect(bottom(store).hover).toBe(false));

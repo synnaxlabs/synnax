@@ -7,56 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Import } from "@/platform/import";
-import { Session } from "@/session";
-
-const makeStore = () =>
-  configureStore({
-    reducer: { [Session.Project.SLICE_NAME]: Session.Project.reducer },
-    preloadedState: {
-      [Session.Project.SLICE_NAME]: {
-        ...Session.Project.ZERO_SLICE_STATE,
-        selected: "project-1",
-      },
-    },
-  });
-
-const makeContext = (over: Partial<Parameters<typeof Import.dataTransferItem>[1]>) =>
-  ({
-    client: null,
-    fileIngesters: {},
-    ingestDirectory: vi.fn(),
-    layout: {},
-    placeLayout: vi.fn(),
-    store: makeStore(),
-    fluxStore: {},
-    ...over,
-  }) as unknown as Parameters<typeof Import.dataTransferItem>[1];
-
-// jsdom's File/Blob does not implement arrayBuffer, which dataTransferItem reads to
-// decode file contents. Back the instance with the real bytes so decoding works.
-const withArrayBuffer = <T extends { arrayBuffer?: () => Promise<ArrayBuffer> }>(
-  file: T,
-  text: string,
-): T => {
-  Object.defineProperty(file, "arrayBuffer", {
-    value: async () => new TextEncoder().encode(text).buffer,
-  });
-  return file;
-};
+import {
+  createDataTransferItemContext,
+  fakeDataTransferItem,
+} from "@/platform/import/testutil";
 
 const jsonFile = (text: string, name: string): File =>
-  withArrayBuffer(new File([text], name, { type: "application/json" }), text);
+  new File([text], name, { type: "application/json" });
 
 const fileItem = (file: File | null): DataTransferItem =>
-  ({
-    kind: "file",
-    webkitGetAsEntry: () => ({ isFile: true, isDirectory: false }),
-    getAsFile: () => file,
-  }) as unknown as DataTransferItem;
+  fakeDataTransferItem({ entry: { isFile: true, isDirectory: false }, file });
 
 describe("dataTransferItem", () => {
   beforeEach(() => {
@@ -64,10 +27,10 @@ describe("dataTransferItem", () => {
   });
 
   it("throws when the item is not a file", async () => {
-    const item = { kind: "string" } as unknown as DataTransferItem;
-    await expect(Import.dataTransferItem(item, makeContext({}))).rejects.toThrow(
-      "path is null",
-    );
+    const item = fakeDataTransferItem({ kind: "string" });
+    await expect(
+      Import.dataTransferItem(item, await createDataTransferItemContext()),
+    ).rejects.toThrow("path is null");
   });
 
   it("ingests a single JSON file, forwarding the parsed data by type", async () => {
@@ -75,7 +38,7 @@ describe("dataTransferItem", () => {
     const file = jsonFile('{"type":"log","key":"abc"}', "widget.json");
     await Import.dataTransferItem(
       fileItem(file),
-      makeContext({ fileIngesters: { log } }),
+      await createDataTransferItemContext({ fileIngesters: { log } }),
     );
     expect(log).toHaveBeenCalledTimes(1);
     expect(log.mock.calls[0][0]).toEqual({ type: "log", key: "abc" });
@@ -84,7 +47,7 @@ describe("dataTransferItem", () => {
   it("rejects a non-JSON file", async () => {
     const file = new File(["hello"], "notes.txt", { type: "text/plain" });
     await expect(
-      Import.dataTransferItem(fileItem(file), makeContext({})),
+      Import.dataTransferItem(fileItem(file), await createDataTransferItemContext()),
     ).rejects.toThrow("not a JSON file");
   });
 
@@ -105,12 +68,12 @@ describe("dataTransferItem", () => {
           resolve(readCount++ === 0 ? [fileEntry] : []),
       }),
     };
-    const item = {
-      kind: "file",
-      webkitGetAsEntry: () => directoryEntry,
-    } as unknown as DataTransferItem;
+    const item = fakeDataTransferItem({ entry: directoryEntry });
     const ingestDirectory = vi.fn();
-    await Import.dataTransferItem(item, makeContext({ ingestDirectory }));
+    await Import.dataTransferItem(
+      item,
+      await createDataTransferItemContext({ ingestDirectory }),
+    );
     expect(ingestDirectory).toHaveBeenCalledTimes(1);
     expect(ingestDirectory.mock.calls[0][0]).toEqual("my-directory");
     expect(ingestDirectory.mock.calls[0][1]).toEqual([

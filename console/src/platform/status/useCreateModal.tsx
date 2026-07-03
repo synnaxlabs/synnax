@@ -10,21 +10,22 @@
 import { type status } from "@synnaxlabs/client";
 import { Button, Form, Icon, Nav, Status } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
-import { type z } from "zod";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-export type CreateModalParams = Partial<z.infer<typeof Status.formSchema>>;
+export interface CreateModalParams {
+  /** When provided, the modal edits the existing status with this key. */
+  statusKey?: status.Key;
+}
 
 export const useCreateModal = Modals.create<CreateModalParams>(
-  ({ close, ...params }) => {
+  ({ close, statusKey }) => {
     const { form, save, variant } = Status.useForm({
-      query: { key: params.key },
+      query: { key: statusKey },
       autoSave: false,
       initialValues: {
-        ...params,
         key: "",
         message: "",
         time: TimeStamp.now(),

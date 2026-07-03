@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { id } from "@synnaxlabs/x";
 import { type Dispatch, useCallback } from "react";
@@ -16,7 +15,7 @@ import { useDispatch } from "react-redux";
 import { Session } from "@/session";
 
 export interface CreatorProps {
-  dispatch: Dispatch<PayloadAction<unknown>>;
+  dispatch: Dispatch<Session.Action>;
   store: Session.Store;
   windowKey: string;
 }

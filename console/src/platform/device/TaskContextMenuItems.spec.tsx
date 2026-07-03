@@ -7,24 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, device, type ontology } from "@synnaxlabs/client";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { createTestClient, type Synnax } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
-import {
-  buildResource,
-  buildSelection,
-  buildState,
-} from "@/platform/ontology/testutil";
+import { createDeviceResource, renderMenuItem } from "@/platform/device/testutil";
+import { createSelection, createState } from "@/platform/ontology/testutil";
 import { Task } from "@/platform/task";
-import { createConsoleWrapper, renderWithConsole } from "@/testutil";
+import { Session } from "@/session";
 
 const client = createTestClient();
-const TIMEOUT = { timeout: 5000 };
 
 const configs: Device.TaskContextMenuItemConfig[] = [
   {
@@ -32,75 +26,58 @@ const configs: Device.TaskContextMenuItemConfig[] = [
     label: "Create Read Task",
     layout: { ...Task.LAYOUT, type: "test_read", key: "test_read" },
   },
+  {
+    itemKey: "write",
+    label: "Create Write Task",
+    layout: { ...Task.LAYOUT, type: "test_write", key: "test_write" },
+  },
 ];
 
-const resourceFor = (key: string, configured: boolean): ontology.Resource =>
-  buildResource(device.ontologyID(key), key, { configured });
+const setup = async (configured: boolean, itemClient: Synnax | null = client) => {
+  const onConfigure = vi.fn();
+  const resource = createDeviceResource({ key: id.create(), name: "dev", configured });
+  const { store } = await renderMenuItem(
+    <Device.TaskContextMenuItems
+      onConfigure={onConfigure}
+      selection={createSelection({ ids: [resource.id] })}
+      state={createState([resource])}
+      taskContextMenuItemConfigs={configs}
+    />,
+    { client: itemClient },
+  );
+  return { onConfigure, key: resource.id.key, store };
+};
 
 describe("TaskContextMenuItems", () => {
   it("should render nothing without task-create permission", async () => {
-    const r = resourceFor("dev-1", true);
-    await renderWithConsole(
-      <PMenu.Menu>
-        <Device.TaskContextMenuItems
-          onConfigure={vi.fn()}
-          selection={buildSelection({ ids: [r.id] })}
-          state={buildState([r])}
-          taskContextMenuItemConfigs={configs}
-        />
-      </PMenu.Menu>,
-    );
+    await setup(true, null);
     expect(screen.queryByText("Create Read Task")).toBeNull();
+    expect(screen.queryByText("Create Write Task")).toBeNull();
   });
 
-  describe("with test client", () => {
-    const setup = async (configured: boolean, onConfigure = vi.fn()) => {
-      const r = resourceFor(id.create(), configured);
-      const { wrapper: Wrapper, store } = await createConsoleWrapper({ client });
-      const MenuWrapper = ({ children }: PropsWithChildren): ReactElement => (
-        <Wrapper>
-          <PMenu.Menu>{children}</PMenu.Menu>
-        </Wrapper>
-      );
-      MenuWrapper.displayName = "MenuWrapper";
-      render(
-        <Device.TaskContextMenuItems
-          onConfigure={onConfigure}
-          selection={buildSelection({ ids: [r.id] })}
-          state={buildState([r])}
-          taskContextMenuItemConfigs={configs}
-        />,
-        { wrapper: MenuWrapper },
-      );
-      return { onConfigure, key: r.id.key, store };
-    };
-
-    it("should render a menu item per config when create is granted", async () => {
-      await setup(true);
-      await waitFor(
-        () => expect(screen.getByText("Create Read Task")).toBeTruthy(),
-        TIMEOUT,
-      );
+  it("should configure an unconfigured device and place the task layout with its key", async () => {
+    const { onConfigure, key, store } = await setup(false);
+    await waitFor(() => expect(screen.getByText("Create Read Task")).toBeTruthy());
+    fireEvent.click(screen.getByText("Create Read Task"));
+    expect(onConfigure).toHaveBeenCalledWith(key);
+    const layout = Session.Layout.select(store.getState(), "test_read");
+    expect(layout?.type).toEqual("test_read");
+    expect(Session.Layout.selectArgs(store.getState(), "test_read")).toEqual({
+      deviceKey: key,
     });
+  });
 
-    it("should configure the device before placing the layout when unconfigured", async () => {
-      const { onConfigure, key } = await setup(false);
-      await waitFor(
-        () => expect(screen.getByText("Create Read Task")).toBeTruthy(),
-        TIMEOUT,
-      );
-      fireEvent.click(screen.getByText("Create Read Task"));
-      expect(onConfigure).toHaveBeenCalledWith(key);
+  it("should place the clicked config's layout without configuring an already-configured device", async () => {
+    const { onConfigure, key, store } = await setup(true);
+    await waitFor(() => expect(screen.getByText("Create Write Task")).toBeTruthy());
+    fireEvent.click(screen.getByText("Create Write Task"));
+    expect(onConfigure).not.toHaveBeenCalled();
+    expect(Session.Layout.select(store.getState(), "test_write")?.type).toEqual(
+      "test_write",
+    );
+    expect(Session.Layout.selectArgs(store.getState(), "test_write")).toEqual({
+      deviceKey: key,
     });
-
-    it("should not configure the device when already configured", async () => {
-      const { onConfigure } = await setup(true);
-      await waitFor(
-        () => expect(screen.getByText("Create Read Task")).toBeTruthy(),
-        TIMEOUT,
-      );
-      fireEvent.click(screen.getByText("Create Read Task"));
-      expect(onConfigure).not.toHaveBeenCalled();
-    });
+    expect(Session.Layout.select(store.getState(), "test_read")).toBeUndefined();
   });
 });

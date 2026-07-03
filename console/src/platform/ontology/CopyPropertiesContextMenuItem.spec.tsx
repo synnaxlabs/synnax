@@ -9,15 +9,16 @@
 
 import { createTestClient, ontology } from "@synnaxlabs/client";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
+import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Ontology } from "@/platform/ontology";
 import {
-  buildBaseProps,
-  buildResource,
-  buildSelection,
-  buildState,
+  createBaseProps,
+  createResource,
+  createSelection,
+  createState,
 } from "@/platform/ontology/testutil";
 import { createTestStore, renderWithConsole } from "@/testutil";
 
@@ -29,9 +30,9 @@ const renderCopyItem = async (
 ): Promise<void> => {
   const store = await createTestStore();
   const props: Ontology.TreeContextMenuProps = {
-    ...buildBaseProps({ client, store }),
-    selection: buildSelection({ ids }),
-    state: buildState(resources),
+    ...createBaseProps({ client, store }),
+    selection: createSelection({ ids }),
+    state: createState(resources),
   };
   await renderWithConsole(
     <PMenu.Menu>
@@ -43,16 +44,25 @@ const renderCopyItem = async (
 
 describe("CopyPropertiesContextMenuItem", () => {
   const chID = ontology.idZ.parse("channel:1");
-  const resource = buildResource(chID, "my-channel", { rate: 25, virtual: false });
+  const properties = { rate: 25, virtual: false };
+  const resource = createResource(chID, "my_channel", properties);
+  let writeText: Mock;
 
-  it("should render a copy item for a single selection", async () => {
+  beforeEach(() => {
+    writeText = stubClipboardWriteText();
+  });
+
+  it("should copy the resource's properties as JSON when clicked", async () => {
     await renderCopyItem([chID], [resource]);
-    await waitFor(() => expect(screen.getByText("Copy properties")).toBeTruthy());
+    fireEvent.click(screen.getByText("Copy properties"));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(JSON.stringify(properties)),
+    );
   });
 
   it("should render nothing when more than one resource is selected", async () => {
     const otherID = ontology.idZ.parse("channel:2");
-    const other = buildResource(otherID, "other-channel", {});
+    const other = createResource(otherID, "other_channel", {});
     await renderCopyItem([chID, otherID], [resource, other]);
     expect(screen.queryByText("Copy properties")).toBeNull();
   });

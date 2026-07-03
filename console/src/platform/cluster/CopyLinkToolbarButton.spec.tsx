@@ -9,21 +9,18 @@
 
 import { type ontology } from "@synnaxlabs/client";
 import { act, fireEvent, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
+import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Cluster } from "@/platform/cluster";
-import { clusterState, renderClusterUI } from "@/platform/cluster/testutil";
+import { createClusterState, renderClusterUI } from "@/platform/cluster/testutil";
 
 describe("CopyLinkToolbarButton", () => {
-  const writeText = vi.fn(async (_text: string) => {});
+  let writeText: Mock;
   const id: ontology.ID = { type: "range", key: "range-key" };
 
   beforeEach(() => {
-    writeText.mockClear();
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
+    writeText = stubClipboardWriteText();
   });
 
   afterEach(() => {
@@ -33,7 +30,7 @@ describe("CopyLinkToolbarButton", () => {
   it("should copy the resource link when clicked", async () => {
     await renderClusterUI(
       <Cluster.CopyLinkToolbarButton name="My Range" ontologyID={id} />,
-      clusterState([], "cluster-9"),
+      createClusterState([], "cluster-9"),
     );
     const button = screen.getByRole("button");
     await act(async () => {

@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, createTestClient } from "@synnaxlabs/client";
+import { type channel, createTestClient, DataType } from "@synnaxlabs/client";
 import { Channel, Component, type List, Menu } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { View } from "@/platform/view";
-import { createConsoleWrapper } from "@/testutil";
+import { enableEditing } from "@/platform/view/testutil";
+import { createConsoleWrapper, getIconButton, uniqueName } from "@/testutil";
 
 const RenderItem = ({ itemKey }: List.ItemProps<channel.Key>): ReactElement => (
-  <span data-testid="view-item">{String(itemKey)}</span>
+  <span>{String(itemKey)}</span>
 );
 const item = Component.renderProp(RenderItem);
 
@@ -45,69 +46,64 @@ const Harness = (): ReactElement => (
 );
 Harness.displayName = "Harness";
 
-const TIMEOUT = { timeout: 5000 };
+const client = createTestClient();
 
 const renderHarness = async (): Promise<void> => {
-  const client = createTestClient();
   const { wrapper } = await createConsoleWrapper({ client });
   render(<Harness />, { wrapper });
 };
 
-// The view begins non-editable until the async update-permission check resolves; the
-// toolbar (search, filter menu) only mounts once editing is enabled via the toggle.
-const enableEditing = async (): Promise<void> => {
-  const toggle = await waitFor(() => {
-    const btn = screen.getByLabelText("pluto-icon--edit").closest("button");
-    if (btn == null) throw new Error("edit toggle not found");
-    return btn;
-  }, TIMEOUT);
-  fireEvent.click(toggle);
-};
-
 describe("View", () => {
-  it("renders the static 'all resources' view for the resource type", async () => {
-    await renderHarness();
-    await waitFor(() => expect(screen.getByText("All Channels")).toBeTruthy(), TIMEOUT);
-  });
-
   it("hides the search input until the view is made editable", async () => {
     await renderHarness();
-    await waitFor(() => expect(screen.getByText("All Channels")).toBeTruthy(), TIMEOUT);
+    await waitFor(() => expect(screen.getByText("All Channels")).toBeTruthy());
     expect(screen.queryByPlaceholderText("Search channels...")).toBeNull();
   });
 
   it("renders the search input once editing is enabled", async () => {
     await renderHarness();
     await enableEditing();
-    await waitFor(
-      () => expect(screen.getByPlaceholderText("Search channels...")).toBeTruthy(),
-      TIMEOUT,
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Search channels...")).toBeTruthy(),
     );
   });
 
-  it("updates the search input value as the user types", async () => {
+  it("filters the listed items down to those matching the search term", async () => {
+    const alpha = await client.channels.create({
+      name: uniqueName("alpha"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const bravo = await client.channels.create({
+      name: uniqueName("bravo"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
     await renderHarness();
     await enableEditing();
-    const input = await waitFor(
-      () => screen.getByPlaceholderText<HTMLInputElement>("Search channels..."),
-      TIMEOUT,
+    const input = await waitFor(() =>
+      screen.getByPlaceholderText<HTMLInputElement>("Search channels..."),
     );
-    fireEvent.change(input, { target: { value: "sensor" } });
-    expect(input.value).toBe("sensor");
+    fireEvent.change(input, { target: { value: alpha.name } });
+    await waitFor(() => expect(screen.getByText(String(alpha.key))).toBeTruthy());
+    expect(screen.queryByText(String(bravo.key))).toBeNull();
+  });
+
+  it("shows the empty state when the search matches no channels", async () => {
+    await renderHarness();
+    await enableEditing();
+    const input = await waitFor(() =>
+      screen.getByPlaceholderText<HTMLInputElement>("Search channels..."),
+    );
+    fireEvent.change(input, { target: { value: uniqueName("no_such_channel") } });
+    await waitFor(() => expect(screen.getByText("No channels found.")).toBeTruthy());
   });
 
   it("reveals the filter menu contents when the filter trigger is opened", async () => {
     await renderHarness();
     await enableEditing();
-    const trigger = await waitFor(() => {
-      const btn = screen.getByLabelText("pluto-icon--filter").closest("button");
-      if (btn == null) throw new Error("filter trigger not found");
-      return btn;
-    }, TIMEOUT);
+    const trigger = await waitFor(() => getIconButton(document.body, "filter"));
     fireEvent.click(trigger);
-    await waitFor(
-      () => expect(screen.getByText("Filter Option")).toBeTruthy(),
-      TIMEOUT,
-    );
+    await waitFor(() => expect(screen.getByText("Filter Option")).toBeTruthy());
   });
 });

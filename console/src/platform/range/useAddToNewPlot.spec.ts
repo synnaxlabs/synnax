@@ -18,8 +18,6 @@ import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
-const TIMEOUT = { timeout: 5000 };
-
 describe("Range.useAddToNewPlot", () => {
   it("should favorite the retrieved ranges into the slice", async () => {
     const a = await createTestRange(client);
@@ -31,6 +29,6 @@ describe("Range.useAddToNewPlot", () => {
       const keys = Session.Range.selectKeys(store.getState());
       expect(keys).toContain(a.key);
       expect(keys).toContain(b.key);
-    }, TIMEOUT);
+    });
   });
 });

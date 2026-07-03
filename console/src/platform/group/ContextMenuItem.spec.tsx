@@ -8,17 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, group, ontology, ranger } from "@synnaxlabs/client";
-import { Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type ReactElement } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Group } from "@/platform/group";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
-
-const TIMEOUT = { timeout: 5000 };
 
 const parentID = group.ontologyID(id.create());
 const childID = ranger.ontologyID(id.create());
@@ -32,34 +31,37 @@ const shape: Tree.Shape = Tree.flatten({
 
 const nestedRootID = group.ontologyID(id.create());
 
+const renderItems = async (ui: ReactElement) => {
+  const { wrapper } = await createConsoleWrapper({ client });
+  return render(ui, { wrapper });
+};
+
 describe("Group.ContextMenuItem", () => {
-  it("should render the group item for a nested selection under the root", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(
-      <Group.ContextMenuItem ids={[childID]} rootID={ontology.ROOT_ID} shape={shape} />,
-      { wrapper },
+  it("should dispatch the group item key through the menu when clicked", async () => {
+    const onChange = vi.fn();
+    await renderItems(
+      <PMenu.Menu onChange={onChange}>
+        <Group.ContextMenuItem
+          ids={[childID]}
+          rootID={ontology.ROOT_ID}
+          shape={shape}
+        />
+      </PMenu.Menu>,
     );
-    await waitFor(
-      () => expect(screen.getByText("Group selection")).toBeTruthy(),
-      TIMEOUT,
-    );
+    const item = await waitFor(() => screen.getByText("Group selection"));
+    fireEvent.click(item);
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith("group"));
   });
 
-  it("should render the group item for a top-level selection when the root is not the ontology root", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(
+  it("should show the group item for a top-level selection when the root is not the ontology root", async () => {
+    await renderItems(
       <Group.ContextMenuItem ids={[parentID]} rootID={nestedRootID} shape={shape} />,
-      { wrapper },
     );
-    await waitFor(
-      () => expect(screen.getByText("Group selection")).toBeTruthy(),
-      TIMEOUT,
-    );
+    await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
   });
 
   it("should hide the group item for a top-level selection at the ontology root", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(
+    await renderItems(
       <>
         <Group.ContextMenuItem
           ids={[childID]}
@@ -72,18 +74,13 @@ describe("Group.ContextMenuItem", () => {
           shape={shape}
         />
       </>,
-      { wrapper },
     );
-    await waitFor(
-      () => expect(screen.getAllByText("Group selection").length).toBe(1),
-      TIMEOUT,
-    );
+    await waitFor(() => expect(screen.getAllByText("Group selection").length).toBe(1));
   });
 
   it("should hide the group item when the selection is absent from the tree", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
     const absentID = ranger.ontologyID(id.create());
-    render(
+    await renderItems(
       <>
         <Group.ContextMenuItem
           ids={[childID]}
@@ -96,64 +93,43 @@ describe("Group.ContextMenuItem", () => {
           shape={shape}
         />
       </>,
-      { wrapper },
     );
-    await waitFor(
-      () => expect(screen.getAllByText("Group selection").length).toBe(1),
-      TIMEOUT,
-    );
+    await waitFor(() => expect(screen.getAllByText("Group selection").length).toBe(1));
   });
 
-  it("should group a multi-item selection sharing the same minimum depth", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
+  it("should show the group item for a multi-item selection sharing the same minimum depth", async () => {
     const siblingID = ranger.ontologyID(id.create());
     const siblingKey = ontology.idToString(siblingID);
     const multiShape: Tree.Shape = Tree.flatten({
       nodes: [{ key: parentKey, children: [{ key: childKey }, { key: siblingKey }] }],
       expanded: [parentKey],
     });
-    render(
+    await renderItems(
       <Group.ContextMenuItem
         ids={[childID, siblingID]}
         rootID={ontology.ROOT_ID}
         shape={multiShape}
       />,
-      { wrapper },
     );
-    await waitFor(
-      () => expect(screen.getByText("Group selection")).toBeTruthy(),
-      TIMEOUT,
-    );
+    await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
   });
 
-  it("should render a bottom divider when showBottomDivider is set", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    const { container } = render(
+  it("should render a bottom divider only when showBottomDivider is set", async () => {
+    const { container, unmount } = await renderItems(
       <Group.ContextMenuItem
         ids={[childID]}
         rootID={ontology.ROOT_ID}
         shape={shape}
         showBottomDivider
       />,
-      { wrapper },
     );
-    await waitFor(
-      () => expect(screen.getByText("Group selection")).toBeTruthy(),
-      TIMEOUT,
-    );
+    await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
     expect(container.querySelector(".pluto-menu__divider")).not.toBeNull();
-  });
-
-  it("should not render a bottom divider by default", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    const { container } = render(
+    unmount();
+    const { container: bare } = await renderItems(
       <Group.ContextMenuItem ids={[childID]} rootID={ontology.ROOT_ID} shape={shape} />,
-      { wrapper },
     );
-    await waitFor(
-      () => expect(screen.getByText("Group selection")).toBeTruthy(),
-      TIMEOUT,
-    );
-    expect(container.querySelector(".pluto-menu__divider")).toBeNull();
+    await waitFor(() => expect(screen.getByText("Group selection")).toBeTruthy());
+    expect(bare.querySelector(".pluto-menu__divider")).toBeNull();
   });
 });

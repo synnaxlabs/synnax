@@ -8,16 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { act, render, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { closeOf } from "@/platform/modals/testutil";
 import { Modals } from "@/session/modals";
 
 const Noop: Modals.Content = () => null;
-
-/** Pulls the close callback the store bound into the topmost modal's rendered content. */
-const closeOf = (store: Modals.Store): Modals.ContentProps["close"] =>
-  (store.getState().at(-1)?.render() as ReactElement<Modals.ContentProps>).props.close;
 
 describe("Store", () => {
   describe("push", () => {

@@ -13,13 +13,13 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
-import { type Session } from "@/session";
+import { Session } from "@/session";
 import { Status } from "@/session/status";
 
-const stateWith = (...favorites: string[]): Session.State =>
-  ({
-    [Status.SLICE_NAME]: { version: 0, favorites },
-  }) as unknown as Session.State;
+const stateWith = (...favorites: string[]): Session.State => ({
+  ...Session.ZERO_STATE,
+  [Status.SLICE_NAME]: { version: 0, favorites },
+});
 
 const storeWith = (...actions: Status.Action[]) => {
   const store = configureStore({ reducer: { [Status.SLICE_NAME]: Status.reducer } });

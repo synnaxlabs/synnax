@@ -31,7 +31,7 @@ export const useCreateModal = Modals.create(({ close }) => {
       dispatch(Session.Project.select(key));
       if (active != null)
         dispatch(
-          Session.Layout.setProject({ slice: layout as Session.Layout.SliceState }),
+          Session.Layout.setProject({ slice: Session.Layout.migrateLayout(layout) }),
         );
       close();
     },

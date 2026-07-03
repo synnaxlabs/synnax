@@ -13,13 +13,19 @@ import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Label } from "@/platform/label";
+import { searchAndClickLabel } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
-import { createConsoleWrapper } from "@/testutil";
+import {
+  createConsoleWrapper,
+  findDialogTrigger,
+  getIconButton,
+  stubGeometry,
+  uniqueName,
+} from "@/testutil";
 
-const TIMEOUT = { timeout: 5000 };
+const client = createTestClient();
 
 const renderSelect = async (ui: ReactElement) => {
-  const client = createTestClient();
   const { wrapper } = await createConsoleWrapper({ client });
   return render(
     <>
@@ -30,49 +36,48 @@ const renderSelect = async (ui: ReactElement) => {
   );
 };
 
-const getTrigger = async (): Promise<HTMLElement> =>
-  await waitFor(() => {
-    const el = document.querySelector<HTMLElement>(".pluto-dialog__trigger");
-    if (el == null) throw new Error("select trigger not found");
-    return el;
-  }, TIMEOUT);
-
 const openAddModal = async (): Promise<void> => {
-  fireEvent.click(await getTrigger());
-  const addIcon = await waitFor(() => {
-    const el = screen.getByLabelText("pluto-icon--add").closest("button");
-    if (el == null) throw new Error("add button not found");
-    return el;
-  }, TIMEOUT);
+  fireEvent.click(await findDialogTrigger());
+  const addIcon = await waitFor(() => getIconButton(document.body, "add"));
   fireEvent.click(addIcon);
 };
 
+stubGeometry();
+
 describe("Label.Select", () => {
-  it("should render a SelectSingle trigger", async () => {
-    await renderSelect(<Label.SelectSingle value={undefined} onChange={vi.fn()} />);
-    expect(await getTrigger()).toBeTruthy();
+  it("should pass the clicked label's key to onChange in SelectSingle", async () => {
+    const label = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#FF0000",
+    });
+    const onChange = vi.fn();
+    await renderSelect(<Label.SelectSingle value={undefined} onChange={onChange} />);
+    await searchAndClickLabel(label.name);
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.calls[0][0]).toBe(label.key);
   });
 
-  it("should render a SelectMultiple trigger", async () => {
-    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
-    expect(await getTrigger()).toBeTruthy();
+  it("should pass the clicked label's key to onChange in SelectMultiple", async () => {
+    const label = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#00FF00",
+    });
+    const onChange = vi.fn();
+    await renderSelect(<Label.SelectMultiple value={[]} onChange={onChange} />);
+    await searchAndClickLabel(label.name);
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.calls[0][0]).toEqual([label.key]);
   });
 
   it("should open the label editor from the SelectSingle add action", async () => {
     await renderSelect(<Label.SelectSingle value={undefined} onChange={vi.fn()} />);
     await openAddModal();
-    await waitFor(
-      () => expect(screen.getByText("Search labels")).toBeTruthy(),
-      TIMEOUT,
-    );
+    await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
   });
 
   it("should open the label editor from the SelectMultiple add action", async () => {
     await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
     await openAddModal();
-    await waitFor(
-      () => expect(screen.getByText("Search labels")).toBeTruthy(),
-      TIMEOUT,
-    );
+    await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
   });
 });

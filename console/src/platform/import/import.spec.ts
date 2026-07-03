@@ -11,14 +11,9 @@ import { describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
 
 import { Import } from "@/platform/import";
+import { createFileIngesterContext } from "@/platform/import/testutil";
 
-const ctx = {
-  layout: { name: "test" },
-  placeLayout: vi.fn(),
-  store: {} as never,
-  client: null,
-  projectKey: "project-1",
-} as unknown as Import.FileIngesterContext;
+const ctx = createFileIngesterContext();
 
 describe("ingestComponent", () => {
   it("dispatches typed data to the ingester matching its type", async () => {

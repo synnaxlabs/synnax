@@ -23,10 +23,6 @@ import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
 
-// Live-core round-trips share the single test cluster with the rest of the suite, so
-// allow more than the 1s waitFor default.
-export const TIMEOUT = { timeout: 5000 };
-
 let projectKey: string | undefined;
 const project = async (): Promise<string> =>
   (projectKey ??= (await client.projects.create({ name: id.create(), layout: {} }))

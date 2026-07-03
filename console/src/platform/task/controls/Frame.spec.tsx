@@ -7,40 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
-import { renderWithConsole } from "@/testutil";
+import { getBySelector, renderWithConsole } from "@/testutil";
 
 describe("Controls.Frame", () => {
-  it("should render its children", async () => {
-    await renderWithConsole(
-      <Task.Controls.Frame>
-        <span>frame-child</span>
-      </Task.Controls.Frame>,
-    );
-    expect(screen.getByText("frame-child")).toBeTruthy();
-  });
-
-  it("should apply the expanded modifier class only when expanded", async () => {
-    const collapsed = await renderWithConsole(
+  it("should apply the expanded modifier class only while expanded", async () => {
+    const { container, rerender } = await renderWithConsole(
       <Task.Controls.Frame>
         <span>a</span>
       </Task.Controls.Frame>,
     );
-    expect(
-      collapsed.container.querySelector(".console-task-controls--expanded"),
-    ).toBeNull();
+    expect(container.querySelector(".console-task-controls--expanded")).toBeNull();
 
-    const expanded = await renderWithConsole(
+    rerender(
       <Task.Controls.Frame expanded>
-        <span>b</span>
+        <span>a</span>
       </Task.Controls.Frame>,
     );
-    expect(
-      expanded.container.querySelector(".console-task-controls--expanded"),
-    ).toBeTruthy();
+    expect(container.querySelector(".console-task-controls--expanded")).toBeTruthy();
   });
 
   it("should invoke onContract when clicked while expanded", async () => {
@@ -50,7 +37,7 @@ describe("Controls.Frame", () => {
         <span>c</span>
       </Task.Controls.Frame>,
     );
-    fireEvent.click(container.querySelector(".console-task-controls") as Element);
+    fireEvent.click(getBySelector(container, ".console-task-controls"));
     expect(onContract).toHaveBeenCalledTimes(1);
   });
 
@@ -61,7 +48,7 @@ describe("Controls.Frame", () => {
         <span>d</span>
       </Task.Controls.Frame>,
     );
-    fireEvent.click(container.querySelector(".console-task-controls") as Element);
+    fireEvent.click(getBySelector(container, ".console-task-controls"));
     expect(onContract).not.toHaveBeenCalled();
   });
 });

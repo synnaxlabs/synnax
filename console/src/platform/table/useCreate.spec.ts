@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/platform/table";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import { createConsoleWrapper, waitForPlacedLayout } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -39,19 +39,6 @@ const newProject = async (): Promise<project.Project> =>
     layout: Session.Layout.ZERO_SLICE_STATE,
   });
 
-const findPlacedTableLayout = (store: TestStore) =>
-  Session.Layout.selectByFilter(store.getState(), (l) => l.type === Table.LAYOUT_TYPE);
-
-const waitForPlacedLayout = async (store: TestStore): Promise<string> => {
-  let key: string | undefined;
-  await waitFor(() => {
-    const placed = findPlacedTableLayout(store);
-    expect(placed).toBeDefined();
-    key = placed!.key;
-  });
-  return key!;
-};
-
 describe("useCreate", () => {
   let projectA: project.Project;
   let projectB: project.Project;
@@ -70,7 +57,7 @@ describe("useCreate", () => {
       await act(async () => {
         result.current({ name: "ProvidedProject" });
       });
-      const placedKey = await waitForPlacedLayout(store);
+      const placedKey = await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
       const retrieved = await client.tables.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("ProvidedProject");
       expect(Session.Project.selectSelected(store.getState())).toEqual(projectB.key);
@@ -82,7 +69,7 @@ describe("useCreate", () => {
       await act(async () => {
         result.current({ name: "ActiveProject" });
       });
-      const placedKey = await waitForPlacedLayout(store);
+      const placedKey = await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
       const retrieved = await client.tables.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("ActiveProject");
       expect(Session.Project.selectSelected(store.getState())).toEqual(projectA.key);
@@ -96,7 +83,7 @@ describe("useCreate", () => {
       await act(async () => {
         result.current({ name: "Editable" });
       });
-      const placedKey = await waitForPlacedLayout(store);
+      const placedKey = await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
       const state = store.getState();
       expect(Session.Table.selectEditable({ state, key: placedKey })).toBe(true);
       expect(Session.Layout.select(state, placedKey)?.name).toEqual("Editable");
@@ -109,7 +96,7 @@ describe("useCreate", () => {
       await act(async () => {
         result.current();
       });
-      const placedKey = await waitForPlacedLayout(store);
+      const placedKey = await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
       expect(Session.Layout.select(store.getState(), placedKey)?.name).toEqual("Table");
     });
 
@@ -139,7 +126,7 @@ describe("useCreate", () => {
       await act(async () => {
         result.current({ name: "SameProject" });
       });
-      await waitForPlacedLayout(store);
+      await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
       expect(Session.Project.selectSelected(store.getState())).toBe(beforeActive);
     });
   });

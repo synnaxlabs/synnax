@@ -14,11 +14,10 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri"; label: string } => ({
   label: "main",
 }));
 
-vi.mock("@/session/runtime/runtime", () => ({
-  get ENGINE() {
-    return mocks.engine;
-  },
-}));
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ label: mocks.label }),

@@ -18,7 +18,7 @@ import {
   type TestStore,
 } from "@/testutil";
 
-export const cluster = (
+export const createCluster = (
   key: string,
   overrides: Partial<Session.Cluster.Cluster> = {},
 ): Session.Cluster.Cluster => ({
@@ -32,7 +32,7 @@ export const cluster = (
   ...overrides,
 });
 
-export const clusterState = (
+export const createClusterState = (
   clusters: Session.Cluster.Cluster[],
   selected?: string,
 ): ConsolePreloadedState => ({

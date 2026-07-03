@@ -8,24 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { channel, createTestClient, DataType, ontology } from "@synnaxlabs/client";
-import { Channel as PChannel, Text } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { Channel as PChannel, List, Text } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Ontology } from "@/platform/ontology";
 import {
-  buildBaseProps,
-  buildResource,
-  buildSelection,
-  buildState,
+  createBaseProps,
+  createResource,
+  createSelection,
+  createState,
 } from "@/platform/ontology/testutil";
-import { createConsoleWrapper, createTestStore } from "@/testutil";
+import {
+  awaitTextEditing,
+  commitTextEdit,
+  createConsoleWrapper,
+  createTestStore,
+  findEditableText,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
-
-const TIMEOUT = { timeout: 5000 };
 
 const useRename = Ontology.createUseRename({
   query: PChannel.useRename,
@@ -52,19 +56,19 @@ RenameHarness.displayName = "RenameHarness";
 
 const createChannel = async () =>
   await client.channels.create({
-    name: id.create(),
+    name: uniqueName("ch"),
     dataType: DataType.TIMESTAMP,
     isIndex: true,
   });
 
 const setup = async (ch: channel.Channel): Promise<string> => {
   const otgID = channel.ontologyID(ch.key);
-  const itemID = ontology.idToString(otgID);
+  const itemID = List.itemNameID(ontology.idToString(otgID));
   const store = await createTestStore();
   const props: Ontology.TreeContextMenuProps = {
-    ...buildBaseProps({ client, store }),
-    selection: buildSelection({ ids: [otgID] }),
-    state: buildState([buildResource(otgID, ch.name)]),
+    ...createBaseProps({ client, store }),
+    selection: createSelection({ ids: [otgID] }),
+    state: createState([createResource(otgID, ch.name)]),
   };
   const { wrapper: Console } = await createConsoleWrapper({ client, store });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -76,52 +80,41 @@ const setup = async (ch: channel.Channel): Promise<string> => {
   return itemID;
 };
 
-const editableEl = (itemID: string): HTMLElement => {
-  const el = document.querySelector<HTMLElement>(
-    `[id="${itemID}"].pluto-text--editable`,
-  );
-  if (el == null) throw new Error(`editable element ${itemID} not found`);
-  return el;
-};
-
 describe("createUseRename", () => {
   it("should start editing the resource's tree item when invoked", async () => {
     const ch = await createChannel();
     const itemID = await setup(ch);
     fireEvent.click(screen.getByText("rename"));
-    await waitFor(() =>
-      expect(editableEl(itemID).getAttribute("contenteditable")).toBe("true"),
-    );
+    await awaitTextEditing(itemID);
   });
 
   it("should rename the resource on the cluster once the edit is committed", async () => {
     const ch = await createChannel();
     const itemID = await setup(ch);
-    const newName = id.create();
+    const newName = uniqueName("renamed");
     fireEvent.click(screen.getByText("rename"));
-    const el = editableEl(itemID);
-    await waitFor(() => expect(el.getAttribute("contenteditable")).toBe("true"));
+    const el = await awaitTextEditing(itemID);
     await act(async () => {
-      el.textContent = newName;
-      fireEvent.keyDown(el, { key: "Enter" });
+      commitTextEdit(el, newName);
     });
     await waitFor(async () => {
       const renamed = await client.channels.retrieve(ch.key);
       expect(renamed.name).toBe(newName);
-    }, TIMEOUT);
+    });
   });
 
   it("should not rename when the edit is escaped", async () => {
     const ch = await createChannel();
     const itemID = await setup(ch);
     fireEvent.click(screen.getByText("rename"));
-    const el = editableEl(itemID);
-    await waitFor(() => expect(el.getAttribute("contenteditable")).toBe("true"));
+    const el = await awaitTextEditing(itemID);
     await act(async () => {
       el.textContent = "should-not-apply";
       fireEvent.keyDown(el, { key: "Escape" });
     });
-    await waitFor(() => expect(el.getAttribute("contenteditable")).toBe("false"));
+    await waitFor(() =>
+      expect(findEditableText(itemID).getAttribute("contenteditable")).toBe("false"),
+    );
     const unchanged = await client.channels.retrieve(ch.key);
     expect(unchanged.name).toBe(ch.name);
   });

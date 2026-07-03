@@ -11,16 +11,14 @@ import { type Synnax as Client } from "@synnaxlabs/client";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
 import { Ontology } from "@/platform/ontology";
+import { createServices } from "@/platform/ontology/testutil";
 import { Palette } from "@/platform/palette";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
-
-const EMPTY_SERVICES = {} as Ontology.Services;
-
-export const TIMEOUT = { timeout: 5000 };
 
 export interface CreatePaletteWrapperArgs {
   commands?: Palette.Command[];
   client?: Client | null;
+  services?: Ontology.Services;
 }
 
 /**
@@ -32,6 +30,7 @@ export interface CreatePaletteWrapperArgs {
 export const createPaletteWrapper = async ({
   commands = [],
   client = null,
+  services = createServices(),
 }: CreatePaletteWrapperArgs = {}): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
@@ -39,7 +38,7 @@ export const createPaletteWrapper = async ({
   const { wrapper: Base, store } = await createConsoleWrapper({ client });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Base>
-      <Ontology.ServicesProvider services={EMPTY_SERVICES}>
+      <Ontology.ServicesProvider services={services}>
         <Palette.CommandProvider commands={commands}>
           {children}
         </Palette.CommandProvider>

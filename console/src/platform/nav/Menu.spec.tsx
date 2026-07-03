@@ -38,14 +38,6 @@ const noop = {
 };
 
 describe("nav Menu", () => {
-  it("should render every item's icon", async () => {
-    await renderWithConsole(
-      <Nav.Menu items={[item("alpha"), item("bravo")]} onSelect={vi.fn()} {...noop} />,
-    );
-    expect(screen.getByLabelText("icon-alpha")).toBeTruthy();
-    expect(screen.getByLabelText("icon-bravo")).toBeTruthy();
-  });
-
   it("should not render items whose useVisible returns false", async () => {
     await renderWithConsole(
       <Nav.Menu

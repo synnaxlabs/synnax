@@ -19,18 +19,35 @@ import {
 } from "react";
 
 /**
+ * Prop names a modal's params may not use. Params are spread directly into the content
+ * component's props, so they follow React's prop rules: React consumes `key` and `ref`
+ * without them ever reaching the component, and `close` would be shadowed by the
+ * injected close callback. Name key-like params semantically instead (`userKey`,
+ * `rangeKey`).
+ */
+export type ReservedParams = object & {
+  key?: never;
+  ref?: never;
+  close?: never;
+};
+
+/**
  * The props handed to every modal content component: the modal's typed params spread
  * alongside a single close callback. Calling close with a result resolves the caller's
  * promise (for prompts); calling it with no argument dismisses without a result.
  */
-export type ContentProps<Params = record.Empty, Result = unknown> = Params & {
+export type ContentProps<
+  Params extends ReservedParams = record.Empty,
+  Result = unknown,
+> = Omit<Params, "close"> & {
   close: (result?: Result) => void;
 };
 
 /** A component that renders a modal's content of a particular params/result type. */
-export type Content<Params = record.Empty, Result = unknown> = ComponentType<
-  ContentProps<Params, Result>
->;
+export type Content<
+  Params extends ReservedParams = record.Empty,
+  Result = unknown,
+> = ComponentType<ContentProps<Params, Result>>;
 
 /**
  * A single open modal. Its render and dismiss closures already have the modal's params
@@ -80,7 +97,7 @@ export class Store {
    * the top of the stack. resolve settles the caller's promise: it receives the result the
    * content passes to close, or null on dismissal.
    */
-  push<Params, Result>(
+  push<Params extends ReservedParams, Result>(
     Component: Content<Params, Result>,
     params: Params | undefined,
     resolve: (result: Result | null) => void,

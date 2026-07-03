@@ -12,6 +12,7 @@ import {
   Access,
   type Flux,
   Icon,
+  List,
   Menu,
   Mosaic,
   Schematic as Base,
@@ -54,7 +55,9 @@ const useCopy = (props: Ontology.TreeContextMenuProps): (() => void) => {
     afterSuccess: useCallback(
       async ({ data }: Flux.AfterSuccessParams<schematic.Schematic>) => {
         const id = schematic.ontologyID(data.key);
-        const [name, renamed] = await Text.asyncEdit(ontology.idToString(id));
+        const [name, renamed] = await Text.asyncEdit(
+          List.itemNameID(ontology.idToString(id)),
+        );
         if (!renamed) return;
         await rename.updateAsync({ key: data.key, name });
       },

@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/platform/schematic";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import { createConsoleWrapper, waitForPlacedLayout } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -39,22 +39,6 @@ const newProject = async (): Promise<project.Project> =>
     layout: Session.Layout.ZERO_SLICE_STATE,
   });
 
-const findPlacedLayout = (store: TestStore) =>
-  Session.Layout.selectByFilter(
-    store.getState(),
-    (l) => l.type === Schematic.LAYOUT_TYPE,
-  );
-
-const waitForPlacedLayout = async (store: TestStore): Promise<string> => {
-  let key: string | undefined;
-  await waitFor(() => {
-    const placed = findPlacedLayout(store);
-    expect(placed).toBeDefined();
-    key = placed!.key;
-  });
-  return key!;
-};
-
 describe("schematic useCreate", () => {
   let projectA: project.Project;
   let projectB: project.Project;
@@ -74,7 +58,7 @@ describe("schematic useCreate", () => {
       await act(async () => {
         result.current({ name: "ProvidedProject" });
       });
-      const placedKey = await waitForPlacedLayout(store);
+      const placedKey = await waitForPlacedLayout(store, Schematic.LAYOUT_TYPE);
       const retrieved = await client.schematics.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("ProvidedProject");
       expect(Session.Project.selectSelected(store.getState())).toEqual(projectB.key);
@@ -86,7 +70,7 @@ describe("schematic useCreate", () => {
       await act(async () => {
         result.current({ name: "ActiveProject" });
       });
-      const placedKey = await waitForPlacedLayout(store);
+      const placedKey = await waitForPlacedLayout(store, Schematic.LAYOUT_TYPE);
       const retrieved = await client.schematics.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("ActiveProject");
       expect(Session.Project.selectSelected(store.getState())).toEqual(projectA.key);
@@ -100,7 +84,7 @@ describe("schematic useCreate", () => {
       await act(async () => {
         result.current({ name: "Editable" });
       });
-      const placedKey = await waitForPlacedLayout(store);
+      const placedKey = await waitForPlacedLayout(store, Schematic.LAYOUT_TYPE);
       const state = store.getState();
       expect(Session.Schematic.selectEditable({ state, key: placedKey })).toBe(true);
       expect(Session.Layout.select(state, placedKey)?.name).toEqual("Editable");
@@ -115,7 +99,7 @@ describe("schematic useCreate", () => {
       await act(async () => {
         result.current();
       });
-      const placedKey = await waitForPlacedLayout(store);
+      const placedKey = await waitForPlacedLayout(store, Schematic.LAYOUT_TYPE);
       expect(Session.Layout.select(store.getState(), placedKey)?.name).toEqual(
         "Schematic",
       );
@@ -148,7 +132,7 @@ describe("schematic useCreate", () => {
       await act(async () => {
         result.current({ name: "SameProject" });
       });
-      await waitForPlacedLayout(store);
+      await waitForPlacedLayout(store, Schematic.LAYOUT_TYPE);
       expect(Session.Project.selectSelected(store.getState())).toBe(beforeActive);
     });
   });

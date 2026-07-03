@@ -25,7 +25,7 @@ export const useMaybeChange = (): ((key: string) => Promise<void>) => {
       const { layout } = await client.projects.retrieve(key);
       dispatch(Session.Project.select(key));
       dispatch(
-        Session.Layout.setProject({ slice: layout as Session.Layout.SliceState }),
+        Session.Layout.setProject({ slice: Session.Layout.migrateLayout(layout) }),
       );
     },
     [dispatch, selected, client],

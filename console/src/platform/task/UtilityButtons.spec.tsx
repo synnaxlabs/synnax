@@ -7,54 +7,93 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
+import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
+import { createClusterState } from "@/platform/cluster/testutil";
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
+import { getIconButton, queryIcon } from "@/testutil";
 
 const clickIcon = (container: HTMLElement, icon: string): void => {
-  const button = container
-    .querySelector(`[aria-label="pluto-icon--${icon}"]`)
-    ?.closest("button");
-  if (button == null) throw new Error(`button for icon ${icon} not found`);
-  fireEvent.click(button);
+  fireEvent.click(getIconButton(container, icon));
 };
 
 describe("UtilityButtons", () => {
+  let writeText: Mock;
+
+  beforeEach(() => {
+    writeText = stubClipboardWriteText();
+  });
+
   it("should only show the JSON config button when the task has no key", async () => {
     const { container } = await renderInTaskForm(<Task.UtilityButtons />, {
       values: { key: undefined, name: "T", config: {} },
     });
-    expect(container.querySelector('[aria-label="pluto-icon--json"]')).toBeTruthy();
-    expect(container.querySelector('[aria-label="pluto-icon--typescript"]')).toBeNull();
-    expect(container.querySelector('[aria-label="pluto-icon--python"]')).toBeNull();
-    expect(container.querySelector('[aria-label="pluto-icon--link"]')).toBeNull();
-    expect(container.querySelector('[aria-label="pluto-icon--export"]')).toBeNull();
+    expect(queryIcon(container, "json")).toBeTruthy();
+    expect(queryIcon(container, "typescript")).toBeNull();
+    expect(queryIcon(container, "python")).toBeNull();
+    expect(queryIcon(container, "link")).toBeNull();
+    expect(queryIcon(container, "export")).toBeNull();
   });
 
   it("should show the code, link, and export buttons when the task has a key", async () => {
     const { container } = await renderInTaskForm(<Task.UtilityButtons />, {
-      values: { key: "task-123", name: "T", config: {} },
+      values: { key: "task_123", name: "T", config: {} },
     });
-    expect(container.querySelector('[aria-label="pluto-icon--json"]')).toBeTruthy();
-    expect(
-      container.querySelector('[aria-label="pluto-icon--typescript"]'),
-    ).toBeTruthy();
-    expect(container.querySelector('[aria-label="pluto-icon--python"]')).toBeTruthy();
-    expect(container.querySelector('[aria-label="pluto-icon--link"]')).toBeTruthy();
-    expect(container.querySelector('[aria-label="pluto-icon--export"]')).toBeTruthy();
+    expect(queryIcon(container, "json")).toBeTruthy();
+    expect(queryIcon(container, "typescript")).toBeTruthy();
+    expect(queryIcon(container, "python")).toBeTruthy();
+    expect(queryIcon(container, "link")).toBeTruthy();
+    expect(queryIcon(container, "export")).toBeTruthy();
   });
 
-  it("should invoke the clipboard payload builders without throwing when clicked", async () => {
+  it("should copy TypeScript code that retrieves the task", async () => {
     const { container } = await renderInTaskForm(<Task.UtilityButtons />, {
-      values: { key: "task-123", name: "My Task", config: { foo: 1 } },
+      values: { key: "task_123", name: "My Task", config: {} },
     });
-    // Each copy button resolves its payload getter (TypeScript / Python / JSON code)
-    // when clicked; exercising them covers the getter branches.
     clickIcon(container, "typescript");
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const code = writeText.mock.calls[0][0];
+    expect(code).toContain('const task = client.tasks.retrieve("task_123")');
+    expect(code).toContain("// Retrieve My Task");
+  });
+
+  it("should copy Python code that retrieves the task", async () => {
+    const { container } = await renderInTaskForm(<Task.UtilityButtons />, {
+      values: { key: "task_123", name: "My Task", config: {} },
+    });
     clickIcon(container, "python");
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const code = writeText.mock.calls[0][0];
+    expect(code).toContain('task = client.tasks.retrieve("task_123")');
+    expect(code).toContain("# Retrieve My Task");
+  });
+
+  it("should copy the JSON-encoded task configuration", async () => {
+    const { container } = await renderInTaskForm(<Task.UtilityButtons />, {
+      values: { name: "My Task", config: { device: "dev_1", sampleRate: 25 } },
+    });
     clickIcon(container, "json");
-    expect(container.querySelector('[aria-label="pluto-icon--json"]')).toBeTruthy();
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(writeText.mock.calls[0][0])).toEqual({
+      channels: [],
+      device: "dev_1",
+      sample_rate: 25,
+    });
+  });
+
+  it("should copy a link containing the active cluster and the task key", async () => {
+    const { container } = await renderInTaskForm(<Task.UtilityButtons />, {
+      values: { key: "task_123", name: "My Task", config: {} },
+      preloadedState: createClusterState([], "cluster_1"),
+    });
+    clickIcon(container, "link");
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const url = writeText.mock.calls[0][0];
+    expect(url).toContain("cluster_1");
+    expect(url).toContain("task");
+    expect(url).toContain("task_123");
   });
 });

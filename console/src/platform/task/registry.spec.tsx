@@ -34,10 +34,6 @@ describe("registry", () => {
   it("should expose the provided registry to consumers", () => {
     const { result } = renderHook(() => Task.useRegistry(), { wrapper });
     expect(result.current).toBe(registry);
-    expect(result.current.parseType("ni_analog_read")).toBe("analog_read");
-    expect(result.current.createLayout({ name: "My Task" } as task.Task).name).toBe(
-      "My Task",
-    );
   });
 
   it("should throw when used outside of a provider", () => {

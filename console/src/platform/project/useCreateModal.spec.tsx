@@ -20,8 +20,6 @@ import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
-const TIMEOUT = { timeout: 5000 };
-
 const Harness = (): ReactElement => {
   const open = Project.useCreateModal();
   return <button onClick={() => open()}>open</button>;
@@ -67,10 +65,9 @@ describe("Project.useCreateModal", () => {
     await waitFor(() => {
       const active = Session.Project.selectOptionalSelected(store.getState());
       expect(active).not.toBeUndefined();
-    }, TIMEOUT);
-    await waitFor(
-      () => expect(screen.queryByPlaceholderText("Project Name")).toBeNull(),
-      TIMEOUT,
+    });
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText("Project Name")).toBeNull(),
     );
 
     const active = Session.Project.selectSelected(store.getState());

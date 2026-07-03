@@ -9,17 +9,17 @@
 
 import { createTestClient, type label } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Label } from "@/platform/label";
 import { View } from "@/platform/view";
-import { createConsoleWrapper } from "@/testutil";
+import { enableEditing } from "@/platform/view/testutil";
+import { createConsoleWrapper, findTagCloseButton, uniqueName } from "@/testutil";
 
-const TIMEOUT = { timeout: 5000 };
+const client = createTestClient();
 
 const schema = z.object({
   query: z.object({ hasLabels: z.array(z.string()) }),
@@ -31,6 +31,9 @@ const Fixture = ({ hasLabels }: { hasLabels: label.Key[] }): ReactElement => {
     <View.Frame resourceType="label" icon="Label">
       <Form.Form<typeof schema> {...methods}>
         <Label.Filter.Chips />
+        <Form.Field<label.Key[]> path="query.hasLabels" showLabel={false}>
+          {({ value }) => <span>{`value:${value.join(",")}`}</span>}
+        </Form.Field>
       </Form.Form>
     </View.Frame>
   );
@@ -38,21 +41,30 @@ const Fixture = ({ hasLabels }: { hasLabels: label.Key[] }): ReactElement => {
 Fixture.displayName = "Fixture";
 
 describe("Label.Filter.Chips", () => {
-  it("should render a tag for each selected label", async () => {
-    const client = createTestClient();
-    const name = id.create();
-    const label = await client.labels.create({ name, color: "#F00000" });
+  it("should remove the label's key from the filter query when its chip is closed", async () => {
+    const kept = await client.labels.create({
+      name: uniqueName("kept"),
+      color: "#F00000",
+    });
+    const removed = await client.labels.create({
+      name: uniqueName("removed"),
+      color: "#00F000",
+    });
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture hasLabels={[label.key]} />, { wrapper });
-    await waitFor(() => expect(screen.getByText(name)).toBeTruthy(), TIMEOUT);
-    expect(screen.getByText("Labels")).toBeTruthy();
+    render(<Fixture hasLabels={[kept.key, removed.key]} />, { wrapper });
+    await waitFor(() => expect(screen.getByText(removed.name)).toBeTruthy());
+    await enableEditing();
+    const close = await waitFor(() => findTagCloseButton(removed.name));
+    fireEvent.click(close);
+    await waitFor(() => expect(screen.getByText(`value:${kept.key}`)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(removed.name)).toBeNull());
+    expect(screen.getByText(kept.name)).toBeTruthy();
   });
 
   it("should render nothing when no labels are selected", async () => {
-    const client = createTestClient();
     const { wrapper } = await createConsoleWrapper({ client });
     render(<Fixture hasLabels={[]} />, { wrapper });
-    await waitFor(() => expect(screen.getByText("All Labels")).toBeTruthy(), TIMEOUT);
+    await waitFor(() => expect(screen.getByText("All Labels")).toBeTruthy());
     expect(screen.queryByText("Labels")).toBeNull();
   });
 });

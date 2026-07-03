@@ -11,23 +11,19 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
-import { renderWithConsole } from "@/testutil";
+import { queryIcon, renderWithConsole } from "@/testutil";
 
 describe("Controls.StartStopButton", () => {
-  it("should show the play icon when not running", async () => {
-    const { container } = await renderWithConsole(
+  it("should swap from the play icon to the pause icon when running flips", async () => {
+    const { container, rerender } = await renderWithConsole(
       <Task.Controls.StartStopButton running={false} onClick={vi.fn()} />,
     );
-    expect(container.querySelector('[aria-label="pluto-icon--play"]')).toBeTruthy();
-    expect(container.querySelector('[aria-label="pluto-icon--pause"]')).toBeNull();
-  });
+    expect(queryIcon(container, "play")).toBeTruthy();
+    expect(queryIcon(container, "pause")).toBeNull();
 
-  it("should show the pause icon when running", async () => {
-    const { container } = await renderWithConsole(
-      <Task.Controls.StartStopButton running onClick={vi.fn()} />,
-    );
-    expect(container.querySelector('[aria-label="pluto-icon--pause"]')).toBeTruthy();
-    expect(container.querySelector('[aria-label="pluto-icon--play"]')).toBeNull();
+    rerender(<Task.Controls.StartStopButton running onClick={vi.fn()} />);
+    expect(queryIcon(container, "pause")).toBeTruthy();
+    expect(queryIcon(container, "play")).toBeNull();
   });
 
   it("should invoke onClick when pressed", async () => {

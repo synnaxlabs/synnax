@@ -15,9 +15,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Status } from "@/platform/status";
-import { renderWithConsole } from "@/testutil";
-
-const TIMEOUT = { timeout: 5000 };
+import { findDialogTrigger, renderWithConsole } from "@/testutil";
 
 const schema = z.object({
   query: z.object({ variants: z.array(z.string()) }),
@@ -29,33 +27,19 @@ const Fixture = (): ReactElement => {
     <Form.Form<typeof schema> {...methods}>
       <Status.Filter.MenuItem />
       <Form.Field<status.Variant[]> path="query.variants" showLabel={false}>
-        {({ value }) => <span data-testid="value">{value.join(",")}</span>}
+        {({ value }) => <span>{`value:${value.join(",")}`}</span>}
       </Form.Field>
     </Form.Form>
   );
 };
 Fixture.displayName = "Fixture";
 
-const getTrigger = async (): Promise<HTMLElement> =>
-  await waitFor(() => {
-    const el = document.querySelector<HTMLElement>(".pluto-dialog__trigger");
-    if (el == null) throw new Error("select trigger not found");
-    return el;
-  }, TIMEOUT);
-
 describe("Status.Filter.MenuItem", () => {
-  it("should render the variant filter select trigger", async () => {
-    await renderWithConsole(<Fixture />);
-    expect(await getTrigger()).toBeTruthy();
-  });
-
   it("should add the chosen variant to the query field", async () => {
     await renderWithConsole(<Fixture />);
-    fireEvent.click(await getTrigger());
-    const option = await waitFor(() => screen.getByText("Error"), TIMEOUT);
+    fireEvent.click(await findDialogTrigger());
+    const option = await waitFor(() => screen.getByText("Error"));
     fireEvent.click(option);
-    await waitFor(() =>
-      expect(screen.getByTestId("value").textContent).toContain("error"),
-    );
+    await waitFor(() => expect(screen.getByText("value:error")).toBeTruthy());
   });
 });

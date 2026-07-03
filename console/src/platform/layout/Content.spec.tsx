@@ -8,21 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { screen } from "@testing-library/react";
-import { act } from "react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Layout } from "@/platform/layout";
+import { placeLayout } from "@/platform/layout/testutil";
 import { Session } from "@/session";
 import { createTestStore, renderWithConsole, type TestStore } from "@/testutil";
 
 const TYPE = "content-test-renderer";
 
-const Renderer: Layout.Renderer = ({ layoutKey, visible, focused }) => (
+const Renderer: Layout.Renderer = ({ layoutKey, visible, focused, onClose }) => (
   <div>
-    <span data-testid="key">{layoutKey}</span>
-    <span data-testid="visible">{String(visible)}</span>
-    <span data-testid="focused">{String(focused)}</span>
+    <span>{`key:${layoutKey}`}</span>
+    <span>{`visible:${String(visible)}`}</span>
+    <span>{`focused:${String(focused)}`}</span>
+    <button onClick={onClose}>close from renderer</button>
   </div>
 );
 Renderer.displayName = "ContentTestRenderer";
@@ -30,18 +32,7 @@ Renderer.displayName = "ContentTestRenderer";
 const RENDERERS: Layout.Renderers = { [TYPE]: Renderer };
 
 const place = (store: TestStore, key: string): void =>
-  act(() => {
-    store.dispatch(
-      Session.Layout.place({
-        key,
-        type: TYPE,
-        name: key,
-        location: "mosaic",
-        windowKey: Drift.MAIN_WINDOW,
-        window: { title: key },
-      }),
-    );
-  });
+  placeLayout(store, key, { type: TYPE });
 
 interface RenderContentArgs {
   forceHidden?: boolean;
@@ -62,14 +53,14 @@ const renderContent = async ({ forceHidden }: RenderContentArgs = {}) => {
 describe("layout Content", () => {
   it("renders the registered renderer with the layout key, visible by default", async () => {
     await renderContent();
-    expect(screen.getByTestId("key").textContent).toBe("l1");
-    expect(screen.getByTestId("visible").textContent).toBe("true");
-    expect(screen.getByTestId("focused").textContent).toBe("false");
+    expect(screen.getByText("key:l1")).toBeTruthy();
+    expect(screen.getByText("visible:true")).toBeTruthy();
+    expect(screen.getByText("focused:false")).toBeTruthy();
   });
 
   it("forces the renderer hidden when forceHidden is set", async () => {
     await renderContent({ forceHidden: true });
-    expect(screen.getByTestId("visible").textContent).toBe("false");
+    expect(screen.getByText("visible:false")).toBeTruthy();
   });
 
   it("marks the renderer focused and visible when its own layout is focused", async () => {
@@ -79,8 +70,8 @@ describe("layout Content", () => {
         Session.Layout.setFocus({ windowKey: Drift.MAIN_WINDOW, key: "l1" }),
       );
     });
-    expect(screen.getByTestId("focused").textContent).toBe("true");
-    expect(screen.getByTestId("visible").textContent).toBe("true");
+    expect(screen.getByText("focused:true")).toBeTruthy();
+    expect(screen.getByText("visible:true")).toBeTruthy();
   });
 
   it("hides the renderer when a different layout is focused", async () => {
@@ -91,7 +82,29 @@ describe("layout Content", () => {
         Session.Layout.setFocus({ windowKey: Drift.MAIN_WINDOW, key: "l2" }),
       );
     });
-    expect(screen.getByTestId("visible").textContent).toBe("false");
-    expect(screen.getByTestId("focused").textContent).toBe("false");
+    expect(screen.getByText("visible:false")).toBeTruthy();
+    expect(screen.getByText("focused:false")).toBeTruthy();
+  });
+
+  it("removes the layout from the store when the renderer invokes onClose", async () => {
+    const Host = (): ReactElement => {
+      const exists = Session.Layout.useSelect("l1") != null;
+      if (!exists) return <span>layout gone</span>;
+      return <Layout.Content layoutKey="l1" />;
+    };
+    const store = await createTestStore();
+    place(store, "l1");
+    const result = await renderWithConsole(
+      <Layout.RendererProvider value={RENDERERS}>
+        <Host />
+      </Layout.RendererProvider>,
+      { store },
+    );
+    expect(Session.Layout.select(store.getState(), "l1")).toBeDefined();
+    fireEvent.click(screen.getByText("close from renderer"));
+    await waitFor(() =>
+      expect(Session.Layout.select(result.store.getState(), "l1")).toBeUndefined(),
+    );
+    expect(screen.getByText("layout gone")).toBeTruthy();
   });
 });

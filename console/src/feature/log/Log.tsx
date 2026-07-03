@@ -13,15 +13,12 @@ import { useCallback } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
+import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
-export interface LogProps {
-  visible: boolean;
-}
-
-export const Log = ({ visible }: LogProps) => {
+const Internal: Layout.Renderer = ({ visible }) => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
   const store = Session.useStore();
@@ -65,3 +62,10 @@ export const Log = ({ visible }: LogProps) => {
     />
   );
 };
+
+export const Log: Layout.Renderer = (props) => (
+  <Base.Suspended logKey={props.layoutKey}>
+    <Internal {...props} />
+  </Base.Suspended>
+);
+Log.useName = Layout.createUseFluxName(Base.useRename, Base.useRetrieveObservableName);

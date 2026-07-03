@@ -7,30 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
-class ResizeObserverMock {
-  callback: ResizeObserverCallback;
-  constructor(callback: ResizeObserverCallback) {
-    this.callback = callback;
-  }
-  observe = vi.fn((target: Element) => {
-    // Fire the callback so virtualizers see a non-zero container size
-    this.callback(
-      [
-        {
-          target,
-          contentRect: target.getBoundingClientRect(),
-          borderBoxSize: [{ blockSize: 100, inlineSize: 100 }],
-          contentBoxSize: [{ blockSize: 100, inlineSize: 100 }],
-          devicePixelContentBoxSize: [{ blockSize: 100, inlineSize: 100 }],
-        },
-      ],
-      this,
-    );
-  });
-  unobserve = vi.fn();
-  disconnect = vi.fn();
+// Live-core round-trips share the single test cluster with the rest of the suite, so
+// allow more than the 1s waitFor default.
+configure({ asyncUtilTimeout: 5000 });
+
+// jsdom does not implement ResizeObserver, and pluto's useResize constructs one
+// unconditionally. Provide an inert polyfill so construction succeeds; it never
+// fires, so observed elements keep jsdom's real (zero) geometry. Specs that render
+// virtualized lists opt into fake geometry via stubGeometry() from @/testutil.
+class ResizeObserverStub implements ResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
 }
 
 class IntersectionObserverMock {
@@ -86,12 +77,28 @@ const cssEscape = (value: string): string => {
 };
 
 beforeAll(() => {
-  vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+  vi.stubGlobal("ResizeObserver", ResizeObserverStub);
   vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
   if (typeof globalThis.CSS === "undefined")
     vi.stubGlobal("CSS", { escape: cssEscape });
   else if (typeof globalThis.CSS.escape !== "function")
     globalThis.CSS.escape = cssEscape;
+  // jsdom's Blob does not implement arrayBuffer; file-import paths read it to decode
+  // file contents. Back it with the real bytes via FileReader.
+  if (typeof Blob.prototype.arrayBuffer !== "function")
+    Object.defineProperty(Blob.prototype, "arrayBuffer", {
+      configurable: true,
+      writable: true,
+      value(this: Blob): Promise<ArrayBuffer> {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as ArrayBuffer);
+          reader.onerror = () =>
+            reject(reader.error ?? new Error("failed to read blob"));
+          reader.readAsArrayBuffer(this);
+        });
+      },
+    });
   // jsdom does not implement innerText; components that read/commit editable text
   // (pluto's Text.Editable) rely on it. Delegate to textContent.
   if (!Object.hasOwn(HTMLElement.prototype, "innerText"))
@@ -104,17 +111,6 @@ beforeAll(() => {
         this.textContent = value;
       },
     });
-  Element.prototype.getBoundingClientRect = vi.fn().mockReturnValue({
-    top: 0,
-    left: 0,
-    width: 100,
-    height: 100,
-    bottom: 100,
-    right: 100,
-    x: 0,
-    y: 0,
-    toJSON: () => "",
-  });
 });
 
 afterAll(() => {

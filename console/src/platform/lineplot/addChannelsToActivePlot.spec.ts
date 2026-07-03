@@ -22,8 +22,6 @@ import { LinePlot } from "@/platform/lineplot";
 
 const client: Synnax = createTestClient();
 
-const TIMEOUT = { timeout: 5000 };
-
 describe("LinePlot.addChannelsToActivePlot", () => {
   let ch1: channel.Channel;
   let ch2: channel.Channel;
@@ -64,7 +62,7 @@ describe("LinePlot.addChannelsToActivePlot", () => {
       const { channels } = await client.lineplots.retrieve({ key });
       expect(channels.y1).toContain(ch1.key);
       expect(channels.y1).toContain(ch2.key);
-    }, TIMEOUT);
+    });
   });
 
   it("does not dispatch when every channel is already present", async () => {
@@ -73,7 +71,7 @@ describe("LinePlot.addChannelsToActivePlot", () => {
     await waitFor(async () => {
       const { channels } = await client.lineplots.retrieve({ key });
       expect(channels.y1).toContain(ch1.key);
-    }, TIMEOUT);
+    });
 
     const dispatchSpy = vi.spyOn(client.lineplots, "dispatch");
     await LinePlot.addChannelsToActivePlot(client, key, [ch1.key]);

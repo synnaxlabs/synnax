@@ -12,7 +12,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Properties } from "@/feature/log/toolbar/Properties";
-import { client, renderLog, TIMEOUT } from "@/feature/log/toolbar/testutil";
+import { client, renderLog } from "@/feature/log/toolbar/testutil";
 
 const renderProperties = async (overrides: Partial<log.New> = {}) => {
   const { key, result } = await renderLog(Properties, { log: overrides });
@@ -37,27 +37,25 @@ describe("log/toolbar/Properties", () => {
 
   it("reflects showChannelNames from the server", async () => {
     const { showChannelNames } = await renderProperties({ hideChannelNames: true });
-    await waitFor(() => expect(showChannelNames().checked).toBe(false), TIMEOUT);
+    await waitFor(() => expect(showChannelNames().checked).toBe(false));
   });
 
   it("reflects showReceiptTimestamp from the server", async () => {
     const { showReceiptTimestamp } = await renderProperties({
       hideReceiptTimestamp: true,
     });
-    await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false), TIMEOUT);
+    await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false));
   });
 
   it("toggles showChannelNames through the server", async () => {
     const { key, showChannelNames } = await renderProperties({
       hideChannelNames: false,
     });
-    await waitFor(() => expect(showChannelNames().disabled).toBe(false), TIMEOUT);
+    await waitFor(() => expect(showChannelNames().disabled).toBe(false));
     fireEvent.click(showChannelNames());
-    await waitFor(() => expect(showChannelNames().checked).toBe(false), TIMEOUT);
-    await waitFor(
-      async () =>
-        expect((await client.logs.retrieve({ key })).hideChannelNames).toBe(true),
-      TIMEOUT,
+    await waitFor(() => expect(showChannelNames().checked).toBe(false));
+    await waitFor(async () =>
+      expect((await client.logs.retrieve({ key })).hideChannelNames).toBe(true),
     );
   });
 
@@ -65,13 +63,11 @@ describe("log/toolbar/Properties", () => {
     const { key, showReceiptTimestamp } = await renderProperties({
       hideReceiptTimestamp: false,
     });
-    await waitFor(() => expect(showReceiptTimestamp().disabled).toBe(false), TIMEOUT);
+    await waitFor(() => expect(showReceiptTimestamp().disabled).toBe(false));
     fireEvent.click(showReceiptTimestamp());
-    await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false), TIMEOUT);
-    await waitFor(
-      async () =>
-        expect((await client.logs.retrieve({ key })).hideReceiptTimestamp).toBe(true),
-      TIMEOUT,
+    await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false));
+    await waitFor(async () =>
+      expect((await client.logs.retrieve({ key })).hideReceiptTimestamp).toBe(true),
     );
   });
 });

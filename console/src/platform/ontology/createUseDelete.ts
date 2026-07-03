@@ -11,8 +11,8 @@ import { type Flux } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { useConfirmDelete } from "@/platform/ontology/useConfirmDelete";
 import { type TreeContextMenuProps } from "@/platform/ontology/service";
+import { useConfirmDelete } from "@/platform/ontology/useConfirmDelete";
 
 export interface CreateUseDeleteArgs<K extends record.Key> {
   type: string;

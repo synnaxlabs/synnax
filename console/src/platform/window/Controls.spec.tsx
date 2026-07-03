@@ -9,16 +9,12 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type * as RuntimeModule from "@/session/runtime/runtime";
-
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
-vi.mock("@/session/runtime/runtime", async (orig) => ({
-  ...(await orig<typeof RuntimeModule>()),
-  get ENGINE() {
-    return mocks.engine;
-  },
-}));
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Window } from "@/platform/window";
 import { renderWithConsole } from "@/testutil";

@@ -7,36 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
-vi.mock("@/session/runtime/runtime", () => ({
-  get ENGINE() {
-    return mocks.engine;
-  },
-}));
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Cluster } from "@/platform/cluster";
+import { pinLocationOrigin } from "@/testutil";
 
 describe("detectConnection", () => {
-  const originalLocation = window.location;
-  const setOrigin = (origin: string): void => {
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: { origin },
-    });
-  };
-
   beforeEach(() => {
     mocks.engine = "web";
-  });
-
-  afterEach(() => {
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: originalLocation,
-    });
   });
 
   it("should return null in the tauri engine", () => {
@@ -45,7 +30,7 @@ describe("detectConnection", () => {
   });
 
   it("should parse an insecure origin with an explicit port", () => {
-    setOrigin("http://example.com:8080");
+    pinLocationOrigin("http://example.com:8080");
     expect(Cluster.detectConnection()).toEqual({
       name: "Core",
       host: "example.com",
@@ -55,7 +40,7 @@ describe("detectConnection", () => {
   });
 
   it("should default an https origin without a port to 443 and mark it secure", () => {
-    setOrigin("https://example.com");
+    pinLocationOrigin("https://example.com");
     expect(Cluster.detectConnection()).toEqual({
       name: "Core",
       host: "example.com",
@@ -65,7 +50,7 @@ describe("detectConnection", () => {
   });
 
   it("should default an http origin without a port to 80", () => {
-    setOrigin("http://example.com");
+    pinLocationOrigin("http://example.com");
     expect(Cluster.detectConnection()).toEqual({
       name: "Core",
       host: "example.com",

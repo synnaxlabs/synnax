@@ -13,13 +13,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/platform/project";
-import { activeState, savedLayout } from "@/platform/project/testutil";
+import { createActiveState, createSavedLayout } from "@/platform/project/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
 const client: Synnax = createTestClient();
-
-const TIMEOUT = { timeout: 5000 };
 
 describe("Project.Selector", () => {
   it("renders nothing when the user lacks retrieve permission", async () => {
@@ -42,21 +40,20 @@ describe("Project.Selector", () => {
     const layoutKey = id.create();
     const target: project.Project = await client.projects.create({
       name: `proj-target-${id.create()}`,
-      layout: savedLayout(layoutKey),
+      layout: createSavedLayout(layoutKey),
     });
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Session.Project.SLICE_NAME]: activeState(active) },
+      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(active) },
     });
     render(<Project.Selector />, { wrapper });
 
-    const trigger = await screen.findByText(active.name, undefined, TIMEOUT);
+    const trigger = await screen.findByText(active.name);
     fireEvent.click(trigger);
-    fireEvent.click(await screen.findByText(target.name, undefined, TIMEOUT));
+    fireEvent.click(await screen.findByText(target.name));
 
-    await waitFor(
-      () => expect(Session.Project.selectSelected(store.getState())).toBe(target.key),
-      TIMEOUT,
+    await waitFor(() =>
+      expect(Session.Project.selectSelected(store.getState())).toBe(target.key),
     );
     expect(Session.Layout.select(store.getState(), layoutKey)?.name).toBe("Operator");
   });

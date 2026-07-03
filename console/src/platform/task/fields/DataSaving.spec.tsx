@@ -7,20 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 
 describe("fields.DataSaving", () => {
-  it("should render the Data saving switch", async () => {
-    await renderInTaskForm(<Task.Fields.DataSaving />, {
-      values: { config: { dataSaving: true } },
-    });
-    expect(screen.getByText("Data saving")).toBeTruthy();
-  });
-
   it("should write the toggled value back into the form", async () => {
     const { form } = await renderInTaskForm(<Task.Fields.DataSaving />, {
       values: { config: { dataSaving: true } },

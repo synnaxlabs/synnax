@@ -10,26 +10,18 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Body } from "@/platform/modals/Body";
+import { Modals } from "@/platform/modals";
 import { Wrapper } from "@/platform/modals/testutil";
 
 describe("Body", () => {
-  it("should render its children", () => {
-    render(<Body>body content</Body>, { wrapper: Wrapper });
-    expect(screen.getByText("body content")).toBeTruthy();
-  });
-
-  it("should apply the modal body element class", () => {
-    const { baseElement } = render(<Body>body content</Body>, { wrapper: Wrapper });
-    expect(baseElement.querySelector(".console-modal__body")).not.toBeNull();
-  });
-
-  it("should forward a custom className", () => {
-    const { baseElement } = render(<Body className="extra">body content</Body>, {
-      wrapper: Wrapper,
-    });
-    expect(baseElement.querySelector(".console-modal__body")?.className).toContain(
-      "extra",
+  it("should render children inside the modal body element and forward className", () => {
+    const { baseElement } = render(
+      <Modals.Body className="extra">body content</Modals.Body>,
+      { wrapper: Wrapper },
     );
+    const el = baseElement.querySelector(".console-modal__body");
+    expect(el).not.toBeNull();
+    expect(el?.className).toContain("extra");
+    expect(screen.getByText("body content")).toBeTruthy();
   });
 });

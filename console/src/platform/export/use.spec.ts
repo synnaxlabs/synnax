@@ -7,26 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Status } from "@synnaxlabs/pluto";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Export } from "@/platform/export";
-import { renderHookWithConsole } from "@/testutil/testutil";
+import {
+  captureBrowserDownloads,
+  type CapturedDownloads,
+  renderHookWithConsole,
+} from "@/testutil";
 
-// jsdom does not implement the object-URL / anchor-download primitives the browser save
-// path relies on. Provide them so the save path completes, and capture the downloaded
-// anchor to observe the exported file.
-let clickedAnchors: HTMLAnchorElement[] = [];
+let downloads: CapturedDownloads;
 
 beforeEach(() => {
-  clickedAnchors = [];
-  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:mock");
-  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
-    this: HTMLAnchorElement,
-  ) {
-    clickedAnchors.push(this);
-  });
+  downloads = captureBrowserDownloads();
 });
 
 afterEach(() => {
@@ -44,17 +39,25 @@ describe("Export.use", () => {
     act(() => result.current("plot-1"));
     await waitFor(() => expect(extract).toHaveBeenCalledTimes(1));
     expect(extract).toHaveBeenCalledWith("plot-1", { store, client: null });
-    await waitFor(() => expect(clickedAnchors).toHaveLength(1));
-    expect(clickedAnchors[0].download).toEqual("My Plot.json");
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    expect(downloads.anchors[0].download).toEqual("My Plot.json");
   });
 
-  it("does not save anything when the extractor fails", async () => {
+  it("surfaces an error status and saves nothing when the extractor fails", async () => {
     const extract = vi.fn().mockRejectedValue(new Error("cannot extract"));
-    const { result } = await renderHookWithConsole(() =>
-      Export.use(extract, "lineplot"),
+    const { result } = await renderHookWithConsole(() => ({
+      run: Export.use(extract, "lineplot"),
+      notifications: Status.useNotifications(),
+    }));
+    act(() => result.current.run("plot-1"));
+    await waitFor(() =>
+      expect(
+        result.current.notifications.statuses.some(
+          (s) => s.variant === "error" && s.message === "Failed to export lineplot",
+        ),
+      ).toBe(true),
     );
-    act(() => result.current("plot-1"));
-    await waitFor(() => expect(extract).toHaveBeenCalledTimes(1));
-    expect(clickedAnchors).toHaveLength(0);
+    expect(extract).toHaveBeenCalledTimes(1);
+    expect(downloads.anchors).toHaveLength(0);
   });
 });

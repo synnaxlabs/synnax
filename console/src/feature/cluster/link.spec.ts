@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  type connection,
+  createTestClient,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,7 +19,7 @@ import { Cluster } from "@/feature/cluster";
 import { Session } from "@/session";
 import { type State } from "@/session/store";
 
-const client = (): Client => ({}) as Client;
+const client = (): Client => createTestClient();
 
 const connState = (
   status: connection.Status,
@@ -31,13 +35,27 @@ const connState = (
   clockSkewExceeded: false,
 });
 
-const makeState = (clusterKeys: string[], active: string | null): State =>
-  ({
-    [Session.Cluster.SLICE_NAME]: {
-      clusters: Object.fromEntries(clusterKeys.map((k) => [k, { key: k, name: k }])),
-      activeCluster: active,
-    },
-  }) as unknown as State;
+const createState = (clusterKeys: string[], selected: string | null): State => ({
+  ...Session.ZERO_STATE,
+  [Session.Cluster.SLICE_NAME]: {
+    ...Session.Cluster.ZERO_SLICE_STATE,
+    selected: selected ?? undefined,
+    clusters: Object.fromEntries(
+      clusterKeys.map((k) => [
+        k,
+        {
+          key: k,
+          name: k,
+          host: "localhost",
+          port: 9090,
+          username: "synnax",
+          password: "seldon",
+          secure: false,
+        },
+      ]),
+    ),
+  },
+});
 
 // sequence returns each snapshot once and then repeats the last one indefinitely, so a
 // poll loop that overshoots the scripted transitions keeps seeing the terminal state.
@@ -59,7 +77,7 @@ describe("connectToCluster", () => {
     const setActive = vi.fn();
     await expect(
       Cluster.connectToCluster("missing", {
-        getState: () => makeState([], null),
+        getState: () => createState([], null),
         getSnapshot: sequence({
           client: null,
           connState: connState("disconnected", ""),
@@ -75,7 +93,7 @@ describe("connectToCluster", () => {
     const setActive = vi.fn();
     const active = client();
     const result = await Cluster.connectToCluster("a", {
-      getState: () => makeState(["a"], "a"),
+      getState: () => createState(["a"], "a"),
       getSnapshot: sequence({ client: active, connState: connState("connected", "a") }),
       setActive,
       poll: instantPoll(),
@@ -89,7 +107,7 @@ describe("connectToCluster", () => {
     const prior = client();
     const next = client();
     const result = await Cluster.connectToCluster("b", {
-      getState: () => makeState(["a", "b"], "a"),
+      getState: () => createState(["a", "b"], "a"),
       getSnapshot: sequence(
         { client: prior, connState: connState("connected", "a") },
         { client: prior, connState: connState("connecting", "a") },
@@ -108,7 +126,7 @@ describe("connectToCluster", () => {
     const prior = client();
     const next = client();
     const result = await Cluster.connectToCluster("b", {
-      getState: () => makeState(["a", "b"], "a"),
+      getState: () => createState(["a", "b"], "a"),
       getSnapshot: sequence(
         { client: prior, connState: connState("failed", "a", "stale failure") },
         { client: prior, connState: connState("failed", "a", "stale failure") },
@@ -125,7 +143,7 @@ describe("connectToCluster", () => {
     const active = client();
     await expect(
       Cluster.connectToCluster("a", {
-        getState: () => makeState(["a"], "a"),
+        getState: () => createState(["a"], "a"),
         getSnapshot: sequence(
           { client: active, connState: connState("connecting", "a") },
           { client: active, connState: connState("failed", "a", "auth rejected") },
@@ -133,14 +151,14 @@ describe("connectToCluster", () => {
         setActive: vi.fn(),
         poll: instantPoll(),
       }),
-    ).rejects.toThrow("Timed out connecting to cluster a");
+    ).rejects.toThrow("auth rejected");
   });
 
   it("should throw when the connection times out", async () => {
     const active = client();
     await expect(
       Cluster.connectToCluster("a", {
-        getState: () => makeState(["a"], "a"),
+        getState: () => createState(["a"], "a"),
         getSnapshot: sequence({
           client: active,
           connState: connState("connecting", "a"),

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { type Flux, Group, Text, Tree } from "@synnaxlabs/pluto";
+import { type Flux, Group, List, Text, Tree } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -41,7 +41,7 @@ export const useCreateEmpty = ({
         rollbacks.push(() =>
           setNodes([...Tree.removeNode({ tree, keys: newIDString })]),
         );
-        const [name, renamed] = await Text.asyncEdit(newIDString);
+        const [name, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
         if (!renamed || name === "") return false;
         return { ...data, key: newID.key, name };
       },

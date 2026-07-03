@@ -18,18 +18,9 @@ import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
-const TIMEOUT = { timeout: 5000 };
-
 const createRange = async (): Promise<ranger.Range> => await createTestRange(client);
 
 describe("Range.MetaData", () => {
-  it("should render the metadata header", async () => {
-    const range = await createRange();
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Range.MetaData rangeKey={range.key} />, { wrapper });
-    await waitFor(() => expect(screen.getByText("Metadata")).toBeTruthy(), TIMEOUT);
-  });
-
   it("should list the range's existing metadata pairs", async () => {
     const range = await createRange();
     const metaKey = id.create();
@@ -37,7 +28,7 @@ describe("Range.MetaData", () => {
     await range.kv.set(metaKey, metaValue);
     const { wrapper } = await createConsoleWrapper({ client });
     render(<Range.MetaData rangeKey={range.key} />, { wrapper });
-    await waitFor(() => expect(screen.getByText(metaKey)).toBeTruthy(), TIMEOUT);
+    await waitFor(() => expect(screen.getByText(metaKey)).toBeTruthy());
     expect(screen.getByDisplayValue(metaValue)).toBeTruthy();
   });
 
@@ -45,7 +36,7 @@ describe("Range.MetaData", () => {
     const range = await createRange();
     const { wrapper } = await createConsoleWrapper({ client });
     render(<Range.MetaData rangeKey={range.key} />, { wrapper });
-    await waitFor(() => expect(screen.getByText("Metadata")).toBeTruthy(), TIMEOUT);
+    await waitFor(() => expect(screen.getByText("Metadata")).toBeTruthy());
 
     const addButton = screen
       .getAllByRole("button")
@@ -70,6 +61,6 @@ describe("Range.MetaData", () => {
 
     await waitFor(async () => {
       expect(await range.kv.get(metaKey)).toBe(metaValue);
-    }, TIMEOUT);
+    });
   });
 });

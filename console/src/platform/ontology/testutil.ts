@@ -20,7 +20,7 @@ import { type Session } from "@/session";
  * render against any resource. Pass overrides to supply real service behavior for
  * specific types.
  */
-export const buildServices = (
+export const createServices = (
   overrides: Partial<Record<ontology.ResourceType, Ontology.Service>> = {},
 ): Ontology.Services =>
   new Proxy({} as Ontology.Services, {
@@ -35,7 +35,7 @@ export const buildServices = (
  * Builds a {@link Ontology.TreeState} backed by the given resources. getResource resolves
  * against the supplied resources; the mutating members are no-ops unless overridden.
  */
-export const buildState = (
+export const createState = (
   resources: ontology.Resource[],
   overrides: Partial<Ontology.TreeState> = {},
 ): Ontology.TreeState => {
@@ -64,7 +64,7 @@ export const buildState = (
 };
 
 /** Builds an ontology resource for the given id with an optional name and data payload. */
-export const buildResource = (
+export const createResource = (
   id: ontology.ID,
   name: string,
   data?: Record<string, unknown>,
@@ -75,24 +75,24 @@ export const buildResource = (
   ...(data != null ? { data } : {}),
 });
 
-export interface BuildSelectionArgs {
+export interface CreateSelectionArgs {
   ids: ontology.ID[];
   rootID?: ontology.ID;
   parentID?: ontology.ID;
 }
 
 /** Builds the selection portion of {@link Ontology.TreeContextMenuProps}. */
-export const buildSelection = ({
+export const createSelection = ({
   ids,
   rootID = ontology.ROOT_ID,
   parentID = rootID,
-}: BuildSelectionArgs): Ontology.TreeContextMenuProps["selection"] => ({
+}: CreateSelectionArgs): Ontology.TreeContextMenuProps["selection"] => ({
   ids: array.toArray(ids),
   rootID,
   parentID,
 });
 
-export interface BuildBasePropsArgs {
+export interface CreateBasePropsArgs {
   client: Synnax;
   store: Session.Store;
   services?: Ontology.Services;
@@ -104,12 +104,12 @@ export interface BuildBasePropsArgs {
  * status callbacks default to no-ops; pass overrides (e.g. injected vi.fn() spies) to
  * observe them.
  */
-export const buildBaseProps = ({
+export const createBaseProps = ({
   client,
   store,
-  services = buildServices(),
+  services = createServices(),
   overrides = {},
-}: BuildBasePropsArgs): Ontology.BaseProps => ({
+}: CreateBasePropsArgs): Ontology.BaseProps => ({
   client,
   store,
   services,

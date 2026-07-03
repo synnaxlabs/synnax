@@ -10,26 +10,26 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri"; version: string } => ({
-  engine: "web",
-  version: "1.5.0",
-}));
+const mocks = vi.hoisted(
+  (): { engine: "web" | "tauri"; version: string; update: unknown } => ({
+    engine: "web",
+    version: "1.5.0",
+    update: null,
+  }),
+);
 
 vi.mock("@/session/runtime/runtime", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    get ENGINE() {
-      return mocks.engine;
-    },
-  };
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
 });
 
 vi.mock("@tauri-apps/api/app", () => ({
   getVersion: vi.fn(async () => mocks.version),
 }));
 
-vi.mock("@tauri-apps/plugin-updater", () => ({ check: vi.fn(async () => null) }));
+vi.mock("@tauri-apps/plugin-updater", () => ({
+  check: vi.fn(async () => mocks.update),
+}));
 
 import { renderWithModals } from "@/platform/modals/testutil";
 import { Version } from "@/platform/version";
@@ -38,16 +38,28 @@ describe("version Badge", () => {
   beforeEach(() => {
     mocks.engine = "web";
     mocks.version = "1.5.0";
+    mocks.update = null;
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("should render a version-labelled button", () => {
+  it("should not open the info modal when clicked in the browser", async () => {
     renderWithModals(<Version.Badge />);
     const button = screen.getByRole("button");
     expect((button.textContent ?? "").startsWith("v")).toBe(true);
+    fireEvent.click(button);
+    await waitFor(() => expect(screen.queryByText(/Console v/)).toBeNull());
+  });
+
+  it("should highlight the badge when an update is available", async () => {
+    mocks.engine = "tauri";
+    mocks.update = { version: "9.9.9" };
+    renderWithModals(<Version.Badge />);
+    await waitFor(() =>
+      expect(screen.getByRole("button").style.color).toContain("--pluto-secondary-z"),
+    );
   });
 
   it("should render the resolved app version in tauri", async () => {
