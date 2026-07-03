@@ -48,7 +48,7 @@ func (k Key) Lease() node.Key { return node.Key(k >> 20) }
 // LocalKey returns the local key for the Key.
 func (k Key) LocalKey() LocalKey { return LocalKey(k & 0xFFFFF) }
 
-// Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
+// Free returns true when the channel is not leased to any node i.e. it is a non-leased
 // virtual channel.
 func (k Key) Free() bool { return k.Lease() == node.KeyFree }
 
@@ -130,8 +130,8 @@ func (c Channel) Index() Key {
 // Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() node.Key { return c.Leaseholder }
 
-// Free returns true if the channel is leased to a particular node i.e. it is not a
-// non-leased virtual channel.
+// Free returns true if the channel is not leased to any node i.e. it is a non-leased
+// virtual channel.
 func (c Channel) Free() bool { return c.Leaseholder == node.KeyFree }
 
 // String implements stringer, returning a nicely formatted string representation of the
