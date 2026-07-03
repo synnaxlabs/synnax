@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 type renameBatchEntry struct {
@@ -62,9 +63,8 @@ func zipRenameBatch(entries []renameBatchEntry) map[Key]string {
 	})
 }
 
-// storageRenames converts channel-keyed renames to their storage-layer keys.
+// storageRenames reinterprets channel-keyed renames as storage-keyed renames without
+// copying; Key and ts.ChannelKey share the same uint32 layout.
 func storageRenames(renames map[Key]string) map[ts.ChannelKey]string {
-	return lo.MapKeys(renames, func(_ string, key Key) ts.ChannelKey {
-		return key.StorageKey()
-	})
+	return unsafe.ReinterpretMapKeys[Key, ts.ChannelKey](renames)
 }

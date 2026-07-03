@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	control "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 var (
@@ -109,18 +110,16 @@ func (renameMessageTranslator) Forward(
 	_ context.Context,
 	req channel.RenameRequest,
 ) (*RenameRequest, error) {
-	renames := lo.MapKeys(req.Renames, func(_ string, key channel.Key) uint32 {
-		return uint32(key)
-	})
-	return &RenameRequest{Renames: renames}, nil
+	return &RenameRequest{
+		Renames: unsafe.ReinterpretMapKeys[channel.Key, uint32](req.Renames),
+	}, nil
 }
 
 func (renameMessageTranslator) Backward(
 	_ context.Context,
 	req *RenameRequest,
 ) (channel.RenameRequest, error) {
-	renames := lo.MapKeys(req.Renames, func(_ string, key uint32) channel.Key {
-		return channel.Key(key)
-	})
-	return channel.RenameRequest{Renames: renames}, nil
+	return channel.RenameRequest{
+		Renames: unsafe.ReinterpretMapKeys[uint32, channel.Key](req.Renames),
+	}, nil
 }
