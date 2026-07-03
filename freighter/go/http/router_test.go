@@ -164,7 +164,9 @@ var _ = Describe("Router", func() {
 			}()
 
 			Eventually(func(g Gomega) {
-				g.Expect(pollHealth("http://" + addr.String() + "/anything")).To(Succeed())
+				g.Expect(
+					pollHealth("http://" + addr.String() + "/anything"),
+				).To(Succeed())
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
@@ -207,7 +209,9 @@ var _ = Describe("Router", func() {
 			}()
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 			Eventually(func(g Gomega) {
-				g.Expect(pollHealth("http://" + addr.String() + "/anything")).To(Succeed())
+				g.Expect(
+					pollHealth("http://" + addr.String() + "/anything"),
+				).To(Succeed())
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
@@ -247,7 +251,9 @@ var _ = Describe("Router", func() {
 			}()
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 			Eventually(func(g Gomega) {
-				g.Expect(pollHealth("http://" + addr.String() + "/anything")).To(Succeed())
+				g.Expect(
+					pollHealth("http://" + addr.String() + "/anything"),
+				).To(Succeed())
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
@@ -300,7 +306,9 @@ var _ = Describe("Router", func() {
 			}()
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 			Eventually(func(g Gomega) {
-				g.Expect(pollHealth("http://" + addr.String() + "/anything")).To(Succeed())
+				g.Expect(
+					pollHealth("http://" + addr.String() + "/anything"),
+				).To(Succeed())
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](

@@ -22,10 +22,9 @@ import (
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// newFiberApp builds a fiber app whose fasthttp worker-pool janitor wakes every
-// 100ms instead of the default 10s. The janitor only observes shutdown between
-// sleeps, so without this it can outlive the server long enough to trip the
-// goroutine leak check.
+// newFiberApp builds a fiber app whose fasthttp worker-pool janitor wakes every 100ms
+// instead of the default 10s. The janitor only observes shutdown between sleeps, so
+// without this it can outlive the server long enough to trip the goroutine leak check.
 func newFiberApp(cfg fiber.Config) *fiber.App {
 	app := fiber.New(cfg)
 	app.Server().MaxIdleWorkerDuration = 100 * time.Millisecond
