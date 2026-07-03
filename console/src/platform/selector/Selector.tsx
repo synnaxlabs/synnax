@@ -76,7 +76,7 @@ export const Selector = ({
   );
 };
 
-export const createSelector = (selectables: Selectable[], text: string) => {
+export const create = (selectables: Selectable[], text: string) => {
   const C: Layout.Renderer = (props) => (
     <Selector {...props} selectables={selectables} text={text} />
   );

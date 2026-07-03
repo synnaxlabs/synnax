@@ -142,8 +142,16 @@ const decode = (payload: errors.Payload): Error | null => {
   return new UnexpectedError(payload.data);
 };
 
-const encode = (): errors.Payload => {
-  throw new errors.NotImplemented();
+const encode: errors.Encoder = (error) => {
+  if (!error.type.startsWith(SynnaxError.TYPE)) return null;
+  if (error.type === PathError.TYPE) {
+    const { path, error: cause } = error as PathError;
+    return {
+      type: PathError.TYPE,
+      data: JSON.stringify({ path, error: errors.encode(cause) }),
+    };
+  }
+  return { type: error.type, data: error.message };
 };
 
 errors.register({ encode, decode });

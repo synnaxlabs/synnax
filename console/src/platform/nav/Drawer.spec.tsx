@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { act, type ReactElement } from "react";
-import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Nav } from "@/platform/nav";
 import { Session } from "@/session";
-import { createTestStore, type TestStore } from "@/testutil";
+import { createTestStore, renderWithConsole, type TestStore } from "@/testutil";
 
 const ITEM_KEY = "alpha";
 const CONTENT = "alpha content";
@@ -39,19 +38,12 @@ const Harness = (): ReactElement => {
 };
 Harness.displayName = "DrawerHarness";
 
-// The drawer mounts Eraser.use, whose aether component requires a canvas render
-// context that jsdom cannot provide. Rendering without an aether provider uses
-// pluto's worker-disabled default store, which no-ops all aether operations.
 const renderDrawer = async (): Promise<{
   store: TestStore;
   container: HTMLElement;
 }> => {
   const store = await createTestStore();
-  const { container } = render(
-    <Provider store={store}>
-      <Harness />
-    </Provider>,
-  );
+  const { container } = await renderWithConsole(<Harness />, { store });
   return { store, container };
 };
 

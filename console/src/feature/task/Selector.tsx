@@ -41,4 +41,4 @@ export const SELECTABLES: BaseSelector.Selectable[] = [
   ...PagerDuty.Task.SELECTABLES,
 ].map(withTaskVisibility);
 
-export const Selector = BaseSelector.createSelector(SELECTABLES, "Select a Task Type");
+export const Selector = BaseSelector.create(SELECTABLES, "Select a Task Type");

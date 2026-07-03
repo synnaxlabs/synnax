@@ -386,7 +386,7 @@ describe("log/aether/Log", () => {
       const { renderCtx } = setupWithContext([makeEntry(0)], REGION_500, {
         visible: true,
       });
-      expect(renderCtx.loop.set).toHaveBeenCalled();
+      expect(renderCtx.loop.set.calls.length).toBeGreaterThan(0);
     });
 
     it("should skip render when not visible and prevState also not visible", () => {
@@ -395,7 +395,7 @@ describe("log/aether/Log", () => {
       });
       // On the very first update, both state and prevState have visible=false,
       // so the early return on line 217 fires and no render is requested.
-      expect(renderCtx.loop.set).not.toHaveBeenCalled();
+      expect(renderCtx.loop.set.calls).toHaveLength(0);
     });
   });
 
@@ -1119,7 +1119,7 @@ describe("log/aether/Log", () => {
       const cleanupSpy = vi.spyOn(source, "cleanup");
       log.afterDelete();
       expect(cleanupSpy).toHaveBeenCalled();
-      expect(renderCtx.erase).toHaveBeenCalled();
+      expect(renderCtx.erase.calls.length).toBeGreaterThan(0);
     });
   });
 });

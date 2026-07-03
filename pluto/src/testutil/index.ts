@@ -10,6 +10,10 @@
 // This barrel is the published `@synnaxlabs/pluto/testutil` entry. It must stay
 // vitest-free: every export here ships in the bundle graph, and `vi` is a runtime
 // import whose types do not resolve portably in consumers. Never add a helper that
-// imports from "vitest" or exposes a Mock in its signature (e.g. dom.ts, render.ts) —
-// those stay in-package and are imported directly by pluto's own specs.
+// imports from "vitest" or exposes a Mock in its signature (e.g. dom.ts) — those stay
+// in-package and are imported directly by pluto's own specs. A helper that genuinely
+// needs vitest belongs in a dedicated `./testutil/vitest` subpath with vitest
+// externalized; no such helper exists yet, so that subpath does not either.
+export * from "@/aether/test";
+export * from "@/testutil/render";
 export * from "@/testutil/Synnax";

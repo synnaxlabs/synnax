@@ -188,6 +188,12 @@ build-toolchain trap, not a style preference.
   package boundary makes DI mandatory rather than merely preferred.)
 - A published testutil entry (e.g. `@synnaxlabs/pluto/testutil`) is a **guarded surface**:
   adding a `vi`-touching helper to it is the specific mistake that breaks the toolchain.
+- **The concern is bundle/build safety, not vitest itself.** Most helpers that look
+  vitest-coupled aren't — a `vi.fn()` used only as a call recorder converts to a plain
+  closure, and the helper becomes publishable. If a helper ever *genuinely* needs
+  vitest, the sanctioned shape is a dedicated `./testutil/vitest` subpath export with
+  vitest externalized in the vite build (bare specifier, optional peer dep) — never the
+  main barrel. No such helper exists today.
 
 ## Rule 5: One home per helper — hoist on the second use, never copy
 
