@@ -63,7 +63,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -93,7 +93,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float64T,
 			}
-			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -120,7 +120,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Int32T,
 			}
-			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -148,7 +148,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, indexCh)).To(Succeed())
 
 			dataCh := &channel.Channel{
 				Name:       "data_with_index",
@@ -156,7 +156,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelSvc.Create(ctx, dataCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -185,7 +185,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, indexCh)).To(Succeed())
 
 			dataCh := &channel.Channel{
 				Name:       "write_data_with_index",
@@ -193,7 +193,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelSvc.Create(ctx, dataCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -220,14 +220,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelSvc.Create(ctx, readCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, readCh)).To(Succeed())
 
 			writeCh := &channel.Channel{
 				Name:     "output_actuator",
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelSvc.Create(ctx, writeCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, writeCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -256,7 +256,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelSvc.Create(ctx, sharedCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, sharedCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -341,7 +341,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: 0,
 			}
-			Expect(channelSvc.Create(ctx, virtualCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, virtualCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -368,7 +368,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelSvc.Create(ctx, virtCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, virtCh)).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
@@ -399,14 +399,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Uint8T,
 			}
-			Expect(channelSvc.Create(ctx, triggerCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, triggerCh)).To(Succeed())
 
 			valveCh := &channel.Channel{
 				Name:     "dyn_auth_valve",
 				Virtual:  true,
 				DataType: telem.Uint8T,
 			}
-			Expect(channelSvc.Create(ctx, valveCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, valveCh)).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
@@ -433,7 +433,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float64T,
 			}
-			Expect(channelSvc.Create(ctx, authOnlyCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, authOnlyCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{
@@ -459,7 +459,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				IsIndex:  true,
 				Virtual:  false,
 			}
-			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, indexCh)).To(Succeed())
 
 			readCh1 := &channel.Channel{
 				Name:       "complex_read_1",
@@ -467,14 +467,14 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelSvc.Create(ctx, readCh1)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, readCh1)).To(Succeed())
 
 			readCh2 := &channel.Channel{
 				Name:     "complex_read_2",
 				Virtual:  true,
 				DataType: telem.Float64T,
 			}
-			Expect(channelSvc.Create(ctx, readCh2)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, readCh2)).To(Succeed())
 
 			writeCh := &channel.Channel{
 				Name:       "complex_write",
@@ -482,7 +482,7 @@ var _ = Describe("Dependencies", Ordered, func() {
 				DataType:   telem.Int32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelSvc.Create(ctx, writeCh)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, writeCh)).To(Succeed())
 
 			prog := arc.Program{
 				IR: ir.IR{

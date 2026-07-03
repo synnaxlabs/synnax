@@ -56,7 +56,7 @@ var _ = Describe("Signals", func() {
 		ch := channel.Channel{
 			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
-		Expect(channelSvc.Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		payloads := MustSucceed(telem.UnmarshalJSONSeries[channelPayload](
@@ -76,7 +76,7 @@ var _ = Describe("Signals", func() {
 		ch := channel.Channel{
 			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
-		Expect(channelSvc.Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_delete")
 		Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
 		var res framer.StreamerResponse

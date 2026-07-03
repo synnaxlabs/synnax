@@ -36,7 +36,7 @@ var _ = Describe("Service", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			var retrieved channel.Channel
 			Expect(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal(ch.Name))
@@ -60,7 +60,7 @@ var _ = Describe("Service", func() {
 				IsIndex:     true,
 				Leaseholder: 1,
 			}
-			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			Eventually(called.Load).Should(BeTrue())
 		})
 	})
@@ -72,7 +72,7 @@ var _ = Describe("Service", func() {
 				Expression: "return 1 + 1",
 				Virtual:    true,
 			}
-			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			Expect(ch.DataType).To(Equal(telem.Int64T))
 		})
 
@@ -82,13 +82,13 @@ var _ = Describe("Service", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(svc.Create(ctx, &base)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
 			ch := channel.Channel{
 				Name:       channel.NewRandomName(),
 				Expression: fmt.Sprintf("return %s * 2.0", base.Name),
 				Virtual:    true,
 			}
-			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			Expect(ch.DataType).To(Equal(telem.Float64T))
 		})
 
@@ -98,7 +98,7 @@ var _ = Describe("Service", func() {
 				Expression: "return 1.5 + 2.5",
 				Virtual:    true,
 			}
-			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			Expect(ch.DataType).To(Equal(telem.Float64T))
 		})
 
@@ -109,7 +109,7 @@ var _ = Describe("Service", func() {
 				Expression: "return 1 + 1",
 				Virtual:    true,
 			}
-			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			Expect(ch.DataType).To(Equal(telem.Int64T))
 		})
 
@@ -119,7 +119,7 @@ var _ = Describe("Service", func() {
 				Expression: "return invalid_syntax {{",
 				Virtual:    true,
 			}
-			Expect(svc.Create(ctx, &ch)).To(MatchError(
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(MatchError(
 				ContainSubstring("extraneous input '{'"),
 			))
 		})
@@ -130,7 +130,7 @@ var _ = Describe("Service", func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(svc.Create(ctx, &ch)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			Expect(ch.DataType).To(Equal(telem.TimeStampT))
 		})
 	})
@@ -142,7 +142,7 @@ var _ = Describe("Service", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(svc.Create(ctx, &nonCalc)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &nonCalc)).To(Succeed())
 			Expect(nonCalc.DataType).To(Equal(telem.Float64T))
 
 			channels := []channel.Channel{
@@ -157,14 +157,14 @@ var _ = Describe("Service", func() {
 					Virtual:    true,
 				},
 			}
-			Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(svc.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			Expect(channels[0].DataType).To(Equal(telem.Int64T))
 			Expect(channels[1].DataType).To(Equal(telem.Float64T))
 		})
 
 		It("Should handle an empty slice without error", func(ctx SpecContext) {
 			channels := []channel.Channel{}
-			Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(svc.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 		})
 
 		It("Should resolve cross-references within the same batch", func(ctx SpecContext) {
@@ -181,7 +181,7 @@ var _ = Describe("Service", func() {
 					Virtual:    true,
 				},
 			}
-			Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(svc.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			Expect(channels[0].DataType).To(Equal(telem.Int64T))
 			Expect(channels[1].DataType).To(Equal(telem.Int64T))
 		})

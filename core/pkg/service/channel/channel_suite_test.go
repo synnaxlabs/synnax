@@ -76,7 +76,7 @@ func openService(
 		DataType:    telem.StringT,
 		Internal:    true,
 	}
-	Expect(channelSvc.Create(ctx, &controlCh, channel.RetrieveIfNameExists())).
+	Expect(channelSvc.NewWriter(nil).Create(ctx, &controlCh, channel.RetrieveIfNameExists())).
 		To(Succeed())
 	Expect(node.Framer.ConfigureControlUpdateChannel(
 		ctx, controlCh.Key(), controlCh.Name,

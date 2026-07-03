@@ -260,28 +260,3 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 // ShouldValidateNames reports whether channel-name validation is enabled.
 func (s *Service) ShouldValidateNames() bool { return *s.cfg.ValidateNames }
-
-// The methods below are convenience shortcuts that run a single operation through a
-// fresh, transaction-less Writer. Callers that need to batch writes into a transaction
-// should use NewWriter directly.
-
-// Create creates a single channel outside of any transaction, validating a calculated
-// channel's expression up front (an analysis error aborts the create). It is a
-// convenience wrapper over a fresh, transaction-less Writer; see Writer.Create.
-func (s *Service) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
-	channels := []Channel{*c}
-	if err := s.CreateMany(ctx, &channels, opts...); err != nil {
-		return err
-	}
-	*c = channels[0]
-	return nil
-}
-
-// CreateMany creates multiple channels outside of any transaction, validating calculated
-// channel expressions up front (an analysis error aborts the call). It is a convenience
-// wrapper over a fresh, transaction-less Writer; see Writer.CreateMany.
-func (s *Service) CreateMany(
-	ctx context.Context, channels *[]Channel, opts ...CreateOption,
-) error {
-	return s.NewWriter(nil).CreateMany(ctx, channels, opts...)
-}

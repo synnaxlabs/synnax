@@ -363,13 +363,13 @@ var _ = Describe("Metrics", func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(channelSvc.Create(ctx, indexCh, channel.RetrieveIfNameExists())).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, indexCh, channel.RetrieveIfNameExists())).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "metrics_test_data",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelSvc.Create(ctx, dataCh, channel.RetrieveIfNameExists())).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, dataCh, channel.RetrieveIfNameExists())).To(Succeed())
 			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{indexCh.Key(), dataCh.Key()},

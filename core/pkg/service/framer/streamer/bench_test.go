@@ -127,7 +127,7 @@ func (e *benchStreamerEnv) createVirtualChannel(b *testing.B, name string) *chan
 		DataType: telem.Float32T,
 		Virtual:  true,
 	}
-	if err := e.channelSvc.Create(e.ctx, ch); err != nil {
+	if err := e.channelSvc.NewWriter(nil).Create(e.ctx, ch); err != nil {
 		b.Fatalf("failed to create channel: %v", err)
 	}
 	return ch
@@ -143,7 +143,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	if err := e.channelSvc.Create(e.ctx, indexCh); err != nil {
+	if err := e.channelSvc.NewWriter(nil).Create(e.ctx, indexCh); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
@@ -153,7 +153,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.channelSvc.Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.channelSvc.NewWriter(nil).Create(e.ctx, dataChannels[i]); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -166,7 +166,7 @@ func (e *benchStreamerEnv) createCalculation(b *testing.B, name, expression stri
 		DataType:   telem.Float32T,
 		Expression: expression,
 	}
-	if err := e.channelSvc.Create(e.ctx, calc); err != nil {
+	if err := e.channelSvc.NewWriter(nil).Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc

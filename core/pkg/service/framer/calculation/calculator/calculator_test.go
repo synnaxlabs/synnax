@@ -61,7 +61,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		calc *channel.Channel,
 	) *calculator.Calculator {
 		if indexes != nil {
-			Expect(channelSvc.CreateMany(ctx, indexes)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, indexes)).To(Succeed())
 		}
 		if bases != nil {
 			for i, channel := range *bases {
@@ -75,9 +75,9 @@ var _ = Describe("Calculator", Ordered, func() {
 				channel.LocalIndex = (*indexes)[toGet].LocalKey
 				(*bases)[i] = channel
 			}
-			Expect(channelSvc.CreateMany(ctx, bases)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, bases)).To(Succeed())
 		}
-		Expect(channelSvc.Create(ctx, calc)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        *calc,
@@ -936,13 +936,13 @@ var _ = Describe("Calculator", Ordered, func() {
 			bases *[]channel.Channel,
 			calc *channel.Channel,
 		) *calculator.Calculator {
-			Expect(channelSvc.CreateMany(ctx, bases)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, bases)).To(Succeed())
 			res := MustSucceed(
 				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(nil)).
 					Analyze(ctx, *calc),
 			)
 			calc.DataType = res.ChanDataType
-			Expect(channelSvc.Create(ctx, calc)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 				ChannelService: channelSvc,
 				Channel:        *calc,
@@ -1034,8 +1034,8 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
 			}
-			Expect(channelSvc.CreateMany(ctx, &base)).To(Succeed())
-			Expect(channelSvc.Create(ctx, &calc)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &base)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 				ChannelService: channelSvc,
 				Channel:        calc,

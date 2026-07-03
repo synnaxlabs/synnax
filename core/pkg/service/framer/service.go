@@ -252,7 +252,7 @@ func (s *Service) configureControlUpdates(ctx context.Context) error {
 		DataType:    telem.StringT,
 		Internal:    true,
 	}
-	if err := s.cfg.Channel.Create(
+	if err := s.cfg.Channel.NewWriter(nil).Create(
 		ctx, &controlCh, channel.RetrieveIfNameExists(),
 	); err != nil {
 		return err

@@ -62,15 +62,15 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("OntologyID", func() {
 		It("Should correctly return the ontology.ID for the specified channel", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
-			Expect(svc.Create(ctx, ch)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 			Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
 		})
 	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func(ctx SpecContext) {
-			Expect(svc.Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true})).To(Succeed())
-			Expect(svc.Create(ctx, &channel.Channel{Name: "SG02", DataType: telem.Int64T, Virtual: true})).To(Succeed())
-			Expect(svc.Create(ctx, &channel.Channel{Name: "SG03", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &channel.Channel{Name: "SG02", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &channel.Channel{Name: "SG03", DataType: telem.Int64T, Virtual: true})).To(Succeed())
 			n, closer := MustSucceed2(svc.OpenNexter(ctx))
 			defer func() {
 				GinkgoRecover()
@@ -95,7 +95,7 @@ var _ = Describe("Ontology", Ordered, func() {
 				})
 				defer dc()
 				ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
-				Expect(svc.Create(ctx, ch)).To(Succeed())
+				Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 				Eventually(func(g Gomega) {
 					c := <-changes
 					g.Expect(c).To(HaveLen(1))
@@ -109,7 +109,7 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("RetrieveResource", func() {
 		It("Should correctly retrieve a resource", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
-			Expect(svc.Create(ctx, ch)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 			r := MustSucceed(svc.RetrieveResource(ctx, ch.Key().String(), nil))
 			Expect(r.Name).To(Equal(ch.Name))
 		})

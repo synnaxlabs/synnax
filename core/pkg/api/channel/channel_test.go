@@ -24,7 +24,7 @@ func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
 		DataType: dt,
 		Virtual:  true,
 	}
-	Expect(channelSvc.Create(ctx, &ch)).To(Succeed())
+	Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 	return ch
 }
 

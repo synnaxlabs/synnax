@@ -31,7 +31,7 @@ func createVirtualChannels(ctx context.Context, dt telem.DataType, n int) channe
 			Virtual:  true,
 		}
 	}
-	Expect(channelSvc.CreateMany(ctx, &chs)).To(Succeed())
+	Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
 	return channel.KeysFromChannels(chs)
 }
 

@@ -176,8 +176,8 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Name:       "wc_calc",
 				Expression: "return wc_base * 2",
 			}
-			Expect(svc.Create(ctx, &base)).To(Succeed())
-			Expect(svc.Create(ctx, &calc)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
 
 			var results []channel.Channel
 			Expect(svc.
