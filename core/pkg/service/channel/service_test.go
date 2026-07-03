@@ -15,16 +15,65 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
 	Describe("Group", func() {
-		It("Should return a valid group", func(ctx SpecContext) {
+		It("Should return the Channels group channels are created under", func(ctx SpecContext) {
 			g := svc.Group()
 			Expect(g.Key).ToNot(BeZero())
+			Expect(g.Name).To(Equal("Channels"))
+		})
+	})
+
+	Describe("ShouldValidateNames", func() {
+		It("Should report true by default", func(ctx SpecContext) {
+			Expect(svc.ShouldValidateNames()).To(BeTrue())
+		})
+		It("Should report false when name validation is disabled", func(ctx SpecContext) {
+			noValidateSvc := openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
+				ValidateNames: new(false),
+			})
+			Expect(noValidateSvc.ShouldValidateNames()).To(BeFalse())
+		})
+	})
+
+	Describe("NewArcSymbolResolver", func() {
+		It("Should resolve a channel created through the service by name", func(ctx SpecContext) {
+			ch := channel.Channel{
+				Name:     "arc_resolver_by_name",
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, ch.Name))
+			Expect(sym.Name).To(Equal(ch.Name))
+			Expect(sym.ID).To(Equal(int(ch.Key())))
+		})
+		Context("Search", Ordered, func() {
+			var searchSvc *channel.Service
+			BeforeAll(func(ctx SpecContext) {
+				n := mock.NewNode(ctx)
+				searchSvc = openService(ctx, n)
+				Expect(n.Search.Initialize(ctx)).To(Succeed())
+			})
+			It("Should fuzzy-search channels by name", func(ctx SpecContext) {
+				ch := channel.Channel{Name: "catalina", DataType: telem.Float32T, Virtual: true}
+				Expect(searchSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+				Eventually(func(g Gomega) {
+					results := MustSucceed(searchSvc.NewArcSymbolResolver(nil).Search(ctx, ch.Name))
+					names := make([]string, len(results))
+					for i, sym := range results {
+						names[i] = sym.Name
+					}
+					g.Expect(names).To(ContainElement(ch.Name))
+				}).Should(Succeed())
+			})
 		})
 	})
 
