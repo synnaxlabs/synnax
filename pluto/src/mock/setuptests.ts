@@ -31,4 +31,5 @@ beforeAll(() => {
 
 afterAll(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
