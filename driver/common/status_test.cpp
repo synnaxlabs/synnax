@@ -75,8 +75,8 @@ TEST(TestTaskStateHandler, testSendWarning) {
     EXPECT_EQ(second.message, "task validation error");
 }
 
-/// @brief it should honor the caller-provided variant without latching an error
-/// or marking the task stopped.
+/// @brief it should honor the caller-provided variant without latching an error or
+/// marking the task stopped.
 TEST(TestTaskStateHandler, testSendStatusHonorsVariant) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{
@@ -94,8 +94,8 @@ TEST(TestTaskStateHandler, testSendStatusHonorsVariant) {
     EXPECT_EQ(first.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(first.message, "dispatch failed");
 
-    // Unlike send_error, send_status must not latch the error: a subsequent
-    // warning is delivered on its own terms rather than replaying the first.
+    // Unlike send_error, send_status must not latch the error: a subsequent warning is
+    // delivered on its own terms rather than replaying the first.
     handler.send_status(synnax::status::VARIANT_WARNING, "a later warning");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];

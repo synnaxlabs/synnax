@@ -14,10 +14,10 @@
 
 namespace driver::arc {
 
-/// @brief Reporter surfaces a stdlib-originated failure as a task-level status at
-/// the given variant, mirroring the Go-side taskreporter.Reporter, so failures
-/// reach the user rather than becoming silent log lines. The task keeps running
-/// regardless of variant. Shared across the Arc driver stdlib modules.
+/// @brief Reporter surfaces a stdlib-originated failure as a task-level status at the
+/// given variant, mirroring the Go-side taskreporter.Reporter, so failures reach the
+/// user rather than becoming silent log lines. The task keeps running regardless of
+/// variant. Shared across the Arc driver stdlib modules.
 using Reporter = std::function<
     void(const std::string &variant, const std::string &message)>;
 

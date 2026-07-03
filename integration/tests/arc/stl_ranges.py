@@ -55,8 +55,8 @@ func range_test{}() {
     // Parent without a color (positional, since parent precedes color)
     ranges.create("RangeFunc_Child_NoColor", "__PARENT_KEY__")
 
-    // Invalid color, concatenated at runtime so the analyzer's compile-time
-    // literal check can't reject it; the create must fail at runtime.
+    // Invalid color, concatenated at runtime so the analyzer's compile-time // literal
+    check can't reject it; the create must fail at runtime.
     bad_color := "not-a-" + "color"
     ranges.create("RangeFunc_BadColor", "", bad_color)
 }
@@ -96,9 +96,9 @@ time.wait{100ms} -> 1 -> ranges_done
 class Case(NamedTuple):
     """One created range and what it should look like afterward.
 
-    color is the expected sy.Color or None when the range has no color.
-    ends_now is True when ranges.end closed the range (end ~= start), False when
-    the range is left open (end == TimeStampMax).
+    color is the expected sy.Color or None when the range has no color. ends_now is True
+    when ranges.end closed the range (end ~= start), False when the range is left open
+    (end == TimeStampMax).
     """
 
     name: str
@@ -149,11 +149,11 @@ NAMES = [c.name for c in CASES]
 class StlRanges(ArcCase):
     """Test ranges.create and ranges.end in both func and flow form.
 
-    A single trigger runs the func body and fires every flow create, producing
-    ranges with and without an explicit end, with rgb/rgba/hex colors, and under
-    a parent. Each created range is verified for start, end, color, and parent.
-    An invalid color built at runtime must fail the create entirely: no range is
-    created and a warning status surfaces on the task.
+    A single trigger runs the func body and fires every flow create, producing ranges
+    with and without an explicit end, with rgb/rgba/hex colors, and under a parent. Each
+    created range is verified for start, end, color, and parent. An invalid color built
+    at runtime must fail the create entirely: no range is created and a warning status
+    surfaces on the task.
     """
 
     arc_source = ARC_STL_RANGES_SOURCE

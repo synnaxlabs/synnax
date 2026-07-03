@@ -33,9 +33,9 @@
 
 namespace driver::arc::ranges {
 
-/// @brief dispatch_create creates an open range that starts now, parsing the color
-/// and parent and reporting failures as warnings. On any failure no range is
-/// created. Returns the new key or "".
+/// @brief dispatch_create creates an open range that starts now, parsing the color and
+/// parent and reporting failures as warnings. On any failure no range is created.
+/// Returns the new key or "".
 inline std::string dispatch_create(
     const std::shared_ptr<synnax::Synnax> &client,
     const Reporter &report,
@@ -104,8 +104,8 @@ inline std::string dispatch_end(
     return uid.to_string();
 }
 
-/// @brief Flow node for `ranges.create`. Creates an open range on every trigger
-/// and emits the new range key on Output(0).
+/// @brief Flow node for `ranges.create`. Creates an open range on every trigger and
+/// emits the new range key on Output(0).
 class CreateRange : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
     std::shared_ptr<synnax::Synnax> client;
@@ -149,8 +149,8 @@ public:
     }
 };
 
-/// @brief Flow node for `ranges.end`. Sets the end bound on the keyed range to now
-/// on every trigger, emitting the key on Output(0).
+/// @brief Flow node for `ranges.end`. Sets the end bound on the keyed range to now on
+/// every trigger, emitting the key on Output(0).
 class EndRange : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
     std::shared_ptr<synnax::Synnax> client;
