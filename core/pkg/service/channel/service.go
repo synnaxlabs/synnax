@@ -128,9 +128,7 @@ type Service struct {
 	group   group.Group
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
-	// mu guards the external non-virtual channel key set, which is shared across every
-	// Writer the service spawns and the retrieve-time validator.
-	mu struct {
+	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet tracks the keys of external (non-internal, non-virtual)
 		// channels. The create path and the retrieve-time overflow validator consult it
