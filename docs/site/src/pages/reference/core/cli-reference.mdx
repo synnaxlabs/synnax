@@ -9,7 +9,8 @@ prevURL: "/reference/core/requirements"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Table, Tabs } from "@/components";
+import { Table } from "@/components";
+import { Tabs } from "@/components/tabs/Tabs";
 import VersionOutput from "@/components/core/VersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -280,14 +281,15 @@ environment variable.
 Here are example configuration files in various formats:
 
 <Tabs
-  client:only="react"
+  client:load
   tabs={[
     { name: "JSON", tabKey: "json" },
     { name: "YAML", tabKey: "yaml" },
     { name: "TOML", tabKey: "toml" },
 ]}
 >
-<slot slot="json">
+<Fragment slot="json">
+
 ```json
 {
     "listen": "localhost:9090",
@@ -321,8 +323,10 @@ Here are example configuration files in various formats:
     "disable-channel-name-validation": false
 }
 ```
-</slot>
-<slot slot="yaml">
+
+</Fragment>
+<Fragment slot="yaml">
+
 ```yaml
 listen: localhost:9090
 peers:
@@ -354,8 +358,10 @@ log-file-max-age: 30
 log-file-compress: true
 disable-channel-name-validation: false
 ```
-</slot>
-<slot slot="toml">
+
+</Fragment>
+<Fragment slot="toml">
+
 ```toml
 listen = "localhost:9090"
 peers = ["localhost:9091", "localhost:9092"]
@@ -385,7 +391,8 @@ log-file-max-age = 30
 log-file-compress = true
 disable-channel-name-validation = false
 ```
-</slot>
+
+</Fragment>
 </Tabs>
 
 ### Root User Reconciliation
