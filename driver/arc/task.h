@@ -170,16 +170,16 @@ public:
                     std::make_shared<::driver::arc::status::Module>(
                         ctx->client,
                         [task_ptr = task.get()](
-                            const std::string &,
+                            const std::string &variant,
                             const std::string &message
-                        ) { task_ptr->state.send_warning(message); }
+                        ) { task_ptr->state.send_status(variant, message); }
                     ),
                     std::make_shared<::driver::arc::ranges::Module>(
                         ctx->client,
                         [task_ptr = task.get()](
-                            const std::string &,
+                            const std::string &variant,
                             const std::string &message
-                        ) { task_ptr->state.send_warning(message); }
+                        ) { task_ptr->state.send_status(variant, message); }
                     ),
                 },
             .rt_handle = rt_handle,

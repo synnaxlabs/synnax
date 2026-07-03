@@ -75,6 +75,34 @@ TEST(TestTaskStateHandler, testSendWarning) {
     EXPECT_EQ(second.message, "task validation error");
 }
 
+/// @brief it should honor the caller-provided variant without latching an error
+/// or marking the task stopped.
+TEST(TestTaskStateHandler, testSendStatusHonorsVariant) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+    };
+    auto handler = StatusHandler(ctx, task);
+
+    handler.send_status(synnax::status::VARIANT_ERROR, "dispatch failed");
+    ASSERT_GE(ctx->statuses.size(), 1);
+    const auto first = ctx->statuses[0];
+    EXPECT_EQ(first.key, synnax::task::status_key(task));
+    EXPECT_EQ(first.name, "task1");
+    EXPECT_EQ(first.details.task, task.key);
+    EXPECT_EQ(first.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(first.message, "dispatch failed");
+
+    // Unlike send_error, send_status must not latch the error: a subsequent
+    // warning is delivered on its own terms rather than replaying the first.
+    handler.send_status(synnax::status::VARIANT_WARNING, "a later warning");
+    ASSERT_GE(ctx->statuses.size(), 2);
+    const auto second = ctx->statuses[1];
+    EXPECT_EQ(second.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(second.message, "a later warning");
+}
+
 /// @brief it should correctly move the task back to a nominal running state.
 TEST(TestTaskStateHandle, testClearWarning) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
