@@ -108,7 +108,7 @@ var _ = Describe("Router", func() {
 	Describe("BindTo", func() {
 		It("should register a unary route on the bound fiber app", func(specCtx SpecContext) {
 			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := fiber.New(fiber.Config{DisableKeepalive: true})
+			app := newFiberApp(fiber.Config{DisableKeepalive: true})
 			router := MustSucceed(fhttp.NewRouter())
 			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
 			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
@@ -139,7 +139,7 @@ var _ = Describe("Router", func() {
 
 		It("should cancel in-flight streams when the bound fiber app shuts down", func(specCtx SpecContext) {
 			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := fiber.New(fiber.Config{})
+			app := newFiberApp(fiber.Config{})
 			router := MustSucceed(fhttp.NewRouter())
 
 			handlerEntered := make(chan struct{})
@@ -182,7 +182,7 @@ var _ = Describe("Router", func() {
 	Describe("Use", func() {
 		It("should install middleware on every server registered before the call", func(specCtx SpecContext) {
 			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := fiber.New(fiber.Config{DisableKeepalive: true})
+			app := newFiberApp(fiber.Config{DisableKeepalive: true})
 			router := MustSucceed(fhttp.NewRouter())
 
 			var calls int
@@ -222,7 +222,7 @@ var _ = Describe("Router", func() {
 
 		It("should not install middleware on servers registered after the call", func(specCtx SpecContext) {
 			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := fiber.New(fiber.Config{DisableKeepalive: true})
+			app := newFiberApp(fiber.Config{DisableKeepalive: true})
 			router := MustSucceed(fhttp.NewRouter())
 
 			var calls int
@@ -265,7 +265,7 @@ var _ = Describe("Router", func() {
 
 		It("should chain multiple middlewares in registration order", func(specCtx SpecContext) {
 			addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-			app := fiber.New(fiber.Config{DisableKeepalive: true})
+			app := newFiberApp(fiber.Config{DisableKeepalive: true})
 			router := MustSucceed(fhttp.NewRouter())
 
 			var order []string

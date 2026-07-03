@@ -38,7 +38,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
 		addr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-		app = fiber.New(fiber.Config{})
+		app = newFiberApp(fiber.Config{})
 		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
 			StreamWriteDeadline: test.WriteDeadline,
 		}))

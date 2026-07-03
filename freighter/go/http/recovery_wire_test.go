@@ -28,7 +28,7 @@ import (
 var _ = Describe("Recovery (wire)", func() {
 	It("should contain a handler panic and keep serving", func(ctx context.Context) {
 		addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-		app := fiber.New(fiber.Config{})
+		app := newFiberApp(fiber.Config{})
 		app.Get("/health", func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
 		router := MustSucceed(fhttp.NewRouter())
 		server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/")

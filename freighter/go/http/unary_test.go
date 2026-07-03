@@ -60,7 +60,7 @@ func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
 	unaryAddr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-	unaryApp = fiber.New(fiber.Config{DisableKeepalive: true})
+	unaryApp = newFiberApp(fiber.Config{DisableKeepalive: true})
 	router := MustSucceed(fhttp.NewRouter())
 	unaryApp.Get("/health", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)

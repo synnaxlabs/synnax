@@ -87,16 +87,6 @@ func assertNoLeakedGoroutines(snapshot []gleak.Goroutine) {
 		args,
 		gleak.IgnoringCreator("github.com/valyala/fasthttp.updateServerDate"),
 	)
-	// Every fasthttp server starts a worker-pool janitor that sleeps for
-	// MaxIdleWorkerDuration (10s) between cleanup passes. On server shutdown it is
-	// signaled to stop, but the signal is only observed after the in-progress sleep
-	// returns, so it can outlive its server by up to 10s. That is far longer than the
-	// leak assertion's polling window, so ignore it; a genuinely leaked server is still
-	// caught by its other (acceptor/connection) goroutines.
-	args = append(
-		args,
-		gleak.IgnoringCreator("github.com/valyala/fasthttp.(*workerPool).Start"),
-	)
 	assertion := gomega.Eventually(gleak.Goroutines)
 	assertion.ShouldNot(gleak.HaveLeaked(args...))
 }

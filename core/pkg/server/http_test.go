@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -40,7 +41,10 @@ var _ = Describe("HTTP", func() {
 			ListenAddress: addr,
 			Security:      server.SecurityConfig{Insecure: new(true)},
 			Branches: []server.Branch{
-				&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r}},
+				&server.SecureHTTPBranch{
+					Transports:            []fhttp.BindableTransport{r},
+					MaxIdleWorkerDuration: 100 * time.Millisecond,
+				},
 			},
 		}))
 		url := "http://" + addr.String() + "/basic"
