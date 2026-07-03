@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { retrieveAndPlaceLayout } from "@/hardware/task/layouts";
-import { type Link } from "@/link";
+import { useCallback } from "react";
 
-export const handleLink: Link.Handler = async ({ client, key, placeLayout }) =>
-  await retrieveAndPlaceLayout(client, key, placeLayout);
+import { retrieveAndPlaceLayout } from "@/hardware/task/layouts";
+import { type Link } from "@/layered/service/link";
+import { Layout } from "@/layout";
+
+export const useLink = (): Link.Handler => {
+  const placeLayout = Layout.usePlacer();
+  return useCallback(
+    async ({ client, key }) => await retrieveAndPlaceLayout(client, key, placeLayout),
+    [placeLayout],
+  );
+};

@@ -9,18 +9,13 @@
 
 package channel
 
-import (
-	"context"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
-)
+import "context"
 
 // Writer wraps the distribution-layer channel writer, adding DataType inference
 // for calculated channels before persisting.
 type Writer struct {
-	channel.Writer
-	analyzer *analyzer.Analyzer
+	writer
+	analyzer *CalculationAnalyzer
 }
 
 // Create creates a single channel, inferring the DataType if it is calculated.
@@ -52,5 +47,5 @@ func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 			(*channels)[i].DataType = result.ChanDataType
 		}
 	}
-	return w.Writer.CreateMany(ctx, channels, opts...)
+	return w.writer.CreateMany(ctx, channels, opts...)
 }

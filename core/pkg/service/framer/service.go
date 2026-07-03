@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package framer provides the service-level types for writing, reading, and streaming
+// telemetry data through Synnax. This extends the distribution-layer framer service
+// with calculated channel functionality, throttling, and other features.
 package framer
 
 import (
@@ -14,15 +17,12 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -31,30 +31,61 @@ import (
 )
 
 type (
-	Frame            = frame.Frame
-	Iterator         = iterator.Iterator
-	IteratorRequest  = iterator.Request
-	IteratorResponse = iterator.Response
-	StreamIterator   = iterator.StreamIterator
-	Writer           = writer.Writer
-	WriterRequest    = writer.Request
-	WriterResponse   = writer.Response
-	StreamWriter     = writer.StreamWriter
-	WriterConfig     = writer.Config
-	IteratorConfig   = iterator.Config
-	StreamerConfig   = streamer.Config
-	StreamerRequest  = streamer.Request
-	StreamerResponse = streamer.Response
-	Streamer         = streamer.Streamer
+	Frame                   = framer.Frame
+	Iterator                = iterator.Iterator
+	IteratorCommand         = framer.IteratorCommand
+	IteratorResponseVariant = framer.IteratorResponseVariant
+	IteratorRequest         = iterator.Request
+	IteratorResponse        = iterator.Response
+	StreamIterator          = iterator.StreamIterator
+	Writer                  = framer.Writer
+	WriterCommand           = framer.WriterCommand
+	WriterConfig            = framer.WriterConfig
+	WriterMode              = framer.WriterMode
+	WriterRequest           = framer.WriterRequest
+	WriterResponse          = framer.WriterResponse
+	StreamWriter            = framer.StreamWriter
+	IteratorConfig          = iterator.Config
+	StreamerConfig          = streamer.Config
+	StreamerRequest         = streamer.Request
+	StreamerResponse        = streamer.Response
+	Streamer                = streamer.Streamer
+)
+
+const (
+	IteratorResponseVariantAck  = iterator.ResponseVariantAck
+	IteratorResponseVariantData = iterator.ResponseVariantData
+	IteratorCommandNext         = iterator.CommandNext
+	IteratorCommandPrev         = iterator.CommandPrev
+	IteratorCommandSeekFirst    = iterator.CommandSeekFirst
+	IteratorCommandSeekLast     = iterator.CommandSeekLast
+	IteratorCommandSeekLE       = iterator.CommandSeekLE
+	IteratorCommandSeekGE       = iterator.CommandSeekGE
+	IteratorCommandValid        = iterator.CommandValid
+	IteratorCommandError        = iterator.CommandError
+	IteratorCommandSetBounds    = iterator.CommandSetBounds
+	WriterCommandOpen           = framer.WriterCommandOpen
+	WriterCommandWrite          = framer.WriterCommandWrite
+	WriterCommandCommit         = framer.WriterCommandCommit
+	WriterCommandSetAuthority   = framer.WriterCommandSetAuthority
 )
 
 type ServiceConfig struct {
-	DB *gorp.DB
 	//  Distribution layer framer service.
-	Framer  *framer.Service
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// Channel is used to retrieve channel information.
+	//
+	// [REQUIRED]
 	Channel *channel.Service
 	// Status is used for persisting calculation status updates.
+	//
+	// [REQUIRED]
 	Status *status.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
@@ -65,7 +96,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("framer")
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
@@ -75,66 +105,16 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
 type Service struct {
 	closer   io.MultiCloser
-	Streamer *streamer.Service
-	Iterator *iterator.Service
+	streamer *streamer.Service
+	iterator *iterator.Service
 	cfg      ServiceConfig
 }
-
-// Wrap builds a Service from an existing distribution-layer framer service without a
-// full ServiceConfig. The returned Service supports the writer operations that delegate
-// directly to the distribution framer (e.g. NewStreamWriter and OpenWriter), but not
-// the calculation-backed streaming and iteration that NewService wires up. It suits
-// tests and other lightweight contexts; use OpenService when a complete configuration
-// is available.
-func Wrap(dist *framer.Service) *Service {
-	return &Service{cfg: ServiceConfig{Framer: dist}}
-}
-
-func (s *Service) OpenIterator(
-	ctx context.Context, cfg IteratorConfig,
-) (*Iterator, error) {
-	return s.Iterator.Open(ctx, cfg)
-}
-
-func (s *Service) NewStreamIterator(
-	ctx context.Context, cfg IteratorConfig,
-) (StreamIterator, error) {
-	return s.Iterator.NewStream(ctx, cfg)
-}
-
-func (s *Service) NewStreamWriter(
-	ctx context.Context, cfg WriterConfig,
-) (StreamWriter, error) {
-	return s.cfg.Framer.NewStreamWriter(ctx, cfg)
-}
-
-func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	return s.cfg.Framer.OpenWriter(ctx, cfg)
-}
-
-func (s *Service) DeleteTimeRange(
-	ctx context.Context,
-	keys channel.Keys,
-	tr telem.TimeRange,
-) error {
-	return s.cfg.Framer.DeleteTimeRange(ctx, keys, tr)
-}
-
-func (s *Service) NewStreamer(
-	ctx context.Context,
-	cfg StreamerConfig,
-) (Streamer, error) {
-	return s.Streamer.New(ctx, cfg)
-}
-
-func (s *Service) Close() error { return s.closer.Close() }
 
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
@@ -146,29 +126,66 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	var calcSvc *calculation.Service
 	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
-		Instrumentation:   cfg.Child("calculation"),
-		DB:                cfg.DB,
-		Channel:           cfg.Channel,
-		Framer:            cfg.Framer,
-		ChannelObservable: cfg.Channel.Observe(),
-		Status:            cfg.Status,
+		Instrumentation: cfg.Child("calculation"),
+		Channel:         cfg.Channel,
+		Framer:          cfg.Framer,
+		Status:          cfg.Status,
 	}); !ok(err, calcSvc) {
 		return nil, err
 	}
-	if s.Streamer, err = streamer.NewService(streamer.ServiceConfig{
+	if s.streamer, err = streamer.NewService(streamer.ServiceConfig{
 		Instrumentation: cfg.Child("streamer"),
-		DistFramer:      cfg.Framer,
+		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
 		Calculation:     calcSvc,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if s.Iterator, err = iterator.NewService(iterator.ServiceConfig{
+	if s.iterator, err = iterator.NewService(iterator.ServiceConfig{
 		Instrumentation: cfg.Child("iterator"),
-		DistFramer:      cfg.Framer,
+		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
 }
+
+func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+	return s.cfg.Framer.OpenWriter(ctx, cfg)
+}
+
+func (s *Service) NewStreamWriter(
+	ctx context.Context, cfg WriterConfig,
+) (StreamWriter, error) {
+	return s.cfg.Framer.NewStreamWriter(ctx, cfg)
+}
+
+func (s *Service) OpenIterator(
+	ctx context.Context, cfg IteratorConfig,
+) (*Iterator, error) {
+	return s.iterator.Open(ctx, cfg)
+}
+
+func (s *Service) NewStreamIterator(
+	ctx context.Context, cfg IteratorConfig,
+) (StreamIterator, error) {
+	return s.iterator.NewStream(ctx, cfg)
+}
+
+func (s *Service) NewStreamer(
+	ctx context.Context,
+	cfg StreamerConfig,
+) (Streamer, error) {
+	return s.streamer.New(ctx, cfg)
+}
+
+func (s *Service) DeleteTimeRange(
+	ctx context.Context,
+	keys channel.Keys,
+	tr telem.TimeRange,
+) error {
+	return s.cfg.Framer.DeleteTimeRange(ctx, keys, tr)
+}
+
+func (s *Service) Close() error { return s.closer.Close() }

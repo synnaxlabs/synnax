@@ -116,4 +116,12 @@ Client::create(const std::string &name, x::telem::TimeRange time_range) const {
     return {rng, err};
 }
 
+x::errors::Error
+Client::set_end(const x::uuid::UUID &key, const x::telem::TimeStamp end) const {
+    auto req = grpc::ranger::SetEndRequest();
+    req.set_key(key.to_string());
+    req.set_end(end.nanoseconds());
+    return set_end_client->send("/range/set-end", req).second;
+}
+
 }

@@ -25,8 +25,8 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/components";
 import { create } from "@/layered/service/arc/layout";
+import { Link } from "@/layered/service/link";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 export interface ContextMenuProps extends Menu.ContextMenuMenuProps {

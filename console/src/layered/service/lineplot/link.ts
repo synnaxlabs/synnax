@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { create } from "@/layered/service/lineplot/layout";
-import { type Link } from "@/link";
+import { useCallback } from "react";
 
-export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const linePlot = await client.lineplots.retrieve({ key });
-  placeLayout(create({ key: linePlot.key, name: linePlot.name }));
+import { create } from "@/layered/service/lineplot/layout";
+import { type Link } from "@/layered/service/link";
+import { Layout } from "@/layout";
+
+export const useLink = (): Link.Handler => {
+  const placeLayout = Layout.usePlacer();
+  return useCallback(
+    async ({ client, key }) => {
+      const linePlot = await client.lineplots.retrieve({ key });
+      placeLayout(create({ key: linePlot.key, name: linePlot.name }));
+    },
+    [placeLayout],
+  );
 };

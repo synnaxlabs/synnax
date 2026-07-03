@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 	"github.com/tetratelabs/wazero"
 )
@@ -88,7 +89,7 @@ func NewSymbols() []*symbol.Symbol {
 	return []*symbol.Symbol{mod}
 }
 
-type Module struct {
+type module struct {
 	stat   *status.Service
 	report taskreporter.Reporter
 }
@@ -101,8 +102,17 @@ type ModuleConfig struct {
 	Reporter taskreporter.Reporter
 }
 
-func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
-	m := &Module{stat: cfg.Status, report: cfg.Reporter}
+func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
+	v := validate.New("arc.status")
+	validate.NotNil(v, "status", cfg.Status)
+	validate.NotNil(v, "reporter", cfg.Reporter)
+	if cfg.Runtime != nil {
+		validate.NotNil(v, "strings", cfg.Strings)
+	}
+	if err := v.Error(); err != nil {
+		return nil, err
+	}
+	m := &module{stat: cfg.Status, report: cfg.Reporter}
 	if cfg.Runtime == nil {
 		return m, nil
 	}
@@ -126,9 +136,9 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 	return m, nil
 }
 
-func (m *Module) ModuleName() string { return moduleName }
+func (m *module) ModuleName() string { return moduleName }
 
-func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
+func (m *module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case setMemberName:
 		var sc setConfig

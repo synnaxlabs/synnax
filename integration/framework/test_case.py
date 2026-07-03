@@ -283,13 +283,19 @@ class TestCase(ABC):
 
     @contextmanager
     def _try_to(self, action: str) -> Iterator[None]:
-        """Attempt action, logging and swallowing any failure.
-        Keeps one teardown step from aborting the rest.
+        """Attempt action, marking the test FAILED on error without re-raising.
+        A broken cleanup fails the test, but doesn't abort the remaining steps.
         """
         try:
             yield
         except Exception as e:
             self.log(f"Failed to {action}: {e}")
+            failure = f"Failed to {action}: {e}"
+            if self._error_message is None:
+                self._error_message = failure
+            else:
+                self._error_message += f"\n{failure}"
+            self.STATUS = STATUS.FAILED
 
     def teardown(self) -> None:
         """Cleanup after test execution. Override for custom cleanup logic."""

@@ -24,9 +24,15 @@ func (p RenamePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle replaces the plot title configuration.
-func (p SetTitlePayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Title = p.Title
+// Handle sets whether the plot title is shown above the plot.
+func (p SetTitleVisiblePayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Title.Visible = p.Visible
+	return state, nil
+}
+
+// Handle sets the typography level of the plot title.
+func (p SetTitleLevelPayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Title.Level = p.Level
 	return state, nil
 }
 

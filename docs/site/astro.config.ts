@@ -18,7 +18,6 @@ import { codeBlockWrapper } from "./src/util/codeBlock";
 // https://astro.build/config
 export default defineConfig({
   integrations: [react(), mdx()],
-  security: { csp: true },
   output: "server",
   adapter: vercel(),
   markdown: {

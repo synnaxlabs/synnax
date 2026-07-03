@@ -83,6 +83,7 @@ type Transport struct {
 	RangeRetrieve freighter.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse]
 	RangeDelete   freighter.UnaryServer[ranger.DeleteRequest, types.Nil]
 	RangeRename   freighter.UnaryServer[ranger.RenameRequest, types.Nil]
+	RangeSetEnd   freighter.UnaryServer[ranger.SetEndRequest, types.Nil]
 	// KV
 	KVGet    freighter.UnaryServer[kv.GetRequest, kv.GetResponse]
 	KVSet    freighter.UnaryServer[kv.SetRequest, types.Nil]
@@ -281,6 +282,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.RangeRetrieve,
 		t.RangeDelete,
 		t.RangeRename,
+		t.RangeSetEnd,
 
 		// KV
 		t.KVGet,
@@ -447,6 +449,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.RangeCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Create))
 	t.RangeDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Delete))
 	t.RangeRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Rename))
+	t.RangeSetEnd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.SetEnd))
 
 	// KV
 	t.KVGet.BindHandler(l.KV.Get)
