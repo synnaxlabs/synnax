@@ -20,6 +20,9 @@ import (
 type Update[K Key, E Entry[K]] struct {
 	// retrieve is the underlying scan used to resolve entries to update.
 	retrieve Retrieve[K, E]
+	// guards is the chain of GuardFuncs checked against each matched
+	// entry; any non-nil error aborts the update.
+	guards guards[K, E]
 	// changes is the chain of transformations applied to each matched
 	// entry before it is written back.
 	changes changes[K, E]
@@ -49,17 +52,34 @@ func (u Update[K, E]) ChangeErr(f func(Context, E) (E, error)) Update[K, E] {
 	return u
 }
 
+// Guard executes the given function on each entry matching the query before any changes
+// are applied. If the function returns an error, the query will fail and no entries
+// will be updated. If the provided guard function is nil, no guard will be applied.
+func (u Update[K, E]) Guard(filter GuardFunc[K, E]) Update[K, E] {
+	if filter == nil {
+		return u
+	}
+	u.guards = append(u.guards, filter)
+	return u
+}
+
 func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 	checkForNilTx("update.Exec", tx)
-	var entries []E
+	var (
+		queryCtx = Context{Context: ctx, Tx: tx}
+		entries  []E
+	)
 	if err = u.retrieve.Entries(&entries).Exec(ctx, tx); err != nil {
 		return err
 	}
 	if len(u.changes) == 0 {
 		return errors.Wrap(query.ErrInvalidParameters, "[gorp] - update query must specify at least one change function")
 	}
+	if err = u.guards.checkMany(queryCtx, entries); err != nil {
+		return err
+	}
 	for i, e := range entries {
-		if entries[i], err = u.changes.exec(Context{Context: ctx, Tx: tx}, e); err != nil {
+		if entries[i], err = u.changes.exec(queryCtx, e); err != nil {
 			return err
 		}
 	}

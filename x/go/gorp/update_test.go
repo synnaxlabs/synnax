@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("update", func() {
@@ -73,5 +74,61 @@ var _ = Describe("update", func() {
 				return e
 			}).Exec(ctx, tx)).To(Succeed())
 		Expect(count).To(Equal(1))
+	})
+
+	Describe("Guard", func() {
+		It("Should prevent the update if any of the guard functions fail", func(ctx SpecContext) {
+			Expect(gorp.NewUpdate[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
+				Guard(func(_ gorp.Context, e entry) error {
+					return validate.ErrValidation
+				}).
+				Change(func(_ gorp.Context, e entry) entry {
+					e.Data = "new data"
+					return e
+				}).Exec(ctx, tx)).To(MatchError(validate.ErrValidation))
+			var res entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(entries[0]))
+		})
+
+		It("Should check every matched entry before applying any changes", func(ctx SpecContext) {
+			keys := []int32{entries[0].GorpKey(), entries[1].GorpKey()}
+			Expect(gorp.NewUpdate[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](keys...)).
+				Guard(func(_ gorp.Context, e entry) error {
+					if e.GorpKey() == entries[1].GorpKey() {
+						return validate.ErrValidation
+					}
+					return nil
+				}).
+				Change(func(_ gorp.Context, e entry) entry {
+					e.Data = "new data"
+					return e
+				}).Exec(ctx, tx)).To(MatchError(validate.ErrValidation))
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](keys...)).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(entries[:2]))
+		})
+
+		It("Should pass the correct transaction to the gorp context of the guard clause", func(ctx SpecContext) {
+			Expect(gorp.NewUpdate[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
+				Guard(func(gCtx gorp.Context, _ entry) error {
+					Expect(gCtx.Tx).To(BeIdenticalTo(tx))
+					Expect(gCtx.Context).To(BeIdenticalTo(ctx))
+					return validate.ErrValidation
+				}).
+				Change(func(_ gorp.Context, e entry) entry {
+					e.Data = "new data"
+					return e
+				}).Exec(ctx, tx)).To(MatchError(validate.ErrValidation))
+		})
 	})
 })

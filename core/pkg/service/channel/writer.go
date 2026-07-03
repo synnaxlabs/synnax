@@ -561,12 +561,15 @@ func (w Writer) rename(
 	}
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
-		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
+		Guard(func(_ gorp.Context, c Channel) error {
 			if c.Internal && !allowInternal {
-				return c, errors.Wrapf(validate.ErrValidation, "cannot rename internal channel %v", c)
+				return errors.Wrapf(validate.ErrValidation, "cannot rename internal channel %v", c)
 			}
+			return nil
+		}).
+		Change(func(_ gorp.Context, c Channel) Channel {
 			c.Name = names[lo.IndexOf(keys, c.Key())]
-			return c, nil
+			return c
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
