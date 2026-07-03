@@ -546,28 +546,32 @@ var _ = Describe("Calculation", Ordered, func() {
 		})
 
 		Specify("Should use channel ontology ID as status key", func(ctx SpecContext) {
-			bases := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &bases)).To(Succeed())
-			calcs := []channel.Channel{{
+			base := channel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
+			calc := channel.Channel{
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
-				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
-			}}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs)).To(Succeed())
-			Expect(channelSvc.NewWriter(nil).DeleteManyByNames(ctx, []string{bases[0].Name}, false)).To(Succeed())
+				Expression:  fmt.Sprintf("return %s * 2", base.Name),
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
+			Expect(
+				channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false),
+			).To(Succeed())
 			rm := c.OpenRequestManager()
-			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 			var st calculation.Status
-			expectedKey := channel.OntologyID(calcs[0].Key()).String()
-			Eventually(func(g Gomega) {
-				g.Expect(status.NewRetrieve[types.Nil](statusSvc).
-					Where(status.MatchKeys[types.Nil](expectedKey)).
-					Entry(&st).
-					Exec(ctx, nil)).To(Succeed())
-				g.Expect(st.Key).To(Equal(expectedKey))
-			}).Should(Succeed())
+			expectedKey := calc.OntologyID().String()
+			Expect(status.NewRetrieve[types.Nil](statusSvc).
+				Where(status.MatchKeys[types.Nil](expectedKey)).
+				Entry(&st).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(st.Key).To(Equal(expectedKey))
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 	})
