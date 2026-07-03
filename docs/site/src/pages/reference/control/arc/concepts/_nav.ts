@@ -10,7 +10,7 @@
 import { type PageNavNode } from "@/components/nav/Page";
 
 export const CONCEPTS_NAV: PageNavNode = {
-  key: "concepts",
+  key: "arc-concepts",
   name: "Concepts",
   children: [
     {
