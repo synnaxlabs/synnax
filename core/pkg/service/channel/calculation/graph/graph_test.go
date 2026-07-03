@@ -34,6 +34,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	node = mock.NewNode(ctx)
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
@@ -1012,6 +1013,7 @@ var _ = Describe("Graph", func() {
 			)
 
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				openGraph(ctx)
 				base1 = channel.Channel{Name: "topo_dia_b1", DataType: telem.Int64T, Virtual: true}
 				base2 = channel.Channel{Name: "topo_dia_b2", DataType: telem.Int64T, Virtual: true}
@@ -1063,6 +1065,7 @@ var _ = Describe("Graph", func() {
 
 		Context("Long Chain With Mid-Chain Deletion", func() {
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				openGraph(ctx)
 			})
 			It("Should only error the immediate dependent of a deleted node", func(ctx SpecContext) {

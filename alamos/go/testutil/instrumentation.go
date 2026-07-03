@@ -7,18 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package testutil provides Alamos instrumentation helpers for tests.
 package testutil
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/google/uuid"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/git"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/testutil"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
@@ -64,20 +68,25 @@ func newTracer(serviceName string) *alamos.Tracer {
 		uptrace.WithServiceName(serviceName),
 		uptrace.WithServiceVersion(lo.Must(git.CurrentCommit())),
 	)
-	return MustSucceed(alamos.NewTracer(alamos.TracingConfig{
+	return testutil.MustSucceed(alamos.NewTracer(alamos.TracingConfig{
 		OtelProvider:   otel.GetTracerProvider(),
 		OtelPropagator: otel.GetTextMapPropagator(),
 	}))
 }
 
 func newLogger() *alamos.Logger {
-	return MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+	return testutil.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 		ZapConfig: zap.NewDevelopmentConfig(),
 	}))
 }
 
-func newReports() *alamos.Reporter { return MustSucceed(alamos.NewReporter()) }
+func newReports() *alamos.Reporter { return testutil.MustSucceed(alamos.NewReporter()) }
 
+// Instrumentation builds Instrumentation from the given config. When tracing is enabled
+// it configures the process-global OpenTelemetry SDK and registers a Ginkgo
+// DeferCleanup that shuts the SDK back down when the enclosing node finishes, releasing
+// the SDK's background goroutines so they do not leak. It must therefore be called from
+// within a Ginkgo node (a spec, BeforeEach, BeforeAll, BeforeSuite, etc.).
 func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
 	cfg, err := config.New(DefaultInstrumentationConfig, cfgs...)
 	if err != nil {
@@ -86,6 +95,12 @@ func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumen
 	var options []alamos.Option
 	if *cfg.Trace {
 		options = append(options, alamos.WithTracer(newTracer(serviceName())))
+		// uptrace.Shutdown flushes buffered spans and metrics to the dev collector
+		// (devDSN) as it stops the SDK. That collector is not running during tests, so
+		// the flush fails with a connection error — but the SDK's background goroutines
+		// stop regardless, which is all this cleanup needs. Drop the upload error so a
+		// clean teardown does not fail the suite.
+		ginkgo.DeferCleanup(func(ctx context.Context) { _ = uptrace.Shutdown(ctx) })
 	}
 	if *cfg.Log {
 		options = append(options, alamos.WithLogger(newLogger()))
@@ -103,7 +118,7 @@ func ObservedInstrumentation(
 	level zapcore.Level,
 ) (alamos.Instrumentation, *observer.ObservedLogs) {
 	core, logs := observer.New(level)
-	l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+	l := testutil.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 		ZapLogger: zap.New(core),
 	}))
 	return alamos.New("test", alamos.WithLogger(l)), logs
@@ -114,7 +129,7 @@ func ObservedInstrumentation(
 func PanicLogger() alamos.Instrumentation {
 	cfg := zap.NewDevelopmentConfig()
 	cfg.Level.SetLevel(zap.PanicLevel)
-	l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg}))
+	l := testutil.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg}))
 	return alamos.New(
 		fmt.Sprintf("synnax-testing-%s", uuid.New().String()),
 		alamos.WithLogger(l),

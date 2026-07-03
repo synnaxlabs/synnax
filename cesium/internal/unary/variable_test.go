@@ -32,6 +32,7 @@ var _ = Describe("Variable-length channel", func() {
 				dataDB  *unary.DB
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),

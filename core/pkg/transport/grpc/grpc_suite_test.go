@@ -34,6 +34,7 @@ func TestGRPC(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	node := distmock.NewNode(ctx)
 	dist = node.Layer
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
@@ -50,3 +51,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Distribution: dist,
 	}))
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

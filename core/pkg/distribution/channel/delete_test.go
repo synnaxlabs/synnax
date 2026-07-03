@@ -22,6 +22,7 @@ import (
 var _ = Describe("Delete", Ordered, func() {
 	var cluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		cluster = mock.NewCluster(ctx, 2)
 	})
 	Describe("Channel Deletion", func() {

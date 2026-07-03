@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -34,11 +35,18 @@ import (
 // The server is served in a background goroutine. StartServer registers Ginkgo cleanup
 // that gracefully stops the server and then closes the pool when the current spec
 // completes, so it must be called from within a Ginkgo spec or lifecycle hook.
+//
+// Before returning, StartServer dials and waits for the pooled connection to become
+// ready. The pool dials lazily and caches the connection for the rest of the spec, so
+// pre-warming it here makes the connection part of the caller's goroutine baseline:
+// callers that invoke StartServer from a BeforeAll keep per-spec goroutine-leak checks
+// passing, because no spec is the one that first registers the long-lived connection.
 func StartServer(
 	bind func(grpc.ServiceRegistrar, *fgrpc.Pool),
 	opts ...grpc.ServerOption,
 ) address.Address {
 	lis := testutil.MustSucceed(net.Listen("tcp", "localhost:0"))
+	addr := address.Address(lis.Addr().String())
 	srv := grpc.NewServer(opts...)
 	pool := testutil.DeferClose(fgrpc.OpenPool(
 		"",
@@ -55,5 +63,8 @@ func StartServer(
 		}
 	}()
 	ginkgo.DeferCleanup(srv.GracefulStop)
-	return address.Address(lis.Addr().String())
+	conn := testutil.MustSucceed(pool.Acquire(addr))
+	conn.Connect()
+	gomega.Eventually(conn.GetState).Should(gomega.Equal(connectivity.Ready))
+	return addr
 }

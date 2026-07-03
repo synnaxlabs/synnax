@@ -51,3 +51,5 @@ func expectFailure(specCtx context.Context, code string, extras []symbol.Symbol,
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expectedMsg))
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

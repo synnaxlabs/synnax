@@ -37,6 +37,7 @@ func TestMetrics(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	dist = mock.NewNode(ctx)
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{

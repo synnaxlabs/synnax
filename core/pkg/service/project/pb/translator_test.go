@@ -64,3 +64,5 @@ var _ = Describe("Translator", func() {
 			To(MatchError(ContainSubstring("invalid UUID")))
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

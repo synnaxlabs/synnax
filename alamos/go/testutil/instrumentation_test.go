@@ -12,7 +12,7 @@ package testutil_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"go.uber.org/zap/zapcore"
 )
 

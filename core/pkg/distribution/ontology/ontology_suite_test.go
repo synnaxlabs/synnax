@@ -68,6 +68,7 @@ var (
 )
 
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(context.Background(), ontology.Config{DB: db}))
 	otg.RegisterService(&sampleService{})
@@ -76,3 +77,5 @@ var _ = BeforeSuite(func() {
 var _ = BeforeEach(func() {
 	tx = DeferClose(db.OpenTx())
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
