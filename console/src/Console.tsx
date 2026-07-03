@@ -25,7 +25,6 @@ import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Access } from "@/access";
-import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { COMMANDS } from "@/commands";
@@ -39,6 +38,7 @@ import { Hardware } from "@/hardware";
 import { Import } from "@/import";
 import { FILE_INGESTERS } from "@/ingesters";
 import { Label } from "@/label";
+import { Arc } from "@/layered/service/arc";
 import { LinePlot } from "@/layered/service/lineplot";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";

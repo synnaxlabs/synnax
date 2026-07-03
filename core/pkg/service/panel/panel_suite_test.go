@@ -18,8 +18,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,12 +33,14 @@ func TestPanel(t *testing.T) {
 }
 
 var (
-	node     mock.Node
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	svc      *panel.Service
-	parentID ontology.ID
-	tx       gorp.Tx
+	node       mock.Node
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	svc        *panel.Service
+	framerSvc  *framer.Service
+	channelSvc *channel.Service
+	parentID   ontology.ID
+	tx         gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -44,9 +48,31 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node = mock.NewNode(ctx)
 	db = node.DB
 	otg = node.Ontology
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Label:    labelSvc,
+		Search:   node.Search,
+	}))
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		Status:  statusSvc,
+	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		Status:  statusSvc,
+	}))
 	sigs := MustSucceed(signals.New(signals.Config{
-		Channel: channel.Wrap(node.Channel),
-		Framer:  framer.Wrap(node.Framer),
+		Channel: channelSvc,
+		Framer:  framerSvc,
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:       node.DB,

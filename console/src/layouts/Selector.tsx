@@ -9,8 +9,8 @@
 
 import { uuid } from "@synnaxlabs/x";
 
-import { Arc } from "@/arc";
 import { Hardware } from "@/hardware";
+import { Arc } from "@/layered/service/arc";
 import { type Layout } from "@/layout";
 import { Selector as BaseSelector } from "@/selector";
 import { Vis } from "@/vis";

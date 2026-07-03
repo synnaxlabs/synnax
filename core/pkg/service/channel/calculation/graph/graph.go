@@ -16,9 +16,9 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -200,7 +200,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 	s.mu.Unlock()
 	if len(repairs) > 0 {
 		s.L.Info("persisting DataType repairs from hydration", zap.Int("count", len(repairs)))
-		if err := s.svc.Service.NewWriter(nil).CreateMany(ctx, &repairs); err != nil {
+		if err := s.svc.NewWriter(nil).CreateMany(ctx, &repairs); err != nil {
 			return err
 		}
 	}
@@ -268,7 +268,7 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 	s.mu.Unlock()
 	if len(updates) > 0 {
 		s.L.Info("persisting DataType updates", zap.Int("count", len(updates)))
-		if err := s.svc.Service.NewWriter(nil).CreateMany(ctx, &updates); err != nil {
+		if err := s.svc.NewWriter(nil).CreateMany(ctx, &updates); err != nil {
 			s.L.Error("failed to persist DataType updates", zap.Error(err))
 		}
 	}
@@ -292,15 +292,17 @@ func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
 	}
 }
 
-func (s *Graph) newAnalyzer(tx gorp.Tx) *analyzer.Analyzer {
-	return analyzer.New(s.svc.NewArcSymbolResolver(tx))
+func (s *Graph) newAnalyzer(tx gorp.Tx) *channel.CalculationAnalyzer {
+	return channel.NewCalculationAnalyzer(s.svc.NewArcSymbolResolver(tx), parser.Config{
+		AllowDashedNames: !s.svc.ShouldValidateNames(),
+	})
 }
 
 func (s *Graph) inspectNode(
 	ctx context.Context,
 	tx gorp.Tx,
 	ch channel.Channel,
-	analyzer *analyzer.Analyzer,
+	analyzer *channel.CalculationAnalyzer,
 ) (node, error) {
 	if analyzer == nil {
 		analyzer = s.newAnalyzer(tx)
@@ -326,7 +328,7 @@ func (s *Graph) reconcileQueued(
 	queued set.Set[channel.Key],
 	unresolvedNames []string,
 	overlayMap map[channel.Key]channel.Channel,
-	analyzer *analyzer.Analyzer,
+	analyzer *channel.CalculationAnalyzer,
 ) []channel.Channel {
 	if overlayMap == nil {
 		overlayMap = make(map[channel.Key]channel.Channel)

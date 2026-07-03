@@ -50,7 +50,7 @@ func emitFmtSegment[T antlr.ParserRuleContext](
 		emitLiteralSegment(ctx, seg.Text)
 		return nil
 	}
-	expr, diags := parser.ParseExpression(seg.Text)
+	expr, diags := parser.ParseExpression(seg.Text, ctx.Config)
 	if diags != nil && !diags.Ok() {
 		return errors.Newf("invalid placeholder %q: %s", seg.Text, diags.String())
 	}

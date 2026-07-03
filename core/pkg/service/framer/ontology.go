@@ -15,13 +15,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 )
 
-// OntologyID returns a unique identifier for a Channel for use within a resource
-// ontology.
-func OntologyID(k channel.Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeFramer, Key: k.String()}
-}
-
 // OntologyIDs returns the ontology.ID for each key.
 func OntologyIDs(ks channel.Keys) []ontology.ID {
-	return lo.Map(ks, func(key channel.Key, _ int) ontology.ID { return OntologyID(key) })
+	return lo.Map(ks, func(key channel.Key, _ int) ontology.ID {
+		return ontology.ID{Type: ontology.ResourceTypeFramer, Key: key.String()}
+	})
 }

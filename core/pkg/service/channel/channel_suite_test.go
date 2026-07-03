@@ -50,8 +50,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   node.Search,
 	}))
 	svc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		DB:           node.DB,
-		Distribution: node.Channel,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		Status:  statusSvc,
 	}))
 })

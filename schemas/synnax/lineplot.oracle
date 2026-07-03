@@ -306,10 +306,16 @@ LinePlot struct {
         @doc value "renames the line plot."
     }
 
-    action SetTitle {
-        title Title
+    action SetTitleVisible {
+        visible bool
 
-        @doc value "replaces the plot title configuration."
+        @doc value "sets whether the plot title is shown above the plot."
+    }
+
+    action SetTitleLevel {
+        level text.Level
+
+        @doc value "sets the typography level of the plot title."
     }
 
     action SetLegendHidden {

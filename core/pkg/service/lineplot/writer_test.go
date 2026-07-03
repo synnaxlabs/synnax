@@ -165,18 +165,31 @@ var _ = Describe("Writer", func() {
 				Expect(res.Name).To(Equal("renamed"))
 			})
 
-			It("Should apply SetTitle", func(ctx SpecContext) {
+			It("Should apply SetTitleLevel", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-					lineplot.NewSetTitleAction(lineplot.SetTitlePayload{
-						Title: lineplot.Title{Level: text.LevelH2, Visible: true},
+					lineplot.NewSetTitleLevelAction(lineplot.SetTitleLevelPayload{
+						Level: text.LevelH2,
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
 				Expect(res.Title.Level).To(Equal(text.LevelH2))
+			})
+
+			It("Should apply SetTitleVisible", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{Name: "test"}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetTitleVisibleAction(lineplot.SetTitleVisiblePayload{
+						Visible: true,
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
 				Expect(res.Title.Visible).To(BeTrue())
 			})
 

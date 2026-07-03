@@ -136,7 +136,8 @@ fragment STR_PREFIX
 // Identifiers
 // =============================================================================
 
-IDENTIFIER  : [a-zA-Z_] [a-zA-Z0-9_]*;
+// '-' joins an identifier (dashed names on) unless it starts '->' or '-='.
+IDENTIFIER  : [a-zA-Z_] ( [a-zA-Z0-9_] | {p.dashJoinsIdentifier()}? '-' )*;
 
 // =============================================================================
 // Comments & Whitespace

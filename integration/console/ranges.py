@@ -121,7 +121,7 @@ class RangesClient:
             name: Name of the range to search for and open.
         """
         self.layout.search_palette(name)
-        name_input = self.layout.page.locator("input[placeholder='Name']").first
+        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
         name_input.wait_for(state="visible", timeout=5000)
         expect(name_input).to_have_value(name, timeout=5000)
 
@@ -368,12 +368,32 @@ class RangesClient:
         self.layout.close_tab(name)
 
     def open_overview_from_explorer(self, name: str) -> None:
-        """Open the range overview/details page from explorer."""
+        """Open the range overview/details page from the explorer.
+
+        Clicking an explorer row places the range's overview layout, which opens
+        a new overview tab or focuses an existing one. When an overview tab for
+        the range is already open, the row click does not reliably switch the
+        active tab to it (the explorer tab can stay focused), leaving the
+        overview's Name field hidden. Focus an already-open tab directly when
+        present, fall back to the row click otherwise, and retry until the
+        overview for this range is showing.
+        """
+        if self.is_overview_showing(name):
+            return
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        # A single click on the explorer row opens the overview; a second click
-        # re-toggles it shut, so click once and wait for the Name field.
-        item.click()
+        for attempt in range(3):
+            tab = self.layout.get_tab(name)
+            if tab.count() > 0:
+                tab.click()
+            else:
+                item.click()
+            try:
+                self.wait_for_overview(name)
+                return
+            except PlaywrightTimeoutError:
+                if attempt == 2:
+                    raise
 
     def navigate_to_parent(self, parent_name: str) -> None:
         """Navigate to parent range from current range overview.
@@ -388,7 +408,7 @@ class RangesClient:
 
     def wait_for_overview(self, name: str) -> None:
         """Wait for the range overview to show a specific range."""
-        name_input = self.layout.page.locator("input[placeholder='Name']").first
+        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
         name_input.wait_for(state="visible", timeout=5000)
         expect(name_input).to_have_value(name, timeout=5000)
 
@@ -401,7 +421,7 @@ class RangesClient:
         Returns:
             True if the overview shows the range name in the header.
         """
-        header = self.layout.page.locator("input[placeholder='Name']").first
+        header = self.layout.page.locator("input[placeholder='Name']:visible").first
         if not header.is_visible():
             return False
         return header.input_value() == name
@@ -562,7 +582,7 @@ class RangesClient:
         Args:
             new_name: The new name for the range.
         """
-        name_input = self.layout.page.locator("input[placeholder='Name']").first
+        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
         name_input.wait_for(state="visible", timeout=5000)
         name_input.click()
         name_input.fill(new_name)

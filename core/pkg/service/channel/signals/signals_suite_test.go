@@ -18,7 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	svcsignals "github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -27,16 +29,41 @@ func TestSignals(t *testing.T) {
 	RunSpecs(t, "Service Channel Signals Suite")
 }
 
-var node mock.Node
+var (
+	channelSvc *channel.Service
+	framerSvc  *framer.Service
+)
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
-	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
-		Channel: channel.Wrap(node.Channel),
-		Framer:  framer.Wrap(node.Framer),
+	node := mock.NewNode(ctx)
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
 	}))
-	MustOpen(signals.Publish(ctx, sigs, node.Channel.Observe()))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Label:    labelSvc,
+		Search:   node.Search,
+	}))
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		Status:  statusSvc,
+	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		Status:  statusSvc,
+	}))
+	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
+		Channel: channelSvc,
+		Framer:  framerSvc,
+	}))
+	MustOpen(signals.Publish(ctx, sigs, channelSvc.Observe()))
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

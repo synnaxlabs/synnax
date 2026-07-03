@@ -110,7 +110,7 @@ export const useSelectEditable = (args?: {
   key?: schematic.Key;
 }): UseSelectEditableReturn => {
   const key = Schematic.useKey(args?.key);
-  const isSnapshot = Schematic.useSelectSnapshot();
+  const isSnapshot = Schematic.useSelectSnapshot({ key });
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(key));
   const editable = useSelectEditableBase(args);
   const canEdit = hasUpdatePermission && !isSnapshot;

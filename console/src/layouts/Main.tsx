@@ -11,39 +11,17 @@ import { Drift } from "@synnaxlabs/drift";
 import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { ArcServices } from "@/arc/services";
 import { Auth } from "@/auth";
-import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
-import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
 import { App } from "@/layered/app";
-import { LinePlot } from "@/layered/service/lineplot";
-import { Log } from "@/layered/service/log";
-import { Schematic } from "@/layered/service/schematic";
-import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { Notifications } from "@/layouts/Notifications";
 import { useTriggers } from "@/layouts/useTriggers";
-import { Link } from "@/link";
 import { Project } from "@/project";
-import { ProjectServices } from "@/project/services";
 import { Range } from "@/range";
-import { RangeServices } from "@/range/services";
 import { Status } from "@/status";
-
-const LINK_HANDLERS: Record<string, Link.Handler> = {
-  arc: ArcServices.handleLink,
-  channel: ChannelServices.handleLink,
-  ...Hardware.LINK_HANDLERS,
-  lineplot: LinePlot.handleLink,
-  log: Log.handleLink,
-  range: RangeServices.handleLink,
-  schematic: Schematic.handleLink,
-  table: Table.handleLink,
-  project: ProjectServices.handleLink,
-};
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});
@@ -52,7 +30,7 @@ const SideEffect = (): null => {
   Range.useListenForChanges();
   Project.useCheckCore();
   Status.useListenForChanges();
-  Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
+  App.useLinks();
   useTriggers();
   return null;
 };
