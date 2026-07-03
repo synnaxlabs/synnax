@@ -28,13 +28,16 @@ import (
 const (
 	tokenTypeKeyword           = uint32(0)
 	tokenTypeOperator          = uint32(2)
+	tokenTypeVariable          = uint32(3)
 	tokenTypeString            = uint32(4)
 	tokenTypeNumber            = uint32(5)
 	tokenTypeFunction          = uint32(7)
 	tokenTypeChannel           = uint32(9)
+	tokenTypeStatefulVariable  = uint32(13)
 	tokenTypeNamespace         = uint32(20)
 	tokenTypeStringRaw         = uint32(21)
 	tokenTypeStringPlaceholder = uint32(22)
+	tokenTypeChannelAlias      = uint32(23)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -489,8 +492,39 @@ func cat() {
 		})
 	})
 
+	Describe("variable kinds", func() {
+		It("classifies value variables, stateful variables, and channel aliases distinctly", func(ctx SpecContext) {
+			channels := []symbol.Symbol{
+				{
+					Name: "sensorData",
+					Type: types.Chan(types.F64()),
+					Kind: symbol.KindChannel,
+				},
+			}
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			})
+			OpenArcDocument(server, ctx, uri, "count := 0\ntotal $= 0\ncpu := sensorData\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+
+			value := filterByType(tokens, tokenTypeVariable)
+			Expect(value).To(HaveLen(1))
+			Expect(value[0].Line).To(Equal(uint32(0)))
+
+			stateful := filterByType(tokens, tokenTypeStatefulVariable)
+			Expect(stateful).To(HaveLen(1))
+			Expect(stateful[0].Line).To(Equal(uint32(1)))
+
+			alias := filterByType(tokens, tokenTypeChannelAlias)
+			Expect(alias).To(HaveLen(1))
+			Expect(alias[0]).To(Equal(decodedToken{
+				Line: 2, StartChar: 0, Length: 3, TokenType: tokenTypeChannelAlias,
+			}))
+		})
+	})
+
 	Describe("Legend", func() {
-		It("registers stringPlaceholder at the end of the semantic token types legend", func(ctx SpecContext) {
+		It("pins the tail of the semantic token types legend", func(ctx SpecContext) {
 			result := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{
 				ClientInfo: &protocol.ClientInfo{Name: "test"},
 			}))
@@ -500,8 +534,9 @@ func cat() {
 			Expect(ok).To(BeTrue())
 			Expect(legend.TokenTypes).ToNot(BeEmpty())
 			n := len(legend.TokenTypes)
-			Expect(string(legend.TokenTypes[n-1])).To(Equal("stringPlaceholder"))
-			Expect(uint32(n - 1)).To(Equal(tokenTypeStringPlaceholder))
+			Expect(string(legend.TokenTypes[tokenTypeStringPlaceholder])).To(Equal("stringPlaceholder"))
+			Expect(string(legend.TokenTypes[n-1])).To(Equal("channelAlias"))
+			Expect(uint32(n - 1)).To(Equal(tokenTypeChannelAlias))
 		})
 	})
 })

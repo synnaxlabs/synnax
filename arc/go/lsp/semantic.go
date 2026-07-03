@@ -47,6 +47,7 @@ const (
 	SemanticTokenTypeNamespace
 	SemanticTokenTypeStringRaw
 	SemanticTokenTypeStringPlaceholder
+	SemanticTokenTypeChannelAlias
 )
 
 var semanticTokenTypes = []string{
@@ -73,6 +74,7 @@ var semanticTokenTypes = []string{
 	"namespace",
 	"stringRaw",
 	"stringPlaceholder",
+	"channelAlias",
 }
 
 func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
@@ -358,7 +360,22 @@ func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, roo
 	if err != nil || sym == nil {
 		return nil
 	}
+	if isChannelAliasSym(sym) {
+		tokenType := uint32(SemanticTokenTypeChannelAlias)
+		return &tokenType
+	}
 	return mapSymbolKind(sym.Kind)
+}
+
+// isChannelAliasSym reports whether sym is a variable bound directly to a
+// channel (e.g. cpu := some_channel). Such aliases carry the source channel's
+// ID in SourceID; they are colored distinctly from value variables so an alias
+// reads as a channel handle rather than a stored value.
+func isChannelAliasSym(sym *symbol.Symbol) bool {
+	if sym.Kind != symbol.KindVariable && sym.Kind != symbol.KindStatefulVariable {
+		return false
+	}
+	return sym.SourceID != nil
 }
 
 func mapSymbolKind(kind symbol.Kind) *uint32 {

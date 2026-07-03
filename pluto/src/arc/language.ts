@@ -112,6 +112,11 @@ const TOKEN_CONFIG = {
     scopes: ["entity.name.type.sequence.arc"],
   },
   variable: {
+    dark: "#E5A84B",
+    light: "#B45000",
+    scopes: [],
+  },
+  channelAlias: {
     dark: "#dadada",
     light: "#292929",
     scopes: ["variable.other.arc"],
