@@ -132,8 +132,6 @@ var _ = Describe("Compile", func() {
 	})
 
 	It("Should fail with invalid expression", func(ctx SpecContext) {
-		// Strict creation rejects the invalid expression, so create a valid channel to
-		// obtain a key, then compile an in-memory copy carrying the invalid expression.
 		calc := channel.Channel{
 			Name:       "calc4",
 			DataType:   telem.Int64T,
