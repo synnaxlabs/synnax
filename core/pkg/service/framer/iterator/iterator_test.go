@@ -359,13 +359,6 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				})
 
 				It("Should detect circular dependencies", func(ctx SpecContext) {
-					// Form a 2-node cycle calc_circ_a -> calc_circ_b -> calc_circ_a. A
-					// cycle cannot be created directly because create-time analysis
-					// rejects the forward reference, so we build it the only way it can
-					// occur in practice: create both channels with resolvable
-					// expressions, then update one to close the cycle. Analysis
-					// resolves symbols but does not detect cycles, so the cyclic state
-					// persists for the iterator's topological sort to catch.
 					calcA := &channel.Channel{
 						Name:       "calc_circ_a",
 						DataType:   telem.Float32T,
@@ -400,7 +393,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return sensor_1 + sensor_2",
 					}
-					Expect(channelSvc.NewWriter(nil).Create(ctx, calcMixed)).To(Succeed())
+					Expect(
+						channelSvc.NewWriter(nil).Create(ctx, calcMixed),
+					).To(Succeed())
 
 					// Create another calculated that depends on the first
 					calcMixedNested := &channel.Channel{
@@ -408,7 +403,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return calc_mixed * 2",
 					}
-					Expect(channelSvc.NewWriter(nil).Create(ctx, calcMixedNested)).To(Succeed())
+					Expect(
+						channelSvc.NewWriter(nil).Create(ctx, calcMixedNested),
+					).To(Succeed())
 
 					// Request both concrete channels (sensor_1, sensor_2) and calculated channels
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -463,13 +460,17 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
 					}
-					Expect(channelSvc.NewWriter(nil).Create(ctx, threeDomainIndexCh)).To(Succeed())
+					Expect(
+						channelSvc.NewWriter(nil).Create(ctx, threeDomainIndexCh),
+					).To(Succeed())
 					threeDomainDataCh = &channel.Channel{
 						Name:       "three_domain_sensor",
 						DataType:   telem.Float32T,
 						LocalIndex: threeDomainIndexCh.LocalKey,
 					}
-					Expect(channelSvc.NewWriter(nil).Create(ctx, threeDomainDataCh)).To(Succeed())
+					Expect(
+						channelSvc.NewWriter(nil).Create(ctx, threeDomainDataCh),
+					).To(Succeed())
 					keys := []channel.Key{threeDomainIndexCh.Key(), threeDomainDataCh.Key()}
 
 					threeDomainIdxData = telem.MultiSeries{Series: []telem.Series{
@@ -683,7 +684,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor * 3",
 					}
-					Expect(channelSvc.NewWriter(nil).Create(ctx, calcMixed)).To(Succeed())
+					Expect(
+						channelSvc.NewWriter(nil).Create(ctx, calcMixed),
+					).To(Succeed())
 
 					// Request both concrete and calculated channels
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -729,13 +732,17 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
 					}
-					Expect(channelSvc.NewWriter(nil).Create(ctx, gapIndexCh)).To(Succeed())
+					Expect(
+						channelSvc.NewWriter(nil).Create(ctx, gapIndexCh),
+					).To(Succeed())
 					gapDataCh := &channel.Channel{
 						Name:       "gap_domain_sensor",
 						DataType:   telem.Float32T,
 						LocalIndex: gapIndexCh.LocalKey,
 					}
-					Expect(channelSvc.NewWriter(nil).Create(ctx, gapDataCh)).To(Succeed())
+					Expect(
+						channelSvc.NewWriter(nil).Create(ctx, gapDataCh),
+					).To(Succeed())
 					keys := []channel.Key{gapIndexCh.Key(), gapDataCh.Key()}
 
 					// First domain at t=1s
@@ -804,21 +811,27 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor * 2",
 					}
-					Expect(channelSvc.NewWriter(nil).Create(ctx, calcDouble)).To(Succeed())
+					Expect(
+						channelSvc.NewWriter(nil).Create(ctx, calcDouble),
+					).To(Succeed())
 
 					calcSquare := &channel.Channel{
 						Name:       "three_domain_square",
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor * three_domain_sensor",
 					}
-					Expect(channelSvc.NewWriter(nil).Create(ctx, calcSquare)).To(Succeed())
+					Expect(
+						channelSvc.NewWriter(nil).Create(ctx, calcSquare),
+					).To(Succeed())
 
 					calcPlusTen := &channel.Channel{
 						Name:       "three_domain_plus_ten",
 						DataType:   telem.Float32T,
 						Expression: "return three_domain_sensor + 10",
 					}
-					Expect(channelSvc.NewWriter(nil).Create(ctx, calcPlusTen)).To(Succeed())
+					Expect(
+						channelSvc.NewWriter(nil).Create(ctx, calcPlusTen),
+					).To(Succeed())
 
 					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcDouble.Key(), calcSquare.Key(), calcPlusTen.Key()},
