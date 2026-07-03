@@ -33,7 +33,7 @@ import (
 
 type benchStreamerEnv struct {
 	ctx         context.Context
-	dist        mock.Node
+	node        mock.Node
 	channelSvc  *channel.Service
 	writerSvc   *writer.Service
 	streamerSvc *streamer.Service
@@ -41,7 +41,7 @@ type benchStreamerEnv struct {
 
 func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	RegisterTestingT(b)
-	dist := mock.OpenNode(b.Context())
+	node := mock.OpenNode(b.Context())
 
 	searchIdx, err := search.Open()
 	if err != nil {
@@ -49,9 +49,9 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	}
 
 	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
 		Search:   searchIdx,
 	})
 	if err != nil {
@@ -59,9 +59,9 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	}
 
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
-		DB:       dist.DB,
-		Group:    dist.Group,
-		Ontology: dist.Ontology,
+		DB:       node.DB,
+		Group:    node.Group,
+		Ontology: node.Ontology,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	})
@@ -70,25 +70,25 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	}
 
 	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostResolver: dist.Cluster,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		Search:       dist.Search,
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
 		Status:       statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
 	writerSvc, err := writer.NewService(writer.ServiceConfig{
-		Framer: dist.Framer, Channel: channelSvc,
+		Framer: node.Framer, Channel: channelSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open writer service: %v", err)
 	}
 	calc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
-		Framer:  dist.Framer,
+		Framer:  node.Framer,
 		Writer:  writerSvc,
 		Channel: channelSvc,
 		Status:  statusSvc,
@@ -98,7 +98,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	}
 
 	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
-		Framer:      dist.Framer,
+		Framer:      node.Framer,
 		Channel:     channelSvc,
 		Calculation: calc,
 	})
@@ -108,7 +108,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 
 	return &benchStreamerEnv{
 		ctx:         b.Context(),
-		dist:        dist,
+		node:        node,
 		channelSvc:  channelSvc,
 		writerSvc:   writerSvc,
 		streamerSvc: streamerSvc,
@@ -116,7 +116,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 }
 
 func (e *benchStreamerEnv) close(b *testing.B) {
-	if err := e.dist.Close(); err != nil {
+	if err := e.node.Close(); err != nil {
 		b.Errorf("failed to close cluster: %v", err)
 	}
 }
@@ -153,7 +153,9 @@ func (e *benchStreamerEnv) createIndexedChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.channelSvc.NewWriter(nil).Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.channelSvc.NewWriter(nil).Create(
+			e.ctx, dataChannels[i],
+		); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}

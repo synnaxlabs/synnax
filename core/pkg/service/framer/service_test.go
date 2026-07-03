@@ -72,9 +72,15 @@ var _ = Describe("Service", func() {
 					Expect(cfg.Validate()).
 						To(MatchError(ContainSubstring(field + ": must be non-nil")))
 				},
-				Entry("framer", func(c *framer.ServiceConfig) { c.Framer = nil }, "framer"),
-				Entry("channel", func(c *framer.ServiceConfig) { c.Channel = nil }, "channel"),
-				Entry("status", func(c *framer.ServiceConfig) { c.Status = nil }, "status"),
+				Entry("framer", func(c *framer.ServiceConfig) {
+					c.Framer = nil
+				}, "framer"),
+				Entry("channel", func(c *framer.ServiceConfig) {
+					c.Channel = nil
+				}, "channel"),
+				Entry("status", func(c *framer.ServiceConfig) {
+					c.Status = nil
+				}, "status"),
 				Entry("host_resolver", func(c *framer.ServiceConfig) {
 					c.HostResolver = nil
 				}, "host_resolver"),
@@ -107,7 +113,9 @@ var _ = Describe("Service", func() {
 
 	Describe("OpenService", func() {
 		It("Should open and close a service from a valid configuration", func(ctx SpecContext) {
-			svc := MustSucceed(framer.OpenService(ctx, newFramerConfig(ctx, mock.NewNode(ctx))))
+			svc := MustSucceed(framer.OpenService(
+				ctx, newFramerConfig(ctx, mock.NewNode(ctx)),
+			))
 			Expect(svc.Close()).To(Succeed())
 		})
 		It("Should return an error for an invalid configuration", func(ctx SpecContext) {
@@ -150,7 +158,8 @@ var _ = Describe("Service", func() {
 			Expect(cfg.Channel.
 				NewRetrieve().
 				Where(channel.MatchNames(name)).
-				Count(ctx, nil)).To(Equal(1))
+				Count(ctx, nil),
+			).To(Equal(1))
 		})
 	})
 

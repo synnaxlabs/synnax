@@ -33,48 +33,48 @@ import (
 
 var _ = Describe("Streamer", Ordered, func() {
 	var (
-		dist        mock.Node
+		node        mock.Node
 		channelSvc  *channel.Service
 		writerSvc   *writer.Service
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		dist = mock.NewNode(ctx)
+		node = mock.NewNode(ctx)
 		searchIdx := MustOpen(search.Open())
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
 			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       dist.DB,
-			Group:    dist.Group,
-			Ontology: dist.Ontology,
+			DB:       node.DB,
+			Group:    node.Group,
+			Ontology: node.Ontology,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      dist.Channel,
-			DB:           dist.DB,
-			HostResolver: dist.Cluster,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			Search:       dist.Search,
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostResolver: node.Cluster,
+			Ontology:     node.Ontology,
+			Group:        node.Group,
+			Search:       node.Search,
 			Status:       statusSvc,
 		}))
 		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
-			Framer:  dist.Framer,
+			Framer:  node.Framer,
 			Channel: channelSvc,
 		}))
 		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-			Framer:  dist.Framer,
+			Framer:  node.Framer,
 			Writer:  writerSvc,
 			Channel: channelSvc,
 			Status:  statusSvc,
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
-			Framer:      dist.Framer,
+			Framer:      node.Framer,
 			Channel:     channelSvc,
 			Calculation: calc,
 		}))

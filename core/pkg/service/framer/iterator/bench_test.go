@@ -28,7 +28,7 @@ import (
 
 type benchIterEnv struct {
 	ctx         context.Context
-	dist        mock.Node
+	node        mock.Node
 	channelSvc  *channel.Service
 	writerSvc   *writer.Service
 	iteratorSvc *iterator.Service
@@ -36,36 +36,36 @@ type benchIterEnv struct {
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
-	dist := mock.OpenNode(b.Context())
+	node := mock.OpenNode(b.Context())
 
 	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Search:   dist.Search,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
 		Label:    labelSvc,
-		Search:   dist.Search,
+		Search:   node.Search,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
 	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostResolver: dist.Cluster,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		Search:       dist.Search,
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
 		Status:       statusSvc,
 	})
 	if err != nil {
@@ -73,7 +73,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	}
 
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
-		Framer:  dist.Framer,
+		Framer:  node.Framer,
 		Channel: channelSvc,
 	})
 	if err != nil {
@@ -81,7 +81,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	}
 
 	writerSvc, err := writer.NewService(writer.ServiceConfig{
-		Framer: dist.Framer, Channel: channelSvc,
+		Framer: node.Framer, Channel: channelSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open writer service: %v", err)
@@ -89,7 +89,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 
 	return &benchIterEnv{
 		ctx:         b.Context(),
-		dist:        dist,
+		node:        node,
 		channelSvc:  channelSvc,
 		writerSvc:   writerSvc,
 		iteratorSvc: iteratorSvc,
@@ -97,7 +97,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 }
 
 func (e *benchIterEnv) close(b *testing.B) {
-	if err := e.dist.Close(); err != nil {
+	if err := e.node.Close(); err != nil {
 		b.Errorf("failed to close cluster: %v", err)
 	}
 }
@@ -122,7 +122,8 @@ func (e *benchIterEnv) createChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.channelSvc.NewWriter(nil).Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.channelSvc.NewWriter(nil).
+			Create(e.ctx, dataChannels[i]); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -364,7 +365,8 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			if err := env.channelSvc.NewWriter(nil).Create(env.ctx, indexCh); err != nil {
+			if err := env.channelSvc.NewWriter(nil).
+				Create(env.ctx, indexCh); err != nil {
 				b.Fatalf("failed to create index channel: %v", err)
 			}
 			dataCh := &channel.Channel{
@@ -372,7 +374,8 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			if err := env.channelSvc.NewWriter(nil).Create(env.ctx, dataCh); err != nil {
+			if err := env.channelSvc.NewWriter(nil).
+				Create(env.ctx, dataCh); err != nil {
 				b.Fatalf("failed to create data channel: %v", err)
 			}
 

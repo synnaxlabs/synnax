@@ -36,11 +36,17 @@ var _ = Describe("Ontology Helpers", func() {
 	})
 	Describe("KeysFromOntologyIDs", func() {
 		It("Should parse a list of ontology IDs into a list of keys", func() {
-			ids := []ontology.ID{{Type: "channel", Key: "1"}, {Type: "channel", Key: "2"}}
+			ids := []ontology.ID{
+				{Type: "channel", Key: "1"},
+				{Type: "channel", Key: "2"},
+			}
 			Expect(channel.KeysFromOntologyIDs(ids)).To(Equal(channel.Keys{1, 2}))
 		})
 		It("Should return an error if a key cannot be parsed", func() {
-			ids := []ontology.ID{{Type: "channel", Key: "1"}, {Type: "channel", Key: "a"}}
+			ids := []ontology.ID{
+				{Type: "channel", Key: "1"},
+				{Type: "channel", Key: "a"},
+			}
 			Expect(channel.KeysFromOntologyIDs(ids)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("a is not a valid channel key")),
@@ -68,9 +74,15 @@ var _ = Describe("Ontology", Ordered, func() {
 	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true})).To(Succeed())
-			Expect(svc.NewWriter(nil).Create(ctx, &channel.Channel{Name: "SG02", DataType: telem.Int64T, Virtual: true})).To(Succeed())
-			Expect(svc.NewWriter(nil).Create(ctx, &channel.Channel{Name: "SG03", DataType: telem.Int64T, Virtual: true})).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &channel.Channel{
+				Name: "SG01", DataType: telem.Int64T, Virtual: true,
+			})).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &channel.Channel{
+				Name: "SG02", DataType: telem.Int64T, Virtual: true,
+			})).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &channel.Channel{
+				Name: "SG03", DataType: telem.Int64T, Virtual: true,
+			})).To(Succeed())
 			n, closer := MustSucceed2(svc.OpenNexter(ctx))
 			defer func() {
 				GinkgoRecover()
@@ -86,13 +98,14 @@ var _ = Describe("Ontology", Ordered, func() {
 		Context("Create", func() {
 			It("Should correctly propagate a create change", func(ctx SpecContext) {
 				changes := make(chan []ontology.Change, 5)
-				dc := svc.OnChange(func(ctx context.Context, nexter iter.Seq[ontology.Change]) {
-					changesSlice := make([]ontology.Change, 0)
-					for ch := range nexter {
-						changesSlice = append(changesSlice, ch)
-					}
-					changes <- changesSlice
-				})
+				dc := svc.OnChange(
+					func(_ context.Context, nexter iter.Seq[ontology.Change]) {
+						changesSlice := make([]ontology.Change, 0)
+						for ch := range nexter {
+							changesSlice = append(changesSlice, ch)
+						}
+						changes <- changesSlice
+					})
 				defer dc()
 				ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
 				Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())

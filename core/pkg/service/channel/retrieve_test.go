@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 const internalChannelCount = 1
@@ -200,7 +199,8 @@ var _ = Describe("Retrieve", Ordered, func() {
 				DataType: telem.Float32T,
 				Name:     "wc_only_base",
 			}
-			Expect(freshSvc.NewWriter(nil).CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
+			Expect(freshSvc.NewWriter(nil).
+				CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
 
 			var results []channel.Channel
 			Expect(freshSvc.
@@ -228,11 +228,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 			}
 			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
-			exists := MustSucceed(svc.
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
-				Exists(ctx, nil))
-			Expect(exists).To(BeTrue())
+				Exists(ctx, nil),
+			).To(BeTrue())
 		})
 	})
 })
