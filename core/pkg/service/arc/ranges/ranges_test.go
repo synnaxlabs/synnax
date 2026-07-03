@@ -347,12 +347,11 @@ var _ = Describe("createNode.Next", func() {
 		n.Next(nodeCtx(ctx))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
-		var matches []ranger.Range
-		Expect(rangeSvc.NewRetrieve().
+		Expect(rangeSvc.
+			NewRetrieve().
 			Where(ranger.MatchNames(name)).
-			Entries(&matches).
-			Exec(ctx, nil)).To(Succeed())
-		Expect(matches).To(BeEmpty())
+			Count(ctx, nil),
+		).To(Equal(0))
 
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
@@ -506,7 +505,7 @@ var _ = Describe("Analyzer hooks", func() {
 			"sensor -> f{}"
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
-		Expect(diags.Errors()).To(BeEmpty())
+		Expect(diags.Ok()).To(BeTrue())
 	})
 })
 
