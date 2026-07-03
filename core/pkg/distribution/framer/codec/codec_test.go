@@ -336,6 +336,7 @@ var _ = Describe("Codec", func() {
 			dataCh     channel.Channel
 		)
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			node = mock.NewNode(ctx)
 			channelSvc = node.Channel
 			w := node.Channel.NewWriter(nil)

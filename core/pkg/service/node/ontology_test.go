@@ -51,6 +51,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	testCluster = mock.NewCluster(ctx, 2)
 	testSvc, testOtg = openTestService(ctx, testCluster.Nodes[1].Cluster)
 })

@@ -43,7 +43,10 @@ var _ = Describe("Writer", func() {
 		}
 		for i, sF := range scenarios {
 			var s scenario
-			BeforeAll(func(ctx SpecContext) { s = DeferClose(sF(ctx)) })
+			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
+				s = DeferClose(sF(ctx))
+			})
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
@@ -79,6 +82,7 @@ var _ = Describe("Writer", func() {
 			strCh channel.Channel
 		)
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			node := mock.OpenNode(ctx)
 			idxCh = channel.Channel{
 				Name:     channel.NewRandomName(),
@@ -155,7 +159,10 @@ var _ = Describe("Writer", func() {
 
 	Describe("Open Errors", Ordered, func() {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) { s = DeferClose(gatewayOnlyScenario(ctx)) })
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			s = DeferClose(gatewayOnlyScenario(ctx))
+		})
 		It("Should return an error if no keys are provided", func(ctx SpecContext) {
 			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  []channel.Key{},
@@ -178,7 +185,10 @@ var _ = Describe("Writer", func() {
 
 	Describe("Frame Errors", Ordered, func() {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) { s = DeferClose(peerOnlyScenario(ctx)) })
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			s = DeferClose(peerOnlyScenario(ctx))
+		})
 		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func(ctx SpecContext) {
 			writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
@@ -242,6 +252,7 @@ var _ = Describe("Writer", func() {
 		Describe("Invalid JSON", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     channel.NewRandomName(),
@@ -282,6 +293,7 @@ var _ = Describe("Writer", func() {
 		Describe("Invalid UTF-8", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     channel.NewRandomName(),
@@ -322,6 +334,7 @@ var _ = Describe("Writer", func() {
 		Describe("Malformed Variable Prefix", Ordered, func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     channel.NewRandomName(),

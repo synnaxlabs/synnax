@@ -7,11 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package main
+package goroutineleak_test
 
 import (
-	"github.com/synnaxlabs/x/analyzers/mustsucceedlint"
-	"golang.org/x/tools/go/analysis/singlechecker"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-func main() { singlechecker.Main(mustsucceedlint.Analyzer) }
+func TestGoroutineLeak(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Analyzers Goroutine Leak Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

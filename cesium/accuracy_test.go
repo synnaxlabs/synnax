@@ -27,6 +27,7 @@ var _ = Describe("Accuracy", func() {
 				fs xfs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 			})
@@ -44,6 +45,7 @@ var _ = Describe("Accuracy", func() {
 					secondTS = []telem.TimeStamp{22, 24, 29, 32, 33, 34, 35, 36, 38, 40}
 				)
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{Name: "Rufus", Key: idxKey, IsIndex: true, DataType: telem.TimeStampT},
@@ -125,6 +127,7 @@ var _ = Describe("Accuracy", func() {
 						idxData2 = []telem.TimeStamp{1, 2, 6, 7, 12, 14, 17, 21, 27, 33}
 					)
 					BeforeAll(func(ctx SpecContext) {
+						ShouldNotLeakGoroutines()
 						Expect(db.CreateChannel(
 							ctx,
 							cesium.Channel{Name: "Albert", Key: idxKey1, DataType: telem.TimeStampT, IsIndex: true},

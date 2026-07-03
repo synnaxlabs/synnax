@@ -58,8 +58,9 @@ func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
 }
 
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	unaryAddr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-	unaryApp = fiber.New(fiber.Config{})
+	unaryApp = newFiberApp(fiber.Config{DisableKeepalive: true})
 	router := MustSucceed(fhttp.NewRouter())
 	unaryApp.Get("/health", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
@@ -99,8 +100,7 @@ var _ = BeforeSuite(func() {
 		})).To(Succeed())
 	}()
 	Eventually(func(g Gomega) {
-		_, err := http.Get("http://" + unaryAddr.String() + "/health")
-		g.Expect(err).To(Succeed())
+		g.Expect(pollHealth("http://" + unaryAddr.String() + "/health")).To(Succeed())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 })
 

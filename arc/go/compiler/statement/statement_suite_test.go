@@ -14,9 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestStatement(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Compiler Statement Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

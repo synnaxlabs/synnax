@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestFramework(t *testing.T) {
@@ -504,3 +505,5 @@ var _ = Describe("Collect Helpers", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // magic is the orc magic header. intentional kept separate from the
@@ -24,3 +25,5 @@ func TestOrc(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Encoding Orc Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
