@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -124,7 +124,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type Service struct {
 	cfg     ServiceConfig
 	db      *gorp.DB
-	closer  xio.MultiCloser
+	closer  io.MultiCloser
 	group   group.Group
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
