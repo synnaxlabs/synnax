@@ -18,10 +18,7 @@ export const clusterZ = v2.clusterZ;
 export type Cluster = v3.Cluster;
 export type SliceState = v3.SliceState;
 export type AnySliceState =
-  | v0.SliceState
-  | v1.SliceState
-  | v2.SliceState
-  | v3.SliceState;
+  v0.SliceState | v1.SliceState | v2.SliceState | v3.SliceState;
 
 export const getPredefinedClusterKey = v2.getPredefinedClusterKey;
 

@@ -34,7 +34,7 @@
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
-    "@tanstack/react-virtual": "^3.14.3",
+    "@tanstack/react-virtual": "^3.14.5",
     "@xyflow/react": "^12.11.1",
     "async-mutex": "catalog:",
     "clsx": "catalog:",

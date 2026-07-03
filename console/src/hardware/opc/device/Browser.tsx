@@ -144,9 +144,10 @@ export const Browser = ({ device }: BrowserProps) => {
       if (result.variant !== "success") return;
       const isRoot = id === "";
       const { data: channels } = result;
-      const newNodes = channels.map(
-        (node): Tree.Node => ({ key: nodeKey(node.nodeId, id), children: [] }),
-      );
+      const newNodes = channels.map((node): Tree.Node => ({
+        key: nodeKey(node.nodeId, id),
+        children: [],
+      }));
       opcNodesStore.setItem(
         channels.map((node) => ({ ...node, key: nodeKey(node.nodeId, id) })),
       );

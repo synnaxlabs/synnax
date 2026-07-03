@@ -29,9 +29,8 @@ export interface KeyedSelectorParams extends record.Keyed<arc.Key> {
 }
 
 const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  Arc.Scope.bindHook(
-    ({ key }: Omit<KeyedSelectorParams, "state">): R =>
-      useMemoSelect((state: StoreState) => selector({ state, key }), [key]),
+  Arc.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    useMemoSelect((state: StoreState) => selector({ state, key }), [key]),
   );
 
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>

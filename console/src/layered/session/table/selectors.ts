@@ -27,9 +27,8 @@ export interface KeyedSelectorParams extends record.Keyed<table.Key> {
 }
 
 const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  Table.Scope.bindHook(
-    ({ key }: Omit<KeyedSelectorParams, "state">): R =>
-      useMemoSelect((state: StoreState) => selector({ state, key }), [key]),
+  Table.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    useMemoSelect((state: StoreState) => selector({ state, key }), [key]),
   );
 
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>
