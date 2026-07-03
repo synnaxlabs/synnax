@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/actions"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGoActions(t *testing.T) {
@@ -182,3 +183,5 @@ var _ = Describe("Go Actions Plugin", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

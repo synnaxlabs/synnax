@@ -48,6 +48,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.Open())
@@ -125,3 +126,5 @@ func grant(
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

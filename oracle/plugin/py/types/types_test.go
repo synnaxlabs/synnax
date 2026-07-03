@@ -2030,3 +2030,5 @@ var _ = Describe("Collection type aliases and maps", func() {
 		ExpectContent(resp, "types_gen.py").ToNotContain("model_rebuild()")
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

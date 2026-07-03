@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -36,15 +37,16 @@ var _ = Describe("HTTP", func() {
 		})
 		port := MustSucceed(net.FindOpenPort())
 		addr := address.Newf("localhost:%d", port)
-		b := MustSucceed(server.Serve(server.Config{
+		MustOpen(server.Serve(server.Config{
 			ListenAddress: addr,
 			Security:      server.SecurityConfig{Insecure: new(true)},
-			Debug:         new(true),
 			Branches: []server.Branch{
-				&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r}},
+				&server.SecureHTTPBranch{
+					Transports:            []fhttp.BindableTransport{r},
+					MaxIdleWorkerDuration: 100 * time.Millisecond,
+				},
 			},
 		}))
-		defer func() { Expect(b.Close()).To(Succeed()) }()
 		url := "http://" + addr.String() + "/basic"
 		body := MustSucceed(json.Marshal(1))
 		req := MustSucceed(http.NewRequestWithContext(

@@ -34,7 +34,10 @@ var _ = Describe("Deleter", Ordered, func() {
 	}
 	for _, createScenario := range scenarios {
 		var s scenario
-		BeforeAll(func() { s = createScenario(context.Background()) })
+		BeforeAll(func() {
+			ShouldNotLeakGoroutines()
+			s = createScenario(context.Background())
+		})
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		Describe("Happy Path", func() {
 			Context(s.name+" - Happy Path", func() {
@@ -110,7 +113,10 @@ var _ = Describe("Deleter", Ordered, func() {
 
 	Describe("Mixed Gateway and Peer", Ordered, func() {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) { s = mixedScenario(context.Background()) })
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			s = mixedScenario(context.Background())
+		})
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 
 		It("Should delete channels across gateway and peer nodes", func(ctx SpecContext) {

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/primitives"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestResolver(t *testing.T) {
@@ -965,3 +966,5 @@ var _ = Describe("Context", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
