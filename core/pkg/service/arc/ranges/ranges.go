@@ -41,8 +41,8 @@ const (
 	moduleName       = "ranges"
 )
 
-// createDoc is the LSP hover body for ranges.create. The renderer prepends the
-// title from the symbol name and kind, so it is omitted here.
+// createDoc is the LSP hover body for ranges.create. The renderer prepends the title
+// from the symbol name and kind, so it is omitted here.
 var createDoc = doc.New(
 	doc.Paragraph("Creates a range that starts now and stays \"In Progress\"."),
 	doc.Divider(),
@@ -65,8 +65,8 @@ var moduleDoc = doc.New(
 	doc.Paragraph("Creates and manages ranges."),
 )
 
-// newCreateSymbolType returns a fresh ranges.create function type per call so
-// analysis never mutates a shared symbol. Inputs with a default are optional.
+// newCreateSymbolType returns a fresh ranges.create function type per call so analysis
+// never mutates a shared symbol. Inputs with a default are optional.
 func newCreateSymbolType() types.Type {
 	params := types.Params{
 		{Name: "name", Type: types.String()},
@@ -79,8 +79,8 @@ func newCreateSymbolType() types.Type {
 	})
 }
 
-// newEndSymbolType returns a fresh ranges.end function type per call so analysis
-// never mutates a shared symbol.
+// newEndSymbolType returns a fresh ranges.end function type per call so analysis never
+// mutates a shared symbol.
 func newEndSymbolType() types.Type {
 	params := types.Params{
 		{Name: "key", Type: types.String()},
@@ -91,8 +91,8 @@ func newEndSymbolType() types.Type {
 	})
 }
 
-// NewSymbols returns a fresh slice of ambient prelude symbols this package
-// contributes: the ranges module with its create and end members.
+// NewSymbols returns a fresh slice of ambient prelude symbols this package contributes:
+// the ranges module with its create and end members.
 func NewSymbols() []*symbol.Symbol {
 	createMember := &symbol.Symbol{
 		Name:             createMemberName,
@@ -156,14 +156,19 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 					"ranges.create: invalid string handle from WASM runtime")
 				return 0
 			}
-			return heap.Create(dispatchCreate(ctx, m.rng, m.report, name, parent, colorHex))
+			return heap.Create(
+				dispatchCreate(ctx, m.rng, m.report, name, parent, colorHex),
+			)
 		}).Export(createMemberName)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(ctx context.Context, keyH uint32) uint32 {
 			key, ok := heap.Get(keyH)
 			if !ok {
-				m.report(ctx, status.VariantWarning,
-					"ranges.end: invalid string handle from WASM runtime")
+				m.report(
+					ctx,
+					status.VariantWarning,
+					"ranges.end: invalid string handle from WASM runtime",
+				)
 				return 0
 			}
 			return heap.Create(dispatchEnd(ctx, m.rng, m.report, key))
@@ -178,7 +183,9 @@ func (m *module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case createMemberName:
 		var in createInputs
-		if err := createInputsSchema.Parse(cfg.Node.Inputs.ValueMap(), &in); err != nil {
+		if err := createInputsSchema.Parse(
+			cfg.Node.Inputs.ValueMap(), &in,
+		); err != nil {
 			return nil, errors.Wrap(err, "ranges.create inputs")
 		}
 		return &createNode{
@@ -228,13 +235,14 @@ type createNode struct {
 
 func (n *createNode) Next(ctx node.Context) {
 	key := dispatchCreate(ctx, n.rng, n.report, n.name, n.parent, n.color)
-	*n.Output(0) = telem.NewSeriesV[string](key)
-	*n.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
+	*n.Output(0) = telem.NewSeriesV(key)
+	*n.OutputTime(0) = telem.NewSeriesV(telem.Now())
 	ctx.MarkChanged(0)
 }
 
-// dispatchCreate creates an open range that starts now, parsing the color and
-// parent key, reporting failures as warnings so the task keeps running.
+// dispatchCreate creates an open range that starts now, parsing the color and parent
+// key, reporting failures as warnings so the task keeps running. On any failure no
+// range is created.
 func dispatchCreate(
 	ctx context.Context,
 	rng *ranger.Service,
@@ -243,12 +251,13 @@ func dispatchCreate(
 ) string {
 	var c *color.Color
 	if colorHex != "" {
-		if parsed, err := color.FromCSS(colorHex); err != nil {
+		parsed, err := color.FromCSS(colorHex)
+		if err != nil {
 			report(ctx, status.VariantWarning,
 				fmt.Sprintf("ranges.create: invalid color %q: %v", colorHex, err))
-		} else {
-			c = &parsed
+			return ""
 		}
+		c = &parsed
 	}
 	r := ranger.Range{
 		Name:      name,
@@ -289,13 +298,13 @@ type endNode struct {
 
 func (n *endNode) Next(ctx node.Context) {
 	key := dispatchEnd(ctx, n.rng, n.report, n.key)
-	*n.Output(0) = telem.NewSeriesV[string](key)
-	*n.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
+	*n.Output(0) = telem.NewSeriesV(key)
+	*n.OutputTime(0) = telem.NewSeriesV(telem.Now())
 	ctx.MarkChanged(0)
 }
 
-// dispatchEnd sets the end bound on the range identified by key to now,
-// reporting failures as warnings so the task keeps running.
+// dispatchEnd sets the end bound on the range identified by key to now, reporting
+// failures as warnings so the task keeps running.
 func dispatchEnd(
 	ctx context.Context,
 	rng *ranger.Service,
@@ -304,8 +313,11 @@ func dispatchEnd(
 ) string {
 	uid, err := uuid.Parse(key)
 	if err != nil {
-		report(ctx, status.VariantWarning,
-			fmt.Sprintf("ranges.end: invalid range key %q", key))
+		report(
+			ctx,
+			status.VariantWarning,
+			fmt.Sprintf("ranges.end: invalid range key %q", key),
+		)
 		return ""
 	}
 	if err := rng.NewWriter(nil).SetEnd(ctx, uid, telem.Now()); err != nil {
@@ -317,8 +329,8 @@ func dispatchEnd(
 
 const colorIndex = 2
 
-// analyzeCreateArguments validates the color argument across both call forms: it
-// binds by name ("color") or, when positional, by index.
+// analyzeCreateArguments validates the color argument across both call forms: it binds
+// by name ("color") or, when positional, by index.
 func analyzeCreateArguments(diags *diagnostics.Diagnostics, args []symbol.Argument) {
 	for _, arg := range args {
 		if arg.Name == "color" || (arg.Name == "" && arg.Index == colorIndex) {
@@ -345,8 +357,8 @@ func checkColorLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionCo
 	if !ok {
 		return
 	}
-	// An empty color is valid and means "no color", matching dispatchCreate's
-	// runtime behavior; only a non-empty literal must be a parseable CSS color.
+	// An empty color is valid and means "no color", matching dispatchCreate's runtime
+	// behavior; only a non-empty literal must be a parseable CSS color.
 	if value == "" {
 		return
 	}
