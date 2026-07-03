@@ -71,6 +71,7 @@
     "@types/react-dom": "catalog:",
     "@types/use-sync-external-store": "^1.5.0",
     "@types/webgl2": "^0.0.12",
+    "@types/ws": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
@@ -80,7 +81,8 @@
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "ws": "catalog:"
   },
   "files": [
     "dist"
