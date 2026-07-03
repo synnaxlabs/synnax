@@ -34,8 +34,9 @@ var _ = Describe("api/channel Resolver", func() {
 			ch1 := createChannel(ctx, telem.Float32T)
 			ch2 := createChannel(ctx, telem.Int64T)
 			ch3 := createChannel(ctx, telem.Uint8T)
-			Expect(apiSvc.RetrieveDataTypes(ctx, channel.Keys{ch1.Key(), ch2.Key(), ch3.Key()})).
-				To(Equal([]telem.DataType{telem.Float32T, telem.Int64T, telem.Uint8T}))
+			Expect(apiSvc.RetrieveDataTypes(
+				ctx, channel.Keys{ch1.Key(), ch2.Key(), ch3.Key()},
+			)).To(Equal([]telem.DataType{telem.Float32T, telem.Int64T, telem.Uint8T}))
 		})
 
 		It("Should resolve the data type of a single channel", func(ctx SpecContext) {
@@ -50,8 +51,9 @@ var _ = Describe("api/channel Resolver", func() {
 
 		It("Should return a not found error when a key does not resolve to a channel", func(ctx SpecContext) {
 			ch := createChannel(ctx, telem.Int32T)
-			Expect(apiSvc.RetrieveDataTypes(ctx, channel.Keys{ch.Key(), channel.Key(999999)})).
-				Error().To(MatchError(query.ErrNotFound))
+			Expect(apiSvc.RetrieveDataTypes(
+				ctx, channel.Keys{ch.Key(), channel.Key(999999)},
+			)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
