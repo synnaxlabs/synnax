@@ -82,6 +82,7 @@ func openService(
 	Expect(node.Framer.ConfigureControlUpdateChannel(
 		ctx, controlCh.Key(), controlCh.Name,
 	)).To(Succeed())
+	Expect(node.Search.Initialize(ctx)).To(Succeed())
 	return channelSvc
 }
 

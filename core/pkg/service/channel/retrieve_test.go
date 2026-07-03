@@ -23,9 +23,7 @@ const internalChannelCount = 1
 var _ = Describe("Retrieve", Ordered, func() {
 	var svc *channel.Service
 	BeforeAll(func(ctx SpecContext) {
-		n := mock.NewNode(ctx)
-		svc = openService(ctx, n)
-		Expect(n.Search.Initialize(ctx)).To(Succeed())
+		svc = openService(ctx, mock.NewNode(ctx))
 	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func(ctx SpecContext) {

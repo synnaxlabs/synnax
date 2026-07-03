@@ -55,25 +55,17 @@ var _ = Describe("Service", func() {
 			Expect(sym.Name).To(Equal(ch.Name))
 			Expect(sym.ID).To(Equal(int(ch.Key())))
 		})
-		Context("Search", Ordered, func() {
-			var searchSvc *channel.Service
-			BeforeAll(func(ctx SpecContext) {
-				n := mock.NewNode(ctx)
-				searchSvc = openService(ctx, n)
-				Expect(n.Search.Initialize(ctx)).To(Succeed())
-			})
-			It("Should fuzzy-search channels by name", func(ctx SpecContext) {
-				ch := channel.Channel{Name: "catalina", DataType: telem.Float32T, Virtual: true}
-				Expect(searchSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-				Eventually(func(g Gomega) {
-					results := MustSucceed(searchSvc.NewArcSymbolResolver(nil).Search(ctx, ch.Name))
-					names := make([]string, len(results))
-					for i, sym := range results {
-						names[i] = sym.Name
-					}
-					g.Expect(names).To(ContainElement(ch.Name))
-				}).Should(Succeed())
-			})
+		It("Should fuzzy-search channels by name", func(ctx SpecContext) {
+			ch := channel.Channel{Name: "catalina", DataType: telem.Float32T, Virtual: true}
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Eventually(func(g Gomega) {
+				results := MustSucceed(svc.NewArcSymbolResolver(nil).Search(ctx, ch.Name))
+				names := make([]string, len(results))
+				for i, sym := range results {
+					names[i] = sym.Name
+				}
+				g.Expect(names).To(ContainElement(ch.Name))
+			}).Should(Succeed())
 		})
 	})
 
