@@ -76,17 +76,14 @@ type snapshotHolder struct{ snapshot []gleak.Goroutine }
 // assertNoLeakedGoroutines runs the leak assertion synchronously against the supplied
 // baseline, ignoring goroutines that are known to be unstoppable process-globals.
 func assertNoLeakedGoroutines(snapshot []gleak.Goroutine) {
-	args := make([]any, 0, 2)
-	args = append(args, snapshot)
-	// fasthttp lazily starts a single process-global goroutine (guarded by
-	// serverDateOnce) the first time any server writes a response; it refreshes the
-	// cached HTTP Date header every second and loops forever with no way to stop it.
-	// Upstream closed the request to add a shutdown mechanism as not-planned:
-	// https://github.com/valyala/fasthttp/issues/2257
-	args = append(
-		args,
+	args := []any{
+		snapshot,
+		// fasthttp lazily starts a single process-global goroutine (guarded by
+		// serverDateOnce) the first time any server writes a response; it refreshes the
+		// cached HTTP Date header every second and loops forever with no way to stop
+		// it. Upstream closed the request to add a shutdown mechanism as not-planned:
+		// https://github.com/valyala/fasthttp/issues/2257
 		gleak.IgnoringCreator("github.com/valyala/fasthttp.updateServerDate"),
-	)
-	assertion := gomega.Eventually(gleak.Goroutines)
-	assertion.ShouldNot(gleak.HaveLeaked(args...))
+	}
+	gomega.Eventually(gleak.Goroutines).ShouldNot(gleak.HaveLeaked(args...))
 }
