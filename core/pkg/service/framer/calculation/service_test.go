@@ -50,7 +50,9 @@ var _ = Describe("Calculation", Ordered, func() {
 		streamKeys func([]channel.Channel) channel.Keys,
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
 		if indexChannels != nil {
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, indexChannels)).To(Succeed())
+			Expect(
+				channelSvc.NewWriter(nil).CreateMany(ctx, indexChannels),
+			).To(Succeed())
 		}
 		for i, channel := range *baseChannels {
 			if channel.Virtual {

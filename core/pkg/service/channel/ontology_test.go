@@ -67,7 +67,11 @@ var _ = Describe("Ontology Helpers", func() {
 var _ = Describe("Ontology", Ordered, func() {
 	Describe("OntologyID", func() {
 		It("Should correctly return the ontology.ID for the specified channel", func(ctx SpecContext) {
-			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
+			ch := &channel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
 			Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 			Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
 		})
@@ -90,8 +94,13 @@ var _ = Describe("Ontology", Ordered, func() {
 			}()
 			values := slices.Collect(n)
 			Expect(len(values)).To(BeNumerically(">", 4))
-			names := lo.Map(values, func(v ontology.Resource, _ int) string { return v.Name })
-			Expect(names).To(ContainElements("sy_node_1_control", "SG01", "SG02", "SG03"))
+			names := lo.Map(
+				values,
+				func(v ontology.Resource, _ int) string { return v.Name },
+			)
+			Expect(names).To(
+				ContainElements("sy_node_1_control", "SG01", "SG02", "SG03"),
+			)
 		})
 	})
 	Describe("OnChange", func() {
@@ -107,7 +116,11 @@ var _ = Describe("Ontology", Ordered, func() {
 						changes <- changesSlice
 					})
 				defer dc()
-				ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
+				ch := &channel.Channel{
+					Name:     channel.NewRandomName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
 				Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 				Eventually(func(g Gomega) {
 					c := <-changes
@@ -121,7 +134,11 @@ var _ = Describe("Ontology", Ordered, func() {
 	})
 	Describe("RetrieveResource", func() {
 		It("Should correctly retrieve a resource", func(ctx SpecContext) {
-			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
+			ch := &channel.Channel{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
 			Expect(svc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 			r := MustSucceed(svc.RetrieveResource(ctx, ch.Key().String(), nil))
 			Expect(r.Name).To(Equal(ch.Name))
