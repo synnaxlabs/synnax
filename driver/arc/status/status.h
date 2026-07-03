@@ -52,14 +52,10 @@ inline std::string dispatch_set(
     if (err) {
         LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
                    << " error=" << err.data;
-        report(synnax::status::VARIANT_WARNING, set_failure_msg(err.data));
+        report(set_failure_msg(err.data));
         return "";
     }
-    if (res.multiple_matches)
-        report(
-            synnax::status::VARIANT_WARNING,
-            set_multi_match_msg(key_or_name, res.key)
-        );
+    if (res.multiple_matches) report(set_multi_match_msg(key_or_name, res.key));
     return res.key;
 }
 

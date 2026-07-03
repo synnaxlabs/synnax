@@ -14,10 +14,10 @@
 
 namespace driver::arc {
 
-/// @brief Reporter surfaces a stdlib-originated failure as a task-level status,
-/// mirroring the Go-side taskreporter.Reporter so failures land as warnings rather
-/// than silent log lines. Shared across the Arc driver stdlib modules.
-using Reporter = std::function<
-    void(const std::string &variant, const std::string &message)>;
+/// @brief Reporter surfaces a stdlib-originated failure as a task-level warning,
+/// mirroring the Go-side taskreporter.Reporter so failures land as warnings rather than
+/// silent log lines. The task keeps running. Shared across the Arc driver stdlib
+/// modules.
+using Reporter = std::function<void(const std::string &message)>;
 
 }

@@ -341,15 +341,17 @@ var _ = Describe("createNode.Next", func() {
 		Expect(rep.get()).To(BeEmpty())
 	})
 
-	It("Should warn but still create the range when the color is invalid", func(ctx SpecContext) {
+	It("Should warn and not create the range when the color is invalid", func(ctx SpecContext) {
 		name := "create_badcolor_" + uuid.NewString()
 		n, state := build(ctx, name, "", "not-a-color")
 		n.Next(nodeCtx(ctx))
 
-		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
-		r := MustSucceed(retrieveRange(ctx, newKey))
-		Expect(r.Name).To(Equal(name))
-		Expect(r.Color).To(BeNil())
+		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+		Expect(rangeSvc.
+			NewRetrieve().
+			Where(ranger.MatchNames(name)).
+			Count(ctx, nil),
+		).To(Equal(0))
 
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
@@ -492,6 +494,18 @@ var _ = Describe("Analyzer hooks", func() {
 	It("Should not flag a missing color argument", func(ctx SpecContext) {
 		Expect(hasColorError(ctx,
 			"import ranges\nsensor -> ranges.create{name=\"r\"}")).To(BeFalse())
+	})
+
+	It("Should analyze a func body passing a runtime-built color", func(ctx SpecContext) {
+		src := "import ranges\n" +
+			"func f() {\n" +
+			"    bad := \"not-a-\" + \"color\"\n" +
+			"    ranges.create(\"r\", \"\", bad)\n" +
+			"}\n" +
+			"sensor -> f{}"
+		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
+		_, diags := text.Analyze(ctx, parsed, buildRoot())
+		Expect(diags.Ok()).To(BeTrue())
 	})
 })
 
