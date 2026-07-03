@@ -9,7 +9,8 @@ prevURL: "/reference/core/requirements"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Table, Tabs } from "@/components";
+import { Table } from "@/components";
+import { Tabs } from "@/components/tabs/Tabs";
 import VersionOutput from "@/components/core/VersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -280,49 +281,52 @@ environment variable.
 Here are example configuration files in various formats:
 
 <Tabs
-  client:only="react"
+  client:load
   tabs={[
     { name: "JSON", tabKey: "json" },
     { name: "YAML", tabKey: "yaml" },
     { name: "TOML", tabKey: "toml" },
 ]}
 >
-<slot slot="json">
+<Fragment slot="json">
+
 ```json
 {
-    "listen": "localhost:9090",
-    "peers": ["localhost:9091", "localhost:9092"],
-    "data": "/usr/local/synnax/data",
-    "verbose": true,
-    "insecure": false,
-    "mem": false,
-    "config": "/usr/local/synnax/config.yaml",
-    "certs-dir": "/usr/local/synnax/certs",
-    "ca-cert": "ca.crt",
-    "node-cert": "node.crt",
-    "node-key": "node.key",
-    "username": "synnax",
-    "password": "seldon",
-    "license-key": "000000-00000000-0000000000",
-    "debug": false,
-    "slow-consumer-timeout": "2.5s",
-    "no-driver": false,
-    "disable-integrations": [],
-    "enable-integrations": [],
-    "task-op-timeout": "60s",
-    "task-poll-interval": "1s",
-    "task-shutdown-timeout": "30s",
-    "task-worker-count": 4,
-    "log-file-path": "./synnax-logs/synnax.log",
-    "log-file-max-size": 50,
-    "log-file-max-backups": 5,
-    "log-file-max-age": 30,
-    "log-file-compress": true,
-    "disable-channel-name-validation": false
+  "listen": "localhost:9090",
+  "peers": ["localhost:9091", "localhost:9092"],
+  "data": "/usr/local/synnax/data",
+  "verbose": true,
+  "insecure": false,
+  "mem": false,
+  "config": "/usr/local/synnax/config.yaml",
+  "certs-dir": "/usr/local/synnax/certs",
+  "ca-cert": "ca.crt",
+  "node-cert": "node.crt",
+  "node-key": "node.key",
+  "username": "synnax",
+  "password": "seldon",
+  "license-key": "000000-00000000-0000000000",
+  "debug": false,
+  "slow-consumer-timeout": "2.5s",
+  "no-driver": false,
+  "disable-integrations": [],
+  "enable-integrations": [],
+  "task-op-timeout": "60s",
+  "task-poll-interval": "1s",
+  "task-shutdown-timeout": "30s",
+  "task-worker-count": 4,
+  "log-file-path": "./synnax-logs/synnax.log",
+  "log-file-max-size": 50,
+  "log-file-max-backups": 5,
+  "log-file-max-age": 30,
+  "log-file-compress": true,
+  "disable-channel-name-validation": false
 }
 ```
-</slot>
-<slot slot="yaml">
+
+</Fragment>
+<Fragment slot="yaml">
+
 ```yaml
 listen: localhost:9090
 peers:
@@ -354,8 +358,10 @@ log-file-max-age: 30
 log-file-compress: true
 disable-channel-name-validation: false
 ```
-</slot>
-<slot slot="toml">
+
+</Fragment>
+<Fragment slot="toml">
+
 ```toml
 listen = "localhost:9090"
 peers = ["localhost:9091", "localhost:9092"]
@@ -385,7 +391,8 @@ log-file-max-age = 30
 log-file-compress = true
 disable-channel-name-validation = false
 ```
-</slot>
+
+</Fragment>
 </Tabs>
 
 ### Root User Reconciliation
