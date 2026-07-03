@@ -75,9 +75,12 @@ func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	node = mock.NewNode(ctx)
 	validCfg = newFramerConfig(ctx, node)
 	channelSvc = validCfg.Channel
 	statusSvc = validCfg.Status
 	framerSvc = MustOpen(framer.OpenService(ctx, validCfg))
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

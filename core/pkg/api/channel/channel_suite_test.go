@@ -86,6 +86,7 @@ func openService(ctx context.Context, node mock.Node) *channel.Service {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	node = mock.NewNode(ctx)
 	channelSvc = openService(ctx, node)
 	apiSvc = MustSucceed(apichannel.NewService(apicfg.LayerConfig{

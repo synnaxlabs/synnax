@@ -56,6 +56,7 @@ var _ = Describe("Delete", Ordered, func() {
 			peer    mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			cluster := mock.NewCluster(ctx, 2)
 			gateway = cluster.Nodes[node.KeyBootstrapper]
 			peer = cluster.Nodes[node.Key(2)]

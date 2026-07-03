@@ -46,6 +46,7 @@ var _ = Describe("Writer", func() {
 	Describe("External Channel Overflow", Ordered, func() {
 		var overflowSvc *channel.Service
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			overflowSvc = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
 				IntOverflowCheck: fixedOverflowChecker(2),
 			})
@@ -131,6 +132,7 @@ var _ = Describe("Writer", func() {
 			svc  *channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			dist = mock.NewNode(ctx)
 			svc = openService(ctx, dist)
 		})
@@ -581,6 +583,7 @@ var _ = Describe("Writer", func() {
 		Describe("Channel Creation", Ordered, func() {
 			var svc *channel.Service
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				svc = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{ValidateNames: new(false)})
 			})
 			It("Should create a channel with spaces in the name", func(ctx SpecContext) {
@@ -666,6 +669,7 @@ var _ = Describe("Writer", func() {
 			svc  *channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			dist = mock.NewNode(ctx)
 			svc = openService(ctx, dist)
 		})
@@ -771,6 +775,7 @@ var _ = Describe("Writer", func() {
 	Describe("Rename", Ordered, func() {
 		var svc *channel.Service
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			svc = openService(ctx, mock.NewNode(ctx))
 		})
 		Context("Single channel", func() {
