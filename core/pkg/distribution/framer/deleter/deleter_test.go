@@ -246,7 +246,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		channels: channels,
 		names:    names,
 		dist:     dist,
-		closer:   dist,
+		closer:   cluster,
 	}
 }
 
