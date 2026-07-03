@@ -7,6 +7,8 @@ this repository.
 
 - **Architecture**: See @docs/claude/architecture.md for system design and data flows
 - **Testing**: See @docs/claude/testing.md for cross-language testing guide
+- **Integration tests**: See @docs/claude/integration-test.md for writing integration
+  tests (especially Arc reactive-runtime gotchas)
 - **TypeScript**: See @docs/claude/toolchains/typescript.md for TS/JS development
 - **Go**: See @docs/claude/toolchains/go.md for Go development
 - **Python**: See @docs/claude/toolchains/python.md for Python development
