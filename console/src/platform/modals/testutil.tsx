@@ -29,9 +29,9 @@ import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
   createConsoleWrapper,
+  createSynnaxWrapper,
   type TestStore,
 } from "@/testutil";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const Base = createSynnaxWrapper({ client: null });
 

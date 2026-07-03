@@ -15,8 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
-import { renderLinkHook } from "@/testutil";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderLinkHook } from "@/testutil";
 
 const client = createTestClient();
 

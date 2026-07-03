@@ -68,7 +68,7 @@ Do not skip to a lower tier because it is faster to type.
 1. **Real client + real flux stores against a live cluster.** This is the default reach for
    anything that touches data, queries, or the flux store. Use `createTestClient()` from
    `@synnaxlabs/client` (connects to a real local cluster) plus `createConsoleWrapper` /
-   `renderHookWithConsole` from `@/testutil/testutil`. This exercises the production query
+   `renderHookWithConsole` from `@/testutil`. This exercises the production query
    infrastructure end to end.
 
 2. **Real store + real flux with a `null` client and preloaded state.** For logic that
@@ -86,9 +86,10 @@ Do not skip to a lower tier because it is faster to type.
    be mocked at module/global level are true boundaries of the host environment:
    `@tauri-apps/*` modules; the runtime engine pin — via `mockRuntimeEngine` from
    `@/testutil/runtime`, ENGINE only, never a hand-rolled factory; host pins — via
-   `pinOS` / `pinLocationOrigin` from `@/testutil`; and browser APIs at the genuine
+   `pinOS` (from `@/testutil/pinOS`, dynamically inside `vi.hoisted`) /
+   `pinLocationOrigin` (from `@/testutil`); and browser APIs at the genuine
    boundary of the unit under test (file pickers via `interceptFilePicker`, downloads via
-   `captureBrowserDownloads`, FS Access via `@/testutil/fsAccess`). Mocking any module of
+   `captureBrowserDownloads`, FS Access via `@/testutil`). Mocking any module of
    ours or of `@synnaxlabs/*` beyond this list is banned.
 
 **Spies on our own client instances are extremely discouraged.** Faking data or responses
@@ -108,7 +109,7 @@ signals); fix production so the condition is genuinely testable.
 
 ```ts
 import { createTestClient } from "@synnaxlabs/client";
-import { createConsoleWrapper } from "@/testutil/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 const { wrapper } = await createConsoleWrapper({ client });
@@ -243,7 +244,7 @@ const buildHarness = async () => {
 **Correct — use the shared home:**
 
 ```ts
-import { createConsoleWrapper } from "@/testutil/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const { wrapper, store } = await createConsoleWrapper({ client });
 ```
@@ -322,18 +323,18 @@ Reach for these, in order of how close they are to production:
 
 | Need | Use | From |
 | --- | --- | --- |
-| Component/hook that hits data, against a live cluster | `createConsoleWrapper({ client })` + `renderHook`/`render` | `@/testutil/testutil` + `createTestClient()` |
-| Component/hook needing the provider stack, no network | `renderWithConsole` / `renderHookWithConsole` | `@/testutil/testutil` |
-| A deep-link resource hook | `renderLinkHook` | `@/testutil/testutil` |
+| Component/hook that hits data, against a live cluster | `createConsoleWrapper({ client })` + `renderHook`/`render` | `@/testutil` + `createTestClient()` |
+| Component/hook needing the provider stack, no network | `renderWithConsole` / `renderHookWithConsole` | `@/testutil` |
+| A deep-link resource hook | `renderLinkHook` | `@/testutil` |
 | Pure reducer/selector | minimal single-slice `configureStore` inline | `@reduxjs/toolkit` |
-| Flux queries without console slices | `createSynnaxWrapper` / `createAsyncSynnaxWrapper` | `@/testutil/Synnax` |
+| Flux queries without console slices | `createSynnaxWrapper` / `createAsyncSynnaxWrapper` | `@/testutil` |
 | Modal opener/prompt hooks | `renderModalOpener` / `renderModalHook` / `closeOf` / `findButton` | `@/platform/modals/testutil` |
 | Virtualized list rendering (needs fake sizes) | `stubGeometry()` — opt-in, no pixel asserts | `@/testutil` |
 | Engine-dependent code (tauri vs web) | `mockRuntimeEngine` | `@/testutil/runtime` |
-| OS / origin detection | `pinOS` / `pinLocationOrigin` | `@/testutil` |
+| OS / origin detection | `pinOS` / `pinLocationOrigin` | `@/testutil/pinOS` (dynamic, in `vi.hoisted`) / `@/testutil` |
 | File pickers, browser downloads, FS Access | `interceptFilePicker` / `captureBrowserDownloads` / `installSaveFilePicker` | `@/testutil` |
-| Inline-rename (`Text.edit`) flows | `findEditableText` / `awaitTextEditing*` / `commitTextEdit` | `@/testutil/editableText` |
-| Icon-only buttons, throwing lookups | `getIconButton` / `getBySelector` / `assertDefined` | `@/testutil/dom` |
+| Inline-rename (`Text.edit`) flows | `findEditableText` / `awaitTextEditing*` / `commitTextEdit` | `@/testutil` |
+| Icon-only buttons, throwing lookups | `getIconButton` / `getBySelector` / `assertDefined` | `@/testutil` |
 | Cluster-safe resource names | `uniqueName("prefix")` (letters/digits/underscores) | `@/testutil` |
 
 And always: import the thing under test and its dependencies through their **namespace**

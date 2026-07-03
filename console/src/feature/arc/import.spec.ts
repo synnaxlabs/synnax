@@ -12,8 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { type Layout } from "@/platform/layout";
-import { createGrantedFluxStore, uniqueName } from "@/testutil";
-import { createTestFluxStore } from "@/testutil/Synnax";
+import { createGrantedFluxStore, createTestFluxStore, uniqueName } from "@/testutil";
 
 const LATEST_VERSION = "3.0.0";
 

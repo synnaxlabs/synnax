@@ -11,7 +11,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Export } from "@/platform/export";
-import { renderWithConsole } from "@/testutil/testutil";
+import { renderWithConsole } from "@/testutil";
 
 describe("Export.ToolbarButton", () => {
   it("invokes onExport when clicked", async () => {

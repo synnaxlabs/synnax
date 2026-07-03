@@ -12,7 +12,7 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Export } from "@/platform/export";
-import { renderWithConsole } from "@/testutil/testutil";
+import { renderWithConsole } from "@/testutil";
 
 describe("Export.ContextMenuItem", () => {
   it("renders an Export menu entry", async () => {

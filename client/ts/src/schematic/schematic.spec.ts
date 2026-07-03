@@ -12,7 +12,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/errors";
 import { schematic } from "@/schematic";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const newProjectSchematic = async (client: ReturnType<typeof createTestClient>) => {
   const proj = await client.projects.create({ name: "dispatch", layout: {} });
