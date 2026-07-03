@@ -47,6 +47,7 @@ var _ = Describe("Iterator", func() {
 			var s scenario
 			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					s = sF(ctx)
 					writer := MustSucceed(openWriter(ctx,
 						s.dist,

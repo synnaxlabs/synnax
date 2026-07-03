@@ -35,6 +35,7 @@ var _ = Describe("Channel", Ordered, func() {
 				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 			})
@@ -210,6 +211,7 @@ var _ = Describe("Channel", Ordered, func() {
 					}
 				)
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
 				})
 				It("Should rekey a unary channel into another", func(ctx SpecContext) {

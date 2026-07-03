@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 const internalChannelCount = 1
@@ -23,6 +24,7 @@ const internalChannelCount = 1
 var _ = Describe("Retrieve", Ordered, func() {
 	var svc *channel.Service
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		svc = openService(ctx, mock.NewNode(ctx))
 	})
 	Describe("Retrieve", func() {

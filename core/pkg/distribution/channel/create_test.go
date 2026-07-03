@@ -26,6 +26,7 @@ var _ = Describe("Create", Ordered, func() {
 		host node.Key
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		n = mock.NewNode(ctx)
 		host = n.Cluster.HostKey()
 	})
@@ -87,6 +88,7 @@ var _ = Describe("Create", Ordered, func() {
 			peer    mock.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			cluster := mock.NewCluster(ctx, 0)
 			gateway = cluster.Provision(ctx)
 			peer = cluster.Provision(ctx)

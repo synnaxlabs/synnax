@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package mustsucceedlint_test
+package must_test
 
 import (
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/analyzers/mustsucceedlint"
+	"github.com/synnaxlabs/x/analyzers/must"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
@@ -22,7 +22,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should detect Expect(err).ToNot(HaveOccurred()) patterns", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
-			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+			GinkgoT(), testdata, must.Analyzer, "example",
 		)
 		Expect(results).ToNot(BeEmpty())
 	})
@@ -30,7 +30,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should not duplicate the testutil import when it already exists", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
-			GinkgoT(), testdata, mustsucceedlint.Analyzer, "hasimport",
+			GinkgoT(), testdata, must.Analyzer, "hasimport",
 		)
 		Expect(results).ToNot(BeEmpty())
 		for _, r := range results {
@@ -49,7 +49,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should add testutil import when it does not exist", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
-			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+			GinkgoT(), testdata, must.Analyzer, "example",
 		)
 		Expect(results).ToNot(BeEmpty())
 		foundImportEdit := false
@@ -73,7 +73,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should produce correct fixed output with import", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
-			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+			GinkgoT(), testdata, must.Analyzer, "example",
 		)
 		Expect(results).ToNot(BeEmpty())
 		mustSucceedCount := 0
@@ -90,7 +90,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should only emit a single import edit across multiple diagnostics in the same file", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
-			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+			GinkgoT(), testdata, must.Analyzer, "example",
 		)
 		Expect(results).ToNot(BeEmpty())
 		importEditCount := 0
@@ -111,7 +111,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should emit the import as its own separate diagnostic, not bundled into a code fix", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
-			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+			GinkgoT(), testdata, must.Analyzer, "example",
 		)
 		Expect(results).ToNot(BeEmpty())
 		// The import must be its own diagnostic so that golangci-lint can apply
@@ -151,7 +151,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should remove LHS and assignment when all LHS vars are blank", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
-			GinkgoT(), testdata, mustsucceedlint.Analyzer, "example",
+			GinkgoT(), testdata, must.Analyzer, "example",
 		)
 		Expect(results).ToNot(BeEmpty())
 		foundBlankFix := false

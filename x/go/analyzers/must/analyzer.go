@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package mustsucceedlint
+package must
 
 import (
 	"bytes"
@@ -23,7 +23,7 @@ import (
 const testutilImport = `"github.com/synnaxlabs/x/testutil"`
 
 var Analyzer = &analysis.Analyzer{
-	Name: "mustsucceedlint",
+	Name: "must",
 	Doc: `detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with MustSucceed.
 
 This analyzer finds statements where an error is assigned from a function call and then

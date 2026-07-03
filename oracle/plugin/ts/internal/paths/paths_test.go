@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestPaths(t *testing.T) {
@@ -67,3 +68,5 @@ var _ = Describe("CalculateImport", func() {
 		Expect(got).ToNot(ContainSubstring(`\`))
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

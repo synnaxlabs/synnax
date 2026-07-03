@@ -24,6 +24,7 @@ var _ = Describe("Rename", Ordered, func() {
 	var n mock.Node
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		n = mock.NewNode(ctx)
 	})
 

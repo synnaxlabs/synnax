@@ -48,6 +48,7 @@ var (
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		searchIdx := MustOpen(search.Open())
 		node := mock.NewNode(ctx)
 		db = node.DB

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/channel"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // validServiceConfig opens an in-memory single-node cluster and returns a fully
@@ -34,7 +35,10 @@ func validServiceConfig(ctx context.Context) channel.ServiceConfig {
 
 var _ = Describe("ServiceConfig", Ordered, func() {
 	var valid channel.ServiceConfig
-	BeforeAll(func(ctx SpecContext) { valid = validServiceConfig(ctx) })
+	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		valid = validServiceConfig(ctx)
+	})
 
 	Describe("Validate", func() {
 		It("Should pass when all required fields are set", func() {
@@ -62,7 +66,10 @@ var _ = Describe("ServiceConfig", Ordered, func() {
 
 var _ = Describe("Service", Ordered, func() {
 	var valid channel.ServiceConfig
-	BeforeAll(func(ctx SpecContext) { valid = validServiceConfig(ctx) })
+	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		valid = validServiceConfig(ctx)
+	})
 
 	It("Should open with a valid configuration", func(ctx SpecContext) {
 		Expect(channel.NewService(ctx, valid)).ToNot(BeNil())

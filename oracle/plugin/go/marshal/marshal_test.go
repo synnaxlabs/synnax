@@ -19,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGoMarshal(t *testing.T) {
@@ -1284,3 +1285,5 @@ var _ = Describe("Recursive Codec Depth Guard", func() {
 		Expect(out.DecodeOrc(r)).To(MatchError(orc.ErrRecursionDepth))
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

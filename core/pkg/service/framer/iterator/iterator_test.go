@@ -35,6 +35,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		writerSvc   *writer.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		node = mock.NewNode(ctx)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
@@ -100,6 +101,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				dataCh2 *channel.Channel
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				indexCh = &channel.Channel{
 					Name:     "time",
 					DataType: telem.TimeStampT,
@@ -455,6 +457,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					threeDomainIdxData telem.MultiSeries
 				)
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					threeDomainIndexCh = &channel.Channel{
 						Name:     "three_domain_time",
 						DataType: telem.TimeStampT,

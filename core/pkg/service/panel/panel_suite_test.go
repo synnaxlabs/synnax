@@ -44,6 +44,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	node = mock.NewNode(ctx)
 	db = node.DB
 	otg = node.Ontology
@@ -96,3 +97,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

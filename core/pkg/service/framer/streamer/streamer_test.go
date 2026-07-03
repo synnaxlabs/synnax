@@ -39,6 +39,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		node = mock.NewNode(ctx)
 		searchIdx := MustOpen(search.Open())
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{

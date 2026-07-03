@@ -87,6 +87,7 @@ func openService(
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
 	svc = openService(ctx, node)
 })

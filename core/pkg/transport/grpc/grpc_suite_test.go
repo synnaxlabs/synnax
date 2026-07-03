@@ -30,6 +30,7 @@ func TestGRPC(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),

@@ -36,8 +36,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	)
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		addr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-		app = fiber.New(fiber.Config{})
+		app = newFiberApp(fiber.Config{})
 		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
 			StreamWriteDeadline: test.WriteDeadline,
 		}))
@@ -56,8 +57,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			})).To(Succeed())
 		}()
 		Eventually(func(g Gomega) {
-			_, err := http.Get("http://" + addr.String() + "/health")
-			g.Expect(err).To(Succeed())
+			g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
 		}).WithPolling(1 * time.Millisecond).Should(Succeed())
 	})
 

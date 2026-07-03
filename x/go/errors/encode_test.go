@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 const myCustomErrorType string = "my-custom-error"
@@ -55,6 +56,7 @@ func decodeMyCustomError(_ context.Context, encoded errors.Payload) (error, bool
 
 var _ = Describe("Ferrors", Ordered, func() {
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		errors.Register(encodeMyCustomError, decodeMyCustomError)
 	})
 	Describe("Encode", func() {

@@ -30,6 +30,7 @@ var _ = Describe("Calculator", Ordered, func() {
 	var channelSvc *channel.Service
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		node := mock.NewNode(ctx)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
