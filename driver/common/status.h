@@ -80,20 +80,11 @@ struct StatusHandler {
     /// @brief sends the provided warning string to the task. If the task is in
     /// error state, the error message will be communicated instead.
     void send_warning(const std::string &warning) {
-        this->send_status(synnax::status::VARIANT_WARNING, warning);
-    }
-
-    /// @brief sends a status carrying the given variant and message without latching an
-    /// error or marking the task stopped, so a caller (e.g. an Arc stdlib reporter) can
-    /// surface a per-execution failure at the appropriate severity while the task keeps
-    /// running. Mirrors send_warning: if an error has already been accumulated, that
-    /// error's message is communicated instead, leaving the bound error variant
-    /// untouched.
-    void send_status(const std::string &variant, const std::string &message) {
         this->status.key = synnax::task::status_key(this->task);
+        // If there's already an error bound, communicate it instead.
         if (!this->accumulated_err) {
-            this->status.variant = variant;
-            this->status.message = message;
+            this->status.variant = synnax::status::VARIANT_WARNING;
+            this->status.message = warning;
         } else
             this->status.message = this->accumulated_err.data;
         this->maybe_set_status();
