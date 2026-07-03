@@ -25,6 +25,11 @@ export const STANDARD_LIBRARY_NAV: PageNavNode = {
       name: "Math",
     },
     {
+      key: "/reference/control/arc/reference/standard-library/ranges",
+      href: "/reference/control/arc/reference/standard-library/ranges",
+      name: "Ranges",
+    },
+    {
       key: "/reference/control/arc/reference/standard-library/status",
       href: "/reference/control/arc/reference/standard-library/status",
       name: "Status",
