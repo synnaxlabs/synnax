@@ -118,7 +118,9 @@ func Open(
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]set.Set[channel.Key])
 	s.mu.unresolvedByName = make(map[string]set.Set[channel.Key])
-	if err = s.hydrate(ctx); err != nil {
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.hydrate(ctx, tx)
+	}); err != nil {
 		return nil, err
 	}
 	s.disconnect = cfg.Channel.Observe().OnChange(s.handleChanges)
@@ -133,17 +135,11 @@ func (s *Graph) Close() error {
 	return nil
 }
 
-// hydrate loads every calculated channel and rebuilds the in-memory graph, running the
-// retrieve, the fixpoint's reads, and the DataType repairs it derives within a single
-// transaction so the repairs commit atomically against a consistent read. Node statuses
-// are published best-effort outside the transaction (see setNodeStatus).
-func (s *Graph) hydrate(ctx context.Context) error {
-	return s.db.WithTx(ctx, func(tx gorp.Tx) error { return s.hydrateTx(ctx, tx) })
-}
-
-func (s *Graph) hydrateTx(ctx context.Context, tx gorp.Tx) error {
+func (s *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 	var channels []channel.Channel
-	if err := s.svc.NewRetrieve().Where(channel.MatchCalculated()).Entries(&channels).Exec(ctx, tx); err != nil {
+	if err := s.svc.NewRetrieve().Where(
+		channel.MatchCalculated(),
+	).Entries(&channels).Exec(ctx, tx); err != nil {
 		return err
 	}
 	s.L.Info("hydrating calculated channel graph", zap.Int("count", len(channels)))
@@ -293,7 +289,11 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 		w := s.svc.NewWriter(nil)
 		for _, ch := range updates {
 			if err := w.ChangeDataType(ctx, ch.Key(), ch.DataType); err != nil {
-				s.L.Error("failed to persist DataType update", zap.Stringer("channel", ch.Key()), zap.Error(err))
+				s.L.Error(
+					"failed to persist DataType update",
+					zap.Stringer("channel", ch.Key()),
+					zap.Error(err),
+				)
 			}
 		}
 	}

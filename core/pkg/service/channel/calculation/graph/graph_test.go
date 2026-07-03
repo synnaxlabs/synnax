@@ -117,11 +117,12 @@ func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataTyp
 	return ch.DataType
 }
 
-// createBrokenCalc creates a calculated channel referencing depName, then deletes depName,
-// leaving the channel with an unresolvable reference — the way a calculated channel
-// actually becomes invalid at rest (an upstream channel is deleted). Strict creation
-// forbids creating a channel against a name that never existed, so tests reproduce broken
-// channels this way. Callers can recreate depName (see createDep) to heal it.
+// createBrokenCalc creates a calculated channel referencing depName, then deletes
+// depName, leaving the channel with an unresolvable reference — the way a calculated
+// channel actually becomes invalid at rest (an upstream channel is deleted). Strict
+// creation forbids creating a channel against a name that never existed, so tests
+// reproduce broken channels this way. Callers can recreate depName (see createDep) to
+// heal it.
 func createBrokenCalc(ctx context.Context, name, depName string) channel.Channel {
 	GinkgoHelper()
 	createDep(ctx, depName)
@@ -145,7 +146,9 @@ func createDep(ctx context.Context, depName string) channel.Channel {
 // deleteDep deletes the base channel with the given name.
 func deleteDep(ctx context.Context, depName string) {
 	GinkgoHelper()
-	Expect(channelSvc.NewWriter(nil).DeleteManyByNames(ctx, []string{depName}, false)).To(Succeed())
+	Expect(channelSvc.NewWriter(nil).DeleteManyByNames(
+		ctx, []string{depName}, false,
+	)).To(Succeed())
 }
 
 // makeStale overwrites the stored DataType of an existing channel with a wrong value,
@@ -183,23 +186,27 @@ var _ = Describe("Graph", func() {
 
 		It("Should set error status for an invalid expression at open", func(ctx SpecContext) {
 			// A syntax error cannot exist at rest under strict creation; the graph's
-			// handling of an invalid expression is exercised via an unresolvable reference
-			// (a dependency deleted after the calc was created). Syntax-error analysis
-			// itself is covered by the analyzer and compiler suites.
+			// handling of an invalid expression is exercised via an unresolvable
+			// reference (a dependency deleted after the calc was created). Syntax-error
+			// analysis itself is covered by the analyzer and compiler suites.
 			calc := createBrokenCalc(ctx, "hy_invalid", "hy_invalid_dep")
 			openGraph(ctx)
 			expectStatus(ctx, calc.Key())
 		})
 
 		It("Should set error status for an unresolvable reference", func(ctx SpecContext) {
-			base := channel.Channel{Name: "hy_unresolvable_base", DataType: telem.Int64T, Virtual: true}
+			base := channel.Channel{
+				Name: "hy_unresolvable_base", DataType: telem.Int64T, Virtual: true,
+			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
 				Name: "hy_unresolvable", DataType: telem.Int64T, Virtual: true,
 				Expression: "return hy_unresolvable_base * 2",
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Delete(
+				ctx, base.Key(), false,
+			)).To(Succeed())
 			openGraph(ctx)
 			expectStatus(ctx, calc.Key())
 		})
@@ -356,10 +363,6 @@ var _ = Describe("Graph", func() {
 				base := channel.Channel{Name: "hy_ooo_base", DataType: telem.Int64T, Virtual: true}
 				Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
 
-				// Under strict creation a dependent is always created after its dependency,
-				// so it gets a higher key. To reproduce the reverse order (which the
-				// hydration fixpoint must handle) we create c1 then c2, then delete and
-				// recreate c1 so it receives a fresh, higher key than its dependent c2.
 				calc1 := channel.Channel{
 					Name:       "hy_ooo_c1",
 					DataType:   telem.Int64T,
@@ -374,7 +377,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return hy_ooo_c1 + 1",
 				}
 				Expect(channelSvc.NewWriter(nil).Create(ctx, &calc2)).To(Succeed())
-				Expect(channelSvc.NewWriter(nil).DeleteManyByNames(ctx, []string{"hy_ooo_c1"}, false)).To(Succeed())
+				Expect(
+					channelSvc.NewWriter(nil).Delete(ctx, calc1.Key(), false),
+				).To(Succeed())
 				calc1 = channel.Channel{
 					Name:       "hy_ooo_c1",
 					DataType:   telem.Int64T,
@@ -465,7 +470,8 @@ var _ = Describe("Graph", func() {
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Deleting the base dependency")
-				Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).
+					To(Succeed())
 				expectStatus(ctx, calc.Key())
 			})
 
@@ -1018,8 +1024,8 @@ var _ = Describe("Graph", func() {
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				// References a stable base (not the one being deleted) so strict creation
-				// always succeeds regardless of how it races with the delete.
+				// References a stable base (not the one being deleted) so strict
+				// creation always succeeds regardless of how it races with the delete.
 				newCalc := channel.Channel{
 					Name: "cc_race_calc2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return cc_race_stable * 2",
@@ -1042,8 +1048,8 @@ var _ = Describe("Graph", func() {
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
 
 			// Alternate the expression between two valid dependencies; an update to an
-			// invalid expression is rejected at creation, so the reachable form of "rapid
-			// updates" churns between valid states.
+			// invalid expression is rejected at creation, so the reachable form of
+			// "rapid updates" churns between valid states.
 			for i := range 10 {
 				if i%2 == 0 {
 					calc.Expression = "return cc_rapid_base + 1"
