@@ -649,7 +649,7 @@ var _ = Describe("Writer", func() {
 					Leaseholder: 1,
 				}
 				Expect(svc.Create(ctx, &ch)).To(Succeed())
-				Expect(svc.Rename(ctx, ch.Key(), "new name with spaces!", false)).To(Succeed())
+				Expect(svc.NewWriter(nil).Rename(ctx, ch.Key(), "new name with spaces!", false)).To(Succeed())
 				var retrieved channel.Channel
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
@@ -685,18 +685,18 @@ var _ = Describe("Writer", func() {
 				Expect(svc.Create(ctx, &ch)).To(Succeed())
 			})
 			It("Should not allow deletion of index channel with dependent channels", func(ctx SpecContext) {
-				Expect(svc.Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
+				Expect(svc.NewWriter(nil).Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
 			})
 			It("Should delete the channel without error", func(ctx SpecContext) {
-				Expect(svc.DeleteMany(ctx, channel.Keys{idxCh.Key(), ch.Key()}, true)).To(Succeed())
+				Expect(svc.NewWriter(nil).DeleteMany(ctx, channel.Keys{idxCh.Key(), ch.Key()}, true)).To(Succeed())
 			})
 			It("Should not be able to retrieve the channel after deletion", func(ctx SpecContext) {
-				Expect(svc.Delete(ctx, ch.Key(), true)).To(Succeed())
+				Expect(svc.NewWriter(nil).Delete(ctx, ch.Key(), true)).To(Succeed())
 				exists := MustSucceed(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))
 				Expect(exists).To(BeFalse())
 			})
 			It("Should not be able to retrieve the channel from the time-series DB", func(ctx SpecContext) {
-				Expect(svc.Delete(ctx, ch.Key(), true)).To(Succeed())
+				Expect(svc.NewWriter(nil).Delete(ctx, ch.Key(), true)).To(Succeed())
 				channels, err := dist.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).To(MatchError(ts.ErrChannelNotFound))
 				Expect(channels).To(BeEmpty())
@@ -704,15 +704,15 @@ var _ = Describe("Writer", func() {
 		})
 		Context("Nonexistent Channels", func() {
 			It("Should succeed when deleting a key that does not exist", func(ctx SpecContext) {
-				Expect(svc.Delete(ctx, channel.NewKey(1, 40000), false)).To(Succeed())
+				Expect(svc.NewWriter(nil).Delete(ctx, channel.NewKey(1, 40000), false)).To(Succeed())
 			})
 			It("Should succeed when deleting multiple keys that do not exist", func(ctx SpecContext) {
 				keys := channel.Keys{channel.NewKey(1, 40001), channel.NewKey(1, 40002)}
-				Expect(svc.DeleteMany(ctx, keys, false)).To(Succeed())
+				Expect(svc.NewWriter(nil).DeleteMany(ctx, keys, false)).To(Succeed())
 			})
 			It("Should succeed when deleting by names that do not exist", func(ctx SpecContext) {
 				names := []string{channel.NewRandomName(), channel.NewRandomName()}
-				Expect(svc.DeleteManyByNames(ctx, names, false)).To(Succeed())
+				Expect(svc.NewWriter(nil).DeleteManyByNames(ctx, names, false)).To(Succeed())
 			})
 		})
 		Context("Internal Channels", func() {
@@ -728,14 +728,14 @@ var _ = Describe("Writer", func() {
 				Expect(svc.Create(ctx, &internalCh)).To(Succeed())
 			})
 			It("Should return an error when deleting an internal channel by key", func(ctx SpecContext) {
-				Expect(svc.Delete(ctx, internalCh.Key(), false)).
+				Expect(svc.NewWriter(nil).Delete(ctx, internalCh.Key(), false)).
 					To(MatchError(ContainSubstring("can't delete internal channel")))
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(internalCh.Key())).
 					Exists(ctx, nil)).To(BeTrue())
 			})
 			It("Should return an error when deleting an internal channel by name", func(ctx SpecContext) {
-				Expect(svc.DeleteManyByNames(ctx, []string{internalCh.Name}, false)).
+				Expect(svc.NewWriter(nil).DeleteManyByNames(ctx, []string{internalCh.Name}, false)).
 					To(MatchError(ContainSubstring("can't delete internal channel")))
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchNames(internalCh.Name)).
@@ -750,7 +750,7 @@ var _ = Describe("Writer", func() {
 				}
 				Expect(svc.Create(ctx, &externalCh)).To(Succeed())
 				keys := channel.Keys{externalCh.Key(), internalCh.Key()}
-				Expect(svc.DeleteMany(ctx, keys, false)).
+				Expect(svc.NewWriter(nil).DeleteMany(ctx, keys, false)).
 					To(MatchError(ContainSubstring("can't delete internal channel")))
 				var remaining []channel.Channel
 				Expect(svc.NewRetrieve().
@@ -760,7 +760,7 @@ var _ = Describe("Writer", func() {
 				Expect(remaining).To(HaveLen(2))
 			})
 			It("Should delete an internal channel when allowInternal is true", func(ctx SpecContext) {
-				Expect(svc.Delete(ctx, internalCh.Key(), true)).To(Succeed())
+				Expect(svc.NewWriter(nil).Delete(ctx, internalCh.Key(), true)).To(Succeed())
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(internalCh.Key())).
 					Exists(ctx, nil)).To(BeFalse())
@@ -784,7 +784,7 @@ var _ = Describe("Writer", func() {
 			})
 			It("Should rename the channel without error", func(ctx SpecContext) {
 				name := channel.NewRandomName()
-				Expect(svc.Rename(ctx, ch.Key(), name, false)).To(Succeed())
+				Expect(svc.NewWriter(nil).Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
@@ -794,7 +794,7 @@ var _ = Describe("Writer", func() {
 			})
 			Context("new name is invalid", func() {
 				It("Should return an error", func(ctx SpecContext) {
-					Expect(svc.Rename(ctx, ch.Key(), "invalid name", false)).To(MatchError(ContainSubstring("contains invalid characters")))
+					Expect(svc.NewWriter(nil).Rename(ctx, ch.Key(), "invalid name", false)).To(MatchError(ContainSubstring("contains invalid characters")))
 				})
 			})
 			Context("new name is a duplicate", func() {
@@ -805,7 +805,7 @@ var _ = Describe("Writer", func() {
 						DataType: telem.Float64T,
 					}
 					Expect(svc.Create(ctx, &secondCh)).To(Succeed())
-					Expect(svc.Rename(ctx, ch.Key(), secondCh.Name, false)).
+					Expect(svc.NewWriter(nil).Rename(ctx, ch.Key(), secondCh.Name, false)).
 						To(MatchError(ContainSubstring("channel with name '%s' already exists", secondCh.Name)))
 				})
 			})
@@ -833,7 +833,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
 				keys := channel.KeysFromChannels(channels)
 				names := []string{channel.NewRandomName(), channel.NewRandomName(), channel.NewRandomName()}
-				Expect(svc.RenameMany(
+				Expect(svc.NewWriter(nil).RenameMany(
 					ctx,
 					keys,
 					names,
@@ -981,7 +981,7 @@ var _ = Describe("Writer", func() {
 			MustOpen(MustSucceed(writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: limitSvc})).Open(ctx, framer.WriterConfig{
 				Keys: []channel.Key{createdChannels[0].Key()},
 			}))
-			Expect(limitSvc.Delete(ctx, createdChannels[0].Key(), false)).
+			Expect(limitSvc.NewWriter(nil).Delete(ctx, createdChannels[0].Key(), false)).
 				To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 			newCh := channel.Channel{
 				IsIndex:     true,

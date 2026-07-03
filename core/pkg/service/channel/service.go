@@ -291,35 +291,3 @@ func (s *Service) CreateMany(
 	}
 	return w.CreateMany(ctx, channels, opts...)
 }
-
-// Delete deletes a channel outside of any transaction. See Writer.Delete.
-func (s *Service) Delete(ctx context.Context, key Key, allowInternal bool) error {
-	return s.NewWriter(nil).Delete(ctx, key, allowInternal)
-}
-
-// DeleteMany deletes channels outside of any transaction. See Writer.DeleteMany.
-func (s *Service) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
-	return s.NewWriter(nil).DeleteMany(ctx, keys, allowInternal)
-}
-
-// DeleteManyByNames deletes channels by name outside of any transaction. See
-// Writer.DeleteManyByNames.
-func (s *Service) DeleteManyByNames(
-	ctx context.Context, names []string, allowInternal bool,
-) error {
-	return s.NewWriter(nil).DeleteManyByNames(ctx, names, allowInternal)
-}
-
-// Rename renames a channel outside of any transaction. See Writer.Rename.
-func (s *Service) Rename(
-	ctx context.Context, key Key, newName string, allowInternal bool,
-) error {
-	return s.NewWriter(nil).Rename(ctx, key, newName, allowInternal)
-}
-
-// RenameMany renames channels outside of any transaction. See Writer.RenameMany.
-func (s *Service) RenameMany(
-	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
-) error {
-	return s.NewWriter(nil).RenameMany(ctx, keys, newNames, allowInternal)
-}

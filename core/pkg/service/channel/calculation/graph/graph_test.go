@@ -412,7 +412,7 @@ var _ = Describe("Graph", func() {
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Deleting the base dependency")
-				Expect(channelSvc.Delete(ctx, base.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
 				expectStatus(ctx, calc.Key())
 			})
 
@@ -434,7 +434,7 @@ var _ = Describe("Graph", func() {
 				eventuallyExpectNoStatus(ctx, calc2.Key())
 
 				By("Deleting the intermediate calculated channel")
-				Expect(channelSvc.Delete(ctx, calc1.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, calc1.Key(), false)).To(Succeed())
 				expectStatus(ctx, calc2.Key())
 			})
 
@@ -454,7 +454,7 @@ var _ = Describe("Graph", func() {
 				Expect(channelSvc.NewWriter(nil).Create(ctx, &calc2)).To(Succeed())
 
 				By("Deleting the leaf calc")
-				Expect(channelSvc.Delete(ctx, calc2.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, calc2.Key(), false)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc1.Key())
 			})
 
@@ -480,7 +480,7 @@ var _ = Describe("Graph", func() {
 				eventuallyExpectNoStatus(ctx, calcA.Key())
 
 				By("Deleting the shared base dependency")
-				Expect(channelSvc.Delete(ctx, base.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
 
 				By("Verifying calc_b and calc_c get error statuses")
 				expectStatus(ctx, calcB.Key())
@@ -512,11 +512,11 @@ var _ = Describe("Graph", func() {
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Verifying old base deletion does not affect calc")
-				Expect(channelSvc.Delete(ctx, base1.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, base1.Key(), false)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Verifying new base deletion does affect calc")
-				Expect(channelSvc.Delete(ctx, base2.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, base2.Key(), false)).To(Succeed())
 				expectStatus(ctx, calc.Key())
 			})
 
@@ -576,7 +576,7 @@ var _ = Describe("Graph", func() {
 				By("Deleting the base. calc1 becomes invalid. " +
 					"calc2 should NOT get error because reconcileQueued " +
 					"does not enqueue dependents when a node errors")
-				Expect(channelSvc.Delete(ctx, base.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
 				expectStatus(ctx, calc1.Key())
 				eventuallyExpectNoStatus(ctx, calc2.Key())
 			})
@@ -607,7 +607,7 @@ var _ = Describe("Graph", func() {
 				Expect(channelSvc.NewWriter(nil).Create(ctx, &c4)).To(Succeed())
 
 				By("Deleting c2 from the middle of the chain")
-				Expect(channelSvc.Delete(ctx, c2.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, c2.Key(), false)).To(Succeed())
 
 				By("c1 is upstream and unaffected")
 				eventuallyExpectNoStatus(ctx, c1.Key())
@@ -785,7 +785,7 @@ var _ = Describe("Graph", func() {
 				Expect(channelSvc.NewWriter(nil).Create(ctx, &calcB)).To(Succeed())
 
 				By("Deleting base_a should only affect calc_a")
-				Expect(channelSvc.Delete(ctx, baseA.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, baseA.Key(), false)).To(Succeed())
 				expectStatus(ctx, calcA.Key())
 				eventuallyExpectNoStatus(ctx, calcB.Key())
 			})
@@ -891,7 +891,7 @@ var _ = Describe("Graph", func() {
 			Expect(g.Close()).To(Succeed())
 
 			By("Deleting the base after close should not set error status")
-			Expect(channelSvc.Delete(ctx, base.Key(), false)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
 			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
 
@@ -969,7 +969,7 @@ var _ = Describe("Graph", func() {
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				Expect(channelSvc.Delete(ctx, base.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
 			}()
 			go func() {
 				defer GinkgoRecover()
@@ -1046,7 +1046,7 @@ var _ = Describe("Graph", func() {
 
 			It("Should only affect mid1 when base2 is deleted", func(ctx SpecContext) {
 				By("Deleting base2 which is only used by mid1")
-				Expect(channelSvc.Delete(ctx, base2.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, base2.Key(), false)).To(Succeed())
 
 				By("mid1 depends on base2 so it gets error")
 				expectStatus(ctx, mid1.Key())
@@ -1060,7 +1060,7 @@ var _ = Describe("Graph", func() {
 			})
 
 			It("Should break top when mid1 is deleted", func(ctx SpecContext) {
-				Expect(channelSvc.Delete(ctx, mid1.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, mid1.Key(), false)).To(Succeed())
 				expectStatus(ctx, top.Key())
 			})
 		})
@@ -1094,7 +1094,7 @@ var _ = Describe("Graph", func() {
 				Expect(channelSvc.NewWriter(nil).Create(ctx, &c4)).To(Succeed())
 
 				By("Deleting c2 from the middle")
-				Expect(channelSvc.Delete(ctx, c2.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, c2.Key(), false)).To(Succeed())
 
 				By("c1 is upstream of deletion and unaffected")
 				eventuallyExpectNoStatus(ctx, c1.Key())

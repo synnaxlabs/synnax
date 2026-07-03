@@ -63,8 +63,6 @@ func zipRenameBatch(entries []renameBatchEntry) map[Key]string {
 	})
 }
 
-// storageRenames reinterprets channel-keyed renames as storage-keyed renames without
-// copying; Key and ts.ChannelKey share the same uint32 layout.
 func storageRenames(renames map[Key]string) map[ts.ChannelKey]string {
 	return unsafe.ReinterpretMapKeys[Key, ts.ChannelKey](renames)
 }

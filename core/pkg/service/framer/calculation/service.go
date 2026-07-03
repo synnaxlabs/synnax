@@ -126,7 +126,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
 
-	if err := cfg.Channel.DeleteManyByNames(
+	if err := cfg.Channel.NewWriter(nil).DeleteManyByNames(
 		ctx,
 		legacyStatusChannels,
 		true,
