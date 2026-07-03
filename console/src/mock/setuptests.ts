@@ -9,6 +9,8 @@
 
 import { afterAll, beforeAll, vi } from "vitest";
 
+import { installTestWebSocket } from "@/testutil/websocket";
+
 class ResizeObserverMock {
   callback: ResizeObserverCallback;
   constructor(callback: ResizeObserverCallback) {
@@ -40,6 +42,7 @@ class IntersectionObserverMock {
 }
 
 beforeAll(() => {
+  installTestWebSocket();
   vi.stubGlobal("ResizeObserver", ResizeObserverMock);
   vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
   Element.prototype.getBoundingClientRect = vi.fn().mockReturnValue({
@@ -57,4 +60,5 @@ beforeAll(() => {
 
 afterAll(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
