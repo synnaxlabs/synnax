@@ -15,6 +15,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/resolve"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -45,6 +46,8 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	blockDepth int
 	// loopStack tracks active loops for break/continue label resolution.
 	loopStack []LoopEntry
+	// Config carries per-parse language settings (e.g. dashed channel names).
+	Config parser.Config
 }
 
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
@@ -62,6 +65,7 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		WriterID:         ctx.WriterID,
 		blockDepth:       ctx.blockDepth,
 		loopStack:        ctx.loopStack,
+		Config:           ctx.Config,
 	}
 }
 

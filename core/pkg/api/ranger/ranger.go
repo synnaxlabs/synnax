@@ -203,6 +203,26 @@ func (s *Service) Rename(
 	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
+type SetEndRequest struct {
+	Key ranger.Key      `json:"key" msgpack:"key"`
+	End telem.TimeStamp `json:"end" msgpack:"end"`
+}
+
+func (s *Service) SetEnd(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetEndRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).SetEnd(ctx, req.Key, req.End)
+}
+
 type DeleteRequest struct {
 	Keys []ranger.Key `json:"keys" msgpack:"keys"`
 }

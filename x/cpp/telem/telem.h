@@ -309,7 +309,7 @@ public:
 
     /// @brief Constructs a timestamp from the given interpreting it as a
     /// nanosecond-precision UTC timestamp.
-    explicit TimeStamp(const std::int64_t value): value(value) {}
+    explicit constexpr TimeStamp(const std::int64_t value): value(value) {}
 
     /// @brief returns the number of nanoseconds since Unix epoch.
     /// @returns the number of nanoseconds since Unix epoch.
@@ -383,10 +383,14 @@ public:
     explicit TimeStamp(const TimeSpan ts): value(ts.nanoseconds()) {}
 
     /// @brief the maximum representable timestamp.
-    static TimeStamp max() { return TimeStamp(std::numeric_limits<int64_t>::max()); }
+    static constexpr TimeStamp max() {
+        return TimeStamp(std::numeric_limits<int64_t>::max());
+    }
 
     /// @brief the minimum representable timestamp.
-    static TimeStamp min() { return TimeStamp(std::numeric_limits<int64_t>::min()); }
+    static constexpr TimeStamp min() {
+        return TimeStamp(std::numeric_limits<int64_t>::min());
+    }
 
     /// @brief returns a timestamp with value 0 (Unix epoch).
     static TimeStamp zero() { return TimeStamp(0); }
@@ -733,6 +737,10 @@ inline const TimeSpan MINUTE = SECOND * 60;
 inline const TimeSpan HOUR = MINUTE * 60;
 /// @brief a single day.
 inline const TimeSpan DAY = HOUR * 24;
+/// @brief the maximum representable timestamp, marking an open/unbounded end.
+inline constexpr TimeStamp TIME_STAMP_MAX = TimeStamp::max();
+/// @brief the minimum representable timestamp.
+inline constexpr TimeStamp TIME_STAMP_MIN = TimeStamp::min();
 
 #define ASSERT_TYPE_SIZE(type, size)                                                   \
     static_assert(                                                                     \

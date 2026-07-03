@@ -18,7 +18,7 @@ import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { Group } from "@/group";
 import { getContextMenuItems, getIcon, getMake } from "@/hardware/device/make";
-import { Link } from "@/link";
+import { Link } from "@/layered/service/link";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";

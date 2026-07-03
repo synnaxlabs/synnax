@@ -27,8 +27,8 @@ import { Item } from "@/cluster/list/Item";
 import { useSelectMany } from "@/cluster/selectors";
 import { changeKey, remove } from "@/cluster/slice";
 import { ContextMenu, EmptyAction } from "@/components";
+import { Link } from "@/layered/service/link";
 import { Layout } from "@/layout";
-import { Link } from "@/link";
 
 export interface ListProps
   extends Input.Control<string | undefined>, Omit<Flex.BoxProps, "onChange"> {}

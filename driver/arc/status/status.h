@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -24,14 +23,9 @@
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
+#include "driver/arc/reporter.h"
 
 namespace driver::arc::status {
-
-/// @brief Reporter surfaces an stdlib-originated failure as a task-level status.
-/// Mirrors the Go-side taskreporter.Reporter so set failures land as visible
-/// task statuses (warnings) rather than silent log lines.
-using Reporter = std::function<
-    void(const std::string &variant, const std::string &message)>;
 
 // Reporter message templates. Keep in sync with
 // core/pkg/service/arc/status/status.go.

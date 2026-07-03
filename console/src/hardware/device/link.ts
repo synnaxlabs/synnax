@@ -7,12 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CONFIGURE_LAYOUTS, getMake } from "@/hardware/device/make";
-import { type Link } from "@/link";
+import { useCallback } from "react";
 
-export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const device = await client.devices.retrieve({ key });
-  const make = getMake(device.make);
-  if (make == null) return;
-  placeLayout({ ...CONFIGURE_LAYOUTS[make], key: device.key, name: device.name });
+import { CONFIGURE_LAYOUTS, getMake } from "@/hardware/device/make";
+import { type Link } from "@/layered/service/link";
+import { Layout } from "@/layout";
+
+export const useLink = (): Link.Handler => {
+  const placeLayout = Layout.usePlacer();
+  return useCallback(
+    async ({ client, key }) => {
+      const device = await client.devices.retrieve({ key });
+      const make = getMake(device.make);
+      if (make == null) return;
+      placeLayout({ ...CONFIGURE_LAYOUTS[make], key: device.key, name: device.name });
+    },
+    [placeLayout],
+  );
 };

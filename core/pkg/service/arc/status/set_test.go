@@ -58,7 +58,7 @@ func (r *recordingReporter) get() []reportCall {
 }
 
 // newModule builds a Module without WASM wiring (covered C++-side).
-func newModule(ctx context.Context, reporter *recordingReporter) *arcstatus.Module {
+func newModule(ctx context.Context, reporter *recordingReporter) node.Factory {
 	return MustSucceed(arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
 		Status:   statSvc,
 		Reporter: reporter.report,
@@ -160,7 +160,7 @@ var _ = Describe("Symbols", func() {
 
 var _ = Describe("Module", func() {
 	var (
-		mod *arcstatus.Module
+		mod node.Factory
 		rep *recordingReporter
 	)
 	BeforeEach(func(ctx SpecContext) {
@@ -171,7 +171,6 @@ var _ = Describe("Module", func() {
 	Describe("Construction", func() {
 		It("Should construct without WASM wiring when rat is nil", func(ctx SpecContext) {
 			Expect(mod).ToNot(BeNil())
-			Expect(mod.ModuleName()).To(Equal("status"))
 		})
 
 		It("Should wire host functions when a wazero runtime is provided", func(ctx SpecContext) {
@@ -184,7 +183,6 @@ var _ = Describe("Module", func() {
 				Reporter: rep.report,
 			}))
 			Expect(wired).ToNot(BeNil())
-			Expect(wired.ModuleName()).To(Equal("status"))
 		})
 
 		It("Should error when the runtime can't instantiate the host module", func(ctx SpecContext) {
@@ -248,7 +246,7 @@ var _ = Describe("Module", func() {
 
 var _ = Describe("setNode.Next", func() {
 	var (
-		mod *arcstatus.Module
+		mod node.Factory
 		rep *recordingReporter
 	)
 	BeforeEach(func(ctx SpecContext) {

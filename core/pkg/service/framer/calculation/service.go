@@ -44,15 +44,6 @@ type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	// ChannelObservable is used to listen to real-time changes in calculated channels
-	// so the calculation routines can be updated accordingly.
-	//
-	// [REQUIRED]
-	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
-	// DB is the underlying database for transactional operations.
-	//
-	// [REQUIRED]
-	DB *gorp.DB
 	// Framer is the underlying frame service to stream cache channel values and write
 	// calculated samples.
 	//
@@ -67,6 +58,9 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
@@ -77,8 +71,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "channel_observable", c.ChannelObservable)
-	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
@@ -88,8 +80,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
-	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
@@ -106,8 +96,8 @@ type Service struct {
 	statusWriter status.Writer[types.Nil]
 }
 
-// OpenService opens the service with the provided configuration. The service must be closed
-// when it is no longer needed.
+// OpenService opens the service with the provided configuration. The service must be
+// closed when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -125,12 +115,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		cfg:          cfg,
 		statusWriter: status.NewWriter[types.Nil](cfg.Status, nil),
 	}
-	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
+	s.disconnectFromChannelChanges = cfg.Channel.Observe().OnChange(s.handleChange)
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
 
-	if err := cfg.Channel.DeleteManyByNames(ctx, legacyStatusChannels, true); err != nil {
+	if err := cfg.Channel.DeleteManyByNames(
+		ctx,
+		legacyStatusChannels,
+		true,
+	); err != nil {
 		cfg.L.Debug("failed to delete legacy status channels", zap.Error(err))
 	}
 
@@ -146,7 +140,11 @@ func (s *Service) setStatus(
 	for _, st := range statuses {
 		chKey, err := channel.ParseKey(st.Key)
 		if err != nil {
-			s.cfg.L.Error("failed to parse channel key from status", zap.Error(err), zap.String("key", st.Key))
+			s.cfg.L.Error(
+				"failed to parse channel key from status",
+				zap.Error(err),
+				zap.String("key", st.Key),
+			)
 			continue
 		}
 		s.cfg.L.Warn(st.String())
@@ -159,7 +157,11 @@ func (s *Service) setStatus(
 			Description: st.Description,
 			Time:        telem.Now(),
 		}); err != nil {
-			s.cfg.L.Error("failed to set status", zap.Error(err), zap.String("key", statusKey))
+			s.cfg.L.Error(
+				"failed to set status",
+				zap.Error(err),
+				zap.String("key", statusKey),
+			)
 		}
 	}
 }
@@ -182,10 +184,12 @@ func (s *Service) handleChange(
 		}
 		if err := s.updateCalculation(ctx, ch); err != nil {
 			s.setStatus(ctx, calculator.Status{
-				Key:         ch.Key().String(),
-				Name:        ch.Name,
-				Variant:     status.VariantError,
-				Message:     fmt.Sprintf("failed to compile calculation for %s", ch.Name),
+				Key:     ch.Key().String(),
+				Name:    ch.Name,
+				Variant: status.VariantError,
+				Message: fmt.Sprintf(
+					"failed to compile calculation for %s", ch.Name,
+				),
 				Description: err.Error(),
 			})
 		}
@@ -210,16 +214,15 @@ func (s *Service) openOrGetCalculator(
 ) (*calculator.Calculator, error) {
 	calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open calculator for channel %s", mod.Channel)
+		return nil, errors.Wrapf(
+			err, "failed to open calculator for channel %s", mod.Channel,
+		)
 	}
 	s.mu.calculators[calc.Channel().Key()] = calc
 	return calc, err
 }
 
-func groupEquals(
-	mods []compiler.Module,
-	g *group,
-) bool {
+func groupEquals(mods []compiler.Module, g *group) bool {
 	if g == nil {
 		return false
 	}
@@ -234,7 +237,11 @@ func groupEquals(
 	return true
 }
 
-func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Module) error {
+func (s *Service) updateGroup(
+	ctx context.Context,
+	key int,
+	mods []compiler.Module,
+) error {
 	g := s.mu.groups[key]
 	if groupEquals(mods, g) {
 		return nil
@@ -306,8 +313,8 @@ func (s *Service) rebuildGroups(ctx context.Context) error {
 // Close stops all calculations and closes the service. No other methods should be
 // called after Close.
 func (s *Service) Close() error {
-	// Disconnect from channel changes FIRST to prevent new change events
-	// This must be done outside the lock to avoid deadlock with handleChange
+	// Disconnect from channel changes FIRST to prevent new change events This must be
+	// done outside the lock to avoid deadlock with handleChange
 	s.disconnectFromChannelChanges()
 
 	s.mu.Lock()
@@ -324,7 +331,9 @@ func (s *Service) Close() error {
 // being calculated. If the channel is already being calculated, the number of active
 // requests will be increased. The caller must close the returned io.Closer when the
 // calculation is no longer needed, which will decrement the number of active requests.
-func (s *Service) updateRequests(ctx context.Context, added, removed []channel.Key) error {
+func (s *Service) updateRequests(
+	ctx context.Context, added, removed []channel.Key,
+) error {
 	var (
 		channels []channel.Channel
 		statuses []calculator.Status
@@ -375,7 +384,9 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 		s.cfg.L.Debug("calculation requests added", zap.Stringers("channels", added))
 	}
 	if len(removed) > 0 {
-		s.cfg.L.Debug("calculation requests removed", zap.Stringers("channels", removed))
+		s.cfg.L.Debug(
+			"calculation requests removed", zap.Stringers("channels", removed),
+		)
 	}
 	return nil
 }

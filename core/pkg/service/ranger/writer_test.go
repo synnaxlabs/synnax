@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -367,6 +368,65 @@ var _ = Describe("Writer", func() {
 				To(BeFalse())
 			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(child.Key)).Exists(ctx, tx)).
 				To(BeFalse())
+		})
+	})
+
+	Describe("SetEnd", func() {
+		It("Should set the end bound while preserving the start", func(ctx SpecContext) {
+			r := ranger.Range{
+				Name:      "set_end",
+				TimeRange: telem.TimeRange{Start: telem.SecondTS, End: telem.TimeStampMax},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			end := telem.SecondTS * 10
+			Expect(svc.NewWriter(tx).SetEnd(ctx, r.Key, end)).To(Succeed())
+			var updated ranger.Range
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&updated).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(updated.TimeRange.Start).To(Equal(telem.SecondTS))
+			Expect(updated.TimeRange.End).To(Equal(end))
+		})
+
+		It("Should overwrite a previously set end bound", func(ctx SpecContext) {
+			r := ranger.Range{
+				Name:      "set_end",
+				TimeRange: telem.TimeRange{Start: telem.SecondTS, End: telem.SecondTS * 5},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(svc.NewWriter(tx).SetEnd(ctx, r.Key, telem.SecondTS*20)).To(Succeed())
+			var updated ranger.Range
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&updated).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(updated.TimeRange.End).To(Equal(telem.SecondTS * 20))
+		})
+
+		It("Should return query.ErrNotFound when the range does not exist", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).SetEnd(ctx, uuid.New(), telem.Now())).
+				To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should return a validation error when end precedes start", func(ctx SpecContext) {
+			r := ranger.Range{
+				Name:      "set_end_before_start",
+				TimeRange: telem.TimeRange{Start: telem.SecondTS * 10, End: telem.TimeStampMax},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(svc.NewWriter(tx).SetEnd(ctx, r.Key, telem.SecondTS*5)).
+				To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should leave other fields untouched", func(ctx SpecContext) {
+			r := ranger.Range{
+				Name:      "set_end_preserve",
+				TimeRange: telem.TimeRange{Start: telem.SecondTS, End: telem.TimeStampMax},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			Expect(svc.NewWriter(tx).SetEnd(ctx, r.Key, telem.SecondTS*3)).To(Succeed())
+			var updated ranger.Range
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&updated).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(updated.Name).To(Equal(r.Name))
+			Expect(updated.Key).To(Equal(r.Key))
 		})
 	})
 })
