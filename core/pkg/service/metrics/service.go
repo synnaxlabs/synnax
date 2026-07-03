@@ -220,7 +220,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			&calculatedChannels,
 			channel.RetrieveIfNameExists(),
 			channel.CreateWithoutGroupRelationship(),
-			channel.AllowInvalidExpressions(),
 		); err != nil {
 			return err
 		}
