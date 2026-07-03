@@ -516,13 +516,17 @@ func NodeToPB(r ir.Node) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	varKindVal, err := VarKindToPB(r.VarKind)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Node{
 		Key:      r.Key,
 		Type:     r.Type,
-		IsVar:    r.IsVar,
 		Inputs:   inputsVal,
 		Outputs:  outputsVal,
 		Channels: channelsVal,
+		VarKind:  varKindVal,
 	}
 	return pb, nil
 }
@@ -546,9 +550,12 @@ func NodeFromPB(pb *Node) (ir.Node, error) {
 	if err != nil {
 		return ir.Node{}, err
 	}
+	r.VarKind, err = VarKindFromPB(pb.VarKind)
+	if err != nil {
+		return ir.Node{}, err
+	}
 	r.Key = pb.Key
 	r.Type = pb.Type
-	r.IsVar = pb.IsVar
 	return r, nil
 }
 
@@ -879,5 +886,37 @@ func ScopeModeFromPB(v ScopeMode) (ir.ScopeMode, error) {
 		return ir.ScopeModeSequential, nil
 	default:
 		return 0, errors.Newf("unrecognized ScopeMode value: %v", v)
+	}
+}
+
+// VarKindToPB converts ir.VarKind to VarKind.
+func VarKindToPB(v ir.VarKind) (VarKind, error) {
+	switch v {
+	case ir.VarKindUnspecified:
+		return VarKind_VAR_KIND_UNSPECIFIED, nil
+	case ir.VarKindChannelAlias:
+		return VarKind_VAR_KIND_CHANNEL_ALIAS, nil
+	case ir.VarKindReactive:
+		return VarKind_VAR_KIND_REACTIVE, nil
+	case ir.VarKindConstant:
+		return VarKind_VAR_KIND_CONSTANT, nil
+	default:
+		return 0, errors.Newf("unrecognized ir.VarKind value: %v", v)
+	}
+}
+
+// VarKindFromPB converts VarKind to ir.VarKind.
+func VarKindFromPB(v VarKind) (ir.VarKind, error) {
+	switch v {
+	case VarKind_VAR_KIND_UNSPECIFIED:
+		return ir.VarKindUnspecified, nil
+	case VarKind_VAR_KIND_CHANNEL_ALIAS:
+		return ir.VarKindChannelAlias, nil
+	case VarKind_VAR_KIND_REACTIVE:
+		return ir.VarKindReactive, nil
+	case VarKind_VAR_KIND_CONSTANT:
+		return ir.VarKindConstant, nil
+	default:
+		return 0, errors.Newf("unrecognized VarKind value: %v", v)
 	}
 }

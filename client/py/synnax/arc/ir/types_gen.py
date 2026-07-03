@@ -37,6 +37,13 @@ class Liveness(IntEnum):
     gated = 2
 
 
+class VarKind(IntEnum):
+    unspecified = 0
+    channel_alias = 1
+    reactive = 2
+    constant = 3
+
+
 class Handle(BaseModel):
     """Is a reference to a specific parameter on a specific node in the dataflow graph.
 
@@ -68,7 +75,7 @@ class Node(BaseModel):
         inputs: Contains input parameter type signatures.
         outputs: Contains output parameter type signatures.
         channels: Contains channel read/write mappings.
-        is_var: Is true when this node reads or writes a reactive value variable.
+        var_kind: Is the kind of value variable this node reads or writes, if any.
     """
 
     key: str
@@ -76,7 +83,7 @@ class Node(BaseModel):
     inputs: types.Params = Field(default_factory=list)
     outputs: types.Params = Field(default_factory=list)
     channels: types.Channels
-    is_var: bool = False
+    var_kind: VarKind
 
 
 class Authorities(BaseModel):

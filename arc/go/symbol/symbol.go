@@ -151,6 +151,38 @@ const (
 	KindAmbient
 )
 
+// VarKind categorizes a value variable by how it is declared, fixing its
+// read/write/reassignment semantics. VarKindNone marks a non-value variable.
+type VarKind int
+
+const (
+	// VarKindNone marks a symbol that is not a value variable.
+	VarKindNone VarKind = iota
+	// VarKindChannelAlias is a variable bound to a bare channel; it behaves
+	// exactly as that channel for both reads and writes.
+	VarKindChannelAlias
+	// VarKindReactive is a variable derived from an expression reading one or
+	// more channels; it is a read-only reactive stream.
+	VarKindReactive
+	// VarKindConstant is a variable holding a constant value; it reflects its
+	// current stored value and may be reassigned or written to.
+	VarKindConstant
+)
+
+// String returns the user-facing name of the kind.
+func (k VarKind) String() string {
+	switch k {
+	case VarKindChannelAlias:
+		return "alias"
+	case VarKindReactive:
+		return "reactive"
+	case VarKindConstant:
+		return "const"
+	default:
+		return "none"
+	}
+}
+
 // Symbol is a named entity in an Arc program and, when it has Children, a
 // container that holds other Symbols. Variables, functions, modules, channels,
 // blocks, loops, sequences, stages, and aliases are all Symbols distinguished
@@ -174,6 +206,9 @@ type Symbol struct {
 	Name string
 	// Kind categorizes the symbol.
 	Kind Kind
+	// VarKind categorizes a value variable (Kind KindVariable or
+	// KindStatefulVariable) for its read/write semantics; VarKindNone otherwise.
+	VarKind VarKind
 	// ID is a unique identifier within the containing function scope. Only
 	// assigned to symbols whose Kind allocates a runtime slot.
 	ID int

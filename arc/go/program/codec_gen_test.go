@@ -129,7 +129,7 @@ var _ = Describe("Codec", func() {
 								Read:  map[uint32]string{61: "test_60"},
 								Write: map[uint32]string{62: "test_61"},
 							},
-							IsVar: false,
+							VarKind: ir.VarKind(0),
 						},
 					},
 					Edges: []ir.Edge{
@@ -385,7 +385,7 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 						Read:  map[uint32]string{61: "test_60"},
 						Write: map[uint32]string{62: "test_61"},
 					},
-					IsVar: false,
+					VarKind: ir.VarKind(0),
 				},
 			},
 			Edges: []ir.Edge{
@@ -610,7 +610,7 @@ func FuzzDecodeProgram(f *testing.F) {
 							Read:  map[uint32]string{61: "test_60"},
 							Write: map[uint32]string{62: "test_61"},
 						},
-						IsVar: false,
+						VarKind: ir.VarKind(0),
 					},
 				},
 				Edges: []ir.Edge{

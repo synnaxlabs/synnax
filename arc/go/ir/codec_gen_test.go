@@ -342,7 +342,7 @@ var _ = Describe("Codec", func() {
 							Read:  map[uint32]string{61: "test_60"},
 							Write: map[uint32]string{62: "test_61"},
 						},
-						IsVar: false,
+						VarKind: ir.VarKind(0),
 					},
 				},
 				Edges: []ir.Edge{
@@ -678,7 +678,7 @@ var _ = Describe("Codec", func() {
 					Read:  map[uint32]string{79: "test_78"},
 					Write: map[uint32]string{80: "test_79"},
 				},
-				IsVar: false,
+				VarKind: ir.VarKind(0),
 			}),
 			Entry("zero values", ir.Node{
 				Key:      "",
@@ -686,7 +686,7 @@ var _ = Describe("Codec", func() {
 				Inputs:   nil,
 				Outputs:  nil,
 				Channels: types.Channels{Read: nil, Write: nil},
-				IsVar:    false,
+				VarKind:  ir.VarKind(0),
 			}),
 			Entry("empty collections", ir.Node{
 				Key:      "test_1",
@@ -694,7 +694,7 @@ var _ = Describe("Codec", func() {
 				Inputs:   []types.Param{},
 				Outputs:  []types.Param{},
 				Channels: types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
-				IsVar:    false,
+				VarKind:  ir.VarKind(0),
 			}),
 		)
 	})
@@ -1278,7 +1278,7 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 					Read:  map[uint32]string{61: "test_60"},
 					Write: map[uint32]string{62: "test_61"},
 				},
-				IsVar: false,
+				VarKind: ir.VarKind(0),
 			},
 		},
 		Edges: []ir.Edge{
@@ -1585,7 +1585,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 			Read:  map[uint32]string{79: "test_78"},
 			Write: map[uint32]string{80: "test_79"},
 		},
-		IsVar: false,
+		VarKind: ir.VarKind(0),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -2335,7 +2335,7 @@ func FuzzDecodeIR(f *testing.F) {
 						Read:  map[uint32]string{61: "test_60"},
 						Write: map[uint32]string{62: "test_61"},
 					},
-					IsVar: false,
+					VarKind: ir.VarKind(0),
 				},
 			},
 			Edges: []ir.Edge{
@@ -2740,7 +2740,7 @@ func FuzzDecodeNode(f *testing.F) {
 				Read:  map[uint32]string{79: "test_78"},
 				Write: map[uint32]string{80: "test_79"},
 			},
-			IsVar: false,
+			VarKind: ir.VarKind(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2755,7 +2755,7 @@ func FuzzDecodeNode(f *testing.F) {
 			Inputs:   nil,
 			Outputs:  nil,
 			Channels: types.Channels{Read: nil, Write: nil},
-			IsVar:    false,
+			VarKind:  ir.VarKind(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2770,7 +2770,7 @@ func FuzzDecodeNode(f *testing.F) {
 			Inputs:   []types.Param{},
 			Outputs:  []types.Param{},
 			Channels: types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
-			IsVar:    false,
+			VarKind:  ir.VarKind(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

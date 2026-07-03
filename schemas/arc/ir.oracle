@@ -70,6 +70,15 @@ Liveness enum {
     @doc value "defines whether a Scope is continuously active or must be activated."
 }
 
+VarKind enum {
+    unspecified   = 0
+    channel_alias = 1
+    reactive      = 2
+    constant      = 3
+
+    @doc value "defines the kind of value variable a node reads or writes."
+}
+
 Transition struct {
     on        Handle  {
         @doc value "is the dataflow handle whose truthy value fires this transition."
@@ -198,8 +207,8 @@ Node struct {
     channels types.Channels {
         @doc value "contains channel read/write mappings."
     }
-    is_var   bool = false {
-        @doc value "is true when this node reads or writes a reactive value variable."
+    var_kind VarKind        {
+        @doc value "is the kind of value variable this node reads or writes, if any."
     }
 
     @doc value   """

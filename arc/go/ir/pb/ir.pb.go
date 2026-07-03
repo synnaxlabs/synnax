@@ -183,6 +183,59 @@ func (Liveness) EnumDescriptor() ([]byte, []int) {
 	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{2}
 }
 
+// VarKind defines the kind of value variable a node reads or writes.
+type VarKind int32
+
+const (
+	VarKind_VAR_KIND_UNSPECIFIED   VarKind = 0
+	VarKind_VAR_KIND_CHANNEL_ALIAS VarKind = 1
+	VarKind_VAR_KIND_REACTIVE      VarKind = 2
+	VarKind_VAR_KIND_CONSTANT      VarKind = 3
+)
+
+// Enum value maps for VarKind.
+var (
+	VarKind_name = map[int32]string{
+		0: "VAR_KIND_UNSPECIFIED",
+		1: "VAR_KIND_CHANNEL_ALIAS",
+		2: "VAR_KIND_REACTIVE",
+		3: "VAR_KIND_CONSTANT",
+	}
+	VarKind_value = map[string]int32{
+		"VAR_KIND_UNSPECIFIED":   0,
+		"VAR_KIND_CHANNEL_ALIAS": 1,
+		"VAR_KIND_REACTIVE":      2,
+		"VAR_KIND_CONSTANT":      3,
+	}
+)
+
+func (x VarKind) Enum() *VarKind {
+	p := new(VarKind)
+	*p = x
+	return p
+}
+
+func (x VarKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (VarKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_arc_go_ir_pb_ir_proto_enumTypes[3].Descriptor()
+}
+
+func (VarKind) Type() protoreflect.EnumType {
+	return &file_arc_go_ir_pb_ir_proto_enumTypes[3]
+}
+
+func (x VarKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use VarKind.Descriptor instead.
+func (VarKind) EnumDescriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{3}
+}
+
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
 type Handle struct {
@@ -708,8 +761,8 @@ type Node struct {
 	Outputs []*pb.Param `protobuf:"bytes,4,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	// channels contains channel read/write mappings.
 	Channels *pb.Channels `protobuf:"bytes,5,opt,name=channels,proto3" json:"channels,omitempty"`
-	// is_var is true when this node reads or writes a reactive value variable.
-	IsVar         bool `protobuf:"varint,6,opt,name=is_var,json=isVar,proto3" json:"is_var,omitempty"`
+	// var_kind is the kind of value variable this node reads or writes, if any.
+	VarKind       VarKind `protobuf:"varint,6,opt,name=var_kind,json=varKind,proto3,enum=arc.ir.pb.VarKind" json:"var_kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -779,11 +832,11 @@ func (x *Node) GetChannels() *pb.Channels {
 	return nil
 }
 
-func (x *Node) GetIsVar() bool {
+func (x *Node) GetVarKind() VarKind {
 	if x != nil {
-		return x.IsVar
+		return x.VarKind
 	}
-	return false
+	return VarKind_VAR_KIND_UNSPECIFIED
 }
 
 // Authorities holds the static authority declarations from an Arc program.
@@ -1052,14 +1105,14 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x04body\x18\x02 \x01(\v2\x0f.arc.ir.pb.BodyR\x04body\x12+\n" +
 	"\x06inputs\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
 	"\aoutputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
-	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xd3\x01\n" +
+	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xeb\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12+\n" +
 	"\x06inputs\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
 	"\aoutputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
-	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\x12\x15\n" +
-	"\x06is_var\x18\x06 \x01(\bR\x05isVar\"\xb7\x01\n" +
+	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\x12-\n" +
+	"\bvar_kind\x18\x06 \x01(\x0e2\x12.arc.ir.pb.VarKindR\avarKind\"\xb7\x01\n" +
 	"\vAuthorities\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\rH\x00R\adefault\x88\x01\x01\x12@\n" +
 	"\bchannels\x18\x02 \x03(\v2$.arc.ir.pb.Authorities.ChannelsEntryR\bchannels\x1a;\n" +
@@ -1091,7 +1144,12 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\bLiveness\x12\x18\n" +
 	"\x14LIVENESS_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLIVENESS_ALWAYS\x10\x01\x12\x12\n" +
-	"\x0eLIVENESS_GATED\x10\x02B\x7f\n" +
+	"\x0eLIVENESS_GATED\x10\x02*m\n" +
+	"\aVarKind\x12\x18\n" +
+	"\x14VAR_KIND_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16VAR_KIND_CHANNEL_ALIAS\x10\x01\x12\x15\n" +
+	"\x11VAR_KIND_REACTIVE\x10\x02\x12\x15\n" +
+	"\x11VAR_KIND_CONSTANT\x10\x03B\x7f\n" +
 	"\rcom.arc.ir.pbB\aIrProtoP\x01Z\x1fgithub.com/synnaxlabs/arc/ir/pb\xa2\x02\x03AIP\xaa\x02\tArc.Ir.Pb\xca\x02\tArc\\Ir\\Pb\xe2\x02\x15Arc\\Ir\\Pb\\GPBMetadata\xea\x02\vArc::Ir::Pbb\x06proto3"
 
 var (
@@ -1106,62 +1164,64 @@ func file_arc_go_ir_pb_ir_proto_rawDescGZIP() []byte {
 	return file_arc_go_ir_pb_ir_proto_rawDescData
 }
 
-var file_arc_go_ir_pb_ir_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_arc_go_ir_pb_ir_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_arc_go_ir_pb_ir_proto_goTypes = []any{
 	(EdgeKind)(0),          // 0: arc.ir.pb.EdgeKind
 	(ScopeMode)(0),         // 1: arc.ir.pb.ScopeMode
 	(Liveness)(0),          // 2: arc.ir.pb.Liveness
-	(*Handle)(nil),         // 3: arc.ir.pb.Handle
-	(*Edge)(nil),           // 4: arc.ir.pb.Edge
-	(*Transition)(nil),     // 5: arc.ir.pb.Transition
-	(*Member)(nil),         // 6: arc.ir.pb.Member
-	(*MembersWrapper)(nil), // 7: arc.ir.pb.MembersWrapper
-	(*Scope)(nil),          // 8: arc.ir.pb.Scope
-	(*Body)(nil),           // 9: arc.ir.pb.Body
-	(*Function)(nil),       // 10: arc.ir.pb.Function
-	(*Node)(nil),           // 11: arc.ir.pb.Node
-	(*Authorities)(nil),    // 12: arc.ir.pb.Authorities
-	(*VarSeed)(nil),        // 13: arc.ir.pb.VarSeed
-	(*IR)(nil),             // 14: arc.ir.pb.IR
-	nil,                    // 15: arc.ir.pb.Authorities.ChannelsEntry
-	(*pb.Param)(nil),       // 16: arc.types.pb.Param
-	(*pb.Channels)(nil),    // 17: arc.types.pb.Channels
-	(*pb.Type)(nil),        // 18: arc.types.pb.Type
+	(VarKind)(0),           // 3: arc.ir.pb.VarKind
+	(*Handle)(nil),         // 4: arc.ir.pb.Handle
+	(*Edge)(nil),           // 5: arc.ir.pb.Edge
+	(*Transition)(nil),     // 6: arc.ir.pb.Transition
+	(*Member)(nil),         // 7: arc.ir.pb.Member
+	(*MembersWrapper)(nil), // 8: arc.ir.pb.MembersWrapper
+	(*Scope)(nil),          // 9: arc.ir.pb.Scope
+	(*Body)(nil),           // 10: arc.ir.pb.Body
+	(*Function)(nil),       // 11: arc.ir.pb.Function
+	(*Node)(nil),           // 12: arc.ir.pb.Node
+	(*Authorities)(nil),    // 13: arc.ir.pb.Authorities
+	(*VarSeed)(nil),        // 14: arc.ir.pb.VarSeed
+	(*IR)(nil),             // 15: arc.ir.pb.IR
+	nil,                    // 16: arc.ir.pb.Authorities.ChannelsEntry
+	(*pb.Param)(nil),       // 17: arc.types.pb.Param
+	(*pb.Channels)(nil),    // 18: arc.types.pb.Channels
+	(*pb.Type)(nil),        // 19: arc.types.pb.Type
 }
 var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
-	3,  // 0: arc.ir.pb.Edge.source:type_name -> arc.ir.pb.Handle
-	3,  // 1: arc.ir.pb.Edge.target:type_name -> arc.ir.pb.Handle
+	4,  // 0: arc.ir.pb.Edge.source:type_name -> arc.ir.pb.Handle
+	4,  // 1: arc.ir.pb.Edge.target:type_name -> arc.ir.pb.Handle
 	0,  // 2: arc.ir.pb.Edge.kind:type_name -> arc.ir.pb.EdgeKind
-	3,  // 3: arc.ir.pb.Transition.on:type_name -> arc.ir.pb.Handle
-	8,  // 4: arc.ir.pb.Member.scope:type_name -> arc.ir.pb.Scope
-	6,  // 5: arc.ir.pb.MembersWrapper.values:type_name -> arc.ir.pb.Member
+	4,  // 3: arc.ir.pb.Transition.on:type_name -> arc.ir.pb.Handle
+	9,  // 4: arc.ir.pb.Member.scope:type_name -> arc.ir.pb.Scope
+	7,  // 5: arc.ir.pb.MembersWrapper.values:type_name -> arc.ir.pb.Member
 	1,  // 6: arc.ir.pb.Scope.mode:type_name -> arc.ir.pb.ScopeMode
 	2,  // 7: arc.ir.pb.Scope.liveness:type_name -> arc.ir.pb.Liveness
-	3,  // 8: arc.ir.pb.Scope.activation:type_name -> arc.ir.pb.Handle
-	7,  // 9: arc.ir.pb.Scope.strata:type_name -> arc.ir.pb.MembersWrapper
-	6,  // 10: arc.ir.pb.Scope.steps:type_name -> arc.ir.pb.Member
-	5,  // 11: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
-	9,  // 12: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
-	16, // 13: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
-	16, // 14: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
-	17, // 15: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
-	16, // 16: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
-	16, // 17: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
-	17, // 18: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
-	15, // 19: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
-	18, // 20: arc.ir.pb.VarSeed.type:type_name -> arc.types.pb.Type
-	10, // 21: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
-	11, // 22: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
-	4,  // 23: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
-	12, // 24: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
-	8,  // 25: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
-	13, // 26: arc.ir.pb.IR.var_seeds:type_name -> arc.ir.pb.VarSeed
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	4,  // 8: arc.ir.pb.Scope.activation:type_name -> arc.ir.pb.Handle
+	8,  // 9: arc.ir.pb.Scope.strata:type_name -> arc.ir.pb.MembersWrapper
+	7,  // 10: arc.ir.pb.Scope.steps:type_name -> arc.ir.pb.Member
+	6,  // 11: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
+	10, // 12: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
+	17, // 13: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
+	17, // 14: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
+	18, // 15: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
+	17, // 16: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
+	17, // 17: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
+	18, // 18: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
+	3,  // 19: arc.ir.pb.Node.var_kind:type_name -> arc.ir.pb.VarKind
+	16, // 20: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
+	19, // 21: arc.ir.pb.VarSeed.type:type_name -> arc.types.pb.Type
+	11, // 22: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
+	12, // 23: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
+	5,  // 24: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
+	13, // 25: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
+	9,  // 26: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
+	14, // 27: arc.ir.pb.IR.var_seeds:type_name -> arc.ir.pb.VarSeed
+	28, // [28:28] is the sub-list for method output_type
+	28, // [28:28] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_pb_ir_proto_init() }
@@ -1178,7 +1238,7 @@ func file_arc_go_ir_pb_ir_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_ir_pb_ir_proto_rawDesc), len(file_arc_go_ir_pb_ir_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,

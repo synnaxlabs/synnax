@@ -69,32 +69,62 @@ func Analyze(ctx context.Context[parser.IStatementContext]) {
 // ctx.Scope, letting sequences and stages declare scoped variables.
 func AnalyzeVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) {
 	analyzeVariableDeclaration(ctx)
-	registerReactiveInitializer(ctx)
+	inferVarKind(ctx)
 }
 
-// registerReactiveInitializer registers a value variable's non-literal expression
-// initializer as a synthetic function so the text package can lower it to a node.
-func registerReactiveInitializer(ctx context.Context[parser.IVariableDeclarationContext]) {
+// inferVarKind classifies the just-declared value variable from its RHS and
+// records the kind on its symbol, registering a reactive `:=` initializer's flow.
+func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
+	var (
+		ident string
+		expr  parser.IExpressionContext
+	)
 	local := ctx.AST.LocalVariable()
-	if local == nil {
+	switch {
+	case local != nil:
+		ident = local.IDENTIFIER().GetText()
+		expr = local.Expression()
+	case ctx.AST.StatefulVariable() != nil:
+		ident = ctx.AST.StatefulVariable().IDENTIFIER().GetText()
+		expr = ctx.AST.StatefulVariable().Expression()
+	default:
 		return
 	}
-	expr := local.Expression()
+	sym, err := ctx.Scope.Resolve(ctx, ident)
+	if err != nil {
+		return
+	}
+	// A variable bound to a channel is an alias: it behaves exactly as the channel.
+	if sym.SourceID != nil || sym.Type.Kind == types.KindChan {
+		sym.VarKind = symbol.VarKindChannelAlias
+		return
+	}
 	if expr == nil {
 		return
 	}
-	sym, err := ctx.Scope.Resolve(ctx, local.IDENTIFIER().GetText())
-	if err != nil || sym.Kind != symbol.KindVariable ||
-		sym.Type.Kind == types.KindChan || sym.SourceID != nil {
-		return
-	}
+	// A literal initializer holds a constant value.
 	if isLiteralExpression(context.Child(ctx, expr)) {
+		sym.VarKind = symbol.VarKindConstant
 		return
 	}
+	// A bare identifier inherits the referenced variable's kind.
 	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
+		if ref, rerr := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText()); rerr == nil {
+			sym.VarKind = ref.VarKind
+		}
 		return
 	}
-	flow.AnalyzeSingleExpression(context.Child(ctx, expr))
+	// A complex initializer that reads channels is reactive; otherwise it is a
+	// computed constant. AnalyzeSingleExpression also registers the reactive flow.
+	if local != nil {
+		flow.AnalyzeSingleExpression(context.Child(ctx, expr))
+		if synth, serr := ctx.Scope.Root().GetChildByParserRule(expr); serr == nil &&
+			len(synth.Channels.Read) > 0 {
+			sym.VarKind = symbol.VarKindReactive
+			return
+		}
+	}
+	sym.VarKind = symbol.VarKindConstant
 }
 
 // AnalyzeAssignment validates an `=` or compound assignment against the variable or

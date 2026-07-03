@@ -35,6 +35,14 @@ export enum Liveness {
 }
 export const livenessZ = z.enum(Liveness);
 
+export enum VarKind {
+  unspecified = 0,
+  channel_alias = 1,
+  reactive = 2,
+  constant = 3,
+}
+export const varKindZ = z.enum(VarKind);
+
 /** Handle is a reference to a specific parameter on a specific node in the dataflow graph. */
 export const handleZ = z.object({
   /** node is the node identifier. */
@@ -63,8 +71,8 @@ export const nodeZ = z.object({
   outputs: types.paramsZ,
   /** channels contains channel read/write mappings. */
   channels: types.channelsZ,
-  /** isVar is true when this node reads or writes a reactive value variable. */
-  isVar: z.boolean().default(false),
+  /** varKind is the kind of value variable this node reads or writes, if any. */
+  varKind: varKindZ,
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 

@@ -38,6 +38,14 @@ enum Liveness {
   LIVENESS_GATED = 2;
 }
 
+// VarKind defines the kind of value variable a node reads or writes.
+enum VarKind {
+  VAR_KIND_UNSPECIFIED = 0;
+  VAR_KIND_CHANNEL_ALIAS = 1;
+  VAR_KIND_REACTIVE = 2;
+  VAR_KIND_CONSTANT = 3;
+}
+
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
 message Handle {
@@ -136,8 +144,8 @@ message Node {
   repeated .arc.types.pb.Param outputs = 4;
   // channels contains channel read/write mappings.
   .arc.types.pb.Channels channels = 5;
-  // is_var is true when this node reads or writes a reactive value variable.
-  bool is_var = 6;
+  // var_kind is the kind of value variable this node reads or writes, if any.
+  VarKind var_kind = 6;
 }
 
 // Authorities holds the static authority declarations from an Arc program.

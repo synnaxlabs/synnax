@@ -430,10 +430,21 @@ func channelKey(sym *symbol.Symbol) uint32 {
 
 // isVarChannel reports whether sym is a value variable backed by an internal channel.
 func isVarChannel(sym *symbol.Symbol) bool {
-	if sym.Kind != symbol.KindVariable && sym.Kind != symbol.KindStatefulVariable {
-		return false
+	return sym.VarKind == symbol.VarKindReactive || sym.VarKind == symbol.VarKindConstant
+}
+
+// irVarKind maps a symbol's variable kind to its IR node representation.
+func irVarKind(k symbol.VarKind) ir.VarKind {
+	switch k {
+	case symbol.VarKindChannelAlias:
+		return ir.VarKindChannelAlias
+	case symbol.VarKindReactive:
+		return ir.VarKindReactive
+	case symbol.VarKindConstant:
+		return ir.VarKindConstant
+	default:
+		return ir.VarKindUnspecified
 	}
-	return sym.Type.Kind != types.KindChan && sym.SourceID == nil
 }
 
 // chanAndValueTypes returns the channel-param and value types for sym, wrapping a value variable's bare type into a channel.
@@ -457,7 +468,7 @@ func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (no
 		Channels: types.NewChannels(),
 		Inputs:   types.Params{{Name: "channel", Type: chanType, Value: chKey}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: valType}},
-		IsVar:    isVarChannel(sym),
+		VarKind:  irVarKind(sym.VarKind),
 	}
 	n.Channels.Read[chKey] = sym.Name
 	return newNodeResult(n, "", ir.DefaultOutputParam), true
@@ -476,7 +487,7 @@ func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (n
 			{Name: "channel", Type: chanType, Value: chKey},
 		},
 		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-		IsVar:   isVarChannel(sym),
+		VarKind: irVarKind(sym.VarKind),
 	}
 	n.Channels.Write[chKey] = sym.Name
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true

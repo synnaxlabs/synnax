@@ -149,8 +149,13 @@ var _ = Describe("Text", func() {
 				_, writes := n.Channels.Write[varKey]
 				sawRead = sawRead || reads
 				sawWrite = sawWrite || writes
-				Expect(n.IsVar).To(Equal(reads || writes),
-					"IsVar must be set iff the node touches the var channel")
+				if reads || writes {
+					Expect(n.VarKind).To(Equal(ir.VarKindConstant),
+						"a node touching the var channel must carry its kind")
+				} else {
+					Expect(n.VarKind).To(Equal(ir.VarKindUnspecified),
+						"a node not touching the var channel must be unspecified")
+				}
 			}
 			Expect(sawRead).To(BeTrue(), "expected an on-node reading the var channel")
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
@@ -215,8 +220,13 @@ var _ = Describe("Text", func() {
 				_, writes := n.Channels.Write[varKey]
 				sawRead = sawRead || reads
 				sawWrite = sawWrite || writes
-				Expect(n.IsVar).To(Equal(reads || writes),
-					"IsVar must be set iff the node touches the var channel")
+				if reads || writes {
+					Expect(n.VarKind).To(Equal(ir.VarKindConstant),
+						"a node touching the var channel must carry its kind")
+				} else {
+					Expect(n.VarKind).To(Equal(ir.VarKindUnspecified),
+						"a node not touching the var channel must be unspecified")
+				}
 			}
 			Expect(sawRead).To(BeTrue(), "expected an on-node reading the var channel")
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
