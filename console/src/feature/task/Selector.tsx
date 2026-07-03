@@ -17,12 +17,10 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
-import { Selector as BaseSelector } from "@/platform/selector";
+import { Selector as Base } from "@/platform/selector";
 
-const withTaskVisibility = (
-  Selectable: BaseSelector.Selectable,
-): BaseSelector.Selectable => {
-  const WrappedSelectable: BaseSelector.Selectable = (props) => {
+const withTaskVisibility = (Selectable: Base.Selectable): Base.Selectable => {
+  const WrappedSelectable: Base.Selectable = (props) => {
     const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
     if (!hasCreatePermission) return null;
     return <Selectable {...props} />;
@@ -31,7 +29,7 @@ const withTaskVisibility = (
   return WrappedSelectable;
 };
 
-export const SELECTABLES: BaseSelector.Selectable[] = [
+export const SELECTABLES: Base.Selectable[] = [
   ...EtherCAT.Task.SELECTABLES,
   ...HTTP.Task.SELECTABLES,
   ...LabJack.Task.SELECTABLES,
@@ -41,4 +39,4 @@ export const SELECTABLES: BaseSelector.Selectable[] = [
   ...PagerDuty.Task.SELECTABLES,
 ].map(withTaskVisibility);
 
-export const Selector = BaseSelector.create(SELECTABLES, "Select a Task Type");
+export const Selector = Base.create(SELECTABLES, "Select a Task Type");

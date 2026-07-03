@@ -27,10 +27,10 @@ import {
 import { type ReactElement, useCallback, useEffect } from "react";
 
 import { CSS } from "@/platform/css";
-import { Nav as ServiceNav } from "@/platform/nav";
+import { Nav as CommonNav } from "@/platform/nav";
 import { Triggers } from "@/platform/triggers";
 import { Version } from "@/platform/version";
-import { Window as ServiceWindow } from "@/platform/window";
+import { Window } from "@/platform/window";
 import { Session } from "@/session";
 
 const listItem = Component.renderProp(
@@ -49,15 +49,15 @@ const listItem = Component.renderProp(
 const SplashNav = (): ReactElement => {
   const os = OS.use();
   return (
-    <ServiceNav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
+    <CommonNav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
       <Nav.Bar.Start data-tauri-drag-region>
-        <ServiceWindow.Controls visibleIfOS="macOS" forceOS={os} />
+        <Window.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>
       <Nav.Bar.End data-tauri-drag-region justify="end">
         <Version.Badge />
-        <ServiceWindow.Controls visibleIfOS="Windows" forceOS={os} />
+        <Window.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
-    </ServiceNav.Bar>
+    </CommonNav.Bar>
   );
 };
 

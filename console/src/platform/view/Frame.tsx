@@ -34,7 +34,7 @@ import {
   useState,
 } from "react";
 
-import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { ContextMenu as CommonContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Ontology } from "@/platform/ontology";
@@ -262,18 +262,20 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   const canRename = filteredViews.length === 1;
   const canDelete = filteredViews.length > 0;
   return (
-    <CMenu.Menu>
+    <CommonContextMenu.Menu>
       {canRename && (
-        <CMenu.RenameItem
+        <CommonContextMenu.RenameItem
           onClick={() => Text.edit(List.itemNameID(filteredViews[0].key))}
         />
       )}
       {canDelete && (
-        <CMenu.DeleteItem onClick={() => del(filteredViews.map(({ key }) => key))} />
+        <CommonContextMenu.DeleteItem
+          onClick={() => del(filteredViews.map(({ key }) => key))}
+        />
       )}
       {(canRename || canDelete) && <Menu.Divider />}
-      <CMenu.ReloadConsoleItem />
-    </CMenu.Menu>
+      <CommonContextMenu.ReloadConsoleItem />
+    </CommonContextMenu.Menu>
   );
 };
 

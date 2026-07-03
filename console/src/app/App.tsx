@@ -48,7 +48,7 @@ import { Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
 import { Ontology } from "@/platform/ontology";
 import { Palette } from "@/platform/palette";
-import { Range as PlatformRange } from "@/platform/range";
+import { Range as CommonRange } from "@/platform/range";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 import WorkerURL from "@/worker?worker&url";
@@ -161,13 +161,13 @@ export const App = (): ReactElement => {
                 <Export.ExtractorsProvider extractors={EXTRACTORS}>
                   <Ontology.ServicesProvider services={SERVICES}>
                     <Palette.CommandProvider commands={COMMANDS}>
-                      <PlatformRange.SnapshotServicesProvider
+                      <CommonRange.SnapshotServicesProvider
                         services={SNAPSHOT_SERVICES}
                       >
                         <Task.RegistryProvider registry={Task.REGISTRY}>
                           <AppUnderContext />
                         </Task.RegistryProvider>
-                      </PlatformRange.SnapshotServicesProvider>
+                      </CommonRange.SnapshotServicesProvider>
                     </Palette.CommandProvider>
                   </Ontology.ServicesProvider>
                 </Export.ExtractorsProvider>

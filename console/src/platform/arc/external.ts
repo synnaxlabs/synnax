@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/platform/arc/ContextMenu";
 export * from "@/platform/arc/layout";
 export * from "@/platform/arc/useCreate";
+export * from "@/platform/arc/useCreateModal";
 export * from "@/platform/arc/useRename";
 export * from "@/platform/arc/useTask";

@@ -10,9 +10,9 @@
 import { Dialog, Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useCallback } from "react";
 
-import { type Entry } from "@/session/modals/Context";
+import { type Session } from "@/session";
 
-interface ModalProps extends Entry {}
+interface ModalProps extends Session.Modals.Entry {}
 
 export const Modal = memo(({ dismiss, render }: ModalProps): ReactElement => {
   const handleDismiss = useCallback(() => dismiss(), [dismiss]);

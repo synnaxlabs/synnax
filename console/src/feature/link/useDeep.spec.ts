@@ -13,7 +13,7 @@ import { act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Link } from "@/feature/link";
-import { Link as Platform } from "@/platform/link";
+import { Link as CommonLink } from "@/platform/link";
 import { renderHookWithConsole } from "@/testutil";
 
 const client = (): Client => createTestClient();
@@ -104,7 +104,7 @@ describe("useDeep", () => {
   });
 
   it("should ignore the next launch link once when the ignore flag is set", async () => {
-    Platform.markNextIgnored();
+    CommonLink.markNextIgnored();
     const first = await setup({
       getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
     });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project } from "@synnaxlabs/client";
+import { type project, UnexpectedError } from "@synnaxlabs/client";
 import { type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -66,7 +66,10 @@ export const createUseCreate =
     toCreateParams,
   }: CreateUseCreateArgs<Input, Output>) =>
   ({ project }: UseCreateProps): ((init?: Partial<Input>) => void) => {
-    const activeProject = Session.Project.useSelectSelected();
+    // Optional: the active project vanishes transiently when it is deleted, and the
+    // components using this hook stay subscribed until the Guard unmounts them. The
+    // Guard invariant is enforced at action time below instead of at render time.
+    const activeProject = Session.Project.useSelectOptionalSelected();
     const maybeChangeProject = useMaybeChange();
     const placeLayout = Layout.usePlacer();
     const store = Session.useStore();
@@ -74,14 +77,18 @@ export const createUseCreate =
     const { update } = useCreate({
       afterSuccess: useCallback(
         async ({ data: { key, name } }) => {
-          await maybeChangeProject(project);
+          if (project != null) await maybeChangeProject(project);
           placeLayout(createSessionState({ key, name }));
         },
         [project],
       ),
     });
     return useCallback(
-      (overrides) => update(toCreateParams({ overrides, project, store })),
+      (overrides) => {
+        if (project == null)
+          throw new UnexpectedError("cannot create a resource without a project");
+        update(toCreateParams({ overrides, project, store }));
+      },
       [update, store, project, toCreateParams],
     );
   };

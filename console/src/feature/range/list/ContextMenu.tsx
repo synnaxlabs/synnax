@@ -12,15 +12,13 @@ import { Access, Divider, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/p
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { Cluster } from "@/platform/cluster";
-import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { ContextMenu as Base } from "@/platform/context-menu";
 import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
-import { useSelectKeys } from "@/session/range/selectors";
-import { add, remove } from "@/session/range/slice";
 
 export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const { getItem } = List.useUtilContext<ranger.Key, ranger.Range>();
@@ -33,7 +31,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const placeLayout = Layout.usePlacer();
   const openCreate = Range.useCreateModal();
-  const favoriteKeys = useSelectKeys();
+  const favoriteKeys = Session.Range.useSelectKeys();
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
   const someAreNotFavorites = ranges.some((r) => !favoriteKeys.includes(r.key));
   const dispatch = Session.useDispatch();
@@ -48,10 +46,10 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     openCreate({ parent: ranges[0].key });
   };
   const handleFavorite = () => {
-    Session.Range.fromClient(ranges).forEach((r) => dispatch(add(r)));
+    Session.Range.fromClient(ranges).forEach((r) => dispatch(Session.Range.add(r)));
   };
   const handleUnfavorite = () => {
-    dispatch(remove({ keys: ranges.map((r) => r.key) }));
+    dispatch(Session.Range.remove({ keys: ranges.map((r) => r.key) }));
   };
   const handleError = Status.useErrorHandler();
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -75,21 +73,21 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
       const confirmed = await confirm(ranges);
       if (!confirmed) return;
       const keys = ranges.map((r) => r.key);
-      dispatch(remove({ keys }));
+      dispatch(Session.Range.remove({ keys }));
       dispatch(Session.Layout.remove({ keys }));
       del(keys);
     }, "Failed to delete range");
   };
 
   return (
-    <CMenu.Menu>
+    <Base.Menu>
       {isSingle && (
         <>
           <Menu.Item itemKey="details" onClick={handleDetails}>
             <Icon.Details />
             View details
           </Menu.Item>
-          {hasUpdatePermission && <CMenu.RenameItem onClick={handleRename} />}
+          {hasUpdatePermission && <Base.RenameItem onClick={handleRename} />}
           {hasCreatePermission && (
             <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
               <CreateChildRangeIcon key="plot" />
@@ -99,7 +97,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
           <Divider.Divider x />
         </>
       )}
-      <CMenu.FavoriteItems
+      <Base.FavoriteItems
         anyFavorited={someAreFavorites}
         anyNotFavorited={someAreNotFavorites}
         onFavorite={handleFavorite}
@@ -108,7 +106,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
       {(someAreFavorites || someAreNotFavorites) && <Divider.Divider x />}
       {hasDeletePermission && isNotEmpty && (
         <>
-          <CMenu.DeleteItem onClick={handleDelete} />
+          <Base.DeleteItem onClick={handleDelete} />
           <Divider.Divider x />
         </>
       )}
@@ -125,7 +123,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
           <Divider.Divider x />
         </>
       )}
-      <CMenu.ReloadConsoleItem />
-    </CMenu.Menu>
+      <Base.ReloadConsoleItem />
+    </Base.Menu>
   );
 };

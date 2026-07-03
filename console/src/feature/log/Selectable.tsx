@@ -11,23 +11,22 @@ import { log } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { LAYOUT_TYPE } from "@/platform/log/layout";
-import { useCreate } from "@/platform/log/useCreate";
+import { Log } from "@/platform/log";
 import { Selector } from "@/platform/selector";
 
 export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
   const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
-  const create = useCreate({});
+  const create = Log.useCreate({});
   const handleClick = useCallback(() => create({ key }), [create, key]);
   if (!hasCreatePermission) return null;
   return (
     <Selector.Item
-      key={LAYOUT_TYPE}
+      key={Log.LAYOUT_TYPE}
       title="Log"
       icon={<Icon.Log />}
       onClick={handleClick}
     />
   );
 };
-Selectable.type = LAYOUT_TYPE;
+Selectable.type = Log.LAYOUT_TYPE;
 Selectable.useVisible = () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);

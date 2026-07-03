@@ -14,10 +14,10 @@ import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { type Layout } from "@/platform/layout";
-import { Selector as BaseSelector } from "@/platform/selector";
+import { Selector as Base } from "@/platform/selector";
 import { type Session } from "@/session";
 
-export const SELECTABLES: BaseSelector.Selectable[] = [
+export const SELECTABLES: Base.Selectable[] = [
   ...LinePlot.SELECTABLES,
   ...Schematic.SELECTABLES,
   ...Log.SELECTABLES,
@@ -40,7 +40,7 @@ export const createSelectorLayout = (): Session.Layout.BaseState => ({
 });
 
 export const Selector: Layout.Renderer = (props) => (
-  <BaseSelector.Selector
+  <Base.Selector
     selectables={SELECTABLES}
     text="Select a Visualization Type"
     {...props}

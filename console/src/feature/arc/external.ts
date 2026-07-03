@@ -12,7 +12,7 @@ import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/feature/arc/Explorer";
 import { extract } from "@/feature/arc/export";
 import { ingest } from "@/feature/arc/import";
 import { Selectable } from "@/feature/arc/Selectable";
-import { LAYOUT_TYPE } from "@/platform/arc/layout";
+import { Arc } from "@/platform/arc";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
@@ -26,10 +26,8 @@ export * from "@/feature/arc/link";
 export * from "@/feature/arc/ontology";
 export * from "@/feature/arc/palette";
 export * from "@/feature/arc/toolbar/Toolbar";
-export * from "@/platform/arc/layout";
-export * from "@/platform/arc/useCreateModal";
 
-export const EDITOR_LAYOUT_TYPE = LAYOUT_TYPE;
+export const EDITOR_LAYOUT_TYPE = Arc.LAYOUT_TYPE;
 export type EditorLayoutType = typeof EDITOR_LAYOUT_TYPE;
 
 export const EXTRACTORS: Export.Extractors = { [EDITOR_LAYOUT_TYPE]: extract };
@@ -42,4 +40,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
-export * from "@/platform/arc/useCreate";
+export * from "@/platform/arc/external";

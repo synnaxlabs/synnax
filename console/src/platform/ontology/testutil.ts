@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type Synnax } from "@synnaxlabs/client";
-import { Tree } from "@synnaxlabs/pluto";
+import { type Status, Tree } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
 import { Ontology } from "@/platform/ontology";
@@ -74,6 +74,25 @@ export const createResource = (
   name,
   ...(data != null ? { data } : {}),
 });
+
+/**
+ * Builds a {@link Status.ErrorHandler} that actually runs the wrapped operation, so
+ * handlers like Ontology.HandleSelect (which route their async work through
+ * handleError) execute in tests. Failures are reported to onError with the handler's
+ * context message.
+ */
+export const createExecutingHandleError =
+  (onError: (message: string, exc: unknown) => void = () => {}): Status.ErrorHandler =>
+  (excOrFunc, message = "error") => {
+    if (typeof excOrFunc !== "function") return onError(message, excOrFunc);
+    void (async () => {
+      try {
+        await excOrFunc();
+      } catch (exc) {
+        onError(message, exc);
+      }
+    })();
+  };
 
 export interface CreateSelectionArgs {
   ids: ontology.ID[];

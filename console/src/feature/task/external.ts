@@ -23,8 +23,7 @@ import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { type Palette } from "@/platform/palette";
-import { type Task } from "@/platform/task";
-import { SELECTOR_LAYOUT_TYPE } from "@/platform/task/selectorLayout";
+import { Task } from "@/platform/task";
 
 export * from "@/feature/task/layouts";
 export * from "@/feature/task/link";
@@ -32,11 +31,6 @@ export * from "@/feature/task/ontology";
 export * from "@/feature/task/Selector";
 export * from "@/feature/task/Toolbar";
 export * from "@/feature/task/types";
-export * from "@/platform/task/createIngester";
-export * from "@/platform/task/export";
-export * from "@/platform/task/Form";
-export * from "@/platform/task/registry";
-export * from "@/platform/task/UtilityButtons";
 
 export const REGISTRY: Task.Registry = { createLayout, getIcon, parseType };
 
@@ -78,7 +72,8 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...NI.Task.LAYOUTS,
   ...OPC.Task.LAYOUTS,
   ...PagerDuty.Task.LAYOUTS,
-  [SELECTOR_LAYOUT_TYPE]: Selector,
+  [Task.SELECTOR_LAYOUT_TYPE]: Selector,
 };
 
 export const NAV_DRAWER_ITEMS: Nav.Item[] = [TOOLBAR];
+export * from "@/platform/task/external";

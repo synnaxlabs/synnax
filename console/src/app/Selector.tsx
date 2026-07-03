@@ -13,10 +13,10 @@ import { Vis } from "@/app/vis";
 import { Arc } from "@/feature/arc";
 import { Task } from "@/feature/task";
 import { type Layout } from "@/platform/layout";
-import { Selector as BaseSelector } from "@/platform/selector";
+import { Selector as Base } from "@/platform/selector";
 import { type Session } from "@/session";
 
-const SELECTABLES: BaseSelector.Selectable[] = [
+const SELECTABLES: Base.Selectable[] = [
   ...Vis.SELECTABLES,
   ...Task.SELECTABLES,
   ...Arc.SELECTABLES,
@@ -46,9 +46,5 @@ export const createSelectorLayout = (
 });
 
 export const Selector: Layout.Renderer = (props) => (
-  <BaseSelector.Selector
-    selectables={SELECTABLES}
-    text="Select a Component Type"
-    {...props}
-  />
+  <Base.Selector selectables={SELECTABLES} text="Select a Component Type" {...props} />
 );

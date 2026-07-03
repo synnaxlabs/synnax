@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
-import { Log as PlutoLog } from "@synnaxlabs/pluto";
+import { Log as PLog } from "@synnaxlabs/pluto";
 import { renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
@@ -64,7 +64,7 @@ const wrapperFor = (
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Provider store={store}>
-      <PlutoLog.Scope.Provider value={key}>{children}</PlutoLog.Scope.Provider>
+      <PLog.Scope.Provider value={key}>{children}</PLog.Scope.Provider>
     </Provider>
   );
   Wrapper.displayName = "Wrapper";

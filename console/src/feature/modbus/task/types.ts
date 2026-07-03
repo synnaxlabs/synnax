@@ -221,6 +221,7 @@ const writeStatusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
+  .nullish()
   .optional();
 
 export const WRITE_SCHEMAS = {

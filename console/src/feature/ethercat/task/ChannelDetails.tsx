@@ -33,7 +33,7 @@ const ManualChannelFields: FC<{ path: string }> = ({ path }) => (
         grow
       />
       <PForm.NumericField
-        path={`${path}.subIndex`}
+        path={`${path}.subindex`}
         label="Subindex"
         inputProps={INPUT_PROPS}
         grow

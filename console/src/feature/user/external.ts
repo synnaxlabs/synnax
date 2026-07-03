@@ -10,3 +10,4 @@
 export * from "@/feature/user/ontology";
 export * from "@/feature/user/palette";
 export * from "@/feature/user/Toolbar";
+export * from "@/platform/user/external";

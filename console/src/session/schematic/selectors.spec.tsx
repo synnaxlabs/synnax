@@ -18,7 +18,7 @@ import {
   type Synnax,
   user,
 } from "@synnaxlabs/client";
-import { Schematic as PlutoSchematic } from "@synnaxlabs/pluto";
+import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { color, id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
@@ -158,9 +158,7 @@ const wrapperFor = (
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Provider store={store}>
-      <PlutoSchematic.Scope.Provider value={key}>
-        {children}
-      </PlutoSchematic.Scope.Provider>
+      <PSchematic.Scope.Provider value={key}>{children}</PSchematic.Scope.Provider>
     </Provider>
   );
   Wrapper.displayName = "Wrapper";
@@ -339,7 +337,7 @@ const loadSchematic = async (
   key: string,
 ): Promise<void> => {
   const Bootstrap = (): ReactElement => {
-    PlutoSchematic.useEnsureRetrieved({ key });
+    PSchematic.useEnsureRetrieved({ key });
     return <span>schematic loaded</span>;
   };
   let utils!: ReturnType<typeof render>;
@@ -383,13 +381,16 @@ const setup = async ({
   await loadSchematic(Wrapper, created.key);
   const ScopedWrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Wrapper>
-      <PlutoSchematic.Scope.Provider value={created.key}>
+      <PSchematic.Scope.Provider value={created.key}>
         {children}
-      </PlutoSchematic.Scope.Provider>
+      </PSchematic.Scope.Provider>
     </Wrapper>
   );
   const { result } = renderHook(
-    () => Schematic.useSelectEditable(scoped ? undefined : { key: created.key }),
+    () => ({
+      editable: Schematic.useSelectEditable(scoped ? undefined : { key: created.key }),
+      granted: Access.useUpdateGranted(schematic.ontologyID(created.key)),
+    }),
     { wrapper: scoped ? ScopedWrapper : Wrapper },
   );
   return result;
@@ -405,23 +406,22 @@ describe("useSelectEditable", () => {
   it("permits editing when the user can update and edit mode is on", async () => {
     const result = await setup({ editable: true });
     await waitFor(() => {
-      expect(result.current.canEdit).toBe(true);
-      expect(result.current.isCurrentlyEditable).toBe(true);
+      expect(result.current.editable.canEdit).toBe(true);
+      expect(result.current.editable.isCurrentlyEditable).toBe(true);
     });
   });
 
   it("keeps canEdit but clears isCurrentlyEditable when edit mode is off", async () => {
     const result = await setup({ editable: false });
-    await waitFor(() => expect(result.current.canEdit).toBe(true));
-    expect(result.current.isCurrentlyEditable).toBe(false);
+    await waitFor(() => expect(result.current.editable.canEdit).toBe(true));
+    expect(result.current.editable.isCurrentlyEditable).toBe(false);
   });
 
   it("blocks editing of a snapshot even with permission and edit mode on", async () => {
     const result = await setup({ editable: true, snapshot: true });
-    await waitFor(() => {
-      expect(result.current.canEdit).toBe(false);
-      expect(result.current.isCurrentlyEditable).toBe(false);
-    });
+    await waitFor(() => expect(result.current.granted).toBe(true));
+    expect(result.current.editable.canEdit).toBe(false);
+    expect(result.current.editable.isCurrentlyEditable).toBe(false);
   });
 
   it("blocks editing when the user lacks update permission", async () => {
@@ -432,16 +432,15 @@ describe("useSelectEditable", () => {
     });
     const result = await setup({ editable: true, userClient });
     await waitFor(() => {
-      expect(result.current.canEdit).toBe(false);
-      expect(result.current.isCurrentlyEditable).toBe(false);
+      expect(result.current.editable.canEdit).toBe(false);
+      expect(result.current.editable.isCurrentlyEditable).toBe(false);
     });
   });
 
   it("honors an explicit key override for the snapshot check without a scope", async () => {
     const result = await setup({ editable: true, snapshot: true, scoped: false });
-    await waitFor(() => {
-      expect(result.current.canEdit).toBe(false);
-      expect(result.current.isCurrentlyEditable).toBe(false);
-    });
+    await waitFor(() => expect(result.current.granted).toBe(true));
+    expect(result.current.editable.canEdit).toBe(false);
+    expect(result.current.editable.isCurrentlyEditable).toBe(false);
   });
 });

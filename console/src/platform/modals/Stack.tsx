@@ -10,10 +10,10 @@
 import { type ReactElement } from "react";
 
 import { Modal } from "@/platform/modals/Modal";
-import { useStack } from "@/session/modals/Context";
+import { Session } from "@/session";
 
 export const Stack = (): ReactElement => {
-  const stack = useStack();
+  const stack = Session.Modals.useStack();
   return (
     <>
       {stack.map(({ key, ...rest }) => (

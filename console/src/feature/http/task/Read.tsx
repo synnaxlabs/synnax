@@ -47,10 +47,9 @@ import {
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { KeyValueEditor } from "@/platform/form/KeyValueEditor";
+import { Form as CommonForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-import { ChannelList as BaseChannelList } from "@/platform/task/ChannelList";
 
 export const READ_LAYOUT: Task.Layout = {
   ...Task.LAYOUT,
@@ -259,7 +258,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
 
   return (
     <>
-      <BaseChannelList<ReadField>
+      <Task.ChannelList<ReadField>
         data={data}
         remove={remove}
         onDuplicate={handleDuplicate}
@@ -301,7 +300,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
       {selectedFieldPath != null && (
         <Flex.Box y empty className={CSS.B("enum-mapping")}>
           <Divider.Divider x padded />
-          <KeyValueEditor
+          <CommonForm.KeyValueEditor
             path={selectedFieldPath}
             label="Enum mapping"
             keyField="label"
@@ -427,7 +426,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
         )}
         <TimingToggle path={path} />
         <Divider.Divider x />
-        <KeyValueEditor
+        <CommonForm.KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
           keyField="name"
@@ -436,7 +435,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           className={CSS.B("headers-kv-editor")}
         />
         <Divider.Divider x />
-        <KeyValueEditor
+        <CommonForm.KeyValueEditor
           path={`${path}.queryParams`}
           label="Query parameters"
           keyField="parameter"

@@ -9,14 +9,14 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { LAYOUT } from "@/platform/docs/Docs";
+import { Docs } from "@/platform/docs";
 import { Palette } from "@/platform/palette";
 
 export const ReadCommand = Palette.createSimpleCommand({
   key: "read_the_docs",
   name: "Read the documentation",
   icon: <Icon.QuestionMark />,
-  layout: LAYOUT,
+  layout: Docs.LAYOUT,
 });
 
 export const COMMANDS = [ReadCommand];

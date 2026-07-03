@@ -13,7 +13,7 @@ import { location, type optional, primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
-import { useSelectSelectedKey as useSelectActiveRangeKey } from "@/session/range/selectors";
+import { Session } from "@/session";
 
 export interface ChannelNameProps extends optional.Optional<
   Omit<Text.MaybeEditableProps, "value">,
@@ -37,7 +37,7 @@ export const ChannelName = ({
   const fieldCtx = Form.useField<string>(namePath, { optional: true });
   const onChange = fieldCtx?.onChange;
   const formName = Form.useFieldValue<string>(namePath, { optional: true });
-  const range = useSelectActiveRangeKey();
+  const range = Session.Range.useSelectSelectedKey();
   const { data, retrieve, ...restResult } = Channel.useRetrieveStateful();
   useEffect(() => {
     if (channel === 0) return;

@@ -35,7 +35,6 @@ import { type Channel } from "@/feature/opc/task/types";
 import { CSS } from "@/platform/css";
 import { Device as CommonDevice } from "@/platform/device";
 import { Task } from "@/platform/task";
-import { ChannelName } from "@/platform/task/ChannelName";
 
 export interface ExtraItemProps {
   path: string;
@@ -73,7 +72,7 @@ const ChannelListItem = <C extends Channel>({
         gap="small"
         className={CSS.BE("channel-name", "container")}
       >
-        <ChannelName
+        <Task.ChannelName
           weight={500}
           color={10}
           level="p"

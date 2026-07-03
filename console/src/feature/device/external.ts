@@ -27,3 +27,4 @@ export const COMMANDS: Palette.Command[] = [
 ];
 
 export const NAV_DRAWER_ITEMS: Nav.Item[] = [TOOLBAR];
+export * from "@/platform/device/external";

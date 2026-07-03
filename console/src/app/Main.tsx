@@ -18,10 +18,10 @@ import { Notifications } from "@/app/Notifications";
 import { useTriggers } from "@/app/useTriggers";
 import { Auth } from "@/feature/auth";
 import { Device } from "@/feature/device";
-import { Project as ServiceProject } from "@/feature/project";
+import { Project } from "@/feature/project";
 import { Cluster } from "@/platform/cluster";
 import { Layout } from "@/platform/layout";
-import { Project } from "@/platform/project";
+import { Project as CommonProject } from "@/platform/project";
 import { Range } from "@/platform/range";
 import { Status } from "@/platform/status";
 
@@ -30,7 +30,7 @@ const SideEffect = (): null => {
   Cluster.useSyncClusterKey();
   Device.useListenForChanges();
   Range.useListenForChanges();
-  Project.useCheckCore();
+  CommonProject.useCheckCore();
   Status.useListenForChanges();
   useLinks();
   useTriggers();
@@ -38,10 +38,10 @@ const SideEffect = (): null => {
 };
 
 // ProjectSideEffect holds effects that only make sense with an active project. It is
-// rendered inside Project.Guard, so it mounts only once a project is active - layout
+// rendered inside CommonProject.Guard, so it mounts only once a project is active - layout
 // sync and the file-drop importer never run against the select-or-create screen.
 const ProjectSideEffect = (): null => {
-  ServiceProject.useSyncLayout();
+  Project.useSyncLayout();
   Layout.useDropOutside();
   return null;
 };
@@ -58,7 +58,7 @@ export const Main = (): ReactElement => (
     <Notifications />
     <SideEffect />
     <Auth.Guard>
-      <Project.Guard>
+      <CommonProject.Guard>
         <ProjectSideEffect />
         <Nav.Bar.Top />
         <Flex.Box
@@ -76,7 +76,7 @@ export const Main = (): ReactElement => (
             <Nav.Drawer.Bottom />
           </Flex.Box>
         </Flex.Box>
-      </Project.Guard>
+      </CommonProject.Guard>
     </Auth.Guard>
   </>
 );

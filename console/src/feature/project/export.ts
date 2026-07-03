@@ -9,11 +9,10 @@
 
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { deep, strings } from "@synnaxlabs/x";
 
 import { purgeExcludedLayouts } from "@/feature/project/purgeExcludedLayouts";
 import { Export } from "@/platform/export";
-import { useExtractors } from "@/platform/export/ExtractorsProvider";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
@@ -43,7 +42,9 @@ export const export_ = (
     const toExport: Session.Layout.SliceState =
       targetKey === activeKey
         ? purgeExcludedLayouts(Session.Layout.selectSliceState(storeState))
-        : Session.Layout.migrateLayout(proj.layout);
+        : // Copy before the rename loop below mutates layout names: migrateLayout can
+          // hand back shared defaults (e.g. the main layout constant).
+          deep.copy(Session.Layout.migrateLayout(proj.layout));
     const directory = await Runtime.pickWritableDirectory({
       title: `Select a location to export ${name}`,
       subdirectory: Export.sanitizeFileName(name),
@@ -93,7 +94,7 @@ export const useExport = (): ((key: string | null) => void) => {
   const addStatus = Status.useAdder();
   const store = Session.useStore();
   const confirm = Modals.useConfirm();
-  const extractors = useExtractors();
+  const extractors = Export.useExtractors();
   return (key: string | null) =>
     export_(key, { client, store, confirm, handleError, extractors, addStatus });
 };

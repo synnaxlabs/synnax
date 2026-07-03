@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { arc, createTestClient } from "@synnaxlabs/client";
+import { describe, expect, it, vi } from "vitest";
 
 import { Arc } from "@/feature/arc";
+import { type Layout } from "@/platform/layout";
+import { createGrantedFluxStore, uniqueName } from "@/testutil";
+import { createTestFluxStore } from "@/testutil/Synnax";
 
 const LATEST_VERSION = "3.0.0";
 
@@ -118,6 +122,85 @@ describe("arc import", () => {
       expect(result.mode).toBe("graph");
       expect(result.graph?.configs?.n1).toEqual({ type: "channel.read", channel: 42 });
       expect(result.text?.raw).toBe("x = 1");
+    });
+
+    it("should parse a current typed Arc export through arcZ", () => {
+      const current = arc.arcZ.parse({
+        key: "0f8b2c9e-1234-4f2a-9c3d-abcdefabcdef",
+        name: "Typed Arc",
+        mode: "text",
+        text: { raw: "x = 1" },
+      });
+      const result = Arc.parseImport(current);
+      expect(result.name).toBe("Typed Arc");
+      expect(result.mode).toBe("text");
+      expect(result).not.toHaveProperty("key");
+    });
+
+    it("should prefer the fallback name over a typed export's name", () => {
+      const current = arc.arcZ.parse({
+        key: "0f8b2c9e-1234-4f2a-9c3d-abcdefabcdef",
+        name: "Typed Arc",
+        mode: "graph",
+        graph: { nodes: [], edges: [] },
+      });
+      expect(Arc.parseImport(current, "Renamed").name).toBe("Renamed");
+    });
+
+    it("should reject a latest-version console state with no parked graph", () => {
+      const v3 = {
+        key: "test",
+        version: LATEST_VERSION,
+        graph: {
+          editable: true,
+          fitViewOnResize: false,
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          selected: [],
+        },
+      };
+      expect(() => Arc.parseImport(v3)).toThrow("Imported Arc has no graph data");
+    });
+  });
+
+  describe("ingest", () => {
+    const client = createTestClient();
+
+    it("should create the arc on the cluster and place its editor layout", async () => {
+      const store = await createGrantedFluxStore(
+        client,
+        arc.TYPE_ONTOLOGY_ID,
+        "update",
+      );
+      const placeLayout = vi.fn<Layout.Placer>();
+      const name = uniqueName("imported");
+      const id = await Arc.ingest(
+        v1State({ n1: { key: "channel.read", channel: 1 } }),
+        {
+          layout: { name },
+          placeLayout,
+          store,
+          client,
+          projectKey: "project-1",
+        },
+      );
+      expect(placeLayout).toHaveBeenCalledTimes(1);
+      if (id == null) throw new Error("ingest returned no ontology id");
+      const created = await client.arcs.retrieve({ key: id.key });
+      expect(created.name).toBe(name);
+      expect(store.arcs.get(id.key)?.name).toBe(name);
+    });
+
+    it("should reject the import when the permission cache has no grant", async () => {
+      const store = createTestFluxStore(null);
+      await expect(
+        Arc.ingest(v1State({}), {
+          layout: { name: "denied" },
+          placeLayout: vi.fn<Layout.Placer>(),
+          store,
+          client: null,
+          projectKey: "project-1",
+        }),
+      ).rejects.toThrow("You do not have permission to import Arc automations");
     });
   });
 });

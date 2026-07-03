@@ -34,7 +34,7 @@ import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
-import { useCreateModal } from "@/platform/range/useCreateModal";
+import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -171,7 +171,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
 
 const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const openCreate = useCreateModal();
+  const openCreate = Range.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;

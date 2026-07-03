@@ -31,7 +31,7 @@ import { useCallback, useState } from "react";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
 import { Cluster } from "@/platform/cluster";
-import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { ContextMenu as CommonContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
@@ -41,14 +41,12 @@ import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
 import { Range } from "@/platform/range";
 import { Task as CommonTask } from "@/platform/task";
-import { useExport } from "@/platform/task/export";
-import { SELECTOR_LAYOUT } from "@/platform/task/selectorLayout";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const handleClick = () => placeLayout(SELECTOR_LAYOUT);
+  const handleClick = () => placeLayout(CommonTask.SELECTOR_LAYOUT);
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
@@ -203,7 +201,7 @@ const Content = () => {
             <Toolbar.Actions>
               <Toolbar.Action
                 tooltip="Create task"
-                onClick={() => placeLayout(SELECTOR_LAYOUT)}
+                onClick={() => placeLayout(CommonTask.SELECTOR_LAYOUT)}
               >
                 <Icon.Add />
               </Toolbar.Action>
@@ -370,7 +368,7 @@ const ContextMenu = ({
   const addStatus = Status.useAdder();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
-  const handleExport = useExport();
+  const handleExport = CommonTask.useExport();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
@@ -387,7 +385,7 @@ const ContextMenu = ({
   const showSnapshotToActiveRange =
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
-    <CMenu.Menu>
+    <CommonContextMenu.Menu>
       {hasUpdatePermission && (
         <>
           {canStart && (
@@ -424,7 +422,9 @@ const ContextMenu = ({
           {(canEnableDataSaving || canDisableDataSaving) && <Menu.Divider />}
           {isSingle && (
             <>
-              <CMenu.RenameItem onClick={() => Text.edit(`text-${keys[0]}`)} />
+              <CommonContextMenu.RenameItem
+                onClick={() => Text.edit(`text-${keys[0]}`)}
+              />
               <Menu.Divider />
             </>
           )}
@@ -465,11 +465,11 @@ const ContextMenu = ({
       )}
       {hasDeletePermission && someSelected && (
         <>
-          <CMenu.DeleteItem onClick={() => onDelete(keys)} />
+          <CommonContextMenu.DeleteItem onClick={() => onDelete(keys)} />
           <Menu.Divider />
         </>
       )}
-      <CMenu.ReloadConsoleItem />
-    </CMenu.Menu>
+      <CommonContextMenu.ReloadConsoleItem />
+    </CommonContextMenu.Menu>
   );
 };

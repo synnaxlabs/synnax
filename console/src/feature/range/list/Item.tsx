@@ -24,8 +24,7 @@ import { memo, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 import { Layout } from "@/platform/layout";
-import { FavoriteButton } from "@/platform/range/FavoriteButton";
-import { OVERVIEW_LAYOUT } from "@/platform/range/overview/layout";
+import { Range } from "@/platform/range";
 
 export interface ItemProps extends List.ItemProps<ranger.Key> {
   showParent?: boolean;
@@ -64,7 +63,8 @@ const Base = ({
 
   const { name, parent, labels, timeRange } = item;
 
-  const handleSelect = () => placeLayout({ ...OVERVIEW_LAYOUT, name, key: itemKey });
+  const handleSelect = () =>
+    placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key: itemKey });
 
   return (
     <List.Item
@@ -122,7 +122,7 @@ const Base = ({
           {showTimeRange && (
             <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
           )}
-          {showFavorite && <FavoriteButton range={item} ghost />}
+          {showFavorite && <Range.FavoriteButton range={item} ghost />}
         </Flex.Box>
       </Form.Form>
     </List.Item>

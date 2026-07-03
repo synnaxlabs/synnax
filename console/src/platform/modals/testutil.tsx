@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
+import { type aether } from "@synnaxlabs/pluto/ether";
 import {
   fireEvent,
   render,
@@ -90,6 +91,8 @@ export interface RenderModalOpenerOptions {
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
+  /** Extra aether components merged over the default console test registry. */
+  additionalRegistry?: aether.ComponentRegistry;
 }
 
 export interface ModalOpenerHandle<R> extends RenderResult {
@@ -110,11 +113,12 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   args: Args,
   options: RenderModalOpenerOptions = {},
 ): Promise<ModalOpenerHandle<R>> => {
-  const { client = null, preloadedState, store } = options;
+  const { client = null, preloadedState, store, additionalRegistry } = options;
   const { wrapper, store: resolvedStore } = await createConsoleWrapper({
     client,
     preloadedState,
     store,
+    additionalRegistry,
   });
   const box: { current?: R } = {};
   const Harness = (): ReactElement => {
@@ -144,6 +148,21 @@ export const findButton = (text: string): HTMLButtonElement => {
     .getAllByText(text)
     .map((el) => el.closest<HTMLButtonElement>("button"))
     .find((b) => b != null);
+  if (btn == null) throw new Error(`button with text ${text} not found`);
+  return btn;
+};
+
+/**
+ * Like {@link findButton}, but returns the last matching button in document order. Use
+ * when a modal's button label also appears in UI mounted before the modal (e.g. a
+ * statically rendered context menu item with the same text).
+ */
+export const findLastButton = (text: string): HTMLButtonElement => {
+  const buttons = screen
+    .getAllByText(text)
+    .map((el) => el.closest<HTMLButtonElement>("button"))
+    .filter((b) => b != null);
+  const btn = buttons[buttons.length - 1];
   if (btn == null) throw new Error(`button with text ${text} not found`);
   return btn;
 };

@@ -7,10 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { table as clientTable } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Table } from "@/feature/table";
+import { client, project } from "@/feature/table/testutil";
+import { type Layout } from "@/platform/layout";
+import {
+  assertDefined,
+  createGrantedFluxStore,
+  createTestFluxStore,
+  createTestStore,
+  uniqueName,
+} from "@/testutil";
 
 const populatedV0State = (overrides: Record<string, unknown> = {}) => ({
   key: "11111111-1111-1111-1111-111111111111",
@@ -166,5 +176,57 @@ describe("table import", () => {
       expect(out.columns).toHaveLength(2);
       expect(Object.keys(cellsOf(out))).toEqual(["c1", "c2"]);
     });
+  });
+});
+
+describe("table ingest", () => {
+  it("creates the table on the cluster and places its layout", async () => {
+    const store = await createGrantedFluxStore(
+      client,
+      clientTable.TYPE_ONTOLOGY_ID,
+      "update",
+    );
+    const placeLayout = vi.fn<Layout.Placer>();
+    const name = uniqueName("imported");
+    await Table.ingest(TYPED_EXPORT, {
+      layout: { name },
+      placeLayout,
+      store,
+      client,
+      projectKey: await project(),
+    });
+    expect(placeLayout).toHaveBeenCalledTimes(1);
+    const creator = placeLayout.mock.calls[0][0] as Layout.Creator;
+    const consoleStore = await createTestStore();
+    const layout = creator({
+      dispatch: consoleStore.dispatch,
+      store: consoleStore,
+      windowKey: "main",
+    });
+    expect(layout.name).toBe(name);
+    assertDefined(layout.key);
+    const created = await client.tables.retrieve({ key: layout.key });
+    expect(created.name).toBe(name);
+    expect(created.rows).toHaveLength(1);
+    expect(store.tables.get(layout.key)?.name).toBe(name);
+  });
+
+  it("rejects the import when the permission cache has no grant", async () => {
+    const store = createTestFluxStore(null);
+    await expect(
+      Table.ingest(TYPED_EXPORT, {
+        layout: { name: "denied" },
+        placeLayout: vi.fn<Layout.Placer>(),
+        store,
+        client: null,
+        projectKey: "project-1",
+      }),
+    ).rejects.toThrow("You do not have permission to import tables");
+  });
+
+  it("throws when a legacy state carries no structural data", () => {
+    expect(() => Table.parseImport(V1_ZERO, undefined)).toThrow(
+      "Imported table has no structural data",
+    );
   });
 });

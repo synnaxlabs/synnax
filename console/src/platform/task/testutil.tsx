@@ -8,18 +8,32 @@
 // included in the file licenses/APL.txt.
 
 import { type framer, type Synnax as Client, task } from "@synnaxlabs/client";
-import { Form as PForm } from "@synnaxlabs/pluto";
+import { Drift } from "@synnaxlabs/drift";
+import { Form as PForm, type Status } from "@synnaxlabs/pluto";
 import { id, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, type RenderResult } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import {
+  fireEvent,
+  render,
+  type RenderResult,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { act, type PropsWithChildren, type ReactElement } from "react";
 import { type z } from "zod";
 
+import { type Layout } from "@/platform/layout";
+import { type FormLayoutArgs } from "@/platform/task/Form";
+import { Session } from "@/session";
 import {
+  CaptureStatuses,
   createConsoleWrapper,
+  createTestStore,
   renderHookWithConsole,
   renderWithConsole,
   type RenderWithConsoleOptions,
   type TestStore,
+  uniqueName,
 } from "@/testutil";
 
 export type TaskFormValues = Record<string, unknown>;
@@ -146,6 +160,120 @@ export const renderInTaskFormWithClient = async (
     { wrapper, ...rest },
   );
   return { ...result, store: resolvedStore, form: formRef };
+};
+
+export interface RenderTaskFormLayoutOptions {
+  /** Client backing the console wrapper; null (default) for cluster-free specs. */
+  client?: Client | null;
+  /** Layout args the wrapped form reads (deviceKey, taskKey, rackKey, config). */
+  args?: FormLayoutArgs;
+  /**
+   * When provided, a CaptureStatuses probe is mounted alongside the renderer and this
+   * callback receives the notification list on every change.
+   */
+  onStatuses?: (statuses: Status.NotificationSpec[]) => void;
+}
+
+export interface RenderTaskFormLayoutResult extends RenderResult {
+  store: TestStore;
+  layoutKey: string;
+}
+
+/**
+ * Renders a Task.wrapForm renderer the way the layout mosaic does: places a layout of
+ * the given type carrying `args` into a real console store, then mounts the renderer
+ * against it inside the full console provider stack.
+ */
+export const renderTaskFormLayout = async (
+  Renderer: Layout.Renderer,
+  type: string,
+  options: RenderTaskFormLayoutOptions = {},
+): Promise<RenderTaskFormLayoutResult> => {
+  const { client = null, args = {}, onStatuses } = options;
+  const layoutKey = uniqueName("layout");
+  const store = await createTestStore();
+  act(() => {
+    store.dispatch(
+      Session.Layout.place({
+        key: layoutKey,
+        type,
+        name: layoutKey,
+        location: "mosaic",
+        windowKey: Drift.MAIN_WINDOW,
+        window: { title: layoutKey },
+        args,
+      }),
+    );
+  });
+  const { wrapper } = await createConsoleWrapper({ client, store });
+  const result = render(
+    <>
+      <Renderer layoutKey={layoutKey} visible focused={false} onClose={() => {}} />
+      {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
+    </>,
+    { wrapper },
+  );
+  return { ...result, store, layoutKey };
+};
+
+/**
+ * Waits for the task form's Configure button to leave its loading/disabled state, then
+ * clicks it. Pluto buttons swallow clicks while disabled, so clicking without the wait
+ * races the form's initial query.
+ */
+export const clickConfigure = async (): Promise<void> => {
+  const button = await waitFor(() => {
+    const b = screen.getByRole("button", { name: /Configure/ });
+    if (b.classList.contains("pluto--disabled"))
+      throw new Error("configure button is disabled");
+    return b;
+  });
+  fireEvent.click(button);
+};
+
+/**
+ * Polls the layout args until the save flow writes the created task's key back onto
+ * the layout, then returns it.
+ */
+export const awaitTaskKey = async (
+  store: TestStore,
+  layoutKey: string,
+): Promise<task.Key> =>
+  await waitFor(() => {
+    const args = Session.Layout.selectArgs<FormLayoutArgs>(store.getState(), layoutKey);
+    if (args?.taskKey == null) throw new Error("task key not set on layout args");
+    return args.taskKey;
+  });
+
+/**
+ * Finds the dialog trigger of the mounted select whose current value renders as text.
+ * Select triggers expose no accessible name, so this matches on the shown value.
+ */
+export const findDialogTriggerByText = async (text: string): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const triggers = Array.from(
+      document.querySelectorAll<HTMLElement>(".pluto-dialog__trigger"),
+    );
+    const match = triggers.find((t) => t.textContent?.includes(text));
+    if (match == null) throw new Error(`dialog trigger showing "${text}" not found`);
+    return match;
+  });
+
+/**
+ * Opens the dialog select whose trigger currently shows triggerText and clicks the
+ * option showing optionText. Options are queried inside the open dialog, since the
+ * option's text may also appear on other closed triggers in the form.
+ */
+export const selectFromDropdown = async (
+  triggerText: string,
+  optionText: string,
+): Promise<void> => {
+  fireEvent.click(await findDialogTriggerByText(triggerText));
+  const option = await waitFor(() => {
+    const dialogs = screen.getAllByRole("dialog");
+    return within(dialogs[dialogs.length - 1]).getByText(optionText);
+  });
+  fireEvent.click(option);
 };
 
 /**

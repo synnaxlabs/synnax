@@ -253,8 +253,13 @@ const { wrapper, store } = await createConsoleWrapper({ client });
 If you cannot name a concrete production regression a test would catch, the test is
 vanity and gets deleted. The recurring vanity classes, all found in real audits:
 
-- **Render-only** ("shows the header text"). Behavior tests prove mounting implicitly;
-  at most one non-redundant smoke per component.
+- **Render-only** ("shows the header text", "the tree mounts"). Banned outright — there
+  is no one-smoke-per-component allowance. Behavior tests prove mounting implicitly. A
+  component's first spec already drives its real functionality end to end: real data
+  appearing in it (live-cluster round-trip), actions reaching the store/server, state
+  read back through public selectors. A spec whose title claims wiring ("rooted at the
+  devices group") must assert that wiring (a real device appears in the tree), not that
+  a container element exists. If a component has no drivable behavior, it gets no spec.
 - **Vacuous guard**: "renders nothing when X" where the render is empty for a
   *different* reason in the test environment. The classic: `Access.use*Granted` returns
   `false` on its first render while the retrieval is in flight, so a synchronous absence

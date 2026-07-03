@@ -8,10 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type EnhancedStore } from "@reduxjs/toolkit";
-import { type Synnax as Client, type SynnaxParams } from "@synnaxlabs/client";
+import {
+  type access,
+  type ontology,
+  type Synnax as Client,
+  type SynnaxParams,
+} from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Status, Synnax } from "@synnaxlabs/pluto";
-import { eraser } from "@synnaxlabs/pluto/ether";
+import { Access, Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
+import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id } from "@synnaxlabs/x";
 import {
   render,
@@ -199,12 +204,15 @@ export interface CreateConsoleWrapperArgs {
   client: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
+  /** Extra aether components merged over the default (eraser) test registry. */
+  additionalRegistry?: aether.ComponentRegistry;
 }
 
 export const createConsoleWrapper = async ({
   client,
   preloadedState,
   store,
+  additionalRegistry,
 }: CreateConsoleWrapperArgs): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
@@ -212,12 +220,36 @@ export const createConsoleWrapper = async ({
   const resolvedStore = store ?? (await createTestStore({ preloadedState }));
   const SynnaxWrapper = await createAsyncSynnaxWrapper({
     client,
-    additionalRegistry: ADDITIONAL_REGISTRY,
+    additionalRegistry: { ...ADDITIONAL_REGISTRY, ...additionalRegistry },
   });
   return {
     wrapper: composeConsole(SynnaxWrapper, resolvedStore),
     store: resolvedStore,
   };
+};
+
+/**
+ * Builds a flux store whose permission cache has resolved a grant for `action` on `id`
+ * against the given client, so synchronous Access checks (createGranted,
+ * updateGranted) used by file ingesters pass exactly as they do in a running app.
+ */
+export const createGrantedFluxStore = async (
+  client: Client,
+  id: ontology.ID,
+  action: access.Action = "create",
+): Promise<Pluto.FluxStore> => {
+  const { wrapper } = await createConsoleWrapper({ client });
+  const { result } = renderHook(
+    () => ({
+      store: Flux.useStore<Pluto.FluxStore>(),
+      granted: Access.useGranted({ objects: id, action }),
+    }),
+    { wrapper },
+  );
+  await waitFor(() => {
+    if (!result.current.granted) throw new Error(`${action} grant did not resolve`);
+  });
+  return result.current.store;
 };
 
 export interface CreateConnectedConsoleWrapperArgs extends CreateConsoleWrapperArgs {

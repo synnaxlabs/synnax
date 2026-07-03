@@ -15,22 +15,23 @@ import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
-import { Table as Platform } from "@/platform/table";
+import { Table as CommonTable } from "@/platform/table";
 
 export * from "@/feature/table/import";
 export * from "@/feature/table/link";
 export * from "@/feature/table/ontology";
 export * from "@/feature/table/palette";
 export * from "@/feature/table/Toolbar";
-export * from "@/platform/table/layout";
 
-export const EXTRACTORS: Export.Extractors = { [Platform.LAYOUT_TYPE]: extract };
+export const EXTRACTORS: Export.Extractors = { [CommonTable.LAYOUT_TYPE]: extract };
 
-export const FILE_INGESTERS: Import.FileIngesters = { [Platform.LAYOUT_TYPE]: ingest };
+export const FILE_INGESTERS: Import.FileIngesters = {
+  [CommonTable.LAYOUT_TYPE]: ingest,
+};
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [Platform.LAYOUT_TYPE]: Table,
+  [CommonTable.LAYOUT_TYPE]: Table,
 };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
-export * from "@/platform/table/useCreate";
+export * from "@/platform/table/external";

@@ -9,7 +9,7 @@
 
 import { Icon, Menu } from "@synnaxlabs/pluto";
 
-import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { ContextMenu as Base } from "@/platform/context-menu";
 import { Task } from "@/platform/task";
 
 export interface ContextMenuProps {
@@ -30,21 +30,21 @@ export const ContextMenu = ({
   const canDuplicate = onDuplicate != null;
   const canRename = onRename != null && keys.length === 1;
   return (
-    <CMenu.Menu>
+    <Base.Menu>
       {!isSnapshot && canAct && (
         <>
-          {canRename && <CMenu.RenameItem onClick={() => onRename(keys[0])} />}
+          {canRename && <Base.RenameItem onClick={() => onRename(keys[0])} />}
           {canDuplicate && (
             <Menu.Item itemKey="duplicate" onClick={() => onDuplicate?.(keys)}>
               <Icon.Copy />
               Duplicate
             </Menu.Item>
           )}
-          <CMenu.DeleteItem onClick={() => onDelete(keys)} />
+          <Base.DeleteItem onClick={() => onDelete(keys)} />
           <Menu.Divider />
         </>
       )}
-      <CMenu.ReloadConsoleItem />
-    </CMenu.Menu>
+      <Base.ReloadConsoleItem />
+    </Base.Menu>
   );
 };

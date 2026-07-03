@@ -10,7 +10,7 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/platform/export";
-import { LAYOUT_TYPE } from "@/platform/table/layout";
+import { Table } from "@/platform/table";
 import { Session } from "@/session";
 
 export const VERSION = "1.0.0";
@@ -20,7 +20,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   if (client == null) throw new DisconnectedError();
   const t = await client.tables.retrieve({ key });
   return {
-    data: JSON.stringify({ ...t, type: LAYOUT_TYPE, version: VERSION }),
+    data: JSON.stringify({ ...t, type: Table.LAYOUT_TYPE, version: VERSION }),
     name: name ?? t.name,
   };
 };

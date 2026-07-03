@@ -47,7 +47,7 @@ import {
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { type Device as CommonDevice } from "@/platform/device";
-import { KeyValueEditor } from "@/platform/form/KeyValueEditor";
+import { Form as CommonForm } from "@/platform/form";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
@@ -340,14 +340,14 @@ export const useConnectModal = Modals.create<CommonDevice.ConnectParams>(
                     inputProps={HEALTH_BODY_INPUT_PROPS}
                   />
                 )}
-                <KeyValueEditor
+                <CommonForm.KeyValueEditor
                   path="properties.healthCheck.headers"
                   label="Headers"
                   keyField="name"
                   keyPlaceholder="Name"
                   valuePlaceholder="Value"
                 />
-                <KeyValueEditor
+                <CommonForm.KeyValueEditor
                   path="properties.healthCheck.queryParams"
                   label="Query parameters"
                   keyField="parameter"

@@ -12,7 +12,7 @@ import { Access, Diagram } from "@synnaxlabs/pluto";
 import { dimensions, migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { create } from "@/platform/arc/layout";
+import { Arc } from "@/platform/arc";
 import { type Import } from "@/platform/import";
 
 const STATE_MIGRATION_NAME = "arc.state";
@@ -310,6 +310,6 @@ export const ingest: Import.FileIngester = async (
   const newPayload = parseImport(data, layout?.name);
   const created = await client.arcs.create(newPayload);
   store.arcs.set(created.key, created);
-  placeLayout(create({ ...layout, key: created.key, name: created.name }));
+  placeLayout(Arc.create({ ...layout, key: created.key, name: created.name }));
   return arc.ontologyID(created.key);
 };

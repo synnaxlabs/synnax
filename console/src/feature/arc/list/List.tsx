@@ -21,7 +21,6 @@ import { useCallback, useState } from "react";
 
 import { Item, type ItemProps } from "@/feature/arc/list/Item";
 import { Arc } from "@/platform/arc";
-import { ContextMenu } from "@/platform/arc/ContextMenu";
 
 export interface ListProps
   extends
@@ -48,7 +47,9 @@ export const List = ({
   const { update: handleRename } = Arc.useRename(getItem);
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <ContextMenu {...props} getItem={getItem} textIdPrefix={textIdPrefix} />,
+    (props) => (
+      <Arc.ContextMenu {...props} getItem={getItem} textIdPrefix={textIdPrefix} />
+    ),
     [getItem, textIdPrefix],
   );
 

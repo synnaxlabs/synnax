@@ -24,7 +24,7 @@ import { type FC } from "react";
 
 import { CSS } from "@/platform/css";
 import { Layout } from "@/platform/layout";
-import { Ontology as ServiceOntology } from "@/platform/ontology";
+import { Ontology as CommonOntology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
@@ -34,7 +34,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const promptConfirm = ServiceOntology.useConfirmDelete({ type: "Snapshot" });
+  const promptConfirm = CommonOntology.useConfirmDelete({ type: "Snapshot" });
   if (entry == null) return null;
   const { id, name } = entry;
   const svc = services[id.type];

@@ -14,7 +14,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { Items } from "@/app/nav/items";
 import { CSS } from "@/platform/css";
-import { Nav as ComponentNav } from "@/platform/nav";
+import { Nav as CommonNav } from "@/platform/nav";
 import { Window } from "@/platform/window";
 import { Session } from "@/session";
 
@@ -48,7 +48,7 @@ export const AuxTop = (): ReactElement => {
     { beforeRetrieve: ({ query: { key } }) => primitive.isNonZero(key) },
   );
   return (
-    <ComponentNav.Bar
+    <CommonNav.Bar
       location="top"
       size="6rem"
       data-tauri-drag-region
@@ -79,6 +79,6 @@ export const AuxTop = (): ReactElement => {
         <Window.Controls visibleIfOS="Windows" forceOS={os} />
         {os === "macOS" && <BottomToggleButton />}
       </Nav.Bar.End>
-    </ComponentNav.Bar>
+    </CommonNav.Bar>
   );
 };

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type device } from "@synnaxlabs/client";
-import { type Device, Flux } from "@synnaxlabs/pluto";
+import { createTestClient } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
+import { createSlaveDevice as createSlave } from "@/feature/ethercat/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -22,27 +22,7 @@ const client = createTestClient();
 const createSlaveDevice = async (
   rackKey: number,
   properties: Partial<EtherCAT.Device.SlaveProperties> = {},
-): Promise<
-  device.Device<
-    typeof EtherCAT.Device.slavePropertiesZ,
-    typeof EtherCAT.Device.makeZ,
-    typeof EtherCAT.Device.modelZ
-  >
-> => {
-  const key = id.create();
-  return await client.devices.create(
-    {
-      key,
-      name: properties.name ?? `EtherCAT Slave ${key}`,
-      rack: rackKey,
-      location: "test-location",
-      make: EtherCAT.Device.MAKE,
-      model: EtherCAT.Device.SLAVE_MODEL,
-      properties: { ...EtherCAT.Device.ZERO_SLAVE_PROPERTIES, ...properties },
-    },
-    EtherCAT.Device.SLAVE_SCHEMAS,
-  );
-};
+) => await createSlave(client, rackKey, properties);
 
 describe("EtherCAT Device queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
@@ -185,12 +165,13 @@ describe("EtherCAT Device queries", () => {
         result.current.retrieve({ key: dev.key });
       });
 
-      await waitFor(() => expect(onChange).toHaveBeenCalled());
-      expect(onChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ key: dev.key }),
-        }),
-        expect.objectContaining({ key: dev.key }),
+      await waitFor(() =>
+        expect(onChange).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ key: dev.key }),
+          }),
+          expect.objectContaining({ key: dev.key }),
+        ),
       );
     });
 
@@ -332,16 +313,12 @@ describe("EtherCAT Device queries", () => {
         enabled: true,
       });
 
-      const { result } = renderHook(
-        () => ({
-          toggle: EtherCAT.Device.useToggleEnabled(),
-          store: Flux.useStore<Device.FluxSubStore>(),
-        }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => EtherCAT.Device.useToggleEnabled(), {
+        wrapper,
+      });
 
       await act(async () => {
-        await result.current.toggle.updateAsync({ keys: dev.key });
+        await result.current.updateAsync({ keys: dev.key });
       });
 
       const updated = await client.devices.retrieve({
@@ -358,16 +335,12 @@ describe("EtherCAT Device queries", () => {
         enabled: false,
       });
 
-      const { result } = renderHook(
-        () => ({
-          toggle: EtherCAT.Device.useToggleEnabled(),
-          store: Flux.useStore<Device.FluxSubStore>(),
-        }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => EtherCAT.Device.useToggleEnabled(), {
+        wrapper,
+      });
 
       await act(async () => {
-        await result.current.toggle.updateAsync({ keys: dev.key });
+        await result.current.updateAsync({ keys: dev.key });
       });
 
       const updated = await client.devices.retrieve({
@@ -375,32 +348,6 @@ describe("EtherCAT Device queries", () => {
         schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated.properties.enabled).toBe(true);
-    });
-
-    it("should set explicit enabled value when provided", async () => {
-      const dev = await createSlaveDevice(rack.key, {
-        name: "Explicit Enable Device",
-        network: "eth0",
-        enabled: true,
-      });
-
-      const { result } = renderHook(
-        () => ({
-          toggle: EtherCAT.Device.useToggleEnabled(),
-          store: Flux.useStore<Device.FluxSubStore>(),
-        }),
-        { wrapper },
-      );
-
-      await act(async () => {
-        await result.current.toggle.updateAsync({ keys: dev.key, enabled: false });
-      });
-
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
-      });
-      expect(updated.properties.enabled).toBe(false);
     });
 
     it("should toggle multiple devices at once", async () => {
@@ -415,16 +362,12 @@ describe("EtherCAT Device queries", () => {
         enabled: true,
       });
 
-      const { result } = renderHook(
-        () => ({
-          toggle: EtherCAT.Device.useToggleEnabled(),
-          store: Flux.useStore<Device.FluxSubStore>(),
-        }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => EtherCAT.Device.useToggleEnabled(), {
+        wrapper,
+      });
 
       await act(async () => {
-        await result.current.toggle.updateAsync({ keys: [dev1.key, dev2.key] });
+        await result.current.updateAsync({ keys: [dev1.key, dev2.key] });
       });
 
       const updated1 = await client.devices.retrieve({
@@ -451,16 +394,12 @@ describe("EtherCAT Device queries", () => {
         enabled: false,
       });
 
-      const { result } = renderHook(
-        () => ({
-          toggle: EtherCAT.Device.useToggleEnabled(),
-          store: Flux.useStore<Device.FluxSubStore>(),
-        }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => EtherCAT.Device.useToggleEnabled(), {
+        wrapper,
+      });
 
       await act(async () => {
-        await result.current.toggle.updateAsync({
+        await result.current.updateAsync({
           keys: [dev1.key, dev2.key],
           enabled: true,
         });

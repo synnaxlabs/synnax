@@ -11,14 +11,14 @@ import { useCallback } from "react";
 
 import { Layout } from "@/platform/layout";
 import { type Link } from "@/platform/link";
-import { create } from "@/platform/log/layout";
+import { Log } from "@/platform/log";
 
 export const useLink = (): Link.Handler => {
   const placeLayout = Layout.usePlacer();
   return useCallback(
     async ({ client, key }) => {
       const { name } = await client.logs.retrieve({ key });
-      placeLayout(create({ key, name }));
+      placeLayout(Log.create({ key, name }));
     },
     [placeLayout],
   );

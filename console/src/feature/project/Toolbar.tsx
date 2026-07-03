@@ -14,11 +14,11 @@ import { type ReactElement } from "react";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { Ontology } from "@/platform/ontology";
-import { Project as CProject } from "@/platform/project";
+import { Project as CommonProject } from "@/platform/project";
 import { Toolbar } from "@/platform/toolbar";
 
 const Actions = (): ReactElement | null => {
-  const openCreate = CProject.useCreateModal();
+  const openCreate = CommonProject.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
@@ -44,7 +44,7 @@ const Content = (): ReactElement => {
 };
 
 const EmptyContent = () => {
-  const openCreate = CProject.useCreateModal();
+  const openCreate = CommonProject.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const handleClick = () => openCreate();
   return (

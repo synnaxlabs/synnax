@@ -7,10 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot } from "@synnaxlabs/client";
-import { describe, expect, it } from "vitest";
+import { lineplot as clientLineplot, type lineplot } from "@synnaxlabs/client";
+import { box, dimensions, xy } from "@synnaxlabs/x";
+import { describe, expect, it, vi } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
+import { client, project } from "@/feature/lineplot/testutil";
+import { type Layout } from "@/platform/layout";
+import {
+  assertDefined,
+  createGrantedFluxStore,
+  createTestFluxStore,
+  createTestStore,
+  uniqueName,
+} from "@/testutil";
 
 const zeroAxis = (key: string) => ({
   key,
@@ -271,11 +281,6 @@ describe("lineplot import", () => {
       expect(out.channels?.y1).toEqual([65538]);
     });
 
-    it("should not silently drop the body by parsing a legacy file as a typed one", () => {
-      const out = LinePlot.parseImport(LEGACY, undefined);
-      expect(out.lines).not.toHaveLength(0);
-    });
-
     it("should import a typed line plot export directly, preserving structure", () => {
       const out = LinePlot.parseImport(TYPED_EXPORT, undefined);
       expect(out.lines).toHaveLength(1);
@@ -292,5 +297,71 @@ describe("lineplot import", () => {
       const out = LinePlot.parseImport(TYPED_EXPORT, undefined);
       expect(out.key).toBeUndefined();
     });
+  });
+});
+
+describe("lineplot ingest", () => {
+  it("creates the plot on the cluster and places its layout", async () => {
+    const store = await createGrantedFluxStore(
+      client,
+      clientLineplot.TYPE_ONTOLOGY_ID,
+      "update",
+    );
+    const placeLayout = vi.fn<Layout.Placer>();
+    const name = uniqueName("imported");
+    await LinePlot.ingest(TYPED_EXPORT, {
+      layout: { name },
+      placeLayout,
+      store,
+      client,
+      projectKey: await project(),
+    });
+    expect(placeLayout).toHaveBeenCalledTimes(1);
+    const creator = placeLayout.mock.calls[0][0] as Layout.Creator;
+    const consoleStore = await createTestStore();
+    const layout = creator({
+      dispatch: consoleStore.dispatch,
+      store: consoleStore,
+      windowKey: "main",
+    });
+    expect(layout.name).toBe(name);
+    assertDefined(layout.key);
+    const created = await client.lineplots.retrieve({ key: layout.key });
+    expect(created.name).toBe(name);
+    expect(created.channels.y1).toEqual([65538]);
+    expect(store.lineplots.get(layout.key)?.name).toBe(name);
+  });
+
+  it("rejects the import when the permission cache has no grant", async () => {
+    const store = createTestFluxStore(null);
+    await expect(
+      LinePlot.ingest(TYPED_EXPORT, {
+        layout: { name: "denied" },
+        placeLayout: vi.fn<Layout.Placer>(),
+        store,
+        client: null,
+        projectKey: "project-1",
+      }),
+    ).rejects.toThrow("You do not have permission to import line plots");
+  });
+
+  it("throws when a legacy state carries no body data", () => {
+    const v5NoBody = {
+      version: "5.0.0",
+      key: "88aee41e-53b7-4a76-9df9-aceccc220089",
+      remoteCreated: true,
+      viewport: { renderTrigger: 0, zoom: dimensions.DECIMAL, pan: xy.ZERO },
+      selection: { box: box.ZERO },
+      mode: "zoom",
+      control: { hold: false, clickMode: null, enableTooltip: true },
+      toolbar: { activeTab: "data" },
+      measure: { mode: "one" },
+      annotations: { visible: true },
+      selectedRules: [],
+      hiddenLines: [],
+    };
+    expect(() => LinePlot.parseImport(v5NoBody, undefined)).toThrow(
+      "Imported line plot has no body data",
+    );
   });
 });

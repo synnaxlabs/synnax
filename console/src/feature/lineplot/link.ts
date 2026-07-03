@@ -10,7 +10,7 @@
 import { useCallback } from "react";
 
 import { Layout } from "@/platform/layout";
-import { create } from "@/platform/lineplot/layout";
+import { LinePlot } from "@/platform/lineplot";
 import { type Link } from "@/platform/link";
 
 export const useLink = (): Link.Handler => {
@@ -18,7 +18,7 @@ export const useLink = (): Link.Handler => {
   return useCallback(
     async ({ client, key }) => {
       const linePlot = await client.lineplots.retrieve({ key });
-      placeLayout(create({ key: linePlot.key, name: linePlot.name }));
+      placeLayout(LinePlot.create({ key: linePlot.key, name: linePlot.name }));
     },
     [placeLayout],
   );

@@ -10,7 +10,7 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/platform/export";
-import { LAYOUT_TYPE } from "@/platform/lineplot/layout";
+import { LinePlot } from "@/platform/lineplot";
 import { Session } from "@/session";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
@@ -18,7 +18,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   if (client == null) throw new DisconnectedError();
   const lp = await client.lineplots.retrieve({ key });
   return {
-    data: JSON.stringify({ ...lp, type: LAYOUT_TYPE }),
+    data: JSON.stringify({ ...lp, type: LinePlot.LAYOUT_TYPE }),
     name: name ?? lp.name,
   };
 };

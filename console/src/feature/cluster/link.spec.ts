@@ -13,11 +13,13 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
+import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Cluster } from "@/feature/cluster";
 import { Session } from "@/session";
 import { type State } from "@/session/store";
+import { createConnectedConsoleWrapper } from "@/testutil";
 
 const client = (): Client => createTestClient();
 
@@ -167,5 +169,44 @@ describe("connectToCluster", () => {
         poll: instantPoll(3),
       }),
     ).rejects.toThrow("Timed out connecting to cluster a");
+  });
+});
+
+describe("useLink", () => {
+  it("should resolve the active cluster's managed client", async () => {
+    const c = createTestClient();
+    const { clusterKey } = await c.connectivity.check();
+    const { wrapper } = await createConnectedConsoleWrapper({
+      client: null,
+      connParams: {
+        host: "localhost",
+        port: 9090,
+        username: "synnax",
+        password: "seldon",
+        secure: false,
+      },
+      preloadedState: {
+        [Session.Cluster.SLICE_NAME]: {
+          ...Session.Cluster.ZERO_SLICE_STATE,
+          selected: clusterKey,
+          clusters: {
+            [clusterKey]: {
+              key: clusterKey,
+              name: "Local",
+              host: "localhost",
+              port: 9090,
+              username: "synnax",
+              password: "seldon",
+              secure: false,
+            },
+          },
+        },
+      },
+    });
+    const { result } = renderHook(() => Cluster.useLink(), { wrapper });
+    await waitFor(async () => {
+      const resolved = await result.current(clusterKey);
+      expect(resolved).not.toBeNull();
+    });
   });
 });

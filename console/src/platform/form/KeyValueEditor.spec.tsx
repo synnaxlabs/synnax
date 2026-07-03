@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Form as PForm } from "@synnaxlabs/pluto";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
 import { type z } from "zod";
 
-import { KeyValueEditor } from "@/platform/form";
-import { getBySelector, renderWithConsole } from "@/testutil";
+import { Form } from "@/platform/form";
+import { getKVRows } from "@/platform/form/testutil";
+import { getIconButton, renderWithConsole } from "@/testutil";
 
 const PATH = "headers";
 
@@ -42,7 +43,7 @@ const Harness = ({
   });
   return (
     <PForm.Form {...methods}>
-      <KeyValueEditor
+      <Form.KeyValueEditor
         path={PATH}
         label="Headers"
         keyField={keyField}
@@ -54,12 +55,8 @@ const Harness = ({
 };
 Harness.displayName = "KeyValueEditorHarness";
 
-const lastHeaders = (onChange: OnChange): Row[] | undefined =>
-  (
-    (onChange as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0] as {
-      values: { [PATH]?: Row[] };
-    }
-  ).values[PATH];
+const lastHeaders = (onChange: Mock): Row[] | undefined =>
+  (onChange.mock.calls.at(-1)?.[0] as { values: { [PATH]?: Row[] } }).values[PATH];
 
 describe("KeyValueEditor", () => {
   it("should append an empty row when the add button is clicked", async () => {
@@ -117,9 +114,9 @@ describe("KeyValueEditor", () => {
       />,
     );
     await screen.findByDisplayValue("B");
-    const rows = container.querySelectorAll(".console-kv-row");
+    const rows = getKVRows(container);
     expect(rows).toHaveLength(3);
-    fireEvent.click(getBySelector(rows[1], "button"));
+    fireEvent.click(getIconButton(rows[1], "close"));
     await waitFor(() =>
       expect(lastHeaders(onChange)).toEqual([
         { name: "A", value: "1" },
@@ -141,10 +138,8 @@ describe("KeyValueEditor", () => {
       />,
     );
     await screen.findByDisplayValue("second");
-    const rows = container.querySelectorAll(".console-kv-row");
-    const secondValueInput = rows[1].querySelector(
-      "input[placeholder='Value']",
-    ) as HTMLInputElement;
+    const rows = getKVRows(container);
+    const secondValueInput = within(rows[1]).getByPlaceholderText("Value");
     fireEvent.change(secondValueInput, { target: { value: "changed" } });
     await waitFor(() =>
       expect(lastHeaders(onChange)).toEqual([
@@ -160,8 +155,8 @@ describe("KeyValueEditor", () => {
       <Harness onChange={onChange} initialHeaders={[{ name: "X", value: "Y" }]} />,
     );
     await screen.findByPlaceholderText("Key");
-    const buttons = container.querySelectorAll("button");
-    fireEvent.click(buttons[buttons.length - 1]);
+    const [row] = getKVRows(container);
+    fireEvent.click(getIconButton(row, "close"));
     await waitFor(() => expect(screen.queryByPlaceholderText("Key")).toBeNull());
     expect(lastHeaders(onChange)).toEqual([]);
   });
@@ -177,13 +172,13 @@ describe("KeyValueEditor", () => {
   });
 
   it("should render the value input before the key input when valueFirst is set", async () => {
-    const { container } = await renderWithConsole(
+    await renderWithConsole(
       <Harness initialHeaders={[{ name: "", value: "" }]} valueFirst />,
     );
     await screen.findByPlaceholderText("Key");
-    const inputs = Array.from(container.querySelectorAll<HTMLInputElement>("input"));
-    expect(inputs[0].placeholder).toBe("Value");
-    expect(inputs[1].placeholder).toBe("Key");
+    const inputs = screen.getAllByRole("textbox");
+    expect(inputs[0].getAttribute("placeholder")).toBe("Value");
+    expect(inputs[1].getAttribute("placeholder")).toBe("Key");
   });
 
   it("should reset a non-array (legacy) value to an empty array on mount", async () => {

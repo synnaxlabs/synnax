@@ -13,7 +13,7 @@ import { migrate, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Import } from "@/platform/import";
-import { create, LAYOUT_TYPE } from "@/platform/table/layout";
+import { Table } from "@/platform/table";
 
 const STATE_MIGRATION_NAME = "table.state";
 
@@ -158,7 +158,12 @@ export const ingest: Import.FileIngester = async (
   const created = await client.tables.create(projectKey, newPayload);
   store.tables.set(created.key, created);
   placeLayout(
-    create({ ...layout, key: created.key, name: created.name, type: LAYOUT_TYPE }),
+    Table.create({
+      ...layout,
+      key: created.key,
+      name: created.name,
+      type: Table.LAYOUT_TYPE,
+    }),
   );
   return table.ontologyID(created.key);
 };

@@ -12,13 +12,13 @@ import { Access, Icon, Status } from "@synnaxlabs/pluto";
 
 import { EXPLORER_LAYOUT } from "@/feature/status/Explorer";
 import { Palette } from "@/platform/palette";
-import { Status as CStatus } from "@/platform/status";
+import { Status as CommonStatus } from "@/platform/status";
 
 const CreateCommand = Palette.createCommand({
   key: "create_status",
   name: "Create a status",
   icon: <Status.CreateIcon />,
-  useOnSelect: CStatus.useCreateModal,
+  useOnSelect: CommonStatus.useCreateModal,
   useVisible: () => Access.useCreateGranted(status.TYPE_ONTOLOGY_ID),
 });
 

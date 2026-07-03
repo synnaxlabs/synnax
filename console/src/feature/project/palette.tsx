@@ -13,7 +13,7 @@ import { useCallback } from "react";
 
 import { useExport } from "@/feature/project/export";
 import { import_ } from "@/feature/project/import";
-import { useFileIngesters } from "@/platform/import/FileIngestersProvider";
+import { Import } from "@/platform/import";
 import { Palette } from "@/platform/palette";
 import { Project } from "@/platform/project";
 
@@ -38,7 +38,7 @@ const ImportProjectCommand: Palette.Command = ({
   fluxStore,
   ...listProps
 }) => {
-  const fileIngesters = useFileIngesters();
+  const fileIngesters = Import.useFileIngesters();
   const handleSelect = useCallback(
     () =>
       import_({ placeLayout, handleError, store, client, fluxStore, fileIngesters }),

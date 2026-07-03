@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient, schematic } from "@synnaxlabs/client";
 import { color, type record } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
+import { type Layout } from "@/platform/layout";
+import {
+  assertDefined,
+  createGrantedFluxStore,
+  createTestFluxStore,
+  createTestStore,
+  uniqueName,
+} from "@/testutil";
 
 const V0_ZERO = {
   version: "0.0.0",
@@ -375,9 +384,61 @@ describe("schematic import", () => {
       expect(configsOf(out).n1).toMatchObject({ variant: "valve" });
     });
 
-    it("should not silently drop configs by parsing a legacy file as a typed one", () => {
-      const out = Schematic.parseImport(LEGACY_V2, undefined);
-      expect(configsOf(out)).not.toEqual({});
+    it("should reject a legacy state that carries no graph data", () => {
+      expect(() => Schematic.parseImport(V6_ZERO, undefined)).toThrow(
+        "Imported schematic has no graph data",
+      );
+    });
+  });
+
+  describe("ingest", () => {
+    it("creates the schematic on the cluster and places its layout", async () => {
+      const client = createTestClient();
+      const store = await createGrantedFluxStore(
+        client,
+        schematic.TYPE_ONTOLOGY_ID,
+        "update",
+      );
+      const project = await client.projects.create({
+        name: uniqueName("proj"),
+        layout: {},
+      });
+      const placeLayout = vi.fn<Layout.Placer>();
+      const name = uniqueName("imported");
+      await Schematic.ingest(TYPED_EXPORT, {
+        layout: { name },
+        placeLayout,
+        store,
+        client,
+        projectKey: project.key,
+      });
+      expect(placeLayout).toHaveBeenCalledTimes(1);
+      const creator = placeLayout.mock.calls[0][0] as Layout.Creator;
+      const consoleStore = await createTestStore();
+      const layout = creator({
+        dispatch: consoleStore.dispatch,
+        store: consoleStore,
+        windowKey: "main",
+      });
+      expect(layout.name).toBe(name);
+      assertDefined(layout.key);
+      const created = await client.schematics.retrieve({ key: layout.key });
+      expect(created.name).toBe(name);
+      expect(created.nodes).toHaveLength(1);
+      expect(store.schematics.get(layout.key)?.name).toBe(name);
+    });
+
+    it("rejects the import when the permission cache has no grant", async () => {
+      const store = createTestFluxStore(null);
+      await expect(
+        Schematic.ingest(TYPED_EXPORT, {
+          layout: { name: "denied" },
+          placeLayout: vi.fn<Layout.Placer>(),
+          store,
+          client: null,
+          projectKey: "project-1",
+        }),
+      ).rejects.toThrow("You do not have permission to import schematics");
     });
   });
 });

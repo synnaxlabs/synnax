@@ -38,7 +38,7 @@ import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
 import { Log } from "@/platform/log";
 import { Ontology } from "@/platform/ontology";
-import { Schematic as CSchematic } from "@/platform/schematic";
+import { Schematic } from "@/platform/schematic";
 import { Table } from "@/platform/table";
 import { Session } from "@/session";
 
@@ -75,7 +75,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createLog = Log.useCreate({ project: projectKey });
   const createTable = Table.useCreate({ project: projectKey });
   const firstID = selection.ids[0];
-  const createSchematic = CSchematic.useCreate({ project: projectKey });
+  const createSchematic = Schematic.useCreate({ project: projectKey });
   const importComponent = Import.useImport();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport();

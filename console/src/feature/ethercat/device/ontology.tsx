@@ -15,10 +15,10 @@ import { useToggleEnabled } from "@/feature/ethercat/device/queries";
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
-import { Device as Platform } from "@/platform/device";
+import { Device } from "@/platform/device";
 import { type Ontology } from "@/platform/ontology";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: Platform.TaskContextMenuItemConfig[] = [
+const TASK_CONTEXT_MENU_ITEM_CONFIGS: Device.TaskContextMenuItemConfig[] = [
   {
     itemKey: "ethercat.readTask",
     label: "Create read task",
@@ -57,10 +57,10 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
 
   return (
     <>
-      <Platform.ConfigureMenuItem {...props} onConfigure={onConfigure} />
-      <Platform.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
+      <Device.ConfigureMenuItem {...props} onConfigure={onConfigure} />
+      <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
       <Menu.Divider />
-      <Platform.TaskContextMenuItems
+      <Device.TaskContextMenuItems
         {...props}
         onConfigure={onConfigure}
         taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}

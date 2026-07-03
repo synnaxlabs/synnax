@@ -17,3 +17,4 @@ export * from "@/feature/status/Toolbar";
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
 };
+export * from "@/platform/status/external";

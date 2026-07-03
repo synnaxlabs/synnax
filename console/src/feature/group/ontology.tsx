@@ -12,9 +12,7 @@ import { Access, Flux, Group, Icon, Menu, Tree } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
-import { ContextMenuItem } from "@/platform/group/ContextMenuItem";
-import { useCreateEmpty } from "@/platform/group/useCreateEmpty";
-import { useCreateFromSelection } from "@/platform/group/useCreateFromSelection";
+import { Group as CommonGroup } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
 
@@ -33,8 +31,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const ungroup = useUngroupSelection();
-  const createEmptyGroup = useCreateEmpty({ parent: ids[0], state, root: rootID });
-  const createFromSelection = useCreateFromSelection();
+  const createEmptyGroup = CommonGroup.useCreateEmpty({
+    parent: ids[0],
+    state,
+    root: rootID,
+  });
+  const createFromSelection = CommonGroup.useCreateFromSelection();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const firstID = ids[0];
   const firstResource = getResource(firstID);
@@ -67,7 +69,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         </>
       )}
       {hasUpdatePermission && (
-        <ContextMenuItem
+        <CommonGroup.ContextMenuItem
           ids={ids}
           shape={shape}
           rootID={rootID}

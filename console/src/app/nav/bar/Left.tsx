@@ -11,7 +11,7 @@ import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Items } from "@/app/nav/items";
-import { Nav as ComponentNav } from "@/platform/nav";
+import { Nav as CommonNav } from "@/platform/nav";
 import { Palette } from "@/platform/palette";
 import { Session } from "@/session";
 
@@ -36,7 +36,7 @@ const BottomMenu = () => {
     [dispatch],
   );
   return (
-    <ComponentNav.Menu
+    <CommonNav.Menu
       items={Items.BOTTOM}
       selected={visible ? Items.BOTTOM.key : undefined}
       onSelect={handleSelect}
@@ -72,7 +72,7 @@ const LeftMenu = () => {
     [dispatch],
   );
   return (
-    <ComponentNav.Menu
+    <CommonNav.Menu
       items={Items.LEFT}
       selected={selected}
       onSelect={handleSelect}
@@ -91,7 +91,7 @@ const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
 };
 
 export const Left = (): ReactElement => (
-  <ComponentNav.Bar location="left" size="8rem">
+  <CommonNav.Bar location="left" size="8rem">
     <Nav.Bar.Start bordered align="center">
       <Palette.Palette commandSymbol=">" triggerConfig={PALETTE_TRIGGER_CONFIG} />
     </Nav.Bar.Start>
@@ -101,5 +101,5 @@ export const Left = (): ReactElement => (
     <Nav.Bar.End bordered>
       <BottomMenu />
     </Nav.Bar.End>
-  </ComponentNav.Bar>
+  </CommonNav.Bar>
 );

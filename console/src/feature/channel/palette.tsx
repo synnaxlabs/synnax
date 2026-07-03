@@ -10,8 +10,7 @@
 import { channel } from "@synnaxlabs/client";
 import { Access, Channel as PChannel } from "@synnaxlabs/pluto";
 
-import { useCalculatedModal } from "@/platform/channel/useCalculatedModal";
-import { useCreateModal } from "@/platform/channel/useCreateModal";
+import { Channel as CommonChannel } from "@/platform/channel";
 import { Palette } from "@/platform/palette";
 
 const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
@@ -20,7 +19,7 @@ const CreateCommand = Palette.createCommand({
   key: "create_channel",
   name: "Create a channel",
   icon: <PChannel.CreateIcon />,
-  useOnSelect: useCreateModal,
+  useOnSelect: CommonChannel.useCreateModal,
   useVisible,
 });
 
@@ -28,7 +27,7 @@ const CreateCalculatedCommand = Palette.createCommand({
   key: "create_calculated_channel",
   name: "Create a calculated channel",
   icon: <PChannel.CreateCalculatedIcon />,
-  useOnSelect: useCalculatedModal,
+  useOnSelect: CommonChannel.useCalculatedModal,
   useVisible,
 });
 

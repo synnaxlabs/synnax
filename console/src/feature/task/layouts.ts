@@ -17,10 +17,10 @@ import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
 import { type Layout } from "@/platform/layout";
-import { type Layout as TaskLayout } from "@/platform/task/Form";
+import { type Task } from "@/platform/task";
 import { type Session } from "@/session";
 
-const ZERO_LAYOUTS: Record<string, TaskLayout> = {
+const ZERO_LAYOUTS: Record<string, Task.Layout> = {
   ...EtherCAT.Task.ZERO_LAYOUTS,
   ...HTTP.Task.ZERO_LAYOUTS,
   ...LabJack.Task.ZERO_LAYOUTS,

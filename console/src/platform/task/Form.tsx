@@ -24,7 +24,7 @@ import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { type Layout } from "@/platform/layout";
-import { useConfirm } from "@/platform/modals/useConfirm";
+import { Modals } from "@/platform/modals";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
@@ -136,7 +136,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       key: taskKey,
       rackKey: rackKey ?? (taskKey == null ? 0 : task.rackKey(taskKey)),
     };
-    const confirm = useConfirm();
+    const confirm = Modals.useConfirm();
     const { form, status, save } = PTask.createForm({ schemas, initialValues })({
       query: { key: taskKey },
       onHasTouched: handleUnsavedChanges,

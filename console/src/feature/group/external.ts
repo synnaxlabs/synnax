@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/group/ontology";
+export * from "@/platform/group/external";

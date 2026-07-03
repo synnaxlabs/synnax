@@ -18,7 +18,7 @@ import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
 import { type Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
-import { create } from "@/platform/log/layout";
+import { Log as CommonLog } from "@/platform/log";
 import { Ontology } from "@/platform/ontology";
 import { Session } from "@/session";
 
@@ -96,7 +96,7 @@ const loadLog = async (
   placeLayout: Layout.Placer,
 ) => {
   const l = await client.logs.retrieve({ key });
-  placeLayout(create({ key: l.key, name: l.name }));
+  placeLayout(CommonLog.create({ key: l.key, name: l.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -125,7 +125,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError(async () => {
     const l = await client.logs.retrieve({ key });
     placeLayout(
-      create({
+      CommonLog.create({
         key: l.key,
         name: l.name,
         location: "mosaic",

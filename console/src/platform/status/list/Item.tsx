@@ -28,17 +28,15 @@ import { type ReactElement, useMemo } from "react";
 import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
-import { useSelectIsFavorite } from "@/session/status/selectors";
-import { toggleFavorite } from "@/session/status/slice";
 
 export interface ItemProps extends List.ItemProps<status.Key> {}
 
 export const Item = (props: ItemProps): ReactElement | null => {
   const dispatch = Session.useDispatch();
   const { itemKey } = props;
-  const isFavorite = useSelectIsFavorite(itemKey);
+  const isFavorite = Session.Status.useSelectIsFavorite(itemKey);
   const handleFavorite = () => {
-    dispatch(toggleFavorite(itemKey));
+    dispatch(Session.Status.toggleFavorite(itemKey));
   };
   const item = List.useItem<status.Key, status.Status>(itemKey);
   const initialValues = useMemo(() => {

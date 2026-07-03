@@ -17,3 +17,4 @@ export * from "@/feature/cluster/palette";
 export const NOTIFICATION_ADAPTERS: Notifications.Adapter<any>[] = [
   versionOutdatedAdapter,
 ];
+export * from "@/platform/cluster/external";

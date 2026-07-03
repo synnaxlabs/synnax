@@ -16,7 +16,7 @@ import { Footer } from "@/platform/modals/Footer";
 import { Frame } from "@/platform/modals/Frame";
 import { Header } from "@/platform/modals/Header";
 import { Triggers } from "@/platform/triggers";
-import { type ContentProps } from "@/session/modals/Context";
+import { type Session } from "@/session";
 
 interface ButtonProps {
   variant?: status.Variant;
@@ -81,7 +81,7 @@ const Confirm = ({
   title = "Confirm",
   icon,
   close,
-}: ContentProps<ConfirmParams, boolean>) => (
+}: Session.Modals.ContentProps<ConfirmParams, boolean>) => (
   <Frame>
     <Header icon={icon}>{title}</Header>
     <Body>

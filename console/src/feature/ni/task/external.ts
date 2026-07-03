@@ -48,9 +48,7 @@ import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
-import { createIngester } from "@/platform/task/createIngester";
-import { extract } from "@/platform/task/export";
-import { type Layout as TaskLayout } from "@/platform/task/Form";
+import { Task } from "@/platform/task";
 
 export * from "@/feature/ni/task/AnalogRead";
 export * from "@/feature/ni/task/AnalogWrite";
@@ -61,19 +59,19 @@ export * from "@/feature/ni/task/palette";
 export * from "@/feature/ni/task/types";
 
 export const EXTRACTORS: Export.Extractors = {
-  [ANALOG_READ_TYPE]: extract,
-  [ANALOG_WRITE_TYPE]: extract,
-  [COUNTER_READ_TYPE]: extract,
-  [DIGITAL_READ_TYPE]: extract,
-  [DIGITAL_WRITE_TYPE]: extract,
+  [ANALOG_READ_TYPE]: Task.extract,
+  [ANALOG_WRITE_TYPE]: Task.extract,
+  [COUNTER_READ_TYPE]: Task.extract,
+  [DIGITAL_READ_TYPE]: Task.extract,
+  [DIGITAL_WRITE_TYPE]: Task.extract,
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [ANALOG_READ_TYPE]: createIngester(analogReadConfigZ, ANALOG_READ_LAYOUT),
-  [ANALOG_WRITE_TYPE]: createIngester(analogWriteConfigZ, ANALOG_WRITE_LAYOUT),
-  [COUNTER_READ_TYPE]: createIngester(counterReadConfigZ, COUNTER_READ_LAYOUT),
-  [DIGITAL_READ_TYPE]: createIngester(digitalReadConfigZ, DIGITAL_READ_LAYOUT),
-  [DIGITAL_WRITE_TYPE]: createIngester(digitalWriteConfigZ, DIGITAL_WRITE_LAYOUT),
+  [ANALOG_READ_TYPE]: Task.createIngester(analogReadConfigZ, ANALOG_READ_LAYOUT),
+  [ANALOG_WRITE_TYPE]: Task.createIngester(analogWriteConfigZ, ANALOG_WRITE_LAYOUT),
+  [COUNTER_READ_TYPE]: Task.createIngester(counterReadConfigZ, COUNTER_READ_LAYOUT),
+  [DIGITAL_READ_TYPE]: Task.createIngester(digitalReadConfigZ, DIGITAL_READ_LAYOUT),
+  [DIGITAL_WRITE_TYPE]: Task.createIngester(digitalWriteConfigZ, DIGITAL_WRITE_LAYOUT),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
@@ -92,7 +90,7 @@ export const SELECTABLES: Selector.Selectable[] = [
   DigitalWriteSelectable,
 ];
 
-export const ZERO_LAYOUTS: Record<string, TaskLayout> = {
+export const ZERO_LAYOUTS: Record<string, Task.Layout> = {
   [ANALOG_READ_TYPE]: ANALOG_READ_LAYOUT,
   [ANALOG_WRITE_TYPE]: ANALOG_WRITE_LAYOUT,
   [COUNTER_READ_TYPE]: COUNTER_READ_LAYOUT,

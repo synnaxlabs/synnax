@@ -13,7 +13,7 @@ import { color, migrate, notation, telem } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Import } from "@/platform/import";
-import { create, LAYOUT_TYPE } from "@/platform/log/layout";
+import { Log } from "@/platform/log";
 
 const STATE_MIGRATION_NAME = "log.state";
 
@@ -174,7 +174,12 @@ export const ingest: Import.FileIngester = async (
   const created = await client.logs.create(projectKey, newPayload);
   store.logs.set(created.key, created);
   placeLayout(
-    create({ ...layout, key: created.key, name: created.name, type: LAYOUT_TYPE }),
+    Log.create({
+      ...layout,
+      key: created.key,
+      name: created.name,
+      type: Log.LAYOUT_TYPE,
+    }),
   );
   return log.ontologyID(created.key);
 };

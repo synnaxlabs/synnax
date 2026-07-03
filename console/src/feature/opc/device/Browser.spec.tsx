@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient } from "@synnaxlabs/client";
 import { type Haul } from "@synnaxlabs/pluto";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { OPC } from "@/feature/opc";
+import { createOPCDevice } from "@/feature/opc/testutil";
+import { createConsoleWrapper, getIconButton } from "@/testutil";
 
 const NODE: OPC.Task.ScannedNode = {
   key: "ns=2;s=Demo.Static.Scalar.Float",
@@ -25,26 +29,12 @@ const OTHER: Haul.Item = { type: "other_type", key: "other" };
 
 describe("opc device haul utilities", () => {
   describe("createHaulItem", () => {
-    it("creates an item with the opc HAUL_TYPE", () => {
-      expect(OPC.Device.createHaulItem(NODE).type).toEqual(OPC.Device.HAUL_TYPE);
-    });
-
-    it("creates an item with the node nodeId as key", () => {
-      expect(OPC.Device.createHaulItem(NODE).key).toEqual(NODE.nodeId);
-    });
-
-    it("creates an item carrying the full scanned node in data", () => {
-      expect(OPC.Device.createHaulItem(NODE).data).toEqual(NODE);
-    });
-  });
-
-  describe("isHaulItem", () => {
-    it("returns true for an opc item", () => {
-      expect(OPC.Device.isHaulItem(OPC.Device.createHaulItem(NODE))).toBe(true);
-    });
-
-    it("returns false for an item of another kind", () => {
-      expect(OPC.Device.isHaulItem(OTHER)).toBe(false);
+    it("builds an item keyed by node ID carrying the full scanned node", () => {
+      expect(OPC.Device.createHaulItem(NODE)).toEqual({
+        type: OPC.Device.HAUL_TYPE,
+        key: NODE.nodeId,
+        data: NODE,
+      });
     });
   });
 
@@ -68,5 +58,20 @@ describe("opc device haul utilities", () => {
     it("returns false when no item is an opc item", () => {
       expect(OPC.Device.canDropHaulItem({ source: OTHER, items: [OTHER] })).toBe(false);
     });
+  });
+});
+
+describe("Browser", () => {
+  it("should surface a scan task retrieval failure as an error status", async () => {
+    const client = createTestClient();
+    const dev = await createOPCDevice(client);
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { container } = render(<OPC.Device.Browser device={dev} />, { wrapper });
+    await screen.findByText("Browser");
+    await screen.findByText(/not found/i);
+    const refresh = getIconButton(container, "refresh");
+    expect(refresh.disabled).toBe(false);
+    fireEvent.click(refresh);
+    await screen.findByText(/not found/i);
   });
 });

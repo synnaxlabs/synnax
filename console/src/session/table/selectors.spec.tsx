@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
-import { Table as PlutoTable } from "@synnaxlabs/pluto";
+import { Table as PTable } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
@@ -110,7 +110,7 @@ const wrapperFor = (
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Provider store={store}>
-      <PlutoTable.Scope.Provider value={key}>{children}</PlutoTable.Scope.Provider>
+      <PTable.Scope.Provider value={key}>{children}</PTable.Scope.Provider>
     </Provider>
   );
   Wrapper.displayName = "Wrapper";

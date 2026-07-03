@@ -23,14 +23,12 @@ import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Cluster } from "@/platform/cluster";
-import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { ContextMenu as Base } from "@/platform/context-menu";
 import { Layout } from "@/platform/layout";
 import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
-import { useAddToActivePlot } from "@/platform/range/useAddToActivePlot";
-import { useAddToNewPlot } from "@/platform/range/useAddToNewPlot";
 import { Session } from "@/session";
 
 export const fetchIfNotInState = async (
@@ -140,8 +138,8 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
 
   const rng = ranges.find((r) => r.key === key);
   const activeLayout = Session.Layout.useSelectActiveMosaicLayout();
-  const addToActivePlot = useAddToActivePlot();
-  const addToNewPlot = useAddToNewPlot();
+  const addToActivePlot = Range.useAddToActivePlot();
+  const addToNewPlot = Range.useAddToNewPlot();
   const activeRange = Session.Range.useSelectState();
   const openCreate = Range.useCreateModal();
   const handleSetActive = () => {
@@ -161,7 +159,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const handleLink = Cluster.useCopyLinkToClipboard();
 
   return (
-    <CMenu.Menu>
+    <Base.Menu>
       {rangeExists && (
         <>
           {rng.key !== activeRange?.key ? (
@@ -184,7 +182,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
           {hasUpdatePermission && (
             <>
               <Menu.Divider />
-              <CMenu.RenameItem onClick={() => Text.edit(`text-${key}`)} />
+              <Base.RenameItem onClick={() => Text.edit(`text-${key}`)} />
             </>
           )}
           {hasCreatePermission && rng.persisted && (
@@ -217,7 +215,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
           </Menu.Item>
           {rng.persisted ? (
             <>
-              {hasDeletePermission && <CMenu.DeleteItem onClick={() => del(rng.key)} />}
+              {hasDeletePermission && <Base.DeleteItem onClick={() => del(rng.key)} />}
               <Menu.Divider />
               <Link.CopyContextMenuItem
                 onClick={() =>
@@ -240,7 +238,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
         </>
       )}
       <Menu.Divider />
-      <CMenu.ReloadConsoleItem />
-    </CMenu.Menu>
+      <Base.ReloadConsoleItem />
+    </Base.Menu>
   );
 };

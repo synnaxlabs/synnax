@@ -12,7 +12,6 @@ import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useCallback, useEffectEvent } from "react";
 
 import { Session } from "@/session";
-import { filterFavoritesToKeys, removeFavorites } from "@/session/status/slice";
 
 export const useListenForChanges = () => {
   const dispatch = Session.useDispatch();
@@ -21,7 +20,7 @@ export const useListenForChanges = () => {
   const client = Synnax.use();
   const onVariantChange = useEffectEvent(() => {
     if (listQuery.variant !== "success") return;
-    dispatch(filterFavoritesToKeys(listQuery.data));
+    dispatch(Session.Status.filterFavoritesToKeys(listQuery.data));
   });
   useAsyncEffect(
     async (signal) => {
@@ -33,7 +32,7 @@ export const useListenForChanges = () => {
   Status.useSetSynchronizer(addStatus);
   const handleDelete = useCallback(
     (key: status.Key) => {
-      dispatch(removeFavorites(key));
+      dispatch(Session.Status.removeFavorites(key));
     },
     [dispatch],
   );

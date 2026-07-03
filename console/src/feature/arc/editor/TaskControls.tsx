@@ -14,7 +14,7 @@ import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
-import { useTask } from "@/platform/arc/useTask";
+import { Arc as CommonArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
@@ -23,7 +23,7 @@ const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "arc" };
 export const TaskControls = () => {
   const key = Arc.useKey();
   const name = Arc.useSelectName();
-  const { running, onStartStop, taskStatus, taskKey } = useTask(key, name);
+  const { running, onStartStop, taskStatus, taskKey } = CommonArc.useTask(key, name);
   const taskKeyDefined = primitive.isNonZero(taskKey);
   const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
   const [expanded, setExpanded] = useState(false);

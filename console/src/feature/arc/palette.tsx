@@ -11,7 +11,7 @@ import { arc } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { EXPLORER_LAYOUT } from "@/feature/arc/Explorer";
-import { useCreate } from "@/platform/arc/useCreate";
+import { Arc } from "@/platform/arc";
 import { Palette } from "@/platform/palette";
 
 const useCreateVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
@@ -20,7 +20,7 @@ const useViewVisible = () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
 const COMMAND_NAME = "Create an Arc automation";
 
 export const CreateCommand: Palette.Command = ({ rename, ...listProps }) => {
-  const create = useCreate();
+  const create = Arc.useCreate();
   return (
     <Palette.CommandListItem
       {...listProps}

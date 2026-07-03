@@ -10,8 +10,25 @@
 import { describe, expect, it } from "vitest";
 
 import { OPC } from "@/feature/opc";
-import * as v0 from "@/feature/opc/device/types/v0";
 import { testPropertiesSchema } from "@/platform/device/testutil";
+
+// The raw persisted shape of a v0 device's properties, as stored on the cluster
+// before the versioned migration existed.
+const V0_PROPERTIES = {
+  version: "0.0.0",
+  connection: {
+    endpoint: "opc.tcp://localhost:4840",
+    securityMode: "None",
+    securityPolicy: "None",
+    username: "",
+    password: "",
+    clientCertificate: "",
+    clientPrivateKey: "",
+    serverCertificate: "",
+  },
+  read: { index: 0, channels: {} },
+  write: { channels: {} },
+};
 
 // OPC uses versioned schemas — empty `{}` is not valid for either version.
 testPropertiesSchema("OPC UA", OPC.Device.propertiesZ, OPC.Device.ZERO_PROPERTIES, [], {
@@ -20,7 +37,7 @@ testPropertiesSchema("OPC UA", OPC.Device.propertiesZ, OPC.Device.ZERO_PROPERTIE
 
 describe("OPC UA propertiesZ v0 migration", () => {
   it("should migrate v0 properties through the union", () => {
-    const result = OPC.Device.propertiesZ.safeParse(v0.ZERO_PROPERTIES);
+    const result = OPC.Device.propertiesZ.safeParse(V0_PROPERTIES);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.version).toBe("1.0.0");
@@ -30,7 +47,7 @@ describe("OPC UA propertiesZ v0 migration", () => {
 
   it("should migrate v0 read.index into read.indexes", () => {
     const v0Props = {
-      ...v0.ZERO_PROPERTIES,
+      ...V0_PROPERTIES,
       read: { index: 42, channels: { "ns=2;s=Tag1": 100 } },
     };
     const result = OPC.Device.propertiesZ.safeParse(v0Props);
@@ -39,6 +56,18 @@ describe("OPC UA propertiesZ v0 migration", () => {
       expect(result.data.version).toBe("1.0.0");
       expect(result.data.read.indexes).toEqual([42]);
       expect(result.data.read.channels).toEqual({ "ns=2;s=Tag1": 100 });
+    }
+  });
+});
+
+describe("OPC UA propertiesZ v1 defaults", () => {
+  it("should fill defaults for a bare v1 properties object", () => {
+    const result = OPC.Device.propertiesZ.safeParse({ version: "1.0.0" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.connection.endpoint).toBe("opc.tcp://localhost:4840");
+      expect(result.data.read).toEqual({ indexes: [], channels: {} });
+      expect(result.data.write).toEqual({ channels: {} });
     }
   });
 });

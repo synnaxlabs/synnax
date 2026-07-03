@@ -31,11 +31,9 @@ import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
-import { useCreateModal } from "@/platform/status/useCreateModal";
+import { Status as CommonStatus } from "@/platform/status";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
-import { useSelectFavorites } from "@/session/status/selectors";
-import { removeFavorites } from "@/session/status/slice";
 
 const NoStatuses = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
@@ -50,7 +48,7 @@ const NoStatuses = (): ReactElement => {
 };
 
 const List = (): ReactElement => {
-  const favorites = useSelectFavorites();
+  const favorites = Session.Status.useSelectFavorites();
   const menuProps = Menu.useContextMenu();
   const [selected, setSelected] = useState<status.Key[]>([]);
   return (
@@ -77,7 +75,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const q = Status.useRetrieve({ key: itemKey });
   const dispatch = Session.useDispatch();
   useEffect(() => {
-    if (q.variant === "error") dispatch(removeFavorites([itemKey]));
+    if (q.variant === "error") dispatch(Session.Status.removeFavorites([itemKey]));
   }, [q.variant, dispatch, itemKey]);
   if (q.variant !== "success") return null;
   const item = q.data;
@@ -138,7 +136,7 @@ const Content = (): ReactElement => (
 
 const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const openCreate = useCreateModal();
+  const openCreate = CommonStatus.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;

@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import { create } from "@/platform/arc/layout";
+import { Arc } from "@/platform/arc";
 import { Layout } from "@/platform/layout";
 import { type Link } from "@/platform/link";
 
@@ -18,7 +18,7 @@ export const useLink = (): Link.Handler => {
   return useCallback(
     async ({ client, key }) => {
       const { name } = await client.arcs.retrieve({ key });
-      placeLayout(create({ name, key }));
+      placeLayout(Arc.create({ name, key }));
     },
     [placeLayout],
   );

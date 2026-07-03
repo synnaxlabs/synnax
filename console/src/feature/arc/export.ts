@@ -9,7 +9,7 @@
 
 import { DisconnectedError } from "@synnaxlabs/client";
 
-import { LAYOUT_TYPE } from "@/platform/arc/layout";
+import { Arc } from "@/platform/arc";
 import { Export } from "@/platform/export";
 import { Session } from "@/session";
 
@@ -18,7 +18,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   if (client == null) throw new DisconnectedError();
   const retrieved = await client.arcs.retrieve({ key });
   return {
-    data: JSON.stringify({ ...retrieved, type: LAYOUT_TYPE }),
+    data: JSON.stringify({ ...retrieved, type: Arc.LAYOUT_TYPE }),
     name: name ?? retrieved.name,
   };
 };

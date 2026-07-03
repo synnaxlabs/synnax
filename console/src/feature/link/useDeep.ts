@@ -14,10 +14,9 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 
 import { Link } from "@/platform/link";
-import { type ClusterConnect, type Handler, PREFIX } from "@/platform/link/types";
 import { Session } from "@/session";
 
-const BASE_LINK = `${PREFIX}<cluster-key>`;
+const BASE_LINK = `${Link.PREFIX}<cluster-key>`;
 
 const INCORRECT_FORMAT_ERROR_MESSAGE = `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>`;
 
@@ -36,8 +35,8 @@ const DEFAULT_DEPS: Deps = {
 };
 
 export const useDeep = (
-  connect: ClusterConnect,
-  handlers: Record<string, Handler>,
+  connect: Link.ClusterConnect,
+  handlers: Record<string, Link.Handler>,
   deps: Deps = DEFAULT_DEPS,
 ): void => {
   // While early returns are usually bad in hooks, this is fine because the engine is a
@@ -50,9 +49,9 @@ export const useDeep = (
       dispatch(Drift.focusWindow({}));
 
       // Processing URL, making sure is has valid form
-      if (urls.length === 0 || !urls[0].startsWith(PREFIX))
+      if (urls.length === 0 || !urls[0].startsWith(Link.PREFIX))
         throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
-      const urlParts = urls[0].slice(PREFIX.length).split("/");
+      const urlParts = urls[0].slice(Link.PREFIX.length).split("/");
       if (urlParts.length !== 1 && urlParts.length !== 3)
         throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
 

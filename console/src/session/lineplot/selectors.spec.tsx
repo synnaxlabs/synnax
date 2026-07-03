@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
-import { LinePlot as PlutoLinePlot } from "@synnaxlabs/pluto";
+import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
@@ -110,9 +110,7 @@ const wrapperFor = (
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Provider store={store}>
-      <PlutoLinePlot.Scope.Provider value={key}>
-        {children}
-      </PlutoLinePlot.Scope.Provider>
+      <PLinePlot.Scope.Provider value={key}>{children}</PLinePlot.Scope.Provider>
     </Provider>
   );
   Wrapper.displayName = "Wrapper";

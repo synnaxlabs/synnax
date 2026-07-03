@@ -10,7 +10,7 @@
 import { type optional } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type Content, type ReservedParams, useStore } from "@/session/modals/Context";
+import { Session } from "@/session";
 
 /**
  * A typed fire-and-forget opener: opens a modal and returns immediately. Its params
@@ -46,11 +46,11 @@ export interface PromptHook<Params, Result> {
  * modal's typed params.
  */
 export const create =
-  <Params extends ReservedParams = Record<never, never>>(
-    Component: Content<Params, void>,
+  <Params extends Session.Modals.ReservedParams = Record<never, never>>(
+    Component: Session.Modals.Content<Params, void>,
   ): OpenHook<Params> =>
   (): Opener<Params> => {
-    const store = useStore("Modals.create");
+    const store = Session.Modals.useStore("Modals.create");
     return useCallback(
       (params?: Params) => store.push(Component, params, () => {}),
       [store],
@@ -63,11 +63,11 @@ export const create =
  * (or null on dismissal).
  */
 export const createPrompt =
-  <Result, Params extends ReservedParams = Record<never, never>>(
-    Component: Content<Params, Result>,
+  <Result, Params extends Session.Modals.ReservedParams = Record<never, never>>(
+    Component: Session.Modals.Content<Params, Result>,
   ): PromptHook<Params, Result> =>
   (): Prompt<Result, Params> => {
-    const store = useStore("Modals.createPrompt");
+    const store = Session.Modals.useStore("Modals.createPrompt");
     return useCallback(
       (params?: Params) =>
         new Promise<Result | null>((resolve) => store.push(Component, params, resolve)),

@@ -10,7 +10,7 @@
 import { type ontology } from "@synnaxlabs/client";
 import { useCallback } from "react";
 
-import { useCopy } from "@/platform/clipboard/useCopy";
+import { Clipboard } from "@/platform/clipboard";
 import { PREFIX } from "@/platform/link/types";
 
 export interface CopyToClipboardArgs {
@@ -24,7 +24,7 @@ export interface CopyToClipboard {
 }
 
 export const useCopyToClipboard = (): CopyToClipboard => {
-  const copy = useCopy();
+  const copy = Clipboard.useCopy();
   return useCallback(
     ({ clusterKey, name, ontologyID }) => {
       let url = `${PREFIX}${clusterKey}`;

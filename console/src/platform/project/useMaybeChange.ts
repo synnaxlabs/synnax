@@ -16,7 +16,9 @@ import { Session } from "@/session";
 
 export const useMaybeChange = (): ((key: string) => Promise<void>) => {
   const dispatch = useDispatch();
-  const selected = Session.Project.useSelectSelected();
+  // Optional: the active project vanishes transiently when it is deleted, and this
+  // hook's consumers stay subscribed until the Guard unmounts them.
+  const selected = Session.Project.useSelectOptionalSelected();
   const client = Synnax.use();
   return useCallback(
     async (key) => {

@@ -19,7 +19,7 @@ import {
 import { array } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
-import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { ContextMenu as CommonContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { useIsSnapshot } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
@@ -75,7 +75,7 @@ const ContextMenu = <C extends Channel>({
   const canEnable = channels.some(({ enabled }) => !enabled);
   const canTare = allowTare?.(keys, channels) ?? false;
   return (
-    <CMenu.Menu>
+    <CommonContextMenu.Menu>
       {!isSnapshot && (
         <>
           {canDuplicate && (
@@ -116,8 +116,8 @@ const ContextMenu = <C extends Channel>({
           )}
         </>
       )}
-      <CMenu.ReloadConsoleItem />
-    </CMenu.Menu>
+      <CommonContextMenu.ReloadConsoleItem />
+    </CommonContextMenu.Menu>
   );
 };
 

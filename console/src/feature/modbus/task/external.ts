@@ -19,9 +19,7 @@ import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
-import { createIngester } from "@/platform/task/createIngester";
-import { extract } from "@/platform/task/export";
-import { type Layout as TaskLayout } from "@/platform/task/Form";
+import { Task } from "@/platform/task";
 
 export * from "@/feature/modbus/task/palette";
 export * from "@/feature/modbus/task/Read";
@@ -29,13 +27,13 @@ export * from "@/feature/modbus/task/types";
 export * from "@/feature/modbus/task/Write";
 
 export const EXTRACTORS: Export.Extractors = {
-  [READ_TYPE]: extract,
-  [WRITE_TYPE]: extract,
+  [READ_TYPE]: Task.extract,
+  [WRITE_TYPE]: Task.extract,
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [READ_TYPE]: createIngester(READ_SCHEMAS.config, READ_LAYOUT),
-  [WRITE_TYPE]: createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
+  [READ_TYPE]: Task.createIngester(READ_SCHEMAS.config, READ_LAYOUT),
+  [WRITE_TYPE]: Task.createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
@@ -45,7 +43,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 
 export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];
 
-export const ZERO_LAYOUTS: Record<string, TaskLayout> = {
+export const ZERO_LAYOUTS: Record<string, Task.Layout> = {
   [READ_TYPE]: READ_LAYOUT,
   [WRITE_TYPE]: WRITE_LAYOUT,
 };

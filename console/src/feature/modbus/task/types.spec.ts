@@ -32,3 +32,24 @@ describe("Modbus Scan Task Types", () => {
     expect(Modbus.Task.SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
   });
 });
+
+describe("Modbus Read Task Types", () => {
+  it("should accept a null statusData", () => {
+    expect(Modbus.Task.READ_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+  });
+});
+
+describe("Modbus Write Task Types", () => {
+  it("should accept a null statusData", () => {
+    expect(Modbus.Task.WRITE_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+  });
+
+  it("should accept a populated statusData", () => {
+    expect(
+      Modbus.Task.WRITE_SCHEMAS.statusData.safeParse({
+        running: true,
+        message: "ok",
+      }).success,
+    ).toBe(true);
+  });
+});

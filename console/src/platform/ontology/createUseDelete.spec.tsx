@@ -34,11 +34,13 @@ const useDelete = Ontology.createUseDelete({
 
 const DeleteHarness = ({
   props,
+  label = "delete",
 }: {
   props: Ontology.TreeContextMenuProps;
+  label?: string;
 }): ReactElement => {
   const del = useDelete(props);
-  return <button onClick={del}>delete</button>;
+  return <button onClick={del}>{label}</button>;
 };
 DeleteHarness.displayName = "DeleteHarness";
 
@@ -49,13 +51,20 @@ const createChannel = async () =>
     isIndex: true,
   });
 
-const setup = async (ch: channel.Channel) => {
-  const otgID = channel.ontologyID(ch.key);
+interface HarnessEntry {
+  ch: channel.Channel;
+  label?: string;
+}
+
+const setup = async (...entries: HarnessEntry[]) => {
   const store = await createTestStore();
-  const props: Ontology.TreeContextMenuProps = {
-    ...createBaseProps({ client, store }),
-    selection: createSelection({ ids: [otgID] }),
-    state: createState([createResource(otgID, ch.name)]),
+  const createProps = (ch: channel.Channel): Ontology.TreeContextMenuProps => {
+    const otgID = channel.ontologyID(ch.key);
+    return {
+      ...createBaseProps({ client, store }),
+      selection: createSelection({ ids: [otgID] }),
+      state: createState([createResource(otgID, ch.name)]),
+    };
   };
   const { wrapper: Console } = await createConsoleWrapper({ client, store });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -63,7 +72,9 @@ const setup = async (ch: channel.Channel) => {
   );
   render(
     <>
-      <DeleteHarness props={props} />
+      {entries.map(({ ch, label }) => (
+        <DeleteHarness key={ch.key} props={createProps(ch)} label={label} />
+      ))}
       <Modals.Stack />
     </>,
     { wrapper: Wrapper },
@@ -82,7 +93,7 @@ const channelExists = async (key: channel.Key): Promise<boolean> => {
 describe("createUseDelete", () => {
   it("should delete the selected resource after the user confirms", async () => {
     const ch = await createChannel();
-    await setup(ch);
+    await setup({ ch });
     fireEvent.click(screen.getByText("delete"));
     await waitFor(() =>
       expect(
@@ -95,8 +106,12 @@ describe("createUseDelete", () => {
 
   it("should leave the resource in place when the user cancels", async () => {
     const ch = await createChannel();
-    await setup(ch);
-    fireEvent.click(screen.getByText("delete"));
+    const control = await createChannel();
+    await setup(
+      { ch, label: "delete target" },
+      { ch: control, label: "delete control" },
+    );
+    fireEvent.click(screen.getByText("delete target"));
     await waitFor(() =>
       expect(
         screen.getByText(`Are you sure you want to delete ${ch.name}?`),
@@ -108,6 +123,16 @@ describe("createUseDelete", () => {
         screen.queryByText(`Are you sure you want to delete ${ch.name}?`),
       ).toBeNull(),
     );
+    // A confirmed deletion through the same mutation path settles any erroneous
+    // in-flight delete of the canceled target before the absence assert.
+    fireEvent.click(screen.getByText("delete control"));
+    await waitFor(() =>
+      expect(
+        screen.getByText(`Are you sure you want to delete ${control.name}?`),
+      ).toBeTruthy(),
+    );
+    fireEvent.click(findButton("Delete"));
+    await waitFor(async () => expect(await channelExists(control.key)).toBe(false));
     expect(await channelExists(ch.key)).toBe(true);
   });
 });

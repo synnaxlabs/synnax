@@ -18,7 +18,7 @@ import {
   type Synnax,
   user,
 } from "@synnaxlabs/client";
-import { Arc as PlutoArc } from "@synnaxlabs/pluto";
+import { Arc as PArc } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -114,7 +114,7 @@ const wrapperFor = (
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Provider store={store}>
-      <PlutoArc.Scope.Provider value={key}>{children}</PlutoArc.Scope.Provider>
+      <PArc.Scope.Provider value={key}>{children}</PArc.Scope.Provider>
     </Provider>
   );
   Wrapper.displayName = "Wrapper";
@@ -255,7 +255,7 @@ const setup = async ({ editable, userClient = client }: SetupArgs) => {
   });
   const ScopedWrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Wrapper>
-      <PlutoArc.Scope.Provider value={KEY}>{children}</PlutoArc.Scope.Provider>
+      <PArc.Scope.Provider value={KEY}>{children}</PArc.Scope.Provider>
     </Wrapper>
   );
   const { result } = renderHook(() => Arc.useSelectEditable(), {
