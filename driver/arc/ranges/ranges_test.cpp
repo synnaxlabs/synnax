@@ -80,13 +80,12 @@ namespace {
     return node;
 }
 
-Reporter recordingReporter(std::vector<std::pair<std::string, std::string>> *out) {
-    return
-        [out](const std::string &v, const std::string &m) { out->emplace_back(v, m); };
+Reporter recordingReporter(std::vector<std::string> *out) {
+    return [out](const std::string &m) { out->emplace_back(m); };
 }
 
 Reporter noopReporter() {
-    return [](const std::string &, const std::string &) {};
+    return [](const std::string &) {};
 }
 
 std::string unique_name(const std::string &prefix) {
@@ -230,10 +229,10 @@ TEST(CreateRangeTest, NextParsesColor) {
     EXPECT_EQ(r.color->b, 0x38);
 }
 
-TEST(CreateRangeTest, NextWarnsOnInvalidColorButStillCreates) {
+TEST(CreateRangeTest, NextWarnsAndDoesNotCreateOnInvalidColor) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("cpp_badcolor_");
-    std::vector<std::pair<std::string, std::string>> calls;
+    std::vector<std::string> calls;
     auto node = make_create_ir_node(name, "", "not-a-color");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -249,19 +248,14 @@ TEST(CreateRangeTest, NextWarnsOnInvalidColorButStillCreates) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
+    EXPECT_EQ(output_key(s), "");
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_EQ(calls[0].first, synnax::status::VARIANT_WARNING);
-    EXPECT_NE(calls[0].second.find("ranges.create: invalid color"), std::string::npos);
-
-    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(
-        ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s)))
-    ));
-    EXPECT_EQ(r.name, name);
+    EXPECT_NE(calls[0].find("ranges.create: invalid color"), std::string::npos);
 }
 
 TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<std::pair<std::string, std::string>> calls;
+    std::vector<std::string> calls;
     auto node = make_create_ir_node(unique_name("cpp_badparent_"), "not-a-uuid", "");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -279,11 +273,7 @@ TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
 
     EXPECT_EQ(output_key(s), "");
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_EQ(calls[0].first, synnax::status::VARIANT_WARNING);
-    EXPECT_NE(
-        calls[0].second.find("ranges.create: invalid parent key"),
-        std::string::npos
-    );
+    EXPECT_NE(calls[0].find("ranges.create: invalid parent key"), std::string::npos);
 }
 
 TEST(EndRangeTest, NextSetsEndToNow) {
@@ -321,7 +311,7 @@ TEST(EndRangeTest, NextSetsEndToNow) {
 
 TEST(EndRangeTest, NextWarnsWhenRangeDoesNotExist) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<std::pair<std::string, std::string>> calls;
+    std::vector<std::string> calls;
     auto node = make_end_ir_node(x::uuid::create().to_string());
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -339,13 +329,12 @@ TEST(EndRangeTest, NextWarnsWhenRangeDoesNotExist) {
 
     EXPECT_EQ(output_key(s), "");
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_EQ(calls[0].first, synnax::status::VARIANT_WARNING);
-    EXPECT_NE(calls[0].second.find("ranges.end:"), std::string::npos);
+    EXPECT_NE(calls[0].find("ranges.end:"), std::string::npos);
 }
 
 TEST(EndRangeTest, NextWarnsOnInvalidKey) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<std::pair<std::string, std::string>> calls;
+    std::vector<std::string> calls;
     auto node = make_end_ir_node("not-a-uuid");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -361,8 +350,7 @@ TEST(EndRangeTest, NextWarnsOnInvalidKey) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_EQ(calls[0].first, synnax::status::VARIANT_WARNING);
-    EXPECT_NE(calls[0].second.find("ranges.end: invalid range key"), std::string::npos);
+    EXPECT_NE(calls[0].find("ranges.end: invalid range key"), std::string::npos);
 }
 
 }
