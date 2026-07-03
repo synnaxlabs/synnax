@@ -55,8 +55,8 @@ func range_test{}() {
     // Parent without a color (positional, since parent precedes color)
     ranges.create("RangeFunc_Child_NoColor", "__PARENT_KEY__")
 
-    // Invalid color, concatenated at runtime so the analyzer's compile-time // literal
-    check can't reject it; the create must fail at runtime.
+    // Invalid color, concatenated at runtime so the analyzer's compile-time literal
+    // check can't reject it; the create must fail at runtime.
     bad_color := "not-a-" + "color"
     ranges.create("RangeFunc_BadColor", "", bad_color)
 }
