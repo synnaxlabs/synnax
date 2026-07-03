@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Rename", Ordered, func() {
@@ -33,7 +32,7 @@ var _ = Describe("Rename", Ordered, func() {
 			{Name: "old-name", DataType: telem.TimeStampT, IsIndex: true},
 		}))
 		key := out[0].Key()
-		Expect(n.Channel.Rename(ctx, channel.Keys{key}, []string{"new-name"})).To(Succeed())
+		Expect(n.Channel.Rename(ctx, map[channel.Key]string{key: "new-name"})).To(Succeed())
 		stored := MustSucceed(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
 		Expect(stored.Name).To(Equal("new-name"))
 	})
@@ -41,20 +40,13 @@ var _ = Describe("Rename", Ordered, func() {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
 			{Name: "free-rename", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
 		}))
-		Expect(n.Channel.Rename(ctx, channel.Keys{out[0].Key()}, []string{"ignored"})).To(Succeed())
-	})
-	It("Should return an error when the keys and names are not the same length", func(ctx SpecContext) {
-		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
-			{Name: "old-name", DataType: telem.TimeStampT, IsIndex: true},
-		}))
-		key := out[0].Key()
 		Expect(n.Channel.Rename(
-			ctx, channel.Keys{key}, []string{"new-name", "new-name-2"},
-		)).To(MatchError(validate.ErrValidation))
+			ctx, map[channel.Key]string{out[0].Key(): "ignored"},
+		)).To(Succeed())
 	})
 	It("Should return an error when a key's leaseholder is not in the cluster", func(ctx SpecContext) {
 		Expect(n.Channel.Rename(
-			ctx, channel.Keys{channel.NewKey(node.Key(99), 1)}, []string{"unresolvable"},
+			ctx, map[channel.Key]string{channel.NewKey(node.Key(99), 1): "unresolvable"},
 		)).To(MatchError(query.ErrNotFound))
 	})
 
@@ -74,7 +66,9 @@ var _ = Describe("Rename", Ordered, func() {
 				{Name: "remote-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
 			}))
 			key := out[0].Key()
-			Expect(gateway.Channel.Rename(ctx, channel.Keys{key}, []string{"remote-new"})).To(Succeed())
+			Expect(gateway.Channel.Rename(
+				ctx, map[channel.Key]string{key: "remote-new"},
+			)).To(Succeed())
 			stored := MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
 			Expect(stored.Name).To(Equal("remote-new"))
 		})
@@ -85,8 +79,12 @@ var _ = Describe("Rename", Ordered, func() {
 			}))
 			gatewayKey := out[0].Key()
 			peerKey := out[1].Key()
-			Expect(gateway.Channel.Rename(ctx, channel.Keys{gatewayKey}, []string{"gateway-new"})).To(Succeed())
-			Expect(peer.Channel.Rename(ctx, channel.Keys{peerKey}, []string{"peer-new"})).To(Succeed())
+			Expect(gateway.Channel.Rename(
+				ctx, map[channel.Key]string{gatewayKey: "gateway-new"},
+			)).To(Succeed())
+			Expect(peer.Channel.Rename(
+				ctx, map[channel.Key]string{peerKey: "peer-new"},
+			)).To(Succeed())
 			stored := MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey()))
 			Expect(stored.Name).To(Equal("gateway-new"))
 			stored = MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey()))
@@ -101,8 +99,10 @@ var _ = Describe("Rename", Ordered, func() {
 			peerKey := out[1].Key()
 			Expect(gateway.Channel.Rename(
 				ctx,
-				channel.Keys{gatewayKey, peerKey},
-				[]string{"mb-gateway-new", "mb-peer-new"},
+				map[channel.Key]string{
+					gatewayKey: "mb-gateway-new",
+					peerKey:    "mb-peer-new",
+				},
 			)).To(Succeed())
 			Expect(MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey())).Name).
 				To(Equal("mb-gateway-new"))

@@ -16,8 +16,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 )
 
 type renameBatchEntry struct {
@@ -29,19 +27,15 @@ var _ proxy.Entry = renameBatchEntry{}
 
 func (r renameBatchEntry) Lease() node.Key { return r.key.Lease() }
 
-// Rename renames the storage channels for the provided keys, routing each key to its
-// leaseholder. Free-virtual channels have no persistent storage and are skipped.
-func (s *Service) Rename(ctx context.Context, keys Keys, names []string) error {
-	if len(keys) != len(names) {
-		return errors.Wrapf(
-			validate.ErrValidation, "keys and names must have the same length",
-		)
+// Rename renames each storage channel keyed in renames to its corresponding new name,
+// routing each key to its leaseholder. Free-virtual channels have no persistent storage
+// and are skipped.
+func (s *Service) Rename(ctx context.Context, renames map[Key]string) error {
+	entries := make([]renameBatchEntry, 0, len(renames))
+	for key, name := range renames {
+		entries = append(entries, renameBatchEntry{key: key, name: name})
 	}
-	batch := s.renameRouter.Batch(
-		lo.ZipBy2(keys, names, func(key Key, name string) renameBatchEntry {
-			return renameBatchEntry{key: key, name: name}
-		}),
-	)
+	batch := s.renameRouter.Batch(entries)
 	for nodeKey, entries := range batch.Peers {
 		keys, names := unzipRenameBatch(entries)
 		addr, err := s.cfg.HostResolver.Resolve(nodeKey)
@@ -54,7 +48,7 @@ func (s *Service) Rename(ctx context.Context, keys Keys, names []string) error {
 			return err
 		}
 	}
-	keys, names = unzipRenameBatch(batch.Gateway)
+	keys, names := unzipRenameBatch(batch.Gateway)
 	return s.cfg.TS.RenameChannels(ctx, keys.Storage(), names)
 }
 

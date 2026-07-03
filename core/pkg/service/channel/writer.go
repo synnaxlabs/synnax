@@ -35,14 +35,9 @@ const calculatedIndexNameSuffix = "_time"
 // allocation through the distribution-layer allocator and writing channel metadata to
 // the service table. Obtain one from Service.NewWriter.
 type Writer struct {
-	// svc is the owning channel service, providing the metadata table, distribution
-	// allocator, ontology integration, and external-channel overflow set.
-	svc *Service
-	// tx scopes every write the Writer performs; nil writes directly to the service DB.
-	tx gorp.Tx
-	// otg writes channel ontology resources and relationships within tx.
-	otg ontology.Writer
-	// analyzer infers DataTypes for calculated channels before they are persisted.
+	svc      *Service
+	tx       gorp.Tx
+	otg      ontology.Writer
 	analyzer *CalculationAnalyzer
 }
 
@@ -570,5 +565,9 @@ func (w Writer) rename(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.svc.cfg.Channel.Rename(ctx, keys, names)
+	renames := make(map[Key]string, len(keys))
+	for i, key := range keys {
+		renames[key] = names[i]
+	}
+	return w.svc.cfg.Channel.Rename(ctx, renames)
 }
