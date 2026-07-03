@@ -489,6 +489,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if closer, err := calcgraph.Open(ctx, calcgraph.Config{
 		Instrumentation: cfg.Child("channel.calculation.graph"),
+		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Status:          l.Status,
 	}); !ok(err, closer) {

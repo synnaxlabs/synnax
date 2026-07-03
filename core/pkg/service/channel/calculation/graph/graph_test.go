@@ -23,11 +23,13 @@ import (
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
+	db         *gorp.DB
 	statusSvc  *status.Service
 	channelSvc *channel.Service
 )
@@ -35,6 +37,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
+	db = node.DB
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: node.Ontology,
@@ -61,6 +64,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func openGraph(ctx context.Context) *graph.Graph {
 	return MustOpen(graph.Open(ctx, graph.Config{
+		DB:      db,
 		Channel: channelSvc,
 		Status:  statusSvc,
 	}))
@@ -149,8 +153,7 @@ func deleteDep(ctx context.Context, depName string) {
 // DataType drifts from what a calculated channel's expression now infers.
 func makeStale(ctx context.Context, ch channel.Channel, stale telem.DataType) {
 	GinkgoHelper()
-	ch.DataType = stale
-	Expect(channelSvc.NewWriter(nil).UpdateDataTypes(ctx, []channel.Channel{ch})).To(Succeed())
+	Expect(channelSvc.NewWriter(nil).ChangeDataType(ctx, ch.Key(), stale)).To(Succeed())
 }
 
 var _ = Describe("Graph", func() {
@@ -896,6 +899,7 @@ var _ = Describe("Graph", func() {
 	Describe("Lifecycle", func() {
 		It("Should open and close without error", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
+				DB:      db,
 				Channel: channelSvc,
 				Status:  statusSvc,
 			}))
@@ -904,6 +908,7 @@ var _ = Describe("Graph", func() {
 
 		It("Should disconnect observer on Close", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
+				DB:      db,
 				Channel: channelSvc,
 				Status:  statusSvc,
 			}))
@@ -939,8 +944,16 @@ var _ = Describe("Graph", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
+		It("Should fail to open with nil DB", func(ctx SpecContext) {
+			Expect(graph.Open(ctx, graph.Config{
+				Channel: channelSvc,
+				Status:  statusSvc,
+			})).Error().To(HaveOccurred())
+		})
+
 		It("Should handle Close being called twice", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
+				DB:      db,
 				Channel: channelSvc,
 				Status:  statusSvc,
 			}))

@@ -43,6 +43,7 @@ type node struct {
 // affected nodes when channels are created, updated, or deleted.
 type Graph struct {
 	alamos.Instrumentation
+	db         *gorp.DB
 	svc        *channel.Service
 	status     status.Writer[types.Nil]
 	disconnect observe.Disconnect
@@ -56,6 +57,13 @@ type Graph struct {
 
 // Config configures a Graph.
 type Config struct {
+	// DB is the metadata database backing the channel table. It must be the same DB the
+	// Channel service is configured with, so the graph can hydrate — retrieve, analyze,
+	// and persist DataType repairs — within a single transaction consistent with the
+	// channels it reads.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Channel is the service-layer channel service. The graph retrieves and writes
 	// channels through its embedded distribution service and builds the Arc symbol
 	// resolver (via NewArcSymbolResolver) used to analyze calculated channel
@@ -77,12 +85,14 @@ var _ config.Config[Config] = Config{}
 
 func (c Config) Validate() error {
 	v := validate.New("service.channel.calculation.graph")
+	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
 func (c Config) Override(other Config) Config {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -101,6 +111,7 @@ func Open(
 	}
 	s := &Graph{
 		Instrumentation: cfg.Instrumentation,
+		db:              cfg.DB,
 		svc:             cfg.Channel,
 		status:          status.NewWriter[types.Nil](cfg.Status, nil),
 	}
@@ -122,9 +133,17 @@ func (s *Graph) Close() error {
 	return nil
 }
 
+// hydrate loads every calculated channel and rebuilds the in-memory graph, running the
+// retrieve, the fixpoint's reads, and the DataType repairs it derives within a single
+// transaction so the repairs commit atomically against a consistent read. Node statuses
+// are published best-effort outside the transaction (see setNodeStatus).
 func (s *Graph) hydrate(ctx context.Context) error {
+	return s.db.WithTx(ctx, func(tx gorp.Tx) error { return s.hydrateTx(ctx, tx) })
+}
+
+func (s *Graph) hydrateTx(ctx context.Context, tx gorp.Tx) error {
 	var channels []channel.Channel
-	if err := s.svc.NewRetrieve().Where(channel.MatchCalculated()).Entries(&channels).Exec(ctx, nil); err != nil {
+	if err := s.svc.NewRetrieve().Where(channel.MatchCalculated()).Entries(&channels).Exec(ctx, tx); err != nil {
 		return err
 	}
 	s.L.Info("hydrating calculated channel graph", zap.Int("count", len(channels)))
@@ -136,7 +155,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 		nextDependents map[channel.Key]set.Set[channel.Key]
 		nextUnresolved map[string]set.Set[channel.Key]
 	)
-	analyzer := s.newAnalyzer(nil)
+	analyzer := s.newAnalyzer(tx)
 	statuses := make(map[channel.Key]*calculation.Status)
 	for {
 		changed := false
@@ -145,7 +164,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 		nextUnresolved = make(map[string]set.Set[channel.Key])
 		invalidCount = 0
 		for i, ch := range channels {
-			nd, err := s.inspectNode(ctx, nil, ch, analyzer)
+			nd, err := s.inspectNode(ctx, tx, ch, analyzer)
 			if err != nil {
 				statuses[ch.Key()] = calculation.StatusFromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err)
 				invalidCount++
@@ -200,8 +219,11 @@ func (s *Graph) hydrate(ctx context.Context) error {
 	s.mu.Unlock()
 	if len(repairs) > 0 {
 		s.L.Info("persisting DataType repairs from hydration", zap.Int("count", len(repairs)))
-		if err := s.svc.NewWriter(nil).UpdateDataTypes(ctx, repairs); err != nil {
-			return err
+		w := s.svc.NewWriter(tx)
+		for _, ch := range repairs {
+			if err := w.ChangeDataType(ctx, ch.Key(), ch.DataType); err != nil {
+				return err
+			}
 		}
 	}
 	s.L.Info("hydration complete",
@@ -268,8 +290,11 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 	s.mu.Unlock()
 	if len(updates) > 0 {
 		s.L.Info("persisting DataType updates", zap.Int("count", len(updates)))
-		if err := s.svc.NewWriter(nil).UpdateDataTypes(ctx, updates); err != nil {
-			s.L.Error("failed to persist DataType updates", zap.Error(err))
+		w := s.svc.NewWriter(nil)
+		for _, ch := range updates {
+			if err := w.ChangeDataType(ctx, ch.Key(), ch.DataType); err != nil {
+				s.L.Error("failed to persist DataType update", zap.Stringer("channel", ch.Key()), zap.Error(err))
+			}
 		}
 	}
 }

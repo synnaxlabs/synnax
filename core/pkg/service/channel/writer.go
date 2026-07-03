@@ -122,21 +122,19 @@ func (w Writer) analyzeCalculated(ctx context.Context, channels []Channel) error
 	return nil
 }
 
-// UpdateDataTypes persists the DataType of each given already-existing channel to the
-// service table, matched by key, without analyzing expressions. It is the calculation
-// graph's write path for the calculated-channel DataTypes it derives via a cross-channel
-// fixpoint: the graph is their source of truth, so re-deriving them here — as CreateMany
-// would — is both redundant and, for interdependent channels analyzed in one pass against
-// pre-update storage, incorrect.
-func (w Writer) UpdateDataTypes(ctx context.Context, channels []Channel) error {
-	if len(channels) == 0 {
-		return nil
-	}
-	keys := KeysFromChannels(channels)
+// ChangeDataType persists dataType to the already-existing channel with the given key,
+// without analyzing its expression. It is the calculation graph's write path for the
+// calculated-channel DataTypes it derives via a cross-channel fixpoint: the graph is
+// their source of truth, so re-deriving them here — as CreateMany would — is both
+// redundant and, for interdependent channels analyzed in one pass against pre-update
+// storage, incorrect.
+func (w Writer) ChangeDataType(
+	ctx context.Context, key Key, dataType telem.DataType,
+) error {
 	return w.svc.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		Where(gorp.MatchKeys[Key, Channel](key)).
 		Change(func(_ gorp.Context, c Channel) Channel {
-			c.DataType = channels[lo.IndexOf(keys, c.Key())].DataType
+			c.DataType = dataType
 			return c
 		}).
 		Exec(ctx, w.tx)
