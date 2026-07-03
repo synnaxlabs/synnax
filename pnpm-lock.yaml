@@ -36,6 +36,9 @@ catalogs:
     '@types/react-dom':
       specifier: ^19.2.3
       version: 19.2.3
+    '@types/ws':
+      specifier: ^8.18.1
+      version: 8.18.1
     '@vitejs/plugin-react':
       specifier: ^6.0.2
       version: 6.0.2
@@ -96,6 +99,9 @@ catalogs:
     vitest:
       specifier: ^4.1.6
       version: 4.1.6
+    ws:
+      specifier: ^8.21.0
+      version: 8.21.0
     zod:
       specifier: ^4.4.3
       version: 4.4.3
@@ -428,7 +434,7 @@ importers:
         specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.14)
       '@types/ws':
-        specifier: ^8.18.1
+        specifier: 'catalog:'
         version: 8.18.1
       '@vitejs/plugin-react':
         specifier: 'catalog:'
@@ -461,7 +467,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(jsdom@29.1.1)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))
       ws:
-        specifier: ^8.21.0
+        specifier: 'catalog:'
         version: 8.21.0
 
   docs/site:
@@ -849,7 +855,7 @@ importers:
         specifier: ^0.0.12
         version: 0.0.12
       '@types/ws':
-        specifier: ^8.18.1
+        specifier: 'catalog:'
         version: 8.18.1
       '@vitejs/plugin-react':
         specifier: 'catalog:'
@@ -882,7 +888,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@25.9.0)(@vitest/coverage-v8@4.1.6)(jsdom@29.1.1)(vite@8.0.13(@types/node@25.9.0)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))
       ws:
-        specifier: ^8.21.0
+        specifier: 'catalog:'
         version: 8.21.0
 
   x/media:

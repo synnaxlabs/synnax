@@ -57,7 +57,7 @@
     "@types/pluralize": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@types/ws": "^8.18.1",
+    "@types/ws": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "cross-env": "^10.1.0",
@@ -68,6 +68,6 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "ws": "^8.21.0"
+    "ws": "catalog:"
   }
 }
