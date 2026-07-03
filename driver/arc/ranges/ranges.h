@@ -48,7 +48,6 @@ inline std::string dispatch_create(
         auto [parsed, err] = x::color::from_css(color_hex);
         if (err) {
             report(
-                synnax::status::VARIANT_WARNING,
                 "ranges.create: invalid color \"" + color_hex + "\": " + err.message()
             );
             return "";
@@ -65,10 +64,7 @@ inline std::string dispatch_create(
     if (!parent.empty()) {
         auto [uid, err] = x::uuid::UUID::parse(parent);
         if (err) {
-            report(
-                synnax::status::VARIANT_WARNING,
-                "ranges.create: invalid parent key \"" + parent + "\""
-            );
+            report("ranges.create: invalid parent key \"" + parent + "\"");
             return "";
         }
         synnax::ranger::Range parent_range;
@@ -76,7 +72,7 @@ inline std::string dispatch_create(
         r.parent = x::mem::make_indirect<synnax::ranger::Range>(parent_range);
     }
     if (const auto err = client->ranges.create(r)) {
-        report(synnax::status::VARIANT_WARNING, "ranges.create: " + err.message());
+        report("ranges.create: " + err.message());
         return "";
     }
     return r.key.to_string();
@@ -91,14 +87,11 @@ inline std::string dispatch_end(
 ) {
     auto [uid, parse_err] = x::uuid::UUID::parse(key);
     if (parse_err) {
-        report(
-            synnax::status::VARIANT_WARNING,
-            "ranges.end: invalid range key \"" + key + "\""
-        );
+        report("ranges.end: invalid range key \"" + key + "\"");
         return "";
     }
     if (const auto err = client->ranges.set_end(uid, x::telem::TimeStamp::now())) {
-        report(synnax::status::VARIANT_WARNING, "ranges.end: " + err.message());
+        report("ranges.end: " + err.message());
         return "";
     }
     return uid.to_string();
