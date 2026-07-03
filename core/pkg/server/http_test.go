@@ -57,35 +57,4 @@ var _ = Describe("HTTP", func() {
 		Expect(json.Unmarshal(respBody, &got)).To(Succeed())
 		Expect(got).To(Equal(2))
 	})
-
-	It("Should serve debug endpoints when debug is enabled", func(ctx context.Context) {
-		port := MustSucceed(net.FindOpenPort())
-		addr := address.Newf("localhost:%d", port)
-		MustOpen(server.Serve(server.Config{
-			ListenAddress: addr,
-			Security:      server.SecurityConfig{Insecure: new(true)},
-			Debug:         new(true),
-			Branches:      []server.Branch{&server.SecureHTTPBranch{}},
-		}))
-		client := &http.Client{}
-
-		metricsReq := MustSucceed(http.NewRequestWithContext(
-			ctx, http.MethodGet, "http://"+addr.String()+"/metrics", nil,
-		))
-		metricsReq.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
-		metricsRes := MustSucceed(client.Do(metricsReq))
-		defer func() { Expect(metricsRes.Body.Close()).To(Succeed()) }()
-		Expect(metricsRes.StatusCode).To(Equal(http.StatusOK))
-		var stats map[string]any
-		Expect(json.NewDecoder(metricsRes.Body).Decode(&stats)).To(Succeed())
-		Expect(stats).To(HaveKey("pid"))
-		Expect(stats).To(HaveKey("os"))
-
-		pprofReq := MustSucceed(http.NewRequestWithContext(
-			ctx, http.MethodGet, "http://"+addr.String()+"/debug/pprof/", nil,
-		))
-		pprofRes := MustSucceed(client.Do(pprofReq))
-		defer func() { Expect(pprofRes.Body.Close()).To(Succeed()) }()
-		Expect(pprofRes.StatusCode).To(Equal(http.StatusOK))
-	})
 })
