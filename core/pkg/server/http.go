@@ -29,9 +29,9 @@ type SecureHTTPBranch struct {
 	// Transports is a list of transports that the Branch will serve.
 	Transports []http.BindableTransport
 	// MaxIdleWorkerDuration sets fasthttp's idle worker reap interval, which also
-	// bounds how long the server's worker-pool janitor goroutine can outlive Stop.
-	// Zero keeps the fasthttp default (10s). Tests set this low so goroutine leak
-	// checks don't flag the janitor.
+	// bounds how long the server's worker-pool janitor goroutine can outlive Stop. Zero
+	// keeps the fasthttp default (10s). Tests set this low so goroutine leak checks
+	// don't flag the janitor.
 	MaxIdleWorkerDuration time.Duration
 }
 
