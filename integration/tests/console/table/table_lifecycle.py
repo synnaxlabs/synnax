@@ -225,8 +225,7 @@ class TableLifecycle(ConsoleCase):
         """Test importing a table from a JSON file."""
         self.log("Testing import table from file")
         json_path = get_fixture_path("ImportSpace/Metrics Table.json")
-        imported_name = f"Imported Table {self.suffix}"
-        self.console.project.import_page(json_path, imported_name)
+        imported_name = self.console.project.import_page(json_path)
 
         assert self.console.project.page_exists(imported_name), (
             f"Imported table '{imported_name}' should appear in project"
