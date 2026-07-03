@@ -14,9 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestV3(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Line Plot v3 Legacy Migration Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -38,6 +38,7 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 	)
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		ins := alamos.Instrumentation{}
 		addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 			uServer := &fgrpc.UnaryServer[

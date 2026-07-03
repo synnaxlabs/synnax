@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -43,6 +44,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 			Context("Threshold = 0", Ordered, func() {
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					fs = openFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
@@ -111,6 +113,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 			Context("Threshold != 0", Ordered, func() {
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					fs = openFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
@@ -186,6 +189,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			})
 			Context("Multiple files", func() {
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					fs = openFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{

@@ -19,6 +19,7 @@ import (
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
+	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
 )
 
@@ -47,6 +48,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	)
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 			sServer := &streamServer{
 				StreamServerCore: fgrpc.StreamServerCore[

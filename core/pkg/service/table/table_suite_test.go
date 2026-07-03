@@ -40,6 +40,7 @@ var (
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		var (
 			otg       = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))

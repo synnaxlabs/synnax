@@ -198,3 +198,5 @@ var _ = Describe("Translator", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

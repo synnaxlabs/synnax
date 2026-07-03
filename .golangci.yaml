@@ -4,8 +4,9 @@ linters:
     - ginkgolinter
     - modernize
     - revive
-    - mustsucceedlint
-    - setlint
+    - must
+    - set
+    - goroutineleak
   settings:
     ginkgolinter:
       forbid-focus-container: true
@@ -27,12 +28,18 @@ linters:
             - []
             - - skip-package-name-checks: true
     custom:
-      mustsucceedlint:
+      must:
         type: "module"
         description: >
           Detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with
           MustSucceed.
-      setlint:
+      set:
         type: "module"
         description: >
           Detects map[T]struct{} and map[T]bool patterns that should use set.Set[T].
+      goroutineleak:
+        type: "module"
+        description: >
+          Enforces goroutine leak checks in Ginkgo suites: every suite must register
+          ShouldNotLeakGoroutinesPerSpec, and every BeforeSuite/BeforeAll must call
+          ShouldNotLeakGoroutines first.
