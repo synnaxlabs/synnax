@@ -13,6 +13,8 @@ import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { defineConfig } from "astro/config";
 
+import { codeBlockWrapper } from "./src/util/codeBlock";
+
 // https://astro.build/config
 export default defineConfig({
   integrations: [react(), mdx()],
@@ -22,6 +24,7 @@ export default defineConfig({
     shikiConfig: {
       theme: "css-variables",
       langs: [arcGrammar],
+      transformers: [codeBlockWrapper()],
     },
   },
   redirects: {
