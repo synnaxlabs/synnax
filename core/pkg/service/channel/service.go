@@ -247,9 +247,11 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 // NewWriter returns a Writer scoped to the provided transaction (nil writes directly to
 // the service DB).
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = s.db.OverrideTx(tx)
 	return Writer{
 		svc: s,
-		tx:  s.db.OverrideTx(tx),
+		tx:  tx,
+		otg: s.cfg.Ontology.NewWriter(tx),
 		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
 			AllowDashedNames: !s.ShouldValidateNames(),
 		}),

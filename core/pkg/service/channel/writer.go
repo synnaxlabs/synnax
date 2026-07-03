@@ -40,6 +40,8 @@ type Writer struct {
 	svc *Service
 	// tx scopes every write the Writer performs; nil writes directly to the service DB.
 	tx gorp.Tx
+	// otg writes channel ontology resources and relationships within tx.
+	otg ontology.Writer
 	// analyzer infers DataTypes for calculated channels before they are persisted.
 	analyzer *CalculationAnalyzer
 }
@@ -427,20 +429,16 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 
 	// Register ontology resources and the group parent relationship for the created
 	// channels.
-	if w.svc.cfg.Ontology == nil || w.svc.cfg.Group == nil {
-		return nil
-	}
 	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
 		return OntologyID(ch.Key()), !ch.Internal
 	})
-	ow := w.svc.cfg.Ontology.NewWriter(w.tx)
-	if err := ow.DefineResource(ctx, externalIDs...); err != nil {
+	if err := w.otg.DefineResource(ctx, externalIDs...); err != nil {
 		return err
 	}
 	if opts.createWithoutGroupRelationship {
 		return nil
 	}
-	return ow.DefineRelationship(
+	return w.otg.DefineRelationship(
 		ctx,
 		group.OntologyID(w.svc.group.Key),
 		ontology.RelationshipTypeParentOf,
@@ -521,32 +519,20 @@ func (w Writer) validateChannelNames(
 }
 
 func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
-	if !allowInternal {
-		internalChannels := make([]Channel, 0, len(keys))
-		if err := w.svc.newRetrieve().
-			Where(MatchKeys(keys...)).
-			Where(MatchInternal(true)).
-			Entries(&internalChannels).
-			Exec(ctx, w.tx); err != nil {
-			return errors.Skip(err, query.ErrNotFound)
-		}
-		if len(internalChannels) > 0 {
-			names := make([]string, 0, len(internalChannels))
-			for _, ch := range internalChannels {
-				names = append(names, ch.Name)
+	if err := w.svc.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		Guard(func(_ gorp.Context, c Channel) error {
+			if c.Internal && !allowInternal {
+				return errors.Newf("can't delete internal channel %q", c.Name)
 			}
-			return errors.Newf("can't delete internal channel(s): %v", names)
-		}
-	}
-	if err := w.svc.table.NewDelete().Where(gorp.MatchKeys[Key, Channel](keys...)).Exec(ctx, w.tx); err != nil {
+			return nil
+		}).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if w.svc.cfg.Ontology != nil {
-		ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
-		ow := w.svc.cfg.Ontology.NewWriter(w.tx)
-		if err := ow.DeleteResource(ctx, ids...); err != nil {
-			return err
-		}
+	ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+	if err := w.otg.DeleteResource(ctx, ids...); err != nil {
+		return err
 	}
 	// Storage deletion goes last, as it is the only operation that can fail without an
 	// atomic guarantee.
