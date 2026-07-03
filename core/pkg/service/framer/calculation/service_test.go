@@ -513,26 +513,30 @@ var _ = Describe("Calculation", Ordered, func() {
 		Specify("Should persist error status on calculation update failure", func(ctx SpecContext) {
 			base := channel.Channel{
 				Name:     channel.NewRandomName(),
-				DataType: telem.Int64T,
-				Virtual:  true}
-			calc := channel.Channel{
-				Name:        channel.NewRandomName(),
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: node.KeyFree,
-				Expression:  fmt.Sprintf("return %s * 2", base.Name),
+				DataType: telem.Float64T,
+				Virtual:  true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
+			calc := channel.Channel{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+				Expression:  fmt.Sprintf("return %s + 1", base.Name),
+			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
-			// Delete the dependency, then rewrite the calc record so the runtime —
-			// which reacts to writes of the calc channel, not to base deletions —
-			// recompiles it and fails. This mirrors the graph rewriting a calc's
-			// DataType after its dependency was removed.
+			// Delete the dependency, then rename the calc to force a write of its
+			// record. The runtime reacts to writes of the calc channel by recompiling
+			// it, which now fails because the dependency no longer resolves. Rename
+			// (unlike Create) persists the record without re-analyzing the expression,
+			// so the failure surfaces asynchronously as an error status rather than
+			// synchronously.
 			Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
-			calc.DataType = telem.Float32T
-			Expect(channelSvc.NewWriter(nil).UpdateDataTypes(ctx, []channel.Channel{calc})).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Rename(
+				ctx, calc.Key(), channel.NewRandomName(), false),
+			).To(Succeed())
 			var st calculation.Status
 			statusKey := calc.OntologyID().String()
 			Eventually(func(g Gomega) {
