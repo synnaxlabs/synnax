@@ -785,13 +785,14 @@ var _ = Describe("Graph", func() {
 
 	Describe("Error Messages", func() {
 		It("Should include channel name in Add compilation errors", func(ctx SpecContext) {
+			// Strict creation rejects this expression; Add compiles the channel passed to
+			// it, so pass an unpersisted channel directly.
 			calc := channel.Channel{
 				Name:       "bad_calc_add",
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return invalid_syntax {{",
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc, channel.AllowInvalidExpressions())).To(Succeed())
 			Expect(g.Add(ctx, calc)).Error().To(MatchError(ContainSubstring("bad_calc_add")))
 		})
 
@@ -806,8 +807,9 @@ var _ = Describe("Graph", func() {
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
 			Expect(g.Add(ctx, calc)).To(Succeed())
+			// g.Update compiles the channel passed to it; strict creation would reject a
+			// persisted invalid expression, so update the in-memory copy directly.
 			calc.Expression = "return invalid_syntax {{"
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc, channel.AllowInvalidExpressions())).To(Succeed())
 			Expect(g.Update(ctx, calc)).Error().To(MatchError(ContainSubstring("bad_calc_update")))
 		})
 	})

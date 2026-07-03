@@ -200,7 +200,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 	s.mu.Unlock()
 	if len(repairs) > 0 {
 		s.L.Info("persisting DataType repairs from hydration", zap.Int("count", len(repairs)))
-		if err := s.svc.NewWriter(nil).CreateMany(ctx, &repairs, channel.AllowInvalidExpressions()); err != nil {
+		if err := s.svc.NewWriter(nil).UpdateDataTypes(ctx, repairs); err != nil {
 			return err
 		}
 	}
@@ -268,7 +268,7 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 	s.mu.Unlock()
 	if len(updates) > 0 {
 		s.L.Info("persisting DataType updates", zap.Int("count", len(updates)))
-		if err := s.svc.NewWriter(nil).CreateMany(ctx, &updates, channel.AllowInvalidExpressions()); err != nil {
+		if err := s.svc.NewWriter(nil).UpdateDataTypes(ctx, updates); err != nil {
 			s.L.Error("failed to persist DataType updates", zap.Error(err))
 		}
 	}

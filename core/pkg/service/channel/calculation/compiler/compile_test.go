@@ -131,13 +131,16 @@ var _ = Describe("Compile", func() {
 	})
 
 	It("Should fail with invalid expression", func(ctx SpecContext) {
+		// Strict creation rejects the invalid expression, so create a valid channel to
+		// obtain a key, then compile an in-memory copy carrying the invalid expression.
 		calc := channel.Channel{
 			Name:       "calc4",
 			DataType:   telem.Int64T,
 			Virtual:    true,
-			Expression: "return invalid_syntax {{",
+			Expression: "return 1",
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &calc, channel.AllowInvalidExpressions())).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
+		calc.Expression = "return invalid_syntax {{"
 		Expect(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,

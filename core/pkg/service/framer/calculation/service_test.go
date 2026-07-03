@@ -480,23 +480,30 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	Describe("Calculation Status", func() {
 		Specify("Should persist error status on invalid expression request", func(ctx SpecContext) {
+			// Strict creation forbids persisting an unparseable expression, so build a
+			// valid calc and delete its dependency to leave it unresolvable at request time.
+			bases := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{{
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
-				Expression:  "invalid expression without return",
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs, channel.AllowInvalidExpressions())).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).DeleteManyByNames(ctx, []string{bases[0].Name}, false)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[types.Nil](statusSvc).
-				Where(status.MatchKeys[types.Nil](statusKey)).
-				Entry(&st).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(st.Variant).To(Equal(status.VariantError))
+			Eventually(func(g Gomega) {
+				g.Expect(status.NewRetrieve[types.Nil](statusSvc).
+					Where(status.MatchKeys[types.Nil](statusKey)).
+					Entry(&st).
+					Exec(ctx, nil)).To(Succeed())
+				g.Expect(st.Variant).To(Equal(status.VariantError))
+			}).Should(Succeed())
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 		Specify("Should persist error status on calculation update failure", func(ctx SpecContext) {
@@ -516,8 +523,13 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
-			calcs[0].Expression = "invalid expression without return"
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calcs[0], channel.AllowInvalidExpressions())).To(Succeed())
+			// Delete the dependency, then rewrite the calc record so the runtime — which
+			// reacts to writes of the calc channel, not to base deletions — recompiles it
+			// and fails. This mirrors the graph rewriting a calc's DataType after its
+			// dependency was removed.
+			Expect(channelSvc.NewWriter(nil).DeleteManyByNames(ctx, []string{bases[0].Name}, false)).To(Succeed())
+			calcs[0].DataType = telem.Float32T
+			Expect(channelSvc.NewWriter(nil).UpdateDataTypes(ctx, calcs)).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
 			Eventually(func(g Gomega) {
@@ -532,23 +544,28 @@ var _ = Describe("Calculation", Ordered, func() {
 		})
 
 		Specify("Should use channel ontology ID as status key", func(ctx SpecContext) {
+			bases := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{{
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
-				Expression:  "invalid expression",
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs, channel.AllowInvalidExpressions())).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).DeleteManyByNames(ctx, []string{bases[0].Name}, false)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			expectedKey := channel.OntologyID(calcs[0].Key()).String()
-			Expect(status.NewRetrieve[types.Nil](statusSvc).
-				Where(status.MatchKeys[types.Nil](expectedKey)).
-				Entry(&st).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(st.Key).To(Equal(expectedKey))
+			Eventually(func(g Gomega) {
+				g.Expect(status.NewRetrieve[types.Nil](statusSvc).
+					Where(status.MatchKeys[types.Nil](expectedKey)).
+					Entry(&st).
+					Exec(ctx, nil)).To(Succeed())
+				g.Expect(st.Key).To(Equal(expectedKey))
+			}).Should(Succeed())
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 	})

@@ -45,7 +45,6 @@ type createOptions struct {
 	retrieveIfNameExists                        bool
 	overwriteIfNameExistsAndDifferentProperties bool
 	createWithoutGroupRelationship              bool
-	allowInvalidExpressions                     bool
 }
 
 // CreateOption configures the behavior of a Create or CreateMany call.
@@ -73,17 +72,6 @@ func CreateWithoutGroupRelationship() CreateOption {
 	return func(o *createOptions) { o.createWithoutGroupRelationship = true }
 }
 
-// AllowInvalidExpressions returns a CreateOption that persists calculated channels whose
-// expressions fail to analyze instead of aborting the call, leaving each channel's
-// caller-provided DataType untouched. It is intended for the calculation runtime, which
-// must tolerate expressions that are only transiently unresolvable (dependency ordering
-// during hydration, or an upstream channel that was deleted) and surfaces the failure as
-// a channel status rather than a write error. User-facing creates should omit it so an
-// invalid expression fails fast.
-func AllowInvalidExpressions() CreateOption {
-	return func(o *createOptions) { o.allowInvalidExpressions = true }
-}
-
 // Create creates a single channel, inferring the DataType if it is calculated.
 func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
 	channels := []Channel{*c}
@@ -96,13 +84,9 @@ func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 
 // CreateMany creates multiple channels, inferring and assigning DataTypes for any
 // calculated channels in the batch by analyzing their expressions. Channels within the
-// batch may reference each other by name.
-//
-// By default a calculated channel whose expression fails to analyze (invalid syntax or
-// unresolved dependencies) aborts the entire call with the analysis error, giving
-// user-facing creates fail-fast validation. Pass AllowInvalidExpressions to persist such
-// channels anyway with their caller-provided DataType, deferring the failure to a
-// channel status; see that option for when it is appropriate.
+// batch may reference each other by name. A calculated channel whose expression fails to
+// analyze (invalid syntax or unresolved dependencies) aborts the entire call with the
+// analysis error, so callers get fail-fast validation.
 func (w Writer) CreateMany(
 	ctx context.Context, channels *[]Channel, opts ...CreateOption,
 ) error {
@@ -113,43 +97,49 @@ func (w Writer) CreateMany(
 	for _, opt := range opts {
 		opt(&o)
 	}
-	if err := w.analyzeCalculated(ctx, *channels, !o.allowInvalidExpressions); err != nil {
+	if err := w.analyzeCalculated(ctx, *channels); err != nil {
 		return err
 	}
 	return w.create(ctx, channels, o)
 }
 
 // analyzeCalculated infers and assigns DataTypes for the calculated channels in the
-// batch by analyzing their expressions; channels may reference earlier ones in the
-// batch by name.
-//
-// When strict, every calculated channel is analyzed, its DataType is overwritten with
-// the inferred type, and the first analysis error is returned (remaining channels are
-// left unprocessed). When not strict, analysis is best-effort: a channel that already
-// carries a caller-provided DataType is left untouched (the calculation graph repairs a
-// stale type during hydration), inference fills in a channel whose DataType is unset,
-// and an analysis error is tolerated so the channel is still persisted (the calculation
-// runtime surfaces the failure as a status).
-func (w Writer) analyzeCalculated(
-	ctx context.Context, channels []Channel, strict bool,
-) error {
+// batch by analyzing their expressions; channels may reference earlier ones in the batch
+// by name. Every calculated channel is analyzed, its DataType is overwritten with the
+// inferred type, and the first analysis error is returned (remaining channels are left
+// unprocessed).
+func (w Writer) analyzeCalculated(ctx context.Context, channels []Channel) error {
 	for i := range channels {
 		if !channels[i].IsCalculated() {
 			continue
 		}
-		if !strict && channels[i].DataType != telem.UnknownT {
-			continue
-		}
 		result, err := w.analyzer.Analyze(ctx, channels[i])
 		if err != nil {
-			if strict {
-				return err
-			}
-			continue
+			return err
 		}
 		channels[i].DataType = result.ChanDataType
 	}
 	return nil
+}
+
+// UpdateDataTypes persists the DataType of each given already-existing channel to the
+// service table, matched by key, without analyzing expressions. It is the calculation
+// graph's write path for the calculated-channel DataTypes it derives via a cross-channel
+// fixpoint: the graph is their source of truth, so re-deriving them here — as CreateMany
+// would — is both redundant and, for interdependent channels analyzed in one pass against
+// pre-update storage, incorrect.
+func (w Writer) UpdateDataTypes(ctx context.Context, channels []Channel) error {
+	if len(channels) == 0 {
+		return nil
+	}
+	keys := KeysFromChannels(channels)
+	return w.svc.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		Change(func(_ gorp.Context, c Channel) Channel {
+			c.DataType = channels[lo.IndexOf(keys, c.Key())].DataType
+			return c
+		}).
+		Exec(ctx, w.tx)
 }
 
 // Delete deletes the channel with the given key, along with its storage and ontology
