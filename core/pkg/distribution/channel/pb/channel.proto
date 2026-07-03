@@ -70,8 +70,8 @@ service DeleteService {
 // RenameRequest is the cluster-internal request to rename the storage for a set of
 // channel keys.
 message RenameRequest {
-  repeated uint32 keys = 1;
-  repeated string names = 2;
+  // renames maps each channel key to its new name.
+  map<uint32, string> renames = 1;
 }
 
 // RenameService renames channel storage on the leaseholder.

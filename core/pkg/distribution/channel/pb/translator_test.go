@@ -87,14 +87,16 @@ var _ = Describe("Translator", func() {
 	})
 	Describe("RenameRequest", func() {
 		t := pb.RenameMessageTranslator
-		It("Should round-trip keys and names", func(ctx SpecContext) {
-			msg := channel.RenameRequest{
-				Keys:  channel.Keys{channel.NewKey(1, 2), channel.NewKey(1, 3)},
-				Names: []string{"first", "second"},
-			}
+		It("Should round-trip the renames", func(ctx SpecContext) {
+			msg := channel.RenameRequest{Renames: map[channel.Key]string{
+				channel.NewKey(1, 2): "first",
+				channel.NewKey(1, 3): "second",
+			}}
 			fwd := MustSucceed(t.Forward(ctx, msg))
-			Expect(fwd.Keys).To(Equal(msg.Keys.Uint32()))
-			Expect(fwd.Names).To(Equal(msg.Names))
+			Expect(fwd.Renames).To(Equal(map[uint32]string{
+				uint32(channel.NewKey(1, 2)): "first",
+				uint32(channel.NewKey(1, 3)): "second",
+			}))
 			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
 		})
 	})

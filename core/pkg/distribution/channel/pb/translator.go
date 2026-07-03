@@ -109,15 +109,18 @@ func (renameMessageTranslator) Forward(
 	_ context.Context,
 	req channel.RenameRequest,
 ) (*RenameRequest, error) {
-	return &RenameRequest{Names: req.Names, Keys: req.Keys.Uint32()}, nil
+	renames := lo.MapKeys(req.Renames, func(_ string, key channel.Key) uint32 {
+		return uint32(key)
+	})
+	return &RenameRequest{Renames: renames}, nil
 }
 
 func (renameMessageTranslator) Backward(
 	_ context.Context,
 	req *RenameRequest,
 ) (channel.RenameRequest, error) {
-	return channel.RenameRequest{
-		Names: req.Names,
-		Keys:  channel.KeysFromUint32(req.Keys),
-	}, nil
+	renames := lo.MapKeys(req.Renames, func(_ string, key uint32) channel.Key {
+		return channel.Key(key)
+	})
+	return channel.RenameRequest{Renames: renames}, nil
 }

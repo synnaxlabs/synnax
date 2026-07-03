@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
 type renameBatchEntry struct {
@@ -31,35 +32,39 @@ func (r renameBatchEntry) Lease() node.Key { return r.key.Lease() }
 // routing each key to its leaseholder. Free-virtual channels have no persistent storage
 // and are skipped.
 func (s *Service) Rename(ctx context.Context, renames map[Key]string) error {
-	entries := make([]renameBatchEntry, 0, len(renames))
-	for key, name := range renames {
-		entries = append(entries, renameBatchEntry{key: key, name: name})
-	}
+	entries := lo.MapToSlice(renames, func(key Key, name string) renameBatchEntry {
+		return renameBatchEntry{key: key, name: name}
+	})
 	batch := s.renameRouter.Batch(entries)
 	for nodeKey, entries := range batch.Peers {
-		keys, names := unzipRenameBatch(entries)
 		addr, err := s.cfg.HostResolver.Resolve(nodeKey)
 		if err != nil {
 			return err
 		}
 		_, err = s.cfg.Transport.RenameClient().
-			Send(ctx, addr, RenameRequest{Keys: keys, Names: names})
+			Send(ctx, addr, RenameRequest{Renames: zipRenameBatch(entries)})
 		if err != nil {
 			return err
 		}
 	}
-	keys, names := unzipRenameBatch(batch.Gateway)
-	return s.cfg.TS.RenameChannels(ctx, keys.Storage(), names)
+	return s.cfg.TS.RenameChannels(ctx, storageRenames(zipRenameBatch(batch.Gateway)))
 }
 
 func (s *Service) renameHandler(
 	ctx context.Context, req RenameRequest,
 ) (types.Nil, error) {
-	return types.Nil{}, s.cfg.TS.RenameChannels(ctx, req.Keys.Storage(), req.Names)
+	return types.Nil{}, s.cfg.TS.RenameChannels(ctx, storageRenames(req.Renames))
 }
 
-func unzipRenameBatch(entries []renameBatchEntry) (Keys, []string) {
-	return lo.UnzipBy2(entries, func(e renameBatchEntry) (Key, string) {
+func zipRenameBatch(entries []renameBatchEntry) map[Key]string {
+	return lo.SliceToMap(entries, func(e renameBatchEntry) (Key, string) {
 		return e.key, e.name
+	})
+}
+
+// storageRenames converts channel-keyed renames to their storage-layer keys.
+func storageRenames(renames map[Key]string) map[ts.ChannelKey]string {
+	return lo.MapKeys(renames, func(_ string, key Key) ts.ChannelKey {
+		return key.StorageKey()
 	})
 }

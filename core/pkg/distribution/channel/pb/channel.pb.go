@@ -245,9 +245,9 @@ func (x *DeleteRequest) GetKeys() []uint32 {
 // RenameRequest is the cluster-internal request to rename the storage for a set of
 // channel keys.
 type RenameRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// renames maps each channel key to its new name.
+	Renames       map[uint32]string `protobuf:"bytes,1,rep,name=renames,proto3" json:"renames,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -282,16 +282,9 @@ func (*RenameRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *RenameRequest) GetKeys() []uint32 {
+func (x *RenameRequest) GetRenames() map[uint32]string {
 	if x != nil {
-		return x.Keys
-	}
-	return nil
-}
-
-func (x *RenameRequest) GetNames() []string {
-	if x != nil {
-		return x.Names
+		return x.Renames
 	}
 	return nil
 }
@@ -314,10 +307,12 @@ const file_core_pkg_distribution_channel_pb_channel_proto_rawDesc = "" +
 	"\rCreateMessage\x12<\n" +
 	"\bchannels\x18\x01 \x03(\v2 .distribution.channel.pb.ChannelR\bchannels\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\rR\x04keys\"9\n" +
-	"\rRenameRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names2i\n" +
+	"\x04keys\x18\x01 \x03(\rR\x04keys\"\x9a\x01\n" +
+	"\rRenameRequest\x12M\n" +
+	"\arenames\x18\x01 \x03(\v23.distribution.channel.pb.RenameRequest.RenamesEntryR\arenames\x1a:\n" +
+	"\fRenamesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x012i\n" +
 	"\rCreateService\x12X\n" +
 	"\x04Exec\x12&.distribution.channel.pb.CreateMessage\x1a&.distribution.channel.pb.CreateMessage\"\x002Y\n" +
 	"\rDeleteService\x12H\n" +
@@ -338,29 +333,31 @@ func file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP() []byte {
 	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescData
 }
 
-var file_core_pkg_distribution_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_core_pkg_distribution_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_distribution_channel_pb_channel_proto_goTypes = []any{
 	(*Channel)(nil),       // 0: distribution.channel.pb.Channel
 	(*CreateMessage)(nil), // 1: distribution.channel.pb.CreateMessage
 	(*DeleteRequest)(nil), // 2: distribution.channel.pb.DeleteRequest
 	(*RenameRequest)(nil), // 3: distribution.channel.pb.RenameRequest
-	(pb.Concurrency)(0),   // 4: x.control.pb.Concurrency
-	(*emptypb.Empty)(nil), // 5: google.protobuf.Empty
+	nil,                   // 4: distribution.channel.pb.RenameRequest.RenamesEntry
+	(pb.Concurrency)(0),   // 5: x.control.pb.Concurrency
+	(*emptypb.Empty)(nil), // 6: google.protobuf.Empty
 }
 var file_core_pkg_distribution_channel_pb_channel_proto_depIdxs = []int32{
-	4, // 0: distribution.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
+	5, // 0: distribution.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
 	0, // 1: distribution.channel.pb.CreateMessage.channels:type_name -> distribution.channel.pb.Channel
-	1, // 2: distribution.channel.pb.CreateService.Exec:input_type -> distribution.channel.pb.CreateMessage
-	2, // 3: distribution.channel.pb.DeleteService.Exec:input_type -> distribution.channel.pb.DeleteRequest
-	3, // 4: distribution.channel.pb.RenameService.Exec:input_type -> distribution.channel.pb.RenameRequest
-	1, // 5: distribution.channel.pb.CreateService.Exec:output_type -> distribution.channel.pb.CreateMessage
-	5, // 6: distribution.channel.pb.DeleteService.Exec:output_type -> google.protobuf.Empty
-	5, // 7: distribution.channel.pb.RenameService.Exec:output_type -> google.protobuf.Empty
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	4, // 2: distribution.channel.pb.RenameRequest.renames:type_name -> distribution.channel.pb.RenameRequest.RenamesEntry
+	1, // 3: distribution.channel.pb.CreateService.Exec:input_type -> distribution.channel.pb.CreateMessage
+	2, // 4: distribution.channel.pb.DeleteService.Exec:input_type -> distribution.channel.pb.DeleteRequest
+	3, // 5: distribution.channel.pb.RenameService.Exec:input_type -> distribution.channel.pb.RenameRequest
+	1, // 6: distribution.channel.pb.CreateService.Exec:output_type -> distribution.channel.pb.CreateMessage
+	6, // 7: distribution.channel.pb.DeleteService.Exec:output_type -> google.protobuf.Empty
+	6, // 8: distribution.channel.pb.RenameService.Exec:output_type -> google.protobuf.Empty
+	6, // [6:9] is the sub-list for method output_type
+	3, // [3:6] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_distribution_channel_pb_channel_proto_init() }
@@ -374,7 +371,7 @@ func file_core_pkg_distribution_channel_pb_channel_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_channel_pb_channel_proto_rawDesc), len(file_core_pkg_distribution_channel_pb_channel_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   3,
 		},
