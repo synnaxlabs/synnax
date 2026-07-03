@@ -30,8 +30,7 @@ func rejectReactiveAssignment(d *diagnostics.Diagnostics, assign parser.IAssignm
 	d.Add(diagnostics.Errorf(assign, "cannot use '=' here; write to '%s' with a flow: <value> -> %s", name, name))
 }
 
-// analyzeReactiveAssignment type-checks an '=' reassignment in a reactive scope,
-// permitting it only for a constant variable; other kinds are rejected by kind.
+// analyzeReactiveAssignment type-checks an '=' reassignment by the target's kind.
 func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	assign parser.IAssignmentContext,
@@ -42,28 +41,69 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		rejectReactiveAssignment(ctx.Diagnostics, assign)
 		return
 	}
+	if assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+			"compound and indexed assignment to a variable are not yet supported"))
+		return
+	}
 	switch sym.VarKind {
 	case symbol.VarKindConstant:
-		if assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(assign,
-				"compound and indexed assignment to a variable are not yet supported"))
-			return
-		}
 		statement.AnalyzeAssignment(context.Child(ctx, assign))
-		// Register the RHS as a reactive expression so lowering can compute it,
-		// mirroring a variable initializer.
 		if expr := assign.Expression(); expr != nil {
 			flow.AnalyzeSingleExpression(context.Child(ctx, expr))
 		}
+	case symbol.VarKindChannelAlias:
+		analyzeAliasRebind(ctx, assign, sym)
 	case symbol.VarKindReactive:
 		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
 			"cannot reassign reactive variable %s; it is read-only", name))
-	case symbol.VarKindChannelAlias:
-		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
-			"rebinding an alias is not yet supported"))
 	default:
 		rejectReactiveAssignment(ctx.Diagnostics, assign)
 	}
+}
+
+// analyzeAliasRebind checks that alias can be rebound to the channel named by assign's
+// right-hand side: the RHS must reference a channel whose value type matches the alias.
+func analyzeAliasRebind[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	assign parser.IAssignmentContext,
+	alias *symbol.Symbol,
+) {
+	name := assign.IDENTIFIER().GetText()
+	target, ok := channelRebindTarget(ctx, assign.Expression())
+	if !ok {
+		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+			"cannot rebind alias %s; the right-hand side must be a channel", name))
+		return
+	}
+	if !types.Equal(alias.Type.Unwrap(), target.Type.Unwrap()) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+			"cannot rebind alias %s of type %s to a channel of type %s",
+			name, alias.Type.Unwrap(), target.Type.Unwrap()))
+	}
+}
+
+// channelRebindTarget resolves expr to the global channel an alias rebind targets,
+// reporting ok=false when expr is not a bare reference to a channel.
+func channelRebindTarget[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) (*symbol.Symbol, bool) {
+	if expr == nil {
+		return nil, false
+	}
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return nil, false
+	}
+	sym, err := ctx.Resolve(primary.IDENTIFIER().GetText())
+	if err != nil {
+		return nil, false
+	}
+	if sym.Kind != symbol.KindChannel || sym.Type.Kind != types.KindChan {
+		return nil, false
+	}
+	return sym, true
 }
 
 // CollectDeclarations registers all sequences and their children in the symbol table.

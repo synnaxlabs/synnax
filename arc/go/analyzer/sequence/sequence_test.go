@@ -242,6 +242,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
+			Entry("rebinding a channel alias to a same-type channel in a sequence body", `
+				sequence main {
+					p := pressure
+					p = valve_cmd
+					stage s1 {
+					}
+				}
+			`),
 			Entry("nested sequence reads a variable from the enclosing sequence", `
 				sequence main {
 					counter := 0
@@ -330,14 +338,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`, "undefined symbol: x"),
-			Entry("rebinding a channel alias in a sequence body", `
+			Entry("rebinding a channel alias to a different-type channel", `
 				sequence main {
 					p := pressure
-					p = valve_cmd
+					p = start_cmd
 					stage s1 {
 					}
 				}
-			`, "rebinding an alias is not yet supported"),
+			`, "cannot rebind alias p"),
 			Entry("using a variable before it is declared in a sequence body", `
 				sequence main {
 					a := b

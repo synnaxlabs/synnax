@@ -127,6 +127,8 @@ var _ = Describe("Text", func() {
 		varResolver := []symbol.Symbol{
 			{Name: "count_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 901},
 			{Name: "out_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 902},
+			{Name: "flag_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 903},
+			{Name: "sink_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 904},
 		}
 
 		It("Should back a written value variable with read and write nodes", func(ctx SpecContext) {
@@ -208,17 +210,66 @@ var _ = Describe("Text", func() {
 				"cannot reassign reactive variable r; it is read-only"))
 		})
 
-		It("Should reject rebinding a channel alias", func(ctx SpecContext) {
+		It("Should rebind a channel alias so later reads bake the new channel", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				a := count_ch
 				a = out_ch
+				a -> sink_ch
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			readsRebound, readsOriginal := false, false
+			for _, n := range inter.Nodes {
+				if _, ok := n.Channels.Read[902]; ok {
+					readsRebound = true
+				}
+				if _, ok := n.Channels.Read[901]; ok {
+					readsOriginal = true
+				}
+			}
+			Expect(readsRebound).To(BeTrue(), "read should bake the rebound channel out_ch")
+			Expect(readsOriginal).To(BeFalse(), "read should not bake the original channel count_ch")
+		})
+
+		It("Should reject rebinding an alias to a nonexistent channel", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				a := count_ch
+				a = missing_ch
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 			Expect(diagnostics.String()).To(ContainSubstring(
-				"rebinding an alias is not yet supported"))
+				"cannot rebind alias a; the right-hand side must be a channel"))
+		})
+
+		It("Should reject rebinding an alias to a non-channel value", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				a := count_ch
+				k := 5
+				a = k
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"cannot rebind alias a; the right-hand side must be a channel"))
+		})
+
+		It("Should reject rebinding an alias to a channel of a different type", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				a := count_ch
+				a = flag_ch
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring("cannot rebind alias a of type"))
 		})
 
 		It("Should reject compound reassignment of a variable", func(ctx SpecContext) {

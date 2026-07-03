@@ -557,6 +557,28 @@ func buildActivationPulse(kg *keyGenerator) nodeResult {
 	return buildConstantNode(kg, "pulse", uint8(1), types.U8())
 }
 
+// filterSelfWriteTriggers drops self-triggering reads, adding a pulse if none are left.
+func filterSelfWriteTriggers(
+	reads []nodeResult,
+	writeKey uint32,
+	hasWrite bool,
+	kg *keyGenerator,
+) []nodeResult {
+	var triggers []nodeResult
+	selfWrite := false
+	for _, r := range reads {
+		if _, writes := r.node.Channels.Read[writeKey]; hasWrite && writes {
+			selfWrite = true
+			continue
+		}
+		triggers = append(triggers, r)
+	}
+	if selfWrite && len(triggers) == 0 {
+		triggers = append(triggers, buildActivationPulse(kg))
+	}
+	return triggers
+}
+
 // buildVarSeed records a value variable's declared value and channel key so the
 // runtime can pre-fill its channel with the seed before execution.
 func buildVarSeed(sym *symbol.Symbol, shell *shellBuilder) ir.VarSeed {
@@ -667,21 +689,7 @@ func lowerVarWrite[T antlr.ParserRuleContext](
 	if !ok {
 		return nil, nil, false
 	}
-	// A flow cannot retrigger itself: drop the self-referential trigger, and clock a
-	// pure self-write once per activation.
-	writeKey := channelKey(target)
-	var triggers []nodeResult
-	selfWrite := false
-	for _, read := range reads {
-		if _, writes := read.node.Channels.Read[writeKey]; writes {
-			selfWrite = true
-			continue
-		}
-		triggers = append(triggers, read)
-	}
-	if selfWrite && len(triggers) == 0 {
-		triggers = append(triggers, buildActivationPulse(kg))
-	}
+	triggers := filterSelfWriteTriggers(reads, channelKey(target), true, kg)
 	var (
 		nodes []ir.Node
 		edges []ir.Edge
@@ -696,8 +704,7 @@ func lowerVarWrite[T antlr.ParserRuleContext](
 	return nodes, edges, true
 }
 
-// lowerAssignment lowers a constant variable's `=` reassignment into a write flow.
-// Other targets and compound or indexed forms produce no IR; the analyzer rejects them.
+// lowerAssignment lowers a variable `=`: a constant write or an in-place alias rebind.
 func lowerAssignment[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	assign parser.IAssignmentContext,
@@ -712,10 +719,37 @@ func lowerAssignment[T antlr.ParserRuleContext](
 		return nil, nil, true
 	}
 	target, err := ctx.Scope.Resolve(ctx, assign.IDENTIFIER().GetText())
-	if err != nil || target.VarKind != symbol.VarKindConstant {
+	if err != nil {
 		return nil, nil, true
 	}
-	return lowerVarWrite(ctx, target, expr, kg, shell)
+	switch target.VarKind {
+	case symbol.VarKindConstant:
+		return lowerVarWrite(ctx, target, expr, kg, shell)
+	case symbol.VarKindChannelAlias:
+		rebindAlias(ctx, target, expr)
+		return nil, nil, true
+	default:
+		return nil, nil, true
+	}
+}
+
+// rebindAlias re-points target's alias binding to the channel named by expr, so later
+// references resolve to it. The analyzer has validated expr names a matching channel.
+func rebindAlias[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	target *symbol.Symbol,
+	expr parser.IExpressionContext,
+) {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return
+	}
+	src, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if err != nil {
+		return
+	}
+	id := src.ID
+	target.SourceID = &id
 }
 
 // analyzeNextToken emits a transition intent that advances the enclosing
@@ -1143,20 +1177,7 @@ func (p *flowChainProcessor) injectImplicitTriggers(expr parser.IExpressionConte
 		return false
 	}
 	writeKey, hasWrite := flowWriteKey(p.ctx)
-	var triggers []nodeResult
-	selfWrite := false
-	for _, result := range reads {
-		// A flow cannot retrigger itself: drop the trigger for a channel it writes.
-		if _, writes := result.node.Channels.Read[writeKey]; hasWrite && writes {
-			selfWrite = true
-			continue
-		}
-		triggers = append(triggers, result)
-	}
-	// No external trigger left: clock the self-writing flow once per activation.
-	if selfWrite && len(triggers) == 0 {
-		triggers = append(triggers, buildActivationPulse(p.kg))
-	}
+	triggers := filterSelfWriteTriggers(reads, writeKey, hasWrite, p.kg)
 	for _, result := range triggers {
 		p.nodes = append(p.nodes, result.node)
 		if p.prevNode == nil {
@@ -1755,13 +1776,16 @@ func analyzeSequence(
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
+			// An alias rebind produces no IR, but a sequence step still needs a
+			// firing node to advance; clock it once with an activation pulse.
+			if len(nodes) == 0 {
+				nodes = []ir.Node{buildActivationPulse(kg).node}
+			}
 			child := flowScope(si.key, nodes)
 			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
 			allNodes = append(allNodes, nodes...)
 			allEdges = append(allEdges, edges...)
-			if len(nodes) > 0 {
-				autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
-			}
+			autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
 			continue
 		}
 
