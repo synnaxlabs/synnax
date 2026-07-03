@@ -702,6 +702,70 @@ var _ = Describe("Writer", func() {
 				Expect(channels).To(BeEmpty())
 			})
 		})
+		Context("Nonexistent Channels", func() {
+			It("Should succeed when deleting a key that does not exist", func(ctx SpecContext) {
+				Expect(svc.Delete(ctx, channel.NewKey(1, 40000), false)).To(Succeed())
+			})
+			It("Should succeed when deleting multiple keys that do not exist", func(ctx SpecContext) {
+				keys := channel.Keys{channel.NewKey(1, 40001), channel.NewKey(1, 40002)}
+				Expect(svc.DeleteMany(ctx, keys, false)).To(Succeed())
+			})
+			It("Should succeed when deleting by names that do not exist", func(ctx SpecContext) {
+				names := []string{channel.NewRandomName(), channel.NewRandomName()}
+				Expect(svc.DeleteManyByNames(ctx, names, false)).To(Succeed())
+			})
+		})
+		Context("Internal Channels", func() {
+			var internalCh channel.Channel
+			JustBeforeEach(func(ctx SpecContext) {
+				internalCh = channel.Channel{
+					Name:        channel.NewRandomName(),
+					DataType:    telem.TimeStampT,
+					IsIndex:     true,
+					Internal:    true,
+					Leaseholder: 1,
+				}
+				Expect(svc.Create(ctx, &internalCh)).To(Succeed())
+			})
+			It("Should return an error when deleting an internal channel by key", func(ctx SpecContext) {
+				Expect(svc.Delete(ctx, internalCh.Key(), false)).
+					To(MatchError(ContainSubstring("can't delete internal channel")))
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(internalCh.Key())).
+					Exists(ctx, nil)).To(BeTrue())
+			})
+			It("Should return an error when deleting an internal channel by name", func(ctx SpecContext) {
+				Expect(svc.DeleteManyByNames(ctx, []string{internalCh.Name}, false)).
+					To(MatchError(ContainSubstring("can't delete internal channel")))
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchNames(internalCh.Name)).
+					Exists(ctx, nil)).To(BeTrue())
+			})
+			It("Should not delete any channels when the batch contains an internal channel", func(ctx SpecContext) {
+				externalCh := channel.Channel{
+					Name:        channel.NewRandomName(),
+					DataType:    telem.TimeStampT,
+					IsIndex:     true,
+					Leaseholder: 1,
+				}
+				Expect(svc.Create(ctx, &externalCh)).To(Succeed())
+				keys := channel.Keys{externalCh.Key(), internalCh.Key()}
+				Expect(svc.DeleteMany(ctx, keys, false)).
+					To(MatchError(ContainSubstring("can't delete internal channel")))
+				var remaining []channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(keys...)).
+					Entries(&remaining).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(remaining).To(HaveLen(2))
+			})
+			It("Should delete an internal channel when allowInternal is true", func(ctx SpecContext) {
+				Expect(svc.Delete(ctx, internalCh.Key(), true)).To(Succeed())
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(internalCh.Key())).
+					Exists(ctx, nil)).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("Rename", Ordered, func() {
