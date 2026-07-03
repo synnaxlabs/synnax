@@ -30,6 +30,42 @@ func rejectReactiveAssignment(d *diagnostics.Diagnostics, assign parser.IAssignm
 	d.Add(diagnostics.Errorf(assign, "cannot use '=' here; write to '%s' with a flow: <value> -> %s", name, name))
 }
 
+// analyzeReactiveAssignment type-checks an '=' reassignment in a reactive scope,
+// permitting it only for a constant variable; other kinds are rejected by kind.
+func analyzeReactiveAssignment[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	assign parser.IAssignmentContext,
+) {
+	name := assign.IDENTIFIER().GetText()
+	sym, err := ctx.Resolve(name)
+	if err != nil {
+		rejectReactiveAssignment(ctx.Diagnostics, assign)
+		return
+	}
+	switch sym.VarKind {
+	case symbol.VarKindConstant:
+		if assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+				"compound and indexed assignment to a variable are not yet supported"))
+			return
+		}
+		statement.AnalyzeAssignment(context.Child(ctx, assign))
+		// Register the RHS as a reactive expression so lowering can compute it,
+		// mirroring a variable initializer.
+		if expr := assign.Expression(); expr != nil {
+			flow.AnalyzeSingleExpression(context.Child(ctx, expr))
+		}
+	case symbol.VarKindReactive:
+		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+			"cannot reassign reactive variable %s; it is read-only", name))
+	case symbol.VarKindChannelAlias:
+		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+			"rebinding an alias is not yet supported"))
+	default:
+		rejectReactiveAssignment(ctx.Diagnostics, assign)
+	}
+}
+
 // CollectDeclarations registers all sequences and their children in the symbol table.
 // This is called during the first pass of AnalyzeProgram to establish scopes before
 // analyzing function bodies that may reference sequences or stages.
@@ -239,7 +275,7 @@ func analyzeScopeBodyItem[T antlr.ParserRuleContext](ctx context.Context[T], ite
 		statement.AnalyzeVariableDeclaration(context.Child(ctx, varDecl))
 	}
 	if assign := item.Assignment(); assign != nil {
-		rejectReactiveAssignment(ctx.Diagnostics, assign)
+		analyzeReactiveAssignment(ctx, assign)
 	}
 	if flowStmt := item.FlowStatement(); flowStmt != nil {
 		flow.Analyze(context.Child(ctx, flowStmt))

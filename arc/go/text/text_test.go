@@ -174,6 +174,66 @@ var _ = Describe("Text", func() {
 				"cannot write to reactive variable r"))
 		})
 
+		It("Should lower a constant reassignment to a write node", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				msg := "hello"
+				msg = "world"
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.VarChannels).To(HaveLen(1))
+			varKey := inter.VarChannels[0]
+			sawWrite := false
+			for _, n := range inter.Nodes {
+				if _, writes := n.Channels.Write[varKey]; writes {
+					sawWrite = true
+					Expect(n.VarKind).To(Equal(ir.VarKindConstant))
+				}
+			}
+			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
+		})
+
+		It("Should reject reassigning a reactive variable", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				r := count_ch + 1
+				r = count_ch
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"cannot reassign reactive variable r; it is read-only"))
+		})
+
+		It("Should reject rebinding a channel alias", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				a := count_ch
+				a = out_ch
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"rebinding an alias is not yet supported"))
+		})
+
+		It("Should reject compound reassignment of a variable", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				c i64 := 0
+				c += 1
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"compound and indexed assignment to a variable are not yet supported"))
+		})
+
 		It("Should assign distinct keys to variables in sibling sequences", func(ctx SpecContext) {
 			source := `
 			sequence a {

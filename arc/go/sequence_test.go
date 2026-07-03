@@ -2593,4 +2593,94 @@ var _ = Describe("Sequence", func() {
 			Expect(logged).To(Equal([]string{"0", "1", "2", "3", "4"}))
 		})
 	})
+
+	Describe("Variable reassignment", func() {
+		It("Reflects a reassignment to a seeded variable", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    my_var := "hello"
+				    my_var = "updated"
+				    my_var -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("updated"))
+		})
+
+		It("Reassigns a variable inside a stage body", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    my_var := "seed"
+				    stage write {
+				        my_var = "updated"
+				        my_var -> out
+				    }
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("updated"))
+		})
+
+		It("Reassigns a top-level-declared variable from inside a stage", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				my_var := "top"
+				sequence s {
+				    stage write {
+				        my_var = "updated"
+				        my_var -> out
+				    }
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("updated"))
+		})
+
+		It("Increments a variable via self-referential reassignment exactly once", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    counter u8 := 5
+				    counter = counter + 1
+				    counter -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(6)))
+		})
+	})
 })

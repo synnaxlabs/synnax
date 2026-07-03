@@ -628,13 +628,23 @@ func lowerVarInit[T antlr.ParserRuleContext](
 	if expr == nil {
 		return nil, nil, false
 	}
-	base := ctx.WithScope(sym.Parent)
+	return lowerVarWrite(ctx.WithScope(sym.Parent), sym, expr, kg, shell)
+}
 
-	write, ok := buildChannelWriteNode(sym.Name, sym, kg)
+// lowerVarWrite lowers `target = expr` into a reactive flow that computes expr and
+// writes target's channel, firing a self-write once per activation instead of looping.
+func lowerVarWrite[T antlr.ParserRuleContext](
+	base acontext.Context[T],
+	target *symbol.Symbol,
+	expr parser.IExpressionContext,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) ([]ir.Node, []ir.Edge, bool) {
+	write, ok := buildChannelWriteNode(target.Name, target, kg)
 	if !ok {
 		return nil, nil, false
 	}
-	shell.varChannels.Add(channelKey(sym))
+	shell.varChannels.Add(channelKey(target))
 
 	// A bare identifier copies the referenced variable's stream directly.
 	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
@@ -657,18 +667,55 @@ func lowerVarInit[T antlr.ParserRuleContext](
 	if !ok {
 		return nil, nil, false
 	}
+	// A flow cannot retrigger itself: drop the self-referential trigger, and clock a
+	// pure self-write once per activation.
+	writeKey := channelKey(target)
+	var triggers []nodeResult
+	selfWrite := false
+	for _, read := range reads {
+		if _, writes := read.node.Channels.Read[writeKey]; writes {
+			selfWrite = true
+			continue
+		}
+		triggers = append(triggers, read)
+	}
+	if selfWrite && len(triggers) == 0 {
+		triggers = append(triggers, buildActivationPulse(kg))
+	}
 	var (
 		nodes []ir.Node
 		edges []ir.Edge
 	)
 	// Each referenced channel triggers the expression node.
-	for _, read := range reads {
-		nodes = append(nodes, read.node)
-		edges = append(edges, ir.Edge{Source: read.output, Target: exprRes.input, Kind: ir.EdgeKindContinuous})
+	for _, trigger := range triggers {
+		nodes = append(nodes, trigger.node)
+		edges = append(edges, ir.Edge{Source: trigger.output, Target: exprRes.input, Kind: ir.EdgeKindContinuous})
 	}
 	nodes = append(nodes, exprRes.node, write.node)
 	edges = append(edges, ir.Edge{Source: exprRes.output, Target: write.input, Kind: ir.EdgeKindContinuous})
 	return nodes, edges, true
+}
+
+// lowerAssignment lowers a constant variable's `=` reassignment into a write flow.
+// Other targets and compound or indexed forms produce no IR; the analyzer rejects them.
+func lowerAssignment[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	assign parser.IAssignmentContext,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) ([]ir.Node, []ir.Edge, bool) {
+	if assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
+		return nil, nil, true
+	}
+	expr := assign.Expression()
+	if expr == nil {
+		return nil, nil, true
+	}
+	target, err := ctx.Scope.Resolve(ctx, assign.IDENTIFIER().GetText())
+	if err != nil || target.VarKind != symbol.VarKindConstant {
+		return nil, nil, true
+	}
+	return lowerVarWrite(ctx, target, expr, kg, shell)
 }
 
 // analyzeNextToken emits a transition intent that advances the enclosing
@@ -1536,9 +1583,9 @@ type stepInfo struct {
 func collectStepKeys(items []parser.ISequenceItemContext) []stepInfo {
 	steps := make([]stepInfo, 0, len(items))
 	for i, item := range items {
-		// Variable declarations and assignments are not sequential steps, so
-		// they must not break the auto-wired transition chain between steps.
-		if item.VariableDeclaration() != nil || item.Assignment() != nil {
+		// Variable declarations are ambient (seeded or reactive), not sequential
+		// steps; a reassignment, like a flow write, is a step.
+		if item.VariableDeclaration() != nil {
 			continue
 		}
 		key := fmt.Sprintf("step_%d", i)
@@ -1698,6 +1745,26 @@ func analyzeSequence(
 			continue
 		}
 
+		if assign := item.Assignment(); assign != nil {
+			nodes, edges, ok := lowerAssignment(
+				acontext.Child(ctx, assign).WithScope(seqScope),
+				assign,
+				kg,
+				shell,
+			)
+			if !ok {
+				return ir.Scope{}, nil, nil, false
+			}
+			child := flowScope(si.key, nodes)
+			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
+			allNodes = append(allNodes, nodes...)
+			allEdges = append(allEdges, edges...)
+			if len(nodes) > 0 {
+				autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
+			}
+			continue
+		}
+
 		if single := item.SingleInvocation(); single != nil {
 			node, ok := analyzeSingleInvocation(
 				acontext.Child(ctx, single).WithScope(seqScope),
@@ -1827,6 +1894,18 @@ func analyzeStage(
 			nodes = append(nodes, subNodes...)
 			edges = append(edges, subEdges...)
 			members = append(members, ir.Member{Scope: &subScope})
+			continue
+		}
+		if assign := item.Assignment(); assign != nil {
+			itemNodes, itemEdges, ok := lowerAssignment(stageCtx, assign, kg, shell)
+			if !ok {
+				return ir.Scope{}, nil, nil, false
+			}
+			nodes = append(nodes, itemNodes...)
+			edges = append(edges, itemEdges...)
+			for _, n := range itemNodes {
+				members = append(members, ir.Member{NodeKey: new(n.Key)})
+			}
 			continue
 		}
 	}

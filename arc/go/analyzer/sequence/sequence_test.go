@@ -211,6 +211,22 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
+			Entry("reassigning a constant variable in a stage", `
+				sequence main {
+					counter := 0
+					stage s1 {
+						counter = 1
+					}
+				}
+			`),
+			Entry("reassigning a constant variable in a sequence body", `
+				sequence main {
+					counter := 0
+					counter = 1
+					stage s1 {
+					}
+				}
+			`),
 			Entry("nested stage reads a variable from the enclosing sequence", `
 				sequence main {
 					counter := 0
@@ -268,14 +284,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`, "undefined symbol: x"),
-			Entry("assigning with = in a reactive scope", `
+			Entry("reassigning a reactive variable in a stage", `
 				sequence main {
-					counter := 0
+					r := pressure + 1
 					stage s1 {
-						counter = 1
+						r = pressure + 2
 					}
 				}
-			`, "cannot use '='"),
+			`, "cannot reassign reactive variable"),
 			Entry("using a variable before it is declared in the same scope", `
 				sequence main {
 					stage s1 {
@@ -314,14 +330,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`, "undefined symbol: x"),
-			Entry("assigning with = in a sequence body", `
+			Entry("rebinding a channel alias in a sequence body", `
 				sequence main {
-					counter := 0
-					counter = 1
+					p := pressure
+					p = valve_cmd
 					stage s1 {
 					}
 				}
-			`, "cannot use '='"),
+			`, "rebinding an alias is not yet supported"),
 			Entry("using a variable before it is declared in a sequence body", `
 				sequence main {
 					a := b
