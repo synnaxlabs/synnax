@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package leak
+package goroutineleak
 
 import (
 	"github.com/golangci/plugin-module-register/register"
 	"golang.org/x/tools/go/analysis"
 )
 
-func init() { register.Plugin("leak", newPlugin) }
+func init() { register.Plugin("goroutineleak", newPlugin) }
 
 func newPlugin(any) (register.LinterPlugin, error) { return &plugin{}, nil }
 

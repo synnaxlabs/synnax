@@ -6,7 +6,7 @@ linters:
     - revive
     - must
     - set
-    - leak
+    - goroutineleak
   settings:
     ginkgolinter:
       forbid-focus-container: true
@@ -37,9 +37,9 @@ linters:
         type: "module"
         description: >
           Detects map[T]struct{} and map[T]bool patterns that should use set.Set[T].
-      leak:
+      goroutineleak:
         type: "module"
         description: >
-          Enforces goroutine-leak checks in Ginkgo suites: every suite must register
+          Enforces goroutine leak checks in Ginkgo suites: every suite must register
           ShouldNotLeakGoroutinesPerSpec, and every BeforeSuite/BeforeAll must call
           ShouldNotLeakGoroutines first.
