@@ -20,8 +20,8 @@ import (
 type Update[K Key, E Entry[K]] struct {
 	// retrieve is the underlying scan used to resolve entries to update.
 	retrieve Retrieve[K, E]
-	// guards is the chain of GuardFuncs checked against each matched
-	// entry; any non-nil error aborts the update.
+	// guards is the chain of GuardFuncs checked against each matched entry; any non-nil
+	// error aborts the update.
 	guards guards[K, E]
 	// changes is the chain of transformations applied to each matched
 	// entry before it is written back.
@@ -66,8 +66,8 @@ func (u Update[K, E]) Guard(filter GuardFunc[K, E]) Update[K, E] {
 func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 	checkForNilTx("update.Exec", tx)
 	var (
-		queryCtx = Context{Context: ctx, Tx: tx}
-		entries  []E
+		gorpCtx = Context{Context: ctx, Tx: tx}
+		entries []E
 	)
 	if err = u.retrieve.Entries(&entries).Exec(ctx, tx); err != nil {
 		return err
@@ -75,15 +75,15 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 	if len(u.changes) == 0 {
 		return errors.Wrap(query.ErrInvalidParameters, "[gorp] - update query must specify at least one change function")
 	}
-	if err = u.guards.checkMany(queryCtx, entries); err != nil {
+	if err = u.guards.checkMany(gorpCtx, entries); err != nil {
 		return err
 	}
 	for i, e := range entries {
-		if entries[i], err = u.changes.exec(queryCtx, e); err != nil {
+		if entries[i], err = u.changes.exec(gorpCtx, e); err != nil {
 			return err
 		}
 	}
-	return wrapWriter[K, E](tx, u.retrieve.keyPrefix, u.indexes).Set(ctx, entries...)
+	return wrapWriter(tx, u.retrieve.keyPrefix, u.indexes).Set(ctx, entries...)
 }
 
 type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)

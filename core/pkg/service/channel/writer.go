@@ -167,7 +167,7 @@ func (w Writer) DeleteManyByNames(
 		Where(MatchNames(names...)).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
-		return errors.Skip(err, query.ErrNotFound)
+		return err
 	}
 	return w.delete(ctx, KeysFromChannels(res), allowInternal)
 }
@@ -530,8 +530,7 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
-	if err := w.otg.DeleteResource(ctx, ids...); err != nil {
+	if err := w.otg.DeleteResource(ctx, OntologyIDsFromKeys(keys)...); err != nil {
 		return err
 	}
 	// Storage deletion goes last, as it is the only operation that can fail without an
