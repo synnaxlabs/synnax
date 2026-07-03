@@ -25,7 +25,6 @@ var _ = Describe("Grpc", func() {
 			Security: server.SecurityConfig{
 				Insecure: new(true),
 			},
-			Debug: new(true),
 			Branches: []server.Branch{
 				&server.GRPCBranch{},
 			},

@@ -97,15 +97,6 @@ func assertNoLeakedGoroutines(snapshot []gleak.Goroutine) {
 		args,
 		gleak.IgnoringCreator("github.com/valyala/fasthttp.(*workerPool).Start"),
 	)
-	// gofiber's monitor middleware (mounted on /metrics in debug mode) starts a single
-	// process-global goroutine, guarded by a package-level sync.Once, that refreshes
-	// cached process/OS statistics every cfg.Refresh and loops forever. It has no
-	// shutdown mechanism, so it outlives the server that mounted it; ignore it the same
-	// way as the fasthttp process-globals above.
-	args = append(
-		args,
-		gleak.IgnoringCreator("github.com/gofiber/contrib/v3/monitor.New.func1"),
-	)
 	assertion := gomega.Eventually(gleak.Goroutines)
 	assertion.ShouldNot(gleak.HaveLeaked(args...))
 }
