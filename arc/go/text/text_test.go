@@ -3072,6 +3072,81 @@ time.wait{duration=500ms} -> output`
 				Expect(edge1.Kind).To(Equal(ir.EdgeKindConditional))
 			})
 
+			It("Should clock a self-writing flow with a one-shot pulse instead of a self-trigger", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10171},
+				}
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: `counter + 1 => counter`}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				Expect(countNodesByType(inter.Nodes, "on")).To(Equal(0),
+					"a flow writing the channel it reads must not create a self-trigger")
+				Expect(countNodesByType(inter.Nodes, "constant")).To(Equal(1),
+					"the self-writing flow must be clocked by a synthetic one-shot pulse")
+
+				pulse := findNodeByType(inter.Nodes, "constant")
+				write := findNodeByType(inter.Nodes, "write")
+				Expect(write.Channels.Write).To(HaveKey(uint32(10171)))
+
+				var expr ir.Node
+				for _, n := range inter.Nodes {
+					if n.Key != pulse.Key && n.Key != write.Key {
+						expr = n
+					}
+				}
+				Expect(expr.Channels.Read).To(HaveKey(uint32(10171)),
+					"the expression still reads the channel as data, not as a trigger")
+
+				triggers := 0
+				for _, e := range inter.Edges {
+					if e.Target.Node == expr.Key {
+						triggers++
+						Expect(e.Source.Node).To(Equal(pulse.Key), "the pulse must be the only trigger")
+						Expect(e.Kind).To(Equal(ir.EdgeKindContinuous))
+					}
+				}
+				Expect(triggers).To(Equal(1))
+			})
+
+			It("Should keep an external trigger and drop only the self-write trigger", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "ext", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10181},
+					{Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10182},
+				}
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: `ext + counter => counter`}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				Expect(countNodesByType(inter.Nodes, "constant")).To(Equal(0),
+					"an external trigger remains, so no synthetic pulse is injected")
+				Expect(countNodesByType(inter.Nodes, "on")).To(Equal(1),
+					"only the external channel triggers; the self-written channel does not")
+
+				triggerNode := findNodeByType(inter.Nodes, "on")
+				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(10181)),
+					"the surviving trigger must be the external channel")
+				Expect(triggerNode.Channels.Read).NotTo(HaveKey(uint32(10182)),
+					"the self-written channel must not trigger the flow")
+			})
+
+			It("Should not suppress a trigger when the flow writes a different channel", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10191},
+					{Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10192},
+				}
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: `a + 1 => b`}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				Expect(countNodesByType(inter.Nodes, "constant")).To(Equal(0),
+					"a non-self-writing flow keeps its channel trigger and needs no pulse")
+				Expect(countNodesByType(inter.Nodes, "on")).To(Equal(1))
+
+				triggerNode := findNodeByType(inter.Nodes, "on")
+				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(10191)))
+			})
+
 			It("Should inject multiple triggers for multi-channel expression", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10151},

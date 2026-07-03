@@ -512,6 +512,40 @@ func buildExprReadTriggers[T antlr.ParserRuleContext](
 	return reads, true
 }
 
+// flowWriteKey returns the channel key the flow's terminal sink writes to.
+func flowWriteKey(ctx acontext.Context[parser.IFlowStatementContext]) (uint32, bool) {
+	nodes := ctx.AST.AllFlowNode()
+	if len(nodes) == 0 {
+		return 0, false
+	}
+	id := nodes[len(nodes)-1].Identifier()
+	if id == nil {
+		return 0, false
+	}
+	sym, err := ctx.Scope.Resolve(ctx, id.IDENTIFIER().GetText())
+	if err != nil || (!isVarChannel(sym) && sym.Kind != symbol.KindChannel && sym.Type.Kind != types.KindChan) {
+		return 0, false
+	}
+	return channelKey(sym), true
+}
+
+// buildConstantNode builds a constant node emitting value of type t once per activation.
+func buildConstantNode(kg *keyGenerator, suffix string, value any, t types.Type) nodeResult {
+	n := ir.Node{
+		Key:      kg.generate("const", suffix),
+		Type:     "constant",
+		Channels: types.NewChannels(),
+		Inputs:   types.Params{{Name: "value", Type: t, Value: value}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: t}},
+	}
+	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam)
+}
+
+// buildActivationPulse builds a one-shot constant that fires once per activation.
+func buildActivationPulse(kg *keyGenerator) nodeResult {
+	return buildConstantNode(kg, "pulse", uint8(1), types.U8())
+}
+
 // buildVarSeed records a value variable's declared value and channel key so the
 // runtime can pre-fill its channel with the seed before execution.
 func buildVarSeed(sym *symbol.Symbol, shell *shellBuilder) ir.VarSeed {
@@ -788,15 +822,7 @@ func analyzeExpression(
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return nodeResult{}, false
 		}
-		key := kg.generate("const", "")
-		n := ir.Node{
-			Key:      key,
-			Type:     "constant",
-			Channels: types.NewChannels(),
-			Inputs:   types.Params{{Name: "value", Type: outputType, Value: parsedValue.Value}},
-			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-		}
-		return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
+		return buildConstantNode(kg, "", parsedValue.Value, outputType), true
 	}
 
 	key := kg.generate(sym.Name, "")
@@ -1058,7 +1084,22 @@ func (p *flowChainProcessor) injectImplicitTriggers(expr parser.IExpressionConte
 	if !ok {
 		return false
 	}
+	writeKey, hasWrite := flowWriteKey(p.ctx)
+	var triggers []nodeResult
+	selfWrite := false
 	for _, result := range reads {
+		// A flow cannot retrigger itself: drop the trigger for a channel it writes.
+		if _, writes := result.node.Channels.Read[writeKey]; hasWrite && writes {
+			selfWrite = true
+			continue
+		}
+		triggers = append(triggers, result)
+	}
+	// No external trigger left: clock the self-writing flow once per activation.
+	if selfWrite && len(triggers) == 0 {
+		triggers = append(triggers, buildActivationPulse(p.kg))
+	}
+	for _, result := range triggers {
 		p.nodes = append(p.nodes, result.node)
 		if p.prevNode == nil {
 			p.prevOutput = result.output

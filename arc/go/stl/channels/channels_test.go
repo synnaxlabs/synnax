@@ -490,6 +490,35 @@ var _ = Describe("Channel", func() {
 				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
 				Expect(triggered).To(BeFalse())
 			})
+			It("Should not re-emit a variable's current value after reset", func(ctx SpecContext) {
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
+					Node: ir.Node{
+						Type:   "on",
+						IsVar:  true,
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
+					},
+					State: progState.Node("source"),
+				}))
+				d1 := telem.NewSeriesV[int32](1)
+				d1.Alignment = telem.NewAlignment(1, 0)
+				channelState.Ingest(telem.UnaryFrame[uint32](20, d1))
+
+				var triggered bool
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
+				Expect(triggered).To(BeTrue(), "a variable read must emit its current value")
+
+				source.Reset()
+				triggered = false
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
+				Expect(triggered).To(BeFalse(),
+					"reactivation must not re-emit an unchanged variable value")
+
+				d2 := telem.NewSeriesV[int32](2)
+				d2.Alignment = telem.NewAlignment(2, 0)
+				channelState.Ingest(telem.UnaryFrame[uint32](20, d2))
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
+				Expect(triggered).To(BeTrue(), "a write after reactivation must emit the new value")
+			})
 		})
 
 		Describe("Alignment Validation", func() {

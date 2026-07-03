@@ -2551,4 +2551,46 @@ var _ = Describe("Sequence", func() {
 			Expect(lastString(out, 102)).To(Equal("updated"))
 		})
 	})
+
+	Describe("Reactive variable reads", func() {
+		It("Logs a variable once per change across stage re-activations", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{"log": {types.String(), 101}})
+			h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    stage s1 {
+				        counter $= 0
+				        1 => counter + 1 => counter
+				        str(counter) => log
+				        time.wait{100ms} => next
+				    }
+				    stage s2 {
+				        1 => s1
+				    }
+				}
+				1 => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			// Two scheduler passes settle each wait→s2→s1 re-entry; the logged value
+			// lags the increment by one activation, so activations log 0, 1, 2, ...
+			step := func(now telem.TimeSpan) {
+				h.Tick(ctx, now)
+				h.channelState.ClearReads()
+				h.Tick(ctx, now)
+				h.channelState.ClearReads()
+			}
+			step(0)
+			step(100 * telem.Millisecond)
+			step(200 * telem.Millisecond)
+			step(300 * telem.Millisecond)
+
+			out, _ := h.Flush()
+			var logged []string
+			for _, ser := range out.Get(101).Series {
+				logged = append(logged, telem.UnmarshalSeries[string](ser)...)
+			}
+			Expect(logged).To(Equal([]string{"0", "1", "2", "3", "4"}))
+		})
+	})
 })

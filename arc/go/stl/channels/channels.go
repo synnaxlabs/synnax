@@ -169,17 +169,14 @@ func (s *source) Init(node.Context) {}
 // data that arrives after activation rather than stale pre-existing data.
 func (s *source) Reset() {
 	s.State.Reset()
+	if s.isVar {
+		return
+	}
 	data, _, ok := s.state.readSeries(s.key)
 	if !ok || len(data.Series) == 0 {
 		return
 	}
 	ab := data.Series[len(data.Series)-1].AlignmentBounds()
-	// A variable read emits its current value on (re)activation; a plain channel
-	// read skips everything already buffered before it became active.
-	if s.isVar {
-		s.highWaterMark = ab.Lower
-		return
-	}
 	if ab.Upper > s.highWaterMark {
 		s.highWaterMark = ab.Upper
 	}
