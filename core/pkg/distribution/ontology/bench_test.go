@@ -41,15 +41,23 @@ func newBenchID(key string) ontology.ID {
 
 var benchSchema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func (s *benchService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
-
-func (s *benchService) Schema() zyn.Schema { return benchSchema }
-
-func (s *benchService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
-	return ontology.NewResource(s.Schema(), newBenchID(key), key, BenchResource{Key: key}), nil
+func (*benchService) Type() ontology.ResourceType {
+	return ontology.ResourceTypeChannel
 }
 
-func (s *benchService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (*benchService) RetrieveResource(
+	_ context.Context,
+	key string,
+	_ gorp.Tx,
+) (ontology.Resource, error) {
+	return ontology.NewResource(
+		benchSchema, newBenchID(key), key, BenchResource{Key: key},
+	), nil
+}
+
+func (s *benchService) OpenNexter(context.Context) (
+	iter.Seq[ontology.Resource], io.Closer, error,
+) {
 	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
 

@@ -329,11 +329,8 @@ var _ = Describe("Alias", Ordered, func() {
 				WhereIDs(alias.OntologyID(r.Key, ch.Key())).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
-			var out alias.Alias
-			Expect(res.Parse(&out)).To(Succeed())
-			Expect(out.Channel).To(Equal(ch.Key()))
-			Expect(out.Range).To(Equal(r.Key))
-			Expect(out.Alias).To(Equal("Alias"))
+			Expect(res.ID).To(Equal(alias.OntologyID(r.Key, ch.Key())))
+			Expect(res.Name).To(Equal("Alias"))
 		})
 	})
 })

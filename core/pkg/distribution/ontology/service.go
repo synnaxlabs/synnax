@@ -16,7 +16,6 @@ import (
 
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )
 
@@ -26,8 +25,6 @@ import (
 // when the ontology requests them.
 type Service interface {
 	Type() ResourceType
-	// Schema returns the schema of the entities returned by this service.
-	Schema() zyn.Schema
 	// RetrieveResource returns the resource with the give key (Name.Name). If the resource
 	// does not exist, returns a query.ErrNotFound error.
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)

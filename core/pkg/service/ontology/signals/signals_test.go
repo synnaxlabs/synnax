@@ -37,6 +37,8 @@ type changeService struct {
 	observe.Observer[iter.Seq[ontology.Change]]
 }
 
+var changeSchema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
+
 func newChangeID(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: ontology.ResourceTypeChannel}
 }
@@ -87,10 +89,6 @@ var _ ontology.Service = (*changeService)(nil)
 
 func (s *changeService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
-func (s *changeService) Schema() zyn.Schema {
-	return zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
-}
-
 func (s *changeService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
@@ -101,7 +99,7 @@ func (s *changeService) RetrieveResource(
 	_ gorp.Tx,
 ) (ontology.Resource, error) {
 	return ontology.NewResource(
-		s.Schema(),
+		changeSchema,
 		newChangeID(key),
 		"",
 		map[string]any{"key": key},
@@ -135,7 +133,7 @@ var _ = Describe("Signals", func() {
 						Variant: change.VariantSet,
 						Key:     newChangeID(key).String(),
 						Value: ontology.NewResource(
-							svc.Schema(),
+							changeSchema,
 							newChangeID(key),
 							"empty",
 							map[string]any{"key": key},

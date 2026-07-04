@@ -560,13 +560,6 @@ var _ = Describe("Ontology Integration", func() {
 		})
 	})
 
-	Describe("Schema", func() {
-		It("Should return a valid schema", func(ctx SpecContext) {
-			schema := svc.Schema()
-			Expect(schema).ToNot(BeNil())
-		})
-	})
-
 	Describe("RetrieveResource", func() {
 		It("Should retrieve a policy as an ontology resource", func(ctx SpecContext) {
 			w := svc.NewWriter(tx, false)

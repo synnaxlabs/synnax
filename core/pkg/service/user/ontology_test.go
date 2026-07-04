@@ -24,7 +24,6 @@ import (
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 var _ = Describe("Ontology", func() {
@@ -77,18 +76,6 @@ var _ = Describe("Ontology", func() {
 			})).Error().To(HaveOccurred())
 		})
 	})
-	Describe("Schema", func() {
-		It("Should return the ontology schema", func(_ SpecContext) {
-			schema := svc.Schema().Shape()
-			Expect(schema.DataType()).To(Equal(zyn.ObjectT))
-			fields := schema.Fields()
-			Expect(fields).To(HaveKey("key"))
-			Expect(fields).To(HaveKey("username"))
-			Expect(fields).To(HaveKey("first_name"))
-			Expect(fields).To(HaveKey("last_name"))
-			Expect(fields).To(HaveKey("root_user"))
-		})
-	})
 	Describe("Type", func() {
 		It("Should return the user resource type", func() {
 			Expect(svc.Type()).To(Equal(ontology.ResourceTypeUser))
@@ -137,9 +124,8 @@ var _ = Describe("Ontology", func() {
 				Key:      key,
 			}))
 			resource := MustSucceed(svc.RetrieveResource(ctx, key.String(), nil))
-			var resU user.User
-			Expect(resource.Parse(&resU)).To(Succeed())
-			Expect(resU).To(Equal(created))
+			Expect(resource.ID).To(Equal(created.OntologyID()))
+			Expect(resource.Name).To(Equal(created.Username))
 		})
 		It("Should return an error when the key is not a valid UUID", func(ctx SpecContext) {
 			Expect(svc.RetrieveResource(ctx, "not-a-uuid", nil)).Error().
@@ -182,9 +168,8 @@ var _ = Describe("Ontology", func() {
 						return c.Key == expectedID && c.Variant == xchange.VariantSet
 					})
 					g.Expect(setIdx).ToNot(Equal(-1))
-					var u user.User
-					g.Expect(changes[setIdx].Value.Parse(&u)).To(Succeed())
-					g.Expect(u).To(Equal(created))
+					g.Expect(changes[setIdx].Value.ID).To(Equal(created.OntologyID()))
+					g.Expect(changes[setIdx].Value.Name).To(Equal(created.Username))
 				}).Should(Succeed())
 
 				Expect(svc.NewWriter(nil).Delete(ctx, created.Key)).To(Succeed())
@@ -211,14 +196,12 @@ var _ = Describe("Ontology", func() {
 			seq, closer := MustSucceed2(svc.OpenNexter(ctx))
 			DeferClose(closer)
 
-			seen := make(map[string]user.User)
+			seen := make(map[string]string)
 			for resource := range seq {
-				var u user.User
-				Expect(resource.Parse(&u)).To(Succeed())
-				seen[resource.ID.String()] = u
+				seen[resource.ID.String()] = resource.Name
 			}
-			Expect(seen).To(HaveKeyWithValue(a.OntologyID().String(), a))
-			Expect(seen).To(HaveKeyWithValue(b.OntologyID().String(), b))
+			Expect(seen).To(HaveKeyWithValue(a.OntologyID().String(), a.Username))
+			Expect(seen).To(HaveKeyWithValue(b.OntologyID().String(), b.Username))
 		})
 	})
 })

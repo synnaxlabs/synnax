@@ -57,9 +57,6 @@ type change = xchange.Change[Key, Table]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeTable }
 
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
-
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k, err := uuid.Parse(key)

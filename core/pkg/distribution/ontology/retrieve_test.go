@@ -34,7 +34,7 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx),
 			).To(Succeed())
 			var res Sample
-			Expect(r.Parse(&res)).To(Succeed())
+			Expect(schema.Parse(r.Data, &res)).To(Succeed())
 			Expect(res.Key).To(Equal("A"))
 		})
 		It("Should retrieve multiple resources by their Name", func(ctx SpecContext) {
@@ -48,9 +48,9 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, nil),
 			).To(Succeed())
 			var res Sample
-			Expect(r[0].Parse(&res)).To(Succeed())
+			Expect(schema.Parse(r[0].Data, &res)).To(Succeed())
 			Expect(res.Key).To(Equal("A"))
-			Expect(r[1].Parse(&res)).To(Succeed())
+			Expect(schema.Parse(r[1].Data, &res)).To(Succeed())
 			Expect(res.Key).To(Equal("B"))
 		})
 	})
@@ -71,7 +71,7 @@ var _ = Describe("Retrieve", func() {
 					Exec(ctx, nil),
 				).To(Succeed())
 				var res Sample
-				Expect(r.Parse(&res)).To(Succeed())
+				Expect(schema.Parse(r.Data, &res)).To(Succeed())
 				Expect(res.Key).To(Equal("B"))
 			})
 
@@ -92,9 +92,9 @@ var _ = Describe("Retrieve", func() {
 					Exec(ctx, tx),
 				).To(Succeed())
 				var res Sample
-				Expect(r[0].Parse(&res)).To(Succeed())
+				Expect(schema.Parse(r[0].Data, &res)).To(Succeed())
 				Expect(res.Key).To(Equal("B"))
-				Expect(r[1].Parse(&res)).To(Succeed())
+				Expect(schema.Parse(r[1].Data, &res)).To(Succeed())
 				Expect(res.Key).To(Equal("C"))
 			})
 
@@ -126,7 +126,7 @@ var _ = Describe("Retrieve", func() {
 					Exec(ctx, tx),
 				).To(Succeed())
 				var res Sample
-				Expect(r.Parse(&res)).To(Succeed())
+				Expect(schema.Parse(r.Data, &res)).To(Succeed())
 				Expect(res.Key).To(Equal("C"))
 			})
 
@@ -152,9 +152,9 @@ var _ = Describe("Retrieve", func() {
 				Expect(intermediate).To(HaveLen(1))
 				Expect(final).To(HaveLen(1))
 				var res Sample
-				Expect(intermediate[0].Parse(&res)).To(Succeed())
+				Expect(schema.Parse(intermediate[0].Data, &res)).To(Succeed())
 				Expect(res.Key).To(Equal("B"))
-				Expect(final[0].Parse(&res)).To(Succeed())
+				Expect(schema.Parse(final[0].Data, &res)).To(Succeed())
 				Expect(res.Key).To(Equal("C"))
 			})
 
@@ -172,7 +172,7 @@ var _ = Describe("Retrieve", func() {
 					Exec(ctx, nil),
 				).To(Succeed())
 				var res Sample
-				Expect(r.Parse(&res)).To(Succeed())
+				Expect(schema.Parse(r.Data, &res)).To(Succeed())
 				Expect(res.Key).To(Equal("A"))
 			})
 
@@ -195,7 +195,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(r).To(HaveLen(2))
 				keys := lo.Map(r, func(res ontology.Resource, _ int) string {
 					var s Sample
-					lo.Must0(res.Parse(&s))
+					lo.Must0(schema.Parse(res.Data, &s))
 					return s.Key
 				})
 				Expect(keys).To(ConsistOf("A", "B"))
@@ -219,7 +219,7 @@ var _ = Describe("Retrieve", func() {
 					Exec(ctx, tx),
 				).To(Succeed())
 				var res Sample
-				Expect(r.Parse(&res)).To(Succeed())
+				Expect(schema.Parse(r.Data, &res)).To(Succeed())
 				Expect(res.Key).To(Equal("A"))
 			})
 
@@ -277,7 +277,7 @@ var _ = Describe("Retrieve", func() {
 
 			Expect(results).To(HaveLen(1))
 			var res Sample
-			Expect(results[0].Parse(&res)).To(Succeed())
+			Expect(schema.Parse(results[0].Data, &res)).To(Succeed())
 			Expect(res.Key).To(Equal("child"))
 		})
 
@@ -311,7 +311,7 @@ var _ = Describe("Retrieve", func() {
 
 			Expect(results).To(HaveLen(1))
 			var res Sample
-			Expect(results[0].Parse(&res)).To(Succeed())
+			Expect(schema.Parse(results[0].Data, &res)).To(Succeed())
 			Expect(res.Key).To(Equal("level-D"))
 		})
 	})
