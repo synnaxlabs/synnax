@@ -1,0 +1,44 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Dialog, Icon } from "@synnaxlabs/pluto";
+
+import { MAKE } from "@/feature/opc/device/types";
+import { useConnectModal } from "@/feature/opc/device/useConnectModal";
+import { Device as CommonDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
+
+const EmptyContent = () => {
+  const connect = useConnectModal();
+  const { close } = Dialog.useContext();
+  return (
+    <Empty.Action
+      message="No OPC UA servers connected."
+      action="Connect a new server"
+      full="y"
+      onClick={() => {
+        connect();
+        close();
+      }}
+    />
+  );
+};
+
+export const Select = () => {
+  const connect = useConnectModal();
+  return (
+    <CommonDevice.Select
+      onConfigure={(deviceKey) => connect({ deviceKey })}
+      emptyContent={<EmptyContent />}
+      label="OPC UA Server"
+      make={MAKE}
+      icon={<Icon.Logo.OPC />}
+    />
+  );
+};

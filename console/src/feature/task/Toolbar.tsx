@@ -1,0 +1,475 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/feature/task/Toolbar.css";
+
+import { task, UnexpectedError } from "@synnaxlabs/client";
+import {
+  Access,
+  Button,
+  Flex,
+  type Flux,
+  Icon,
+  List,
+  Menu,
+  Select,
+  Status,
+  stopPropagation,
+  Synnax,
+  Task,
+  Text,
+} from "@synnaxlabs/pluto";
+import { array, strings } from "@synnaxlabs/x";
+import { useCallback, useState } from "react";
+
+import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
+import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
+import { Cluster } from "@/platform/cluster";
+import { ContextMenu as CommonContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { Export } from "@/platform/export";
+import { Layout } from "@/platform/layout";
+import { Link } from "@/platform/link";
+import { Modals } from "@/platform/modals";
+import { type Nav } from "@/platform/nav";
+import { Range } from "@/platform/range";
+import { Task as CommonTask } from "@/platform/task";
+import { Toolbar } from "@/platform/toolbar";
+import { Session } from "@/session";
+
+const EmptyContent = () => {
+  const placeLayout = Layout.usePlacer();
+  const handleClick = () => placeLayout(CommonTask.SELECTOR_LAYOUT);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  return (
+    <Empty.Action
+      message="No existing tasks."
+      action={hasCreatePermission ? "Create a task" : undefined}
+      onClick={handleClick}
+    />
+  );
+};
+
+const INITIAL_QUERY: Task.ListQuery = {
+  internal: false,
+  snapshot: false,
+};
+
+const filter = (task: task.Task) =>
+  !task.internal && !task.snapshot && task.type !== "arc";
+
+const Content = () => {
+  const client = Synnax.use();
+  const [selected, setSelected] = useState<task.Key[]>([]);
+  const addStatus = Status.useAdder();
+  const confirm = Modals.useConfirm();
+  const menuProps = Menu.useContextMenu();
+  const dispatch = Session.useDispatch();
+  const placeLayout = Layout.usePlacer();
+  const { createLayout } = CommonTask.useRegistry();
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const { data, getItem, subscribe, retrieve } = Task.useList({
+    initialQuery: INITIAL_QUERY,
+    filter,
+  });
+  const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
+
+  const { update: rename } = Task.useRename({
+    beforeUpdate: useCallback(
+      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Task.UseRenameArgs>) => {
+        const { key, name } = data;
+        const tsk = getItem(key);
+        if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
+        const oldName = tsk.name;
+        if (tsk.status?.details.running === true) {
+          const confirmed = await confirm({
+            message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
+            description: `This will cause ${tsk.name} to stop and be reconfigured.`,
+            cancel: { label: "Cancel" },
+            confirm: { label: "Rename", variant: "error" },
+          });
+          if (!confirmed) return false;
+        }
+        dispatch(Session.Layout.rename({ key, name }));
+        rollbacks.push(() => dispatch(Session.Layout.rename({ key, name: oldName })));
+        return data;
+      },
+      [],
+    ),
+  });
+
+  const { update: handleDelete } = Task.useDelete({
+    beforeUpdate: useCallback(
+      async ({ data: keys }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
+        setSelected([]);
+        if (keys.length === 0) return false;
+        const names = strings.naturalLanguageJoin(
+          getItem(array.toArray(keys)).map(({ name }) => name),
+          "tasks",
+        );
+        const confirmed = await confirm({
+          message: `Are you sure you want to delete ${names}?`,
+          description: "This action cannot be undone.",
+          cancel: { label: "Cancel" },
+          confirm: { label: "Delete", variant: "error" },
+        });
+        if (!confirmed) return false;
+        dispatch(Session.Layout.remove({ keys: array.toArray(keys) }));
+        return keys;
+      },
+      [client, dispatch, getItem],
+    ),
+    afterFailure: ({ status }) => addStatus(status),
+  });
+
+  const { update: runCommand } = Task.useCommand();
+  const handleCommand = useCallback(
+    (keys: string[], type: string) => runCommand(keys.map((k) => ({ task: k, type }))),
+    [runCommand],
+  );
+  const handleStart = useCallback(
+    (keys: string[]) => handleCommand(keys, "start"),
+    [handleCommand],
+  );
+  const handleStop = useCallback(
+    (keys: string[]) => handleCommand(keys, "stop"),
+    [handleCommand],
+  );
+  const { update: setDataSaving } = useSetDataSaving();
+  const handleEnableDataSaving = useCallback(
+    (keys: task.Key[]) =>
+      keys.forEach((key) => setDataSaving({ key, dataSaving: true })),
+    [setDataSaving],
+  );
+  const handleDisableDataSaving = useCallback(
+    (keys: task.Key[]) =>
+      keys.forEach((key) => setDataSaving({ key, dataSaving: false })),
+    [setDataSaving],
+  );
+  const handleEdit = useCallback(
+    (key: task.Key) => {
+      const task = getItem(key);
+      if (task == null)
+        return addStatus({
+          variant: "error",
+          message: "Failed to open task details",
+          description: `Task with key ${key} not found`,
+        });
+      const layout = createLayout(task);
+      placeLayout(layout);
+    },
+    [selected, addStatus, placeLayout, createLayout, getItem],
+  );
+  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
+    ({ keys }) => (
+      <ContextMenu
+        keys={keys}
+        tasks={getItem(keys)}
+        onDelete={handleDelete}
+        onStart={handleStart}
+        onStop={handleStop}
+        onEdit={handleEdit}
+        onEnableDataSaving={handleEnableDataSaving}
+        onDisableDataSaving={handleDisableDataSaving}
+      />
+    ),
+    [
+      handleDelete,
+      handleStart,
+      handleStop,
+      handleEnableDataSaving,
+      handleDisableDataSaving,
+    ],
+  );
+  const handleListItemStopStart = useCallback(
+    (command: CommonTask.Command, key: task.Key) => handleCommand([key], command),
+    [handleCommand],
+  );
+  return (
+    <Menu.ContextMenu menu={contextMenu} {...menuProps}>
+      <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
+        <Toolbar.Header padded>
+          <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
+          {hasCreatePermission && (
+            <Toolbar.Actions>
+              <Toolbar.Action
+                tooltip="Create task"
+                onClick={() => placeLayout(CommonTask.SELECTOR_LAYOUT)}
+              >
+                <Icon.Add />
+              </Toolbar.Action>
+            </Toolbar.Actions>
+          )}
+        </Toolbar.Header>
+        <Select.Frame
+          multiple
+          data={data}
+          getItem={getItem}
+          subscribe={subscribe}
+          value={selected}
+          onChange={setSelected}
+          onFetchMore={fetchMore}
+          replaceOnSingle
+        >
+          <List.Items<task.Key, task.Task>
+            full="y"
+            emptyContent={<EmptyContent />}
+            onContextMenu={menuProps.open}
+          >
+            {({ key, ...p }) => (
+              <TaskListItem
+                key={key}
+                {...p}
+                onStopStart={(command) => handleListItemStopStart(command, key)}
+                onRename={(name) => rename({ name, key })}
+                onDoubleClick={() => handleEdit(key)}
+              />
+            )}
+          </List.Items>
+        </Select.Frame>
+      </Toolbar.Content>
+    </Menu.ContextMenu>
+  );
+};
+
+export const TOOLBAR: Nav.Item = {
+  key: "task",
+  icon: <Icon.Task />,
+  content: <Content />,
+  trigger: ["T"],
+  tooltip: "Tasks",
+  initialSize: 300,
+  sizeBounds: { lower: 225, upper: 400 },
+  useVisible: () => Access.useRetrieveGranted(task.TYPE_ONTOLOGY_ID),
+};
+
+interface TaskListItemProps extends List.ItemProps<task.Key> {
+  onStopStart: (command: CommonTask.Command) => void;
+  onRename: (name: string) => void;
+}
+
+const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
+  const { itemKey } = rest;
+  const { getIcon, parseType } = CommonTask.useRegistry();
+  const task_ = List.useItem<task.Key, task.Task>(itemKey);
+  const hasUpdatePermission = Access.useUpdateGranted(task.ontologyID(itemKey));
+  const details = task_?.status?.details;
+  let variant = task_?.status?.variant;
+  const icon = getIcon(task_?.type ?? "");
+  const isLoading = variant === "loading";
+  const isRunning = details?.running === true;
+  if (!isRunning && variant === "success") variant = "info";
+  const handleStartStopClick = useCallback(
+    () => onStopStart(isRunning ? "stop" : "start"),
+    [isRunning, onStopStart],
+  );
+  return (
+    <Select.ListItem {...rest} justify="between" align="center">
+      <Flex.Box y gap="small" grow className={CSS.BE("task", "metadata")}>
+        <Flex.Box x align="center" gap="small">
+          <Status.Indicator
+            variant={variant}
+            style={{ fontSize: "2rem", minWidth: "2rem" }}
+          />
+          <Flex.Box x className={CSS.BE("task", "title")} align="center">
+            {icon}
+            <Text.MaybeEditable
+              id={`text-${itemKey}`}
+              value={task_?.name ?? ""}
+              onChange={hasUpdatePermission ? onRename : undefined}
+              allowDoubleClick={false}
+              overflow="ellipsis"
+              weight={500}
+            />
+          </Flex.Box>
+        </Flex.Box>
+        <Text.Text level="small" color={10}>
+          {parseType(task_?.type ?? "")}
+        </Text.Text>
+      </Flex.Box>
+      {hasUpdatePermission && (
+        <Button.Button
+          variant="outlined"
+          status={isLoading ? "loading" : undefined}
+          onClick={handleStartStopClick}
+          onDoubleClick={stopPropagation}
+          tooltip={`${isRunning ? "Stop" : "Start"} ${task_?.name ?? ""}`}
+        >
+          {isRunning ? <Icon.Pause /> : <Icon.Play />}
+        </Button.Button>
+      )}
+    </Select.ListItem>
+  );
+};
+
+interface ContextMenuProps {
+  keys: task.Key[];
+  onDelete: (keys: task.Key[]) => void;
+  onStart: (keys: task.Key[]) => void;
+  onStop: (keys: task.Key[]) => void;
+  onEdit: (key: task.Key) => void;
+  onEnableDataSaving: (keys: task.Key[]) => void;
+  onDisableDataSaving: (keys: task.Key[]) => void;
+  tasks: task.Task[];
+}
+
+const ContextMenu = ({
+  keys,
+  tasks: selectedTasks,
+  onDelete,
+  onStart,
+  onStop,
+  onEdit,
+  onEnableDataSaving,
+  onDisableDataSaving,
+}: ContextMenuProps) => {
+  const activeRange = Session.Range.useSelectState();
+  const snapshotToActiveRange = useRangeSnapshot();
+  const ontologyIDs = task.ontologyID(keys);
+  const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+  const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
+  const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
+
+  const canStart = selectedTasks.some(
+    ({ status }) => status?.details.running === false,
+  );
+  const canStop = selectedTasks.some(({ status }) => status?.details.running === true);
+  const someSelected = selectedTasks.length > 0;
+  const isSingle = selectedTasks.length === 1;
+
+  // Only tasks with a dataSaving field in their config (primarily read tasks) are
+  // eligible for these menu items. Write tasks without this field are excluded.
+  const dataSavingTasks = selectedTasks.filter(
+    ({ config }) =>
+      config != null && typeof config === "object" && "dataSaving" in config,
+  );
+  const canEnableDataSaving = dataSavingTasks.some(
+    ({ config }) =>
+      config != null &&
+      typeof config === "object" &&
+      "dataSaving" in config &&
+      config.dataSaving === false,
+  );
+  const canDisableDataSaving = dataSavingTasks.some(
+    ({ config }) =>
+      config != null &&
+      typeof config === "object" &&
+      "dataSaving" in config &&
+      config.dataSaving === true,
+  );
+
+  const addStatus = Status.useAdder();
+  const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
+
+  const handleExport = CommonTask.useExport();
+  const handleLink = useCallback(
+    (key: task.Key) => {
+      const name = selectedTasks.find((t) => t.key === key)?.name;
+      if (name == null)
+        return addStatus({
+          variant: "error",
+          message: "Failed to copy link",
+          description: `Task with key ${key} not found`,
+        });
+      copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
+    },
+    [selectedTasks, addStatus, copyLinkToClipboard],
+  );
+  const showSnapshotToActiveRange =
+    activeRange?.persisted === true && selectedTasks.length > 0;
+  return (
+    <CommonContextMenu.Menu>
+      {hasUpdatePermission && (
+        <>
+          {canStart && (
+            <Menu.Item itemKey="start" onClick={() => onStart(keys)}>
+              <Icon.Play />
+              Start
+            </Menu.Item>
+          )}
+          {canStop && (
+            <Menu.Item itemKey="stop" onClick={() => onStop(keys)}>
+              <Icon.Pause />
+              Stop
+            </Menu.Item>
+          )}
+          {(canStart || canStop) && <Menu.Divider />}
+          {canEnableDataSaving && (
+            <Menu.Item
+              itemKey="enableDataSaving"
+              onClick={() => onEnableDataSaving(keys)}
+            >
+              <Icon.Save />
+              Enable data saving
+            </Menu.Item>
+          )}
+          {canDisableDataSaving && (
+            <Menu.Item
+              itemKey="disableDataSaving"
+              onClick={() => onDisableDataSaving(keys)}
+            >
+              <Icon.Disable />
+              Disable data saving
+            </Menu.Item>
+          )}
+          {(canEnableDataSaving || canDisableDataSaving) && <Menu.Divider />}
+          {isSingle && (
+            <>
+              <CommonContextMenu.RenameItem
+                onClick={() => Text.edit(`text-${keys[0]}`)}
+              />
+              <Menu.Divider />
+            </>
+          )}
+        </>
+      )}
+      {isSingle && (
+        <>
+          <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
+            <Icon.Edit />
+            Edit configuration
+          </Menu.Item>
+          <Menu.Divider />
+        </>
+      )}
+      {hasCreatePermission && showSnapshotToActiveRange && (
+        <>
+          <Range.SnapshotMenuItem
+            range={activeRange}
+            key="snapshot"
+            onClick={() =>
+              snapshotToActiveRange({
+                tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
+                  key,
+                  name,
+                })),
+              })
+            }
+          />
+          <Menu.Divider />
+        </>
+      )}
+      {isSingle && (
+        <>
+          <Export.ContextMenuItem onClick={() => handleExport(keys[0])} />
+          <Link.CopyContextMenuItem onClick={() => handleLink(keys[0])} />
+          <Menu.Divider />
+        </>
+      )}
+      {hasDeletePermission && someSelected && (
+        <>
+          <CommonContextMenu.DeleteItem onClick={() => onDelete(keys)} />
+          <Menu.Divider />
+        </>
+      )}
+      <CommonContextMenu.ReloadConsoleItem />
+    </CommonContextMenu.Menu>
+  );
+};
