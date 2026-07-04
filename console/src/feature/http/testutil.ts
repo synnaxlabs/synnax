@@ -46,7 +46,7 @@ export const getSwitchInput = (labelText: string): HTMLInputElement =>
  */
 export const getHeaderIconButton = (
   title: string,
-  icon: string = "Add",
+  icon: string = "add",
 ): HTMLButtonElement => {
   const header = screen.getByText(title).closest(".pluto-header");
   if (header == null) throw new Error(`no header titled ${title}`);

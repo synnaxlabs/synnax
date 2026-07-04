@@ -83,7 +83,7 @@ describe("HTTP Write form", () => {
   it("should add a static field and reset its value when the JSON type changes", async () => {
     await renderWrite();
     await addEndpoint();
-    fireEvent.click(getHeaderIconButton("Additional fields", "Add"));
+    fireEvent.click(getHeaderIconButton("Additional fields", "add"));
     await screen.findByText("static");
     const value = screen.getByPlaceholderText<HTMLInputElement>("value");
     fireEvent.change(value, { target: { value: "on" } });
@@ -96,7 +96,7 @@ describe("HTTP Write form", () => {
   it("should add a generated field and switch its generator to a timestamp", async () => {
     await renderWrite();
     await addEndpoint();
-    fireEvent.click(getHeaderIconButton("Additional fields", "Time"));
+    fireEvent.click(getHeaderIconButton("Additional fields", "time"));
     await screen.findByText("generated");
     await selectFromDropdown("UUID", "Timestamp (s)");
     await findDialogTriggerByText("Timestamp (s)");
@@ -105,7 +105,7 @@ describe("HTTP Write form", () => {
   it("should delete additional fields through a context menu without a duplicate option", async () => {
     await renderWrite();
     await addEndpoint();
-    fireEvent.click(getHeaderIconButton("Additional fields", "Add"));
+    fireEvent.click(getHeaderIconButton("Additional fields", "add"));
     const pointer = await screen.findByPlaceholderText("field");
     fireEvent.contextMenu(pointer);
     await screen.findByText("Delete");
