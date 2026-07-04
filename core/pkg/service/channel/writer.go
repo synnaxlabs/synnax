@@ -115,15 +115,24 @@ func (w Writer) CreateMany(
 // calculated-channel DataTypes it derives via a cross-channel fixpoint: the graph is
 // their source of truth, so re-deriving them here — as CreateMany would — is both
 // redundant and, for interdependent channels analyzed in one pass against pre-update
-// storage, incorrect.
+// storage, incorrect. It returns validate.Error if the target channel is not
+// calculated, since a non-calculated channel's DataType is fixed by its persistent
+// storage.
 func (w Writer) ChangeDataType(
 	ctx context.Context, key Key, dataType telem.DataType,
 ) error {
 	return w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](key)).
-		Change(func(_ gorp.Context, c Channel) Channel {
+		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
+			if !c.IsCalculated() {
+				return Channel{}, errors.Wrapf(
+					validate.ErrValidation,
+					"cannot change the data type of non-calculated channel %q",
+					c.Name,
+				)
+			}
 			c.DataType = dataType
-			return c
+			return c, nil
 		}).
 		Exec(ctx, w.tx)
 }
@@ -264,12 +273,7 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 				keysToDelete = append(keysToDelete, ex.Key())
 			}
 			if len(keysToDelete) != 0 {
-				if err := w.svc.table.NewDelete().
-					Where(gorp.MatchKeys[Key, Channel](keysToDelete...)).
-					Exec(ctx, w.tx); err != nil {
-					return err
-				}
-				if err := w.svc.cfg.Channel.Delete(ctx, keysToDelete); err != nil {
+				if err := w.delete(ctx, keysToDelete, true); err != nil {
 					return err
 				}
 			}

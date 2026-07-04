@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func fixedOverflowChecker(limit int) channel.IntOverflowChecker {
@@ -89,6 +90,46 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(overflowSvc.NewWriter(nil).Create(ctx, &third)).
 				Error().To(MatchError(ContainSubstring("channel limit exceeded")))
+		})
+		It("Should remove overwritten channels from the external overflow set", func(ctx SpecContext) {
+			cleanupSvc := openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
+				IntOverflowCheck: fixedOverflowChecker(3),
+			})
+			idx := channel.Channel{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(cleanupSvc.NewWriter(nil).Create(ctx, &idx)).To(Succeed())
+			name := channel.NewRandomName()
+			data := channel.Channel{
+				Name:        name,
+				DataType:    telem.Float64T,
+				LocalIndex:  idx.LocalKey,
+				Leaseholder: 1,
+			}
+			Expect(cleanupSvc.NewWriter(nil).Create(ctx, &data)).To(Succeed())
+
+			overwrite := channel.Channel{
+				Name:        name,
+				DataType:    telem.Float32T,
+				LocalIndex:  idx.LocalKey,
+				Leaseholder: 1,
+			}
+			Expect(cleanupSvc.NewWriter(nil).Create(ctx, &overwrite,
+				channel.OverwriteIfNameExistsAndDifferentProperties())).To(Succeed())
+
+			// The set now holds {idx, overwrite}. If the overwritten channel's key had
+			// been left behind, creating another external channel would push the count
+			// to 4 and trip the limit-of-3 overflow check.
+			another := channel.Channel{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Float64T,
+				LocalIndex:  idx.LocalKey,
+				Leaseholder: 1,
+			}
+			Expect(cleanupSvc.NewWriter(nil).Create(ctx, &another)).To(Succeed())
 		})
 	})
 
@@ -299,6 +340,33 @@ var _ = Describe("Writer", func() {
 					Expect(resChannels).To(HaveLen(1))
 					Expect(resChannels[0].IsIndex).To(BeTrue())
 					Expect(resChannels[0].DataType).To(Equal(telem.TimeStampT))
+				})
+				It("Should delete the overwritten channel's ontology resource", func(ctx SpecContext) {
+					name := channel.NewRandomName()
+					ch := channel.Channel{
+						Virtual:     true,
+						Name:        name,
+						DataType:    telem.Float64T,
+						Leaseholder: 1,
+					}
+					Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+					originalKey := ch.Key()
+					Expect(dist.Ontology.NewWriter(nil).
+						HasResource(ctx, channel.OntologyID(originalKey))).To(BeTrue())
+
+					newCh := channel.Channel{
+						Virtual:     true,
+						Name:        name,
+						DataType:    telem.Float32T,
+						Leaseholder: 1,
+					}
+					Expect(svc.NewWriter(nil).Create(ctx, &newCh, channel.OverwriteIfNameExistsAndDifferentProperties())).To(Succeed())
+					Expect(newCh.Key()).ToNot(Equal(originalKey))
+
+					Expect(dist.Ontology.NewWriter(nil).
+						HasResource(ctx, channel.OntologyID(originalKey))).To(BeFalse())
+					Expect(dist.Ontology.NewWriter(nil).
+						HasResource(ctx, channel.OntologyID(newCh.Key()))).To(BeTrue())
 				})
 			})
 			It("Should not create a free channel if it already exists by name", func(ctx SpecContext) {
@@ -998,6 +1066,42 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(limitSvc.NewWriter(nil).Create(ctx, &newCh)).
 				To(MatchError(ContainSubstring("channel limit exceeded")))
+		})
+	})
+
+	Describe("ChangeDataType", Ordered, func() {
+		var svc *channel.Service
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			svc = openService(ctx, mock.NewNode(ctx))
+		})
+		It("Should change the data type of a calculated channel", func(ctx SpecContext) {
+			base := channel.Channel{
+				Name:       channel.NewRandomName(),
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return 1",
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
+			Expect(svc.NewWriter(nil).ChangeDataType(ctx, base.Key(), telem.Float32T)).To(Succeed())
+			var retrieved channel.Channel
+			Expect(svc.NewRetrieve().Where(channel.MatchKeys(base.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.DataType).To(Equal(telem.Float32T))
+		})
+		It("Should return a validation error when changing the data type of a non-calculated channel", func(ctx SpecContext) {
+			ch := channel.Channel{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			err := svc.NewWriter(nil).ChangeDataType(ctx, ch.Key(), telem.Float32T)
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(MatchError(ContainSubstring("cannot change the data type of non-calculated channel")))
+			var retrieved channel.Channel
+			Expect(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.DataType).To(Equal(telem.Float64T))
 		})
 	})
 })
