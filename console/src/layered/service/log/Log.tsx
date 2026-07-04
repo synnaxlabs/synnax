@@ -26,9 +26,11 @@ const Internal: Layout.Renderer = ({ visible }) => {
   const channelKeys = Base.useSelectChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
 
+  const modals = Session.Modals.useStore("Log");
   const enableTriggers = useCallback(
-    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key,
-    [store, key],
+    () =>
+      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) === key,
+    [store, key, modals],
   );
 
   const handleDoubleClick = useCallback(() => {

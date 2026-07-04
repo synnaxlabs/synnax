@@ -10,6 +10,7 @@
 export * from "@/layered/service/arc";
 export * from "@/layered/service/lineplot";
 export * from "@/layered/service/log";
+export * from "@/layered/service/modals";
 export * from "@/layered/service/nav";
 export * from "@/layered/service/schematic";
 export * from "@/layered/service/table";

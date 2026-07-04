@@ -36,7 +36,7 @@ import {
 
 import { ContextMenu as CMenu, Controls } from "@/components";
 import { CSS } from "@/css";
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 import { Ontology } from "@/ontology";
 import { Context, type StaticView, useContext, type View } from "@/view/context";
 
@@ -160,10 +160,11 @@ const Selector = ({
   const { update: create } = PView.useCreate({
     beforeUpdate: useCallback(
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<view.New>) => {
-        const name = await renameModal(
-          { initialValue: `View for ${plural(resourceType)}` },
-          { name: "View.Create", icon },
-        );
+        const name = await renameModal({
+          initialValue: `View for ${plural(resourceType)}`,
+          title: "View.Create",
+          icon: Icon.resolve(icon),
+        });
         if (name == null) return false;
         const newKey = uuid.create();
         const previousSelected = selected;

@@ -167,22 +167,17 @@ export const useDeleteAlias = ({
   );
 };
 
-const useOpenCalculated =
-  () =>
-  ({
+const useEditCalculated = () => {
+  const open = Channel.useCalculatedModal();
+  return ({
     selection: { ids },
-    placeLayout,
     state: { getResource },
   }: Ontology.TreeContextMenuProps) => {
     if (ids.length !== 1) return;
     const resource = getResource(ids[0]);
-    return placeLayout(
-      Channel.createCalculatedLayout({
-        key: Number(resource.id.key),
-        name: resource.name,
-      }),
-    );
+    open({ channelKey: Number(resource.id.key) });
   };
+};
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
@@ -218,7 +213,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleRename = useRename(props);
 
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const openCalculated = useOpenCalculated();
+  const openCalculated = useEditCalculated();
   const singleResource = resources.length === 1;
 
   const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);

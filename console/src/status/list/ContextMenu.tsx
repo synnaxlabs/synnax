@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Access, Component, type Flux, Menu, Status } from "@synnaxlabs/pluto";
+import { Access, Component, type Flux, Icon, Menu, Status } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/components";
-import { Modals } from "@/modals";
+import { Modals } from "@/layered/service/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { useSelectFavoriteSet } from "@/status/selectors";
 import { addFavorites, removeFavorites } from "@/status/slice";
@@ -36,10 +36,11 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const rename = Status.useRename({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<Status.RenameParams>) => {
-        const renamed = await renameModal(
-          { initialValue: data.name },
-          { icon: "Status", name: "Status.Rename" },
-        );
+        const renamed = await renameModal({
+          initialValue: data.name,
+          title: "Status.Rename",
+          icon: <Icon.Status />,
+        });
         if (renamed == null) return false;
         return { ...data, name: renamed };
       },

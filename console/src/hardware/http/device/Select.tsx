@@ -12,17 +12,16 @@ import { useCallback } from "react";
 
 import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";
-import { CONNECT_LAYOUT } from "@/hardware/http/device/Connect";
 import { MAKE } from "@/hardware/http/device/types";
-import { Layout } from "@/layout";
+import { useConnectModal } from "@/hardware/http/device/useConnectModal";
 
 const EmptyContent = () => {
-  const placeLayout = Layout.usePlacer();
+  const connect = useConnectModal();
   const { close } = Dialog.useContext();
   const handleClick = useCallback(() => {
-    placeLayout(CONNECT_LAYOUT);
+    connect();
     close();
-  }, [placeLayout, close]);
+  }, [connect, close]);
   return (
     <EmptyAction
       message="No HTTP servers connected."
@@ -34,11 +33,14 @@ const EmptyContent = () => {
 
 const emptyContent = <EmptyContent />;
 
-export const Select = () => (
-  <Common.Device.Select
-    configureLayout={CONNECT_LAYOUT}
-    emptyContent={emptyContent}
-    label="HTTP server"
-    make={MAKE}
-  />
-);
+export const Select = () => {
+  const connect = useConnectModal();
+  return (
+    <Common.Device.Select
+      onConfigure={(deviceKey) => connect({ deviceKey })}
+      emptyContent={emptyContent}
+      label="HTTP server"
+      make={MAKE}
+    />
+  );
+};

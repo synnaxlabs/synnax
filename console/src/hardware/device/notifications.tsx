@@ -10,9 +10,8 @@
 import { type device } from "@synnaxlabs/client";
 import { Button, Icon, Text } from "@synnaxlabs/pluto";
 
-import { CONFIGURE_LAYOUTS, getIcon, getMake, type Make } from "@/hardware/device/make";
+import { getIcon, getMake, type Make, useConfigureModal } from "@/hardware/device/make";
 import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";
-import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 
 const shouldShowConfigureButton = (make: Make): boolean =>
@@ -33,18 +32,23 @@ const notificationAdapter: Notifications.Adapter<ReturnType<typeof device.device
     </Text.Text>
   );
   if (make != null && shouldShowConfigureButton(make))
-    sugared.actions = <ConfigureButton layout={{ ...CONFIGURE_LAYOUTS[make], key }} />;
+    sugared.actions = <ConfigureButton make={make} deviceKey={key} />;
   return sugared;
 };
 
 interface ConfigureButtonProps {
-  layout: Layout.BaseState;
+  make: Make;
+  deviceKey: device.Key;
 }
 
-const ConfigureButton = ({ layout }: ConfigureButtonProps) => {
-  const placeLayout = Layout.usePlacer();
+const ConfigureButton = ({ make, deviceKey }: ConfigureButtonProps) => {
+  const configure = useConfigureModal();
   return (
-    <Button.Button variant="outlined" size="tiny" onClick={() => placeLayout(layout)}>
+    <Button.Button
+      variant="outlined"
+      size="tiny"
+      onClick={() => configure(make, deviceKey)}
+    >
       <Icon.Hardware />
       Configure
     </Button.Button>

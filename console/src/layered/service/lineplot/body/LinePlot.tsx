@@ -101,7 +101,7 @@ const ContextMenuContent = ({
 }: ContextMenuContentProps): ReactElement => {
   const name = Base.useSelectName({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
-  const placeLayout = Layout.usePlacer();
+  const openCreateRange = Range.useCreateModal();
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const getTimeRange = useCallback(async (): Promise<TimeRange> => {
@@ -115,7 +115,7 @@ const ContextMenuContent = ({
   const handleCreateRange = () =>
     handleError(async () => {
       const tr = await getTimeRange();
-      placeLayout(Range.createCreateLayout({ timeRange: tr.numeric }));
+      openCreateRange({ timeRange: tr.numeric });
     }, "Failed to create range from selection");
   const handleDownloadCSV = () =>
     handleError(async () => {
@@ -222,11 +222,12 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
     [vis.viewport.renderTrigger],
   );
 
+  const modals = Session.Modals.useStore("LinePlot");
   const enableTriggers = useCallback(
     () =>
-      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key &&
+      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) === key &&
       hasUpdatePermission,
-    [store, key, hasUpdatePermission],
+    [store, key, hasUpdatePermission, modals],
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(

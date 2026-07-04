@@ -13,11 +13,11 @@ import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Label } from "@/label";
-import { Layout } from "@/layout";
-import { CREATE_LAYOUT } from "@/status/Create";
+import { type Layout } from "@/layout";
 import { Filter } from "@/status/filter";
 import { contextMenu } from "@/status/list/ContextMenu";
 import { Item } from "@/status/list/Item";
+import { useCreateModal } from "@/status/useCreateModal";
 import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";
@@ -42,8 +42,8 @@ const Internal = () => {
   const listProps = Status.useList({
     initialQuery: View.useContext().getInitialView().query,
   });
-  const placeLayout = Layout.usePlacer();
-  const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
+  const openCreate = useCreateModal();
+  const handleCreate = useCallback(() => openCreate(), [openCreate]);
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <View.Form {...listProps}>

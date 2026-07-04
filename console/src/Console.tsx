@@ -24,20 +24,15 @@ import {
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Access } from "@/access";
-import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { COMMANDS } from "@/commands";
-import { CSV } from "@/csv";
 import { Docs } from "@/docs";
 import { Errors } from "@/errors";
 import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
-import { Framer } from "@/framer";
 import { Hardware } from "@/hardware";
 import { Import } from "@/import";
 import { FILE_INGESTERS } from "@/ingesters";
-import { Label } from "@/label";
 import { Arc } from "@/layered/service/arc";
 import { LinePlot } from "@/layered/service/lineplot";
 import { Log } from "@/layered/service/log";
@@ -45,44 +40,30 @@ import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
-import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
-import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { SERVICES } from "@/services";
 import { Status } from "@/status";
 import { store } from "@/store";
-import { User } from "@/user";
-import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
 
 import { Session } from "./layered/session";
 
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
-  ...Channel.LAYOUTS,
-  ...Cluster.LAYOUTS,
-  ...CSV.LAYOUTS,
-  ...Framer.LAYOUTS,
   ...Docs.LAYOUTS,
   ...Hardware.LAYOUTS,
-  ...Label.LAYOUTS,
   ...Layouts.LAYOUTS,
   ...LinePlot.LAYOUTS,
   ...Log.LAYOUTS,
-  ...Modals.LAYOUTS,
   ...Range.LAYOUTS,
   ...Schematic.LAYOUTS,
   ...Table.LAYOUTS,
-  ...User.LAYOUTS,
-  ...Version.LAYOUTS,
   ...Vis.LAYOUTS,
-  ...Project.LAYOUTS,
   ...Arc.LAYOUTS,
   ...Status.LAYOUTS,
-  ...Access.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
@@ -156,7 +137,9 @@ const MainUnderContext = (): ReactElement => {
       theming={themingProps}
     >
       <Vis.Canvas>
-        <Layout.Window />
+        <Session.Modals.Provider>
+          <Layout.Window />
+        </Session.Modals.Provider>
       </Vis.Canvas>
     </Pluto.Provider>
   );

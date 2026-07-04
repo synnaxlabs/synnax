@@ -15,7 +15,6 @@ import { type z } from "zod";
 
 import { EmptyAction } from "@/components";
 import { use } from "@/hardware/common/device/use";
-import { Layout } from "@/layout";
 
 const DEFAULT_NONE_SELECTED_CONTENT = (
   <Text.Text center color={8}>
@@ -38,7 +37,7 @@ export interface ProviderProps<
 > {
   canConfigure: boolean;
   children: (props: ProviderChildProps<Properties, Make, Model>) => ReactElement;
-  configureLayout: Layout.BaseState;
+  onConfigure: (deviceKey: device.Key) => void;
   noneSelectedContent?: ReactElement;
   schemas?: device.DeviceSchemas<Properties, Make, Model>;
 }
@@ -50,16 +49,15 @@ export const Provider = <
 >({
   canConfigure,
   children,
-  configureLayout,
+  onConfigure,
   noneSelectedContent = DEFAULT_NONE_SELECTED_CONTENT,
   schemas,
 }: ProviderProps<Properties, Make, Model>) => {
   const device = use<Properties, Make, Model>(schemas);
-  const placeLayout = Layout.usePlacer();
   if (device == null) return noneSelectedContent;
   if (!device.configured) {
     const { name } = device;
-    const handleConfigure = () => placeLayout({ ...configureLayout, key: device.key });
+    const handleConfigure = () => onConfigure(device.key);
     return (
       <EmptyAction
         message={`${name} is not configured.`}

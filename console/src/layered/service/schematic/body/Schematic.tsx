@@ -79,12 +79,13 @@ const Internal: Layout.Renderer = ({ visible }) => {
   );
 
   const store = useStore<RootState>();
+  const modals = Session.Modals.useStore("Schematic");
 
   const enableTriggers = useCallback(
     () =>
-      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key &&
+      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) === key &&
       isCurrentlyEditable,
-    [store, key, isCurrentlyEditable],
+    [store, key, isCurrentlyEditable, modals],
   );
 
   const renderExtraMenuItems = useCallback(

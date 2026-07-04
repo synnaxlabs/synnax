@@ -41,8 +41,8 @@ import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/hardware/task/useSetDataSaving";
 import { type Service } from "@/layered/service";
 import { Link } from "@/layered/service/link";
+import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 import { Range } from "@/range";
 
 const EmptyContent = () => {

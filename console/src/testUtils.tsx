@@ -103,7 +103,9 @@ export const ConsoleTestProvider = ({
     <Status.Aggregator>
       <Synnax.TestProvider client={client}>
         <Flux.Provider client={fluxClient}>
-          <Provider store={store}>{children}</Provider>
+          <Provider store={store}>
+            <Session.Modals.Provider>{children}</Session.Modals.Provider>
+          </Provider>
         </Flux.Provider>
       </Synnax.TestProvider>
     </Status.Aggregator>
@@ -140,13 +142,13 @@ export const renderWithConsole = (
  * Renders a deep-link resource hook against a minimal Redux store. The store always
  * carries the layout and drift slices that Layout.usePlacer depends on; pass
  * extraReducers for any additional slices the hook reads or writes. Returns the hook's
- * value (the link handler) and the store so the spec can assert on placed layouts and
- * dispatched state.
+ * value (the link handler), the Redux store so the spec can assert on placed layouts and
+ * dispatched state, and the modal store so the spec can assert on opened modals.
  */
 export const renderLinkHook = <H,>(
   useHook: () => H,
   extraReducers: Record<string, Reducer> = {},
-): { handler: H; store: EnhancedStore } => {
+): { handler: H; store: EnhancedStore; modals: Session.Modals.Store } => {
   const store = configureStore({
     reducer: combineReducers({
       [Layout.SLICE_NAME]: Layout.reducer,
@@ -155,10 +157,15 @@ export const renderLinkHook = <H,>(
     }),
   });
   const Wrapper = ({ children }: PropsWithChildren) => (
-    <Provider store={store}>{children}</Provider>
+    <Provider store={store}>
+      <Session.Modals.Provider>{children}</Session.Modals.Provider>
+    </Provider>
   );
-  const { result } = renderHook(useHook, { wrapper: Wrapper });
-  return { handler: result.current, store };
+  const { result } = renderHook(
+    () => ({ handler: useHook(), modals: Session.Modals.useStore("renderLinkHook") }),
+    { wrapper: Wrapper },
+  );
+  return { handler: result.current.handler, store, modals: result.current.modals };
 };
 
 export interface RenderHookWithConsoleOptions<Props> extends RenderHookOptions<Props> {

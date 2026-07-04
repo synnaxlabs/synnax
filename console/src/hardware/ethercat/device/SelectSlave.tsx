@@ -12,13 +12,13 @@ import { Form } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
-import { CONFIGURE_LAYOUT } from "@/hardware/ethercat/device/Configure";
 import { useCommonNetwork } from "@/hardware/ethercat/device/queries";
 import {
   MAKE,
   SLAVE_MODEL,
   type SlaveProperties,
 } from "@/hardware/ethercat/device/types";
+import { useConfigureModal } from "@/hardware/ethercat/device/useConfigureModal";
 import { type Channel } from "@/hardware/ethercat/task/types";
 
 export interface SelectSlaveProps {
@@ -37,6 +37,7 @@ export const SelectSlave = ({
 }: SelectSlaveProps): ReactElement => {
   const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
   const network = useCommonNetwork(channels);
+  const configure = useConfigureModal();
   const filter = useCallback(
     (d: device.Device) => filterByNetwork(d, network),
     [network],
@@ -45,7 +46,7 @@ export const SelectSlave = ({
     <Common.Device.Select
       path={path}
       label="Slave Device"
-      configureLayout={CONFIGURE_LAYOUT}
+      onConfigure={(deviceKey) => configure({ deviceKey })}
       emptyContent="No EtherCAT slaves discovered."
       make={MAKE}
       model={SLAVE_MODEL}

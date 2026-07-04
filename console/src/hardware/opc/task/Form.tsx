@@ -202,10 +202,11 @@ export const Form = <C extends Channel>({
   contextMenuItems,
 }: FormProps<C>) => {
   const isSnapshot = Common.Task.useIsSnapshot();
+  const connect = Device.useConnectModal();
   return (
     <Common.Device.Provider
       canConfigure={!isSnapshot}
-      configureLayout={Device.CONNECT_LAYOUT}
+      onConfigure={(deviceKey) => connect({ deviceKey })}
       schemas={Device.SCHEMAS}
     >
       {({ device }) => (
