@@ -153,50 +153,10 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 	return o, nil
 }
 
-// Writer defines and deletes resources within the ontology.
-type Writer interface {
-	// DefineResource defines one or more new resources with the given IDs. If any of
-	// the resources already exist, DefineResource does nothing for those. Returns nil
-	// if no IDs are provided.
-	DefineResource(context.Context, ...ID) error
-	// HasResource returns true if the resource with the given ID exists.
-	HasResource(context.Context, ID) (bool, error)
-	// DeleteResource deletes one or more resources with the given IDs along with all of
-	// their incoming and outgoing relationships. If any of the resources do not exist,
-	// DeleteResource does nothing for those. Returns nil if no IDs are provided.
-	DeleteResource(context.Context, ...ID) error
-	HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error)
-	// DefineRelationship defines a directional relationship of type t from the resource
-	// with the given from ID to one or more to IDs. Already-existing relationships are
-	// silently skipped. Returns graph.ErrCyclicDependency if any of the new
-	// relationships would create a cycle (including the case where the
-	// reverse-direction relationship already exists). Returns nil if no to IDs are
-	// provided.
-	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ...ID) error
-	// DeleteRelationship deletes the relationship with the given keys and type. If the
-	// relationship does not exist, DeleteRelationship does nothing.
-	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
-	// DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given
-	// types from the resource with the given ID. If the resource does not exist, or if
-	// it has no outgoing relationships of the given types,
-	// DeleteOutgoingRelationshipsOfTypes does nothing.
-	DeleteOutgoingRelationshipsOfType(context.Context, ID, RelationshipType) error
-	// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given
-	// types to the resource with the given ID. If the resource does not exist, or if it
-	// has no incoming relationships of the given types,
-	// DeleteIncomingRelationshipsOfTypes does nothing.
-	DeleteIncomingRelationshipsOfType(context.Context, ID, RelationshipType) error
-	// NewRetrieve opens a new Retrieve query that provides a view of pending operations
-	// merged with the underlying database. If the Writer is executing directly against
-	// the underlying database, the Retrieve query behaves exactly as if calling
-	// Ontology.NewRetrieve.
-	NewRetrieve() Retrieve
-}
-
 // NewWriter opens a new Writer using the provided transaction. Panics if the
 // transaction does not root from the same database as the Ontology.
 func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
-	return dagWriter{
+	return Writer{
 		tx:                o.DB.OverrideTx(tx),
 		registrar:         o.registrar,
 		resourceTable:     o.resourceTable,
