@@ -99,7 +99,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
         variant="filled"
         size="tiny"
         className={CSS.BE("schematic", "properties", "edit")}
-        onClick={() => openEdit({ key: specKey })}
+        onClick={() => openEdit({ symbolKey: specKey })}
       >
         <Icon.Edit />
       </Button.Button>

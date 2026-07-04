@@ -32,24 +32,29 @@ import { Modals } from "@/layered/service/modals";
 import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
 
-export type CreateModalParams = Partial<z.infer<typeof Ranger.formSchema>>;
+export type CreateModalParams = Omit<
+  Partial<z.infer<typeof Ranger.formSchema>>,
+  "key"
+> & {
+  rangeKey?: string;
+};
 
 const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,
 });
 
 export const useCreateModal = Modals.create<CreateModalParams>(
-  ({ close, ...params }) => {
+  ({ close, rangeKey, ...params }) => {
     const now = useRef(Number(TimeStamp.now().valueOf())).current;
     const dispatch = useDispatch();
 
     const client = Synnax.use();
     const clientExists = client != null;
     const { form, save, variant } = Ranger.useForm({
-      query: { key: params.key },
+      query: { key: rangeKey },
       autoSave: false,
       initialValues: {
-        key: uuid.create(),
+        key: rangeKey ?? uuid.create(),
         name: "",
         labels: [],
         timeRange: { start: now, end: now },
@@ -91,8 +96,8 @@ export const useCreateModal = Modals.create<CreateModalParams>(
 
     // Makes sure the user doesn't have the option to select the range itself as a parent
     const recursiveParentFilter = useCallback(
-      (data: ranger.Payload) => data.key !== params.key,
-      [params.key],
+      (data: ranger.Payload) => data.key !== rangeKey,
+      [rangeKey],
     );
 
     const saveName = "Save to Synnax";

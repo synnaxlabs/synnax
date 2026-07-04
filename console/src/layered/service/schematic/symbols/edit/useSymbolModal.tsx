@@ -35,7 +35,8 @@ import { StateList } from "@/layered/service/schematic/symbols/edit/StateList";
 import { SelectVariantField } from "@/layered/service/schematic/symbols/SelectVariant";
 import { Triggers } from "@/triggers";
 
-export interface SymbolModalParams extends Schematic.Symbol.FormQuery {
+export interface SymbolModalParams {
+  symbolKey?: Schematic.Symbol.FormQuery["key"];
   parent?: ontology.ID;
   scale?: number;
   /// createKey, when set on a create-mode open, forces the new symbol to be
@@ -53,11 +54,11 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 const DEFAULT_REGION_KEY = "default";
 
 export const useSymbolModal = Modals.create<SymbolModalParams>(
-  ({ key, parent, createKey, close }): ReactElement => {
-    const isCreate = key == null;
+  ({ symbolKey, parent, createKey, close }): ReactElement => {
+    const isCreate = symbolKey == null;
     const theme = Theming.use();
     const { form, save } = Schematic.Symbol.useForm({
-      query: { key },
+      query: { key: symbolKey },
       initialValues: {
         version: 1,
         key: createKey,

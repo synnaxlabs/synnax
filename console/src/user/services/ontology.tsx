@@ -49,7 +49,7 @@ const useAssignRole = (): ((props: Ontology.TreeContextMenuProps) => void) => {
   return useCallback(
     ({ selection: { ids }, state: { getResource } }: Ontology.TreeContextMenuProps) => {
       const resource = getResource(ids[0]);
-      openAssignRole({ key: ids[0].key, title: `Role.Assign.${resource.name}` });
+      openAssignRole({ userKey: ids[0].key, title: `Role.Assign.${resource.name}` });
     },
     [openAssignRole],
   );

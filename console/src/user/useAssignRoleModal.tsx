@@ -13,15 +13,16 @@ import { useCallback } from "react";
 
 import { Modals } from "@/layered/service/modals";
 
-export interface AssignRoleModalParams extends Access.Role.RetrieveQuery {
+export interface AssignRoleModalParams {
+  userKey: Access.Role.ChangeRoleFormQuery["key"];
   title?: string;
 }
 
 export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
-  ({ title, close, ...query }) => {
+  ({ title, close, userKey }) => {
     const client = Synnax.use();
     const { form, save, variant } = Access.Role.useChangeRoleForm({
-      query,
+      query: { key: userKey },
       afterSave: useCallback(() => close(), [close]),
     });
     return (

@@ -10,7 +10,11 @@
 import { type optional } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type Content, useStore } from "@/layered/session/modals/Context";
+import {
+  type Content,
+  type ReservedParams,
+  useStore,
+} from "@/layered/session/modals/Context";
 
 /**
  * A typed fire-and-forget opener: opens a modal and returns immediately. Its params
@@ -46,7 +50,9 @@ export interface PromptHook<Params, Result> {
  * modal's typed params.
  */
 export const create =
-  <Params = Record<never, never>>(Component: Content<Params, void>): OpenHook<Params> =>
+  <Params extends ReservedParams = Record<never, never>>(
+    Component: Content<Params, void>,
+  ): OpenHook<Params> =>
   (): Opener<Params> => {
     const store = useStore("Modals.create");
     return useCallback(
@@ -61,7 +67,7 @@ export const create =
  * (or null on dismissal).
  */
 export const createPrompt =
-  <Result, Params = Record<never, never>>(
+  <Result, Params extends ReservedParams = Record<never, never>>(
     Component: Content<Params, Result>,
   ): PromptHook<Params, Result> =>
   (): Prompt<Result, Params> => {

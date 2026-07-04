@@ -9,8 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-connect-cluster {
-    .console-modal__body {
-        padding: 0 4rem;
-    }
+.console-modal {
+    max-height: 100%;
 }
