@@ -88,6 +88,7 @@ func (i relationshipIndexes) all() []gorp.Index[string, Relationship] {
 
 type Config struct {
 	DB *gorp.DB
+	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
 

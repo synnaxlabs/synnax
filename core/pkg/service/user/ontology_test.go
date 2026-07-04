@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -123,9 +123,18 @@ var _ = Describe("Ontology", func() {
 				Username: uuid.NewString(),
 				Key:      key,
 			}))
-			resource := MustSucceed(svc.RetrieveResource(ctx, key.String(), nil))
-			Expect(resource.ID).To(Equal(created.OntologyID()))
-			Expect(resource.Name).To(Equal(created.Username))
+			Expect(svc.RetrieveResource(ctx, key.String(), nil)).To(
+				Equal(ontology.Resource{
+					ID:   created.OntologyID(),
+					Name: created.Username,
+					Data: map[string]any{
+						"key":        key.String(),
+						"username":   created.Username,
+						"first_name": "",
+						"last_name":  "",
+						"root_user":  false,
+					},
+				}))
 		})
 		It("Should return an error when the key is not a valid UUID", func(ctx SpecContext) {
 			Expect(svc.RetrieveResource(ctx, "not-a-uuid", nil)).Error().
@@ -165,7 +174,7 @@ var _ = Describe("Ontology", func() {
 					mu.Lock()
 					defer mu.Unlock()
 					setIdx := slices.IndexFunc(changes, func(c ontology.Change) bool {
-						return c.Key == expectedID && c.Variant == xchange.VariantSet
+						return c.Key == expectedID && c.Variant == change.VariantSet
 					})
 					g.Expect(setIdx).ToNot(Equal(-1))
 					g.Expect(changes[setIdx].Value.ID).To(Equal(created.OntologyID()))
@@ -179,7 +188,7 @@ var _ = Describe("Ontology", func() {
 					defer mu.Unlock()
 					g.Expect(changes).To(ContainElement(SatisfyAll(
 						HaveField("Key", expectedID),
-						HaveField("Variant", xchange.VariantDelete),
+						HaveField("Variant", change.VariantDelete),
 					)))
 				}).Should(Succeed())
 			})

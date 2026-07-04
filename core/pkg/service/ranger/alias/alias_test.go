@@ -328,9 +328,17 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(node.Ontology.NewRetrieve().
 				WhereIDs(alias.OntologyID(r.Key, ch.Key())).
 				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res.ID).To(Equal(alias.OntologyID(r.Key, ch.Key())))
-			Expect(res.Name).To(Equal("Alias"))
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(Equal(ontology.Resource{
+				ID:   alias.OntologyID(r.Key, ch.Key()),
+				Name: "Alias",
+				Data: map[string]any{
+					"range":   r.Key.String(),
+					"channel": ch.Key().StorageKey(),
+					"alias":   "Alias",
+				},
+			}))
 		})
 	})
 })

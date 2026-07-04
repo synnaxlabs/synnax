@@ -65,10 +65,10 @@ var _ = Describe("Writer", func() {
 			idTwo = newSampleType("bar")
 			Expect(w.DefineResource(ctx, idOne)).To(Succeed())
 			Expect(w.DefineResource(ctx, idTwo)).To(Succeed())
-		})
-		AfterEach(func(ctx SpecContext) {
-			Expect(w.DeleteResource(ctx, idOne)).To(Succeed())
-			Expect(w.DeleteResource(ctx, idTwo)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(w.DeleteResource(ctx, idOne)).To(Succeed())
+				Expect(w.DeleteResource(ctx, idTwo)).To(Succeed())
+			})
 		})
 		Describe("Defining a Relationship", func() {
 			It("Should define a relationship by its ID", func(ctx SpecContext) {
