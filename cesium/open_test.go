@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
@@ -29,6 +30,7 @@ var _ = Describe("Open", func() {
 				fs fs.FS
 			)
 			BeforeAll(func() {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 			})
 			AfterAll(func() {

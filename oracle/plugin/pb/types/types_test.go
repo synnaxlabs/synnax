@@ -1098,3 +1098,5 @@ var _ = Describe("Protobuf Union Generation", func() {
 			)
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -18,10 +18,6 @@
     "generate-theme": "tsx src/theming/static/generate.ts"
   },
   "dependencies": {
-    "vscode": "npm:@codingame/monaco-vscode-extension-api@^28.4.1",
-    "vscode-jsonrpc": "^8.2.1",
-    "vscode-languageclient": "^9.0.1",
-    "@synnaxlabs/arc": "workspace:^",
     "@codingame/monaco-vscode-api": "^28.4.1",
     "@codingame/monaco-vscode-editor-api": "^28.4.1",
     "@codingame/monaco-vscode-extension-api": "^28.4.1",
@@ -33,6 +29,7 @@
     "@fontsource/geist-mono": "catalog:",
     "@fontsource/inter": "catalog:",
     "@synnaxlabs/alamos": "workspace:^",
+    "@synnaxlabs/arc": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
@@ -52,6 +49,9 @@
     "react-icons": "catalog:",
     "stacktrace-js": "^2.0.2",
     "use-sync-external-store": "^1.6.0",
+    "vscode": "npm:@codingame/monaco-vscode-extension-api@^28.4.1",
+    "vscode-jsonrpc": "^8.2.1",
+    "vscode-languageclient": "^9.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -71,6 +71,7 @@
     "@types/react-dom": "catalog:",
     "@types/use-sync-external-store": "^1.5.0",
     "@types/webgl2": "^0.0.12",
+    "@types/ws": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
@@ -80,7 +81,8 @@
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "ws": "catalog:"
   },
   "files": [
     "dist"

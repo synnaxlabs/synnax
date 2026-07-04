@@ -11,7 +11,6 @@ package http_test
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -29,7 +28,7 @@ import (
 var _ = Describe("Recovery (wire)", func() {
 	It("should contain a handler panic and keep serving", func(ctx context.Context) {
 		addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-		app := fiber.New(fiber.Config{})
+		app := newFiberApp(fiber.Config{})
 		app.Get("/health", func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
 		router := MustSucceed(fhttp.NewRouter())
 		server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
@@ -51,8 +50,7 @@ var _ = Describe("Recovery (wire)", func() {
 		}()
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		Eventually(func(g Gomega) {
-			_, err := http.Get("http://" + addr.String() + "/health")
-			g.Expect(err).To(Succeed())
+			g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
 		}).WithPolling(time.Millisecond).Should(Succeed())
 
 		client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())

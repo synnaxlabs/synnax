@@ -22,6 +22,7 @@ import (
 var expected string
 
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	data := MustSucceed(os.ReadFile("../../pkg/version/VERSION"))
 	expected = "Synnax " + strings.ReplaceAll(string(data), "\r\n", "\n")
 })
@@ -30,3 +31,5 @@ func TestVersion(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cmd Version Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

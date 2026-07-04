@@ -10,6 +10,8 @@
 import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
+import { installTestWebSocket } from "@/testutil/websocket";
+
 // Live-core round-trips share the single test cluster with the rest of the suite, so
 // allow more than the 1s waitFor default.
 configure({ asyncUtilTimeout: 5000 });
@@ -77,6 +79,7 @@ const cssEscape = (value: string): string => {
 };
 
 beforeAll(() => {
+  installTestWebSocket();
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
   vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
   if (typeof globalThis.CSS === "undefined")
@@ -115,4 +118,5 @@ beforeAll(() => {
 
 afterAll(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });

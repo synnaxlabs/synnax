@@ -20,11 +20,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", Ordered, func() {
 	var dist mock.Node
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		dist = mock.NewNode(ctx)
 	})
 
@@ -106,9 +108,11 @@ var _ = Describe("Service", Ordered, func() {
 	Describe("Observe", func() {
 		It("Should notify when a channel is created", func(ctx SpecContext) {
 			var called atomic.Bool
-			dist.Channel.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[channel.Key, channel.Channel]) {
-				called.Store(true)
-			})
+			disconnect := dist.Channel.Observe().OnChange(
+				func(context.Context, gorp.TxReader[channel.Key, channel.Channel]) {
+					called.Store(true)
+				})
+			defer disconnect()
 			ch := channel.Channel{
 				Name:        channel.NewRandomName(),
 				DataType:    telem.TimeStampT,

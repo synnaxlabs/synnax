@@ -14,9 +14,12 @@
     height: 100rem;
     max-height: 80vh;
 
+    /* height: 0 + grow makes the editor fill exactly the free space in the body.
+    The min-height keeps it usable when the window is small; the body scrolls
+    instead of collapsing the editor. */
     & .pluto-field__expression {
         height: 0;
-        min-height: 0;
+        min-height: 30rem;
     }
 
     .console-calculated-editor {

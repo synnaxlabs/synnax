@@ -119,7 +119,7 @@ export const useConnectModal = Modals.create<CommonDevice.ConnectParams>(
     return (
       <Modals.Frame className={CSS.B("opc-connect")}>
         <Modals.Header icon={<Icon.Logo.OPC />}>Server.Connect</Modals.Header>
-        <Flex.Box className={CSS.B("content")} grow gap="small">
+        <Modals.Body gap="small">
           <Form.Form<typeof PDevice.formSchema> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
             <Form.Field<rack.Key> path="rack" label="Connect From" required>
@@ -184,7 +184,7 @@ export const useConnectModal = Modals.create<CommonDevice.ConnectParams>(
               </>
             )}
           </Form.Form>
-        </Flex.Box>
+        </Modals.Body>
         <Modals.Footer>
           <Nav.Bar.Start gap="small">
             {variant == "success" ? (

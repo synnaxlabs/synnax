@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package setlint_test
+package set_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/analyzers/setlint"
+	"github.com/synnaxlabs/x/analyzers/set"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
@@ -20,7 +20,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should detect map[T]struct{} patterns", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
-			GinkgoT(), testdata, setlint.Analyzer, "mapstruct",
+			GinkgoT(), testdata, set.Analyzer, "mapstruct",
 		)
 		Expect(results).ToNot(BeEmpty())
 		count := 0
@@ -33,7 +33,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should detect map[T]bool patterns", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
-			GinkgoT(), testdata, setlint.Analyzer, "mapbool",
+			GinkgoT(), testdata, set.Analyzer, "mapbool",
 		)
 		Expect(results).ToNot(BeEmpty())
 		var count int
@@ -46,7 +46,7 @@ var _ = Describe("Analyzer", func() {
 	It("Should not flag clean maps with non-set value types", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
-			GinkgoT(), testdata, setlint.Analyzer, "clean",
+			GinkgoT(), testdata, set.Analyzer, "clean",
 		)
 		for _, r := range results {
 			Expect(r.Diagnostics).To(BeEmpty())

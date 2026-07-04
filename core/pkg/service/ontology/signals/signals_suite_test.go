@@ -40,6 +40,7 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	node = mock.NewNode(ctx)
 	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
 	node.Ontology.RegisterService(svc)
@@ -71,3 +72,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	MustOpen(signals.Publish(ctx, sigs, node.Ontology))
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -39,6 +39,7 @@ var (
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		var (
@@ -66,3 +67,5 @@ var (
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

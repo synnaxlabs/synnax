@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package main
+package missingperspec
 
-import (
-	"github.com/synnaxlabs/x/analyzers/setlint"
-	"golang.org/x/tools/go/analysis/singlechecker"
-)
+func RunSpecs(...any) bool                       { return true }
+func ShouldNotLeakGoroutinesPerSpec(...any) bool { return true }
 
-func main() { singlechecker.Main(setlint.Analyzer) }
+// No `var _ = ShouldNotLeakGoroutinesPerSpec()` at package scope, so the suite is
+// flagged at its RunSpecs call.
+func TestMissing() {
+	RunSpecs() // want "does not register ShouldNotLeakGoroutinesPerSpec"
+}

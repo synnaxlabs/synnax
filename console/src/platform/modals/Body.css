@@ -11,4 +11,11 @@
 
 .console-modal__body {
     padding: 7rem 5rem;
+    min-height: 0;
+    overflow-y: auto;
+
+    /* Centers content when the modal is taller than it, but falls back to a
+    scrollable start alignment when the modal is height-constrained. A justify prop
+    on Body takes precedence via the pluto--justify-* classes. */
+    justify-content: safe center;
 }

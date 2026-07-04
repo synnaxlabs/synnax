@@ -35,6 +35,7 @@ var _ = Describe("Delete", func() {
 				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 			})

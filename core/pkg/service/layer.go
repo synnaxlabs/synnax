@@ -506,6 +506,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Framer:          l.Framer,
 		Status:          l.Status,
 		GetProgram:      l.Arc.CompileProgram,
+		Ranger:          l.Ranger,
 	})
 	if !ok(err, nil) {
 		return nil, err

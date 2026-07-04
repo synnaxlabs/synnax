@@ -17,11 +17,5 @@ import { CSS } from "@/platform/css";
 export interface BodyProps extends Flex.BoxProps {}
 
 export const Body = ({ className, ...rest }: BodyProps): ReactElement => (
-  <Flex.Box
-    y
-    grow
-    justify="center"
-    className={CSS(CSS.BE("modal", "body"), className)}
-    {...rest}
-  />
+  <Flex.Box y grow className={CSS(CSS.BE("modal", "body"), className)} {...rest} />
 );

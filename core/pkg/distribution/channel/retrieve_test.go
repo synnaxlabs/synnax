@@ -24,6 +24,7 @@ const internalChannelCount = 1
 var _ = Describe("Retrieve", Ordered, func() {
 	var cluster *mock.Cluster
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		cluster = mock.NewCluster(ctx, 2)
 		for _, n := range cluster.Nodes {
 			Expect(n.Search.Initialize(ctx)).To(Succeed())

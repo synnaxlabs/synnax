@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render, renderHook, screen } from "@testing-library/react";
+import { type ReactElement } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { type Layout } from "@/platform/layout";
 import { Palette } from "@/platform/palette";
 import { createPaletteWrapper } from "@/platform/palette/testutil";
+import { Session } from "@/session";
 import { renderHookWithConsole } from "@/testutil";
 
 const layoutFor = (key: string): Layout.PlacerArgs => ({
@@ -21,6 +23,22 @@ const layoutFor = (key: string): Layout.PlacerArgs => ({
   name: `Layout ${key}`,
   location: "mosaic",
 });
+
+interface CommandListHarness {
+  handleSelect: (key: string) => void;
+}
+
+const renderCommandList = async (commands: Palette.Command[]) => {
+  const { wrapper, store } = await createPaletteWrapper({ commands });
+  const harness: CommandListHarness = { handleSelect: () => {} };
+  const Items = (): ReactElement => {
+    const { data, listItem, handleSelect } = Palette.useCommandList();
+    harness.handleSelect = handleSelect;
+    return <>{data.map((key, index) => listItem({ key, itemKey: key, index }))}</>;
+  };
+  render(<Items />, { wrapper });
+  return { store, harness };
+};
 
 describe("createSimpleCommand", () => {
   it("should attach the static command metadata", () => {
@@ -37,6 +55,19 @@ describe("createSimpleCommand", () => {
     expect(cmd.sortOrder).toBe(3);
     expect(cmd.useVisible).toBe(useVisible);
   });
+
+  it("should place its layout in the store when selected", async () => {
+    const cmd = Palette.createSimpleCommand({
+      key: "sc",
+      name: "Simple Command",
+      layout: layoutFor("sc"),
+    });
+    const { store, harness } = await renderCommandList([cmd]);
+    act(() => harness.handleSelect("sc"));
+    const placed = Session.Layout.select(store.getState(), "sc");
+    expect(placed?.type).toBe("cat");
+    expect(placed?.location).toBe("mosaic");
+  });
 });
 
 describe("createCommand", () => {
@@ -50,6 +81,34 @@ describe("createCommand", () => {
     expect(cmd.commandName).toBe("Hook Command");
     expect(cmd.sortOrder).toBeUndefined();
     expect(cmd.useVisible).toBeUndefined();
+  });
+
+  it("should invoke the hook-produced callback when the command is selected", async () => {
+    const onSelect = vi.fn();
+    const cmd = Palette.createCommand({
+      key: "cc",
+      name: "Hook Command",
+      useOnSelect: () => onSelect,
+    });
+    const { harness } = await renderCommandList([cmd]);
+    expect(screen.getByText("Hook Command")).toBeTruthy();
+    act(() => harness.handleSelect("cc"));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("should not fire the callback for real pointer clicks handled by the list", async () => {
+    const onSelect = vi.fn();
+    const cmd = Palette.createCommand({
+      key: "cc",
+      name: "Hook Command",
+      useOnSelect: () => onSelect,
+    });
+    await renderCommandList([cmd]);
+    const item = screen.getByText("Hook Command");
+    act(() => {
+      item.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    });
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });
 

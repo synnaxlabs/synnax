@@ -30,6 +30,7 @@ var _ = Describe("Writer AutoIndex", func() {
 				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = DeferClose(openDBOnFS(ctx, fs))
 			})
