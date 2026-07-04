@@ -99,7 +99,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return nil
 	}
 	otgID := OntologyID(t.Key)
-	exists, err := w.otg.HasResource(ctx, otgID)
+	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, nil)
 	if err != nil || exists {
 		return err
 	}

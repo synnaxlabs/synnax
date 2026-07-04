@@ -35,18 +35,18 @@ type Writer struct {
 // resources already exist, DefineResource does nothing for those. Returns nil if no IDs
 // are provided.
 func (w Writer) DefineResource(ctx context.Context, ids ...ID) error {
-	if len(ids) == 0 {
-		return nil
-	}
-	for _, id := range ids {
+	resources, err := lo.MapErr(ids, func(id ID, _ int) (Resource, error) {
 		if id.Key == "" {
-			return errors.Wrapf(validate.ErrValidation, "key is required")
+			return Resource{}, errors.Wrapf(validate.ErrValidation, "key is required")
 		}
 		if err := id.Validate(); err != nil {
-			return err
+			return Resource{}, err
 		}
+		return Resource{ID: id}, nil
+	})
+	if err != nil {
+		return err
 	}
-	resources := lo.Map(ids, func(id ID, _ int) Resource { return Resource{ID: id} })
 	return w.resourceTable.NewCreate().Entries(&resources).Exec(ctx, w.tx)
 }
 
@@ -54,9 +54,6 @@ func (w Writer) DefineResource(ctx context.Context, ids ...ID) error {
 // their incoming and outgoing relationships. If any of the resources do not exist,
 // DeleteResource does nothing for those. Returns nil if no IDs are provided.
 func (w Writer) DeleteResource(ctx context.Context, ids ...ID) error {
-	if len(ids) == 0 {
-		return nil
-	}
 	for _, id := range ids {
 		if err := w.deleteIncomingRelationships(ctx, id); err != nil {
 			return err
@@ -67,11 +64,6 @@ func (w Writer) DeleteResource(ctx context.Context, ids ...ID) error {
 	}
 	return w.resourceTable.NewDelete().
 		Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).Exec(ctx, w.tx)
-}
-
-// HasResource returns true if the resource with the given ID exists.
-func (w Writer) HasResource(ctx context.Context, id ID) (bool, error) {
-	return w.resourceTable.NewRetrieve().Where(gorp.MatchKeys[string, Resource](id.String())).Exists(ctx, w.tx)
 }
 
 func (w Writer) HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error) {
@@ -208,10 +200,10 @@ func (w Writer) deleteOutgoingRelationships(ctx context.Context, from ID) error 
 		Exec(ctx, w.tx)
 }
 
-// DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given type
-// from the resource with the given ID. If the resource does not exist, or if it has no
-// outgoing relationships of the given type, DeleteOutgoingRelationshipsOfType does
-// nothing.
+// DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given
+// type from the resource with the given ID. If the resource does not exist, or if it
+// has no outgoing relationships of the given type, DeleteOutgoingRelationshipsOfType
+// does nothing.
 func (w Writer) DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, relationshipType RelationshipType) error {
 	prefix := from.String() + relationshipKeySep + string(relationshipType) + relationshipKeySep
 	return w.relationshipTable.NewDelete().
@@ -219,9 +211,9 @@ func (w Writer) DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, 
 		Exec(ctx, w.tx)
 }
 
-// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given type
-// to the resource with the given ID. If the resource does not exist, or if it has no
-// incoming relationships of the given type, DeleteIncomingRelationshipsOfType does
+// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given
+// type to the resource with the given ID. If the resource does not exist, or if it has
+// no incoming relationships of the given type, DeleteIncomingRelationshipsOfType does
 // nothing.
 func (w Writer) DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, relationshipType RelationshipType) error {
 	suffix := []byte(relationshipKeySep + string(relationshipType) + relationshipKeySep + to.String())

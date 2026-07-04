@@ -54,6 +54,28 @@ var _ = Describe("Retrieve", func() {
 			Expect(res.Key).To(Equal("B"))
 		})
 	})
+	Describe("Exists", func() {
+		It("Should return true when the query matches a resource", func(ctx SpecContext) {
+			id := newSampleType("A")
+			Expect(w.DefineResource(ctx, id)).To(Succeed())
+			Expect(w.NewRetrieve().WhereIDs(id).Exists(ctx, tx)).To(BeTrue())
+		})
+		It("Should return false when the query matches no resources", func(ctx SpecContext) {
+			Expect(w.NewRetrieve().WhereIDs(newSampleType("nonexistent")).Exists(ctx, tx)).
+				To(BeFalse())
+		})
+		It("Should return true when a traversal matches a resource", func(ctx SpecContext) {
+			a := newSampleType("A")
+			b := newSampleType("B")
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			Expect(w.DefineResource(ctx, b)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+			Expect(w.NewRetrieve().
+				WhereIDs(a).
+				TraverseTo(ontology.ChildrenTraverser).
+				Exists(ctx, tx)).To(BeTrue())
+		})
+	})
 	Describe("Multi Clause", func() {
 		Describe("Parental Traversal", func() {
 

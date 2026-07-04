@@ -43,9 +43,7 @@ func (r Retrieve) nextClause() Retrieve {
 	return r
 }
 
-func (r Retrieve) currentClause() clause {
-	return r.clauses[len(r.clauses)-1]
-}
+func (r Retrieve) currentClause() clause { return r.clauses[len(r.clauses)-1] }
 
 func (r Retrieve) setCurrentClause(c clause) Retrieve {
 	r.clauses[len(r.clauses)-1] = c
@@ -94,7 +92,7 @@ func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 	if len(types) == 1 {
 		c.Retrieve = c.WherePrefix([]byte(types[0].String()))
 	} else {
-		c.Retrieve = c.Where(gorp.Match[string, Resource](func(_ gorp.Context, r *Resource) (bool, error) {
+		c.Retrieve = c.Where(gorp.Match(func(_ gorp.Context, r *Resource) (bool, error) {
 			return lo.Contains(types, r.ID.Type), nil
 		}))
 	}
@@ -356,6 +354,19 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		}
 	}
 	return nil
+}
+
+// Exists reports whether the query matches at least one resource. It does not retrieve
+// field data, so registered services are not consulted.
+func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
+	var resources []Resource
+	if err := r.ExcludeFieldData(true).Entries(&resources).Exec(ctx, tx); err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return len(resources) > 0, nil
 }
 
 func canSkipExec(q clause, entriesBound, atLast bool) bool {
