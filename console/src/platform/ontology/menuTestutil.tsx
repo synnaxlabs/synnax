@@ -9,7 +9,7 @@
 
 import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/pluto";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
 import { Export } from "@/platform/export";
@@ -123,6 +123,23 @@ export const renderToolbar = async (
     { wrapper: Wrapper },
   );
   return { store };
+};
+
+/** Returns the tree row (`.pluto-tree__item`) whose label matches text. */
+export const getTreeRow = (text: string): HTMLElement => {
+  const row = screen.getByText(text).closest<HTMLElement>(".pluto-tree__item");
+  if (row == null) throw new Error(`tree row for ${text} not found`);
+  return row;
+};
+
+/**
+ * Clicks the expansion caret on the tree row matching text, loading its children.
+ * Ontology groups lazy-load their children only once expanded.
+ */
+export const expandTreeRow = (text: string): void => {
+  const caret = getTreeRow(text).querySelector(".pluto-tree__expansion-indicator");
+  if (caret == null) throw new Error(`expansion indicator for ${text} not found`);
+  fireEvent.click(caret);
 };
 
 /**

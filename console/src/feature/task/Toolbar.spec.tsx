@@ -166,8 +166,8 @@ describe("task/Toolbar", () => {
     it("enables data saving for a task whose config has it disabled", async () => {
       const t = await createTask({ config: { dataSaving: false } });
       await renderToolbar();
-      await openContextMenu(t.name);
-      fireEvent.click(await screen.findByText("Enable data saving"));
+      await openContextMenuUntil(t.name, "Enable data saving");
+      fireEvent.click(screen.getByText("Enable data saving"));
       await waitFor(async () => {
         const updated = await client.tasks.retrieve({ key: t.key });
         expect(updated.config).toEqual({ dataSaving: true });
@@ -177,8 +177,8 @@ describe("task/Toolbar", () => {
     it("disables data saving for a task whose config has it enabled", async () => {
       const t = await createTask({ config: { dataSaving: true } });
       await renderToolbar();
-      await openContextMenu(t.name);
-      fireEvent.click(await screen.findByText("Disable data saving"));
+      await openContextMenuUntil(t.name, "Disable data saving");
+      fireEvent.click(screen.getByText("Disable data saving"));
       await waitFor(async () => {
         const updated = await client.tasks.retrieve({ key: t.key });
         expect(updated.config).toEqual({ dataSaving: false });

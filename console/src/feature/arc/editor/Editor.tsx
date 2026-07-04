@@ -9,13 +9,20 @@
 
 import { Arc } from "@synnaxlabs/pluto";
 
-import { Graph, type GraphProps } from "@/feature/arc/editor/Graph";
+import { Graph } from "@/feature/arc/editor/Graph";
 import { Text } from "@/feature/arc/editor/Text";
+import { Layout } from "@/platform/layout";
 
-export interface EditorProps extends GraphProps {}
-
-export const Editor = (props: EditorProps) => {
+const Internal: Layout.Renderer = (props) => {
   const mode = Arc.useSelectMode();
   const C = mode === "graph" ? Graph : Text;
   return <C {...props} />;
 };
+
+export const Editor: Layout.Renderer = (props) => (
+  <Arc.Suspended arcKey={props.layoutKey}>
+    <Internal {...props} />
+  </Arc.Suspended>
+);
+
+Editor.useName = Layout.createUseFluxName(Arc.useRename, Arc.useRetrieveObservableName);

@@ -162,10 +162,13 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     return m;
   }, [selectedNodes]);
 
-  const onChange = (elKey: string, next: Partial<Schematic.ElementConfig>): void => {
-    const existing = (configByKey.get(elKey) ?? {}) as record.Unknown;
-    dispatch(schematic.setConfig({ key: elKey, config: { ...existing, ...next } }));
-  };
+  const configActions = (
+    updates: Iterable<[string, Partial<Schematic.ElementConfig>]>,
+  ): schematic.Action[] =>
+    Array.from(updates, ([elKey, next]) => {
+      const existing = (configByKey.get(elKey) ?? {}) as record.Unknown;
+      return schematic.setConfig({ key: elKey, config: { ...existing, ...next } });
+    });
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
   for (const cfg of configByKey.values()) {
@@ -298,13 +301,14 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     return { layouts, adjustPosition };
   };
 
-  const applyNodePositions = (layouts: Diagram.NodeLayout[]): void => {
-    if (layouts.length === 0) return;
-    dispatch(
-      layouts.map((n) =>
-        schematic.setNodePosition({ key: n.key, position: box.topLeft(n.box) }),
-      ),
+  const nodePositionActions = (layouts: Diagram.NodeLayout[]): schematic.Action[] =>
+    layouts.map((n) =>
+      schematic.setNodePosition({ key: n.key, position: box.topLeft(n.box) }),
     );
+
+  const applyNodePositions = (layouts: Diagram.NodeLayout[]): void => {
+    const actions = nodePositionActions(layouts);
+    if (actions.length > 0) dispatch(actions);
   };
 
   const handleAlignToLocation = (loc: location.Outer): void => {
@@ -329,30 +333,41 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     applyNodePositions(adjusted);
   };
 
-  const handleRotateIndividual = (dir: direction.Angular): void => {
+  const rotateOrientationActions = (dir: direction.Angular): schematic.Action[] => {
+    const updates: [string, Partial<Schematic.ElementConfig>][] = [];
     configByKey.forEach((cfg, key) => {
       if (!("orientation" in cfg) || cfg.orientation == null) return;
-      onChange(key, {
-        orientation: location.rotate(cfg.orientation, dir),
-      });
+      updates.push([key, { orientation: location.rotate(cfg.orientation, dir) }]);
     });
+    return configActions(updates);
+  };
+
+  const handleRotateIndividual = (dir: direction.Angular): void => {
+    const actions = rotateOrientationActions(dir);
+    if (actions.length > 0) dispatch(actions);
   };
 
   const handleRotateGroup = (dir: direction.Angular): void => {
-    applyNodePositions(Diagram.rotateNodesAroundCenter(getLayoutsForAlignment(), dir));
-    handleRotateIndividual(dir);
+    const actions = [
+      ...nodePositionActions(
+        Diagram.rotateNodesAroundCenter(getLayoutsForAlignment(), dir),
+      ),
+      ...rotateOrientationActions(dir),
+    ];
+    if (actions.length > 0) dispatch(actions);
   };
 
   const handleLabelProp = <K extends keyof Schematic.Node.Label.Config>(
     key: K,
     value: Schematic.Node.Label.Config[K],
   ): void => {
+    const updates: [string, Partial<Schematic.ElementConfig>][] = [];
     configByKey.forEach((cfg, elKey) => {
       if (!("label" in cfg) || cfg.label == null) return;
-      onChange(elKey, {
-        label: { ...cfg.label, [key]: value },
-      });
+      updates.push([elKey, { label: { ...cfg.label, [key]: value } }]);
     });
+    const actions = configActions(updates);
+    if (actions.length > 0) dispatch(actions);
   };
 
   return (
@@ -369,7 +384,13 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
               key={keys[0]}
               value={hex}
               onChange={(c: color.Color) => {
-                keys.forEach((key) => onChange(key, { color: c }));
+                const actions = configActions(
+                  keys.map((key): [string, Partial<Schematic.ElementConfig>] => [
+                    key,
+                    { color: c },
+                  ]),
+                );
+                if (actions.length > 0) dispatch(actions);
               }}
             />
           ))}

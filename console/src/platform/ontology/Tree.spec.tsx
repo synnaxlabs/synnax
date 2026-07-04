@@ -14,6 +14,10 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Ontology } from "@/platform/ontology";
+import {
+  expandTreeRow as expandRow,
+  getTreeRow as rowOf,
+} from "@/platform/ontology/menuTestutil";
 import { createServices } from "@/platform/ontology/testutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
@@ -34,18 +38,6 @@ const renderTree = async (
     </Console>
   );
   return render(<Ontology.Tree root={root} />, { wrapper: Wrapper });
-};
-
-const rowOf = (text: string): Element => {
-  const row = screen.getByText(text).closest(".pluto-tree__item");
-  if (row == null) throw new Error(`tree row for ${text} not found`);
-  return row;
-};
-
-const expandRow = (text: string): void => {
-  const caret = rowOf(text).querySelector(".pluto-tree__expansion-indicator");
-  expect(caret).not.toBeNull();
-  fireEvent.click(caret as Element);
 };
 
 describe("Ontology.Tree", () => {

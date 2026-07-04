@@ -34,6 +34,10 @@ const createRule = async () => {
   const handle = await renderRulesTab();
   fireEvent.click(screen.getByText("Create an annotation"));
   await screen.findByText("Rule 1");
+  await waitFor(async () => {
+    const plot = await client.lineplots.retrieve({ key: handle.key });
+    expect(plot.rules).toHaveLength(1);
+  });
   return handle;
 };
 
