@@ -10,17 +10,15 @@
 import { label } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { Label } from "@/label";
+import { useEditModal } from "@/label/useEditModal";
 import { Palette } from "@/palette";
 
-const useVisible = () => Access.useUpdateGranted(label.TYPE_ONTOLOGY_ID);
-
-export const EditCommand = Palette.createSimpleCommand({
-  key: "edit-labels",
+export const EditCommand = Palette.createCommand({
+  key: "edit_labels",
   name: "Edit labels",
   icon: <Icon.Label />,
-  layout: Label.EDIT_LAYOUT,
-  useVisible,
+  useOnSelect: useEditModal,
+  useVisible: () => Access.useUpdateGranted(label.TYPE_ONTOLOGY_ID),
 });
 
 export const COMMANDS = [EditCommand];

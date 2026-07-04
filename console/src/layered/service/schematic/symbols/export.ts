@@ -12,8 +12,8 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Export } from "@/export";
+import { Modals } from "@/layered/service/modals";
 import { type GroupManifest } from "@/layered/service/schematic/symbols/types";
-import { Modals } from "@/modals";
 import { Runtime } from "@/runtime";
 
 export const extract: Export.Extractor = async (key, { client }) => {

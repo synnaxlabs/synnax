@@ -26,7 +26,7 @@ const renderCommand = (toggleTheme: () => void) => {
 
 describe("theme/ToggleCommand", () => {
   it("should expose the correct command metadata", () => {
-    expect(ToggleCommand.key).toBe("toggle-theme");
+    expect(ToggleCommand.key).toBe("toggle_theme");
     expect(ToggleCommand.commandName).toBe("Toggle color theme");
   });
 

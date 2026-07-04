@@ -14,7 +14,7 @@ import { ALERT_LAYOUT } from "@/hardware/pagerduty/task/Alert";
 import { Palette } from "@/palette";
 
 const CreateAlertCommand = Palette.createSimpleCommand({
-  key: "pagerduty-create-alert-task",
+  key: "pagerduty_create_alert_task",
   name: "Create a PagerDuty Alert Task",
   icon: <Icon.Logo.PagerDuty />,
   layout: ALERT_LAYOUT,

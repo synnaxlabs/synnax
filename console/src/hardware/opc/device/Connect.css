@@ -11,19 +11,14 @@
 
 .console-opc-connect {
     position: relative;
-    height: 100%;
-    width: 100%;
-
-    .console-content {
-        width: 100%;
-        flex-grow: 1;
-        padding: 3rem 4rem;
-    }
+    width: 915px;
+    height: 720px;
 
     & .console-description {
         width: 100%;
         max-width: 450px;
         padding: 4rem;
+
         & *:not(button) > p {
             font-size: 2.4rem;
             line-height: 150%;
@@ -34,6 +29,7 @@
         .pluto--start {
             padding-left: 2rem;
         }
+
         .pluto--end {
             padding-right: 2rem;
         }

@@ -13,20 +13,16 @@ import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { type Service } from "@/layered/service";
-import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
-import { CREATE_LAYOUT } from "@/project/Create";
+import { useCreateModal } from "@/project/useCreateModal";
 
 const Actions = (): ReactElement | null => {
-  const placeLayout = Layout.usePlacer();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
-      <Toolbar.Action
-        onClick={() => placeLayout(CREATE_LAYOUT)}
-        tooltip="Create project"
-      >
+      <Toolbar.Action onClick={() => openCreate()} tooltip="Create project">
         <Icon.Add />
       </Toolbar.Action>
     </Toolbar.Actions>
@@ -47,9 +43,9 @@ const Content = (): ReactElement => {
 };
 
 const EmptyContent = () => {
-  const placeLayout = Layout.usePlacer();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
-  const handleClick = () => placeLayout(CREATE_LAYOUT);
+  const handleClick = () => openCreate();
   return (
     <EmptyAction
       message="No projects found."

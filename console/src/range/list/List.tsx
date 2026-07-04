@@ -26,11 +26,10 @@ import {
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { EmptyAction } from "@/components";
-import { Layout } from "@/layout";
-import { CREATE_LAYOUT } from "@/range/Create";
 import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/range/list/Item";
 import { Filters, SelectFilters } from "@/range/list/SelectFilters";
+import { useCreateModal } from "@/range/useCreateModal";
 
 export interface ListProps
   extends
@@ -47,13 +46,13 @@ export interface ListProps
 }
 
 const EmptyContent = () => {
-  const placeLayout = Layout.usePlacer();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No ranges found."
       action={hasCreatePermission ? "Create a range" : undefined}
-      onClick={() => placeLayout(CREATE_LAYOUT)}
+      onClick={() => openCreate()}
     />
   );
 };
@@ -175,11 +174,11 @@ const contextMenu = Component.renderProp<Menu.ContextMenuMenuProps>((p) => (
 ));
 
 const AddButton = (): ReactElement | null => {
-  const placeLayout = Layout.usePlacer();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
-    <Button.Button tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>
+    <Button.Button tooltip="Create Range" onClick={() => openCreate()}>
       <Icon.Add />
     </Button.Button>
   );

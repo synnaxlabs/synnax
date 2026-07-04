@@ -17,7 +17,7 @@ import { Palette } from "@/palette";
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
 const CreateReadCommand = Palette.createSimpleCommand({
-  key: "ethercat-create-read-task",
+  key: "ethercat_create_read_task",
   name: "Create an EtherCAT Read Task",
   icon: <Icon.Logo.EtherCAT />,
   layout: READ_LAYOUT,
@@ -25,7 +25,7 @@ const CreateReadCommand = Palette.createSimpleCommand({
 });
 
 const CreateWriteCommand = Palette.createSimpleCommand({
-  key: "ethercat-create-write-task",
+  key: "ethercat_create_write_task",
   name: "Create an EtherCAT Write Task",
   icon: <Icon.Logo.EtherCAT />,
   layout: WRITE_LAYOUT,

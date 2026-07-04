@@ -14,8 +14,8 @@ import { useStore } from "react-redux";
 
 import { Export } from "@/export";
 import { useExtractors } from "@/export/ExtractorsProvider";
+import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 import { purgeExcludedLayouts } from "@/project/purgeExcludedLayouts";
 import { selectActive } from "@/project/selectors";
 import { Runtime } from "@/runtime";

@@ -23,8 +23,7 @@ import {
 import React, { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
-import { createEditLayout } from "@/layered/service/schematic/symbols/edit/Edit";
-import { Layout } from "@/layout";
+import { useSymbolModal } from "@/layered/service/schematic/symbols/edit/useSymbolModal";
 
 const SELECT_GROUP_STYLE: React.CSSProperties = { maxWidth: "60rem" };
 
@@ -35,7 +34,7 @@ const SELECT_GROUP_STYLE: React.CSSProperties = { maxWidth: "60rem" };
 /// parented under, matching the groups the Schematic Symbols toolbar exposes.
 export const MissingSymbolForm = (): ReactElement => {
   const form = Form.useContext();
-  const placeLayout = Layout.usePlacer();
+  const openEdit = useSymbolModal();
   const symbolGroup = Schematic.Symbol.useRetrieveGroup({ query: {} });
   const [createGroupKey, setCreateGroupKey] = useState<group.Key | undefined>(
     undefined,
@@ -51,15 +50,11 @@ export const MissingSymbolForm = (): ReactElement => {
   const handleCreate = useCallback(() => {
     if (createGroupKey == null) return;
     const missingKey = form.get<string>("specKey", { optional: true })?.value;
-    placeLayout(
-      createEditLayout({
-        args: {
-          parent: group.ontologyID(createGroupKey),
-          createKey: missingKey,
-        },
-      }),
-    );
-  }, [placeLayout, createGroupKey, form]);
+    openEdit({
+      parent: group.ontologyID(createGroupKey),
+      createKey: missingKey,
+    });
+  }, [openEdit, createGroupKey, form]);
   return (
     <Flex.Box
       y

@@ -17,7 +17,7 @@ import { Palette } from "@/palette";
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
 const CreateReadCommand = Palette.createSimpleCommand({
-  key: "modbus-create-read-task",
+  key: "modbus_create_read_task",
   name: "Create a Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
   layout: READ_LAYOUT,
@@ -25,7 +25,7 @@ const CreateReadCommand = Palette.createSimpleCommand({
 });
 
 const CreateWriteCommand = Palette.createSimpleCommand({
-  key: "modbus-create-write-task",
+  key: "modbus_create_write_task",
   name: "Create a Modbus Write Task",
   icon: <Icon.Logo.Modbus />,
   layout: WRITE_LAYOUT,

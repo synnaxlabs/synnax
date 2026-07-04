@@ -31,8 +31,8 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
+import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 import { type UseListReturn } from "@/palette/list";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 
@@ -132,6 +132,40 @@ export const createSimpleCommand = ({
       <CommandListItem {...listProps} name={name} icon={icon} onSelect={handleSelect} />
     );
   };
+  C.key = key;
+  C.commandName = name;
+  C.sortOrder = sortOrder;
+  C.useVisible = useVisible;
+  return C;
+};
+
+export interface CommandConfig {
+  key: string;
+  name: string;
+  icon?: Icon.ReactElement;
+  /** A hook returning the callback to invoke when the command is selected. */
+  useOnSelect: () => () => void;
+  useVisible?: () => boolean;
+  sortOrder?: number;
+}
+
+/**
+ * createCommand builds a Command whose onSelect is produced by a hook. On render the
+ * command calls useOnSelect and binds its returned callback to the list item, suiting
+ * commands that open a modal or otherwise act through a hook rather than placing a
+ * layout (see createSimpleCommand for the layout case).
+ */
+export const createCommand = ({
+  key,
+  name,
+  icon,
+  useOnSelect,
+  useVisible,
+  sortOrder,
+}: CommandConfig): Command => {
+  const C: Command = (listProps) => (
+    <CommandListItem {...listProps} name={name} icon={icon} onSelect={useOnSelect()} />
+  );
   C.key = key;
   C.commandName = name;
   C.sortOrder = sortOrder;

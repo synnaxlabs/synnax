@@ -9,19 +9,18 @@
 
 import { useCallback } from "react";
 
-import { CONFIGURE_LAYOUTS, getMake } from "@/hardware/device/make";
+import { getMake, useConfigureModal } from "@/hardware/device/make";
 import { type Link } from "@/layered/service/link";
-import { Layout } from "@/layout";
 
 export const useLink = (): Link.Handler => {
-  const placeLayout = Layout.usePlacer();
+  const configure = useConfigureModal();
   return useCallback(
     async ({ client, key }) => {
       const device = await client.devices.retrieve({ key });
       const make = getMake(device.make);
       if (make == null) return;
-      placeLayout({ ...CONFIGURE_LAYOUTS[make], key: device.key, name: device.name });
+      configure(make, device.key);
     },
-    [placeLayout],
+    [configure],
   );
 };

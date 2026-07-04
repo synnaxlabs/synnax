@@ -9,25 +9,18 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { useCreate } from "@/layered/service/schematic/useCreate";
 import { Palette } from "@/palette";
 
-const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
-  const create = useCreate({});
-  const handleSelect = useCallback(() => create(), [create]);
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name="Create a schematic"
-      icon={<PSchematic.CreateIcon />}
-      onSelect={handleSelect}
-    />
-  );
-};
-CreateCommand.key = "create-schematic";
-CreateCommand.commandName = "Create a schematic";
-CreateCommand.useVisible = () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
+const useCreateSchematic = () => useCreate({});
+
+const CreateCommand = Palette.createCommand({
+  key: "create_schematic",
+  name: "Create a schematic",
+  icon: <PSchematic.CreateIcon />,
+  useOnSelect: useCreateSchematic,
+  useVisible: () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID),
+});
 
 export const COMMANDS = [CreateCommand];

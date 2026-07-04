@@ -13,13 +13,12 @@ import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { type Service } from "@/layered/service";
-import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
-import { REGISTER_LAYOUT } from "@/user/Register";
+import { useRegisterModal } from "@/user/useRegisterModal";
 
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
-  const placeLayout = Layout.usePlacer();
+  const openRegister = useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
@@ -27,10 +26,7 @@ const Content = (): ReactElement => {
         <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
         {hasCreatePermission && (
           <Toolbar.Actions>
-            <Toolbar.Action
-              onClick={() => placeLayout(REGISTER_LAYOUT)}
-              tooltip="Create user"
-            >
+            <Toolbar.Action onClick={() => openRegister()} tooltip="Create user">
               <Icon.Add />
             </Toolbar.Action>
           </Toolbar.Actions>
@@ -42,13 +38,13 @@ const Content = (): ReactElement => {
 };
 
 const EmptyContent = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
+  const openRegister = useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No users."
       action={hasCreatePermission ? "Create a user" : undefined}
-      onClick={() => placeLayout(REGISTER_LAYOUT)}
+      onClick={() => openRegister()}
     />
   );
 };

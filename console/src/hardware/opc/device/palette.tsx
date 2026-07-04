@@ -10,14 +10,14 @@
 import { device } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { CONNECT_LAYOUT } from "@/hardware/opc/device/Connect";
+import { useConnectModal } from "@/hardware/opc/device/useConnectModal";
 import { Palette } from "@/palette";
 
-const ConnectServerCommand = Palette.createSimpleCommand({
-  key: "opc-ua-connect-server",
+const ConnectServerCommand = Palette.createCommand({
+  key: "opc_ua_connect_server",
   name: "Connect an OPC UA server",
   icon: <Icon.Logo.OPC />,
-  layout: CONNECT_LAYOUT,
+  useOnSelect: useConnectModal,
   useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),
 });
 

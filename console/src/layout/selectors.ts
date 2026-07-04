@@ -9,8 +9,10 @@
 
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
 import { Color, type Haul, type Mosaic } from "@synnaxlabs/pluto";
+import { useMemo, useSyncExternalStore } from "react";
 
 import { selectByKeys, useMemoSelect } from "@/hooks";
+import { Modals } from "@/layered/session/modals";
 import {
   SLICE_NAME,
   type SliceState,
@@ -93,25 +95,6 @@ export const useSelect = (key: string): State | undefined =>
 export const useSelectRequired = (key: string): State =>
   useMemoSelect((state: StoreState) => selectRequired(state, key), [key]);
 
-export const selectModals = (state: StoreState): State[] =>
-  Object.values(state[SLICE_NAME].layouts).filter(
-    ({ location }) => location === "modal",
-  );
-
-export const useSelectModals = (): State[] => useMemoSelect(selectModals, []);
-
-export const selectWindowModals = (
-  state: StoreState & Drift.StoreState,
-  windowKey?: string,
-): State[] => {
-  const winKey = selectWindowKey(state, windowKey);
-  if (winKey == null) return [];
-  return selectModals(state).filter(({ windowKey }) => windowKey === winKey);
-};
-
-export const useSelectWindowModals = (): State[] =>
-  useMemoSelect(selectWindowModals, []);
-
 /**
  * Selects the central layout mosaic from the store.
  *
@@ -185,31 +168,36 @@ export interface SelectActiveMosaicTabState {
 export const selectActiveMosaicTabState = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
-): SelectActiveMosaicTabState => {
+): Pick<SelectActiveMosaicTabState, "layoutKey"> => {
   const winKey = selectWindowKey(state, windowKey);
-  if (winKey == null) return { layoutKey: null, blurred: false };
+  if (winKey == null) return { layoutKey: null };
   const sliceState = selectSliceState(state);
-  const hasModals = Object.values(sliceState.layouts).some(
-    (l) => l.location === "modal" && l.windowKey === winKey,
-  );
-  return {
-    layoutKey: sliceState.mosaics[winKey].activeTab,
-    blurred: hasModals,
-  };
+  return { layoutKey: sliceState.mosaics[winKey].activeTab };
 };
 
 export const selectActiveMosaicTabKeyAndNotBlurred = (
   state: StoreState & Drift.StoreState,
+  modals: Modals.Store,
   windowKey?: string,
 ): string | null => {
-  const active = selectActiveMosaicTabState(state, windowKey);
-  if (active.layoutKey == null) return null;
-  if (active.blurred) return null;
-  return active.layoutKey;
+  if (modals.isAnyOpen()) return null;
+  return selectActiveMosaicTabState(state, windowKey).layoutKey;
 };
 
-export const useSelectActiveMosaicTabKeyAndNotBlurred = (): string | null =>
-  useMemoSelect(selectActiveMosaicTabKeyAndNotBlurred, []);
+const useIsAnyModalOpen = (): boolean => {
+  const store = Modals.useStore("useIsAnyModalOpen");
+  return useSyncExternalStore(store.subscribe, store.isAnyOpen);
+};
+
+export const useSelectActiveMosaicTabKeyAndNotBlurred = (): string | null => {
+  const blurred = useIsAnyModalOpen();
+  const layoutKey = useMemoSelect(
+    (state: StoreState & Drift.StoreState) =>
+      selectActiveMosaicTabState(state).layoutKey,
+    [],
+  );
+  return blurred ? null : layoutKey;
+};
 
 export const selectActiveMosaicTabName = (
   state: StoreState & Drift.StoreState,
@@ -220,8 +208,15 @@ export const selectActiveMosaicTabName = (
   return select(state, active.layoutKey)?.name ?? null;
 };
 
-export const useSelectActiveMosaicTabState = (): SelectActiveMosaicTabState =>
-  useMemoSelect(selectActiveMosaicTabState, []);
+export const useSelectActiveMosaicTabState = (): SelectActiveMosaicTabState => {
+  const blurred = useIsAnyModalOpen();
+  const layoutKey = useMemoSelect(
+    (state: StoreState & Drift.StoreState) =>
+      selectActiveMosaicTabState(state).layoutKey,
+    [],
+  );
+  return useMemo(() => ({ layoutKey, blurred }), [layoutKey, blurred]);
+};
 
 export const useSelectActiveMosaicTabName = (): string | null =>
   useMemoSelect(selectActiveMosaicTabName, []);

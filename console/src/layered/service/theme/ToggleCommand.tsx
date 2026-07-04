@@ -29,5 +29,5 @@ export const ToggleCommand = (props: ToggleCommandProps) => {
     />
   );
 };
-ToggleCommand.key = "toggle-theme";
+ToggleCommand.key = "toggle_theme";
 ToggleCommand.commandName = COMMAND_NAME;

@@ -10,6 +10,17 @@
 import { channel, device } from "@synnaxlabs/client";
 import { z } from "zod";
 
+/** Configure-modal params; the key is required since it edits an existing device. */
+export interface ConfigureParams {
+  deviceKey: device.Key;
+}
+
+/**
+ * Like {@link ConfigureParams}, but the key is optional since connect can also create a
+ * new connection.
+ */
+export type ConnectParams = Partial<ConfigureParams>;
+
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
 
 export const nameZ = z.string().min(1, "Name must be at least 1 character long");
