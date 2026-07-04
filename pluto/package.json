@@ -54,6 +54,14 @@
     "vscode-languageclient": "^9.0.1",
     "zod": "catalog:"
   },
+  "peerDependencies": {
+    "vitest": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@juggle/resize-observer": "^3.4.0",
     "@synnaxlabs/eslint-config": "workspace:^",
@@ -100,6 +108,11 @@
       "types": "./dist/src/ether.d.ts",
       "import": "./dist/ether.js",
       "require": "./dist/ether.cjs"
+    },
+    "./testutil": {
+      "types": "./dist/src/testutil/index.d.ts",
+      "import": "./dist/testutil.js",
+      "require": "./dist/testutil.cjs"
     },
     "./flex": {
       "types": "./dist/src/flex/index.d.ts",

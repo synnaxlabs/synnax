@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { checkConnection, newConnectionChecker } from "@/client";
-import { TEST_CLIENT_PARAMS } from "@/testutil/client";
+import { TEST_CLIENT_PARAMS } from "@/testutil";
 
 describe("checkConnection", () => {
   it("should check connection to the server", async () => {

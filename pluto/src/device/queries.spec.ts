@@ -1079,6 +1079,33 @@ describe("queries", () => {
     });
   });
 
+  describe("retrieveSingle", () => {
+    it("should return an undefined status when a cached device has no status", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const { result } = renderHook(() => Flux.useStore<Device.FluxSubStore>(), {
+        wrapper,
+      });
+      const key = id.create();
+      result.current.devices.set(key, {
+        key,
+        rack: rack.key,
+        name: "cached_no_status",
+        location: "location",
+        make: "make",
+        model: "model",
+        configured: true,
+        properties: {},
+      });
+      const dev = await Device.retrieveSingle({
+        client,
+        store: result.current,
+        query: { key },
+      });
+      expect(dev.key).toEqual(key);
+      expect(dev.status).toBeUndefined();
+    });
+  });
+
   describe("useForm", () => {
     describe("create mode", () => {
       it("should initialize with default values for new device", async () => {
@@ -1285,6 +1312,43 @@ describe("queries", () => {
         expect(updatedDevice.name).toBe("Updated Device Name");
         expect(updatedDevice.location).toBe("Lab4");
       });
+
+      it("should sync streamed status updates into the form", async () => {
+        const rack = await client.racks.create({ name: "test status sync rack" });
+        const testDevice = await client.devices.create({
+          key: id.create(),
+          rack: rack.key,
+          name: "Status Sync Device",
+          make: "make",
+          model: "model",
+          location: "Lab5",
+          properties: {},
+        });
+
+        const { result } = renderHook(
+          () => Device.useForm({ query: { key: testDevice.key } }),
+          { wrapper },
+        );
+
+        await waitFor(() => {
+          expect(result.current.form.value().name).toBe("Status Sync Device");
+        });
+
+        const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+          key: device.statusKey(testDevice.key),
+          variant: "warning",
+          message: "Device is degraded",
+          details: { rack: rack.key, device: testDevice.key },
+        });
+        await client.statuses.set(devStatus);
+
+        await waitFor(() => {
+          expect(result.current.form.value().status?.message).toBe(
+            "Device is degraded",
+          );
+          expect(result.current.form.value().status?.variant).toBe("warning");
+        });
+      });
     });
 
     describe("validation", () => {
@@ -1415,6 +1479,71 @@ describe("queries", () => {
       });
     });
 
+    describe("retrieveSingle with a generically cached device", () => {
+      it("should apply schema defaults to a cached device stored without vendor parsing", async () => {
+        const defaultedSchemas = {
+          properties: z.object({
+            connection: z.object({ host: z.string() }).default({ host: "" }),
+          }),
+          make: z.string(),
+          model: z.string(),
+        };
+        const rack = await client.racks.create({ name: "test" });
+        const { result } = renderHook(() => Flux.useStore<Device.FluxSubStore>(), {
+          wrapper,
+        });
+        const key = id.create();
+        result.current.devices.set(key, {
+          key,
+          rack: rack.key,
+          name: "generic_cached",
+          location: "location",
+          make: "some_make",
+          model: "model",
+          configured: true,
+          properties: {},
+        });
+        const dev = await Device.retrieveSingle({
+          client,
+          store: result.current,
+          query: { key },
+          schemas: defaultedSchemas,
+        });
+        expect(dev.properties.connection).toEqual({ host: "" });
+      });
+
+      it("should refetch from the network when the cached device fails the schema parse", async () => {
+        const rack = await client.racks.create({ name: "test" });
+        const dev = await client.devices.create(
+          {
+            key: id.create(),
+            name: "poisoned_cache_device",
+            rack: rack.key,
+            location: "test",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate: 100, channels: {} },
+          },
+          schemas,
+        );
+        const { result } = renderHook(() => Flux.useStore<Device.FluxSubStore>(), {
+          wrapper,
+        });
+        result.current.devices.set(dev.key, { ...dev, properties: {} });
+        const retrieved = await Device.retrieveSingle({
+          client,
+          store: result.current,
+          query: { key: dev.key },
+          schemas,
+        });
+        expect(retrieved.properties.sampleRate).toEqual(100);
+        expect(result.current.devices.get(dev.key)?.properties).toEqual({
+          sampleRate: 100,
+          channels: {},
+        });
+      });
+    });
+
     describe("createForm", () => {
       it("should load and save device with typed properties", async () => {
         const rack = await client.racks.create({ name: "schema-form-rack" });
@@ -1457,6 +1586,141 @@ describe("queries", () => {
 
         const retrieved = await client.devices.retrieve({ key: dev.key });
         expect(retrieved.name).toBe("updated-schema-device");
+      });
+
+      it("should not reset the form when a different device is set", async () => {
+        const rack = await client.racks.create({ name: "schema-form-rack" });
+        const dev = await client.devices.create(
+          {
+            key: id.create(),
+            name: "target_form_device",
+            rack: rack.key,
+            location: "test",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate: 300, channels: { a: 1 } },
+          },
+          schemas,
+        );
+
+        const useForm = Device.createForm(schemas);
+        const { result } = renderHook(
+          () => ({
+            form: useForm({ query: { key: dev.key } }),
+            store: Flux.useStore<Device.FluxSubStore>(),
+          }),
+          { wrapper },
+        );
+
+        await waitFor(() => {
+          expect(result.current.form.form.value().name).toBe("target_form_device");
+        });
+
+        const foreign = await client.devices.create({
+          key: id.create(),
+          name: "foreign_device",
+          rack: rack.key,
+          location: "elsewhere",
+          make: "other_make",
+          model: "other_model",
+          properties: {},
+        });
+        await waitFor(() => {
+          expect(result.current.store.devices.get(foreign.key)).toBeDefined();
+        });
+
+        expect(result.current.form.form.value().key).toBe(dev.key);
+        expect(result.current.form.form.value().name).toBe("target_form_device");
+        expect(result.current.form.form.value().properties).toEqual({
+          sampleRate: 300,
+          channels: { a: 1 },
+        });
+      });
+
+      it("should keep current values when the device is set with schema-invalid properties", async () => {
+        const rack = await client.racks.create({ name: "schema-form-rack" });
+        const dev = await client.devices.create(
+          {
+            key: id.create(),
+            name: "shape_guarded_device",
+            rack: rack.key,
+            location: "test",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate: 300, channels: { a: 1 } },
+          },
+          schemas,
+        );
+
+        const useForm = Device.createForm(schemas);
+        const { result } = renderHook(
+          () => ({
+            form: useForm({ query: { key: dev.key } }),
+            store: Flux.useStore<Device.FluxSubStore>(),
+          }),
+          { wrapper },
+        );
+
+        await waitFor(() => {
+          expect(result.current.form.form.value().name).toBe("shape_guarded_device");
+        });
+
+        await act(async () => {
+          await client.devices.create({ ...dev, status: undefined, properties: {} });
+        });
+        await waitFor(() => {
+          expect(result.current.store.devices.get(dev.key)?.properties).toEqual({});
+        });
+
+        expect(result.current.form.form.value().properties).toEqual({
+          sampleRate: 300,
+          channels: { a: 1 },
+        });
+      });
+
+      it("should reset the form when the device itself is updated", async () => {
+        const rack = await client.racks.create({ name: "schema-form-rack" });
+        const dev = await client.devices.create(
+          {
+            key: id.create(),
+            name: "self_updating_device",
+            rack: rack.key,
+            location: "test",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate: 300, channels: { a: 1 } },
+          },
+          schemas,
+        );
+
+        const useForm = Device.createForm(schemas);
+        const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
+          wrapper,
+        });
+
+        await waitFor(() => {
+          expect(result.current.form.value().name).toBe("self_updating_device");
+        });
+
+        await act(async () => {
+          await client.devices.create(
+            {
+              ...dev,
+              status: undefined,
+              name: "renamed_device",
+              properties: { sampleRate: 500, channels: {} },
+            },
+            schemas,
+          );
+        });
+
+        await waitFor(() => {
+          expect(result.current.form.value().name).toBe("renamed_device");
+          expect(result.current.form.value().properties).toEqual({
+            sampleRate: 500,
+            channels: {},
+          });
+        });
       });
     });
   });

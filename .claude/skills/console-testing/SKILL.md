@@ -1,0 +1,341 @@
+---
+name: console-testing
+description: Rules for writing and editing unit tests in the Console (`console/src/**/*.spec.ts[x]`). Use whenever authoring, refactoring, or reviewing a console Vitest spec, building or reaching for a test wrapper/store/fixture, deciding whether to mock or use real infrastructure, or wiring shared test scaffolding. Enforces blackbox testing through the public namespace, real-over-mock with dependency injection, and a single home per helper.
+---
+
+# Console Unit Testing
+
+These rules govern every Vitest spec under `console/src`. They exist because a handful of
+failure modes keep recurring: importing internals instead of the public API, reaching for
+mocks when the real thing would do, stubbing browser primitives, and copy-pasting
+scaffolding across files. The rules below are hard rules in the same register as
+`docs/claude/toolchains/typescript.md` — follow them exactly.
+
+The guiding principle behind all five: **a console test should exercise production code as
+close to production as possible, through the same public surface a real caller uses, with
+dependencies injected rather than mocked.** Reach for a mock only when there is genuinely
+no way to use the real thing.
+
+## Rule 1: Test through the public namespace, never a domain's internal files
+
+Console domains are blackboxes. A spec imports the thing it tests — and everything else it
+touches — through the domain's public namespace barrel, exactly like a Go `package
+foo_test` tests through the exported surface. Reaching into a domain's internal file with a
+deep named import is prohibited, **including for the thing under test itself.** The public
+namespace export *is* the contract; if you test against the file, you are testing an
+internal that no real caller depends on.
+
+Every domain surfaces itself as a namespace (`export * as Log from "@/session/log/external"`,
+`export * as Bar from "@/app/nav/bar/external"`). Use it.
+
+**Correct:**
+
+```ts
+import { Session } from "@/session";
+import { Nav } from "@/app/nav";
+
+// the thing under test, reached through its namespace
+render(<Nav.Bar.Top />);
+store.dispatch(Session.Log.create({ ... }));
+```
+
+**Incorrect — never do this:**
+
+```ts
+import { Top } from "@/app/nav/bar/Top";          // ❌ deep import of the SUT's file
+import { create } from "@/session/log/slice";     // ❌ deep import into another domain
+```
+
+**The one carve-out: co-located test scaffolding.** A spec's own `testutil` file
+(`@/app/nav/bar/testutil`, `@/platform/modals/testutil`) is test infrastructure, not the
+domain's public API, so named imports from it are fine. This is the *only* exemption.
+
+```ts
+import { renderBar } from "@/app/nav/bar/testutil";  // ✅ test scaffolding
+```
+
+**If the thing you want to test is not in a barrel, that is a signal, not a license.** Do
+**not** add a barrel export just so a test can reach it — that is "export only for tests,"
+which is banned (see `feedback_no_export_for_tests`). Either the symbol is genuinely public
+and belongs in the barrel on its own merits, or it is internal and you test it through the
+public API that exercises it.
+
+## Rule 2: Prefer real infrastructure over mocks — the dependency hierarchy
+
+When a test needs a collaborator, work down this list and stop at the first tier that works.
+Do not skip to a lower tier because it is faster to type.
+
+1. **Real client + real flux stores against a live cluster.** This is the default reach for
+   anything that touches data, queries, or the flux store. Use `createTestClient()` from
+   `@synnaxlabs/client` (connects to a real local cluster) plus `createConsoleWrapper` /
+   `renderHookWithConsole` from `@/testutil`. This exercises the production query
+   infrastructure end to end.
+
+2. **Real store + real flux with a `null` client and preloaded state.** For logic that
+   needs no network — pure reducers, selectors, layout placement. Build a minimal store with
+   the real reducers. A `session/*/slice.spec` or `selectors.spec` configuring a
+   single-slice store inline is correct and preferred — do **not** force it through the full
+   provider stack.
+
+3. **`vi.fn()` injected through a prop or DI parameter.** A spy handed to a component as a
+   leaf callback is **not a mock of production behavior** — it is the dependency-injection
+   pattern this codebase wants. It is encouraged, not discouraged. What is discouraged is
+   reaching for `vi.mock` to dodge wiring up the real collaborator.
+
+4. **A sanctioned environment seam (last resort, closed list).** The only things that may
+   be mocked at module/global level are true boundaries of the host environment:
+   `@tauri-apps/*` modules; the runtime engine pin — via `mockRuntimeEngine` from
+   `@/testutil/runtime`, ENGINE only, never a hand-rolled factory; host pins — via
+   `pinOS` (from `@/testutil/pinOS`, dynamically inside `vi.hoisted`) /
+   `pinLocationOrigin` (from `@/testutil`); and browser APIs at the genuine
+   boundary of the unit under test (file pickers via `interceptFilePicker`, downloads via
+   `captureBrowserDownloads`, FS Access via `@/testutil`). Mocking any module of
+   ours or of `@synnaxlabs/*` beyond this list is banned.
+
+**Spies on our own client instances are extremely discouraged.** Faking data or responses
+(`vi.spyOn(client.x, "y").mockResolvedValue(...)`) is banned outright — it manufactures
+cluster states that cannot exist and the test ends up testing the fake. If the condition a
+test needs cannot exist against real infrastructure, the test goes; do not fabricate it. A
+call-through observation spy (no faked return) is tolerated only when no
+production-observable assert exists — e.g. proving a command *really* arrived is done by
+reading the task command channel, not by spying on `executeCommand`.
+
+**Never inject an ad-hoc fake to suppress a flake** (a hand-rolled streamer, a stubbed
+network seam). The acceptable moves, in order: accept the flake; restructure the test so
+its assertion is attributable without isolation (unique names, positive controls, real
+signals); fix production so the condition is genuinely testable.
+
+**Correct — real cluster is the default for data-touching tests:**
+
+```ts
+import { createTestClient } from "@synnaxlabs/client";
+import { createConsoleWrapper } from "@/testutil";
+
+const client = createTestClient();
+const { wrapper } = await createConsoleWrapper({ client });
+const { result } = renderHook(() => Table.useCreate(), { wrapper });
+```
+
+**Correct — a spy injected via DI is fine:**
+
+```ts
+const onChange = vi.fn();
+render(<Table.CellForm onChange={onChange} />);
+// ... assert onChange was called with the right args
+```
+
+**Incorrect — mocking the module to avoid the real collaborator:**
+
+```ts
+vi.mock("@/session/log/slice");  // ❌ use the real reducer with a preloaded store
+```
+
+**Authoring vs. running.** Writing live-core tests against `createTestClient` is correct and
+encouraged. But do **not** *execute* those specs against the user's dev cluster without
+approval — hand the actual run to the user (see `feedback_no_tests_against_running_server`).
+Verify your work with `check-types` / `lint` / `prettier`.
+
+## Rule 3: Keep the environment honest — the add/change/replace triage
+
+Every patch to the test environment falls into exactly one of three tiers. Classify by
+**root cause**, not surface shape:
+
+- **Add a missing standard API — legitimate.** jsdom lacks `CSS.escape`, `innerText`,
+  `Blob.prototype.arrayBuffer`; the polyfills in `setuptests.ts` make jsdom *more*
+  standard. This tier is global and fine.
+- **Change what an existing API does — banned.** If a standard API must behave
+  differently than it really does for our code to pass, our input is invalid — that is a
+  production defect. Fix production and delete the shim. (Real case: a `querySelector`
+  shim existed only because our markup emitted duplicate DOM ids.)
+- **Replace a real API with fake data — per-spec opt-in only.** Fake geometry
+  (`getBoundingClientRect`, size-firing ResizeObserver) is available solely through
+  `stubGeometry()` from `@/testutil`, called explicitly by the handful of specs that
+  render virtualized lists. It is never inherited globally, and an opted-in spec may
+  never assert measured pixels. Measure who needs it — when this was converted, 6 specs
+  needed it, not the assumed 15.
+
+And the always-wrong abuse: **substituting a child component with a placeholder** and
+asserting the placeholder appears (see `feedback_no_mock_substitution`). Mount the real
+child through the real wrapper and assert on real DOM, or delete the assertion. Function
+spies are fine; component substitutes are not. (Filling a *required* render-prop slot
+with a caller-supplied renderer is legitimate — it is the public contract — but it should
+render queryable real text, not a `data-testid`.)
+
+**Incorrect — never do this:**
+
+```ts
+vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ ... }); // ❌ use stubGeometry()
+vi.mock("@/feature/table/Table", () => ({ Table: () => <div data-testid="table" /> })); // ❌
+document.querySelector = (sel) => { /* be more forgiving */ };                 // ❌ fix production
+```
+
+## Rule 4: Shared test scaffolding uses vitest directly, never a reinvention
+
+A test helper may cross a package boundary (published from `@synnaxlabs/pluto`, imported by
+console) and **may freely import from `vitest`.** Use real `vi.fn()` and real `Mock` types.
+The published entry's build externalizes vitest, so a `vi` import stays a clean external
+reference (the pluto `testutil` bundle is 6 KB, not 537 KB) that the consumer resolves. The
+consumer is always a spec running under vitest, so vitest is present at runtime and in types.
+
+- **Never invent your own testing primitives.** A hand-rolled call recorder (a closure that
+  pushes to a `.calls` array, a `RecordingFn`) is banned: it duplicates `vi.fn()` and throws
+  away vitest's matchers and introspection. Use `vi.fn()`, and read `.mock.calls`.
+- **Publishable testutils expose real vitest types.** `Mock` / `MockInstance` in a signature
+  are fine (e.g. `mockRenderContext(): { erase: Mock }`, `mockBoundingClientRect(): Mock<...>`).
+- **The one build requirement.** A package that ships vitest-touching testutils must
+  externalize vitest in its vite build (`external: ["vitest", /^@vitest\//]`) and declare it
+  an optional peer dependency. pluto does both. Without externalization, `vi` drags vitest's
+  guts (chai, tinyspy, a `node:child_process` reference) into the shipped bundle.
+- The provider-stack wrapper (`createSynnaxWrapper`, Aether/Status/Synnax/Flux) and
+  `@synnaxlabs/client`'s `createTestClient` are publishable as before; they simply no longer
+  need to avoid vitest to earn it.
+
+## Rule 5: One home per helper — hoist on the second use, never copy
+
+Every shared test helper lives in exactly one place: the lowest tier below that covers all
+its users. Copying a helper between two spec files *is* the violation.
+
+1. **Cross-package, vitest-free** → the owning package's published testutil (Rule 4).
+2. **Console-wide** (provider stack, store factory, `renderWithConsole`,
+   `renderHookWithConsole`, `createConsoleWrapper`, `renderLinkHook`, genuinely global
+   fixtures) → `console/src/testutil`. Single home.
+3. **Domain-specific** (`renderBar`, a modal `Wrapper`, a domain's fixture builders) →
+   co-located `@/<layer>/<domain>/testutil`, **composing on top of `@/testutil`** — never
+   re-deriving the provider stack or re-implementing store construction.
+4. **Inline in one spec** → only when exactly one spec uses it and it is trivial.
+
+**The threshold: the second use is the trigger to hoist.** One spec → inline is fine. The
+moment a second spec needs the same helper, move it up to the nearest shared testutil. Never
+paste it into the second file.
+
+**Naming: constructors are `create*`, full stop.** Every helper that constructs and
+returns something — a fixture object, a store, a wrapper, a cluster resource — is named
+`create*`, regardless of whether it is pure or does I/O. Do not introduce `build*`,
+`make*`, or noun-form builders (`clusterState()`); the synonyms carry no information and
+drift. Non-constructors keep their action verbs: `render*` mounts, `stub*`/`pin*`/
+`mock*`/`install*`/`intercept*` patch the environment, `place*`/`seed*` dispatch into
+existing state.
+
+**Two guardrails so this does not recreate a bloated god-module:**
+
+- `console/src/testutil` owns *global* scaffolding only — providers, store, render entry
+  points. Domain-specific fixtures do **not** accumulate there; they live in the domain
+  testutil.
+- A pure slice/selector spec building a minimal single-slice store inline is allowed and
+  preferred (Rule 2 tier 2). It must not be forced through `renderWithConsole`.
+
+**Incorrect — re-deriving `@/testutil` inline (real example of the anti-pattern):**
+
+```ts
+// platform/table/useCreate.spec.tsx, before
+const buildHarness = async () => {
+  const fluxClient = new Flux.Client({ client, storeConfig: { ...Pluto.FLUX_STORE_CONFIG }, ... });
+  const rootReducer = combineReducers({ [Drift.SLICE_NAME]: Drift.reducer, ... });
+  // ...30 lines rebuilding what @/testutil already exports
+};
+```
+
+**Correct — use the shared home:**
+
+```ts
+import { createConsoleWrapper } from "@/testutil";
+
+const { wrapper, store } = await createConsoleWrapper({ client });
+```
+
+## Rule 6: Every test must name a regression it would catch
+
+If you cannot name a concrete production regression a test would catch, the test is
+vanity and gets deleted. The recurring vanity classes, all found in real audits:
+
+- **Render-only** ("shows the header text", "the tree mounts"). Banned outright — there
+  is no one-smoke-per-component allowance. Behavior tests prove mounting implicitly. A
+  component's first spec already drives its real functionality end to end: real data
+  appearing in it (live-cluster round-trip), actions reaching the store/server, state
+  read back through public selectors. A spec whose title claims wiring ("rooted at the
+  devices group") must assert that wiring (a real device appears in the tree), not that
+  a container element exists. If a component has no drivable behavior, it gets no spec.
+- **Vacuous guard**: "renders nothing when X" where the render is empty for a
+  *different* reason in the test environment. The classic: `Access.use*Granted` returns
+  `false` on its first render while the retrieval is in flight, so a synchronous absence
+  assert passes regardless of the guard named in the title. Prove the gate resolved
+  first (a positive control sharing the same permission query, awaited via `findBy*`),
+  then assert absence. **Verify guards by mutation**: break the named condition in the
+  source; if the test stays green, it tested nothing.
+- **CSS-blind asserts**: jsdom does not apply stylesheets, so anything hidden by CSS
+  class is still queryable — "reveals X on click" passes with a dead button. Assert the
+  className flip, not element presence.
+- **Unsettled negatives**: "spy not called" asserted before the async chain settles
+  false-passes when the bad call lands a microtask later. Settle first (`await act`, or
+  wait for the terminal status), then assert absence.
+- **Mock echo / tautology / self-fulfilling setup**: asserting a spy received what the
+  test wired in with no production logic between; re-asserting literals copied from the
+  source; seeding state X and asserting X. All deletable on sight — except deliberate
+  contract pins on wire/persisted formats, which are legitimate.
+
+**When a test is hard to write, suspect production first.** Nearly every hack removed in
+the audits was hiding a real defect — duplicate DOM ids, dead guards, a prop swallowed by
+React, a placeholder branch that could never render. A test that needs a lie is usually
+pointing at one.
+
+## Rule 7: Honest types — no `as unknown as`, no `as never` in specs
+
+Type escapes that manufacture unreachable states are banned. If the type system says a
+guard is unreachable, either the parameter's type becomes honestly nullable or the guard
+is dead code and gets deleted — a cast that forces the branch tests a lie. Corollaries:
+
+- Replace `expect(x).toBeDefined(); use(x!)` with throw-narrowing inside the `waitFor`
+  (`if (x == null) throw new Error(...)`) — it narrows honestly and fails loudly.
+- Null-erasing lookup casts (`query(...) as HTMLButtonElement`) use the throwing
+  variants instead (`getIconButton`, `getBySelector`, `assertDefined` in `@/testutil`).
+- The only tolerated `as unknown as` lives inside a documented testutil factory for DOM
+  types jsdom cannot construct (`fakeDataTransferItem`, `fakeSaveFileHandle`).
+- Untestable branches (needs canvas, Tauri drag, a deterministic server failure) are
+  skipped silently — no `it.todo` litter; note the constraint in the PR summary.
+
+## Rule 8: Timeouts are global; wait on signals, never sleep
+
+`asyncUtilTimeout: 5000` (setuptests) and `testTimeout: 15_000` (vite config) are
+configured globally. Never add a local `const TIMEOUT = { timeout: 5000 }`, a per-call
+timeout option (including `expect.poll(fn, { timeout })`), or a per-test `}, 15000)` bump.
+`expect.poll` and `waitFor` run fine on their defaults: the full console suite passes at
+vitest's default 1s poll timeout even under shared-cluster load, so a custom poll timeout
+is almost always cargo-cult noise. If a timeout genuinely must change, raise it globally in
+the config, never inline. Fixed sleeps (`setTimeout`, `sleep(50)`) are banned in specs.
+Wait on the real signal (store state, server round-trip, terminal status) via `waitFor`,
+or flush the microtask chain with `await act(async () => {})` for genuinely
+synchronous-after-flush negatives.
+
+## Rule 9: Query by role and text; structural selectors are last resort
+
+Prefer `getByRole` / `getByText` / accessible names. A structural selector
+(`.closest()` walks, pluto class names, `aria-label="pluto-icon--*"`) is allowed only
+when the target genuinely has no accessible handle, and then only inside a shared
+testutil — never inline in a spec, so pluto DOM churn breaks one helper instead of forty
+specs. `data-testid` is not used; render-prop fillers emit queryable real text instead.
+
+## Writing a console test — quick reference
+
+Reach for these, in order of how close they are to production:
+
+| Need | Use | From |
+| --- | --- | --- |
+| Component/hook that hits data, against a live cluster | `createConsoleWrapper({ client })` + `renderHook`/`render` | `@/testutil` + `createTestClient()` |
+| Component/hook needing the provider stack, no network | `renderWithConsole` / `renderHookWithConsole` | `@/testutil` |
+| A deep-link resource hook | `renderLinkHook` | `@/testutil` |
+| Pure reducer/selector | minimal single-slice `configureStore` inline | `@reduxjs/toolkit` |
+| Flux queries without console slices | `createSynnaxWrapper` / `createAsyncSynnaxWrapper` | `@/testutil` |
+| Modal opener/prompt hooks | `renderModalOpener` / `renderModalHook` / `closeOf` / `findButton` | `@/platform/modals/testutil` |
+| Virtualized list rendering (needs fake sizes) | `stubGeometry()` — opt-in, no pixel asserts | `@/testutil` |
+| Engine-dependent code (tauri vs web) | `mockRuntimeEngine` | `@/testutil/runtime` |
+| OS / origin detection | `pinOS` / `pinLocationOrigin` | `@/testutil/pinOS` (dynamic, in `vi.hoisted`) / `@/testutil` |
+| File pickers, browser downloads, FS Access | `interceptFilePicker` / `captureBrowserDownloads` / `installSaveFilePicker` | `@/testutil` |
+| Inline-rename (`Text.edit`) flows | `findEditableText` / `awaitTextEditing*` / `commitTextEdit` | `@/testutil` |
+| Icon-only buttons, throwing lookups | `getIconButton` / `getBySelector` / `assertDefined` | `@/testutil` |
+| Cluster-safe resource names | `uniqueName("prefix")` (letters/digits/underscores) | `@/testutil` |
+
+And always: import the thing under test and its dependencies through their **namespace**
+(Rule 1); prefer **real** over mock (Rule 2); keep the environment honest (Rule 3); put
+shared helpers in **one home** (Rule 5); name the regression every test catches (Rule 6);
+no dishonest casts (Rule 7); no local timeouts or sleeps (Rule 8); query by role/text
+(Rule 9).
