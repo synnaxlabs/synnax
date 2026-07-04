@@ -26,13 +26,10 @@ import (
 // To).
 type RelationshipType string
 
-const (
-	// RelationshipTypeParentOf indicates that a resource is the parent of another
-	// resource. When examining a Relationship of type RelationshipTypeParentOf, the
-	// From field will be the parent and the To field will be the child i.e. (From is
-	// the parent of To).
-	RelationshipTypeParentOf RelationshipType = "parent"
-)
+// RelationshipTypeParentOf indicates that a resource is the parent of another resource.
+// When examining a Relationship of type RelationshipTypeParentOf, the From field will
+// be the parent and the To field will be the child i.e. (From is the parent of To).
+const RelationshipTypeParentOf RelationshipType = "parent"
 
 // Relationship is a struct that represents a relationship between two resources in the
 // ontology. A relationship is defined by a type, a from and a to field. This means that
@@ -50,23 +47,28 @@ type Relationship struct {
 
 var _ gorp.Entry[string] = Relationship{}
 
-// relationshipKeySep separates the From, Type, and To fields in an encoded
-// relationship gorp key. The four dagWriter delete helpers depend on this
-// layout to short-circuit scans without decoding the entry.
+// relationshipKeySep separates the From, Type, and To fields in an encoded relationship
+// gorp key. The four dagWriter delete helpers depend on this layout to short-circuit
+// scans without decoding the entry.
 const relationshipKeySep = "->"
 
 // GorpKey implements the gorp.Entry interface.
 func (r Relationship) GorpKey() string {
-	return r.From.String() + relationshipKeySep + string(r.Type) + relationshipKeySep + r.To.String()
+	return r.From.String() +
+		relationshipKeySep +
+		string(r.Type) +
+		relationshipKeySep +
+		r.To.String()
 }
 
 // SetOptions implements the gorp.Entry interface.
-func (r Relationship) SetOptions() []any { return nil }
+func (Relationship) SetOptions() []any { return nil }
 
 func ParseRelationship(key string) (Relationship, error) {
 	split := strings.Split(key, "->")
 	if len(split) != 3 {
-		return Relationship{}, errors.Wrapf(validate.ErrValidation, "invalid relationship key: %s", key)
+		return Relationship{},
+			errors.Wrapf(validate.ErrValidation, "invalid relationship key: %s", key)
 	}
 	var (
 		r   Relationship

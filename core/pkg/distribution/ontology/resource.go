@@ -51,14 +51,14 @@ func ParseIDs(keys []string) ([]ID, error) {
 }
 
 // String returns a string representation of the ID in the format "Type:Key".
-func (id ID) String() string { return string(id.Type) + ":" + id.Key }
+func (i ID) String() string { return string(i.Type) + ":" + i.Key }
 
 // IsZero returns true if the ID is the zero value (both Key and Type are empty).
-func (id ID) IsZero() bool { return id.Key == "" && id.Type == "" }
+func (i ID) IsZero() bool { return i.Key == "" && i.Type == "" }
 
 // IsType returns true if the ID represents a type identifier (has a Type but no Key).
 // Type IDs are used to identify resource types rather than specific resource instances.
-func (id ID) IsType() bool { return id.Type != "" && id.Key == "" }
+func (i ID) IsType() bool { return i.Type != "" && i.Key == "" }
 
 // IDsToKeys converts a slice of IDs to a slice of their string representations.
 func IDsToKeys(ids []ID) []string {
@@ -94,10 +94,10 @@ func (r Resource) GorpKey() string { return r.ID.String() }
 // SetOptions implements gorp.Entry.
 func (Resource) SetOptions() []any { return nil }
 
-// Change is a change to a Resource.
-type Change = change.Change[string, Resource]
-
 // ResourceIDs extracts the IDs from a slice of Resources.
 func ResourceIDs(resources []Resource) []ID {
 	return lo.Map(resources, func(r Resource, _ int) ID { return r.ID })
 }
+
+// Change is a change to a Resource.
+type Change = change.Change[string, Resource]

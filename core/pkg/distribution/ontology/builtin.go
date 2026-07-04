@@ -33,11 +33,15 @@ var _ Service = (*builtinService)(nil)
 func (b *builtinService) Type() ResourceType { return ResourceTypeBuiltin }
 
 // RetrieveResource implements Service.
-func (b *builtinService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (Resource, error) {
+func (b *builtinService) RetrieveResource(
+	_ context.Context, key string, _ gorp.Tx,
+) (Resource, error) {
 	switch key {
 	case "root":
 		return rootResource, nil
 	default:
-		return Resource{}, errors.Wrapf(query.ErrNotFound, "builtin resource %q not found", key)
+		return Resource{}, errors.Wrapf(
+			query.ErrNotFound, "builtin resource %q not found", key,
+		)
 	}
 }
