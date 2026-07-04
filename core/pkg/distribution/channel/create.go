@@ -74,7 +74,7 @@ func (s *Service) createHandler(ctx context.Context, msg CreateMessage) (CreateM
 
 // assignKeys draws len(channels with a zero LocalKey) values from the provided counter
 // and assigns them sequentially. Index channels have their LocalIndex set to their own
-// newly-assigned LocalKey.
+// LocalKey, whether that key was just assigned or already present.
 func assignKeys(ctx context.Context, c *counter, channels []Channel) error {
 	var toAssign LocalKey
 	for _, ch := range channels {
