@@ -30,10 +30,10 @@ type builtinService struct{ observe.Noop[iter.Seq[Change]] }
 
 var _ Service = (*builtinService)(nil)
 
-func (b *builtinService) Type() ResourceType { return ResourceTypeBuiltin }
+func (*builtinService) Type() ResourceType { return ResourceTypeBuiltin }
 
 // RetrieveResource implements Service.
-func (b *builtinService) RetrieveResource(
+func (*builtinService) RetrieveResource(
 	_ context.Context, key string, _ gorp.Tx,
 ) (Resource, error) {
 	switch key {
