@@ -125,8 +125,8 @@ has_supported_extension() {
 resolve_header_for_ext() {
     local ext="$1"
     LEADING_LINE_RE=""
-    FENCE=""
     LEADING_BLANK=1
+    FENCE=""
     case "$ext" in
         py | pyi)
             HEADER="$HEADER_HASH_TWO"
