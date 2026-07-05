@@ -9,6 +9,7 @@
 
 import { DisconnectedError, log, project } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
+import { errors } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/layered/service/log/layout";
@@ -25,7 +26,16 @@ const ingest: Import.FileIngester = async (
     throw new Error("You do not have permission to import logs");
   if (client == null) throw new DisconnectedError();
   const id = await client.imex.import(JSON.stringify(data), { encoding: "JSON" });
-  await client.ontology.addChildren(project.ontologyID(projectKey), id);
+  try {
+    await client.ontology.addChildren(project.ontologyID(projectKey), id);
+  } catch (err) {
+    try {
+      await client.logs.delete(id.key);
+    } catch (deleteErr) {
+      console.error("failed to delete orphaned log after import failure", deleteErr);
+    }
+    throw errors.fromUnknown(err);
+  }
   placeLayout(create({ ...layout, key: id.key }));
   return id;
 };
