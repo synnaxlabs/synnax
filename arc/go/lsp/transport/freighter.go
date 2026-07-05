@@ -12,7 +12,6 @@ package transport
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"sync/atomic"
 
@@ -20,10 +19,10 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go.lsp.dev/jsonrpc2"
+	"go.lsp.dev/protocol"
 )
 
 type JSONRPCMessage struct {
@@ -44,98 +43,60 @@ const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB
 
 var ErrContentLengthExceeded = errors.New("[transport] - content length exceeded maximum allowed size")
 
-// streamAdapter wraps a freighter stream to implement io.ReadWriteCloser for jsonrpc2.
-// Thread safety is handled by jsonrpc2.Conn which serializes writes via writeMu and
-// uses a single goroutine for reads. We only need an atomic for the closed flag.
+// streamAdapter wraps a freighter stream to implement jsonrpc2.Stream. Each
+// freighter message carries one fully-encoded JSON-RPC envelope in Content.
+// Thread safety is handled by jsonrpc2.Conn, which serializes writes and uses
+// a single goroutine for reads; only the closed flag needs an atomic.
 type streamAdapter struct {
 	stream           freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
-	buffer           []byte
-	writeBuffer      []byte
 	closed           atomic.Bool
 	maxContentLength int
+	// ready gates the first Read until the server's client dispatcher has been
+	// wired via SetClient, so an eager client cannot trigger a notification
+	// handler that publishes diagnostics before the client is set.
+	ready chan struct{}
 }
 
-func (s *streamAdapter) Read(p []byte) (n int, err error) {
-	if len(s.buffer) > 0 {
-		n = copy(p, s.buffer)
-		s.buffer = s.buffer[n:]
-		return n, nil
+var _ jsonrpc2.Stream = (*streamAdapter)(nil)
+
+func (s *streamAdapter) Read(ctx context.Context) (jsonrpc2.Message, int64, error) {
+	select {
+	case <-s.ready:
+	case <-ctx.Done():
+		return nil, 0, ctx.Err()
+	}
+	if s.closed.Load() {
+		return nil, 0, io.EOF
 	}
 	msg, err := s.stream.Receive()
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
-	var (
-		contentBytes = []byte(msg.Content)
-		header       = fmt.Sprintf("Content-Length: %d\r\n\r\n", len(contentBytes))
-		headerBytes  = []byte(header)
-		fullMessage  = make([]byte, len(headerBytes)+len(contentBytes))
-	)
-	copy(fullMessage, headerBytes)
-	copy(fullMessage[len(headerBytes):], contentBytes)
-	n = copy(p, fullMessage)
-	if n < len(fullMessage) {
-		s.buffer = fullMessage[n:]
+	if len(msg.Content) > s.maxContentLength {
+		return nil, 0, ErrContentLengthExceeded
 	}
-	return n, nil
+	decoded, err := jsonrpc2.DecodeMessage([]byte(msg.Content))
+	if err != nil {
+		return nil, 0, err
+	}
+	return decoded, int64(len(msg.Content)), nil
 }
 
-func (s *streamAdapter) Write(p []byte) (int, error) {
+func (s *streamAdapter) Write(_ context.Context, msg jsonrpc2.Message) (int64, error) {
 	if s.closed.Load() {
 		return 0, io.ErrClosedPipe
 	}
-	s.writeBuffer = append(s.writeBuffer, p...)
-	for {
-		var (
-			headerEnd     = -1
-			contentLength = -1
-			data          = s.writeBuffer
-		)
-		if len(data) < 16 {
-			break
-		}
-		for i := 0; i <= len(data)-16; i++ {
-			if data[i] == 'C' && string(data[i:i+15]) == "Content-Length:" {
-				j := i + 15
-				for j < len(data) && (data[j] == ' ' || data[j] == '\t') {
-					j++
-				}
-				lenStart := j
-				for j < len(data) && data[j] >= '0' && data[j] <= '9' {
-					j++
-				}
-				if j > lenStart {
-					if _, err := fmt.Sscanf(string(data[lenStart:j]), "%d", &contentLength); err != nil {
-						return 0, err
-					}
-				}
-				for j < len(data)-3 {
-					if data[j] == '\r' && data[j+1] == '\n' && data[j+2] == '\r' && data[j+3] == '\n' {
-						headerEnd = j + 4
-						break
-					} else if data[j] == '\n' && data[j+1] == '\n' {
-						headerEnd = j + 2
-						break
-					}
-					j++
-				}
-				break
-			}
-		}
-		if headerEnd == -1 || contentLength == -1 || len(data) < headerEnd+contentLength {
-			break
-		}
-		if contentLength < 0 || contentLength > s.maxContentLength {
-			return 0, ErrContentLengthExceeded
-		}
-		jsonContent := data[headerEnd : headerEnd+contentLength]
-		msg := JSONRPCMessage{Content: string(jsonContent)}
-		if err := s.stream.Send(msg); err != nil {
-			return 0, err
-		}
-		s.writeBuffer = data[headerEnd+contentLength:]
+	data, err := jsonrpc2.EncodeMessage(msg)
+	if err != nil {
+		return 0, err
 	}
-	return len(p), nil
+	if len(data) > s.maxContentLength {
+		return 0, ErrContentLengthExceeded
+	}
+	if err := s.stream.Send(JSONRPCMessage{Content: string(data)}); err != nil {
+		return 0, err
+	}
+	return int64(len(data)), nil
 }
 
 func (s *streamAdapter) Close() error {
@@ -170,35 +131,22 @@ func (c Config) Override(other Config) Config {
 
 var DefaultConfig = Config{MaxContentLength: DefaultMaxContentLength}
 
-// connClient wraps a protocol.Client with access to the underlying jsonrpc2.Conn
-// to support LSP methods missing from go.lsp.dev/protocol@v0.12.0.
-type connClient struct {
-	protocol.Client
-	conn jsonrpc2.Conn
-}
-
-func (c *connClient) SemanticTokensRefresh(ctx context.Context) error {
-	return protocol.Call(ctx, c.conn, protocol.MethodSemanticTokensRefresh, nil, nil)
-}
-
 func ServeFreighter(ctx context.Context, cfgs ...Config) (err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return err
 	}
-	var (
-		adapter = &streamAdapter{stream: cfg.Stream, maxContentLength: cfg.MaxContentLength}
-		conn    = jsonrpc2.NewConn(jsonrpc2.NewStream(adapter))
-	)
+	adapter := &streamAdapter{
+		stream:           cfg.Stream,
+		maxContentLength: cfg.MaxContentLength,
+		ready:            make(chan struct{}),
+	}
+	_, conn, client := protocol.NewServer(ctx, cfg.Server, adapter)
 	defer func() {
 		err = errors.Combine(err, conn.Close())
 	}()
-	cfg.Server.SetClient(&connClient{
-		Client: protocol.ClientDispatcher(conn, cfg.Server.Logger()),
-		conn:   conn,
-	})
-	conn.Go(ctx, protocol.ServerHandler(cfg.Server, nil))
+	cfg.Server.SetClient(client)
+	close(adapter.ready)
 	<-conn.Done()
-	err = conn.Err()
-	return err
+	return conn.Err()
 }

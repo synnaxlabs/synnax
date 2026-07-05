@@ -20,15 +20,16 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("Rename", func() {
 	var (
 		server *lsp.Server
-		uri    protocol.DocumentURI
+		docURI uri.URI
 	)
 
 	BeforeEach(func() {
@@ -36,7 +37,7 @@ var _ = Describe("Rename", func() {
 			return NewRoot(nil)
 		}}))
 		server.SetClient(&MockClient{})
-		uri = "file:///test.arc"
+		docURI = "file:///test.arc"
 	})
 
 	Describe("PrepareRename", func() {
@@ -45,28 +46,30 @@ var _ = Describe("Rename", func() {
     x i32 := 42
     y := x + 10
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 4}, // x| i32
 				},
 			}))
 			Expect(result).ToNot(BeNil())
-			Expect(result.Start.Line).To(Equal(uint32(1)))
-			Expect(result.Start.Character).To(Equal(uint32(4)))
+			r, ok := result.(*protocol.Range)
+			Expect(ok).To(BeTrue(), "expected a *protocol.Range, got %T", result)
+			Expect(r.Start.Line).To(Equal(uint32(1)))
+			Expect(r.Start.Character).To(Equal(uint32(4)))
 		})
 
 		It("should return nil for keywords", func(ctx SpecContext) {
 			content := `func test() {
     return 42
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 5}, // ret|urn
 				},
 			}))
@@ -82,11 +85,11 @@ var _ = Describe("Rename", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 12}, // myGl|obal
 				},
 			}))
@@ -111,18 +114,18 @@ var _ = Describe("Rename", func() {
     y := x + 10
     z := x * 2
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 4}, // x| i32
 				},
 				NewName: "value",
 			}))
 			Expect(result).ToNot(BeNil())
-			Expect(result.Changes).To(HaveKey(uri))
-			edits := result.Changes[uri]
+			Expect(result.Changes).To(HaveKey(docURI))
+			edits := result.Changes[docURI]
 			Expect(edits).To(HaveLen(3)) // declaration + 2 usages
 			for _, edit := range edits {
 				Expect(edit.NewText).To(Equal("value"))
@@ -133,19 +136,19 @@ var _ = Describe("Rename", func() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			// Click on 'x' in return statement
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 11}, // x| * y
 				},
 				NewName: "first",
 			}))
 			Expect(result).ToNot(BeNil())
-			Expect(result.Changes).To(HaveKey(uri))
-			edits := result.Changes[uri]
+			Expect(result.Changes).To(HaveKey(docURI))
+			edits := result.Changes[docURI]
 			Expect(edits).To(HaveLen(2)) // parameter + usage
 			for _, edit := range edits {
 				Expect(edit.NewText).To(Equal("first"))
@@ -162,19 +165,19 @@ func second() {
     x := 20
     z := x + 2
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			// Rename x in first function
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 4}, // x| in first()
 				},
 				NewName: "value",
 			}))
 			Expect(result).ToNot(BeNil())
-			Expect(result.Changes).To(HaveKey(uri))
-			edits := result.Changes[uri]
+			Expect(result.Changes).To(HaveKey(docURI))
+			edits := result.Changes[docURI]
 			// Should only rename x in first function (declaration + usage)
 			// NOT the x in second function
 			Expect(edits).To(HaveLen(2))
@@ -191,18 +194,18 @@ func second() {
     count = count + 1
     return count
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 4}, // count| u32 $= 0
 				},
 				NewName: "total",
 			}))
 			Expect(result).ToNot(BeNil())
-			Expect(result.Changes).To(HaveKey(uri))
-			edits := result.Changes[uri]
+			Expect(result.Changes).To(HaveKey(docURI))
+			edits := result.Changes[docURI]
 			// count is used: declaration, assignment (left), addition (right), return
 			Expect(edits).To(HaveLen(4))
 			for _, edit := range edits {
@@ -218,18 +221,18 @@ func second() {
 func main() {
     result := add(1, 2)
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 0, Character: 6}, // func a|dd
 				},
 				NewName: "sum",
 			}))
 			Expect(result).ToNot(BeNil())
-			Expect(result.Changes).To(HaveKey(uri))
-			edits := result.Changes[uri]
+			Expect(result.Changes).To(HaveKey(docURI))
+			edits := result.Changes[docURI]
 			Expect(edits).To(HaveLen(2)) // definition + call site
 			for _, edit := range edits {
 				Expect(edit.NewText).To(Equal("sum"))
@@ -245,11 +248,11 @@ func main() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 12}, // myGl|obal
 				},
 				NewName: "renamed",
@@ -272,11 +275,11 @@ func main() {
 			content := `func test() {
 
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 0}, // Empty line
 				},
 				NewName: "newName",
@@ -328,11 +331,11 @@ func main() {
 				OnRename: onRename,
 			}))
 			server.SetClient(&MockClient{})
-			OpenArcDocument(server, ctx, uri, channelContent)
+			OpenArcDocument(server, ctx, docURI, channelContent)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 14}, // sensor
 				},
 				NewName: "renamed_sensor",
@@ -353,18 +356,18 @@ func main() {
 				OnRename: onRename,
 			}))
 			server.SetClient(&MockClient{})
-			OpenArcDocument(server, ctx, uri, channelContent)
+			OpenArcDocument(server, ctx, docURI, channelContent)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 14},
 				},
 				NewName: "renamed_sensor",
 			}))
 			Expect(result).ToNot(BeNil())
-			Expect(result.Changes).To(HaveKey(uri))
-			edits := result.Changes[uri]
+			Expect(result.Changes).To(HaveKey(docURI))
+			edits := result.Changes[docURI]
 			Expect(edits).To(HaveLen(2))
 			for _, edit := range edits {
 				Expect(edit.NewText).To(Equal("renamed_sensor"))
@@ -381,11 +384,11 @@ func main() {
 				OnRename: onRename,
 			}))
 			server.SetClient(&MockClient{})
-			OpenArcDocument(server, ctx, uri, channelContent)
+			OpenArcDocument(server, ctx, docURI, channelContent)
 
 			Expect(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 14},
 				},
 				NewName: "renamed_sensor",
@@ -403,14 +406,14 @@ func main() {
 				OnRename: onRename,
 			}))
 			server.SetClient(&MockClient{})
-			OpenArcDocument(server, ctx, uri, `func test() {
+			OpenArcDocument(server, ctx, docURI, `func test() {
     x i32 := 42
     y := x + 10
 }`)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 4}, // x
 				},
 				NewName: "value",
@@ -426,13 +429,13 @@ func main() {
 				OnRename: onRename,
 			}))
 			server.SetClient(&MockClient{})
-			OpenArcDocument(server, ctx, uri, `func test() {
+			OpenArcDocument(server, ctx, docURI, `func test() {
     x f32 := internal_sensor + 1.0
 }`)
 
 			prepared := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 14}, // internal_sensor
 				},
 			}))
@@ -440,7 +443,7 @@ func main() {
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 14},
 				},
 				NewName: "renamed",

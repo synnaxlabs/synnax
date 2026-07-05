@@ -12,211 +12,18 @@ package lsp
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 // NoopServer provides stub implementations for all protocol.Server methods.
 // Embed this in your server struct and override only the methods you need.
-type NoopServer struct{}
-
-func (NoopServer) CodeAction(context.Context, *protocol.CodeActionParams) ([]protocol.CodeAction, error) {
-	return nil, nil
-}
-
-func (NoopServer) CodeLens(context.Context, *protocol.CodeLensParams) ([]protocol.CodeLens, error) {
-	return nil, nil
-}
-
-func (NoopServer) CodeLensResolve(context.Context, *protocol.CodeLens) (*protocol.CodeLens, error) {
-	return nil, nil
-}
-
-func (NoopServer) ColorPresentation(context.Context, *protocol.ColorPresentationParams) ([]protocol.ColorPresentation, error) {
-	return nil, nil
-}
-
-func (NoopServer) CompletionResolve(context.Context, *protocol.CompletionItem) (*protocol.CompletionItem, error) {
-	return nil, nil
-}
-
-func (NoopServer) Declaration(context.Context, *protocol.DeclarationParams) ([]protocol.Location, error) {
-	return nil, nil
-}
-
-func (NoopServer) DidChangeConfiguration(context.Context, *protocol.DidChangeConfigurationParams) error {
-	return nil
-}
-
-func (NoopServer) DidChangeWatchedFiles(context.Context, *protocol.DidChangeWatchedFilesParams) error {
-	return nil
-}
-
-func (NoopServer) DidChangeWorkspaceFolders(context.Context, *protocol.DidChangeWorkspaceFoldersParams) error {
-	return nil
-}
-
-func (NoopServer) DidCreateFiles(context.Context, *protocol.CreateFilesParams) error {
-	return nil
-}
-
-func (NoopServer) DidDeleteFiles(context.Context, *protocol.DeleteFilesParams) error {
-	return nil
-}
-
-func (NoopServer) DidRenameFiles(context.Context, *protocol.RenameFilesParams) error {
-	return nil
-}
-
-func (NoopServer) DocumentColor(context.Context, *protocol.DocumentColorParams) ([]protocol.ColorInformation, error) {
-	return nil, nil
-}
-
-func (NoopServer) DocumentHighlight(context.Context, *protocol.DocumentHighlightParams) ([]protocol.DocumentHighlight, error) {
-	return nil, nil
-}
-
-func (NoopServer) DocumentLink(context.Context, *protocol.DocumentLinkParams) ([]protocol.DocumentLink, error) {
-	return nil, nil
-}
-
-func (NoopServer) DocumentSymbol(context.Context, *protocol.DocumentSymbolParams) ([]any, error) {
-	return []any{}, nil
-}
-
-func (NoopServer) DocumentLinkResolve(context.Context, *protocol.DocumentLink) (*protocol.DocumentLink, error) {
-	return nil, nil
-}
-
-func (NoopServer) ExecuteCommand(context.Context, *protocol.ExecuteCommandParams) (any, error) {
-	return nil, nil
-}
-
-func (NoopServer) Exit(context.Context) error {
-	return nil
-}
-
-func (NoopServer) FoldingRanges(context.Context, *protocol.FoldingRangeParams) ([]protocol.FoldingRange, error) {
-	return nil, nil
-}
-
-func (NoopServer) Implementation(context.Context, *protocol.ImplementationParams) ([]protocol.Location, error) {
-	return nil, nil
-}
-
-func (NoopServer) IncomingCalls(context.Context, *protocol.CallHierarchyIncomingCallsParams) ([]protocol.CallHierarchyIncomingCall, error) {
-	return nil, nil
-}
-
-func (NoopServer) LinkedEditingRange(context.Context, *protocol.LinkedEditingRangeParams) (*protocol.LinkedEditingRanges, error) {
-	return nil, nil
-}
-
-func (NoopServer) LogTrace(context.Context, *protocol.LogTraceParams) error {
-	return nil
-}
-
-func (NoopServer) Moniker(context.Context, *protocol.MonikerParams) ([]protocol.Moniker, error) {
-	return nil, nil
-}
-
-func (NoopServer) OnTypeFormatting(context.Context, *protocol.DocumentOnTypeFormattingParams) ([]protocol.TextEdit, error) {
-	return nil, nil
-}
-
-func (NoopServer) OutgoingCalls(context.Context, *protocol.CallHierarchyOutgoingCallsParams) ([]protocol.CallHierarchyOutgoingCall, error) {
-	return nil, nil
-}
-
-func (NoopServer) PrepareCallHierarchy(context.Context, *protocol.CallHierarchyPrepareParams) ([]protocol.CallHierarchyItem, error) {
-	return nil, nil
-}
-
-func (NoopServer) References(context.Context, *protocol.ReferenceParams) ([]protocol.Location, error) {
-	return nil, nil
-}
-
-func (NoopServer) ResolveCodeAction(context.Context, *protocol.CodeAction) (*protocol.CodeAction, error) {
-	return nil, nil
-}
-
-func (NoopServer) ResolveCompletionItem(context.Context, *protocol.CompletionItem) (*protocol.CompletionItem, error) {
-	return nil, nil
-}
-
-func (NoopServer) ResolveDocumentLink(context.Context, *protocol.DocumentLink) (*protocol.DocumentLink, error) {
-	return nil, nil
-}
-
-func (NoopServer) SelectionRange(context.Context, *protocol.SelectionRangeParams) ([]protocol.SelectionRange, error) {
-	return nil, nil
-}
-
-func (NoopServer) SemanticTokensFullDelta(context.Context, *protocol.SemanticTokensDeltaParams) (any, error) {
-	return nil, nil
-}
-
-func (NoopServer) SemanticTokensRange(context.Context, *protocol.SemanticTokensRangeParams) (*protocol.SemanticTokens, error) {
-	return nil, nil
-}
-
-func (NoopServer) SemanticTokensRefresh(context.Context) error {
-	return nil
-}
-
-func (NoopServer) SetTrace(context.Context, *protocol.SetTraceParams) error {
-	return nil
-}
-
-func (NoopServer) SignatureHelp(context.Context, *protocol.SignatureHelpParams) (*protocol.SignatureHelp, error) {
-	return nil, nil
-}
-
-func (NoopServer) Symbols(context.Context, *protocol.WorkspaceSymbolParams) ([]protocol.SymbolInformation, error) {
-	return nil, nil
-}
-
-func (NoopServer) TypeDefinition(context.Context, *protocol.TypeDefinitionParams) ([]protocol.Location, error) {
-	return nil, nil
-}
-
-func (NoopServer) WillCreateFiles(context.Context, *protocol.CreateFilesParams) (*protocol.WorkspaceEdit, error) {
-	return nil, nil
-}
-
-func (NoopServer) WillDeleteFiles(context.Context, *protocol.DeleteFilesParams) (*protocol.WorkspaceEdit, error) {
-	return nil, nil
-}
-
-func (NoopServer) WillRenameFiles(context.Context, *protocol.RenameFilesParams) (*protocol.WorkspaceEdit, error) {
-	return nil, nil
-}
-
-func (NoopServer) WillSave(context.Context, *protocol.WillSaveTextDocumentParams) error {
-	return nil
-}
-
-func (NoopServer) WillSaveWaitUntil(context.Context, *protocol.WillSaveTextDocumentParams) ([]protocol.TextEdit, error) {
-	return nil, nil
-}
-
-func (NoopServer) WorkDoneProgressCancel(context.Context, *protocol.WorkDoneProgressCancelParams) error {
-	return nil
-}
-
-func (NoopServer) CodeLensRefresh(context.Context) error {
-	return nil
-}
-
-func (NoopServer) Request(context.Context, string, any) (any, error) {
-	return nil, nil
-}
-
-func (NoopServer) ShowDocument(context.Context, *protocol.ShowDocumentParams) (*protocol.ShowDocumentResult, error) {
-	return nil, nil
-}
-
-// Methods that are typically implemented by language servers but provided here
-// as no-ops so embedders only override what they need.
+//
+// Unimplemented requests answer with a method-not-found error via the embedded
+// protocol.UnimplementedServer. Notifications are overridden to succeed
+// silently instead: jsonrpc2 treats a handler error on a notification as a
+// connection-level failure, so an unhandled notification (e.g. $/setTrace)
+// must not surface an error.
+type NoopServer struct{ protocol.UnimplementedServer }
 
 func (NoopServer) Initialize(context.Context, *protocol.InitializeParams) (*protocol.InitializeResult, error) {
 	return &protocol.InitializeResult{}, nil
@@ -226,7 +33,15 @@ func (NoopServer) Initialized(context.Context, *protocol.InitializedParams) erro
 	return nil
 }
 
-func (NoopServer) Shutdown(context.Context) error {
+func (NoopServer) Shutdown(context.Context) error { return nil }
+
+func (NoopServer) Exit(context.Context) error { return nil }
+
+func (NoopServer) SetTrace(context.Context, *protocol.SetTraceParams) error { return nil }
+
+func (NoopServer) Progress(context.Context, *protocol.ProgressParams) error { return nil }
+
+func (NoopServer) WorkDoneProgressCancel(context.Context, *protocol.WorkDoneProgressCancelParams) error {
 	return nil
 }
 
@@ -238,7 +53,7 @@ func (NoopServer) DidChange(context.Context, *protocol.DidChangeTextDocumentPara
 	return nil
 }
 
-func (NoopServer) DidClose(context.Context, *protocol.DidCloseTextDocumentParams) error {
+func (NoopServer) WillSave(context.Context, *protocol.WillSaveTextDocumentParams) error {
 	return nil
 }
 
@@ -246,34 +61,52 @@ func (NoopServer) DidSave(context.Context, *protocol.DidSaveTextDocumentParams) 
 	return nil
 }
 
-func (NoopServer) Completion(context.Context, *protocol.CompletionParams) (*protocol.CompletionList, error) {
-	return nil, nil
+func (NoopServer) DidClose(context.Context, *protocol.DidCloseTextDocumentParams) error {
+	return nil
 }
 
-func (NoopServer) Hover(context.Context, *protocol.HoverParams) (*protocol.Hover, error) {
-	return nil, nil
+func (NoopServer) DidOpenNotebookDocument(context.Context, *protocol.DidOpenNotebookDocumentParams) error {
+	return nil
 }
 
-func (NoopServer) Definition(context.Context, *protocol.DefinitionParams) ([]protocol.Location, error) {
-	return nil, nil
+func (NoopServer) DidChangeNotebookDocument(context.Context, *protocol.DidChangeNotebookDocumentParams) error {
+	return nil
 }
 
-func (NoopServer) Formatting(context.Context, *protocol.DocumentFormattingParams) ([]protocol.TextEdit, error) {
-	return nil, nil
+func (NoopServer) DidSaveNotebookDocument(context.Context, *protocol.DidSaveNotebookDocumentParams) error {
+	return nil
 }
 
-func (NoopServer) RangeFormatting(context.Context, *protocol.DocumentRangeFormattingParams) ([]protocol.TextEdit, error) {
-	return nil, nil
+func (NoopServer) DidCloseNotebookDocument(context.Context, *protocol.DidCloseNotebookDocumentParams) error {
+	return nil
 }
 
-func (NoopServer) Rename(context.Context, *protocol.RenameParams) (*protocol.WorkspaceEdit, error) {
-	return nil, nil
+func (NoopServer) DidChangeConfiguration(context.Context, *protocol.DidChangeConfigurationParams) error {
+	return nil
 }
 
-func (NoopServer) PrepareRename(context.Context, *protocol.PrepareRenameParams) (*protocol.Range, error) {
-	return nil, nil
+func (NoopServer) DidChangeWorkspaceFolders(context.Context, *protocol.DidChangeWorkspaceFoldersParams) error {
+	return nil
 }
 
-func (NoopServer) SemanticTokensFull(context.Context, *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
+func (NoopServer) DidCreateFiles(context.Context, *protocol.CreateFilesParams) error {
+	return nil
+}
+
+func (NoopServer) DidRenameFiles(context.Context, *protocol.RenameFilesParams) error {
+	return nil
+}
+
+func (NoopServer) DidDeleteFiles(context.Context, *protocol.DeleteFilesParams) error {
+	return nil
+}
+
+func (NoopServer) DidChangeWatchedFiles(context.Context, *protocol.DidChangeWatchedFilesParams) error {
+	return nil
+}
+
+// DocumentSymbol returns an empty result rather than method-not-found so
+// embedders can advertise DocumentSymbolProvider without implementing it.
+func (NoopServer) DocumentSymbol(context.Context, *protocol.DocumentSymbolParams) (protocol.DocumentSymbolResult, error) {
 	return nil, nil
 }

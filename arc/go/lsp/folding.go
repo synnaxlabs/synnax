@@ -12,11 +12,12 @@ package lsp
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
-func (s *Server) FoldingRange(
+func (s *Server) FoldingRanges(
 	_ context.Context,
 	params *protocol.FoldingRangeParams,
 ) ([]protocol.FoldingRange, error) {
@@ -40,9 +41,9 @@ func collectFoldingRanges(scope *symbol.Symbol, ranges *[]protocol.FoldingRange)
 				kind := foldingRangeKind(scope.Kind)
 				*ranges = append(*ranges, protocol.FoldingRange{
 					StartLine:      uint32(startLine),
-					StartCharacter: uint32(start.GetColumn()),
+					StartCharacter: lo.ToPtr(uint32(start.GetColumn())),
 					EndLine:        uint32(endLine),
-					EndCharacter:   uint32(stop.GetColumn() + len(stop.GetText())),
+					EndCharacter:   lo.ToPtr(uint32(stop.GetColumn() + len(stop.GetText()))),
 					Kind:           kind,
 				})
 			}
@@ -65,8 +66,8 @@ func isFoldableKind(kind symbol.Kind) bool {
 func foldingRangeKind(kind symbol.Kind) protocol.FoldingRangeKind {
 	switch kind {
 	case symbol.KindFunction, symbol.KindSequence, symbol.KindStage, symbol.KindLoop:
-		return protocol.RegionFoldingRange
+		return protocol.FoldingRangeKindRegion
 	default:
-		return protocol.RegionFoldingRange
+		return protocol.FoldingRangeKindRegion
 	}
 }

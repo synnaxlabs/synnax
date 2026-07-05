@@ -17,22 +17,23 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
 	xlsp "github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"go.lsp.dev/jsonrpc2"
-	"go.uber.org/zap"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 // Server implements the Language Server Protocol for Oracle schema files.
 type Server struct {
 	xlsp.NoopServer
 	capabilities protocol.ServerCapabilities
-	documents    map[protocol.DocumentURI]*Document
+	documents    map[uri.URI]*Document
 	client       protocol.Client
 	mu           sync.RWMutex
 }
@@ -44,7 +45,7 @@ type Document struct {
 	Schema      parser.ISchemaContext
 	Table       *resolution.Table
 	Diagnostics *diagnostics.Diagnostics
-	URI         protocol.DocumentURI
+	URI         uri.URI
 	Content     string
 	Version     int32
 }
@@ -54,20 +55,18 @@ var _ protocol.Server = (*Server)(nil)
 // New creates a new Oracle LSP server.
 func New() *Server {
 	return &Server{
-		documents: make(map[protocol.DocumentURI]*Document),
+		documents: make(map[uri.URI]*Document),
 		capabilities: protocol.ServerCapabilities{
-			TextDocumentSync: protocol.TextDocumentSyncOptions{
-				OpenClose: true,
-				Change:    protocol.TextDocumentSyncKindFull,
+			TextDocumentSync: &protocol.TextDocumentSyncOptions{
+				OpenClose: lo.ToPtr(true),
+				Change:    lo.ToPtr(protocol.TextDocumentSyncKindFull),
 			},
-			HoverProvider:              true,
+			HoverProvider:              protocol.Boolean(true),
 			CompletionProvider:         &protocol.CompletionOptions{},
-			DocumentFormattingProvider: true,
-			SemanticTokensProvider: map[string]any{
-				"legend": protocol.SemanticTokensLegend{
-					TokenTypes: xlsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
-				},
-				"full": true,
+			DocumentFormattingProvider: protocol.Boolean(true),
+			SemanticTokensProvider: &protocol.SemanticTokensOptions{
+				Legend: protocol.SemanticTokensLegend{TokenTypes: semanticTokenTypes},
+				Full:   protocol.Boolean(true),
 			},
 		},
 	}
@@ -75,11 +74,8 @@ func New() *Server {
 
 // Serve starts the LSP server on the given ReadWriteCloser (typically xos.StdIO).
 func (s *Server) Serve(ctx context.Context, rwc io.ReadWriteCloser) error {
-	stream := jsonrpc2.NewStream(rwc)
-	conn := jsonrpc2.NewConn(stream)
-	logger := zap.NewNop() // Use noop logger to avoid nil pointer
-	s.client = protocol.ClientDispatcher(conn, logger)
-	conn.Go(ctx, protocol.ServerHandler(s, nil))
+	_, conn, client := protocol.NewServer(ctx, s, jsonrpc2.NewStream(rwc))
+	s.client = client
 	<-conn.Done()
 	return conn.Err()
 }
@@ -90,10 +86,10 @@ func (s *Server) SetClient(client protocol.Client) {
 }
 
 // getDocument retrieves a document from the cache by URI.
-func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
+func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	return doc, ok
 }
 
@@ -101,7 +97,10 @@ func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
 func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
 	return &protocol.InitializeResult{
 		Capabilities: s.capabilities,
-		ServerInfo:   &protocol.ServerInfo{Name: "oracle-lsp", Version: "0.1.0"},
+		ServerInfo: protocol.ServerInfo{
+			Name:    "oracle-lsp",
+			Version: protocol.NewOptional("0.1.0"),
+		},
 	}, nil
 }
 
@@ -117,55 +116,55 @@ func (s *Server) Shutdown(_ context.Context) error {
 
 // DidOpen handles opening a document.
 func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
-	uri := params.TextDocument.URI
+	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	s.documents[uri] = &Document{
-		URI:     uri,
+	s.documents[docURI] = &Document{
+		URI:     docURI,
 		Version: params.TextDocument.Version,
 		Content: params.TextDocument.Text,
 	}
 	s.mu.Unlock()
-	s.publishDiagnostics(ctx, uri, params.TextDocument.Text)
+	s.publishDiagnostics(ctx, docURI, params.TextDocument.Text)
 	return nil
 }
 
 // DidChange handles document changes.
 func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
-	uri := params.TextDocument.URI
+	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	if doc, ok := s.documents[uri]; ok {
+	if doc, ok := s.documents[docURI]; ok {
 		if len(params.ContentChanges) > 0 {
 			doc.Version = params.TextDocument.Version
-			doc.Content = params.ContentChanges[0].Text
+			doc.Content = xlsp.ApplyIncrementalChange(doc.Content, params.ContentChanges[0])
 		}
 	}
 	s.mu.Unlock()
 	s.mu.RLock()
 	content := ""
-	if doc, ok := s.documents[uri]; ok {
+	if doc, ok := s.documents[docURI]; ok {
 		content = doc.Content
 	}
 	s.mu.RUnlock()
-	s.publishDiagnostics(ctx, uri, content)
+	s.publishDiagnostics(ctx, docURI, content)
 	return nil
 }
 
 // DidClose handles closing a document.
 func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocumentParams) error {
-	uri := params.TextDocument.URI
+	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	delete(s.documents, uri)
+	delete(s.documents, docURI)
 	s.mu.Unlock()
 	return s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+		URI:         docURI,
 		Diagnostics: []protocol.Diagnostic{},
 	})
 }
 
 // publishDiagnostics parses the document and publishes diagnostics.
-func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentURI, content string) {
+func (s *Server) publishDiagnostics(ctx context.Context, docURI uri.URI, content string) {
 	s.mu.Lock()
-	doc, ok := s.documents[uri]
+	doc, ok := s.documents[docURI]
 	s.mu.Unlock()
 	if !ok {
 		return
@@ -175,20 +174,20 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	if parseDiag != nil && !parseDiag.Ok() {
 		doc.Diagnostics = parseDiag
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         uri,
+			URI:         docURI,
 			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateCfg),
 		})
 		return
 	}
 
 	doc.Schema = ast
-	namespace := deriveNamespaceFromURI(uri)
+	namespace := deriveNamespaceFromURI(docURI)
 	table, analyzeDiag := analyzer.AnalyzeSource(ctx, content, namespace, noopLoader{})
 	if analyzeDiag != nil {
 		doc.Diagnostics = analyzeDiag
 		doc.Table = table
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         uri,
+			URI:         docURI,
 			Diagnostics: xlsp.TranslateDiagnostics(*analyzeDiag, translateCfg),
 		})
 		return
@@ -197,14 +196,14 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	doc.Table = table
 	doc.Diagnostics = &diagnostics.Diagnostics{}
 	_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         uri,
+		URI:         docURI,
 		Diagnostics: []protocol.Diagnostic{},
 	})
 }
 
 // deriveNamespaceFromURI extracts a namespace from the document URI.
-func deriveNamespaceFromURI(uri protocol.DocumentURI) string {
-	path := string(uri)
+func deriveNamespaceFromURI(docURI uri.URI) string {
+	path := string(docURI)
 	path = strings.TrimPrefix(path, "file://")
 	base := filepath.Base(path)
 	ext := filepath.Ext(base)

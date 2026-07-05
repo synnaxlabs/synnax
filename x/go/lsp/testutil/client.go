@@ -14,16 +14,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
-// MockClient implements protocol.Client and xlsp.Client for testing LSP servers.
+// MockClient implements protocol.Client for testing LSP servers.
 type MockClient struct {
+	protocol.UnimplementedClient
 	mu                   sync.Mutex
 	diagnostics          []protocol.Diagnostic
 	publishCount         int
 	semanticRefreshCount int
 }
+
+var _ protocol.Client = (*MockClient)(nil)
 
 // Diagnostics returns the most recently published diagnostics.
 func (m *MockClient) Diagnostics() []protocol.Diagnostic {
@@ -59,34 +62,18 @@ func (m *MockClient) ShowMessage(context.Context, *protocol.ShowMessageParams) e
 	return nil
 }
 
-func (m *MockClient) ShowMessageRequest(context.Context, *protocol.ShowMessageRequestParams) (*protocol.MessageActionItem, error) {
-	return nil, nil
-}
-
 func (m *MockClient) LogMessage(context.Context, *protocol.LogMessageParams) error {
 	return nil
 }
 
-func (m *MockClient) Telemetry(context.Context, any) error { return nil }
-
-func (m *MockClient) RegisterCapability(context.Context, *protocol.RegistrationParams) error {
+func (m *MockClient) LogTrace(context.Context, *protocol.LogTraceParams) error {
 	return nil
 }
 
-func (m *MockClient) UnregisterCapability(context.Context, *protocol.UnregistrationParams) error {
+func (m *MockClient) Telemetry(context.Context, protocol.LSPAny) error { return nil }
+
+func (m *MockClient) Progress(context.Context, *protocol.ProgressParams) error {
 	return nil
-}
-
-func (m *MockClient) WorkspaceFolders(context.Context) ([]protocol.WorkspaceFolder, error) {
-	return nil, nil
-}
-
-func (m *MockClient) Configuration(context.Context, *protocol.ConfigurationParams) ([]any, error) {
-	return nil, nil
-}
-
-func (m *MockClient) ApplyEdit(context.Context, *protocol.ApplyWorkspaceEditParams) (bool, error) {
-	return false, nil
 }
 
 // PublishDiagnostics stores the diagnostics and increments the publish count.
@@ -96,22 +83,6 @@ func (m *MockClient) PublishDiagnostics(_ context.Context, params *protocol.Publ
 	m.diagnostics = params.Diagnostics
 	m.publishCount++
 	return nil
-}
-
-func (m *MockClient) Progress(context.Context, *protocol.ProgressParams) error {
-	return nil
-}
-
-func (m *MockClient) WorkDoneProgressCreate(context.Context, *protocol.WorkDoneProgressCreateParams) error {
-	return nil
-}
-
-func (m *MockClient) ShowDocument(context.Context, *protocol.ShowDocumentParams) (*protocol.ShowDocumentResult, error) {
-	return nil, nil
-}
-
-func (m *MockClient) Request(context.Context, string, any) (any, error) {
-	return nil, nil
 }
 
 // SemanticTokensRefresh increments the semantic refresh counter.

@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("LSP", func() {
@@ -65,14 +65,14 @@ var _ = Describe("LSP", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Errorf(nil, "error"))
 			result := lsp.TranslateDiagnostics(d, cfg)
-			Expect(result[0].Source).To(Equal("test-analyzer"))
+			Expect(result[0].Source).To(Equal(protocol.NewOptional("test-analyzer")))
 		})
 
 		It("Should include error code when present", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Errorf(nil, "error").WithCode("TEST001"))
 			result := lsp.TranslateDiagnostics(d, cfg)
-			Expect(result[0].Code).To(Equal("TEST001"))
+			Expect(result[0].Code).To(Equal(protocol.String("TEST001")))
 		})
 
 		It("Should convert notes to related information", func() {
@@ -99,22 +99,6 @@ var _ = Describe("LSP", func() {
 			result := lsp.TranslateDiagnostics(d, cfg)
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Range.Start.Line).To(Equal(uint32(0)))
-		})
-	})
-
-	Describe("ConvertToSemanticTokenTypes", func() {
-		It("Should convert string slice to protocol types", func() {
-			types := []string{"keyword", "variable", "function"}
-			result := lsp.ConvertToSemanticTokenTypes(types)
-			Expect(result).To(HaveLen(3))
-			Expect(result[0]).To(Equal(protocol.SemanticTokenTypes("keyword")))
-			Expect(result[1]).To(Equal(protocol.SemanticTokenTypes("variable")))
-			Expect(result[2]).To(Equal(protocol.SemanticTokenTypes("function")))
-		})
-
-		It("Should return empty slice for empty input", func() {
-			result := lsp.ConvertToSemanticTokenTypes(nil)
-			Expect(result).To(BeEmpty())
 		})
 	})
 

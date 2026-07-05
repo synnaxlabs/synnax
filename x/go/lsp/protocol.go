@@ -11,18 +11,9 @@
 package lsp
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/x/diagnostics"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
-
-// Client extends protocol.Client with LSP 3.16+ methods missing from
-// go.lsp.dev/protocol@v0.12.0.
-type Client interface {
-	protocol.Client
-	SemanticTokensRefresh(ctx context.Context) error
-}
 
 // Severity converts an internal Severity to an LSP protocol DiagnosticSeverity.
 func Severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
@@ -76,12 +67,12 @@ func TranslateDiagnostics(
 				},
 			},
 			Severity: Severity(diag.Severity),
-			Source:   cfg.Source,
-			Message:  diag.Message,
+			Source:   protocol.NewOptional(cfg.Source),
+			Message:  protocol.String(diag.Message),
 		}
 
 		if diag.Code != "" {
-			pDiag.Code = string(diag.Code)
+			pDiag.Code = protocol.String(diag.Code)
 		}
 
 		if len(diag.Notes) > 0 {
@@ -113,13 +104,4 @@ func TranslateDiagnostics(
 		oDiagnostics = append(oDiagnostics, pDiag)
 	}
 	return oDiagnostics
-}
-
-// ConvertToSemanticTokenTypes converts a string slice to protocol SemanticTokenTypes.
-func ConvertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {
-	result := make([]protocol.SemanticTokenTypes, len(types))
-	for i, t := range types {
-		result[i] = protocol.SemanticTokenTypes(t)
-	}
-	return result
 }

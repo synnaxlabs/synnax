@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Document", func() {
@@ -51,13 +51,13 @@ var _ = Describe("Document", func() {
 
 	Describe("IsFullReplacement", func() {
 		It("Should detect a full replacement", func() {
-			change := protocol.TextDocumentContentChangeEvent{Text: "new content"}
+			change := &protocol.TextDocumentContentChangeWholeDocument{Text: "new content"}
 			Expect(lsp.IsFullReplacement(change)).To(BeTrue())
 		})
 
 		It("Should detect an incremental change", func() {
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 0},
 					End:   protocol.Position{Line: 0, Character: 5},
 				},
@@ -67,8 +67,8 @@ var _ = Describe("Document", func() {
 		})
 
 		It("Should detect an insertion at position (0,0) as incremental", func() {
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 0},
 					End:   protocol.Position{Line: 0, Character: 0},
 				},
@@ -81,8 +81,8 @@ var _ = Describe("Document", func() {
 	Describe("ApplyIncrementalChange", func() {
 		It("Should apply a single edit", func() {
 			content := "hello world"
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 6},
 					End:   protocol.Position{Line: 0, Character: 11},
 				},
@@ -93,8 +93,8 @@ var _ = Describe("Document", func() {
 
 		It("Should apply an insertion", func() {
 			content := "helloworld"
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 5},
 					End:   protocol.Position{Line: 0, Character: 5},
 				},
@@ -105,8 +105,8 @@ var _ = Describe("Document", func() {
 
 		It("Should apply a deletion", func() {
 			content := "hello world"
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 5},
 					End:   protocol.Position{Line: 0, Character: 6},
 				},
@@ -117,8 +117,8 @@ var _ = Describe("Document", func() {
 
 		It("Should apply a multi-line edit", func() {
 			content := "line1\nline2\nline3"
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 1, Character: 0},
 					End:   protocol.Position{Line: 1, Character: 5},
 				},
@@ -128,8 +128,8 @@ var _ = Describe("Document", func() {
 		})
 
 		It("Should handle empty document", func() {
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 0},
 					End:   protocol.Position{Line: 0, Character: 0},
 				},
@@ -140,8 +140,8 @@ var _ = Describe("Document", func() {
 
 		It("Should handle cross-line replacement", func() {
 			content := "line1\nline2\nline3"
-			change := protocol.TextDocumentContentChangeEvent{
-				Range: &protocol.Range{
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 3},
 					End:   protocol.Position{Line: 2, Character: 2},
 				},

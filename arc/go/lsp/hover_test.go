@@ -17,29 +17,30 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("Hover", func() {
 	var (
 		server *lsp.Server
-		uri    protocol.DocumentURI
+		docURI uri.URI
 	)
 
 	BeforeEach(func() {
-		server, uri = SetupTestServer()
+		server, docURI = SetupTestServer()
 	})
 
 	DescribeTable("keyword hover",
 		func(ctx SpecContext, content string, char uint32, expectedTitle string, expectedSubstring string) {
-			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, 0, char)
+			OpenArcDocument(server, ctx, docURI, content)
+			hover := Hover(server, ctx, docURI, 0, char)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedTitle))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### " + expectedTitle))
 			if expectedSubstring != "" {
-				Expect(hover.Contents.Value).To(ContainSubstring(expectedSubstring))
+				Expect(HoverContents(hover)).To(ContainSubstring(expectedSubstring))
 			}
 		},
 		Entry("func", "func add(x i32, y i32) i32 {\n    return x + y\n}", uint32(2), "func", "Declares a function"),
@@ -52,11 +53,11 @@ var _ = Describe("Hover", func() {
 
 	DescribeTable("type hover with range",
 		func(ctx SpecContext, content string, char uint32, expectedType string) {
-			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, 0, char)
+			OpenArcDocument(server, ctx, docURI, content)
+			hover := Hover(server, ctx, docURI, 0, char)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedType))
-			Expect(hover.Contents.Value).To(ContainSubstring("Range:"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### " + expectedType))
+			Expect(HoverContents(hover)).To(ContainSubstring("Range:"))
 		},
 		Entry("i8", "x i8 := 127", uint32(2), "i8"),
 		Entry("i16", "y i16 := 32767", uint32(2), "i16"),
@@ -70,11 +71,11 @@ var _ = Describe("Hover", func() {
 
 	DescribeTable("type hover",
 		func(ctx SpecContext, content string, line, char uint32, expectedType, expectedSubstring string) {
-			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, line, char)
+			OpenArcDocument(server, ctx, docURI, content)
+			hover := Hover(server, ctx, docURI, line, char)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedType))
-			Expect(hover.Contents.Value).To(ContainSubstring(expectedSubstring))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### " + expectedType))
+			Expect(HoverContents(hover)).To(ContainSubstring(expectedSubstring))
 		},
 		Entry("f32", "x f32 := 3.14", uint32(0), uint32(2), "f32", "32-bit floating point"),
 		Entry("f64", "x f32 := 3.14\ny f64 := 2.71828", uint32(1), uint32(2), "f64", "64-bit floating point"),
@@ -85,194 +86,194 @@ var _ = Describe("Hover", func() {
 	Describe("Built-in Functions", func() {
 		It("should provide hover for 'len' function", func(ctx SpecContext) {
 			content := "length := len(data)"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 0, Character: 11}, // l|en
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### len"))
-			Expect(hover.Contents.Value).To(ContainSubstring("length of a series"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### len"))
+			Expect(HoverContents(hover)).To(ContainSubstring("length of a series"))
 		})
 
 		It("should provide hover for 'set_authority' function", func(ctx SpecContext) {
 			content := "set_authority{value=255}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 0, Character: 5},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### set_authority"))
-			Expect(hover.Contents.Value).To(ContainSubstring("control.set_authority"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### set_authority"))
+			Expect(HoverContents(hover)).To(ContainSubstring("control.set_authority"))
 		})
 
 		It("should provide hover for 'control.set_authority' function", func(ctx SpecContext) {
 			content := "import control\n\ntrig -> control.set_authority{value=255}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 2, Character: 20}, // control.set_a|uthority
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### control.set_authority"))
-			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### control.set_authority"))
+			Expect(HoverContents(hover)).To(ContainSubstring("control authority"))
 		})
 
 		It("should provide hover for 'math.avg' function", func(ctx SpecContext) {
 			content := "import math\n\nsensor -> math.avg{} -> output"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 2, Character: 16},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### math.avg"))
-			Expect(hover.Contents.Value).To(ContainSubstring("running average"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### math.avg"))
+			Expect(HoverContents(hover)).To(ContainSubstring("running average"))
 		})
 
 		It("should provide hover for 'select' function", func(ctx SpecContext) {
 			content := "flag -> select{} -> output"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 0, Character: 11},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### select"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Routes input values"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### select"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Routes input values"))
 		})
 
 		It("should provide hover for 'stable.for' function", func(ctx SpecContext) {
 			content := "import stable\n\nsensor -> stable.for{duration=5s} -> output"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 2, Character: 18},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### stable.for"))
-			Expect(hover.Contents.Value).To(ContainSubstring("remained stable"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### stable.for"))
+			Expect(HoverContents(hover)).To(ContainSubstring("remained stable"))
 		})
 
 		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
 			content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 3, Character: 17}, // n|ow
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### time.now"))
-			Expect(hover.Contents.Value).To(ContainSubstring("current timestamp"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### time.now"))
+			Expect(HoverContents(hover)).To(ContainSubstring("current timestamp"))
 		})
 
 		It("should provide deprecation hover for bare 'now' function", func(ctx SpecContext) {
 			content := "t := now()"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 0, Character: 6}, // n|ow
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("deprecated"))
-			Expect(hover.Contents.Value).To(ContainSubstring("time.now"))
+			Expect(HoverContents(hover)).To(ContainSubstring("deprecated"))
+			Expect(HoverContents(hover)).To(ContainSubstring("time.now"))
 		})
 
 		It("should provide hover for 'time.interval' function", func(ctx SpecContext) {
 			content := "import time\n\ntime.interval{period=100ms} -> output"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 2, Character: 7}, // time.i|nterval
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### time.interval"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Fires repeatedly"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### time.interval"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Fires repeatedly"))
 		})
 
 		It("should provide deprecation hover for bare 'interval' function", func(ctx SpecContext) {
 			content := "interval{period=100ms}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 0, Character: 2}, // i|nterval
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("deprecated"))
-			Expect(hover.Contents.Value).To(ContainSubstring("time.interval"))
+			Expect(HoverContents(hover)).To(ContainSubstring("deprecated"))
+			Expect(HoverContents(hover)).To(ContainSubstring("time.interval"))
 		})
 
 		It("should provide hover for 'time.wait' function", func(ctx SpecContext) {
 			content := "import time\n\ntime.wait{duration=500ms} -> output"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 2, Character: 7}, // time.w|ait
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### time.wait"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Fires once"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### time.wait"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Fires once"))
 		})
 
 		It("should provide deprecation hover for bare 'wait' function", func(ctx SpecContext) {
 			content := "wait{duration=500ms}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 0, Character: 2}, // w|ait
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("deprecated"))
-			Expect(hover.Contents.Value).To(ContainSubstring("time.wait"))
+			Expect(HoverContents(hover)).To(ContainSubstring("deprecated"))
+			Expect(HoverContents(hover)).To(ContainSubstring("time.wait"))
 		})
 	})
 
@@ -285,22 +286,22 @@ var _ = Describe("Hover", func() {
 func main() {
     result := add(1, 2)
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			// Hover over 'add' in the function call
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 5, Character: 15}, // add|(1, 2)
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### add"))
-			Expect(hover.Contents.Value).To(ContainSubstring("func add"))
-			Expect(hover.Contents.Value).To(ContainSubstring("x i32"))
-			Expect(hover.Contents.Value).To(ContainSubstring("y i32"))
-			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### add"))
+			Expect(HoverContents(hover)).To(ContainSubstring("func add"))
+			Expect(HoverContents(hover)).To(ContainSubstring("x i32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("y i32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("i32"))
 		})
 
 		It("should provide hover for user-defined functions", func(ctx SpecContext) {
@@ -311,20 +312,20 @@ func main() {
     }
     return max_val
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			// Hover over 'max' in the function declaration
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 0, Character: 6}, // func m|ax
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### max"))
-			Expect(hover.Contents.Value).To(ContainSubstring("func max"))
-			Expect(hover.Contents.Value).To(ContainSubstring("value f32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### max"))
+			Expect(HoverContents(hover)).To(ContainSubstring("func max"))
+			Expect(HoverContents(hover)).To(ContainSubstring("value f32"))
 		})
 
 		It("should provide hover for stages with config", func(ctx SpecContext) {
@@ -336,21 +337,21 @@ func main() {
     }
     return u8(0)
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			// Hover over 'threshold' in the function declaration
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 0, Character: 8}, // func t|hreshold
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### threshold"))
-			Expect(hover.Contents.Value).To(ContainSubstring("func threshold"))
-			Expect(hover.Contents.Value).To(ContainSubstring("limit f64"))
-			Expect(hover.Contents.Value).To(ContainSubstring("value f64"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### threshold"))
+			Expect(HoverContents(hover)).To(ContainSubstring("func threshold"))
+			Expect(HoverContents(hover)).To(ContainSubstring("limit f64"))
+			Expect(HoverContents(hover)).To(ContainSubstring("value f64"))
 		})
 
 		It("should provide hover for variables", func(ctx SpecContext) {
@@ -359,20 +360,20 @@ func main() {
     y := x + 10
 }
 `
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			// Hover over 'x' in the expression
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 2, Character: 9}, // x| + 10
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### x"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Variable"))
-			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### x"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Variable"))
+			Expect(HoverContents(hover)).To(ContainSubstring("i32"))
 		})
 
 		It("should provide hover for stateful variables", func(ctx SpecContext) {
@@ -382,20 +383,20 @@ func main() {
     return count
 }
 `
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			// Hover over 'count' on line 2
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 2, Character: 5}, // count| = count + 1
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### count"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Stateful Variable"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Persists across executions"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### count"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Stateful Variable"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Persists across executions"))
 		})
 
 		It("should provide hover for function parameters", func(ctx SpecContext) {
@@ -403,20 +404,20 @@ func main() {
     return x * y
 }
 `
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			// Hover over 'x' parameter in function body
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 11}, // x| * y
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### x"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Input Parameter"))
-			Expect(hover.Contents.Value).To(ContainSubstring("f64"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### x"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Input Parameter"))
+			Expect(HoverContents(hover)).To(ContainSubstring("f64"))
 		})
 
 		It("should provide hover for sequence declarations", func(ctx SpecContext) {
@@ -424,39 +425,39 @@ func main() {
     stage first {}
     stage second {}
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			// Hover over 'main' sequence name
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 0, Character: 10}, // sequence m|ain
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### main"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Sequence"))
-			Expect(hover.Contents.Value).To(ContainSubstring("first"))
-			Expect(hover.Contents.Value).To(ContainSubstring("second"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### main"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Sequence"))
+			Expect(HoverContents(hover)).To(ContainSubstring("first"))
+			Expect(HoverContents(hover)).To(ContainSubstring("second"))
 		})
 
 		It("should provide hover for stage declarations within sequence", func(ctx SpecContext) {
 			content := `sequence main {
     stage first {}
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 11},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### first"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Stage"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### first"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Stage"))
 		})
 
 		It("should include single-line doc comment in hover", func(ctx SpecContext) {
@@ -464,18 +465,18 @@ func main() {
 func add(x i32, y i32) i32 {
     return x + y
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 6},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### add"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Adds two numbers together"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### add"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Adds two numbers together"))
 		})
 
 		It("should include multi-line doc comment in hover", func(ctx SpecContext) {
@@ -484,18 +485,18 @@ func max(a i32, b i32) i32 {
     if a > b { return a }
     return b
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 1, Character: 6},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### max"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Computes the maximum of two values"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### max"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Computes the maximum of two values"))
 		})
 
 		It("should include multiple consecutive single-line comments in hover", func(ctx SpecContext) {
@@ -504,18 +505,18 @@ func max(a i32, b i32) i32 {
 func threshold(value f64) u8 {
     return u8(0)
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 2, Character: 6},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("Threshold function"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Returns 1 if value exceeds limit"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Threshold function"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Returns 1 if value exceeds limit"))
 		})
 
 		It("should not include comment separated by code from symbol", func(ctx SpecContext) {
@@ -527,18 +528,18 @@ func helper() i32 {
 func add(a i32, b i32) i32 {
     return a + b
 }`
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 					Position:     protocol.Position{Line: 5, Character: 6},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### add"))
-			Expect(hover.Contents.Value).ToNot(ContainSubstring("Comment for helper"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### add"))
+			Expect(HoverContents(hover)).ToNot(ContainSubstring("Comment for helper"))
 		})
 	})
 
@@ -549,11 +550,11 @@ func add(a i32, b i32) i32 {
 			line, char uint32,
 			expectedTitle, expectedKind string,
 		) {
-			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, line, char)
+			OpenArcDocument(server, ctx, docURI, content)
+			hover := Hover(server, ctx, docURI, line, char)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedTitle))
-			Expect(hover.Contents.Value).To(ContainSubstring(expectedKind))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### " + expectedTitle))
+			Expect(HoverContents(hover)).To(ContainSubstring(expectedKind))
 		},
 		Entry("function",
 			"func foo() i32 { return 0 }\n",
@@ -595,12 +596,12 @@ func add(a i32, b i32) i32 {
 
 	DescribeTable("operator hover",
 		func(ctx SpecContext, content string, char uint32, expectedOp, expectedSubstring string) {
-			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, 0, char)
+			OpenArcDocument(server, ctx, docURI, content)
+			hover := Hover(server, ctx, docURI, 0, char)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring(expectedOp))
+			Expect(HoverContents(hover)).To(ContainSubstring(expectedOp))
 			if expectedSubstring != "" {
-				Expect(hover.Contents.Value).To(ContainSubstring(expectedSubstring))
+				Expect(HoverContents(hover)).To(ContainSubstring(expectedSubstring))
 			}
 		},
 		Entry(":=", "x := 42", uint32(2), ":=", "Declares and initializes"),
@@ -620,13 +621,13 @@ func add(a i32, b i32) i32 {
 
 	Describe("Edge Cases", func() {
 		It("should return nil for unknown words", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "unknown_identifier")
-			Expect(Hover(server, ctx, uri, 0, 5)).To(BeNil())
+			OpenArcDocument(server, ctx, docURI, "unknown_identifier")
+			Expect(Hover(server, ctx, docURI, 0, 5)).To(BeNil())
 		})
 
 		It("should return nil for position out of bounds", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() {}")
-			Expect(Hover(server, ctx, uri, 10, 0)).To(BeNil())
+			OpenArcDocument(server, ctx, docURI, "func test() {}")
+			Expect(Hover(server, ctx, docURI, 10, 0)).To(BeNil())
 		})
 
 		It("should return nil for closed document", func(ctx SpecContext) {
@@ -635,22 +636,22 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should handle hovering at end of word", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func")
-			hover := Hover(server, ctx, uri, 0, 3)
+			OpenArcDocument(server, ctx, docURI, "func")
+			hover := Hover(server, ctx, docURI, 0, 3)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### func"))
 		})
 
 		It("should handle hovering at start of word", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func")
-			hover := Hover(server, ctx, uri, 0, 0)
+			OpenArcDocument(server, ctx, docURI, "func")
+			hover := Hover(server, ctx, docURI, 0, 0)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### func"))
 		})
 
 		It("should handle empty lines", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "\n\nfunc test() {}")
-			Expect(Hover(server, ctx, uri, 0, 0)).To(BeNil())
+			OpenArcDocument(server, ctx, docURI, "\n\nfunc test() {}")
+			Expect(Hover(server, ctx, docURI, 0, 0)).To(BeNil())
 		})
 	})
 
@@ -663,11 +664,11 @@ func add(a i32, b i32) i32 {
 			}}))
 			server.SetClient(&MockClient{})
 
-			OpenArcDocument(server, ctx, uri, "func test() i32 {\n    return myGlobal\n}")
-			hover := Hover(server, ctx, uri, 1, 12)
+			OpenArcDocument(server, ctx, docURI, "func test() i32 {\n    return myGlobal\n}")
+			hover := Hover(server, ctx, docURI, 1, 12)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("myGlobal"))
-			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
+			Expect(HoverContents(hover)).To(ContainSubstring("myGlobal"))
+			Expect(HoverContents(hover)).To(ContainSubstring("i32"))
 		})
 	})
 
@@ -681,10 +682,10 @@ func add(a i32, b i32) i32 {
 			server.SetClient(&MockClient{})
 
 			content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"
-			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, 3, 14)
+			OpenArcDocument(server, ctx, docURI, content)
+			hover := Hover(server, ctx, docURI, 3, 14)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("now"))
+			Expect(HoverContents(hover)).To(ContainSubstring("now"))
 		})
 
 		It("Should not provide hover for invalid module prefix", func(ctx SpecContext) {
@@ -696,8 +697,8 @@ func add(a i32, b i32) i32 {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    fake.nonexistent()\n}"
-			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, 1, 10)
+			OpenArcDocument(server, ctx, docURI, content)
+			hover := Hover(server, ctx, docURI, 1, 10)
 			Expect(hover).To(BeNil())
 		})
 
@@ -705,25 +706,25 @@ func add(a i32, b i32) i32 {
 			// `time` is not imported, so `time.now` is an undefined reference
 			// to the analyzer. Hover must not render docs as if it were valid.
 			content := "func test() i64 {\n    return time.now()\n}"
-			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, 1, 17) // n|ow
+			OpenArcDocument(server, ctx, docURI, content)
+			hover := Hover(server, ctx, docURI, 1, 17) // n|ow
 			Expect(hover).To(BeNil())
 		})
 
 		It("Should provide hover for a member of an imported module", func(ctx SpecContext) {
 			content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"
-			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, 3, 17) // n|ow
+			OpenArcDocument(server, ctx, docURI, content)
+			hover := Hover(server, ctx, docURI, 3, 17) // n|ow
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### time.now"))
+			Expect(HoverContents(hover)).To(ContainSubstring("#### time.now"))
 		})
 	})
 
 	Describe("SemanticTokens", func() {
 		DescribeTable("Keywords",
 			func(ctx SpecContext, content string, expectedType uint32) {
-				OpenArcDocument(server, ctx, uri, content)
-				tokens := SemanticTokens(server, ctx, uri)
+				OpenArcDocument(server, ctx, docURI, content)
+				tokens := SemanticTokens(server, ctx, docURI)
 				Expect(tokens).ToNot(BeNil())
 				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
 				Expect(tokens.Data[3]).To(Equal(expectedType))
@@ -742,8 +743,8 @@ func add(a i32, b i32) i32 {
 
 		DescribeTable("Types",
 			func(ctx SpecContext, content string, expectedType uint32) {
-				OpenArcDocument(server, ctx, uri, content)
-				tokens := SemanticTokens(server, ctx, uri)
+				OpenArcDocument(server, ctx, docURI, content)
+				tokens := SemanticTokens(server, ctx, docURI)
 				Expect(tokens).ToNot(BeNil())
 				Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
 				Expect(tokens.Data[8]).To(Equal(expectedType))
@@ -765,8 +766,8 @@ func add(a i32, b i32) i32 {
 
 		DescribeTable("Operators",
 			func(ctx SpecContext, content string, expectedType uint32) {
-				OpenArcDocument(server, ctx, uri, content)
-				tokens := SemanticTokens(server, ctx, uri)
+				OpenArcDocument(server, ctx, docURI, content)
+				tokens := SemanticTokens(server, ctx, docURI)
 				Expect(tokens).ToNot(BeNil())
 				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
 				found := false
@@ -801,8 +802,8 @@ func add(a i32, b i32) i32 {
 
 		DescribeTable("Single token types",
 			func(ctx SpecContext, content string, expectedType uint32) {
-				OpenArcDocument(server, ctx, uri, content)
-				tokens := SemanticTokens(server, ctx, uri)
+				OpenArcDocument(server, ctx, docURI, content)
+				tokens := SemanticTokens(server, ctx, docURI)
 				Expect(tokens).ToNot(BeNil())
 				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
 				Expect(tokens.Data[3]).To(Equal(expectedType))
@@ -818,8 +819,8 @@ func add(a i32, b i32) i32 {
 		)
 
 		It("should tokenize function names as function type", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func myFunc() {}")
-			tokens := SemanticTokens(server, ctx, uri)
+			OpenArcDocument(server, ctx, docURI, "func myFunc() {}")
+			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
 			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
@@ -827,8 +828,8 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize input parameters as input type", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func myFunc(x f32) {}")
-			tokens := SemanticTokens(server, ctx, uri)
+			OpenArcDocument(server, ctx, docURI, "func myFunc(x f32) {}")
+			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			foundInput := false
 			for i := 3; i < len(tokens.Data); i += 5 {
@@ -841,8 +842,8 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize sequence names as function type", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "sequence main { stage init {} }")
-			tokens := SemanticTokens(server, ctx, uri)
+			OpenArcDocument(server, ctx, docURI, "sequence main { stage init {} }")
+			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
 			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
@@ -850,8 +851,8 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize stage names as function type", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "sequence main { stage init {} }")
-			tokens := SemanticTokens(server, ctx, uri)
+			OpenArcDocument(server, ctx, docURI, "sequence main { stage init {} }")
+			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			stageKeywordIdx := -1
 			for i := 0; i < len(tokens.Data)-5; i += 5 {
@@ -867,8 +868,8 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize stateful variables as statefulVariable type", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func counter{} () u32 {\n    count u32 $= 0\n    return count\n}")
-			tokens := SemanticTokens(server, ctx, uri)
+			OpenArcDocument(server, ctx, docURI, "func counter{} () u32 {\n    count u32 $= 0\n    return count\n}")
+			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			foundStateful := false
 			for i := 3; i < len(tokens.Data); i += 5 {
@@ -888,8 +889,8 @@ func add(a i32, b i32) i32 {
 			}}))
 			server.SetClient(&MockClient{})
 
-			OpenArcDocument(server, ctx, uri, "func test() { x := sensorData }")
-			tokens := SemanticTokens(server, ctx, uri)
+			OpenArcDocument(server, ctx, docURI, "func test() { x := sensorData }")
+			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			foundChannel := false
 			for i := 3; i < len(tokens.Data); i += 5 {
@@ -902,16 +903,16 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize module prefix as variable in qualified calls", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "time.interval{period=100ms}")
-			tokens := SemanticTokens(server, ctx, uri)
+			OpenArcDocument(server, ctx, docURI, "time.interval{period=100ms}")
+			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
 			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeVariable)))
 		})
 
 		It("should tokenize member name as function in qualified calls", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "import time\n\ntime.interval{period=100ms} -> output")
-			tokens := SemanticTokens(server, ctx, uri)
+			OpenArcDocument(server, ctx, docURI, "import time\n\ntime.interval{period=100ms} -> output")
+			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			foundFunction := false
 			for i := 3; i < len(tokens.Data); i += 5 {
@@ -924,8 +925,8 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize keyword normally when not a module prefix", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "authority 200")
-			tokens := SemanticTokens(server, ctx, uri)
+			OpenArcDocument(server, ctx, docURI, "authority 200")
+			tokens := SemanticTokens(server, ctx, docURI)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
 			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))

@@ -12,9 +12,9 @@ package testutil_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("FindCompletion", func() {
@@ -22,16 +22,16 @@ var _ = Describe("FindCompletion", func() {
 
 	BeforeEach(func() {
 		items = []protocol.CompletionItem{
-			{Label: "sensor", Detail: "chan f32", Kind: protocol.CompletionItemKindVariable},
-			{Label: "pressure", Detail: "chan f64", Kind: protocol.CompletionItemKindVariable},
-			{Label: "len", Detail: "func", Kind: protocol.CompletionItemKindFunction},
+			{Label: "sensor", Detail: protocol.NewOptional("chan f32"), Kind: protocol.CompletionItemKindVariable},
+			{Label: "pressure", Detail: protocol.NewOptional("chan f64"), Kind: protocol.CompletionItemKindVariable},
+			{Label: "len", Detail: protocol.NewOptional("func"), Kind: protocol.CompletionItemKindFunction},
 		}
 	})
 
 	It("should find an existing completion item by label", func() {
 		item := MustBeOk(testutil.FindCompletion(items, "sensor"))
 		Expect(item.Label).To(Equal("sensor"))
-		Expect(item.Detail).To(Equal("chan f32"))
+		Expect(testutil.ItemDetail(item)).To(Equal("chan f32"))
 	})
 
 	It("should return false for a non-existent label", func() {
@@ -65,9 +65,9 @@ var _ = Describe("HasCompletion", func() {
 
 	BeforeEach(func() {
 		items = []protocol.CompletionItem{
-			{Label: "sensor", Detail: "chan f32"},
-			{Label: "pressure", Detail: "chan f64"},
-			{Label: "now", Detail: "func"},
+			{Label: "sensor", Detail: protocol.NewOptional("chan f32")},
+			{Label: "pressure", Detail: protocol.NewOptional("chan f64")},
+			{Label: "now", Detail: protocol.NewOptional("func")},
 		}
 	})
 

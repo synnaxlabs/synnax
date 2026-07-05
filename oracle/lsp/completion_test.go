@@ -15,9 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/lsp"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("Completion", func() {
@@ -36,7 +37,7 @@ var _ = Describe("Completion", func() {
 	})
 
 	completionAt := func(ctx context.Context, line, col uint32) *protocol.CompletionList {
-		return MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{
 					URI: "file:///test.oracle",
@@ -44,15 +45,17 @@ var _ = Describe("Completion", func() {
 				Position: protocol.Position{Line: line, Character: col},
 			},
 		}))
+		return result.(*protocol.CompletionList)
 	}
 
-	completionFor := func(ctx context.Context, uri protocol.DocumentURI, line, col uint32) *protocol.CompletionList {
-		return MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+	completionFor := func(ctx context.Context, docURI uri.URI, line, col uint32) *protocol.CompletionList {
+		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 				Position:     protocol.Position{Line: line, Character: col},
 			},
 		}))
+		return result.(*protocol.CompletionList)
 	}
 
 	labels := func(items []protocol.CompletionItem) []string {
@@ -63,10 +66,10 @@ var _ = Describe("Completion", func() {
 		return result
 	}
 
-	openDoc := func(ctx context.Context, uri protocol.DocumentURI, text string) {
+	openDoc := func(ctx context.Context, docURI uri.URI, text string) {
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
-				URI: uri, Version: 1, Text: text,
+				URI: docURI, Version: 1, Text: text,
 			},
 		})).To(Succeed())
 	}
@@ -169,8 +172,8 @@ var _ = Describe("Initialize", func() {
 			&protocol.InitializeParams{},
 		))
 		Expect(result.ServerInfo.Name).To(Equal("oracle-lsp"))
-		Expect(result.Capabilities.HoverProvider).To(BeTrue())
-		Expect(result.Capabilities.DocumentFormattingProvider).To(BeTrue())
+		Expect(result.Capabilities.HoverProvider).To(Equal(protocol.Boolean(true)))
+		Expect(result.Capabilities.DocumentFormattingProvider).To(Equal(protocol.Boolean(true)))
 	})
 })
 
@@ -215,11 +218,11 @@ var _ = Describe("DidChange", func() {
 				Version: 2,
 			},
 			ContentChanges: []protocol.TextDocumentContentChangeEvent{
-				{Text: "Status enum {}\n"},
+				&protocol.TextDocumentContentChangeWholeDocument{Text: "Status enum {}\n"},
 			},
 		})).To(Succeed())
 
-		list := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{
 					URI: "file:///change.oracle",
@@ -227,7 +230,7 @@ var _ = Describe("DidChange", func() {
 				Position: protocol.Position{Line: 0, Character: 0},
 			},
 		}))
-		Expect(list.Items).ToNot(BeEmpty())
+		Expect(result.(*protocol.CompletionList).Items).ToNot(BeEmpty())
 	})
 
 	It("should handle empty content changes", func(ctx SpecContext) {
@@ -267,7 +270,7 @@ var _ = Describe("DidClose", func() {
 			},
 		})).To(Succeed())
 
-		list := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{
 					URI: "file:///close.oracle",
@@ -275,7 +278,7 @@ var _ = Describe("DidClose", func() {
 				Position: protocol.Position{Line: 0, Character: 0},
 			},
 		}))
-		Expect(list.Items).To(BeEmpty())
+		Expect(result.(*protocol.CompletionList).Items).To(BeEmpty())
 	})
 })
 
@@ -293,10 +296,10 @@ var _ = Describe("Hover", func() {
 		})).To(Succeed())
 	})
 
-	hoverAt := func(ctx context.Context, uri protocol.DocumentURI, line, col uint32) *protocol.Hover {
+	hoverAt := func(ctx context.Context, docURI uri.URI, line, col uint32) *protocol.Hover {
 		return MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 				Position:     protocol.Position{Line: line, Character: col},
 			},
 		}))
@@ -305,13 +308,13 @@ var _ = Describe("Hover", func() {
 	It("should return hover docs for struct keyword", func(ctx SpecContext) {
 		hover := hoverAt(ctx, "file:///hover.oracle", 0, 6)
 		Expect(hover).ToNot(BeNil())
-		Expect(hover.Contents.Value).To(ContainSubstring("struct"))
+		Expect(HoverContents(hover)).To(ContainSubstring("struct"))
 	})
 
 	It("should return hover docs for string type", func(ctx SpecContext) {
 		hover := hoverAt(ctx, "file:///hover.oracle", 1, 10)
 		Expect(hover).ToNot(BeNil())
-		Expect(hover.Contents.Value).To(ContainSubstring("string"))
+		Expect(HoverContents(hover)).To(ContainSubstring("string"))
 	})
 
 	It("should return nil for unknown document", func(ctx SpecContext) {
@@ -349,19 +352,19 @@ var _ = Describe("SemanticTokensFull", func() {
 		server.SetClient(&MockClient{})
 	})
 
-	openDoc := func(ctx context.Context, uri protocol.DocumentURI, text string) {
+	openDoc := func(ctx context.Context, docURI uri.URI, text string) {
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
-				URI: uri, Version: 1, Text: text,
+				URI: docURI, Version: 1, Text: text,
 			},
 		})).To(Succeed())
 	}
 
-	tokensFor := func(ctx context.Context, uri protocol.DocumentURI) *protocol.SemanticTokens {
+	tokensFor := func(ctx context.Context, docURI uri.URI) *protocol.SemanticTokens {
 		return MustSucceed(server.SemanticTokensFull(
 			ctx,
 			&protocol.SemanticTokensParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			},
 		))
 	}
@@ -399,17 +402,17 @@ var _ = Describe("Formatting", func() {
 		server.SetClient(&MockClient{})
 	})
 
-	openDoc := func(ctx context.Context, uri protocol.DocumentURI, text string) {
+	openDoc := func(ctx context.Context, docURI uri.URI, text string) {
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
-				URI: uri, Version: 1, Text: text,
+				URI: docURI, Version: 1, Text: text,
 			},
 		})).To(Succeed())
 	}
 
-	formatDoc := func(ctx context.Context, uri protocol.DocumentURI) []protocol.TextEdit {
+	formatDoc := func(ctx context.Context, docURI uri.URI) []protocol.TextEdit {
 		return MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		}))
 	}
 

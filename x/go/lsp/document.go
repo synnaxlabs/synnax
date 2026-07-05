@@ -12,7 +12,7 @@ package lsp
 import (
 	"strings"
 
-	"github.com/synnaxlabs/x/lsp/protocol"
+	"go.lsp.dev/protocol"
 )
 
 // PositionToOffset converts an LSP line/character position to a byte offset
@@ -40,7 +40,8 @@ func PositionToOffset(content string, pos protocol.Position) int {
 func IsFullReplacement(
 	change protocol.TextDocumentContentChangeEvent,
 ) bool {
-	return change.Range == nil
+	_, ok := change.(*protocol.TextDocumentContentChangeWholeDocument)
+	return ok
 }
 
 // ApplyIncrementalChange splices a single incremental change into the
@@ -49,17 +50,21 @@ func ApplyIncrementalChange(
 	content string,
 	change protocol.TextDocumentContentChangeEvent,
 ) string {
-	if change.Range == nil {
-		return change.Text
+	switch ev := change.(type) {
+	case *protocol.TextDocumentContentChangeWholeDocument:
+		return ev.Text
+	case *protocol.TextDocumentContentChangePartial:
+		start := PositionToOffset(content, ev.Range.Start)
+		end := PositionToOffset(content, ev.Range.End)
+		var b strings.Builder
+		b.Grow(start + len(ev.Text) + len(content) - end)
+		b.WriteString(content[:start])
+		b.WriteString(ev.Text)
+		b.WriteString(content[end:])
+		return b.String()
+	default:
+		return content
 	}
-	start := PositionToOffset(content, change.Range.Start)
-	end := PositionToOffset(content, change.Range.End)
-	var b strings.Builder
-	b.Grow(start + len(change.Text) + len(content) - end)
-	b.WriteString(content[:start])
-	b.WriteString(change.Text)
-	b.WriteString(content[end:])
-	return b.String()
 }
 
 // SplitLines normalizes \r\n to \n and splits the content into lines.

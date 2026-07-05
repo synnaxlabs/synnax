@@ -17,29 +17,30 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
 var _ = Describe("Completion", func() {
 	var (
 		server *lsp.Server
-		uri    protocol.DocumentURI
+		docURI uri.URI
 	)
 
 	BeforeEach(func() {
 		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol { return NewRoot(nil) }}))
 		server.SetClient(&MockClient{})
-		uri = "file:///test.arc"
+		docURI = "file:///test.arc"
 	})
 
 	Describe("Basic Completion", func() {
 		It("should return built-in completions", func(ctx SpecContext) {
 			content := "func test() {\n    i\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 5)
+			completions := Completion(server, ctx, docURI, 1, 5)
 			Expect(completions).ToNot(BeNil())
 			Expect(completions.Items).ToNot(BeEmpty())
 		})
@@ -48,27 +49,27 @@ var _ = Describe("Completion", func() {
 	Describe("Context-Aware Completion", func() {
 		It("should return empty completions in single-line comment", func(ctx SpecContext) {
 			content := "// comment here"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 10)
+			completions := Completion(server, ctx, docURI, 0, 10)
 			Expect(completions).ToNot(BeNil())
 			Expect(completions.Items).To(BeEmpty())
 		})
 
 		It("should return empty completions in multi-line comment", func(ctx SpecContext) {
 			content := "/* multi\nline\ncomment */"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 2)
+			completions := Completion(server, ctx, docURI, 1, 2)
 			Expect(completions).ToNot(BeNil())
 			Expect(completions.Items).To(BeEmpty())
 		})
 
 		It("should return only types in type annotation position", func(ctx SpecContext) {
 			content := "func foo(x "
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 11)
+			completions := Completion(server, ctx, docURI, 0, 11)
 			Expect(completions).ToNot(BeNil())
 			Expect(completions.Items).ToNot(BeEmpty())
 
@@ -86,9 +87,9 @@ var _ = Describe("Completion", func() {
 
 		It("should return types matching prefix in type annotation position", func(ctx SpecContext) {
 			content := "func foo(x i"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 12)
+			completions := Completion(server, ctx, docURI, 0, 12)
 			Expect(completions).ToNot(BeNil())
 			Expect(completions.Items).ToNot(BeEmpty())
 
@@ -99,9 +100,9 @@ var _ = Describe("Completion", func() {
 
 		It("should not show keywords in expression context", func(ctx SpecContext) {
 			content := "x := "
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 5)
+			completions := Completion(server, ctx, docURI, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' keyword in expression context")
@@ -113,9 +114,9 @@ var _ = Describe("Completion", func() {
 
 		It("should show functions and values in expression context", func(ctx SpecContext) {
 			content := "x := "
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 5)
+			completions := Completion(server, ctx, docURI, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "len")).To(BeTrue(), "Should show 'len' function in expression context")
@@ -124,9 +125,9 @@ var _ = Describe("Completion", func() {
 
 		It("should show function keywords at statement start inside func body", func(ctx SpecContext) {
 			content := "func foo() {\n    \n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 4)
+			completions := Completion(server, ctx, docURI, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' keyword at statement start in func body")
@@ -139,9 +140,9 @@ var _ = Describe("Completion", func() {
 
 		It("should show top-level keywords at top level", func(ctx SpecContext) {
 			content := "seq"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 3)
+			completions := Completion(server, ctx, docURI, 0, 3)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "sequence")).To(BeTrue(), "Should show 'sequence' keyword at top level")
@@ -154,20 +155,20 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should insert a sequence snippet without a nested stage block", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "seq")
-			completions := Completion(server, ctx, uri, 0, 3)
+			OpenArcDocument(server, ctx, docURI, "seq")
+			completions := Completion(server, ctx, docURI, 0, 3)
 			item, found := FindCompletion(completions.Items, "sequence")
 			Expect(found).To(BeTrue())
-			Expect(item.InsertText).ToNot(ContainSubstring("stage"),
+			Expect(ItemInsertText(item)).ToNot(ContainSubstring("stage"),
 				"the sequence snippet should not pre-populate a nested stage block")
-			Expect(item.InsertText).To(Equal("sequence ${1:name} {\n\t$0\n}"))
+			Expect(ItemInsertText(item)).To(Equal("sequence ${1:name} {\n\t$0\n}"))
 		})
 
 		It("should show func keyword at top level", func(ctx SpecContext) {
 			content := "fu"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 2)
+			completions := Completion(server, ctx, docURI, 0, 2)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "func")).To(BeTrue(), "Should show 'func' keyword at top level")
@@ -175,9 +176,9 @@ var _ = Describe("Completion", func() {
 
 		It("should show only stage keyword inside a sequence body", func(ctx SpecContext) {
 			content := "sequence main {\n    \n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 4)
+			completions := Completion(server, ctx, docURI, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "stage")).To(BeTrue(), "Should show 'stage' keyword inside sequence body")
@@ -203,8 +204,8 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    \n}"
-			OpenArcDocument(server, ctx, uri, content)
-			completions := Completion(server, ctx, uri, 1, 4)
+			OpenArcDocument(server, ctx, docURI, content)
+			completions := Completion(server, ctx, docURI, 1, 4)
 			Expect(HasCompletion(completions.Items, "temperature_sensor")).To(BeTrue(),
 				"channel references are valid flow nodes inside a sequence body")
 			Expect(HasCompletion(completions.Items, "interval")).To(BeTrue(),
@@ -219,15 +220,15 @@ var _ = Describe("Completion", func() {
 			// Prefix `ma` would otherwise match `math` (a module in scope);
 			// at a declaration-name slot the user is introducing an
 			// identifier, so nothing should be suggested.
-			OpenArcDocument(server, ctx, uri, "sequence ma")
-			completions := Completion(server, ctx, uri, 0, 11)
+			OpenArcDocument(server, ctx, docURI, "sequence ma")
+			completions := Completion(server, ctx, docURI, 0, 11)
 			Expect(completions.Items).To(BeEmpty(),
 				"the slot for a new sequence name introduces an identifier — no existing symbols should be offered")
 		})
 
 		It("should not offer completions at a stage declaration name slot", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "sequence main {\n    stage ma\n}")
-			completions := Completion(server, ctx, uri, 1, 12)
+			OpenArcDocument(server, ctx, docURI, "sequence main {\n    stage ma\n}")
+			completions := Completion(server, ctx, docURI, 1, 12)
 			Expect(completions.Items).To(BeEmpty(),
 				"the slot for a new stage name introduces an identifier — no existing symbols should be offered")
 		})
@@ -244,8 +245,8 @@ var _ = Describe("Completion", func() {
 			}}))
 			server.SetClient(&MockClient{})
 
-			OpenArcDocument(server, ctx, uri, "import ")
-			completions := Completion(server, ctx, uri, 0, 7)
+			OpenArcDocument(server, ctx, docURI, "import ")
+			completions := Completion(server, ctx, docURI, 0, 7)
 			Expect(HasCompletion(completions.Items, "temperature_sensor")).To(BeFalse(),
 				"channels are not modules; must not appear in import-path position")
 			Expect(HasCompletion(completions.Items, "interval")).To(BeFalse(),
@@ -257,8 +258,8 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should suggest only modules matching the prefix when partially typed after 'import'", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "import ma")
-			completions := Completion(server, ctx, uri, 0, 9)
+			OpenArcDocument(server, ctx, docURI, "import ma")
+			completions := Completion(server, ctx, docURI, 0, 9)
 			Expect(HasCompletion(completions.Items, "math")).To(BeTrue(),
 				"matching modules must be suggested in import-path position")
 			Expect(HasCompletion(completions.Items, "time")).To(BeFalse(),
@@ -270,8 +271,8 @@ var _ = Describe("Completion", func() {
 			// emitted by lowering passes (out-of-bounds checks, etc.), not
 			// called from user source — so it must not appear as an
 			// importable module.
-			OpenArcDocument(server, ctx, uri, "import er")
-			completions := Completion(server, ctx, uri, 0, 9)
+			OpenArcDocument(server, ctx, docURI, "import er")
+			completions := Completion(server, ctx, docURI, 0, 9)
 			Expect(HasCompletion(completions.Items, "error")).To(BeFalse(),
 				"the internal `error` module must not be offered as an import target")
 		})
@@ -289,24 +290,24 @@ var _ = Describe("Completion", func() {
 			}}))
 			server.SetClient(&MockClient{})
 
-			OpenArcDocument(server, ctx, uri, "import math\nte")
-			completions := Completion(server, ctx, uri, 1, 2)
+			OpenArcDocument(server, ctx, docURI, "import math\nte")
+			completions := Completion(server, ctx, docURI, 1, 2)
 			Expect(HasCompletion(completions.Items, "temperature_sensor")).To(BeTrue(),
 				"channels must appear in a normal statement position even when a prior line is an import")
 		})
 
 		It("should not offer completions at a func declaration name slot", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func ma")
-			completions := Completion(server, ctx, uri, 0, 7)
+			OpenArcDocument(server, ctx, docURI, "func ma")
+			completions := Completion(server, ctx, docURI, 0, 7)
 			Expect(completions.Items).To(BeEmpty(),
 				"the slot for a new func name introduces an identifier — no existing symbols should be offered")
 		})
 
 		It("should show next keyword inside a stage body", func(ctx SpecContext) {
 			content := "sequence main {\n    stage first {\n        \n    }\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 2, 8)
+			completions := Completion(server, ctx, docURI, 2, 8)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "next")).To(BeTrue(), "Should show 'next' keyword inside stage body")
@@ -319,9 +320,9 @@ var _ = Describe("Completion", func() {
 
 		It("should not show types at statement start", func(ctx SpecContext) {
 			content := "func foo() {\n    \n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 4)
+			completions := Completion(server, ctx, docURI, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type at statement start")
@@ -331,9 +332,9 @@ var _ = Describe("Completion", func() {
 	Describe("Nested If Inside Function", func() {
 		It("should show function keywords inside nested if block", func(ctx SpecContext) {
 			content := "func foo() {\n    if x > 0 {\n        \n    }\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 2, 8)
+			completions := Completion(server, ctx, docURI, 2, 8)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' inside nested if block")
@@ -345,7 +346,7 @@ var _ = Describe("Completion", func() {
 
 	Describe("Block Expression Completion", func() {
 		It("should show function keywords in block expression", func(ctx SpecContext) {
-			blockURI := protocol.DocumentURI("arc://block/test")
+			blockURI := uri.URI("arc://block/test")
 			content := ""
 			OpenArcDocument(server, ctx, blockURI, content)
 
@@ -374,18 +375,18 @@ var _ = Describe("Completion", func() {
 
 			// Use the same pattern as hover test - valid Arc code
 			content := "func test() i32 {\n    return myGlobal\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
 			// Request completion in the middle of typing "myGlobal" -> "myG|"
 			// Simulating user typing "myG" and requesting completion
-			completions := Completion(server, ctx, uri, 1, 14) // after "myG" in "return myGlobal"
+			completions := Completion(server, ctx, docURI, 1, 14) // after "myG" in "return myGlobal"
 			Expect(completions).ToNot(BeNil())
 
 			// Check that myGlobal is in the completion list
 			item, found := FindCompletion(completions.Items, "myGlobal")
 			Expect(found).To(BeTrue(), "Expected to find 'myGlobal' in completion items")
 			Expect(item.Kind).To(Equal(protocol.CompletionItemKindVariable))
-			Expect(item.Detail).To(Equal("i32"))
+			Expect(ItemDetail(item)).To(Equal("i32"))
 		})
 
 		It("should not show GlobalResolver symbols when prefix doesn't match", func(ctx SpecContext) {
@@ -399,9 +400,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return xyz\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 14)
+			completions := Completion(server, ctx, docURI, 1, 14)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "myGlobal")).To(BeFalse(), "Expected NOT to find 'myGlobal' in completion items when prefix doesn't match")
@@ -421,9 +422,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() f64 {\n    return (o\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 13)
+			completions := Completion(server, ctx, docURI, 1, 13)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "output_sensor")).To(BeTrue(),
@@ -457,9 +458,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{}\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 11)
+			completions := Completion(server, ctx, docURI, 1, 11)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "threshold")).To(BeTrue(), "Should suggest 'threshold' parameter")
@@ -472,9 +473,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{threshold=1.0, timeout=100}\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 26)
+			completions := Completion(server, ctx, docURI, 1, 26)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "threshold")).To(BeFalse(), "Should NOT suggest already-provided 'threshold' parameter")
@@ -486,9 +487,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{threshold=1.0}\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 13)
+			completions := Completion(server, ctx, docURI, 1, 13)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "threshold")).To(BeTrue(), "Should suggest 'threshold' matching prefix 'th'")
@@ -500,14 +501,14 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{}\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 11)
+			completions := Completion(server, ctx, docURI, 1, 11)
 			Expect(completions).ToNot(BeNil())
 
 			thresholdItem, found := FindCompletion(completions.Items, "threshold")
 			Expect(found).To(BeTrue())
-			Expect(thresholdItem.Detail).To(Equal("f64"))
+			Expect(ItemDetail(thresholdItem)).To(Equal("f64"))
 			Expect(thresholdItem.Kind).To(Equal(protocol.CompletionItemKindProperty))
 		})
 
@@ -516,9 +517,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{channel=sensorCh}\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 19)
+			completions := Completion(server, ctx, docURI, 1, 19)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "sensorCh")).To(BeTrue(), "Should suggest 'sensorCh' channel for chan type parameter")
@@ -551,9 +552,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "auth"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 4)
+			completions := Completion(server, ctx, docURI, 0, 4)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "authority")).To(BeTrue())
 		})
@@ -563,9 +564,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "authority (\n    200\n    \n)"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 2, 4)
+			completions := Completion(server, ctx, docURI, 2, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue())
@@ -577,9 +578,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "authority (\n    200\n    \n)"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 2, 4)
+			completions := Completion(server, ctx, docURI, 2, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "myGlobal")).To(BeFalse())
@@ -590,9 +591,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "authority (\n    200\n    vent_vlv_cmd 100\n    \n)"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 3, 4)
+			completions := Completion(server, ctx, docURI, 3, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeFalse())
@@ -604,9 +605,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "authority (\n    200\n    v\n)"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 2, 5)
+			completions := Completion(server, ctx, docURI, 2, 5)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue())
@@ -617,9 +618,9 @@ var _ = Describe("Completion", func() {
 	Describe("Loop Keyword Completion", func() {
 		It("should show for keyword at statement start inside func body", func(ctx SpecContext) {
 			content := "func foo() {\n    \n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 4)
+			completions := Completion(server, ctx, docURI, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "for")).To(BeTrue(), "Should show 'for' keyword at statement start in func body")
@@ -629,9 +630,9 @@ var _ = Describe("Completion", func() {
 
 		It("should not show for keyword at top level", func(ctx SpecContext) {
 			content := "fo"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 2)
+			completions := Completion(server, ctx, docURI, 0, 2)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "for")).To(BeFalse(), "Should not show 'for' at top level")
@@ -641,9 +642,9 @@ var _ = Describe("Completion", func() {
 
 		It("should not show loop keywords inside sequence body", func(ctx SpecContext) {
 			content := "sequence main {\n    \n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 4)
+			completions := Completion(server, ctx, docURI, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "for")).To(BeFalse(), "Should not show 'for' inside sequence body")
@@ -653,9 +654,9 @@ var _ = Describe("Completion", func() {
 
 		It("should not show loop keywords in expression context", func(ctx SpecContext) {
 			content := "func foo() {\n    x := \n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 9)
+			completions := Completion(server, ctx, docURI, 1, 9)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "for")).To(BeFalse(), "Should not show 'for' in expression context")
@@ -665,22 +666,22 @@ var _ = Describe("Completion", func() {
 
 		It("should show for snippet with correct insert text", func(ctx SpecContext) {
 			content := "func foo() {\n    fo\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 6)
+			completions := Completion(server, ctx, docURI, 1, 6)
 			Expect(completions).ToNot(BeNil())
 
 			item, found := FindCompletion(completions.Items, "for")
 			Expect(found).To(BeTrue())
-			Expect(item.InsertText).To(ContainSubstring("range"))
+			Expect(ItemInsertText(item)).To(ContainSubstring("range"))
 			Expect(item.InsertTextFormat).To(Equal(protocol.InsertTextFormatSnippet))
 		})
 
 		It("should show range function in expression context", func(ctx SpecContext) {
 			content := "func foo() {\n    x := r\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 10)
+			completions := Completion(server, ctx, docURI, 1, 10)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "range")).To(BeTrue(), "Should show 'range' function in expression context")
@@ -714,9 +715,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        \n    }\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 2, 8)
+			completions := Completion(server, ctx, docURI, 2, 8)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' channel inside stage")
@@ -729,9 +730,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        v\n    }\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 2, 9)
+			completions := Completion(server, ctx, docURI, 2, 9)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' matching prefix 'v'")
@@ -743,9 +744,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd\n        \n    }\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 3, 8)
+			completions := Completion(server, ctx, docURI, 3, 8)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' channel")
@@ -757,9 +758,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd\n        v\n    }\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 3, 9)
+			completions := Completion(server, ctx, docURI, 3, 9)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' matching prefix 'v'")
@@ -782,9 +783,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "math.a"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 6)
+			completions := Completion(server, ctx, docURI, 0, 6)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "avg")).To(BeTrue())
 			Expect(HasCompletion(completions.Items, "add")).To(BeFalse(),
@@ -796,9 +797,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "math."
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 5)
+			completions := Completion(server, ctx, docURI, 0, 5)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "avg")).To(BeTrue())
 			Expect(HasCompletion(completions.Items, "pow")).To(BeFalse(),
@@ -812,9 +813,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    time.\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 9)
+			completions := Completion(server, ctx, docURI, 1, 9)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(),
 				"WASM function time.now should appear in func block")
@@ -829,9 +830,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "control."
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 8)
+			completions := Completion(server, ctx, docURI, 0, 8)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "set_authority")).To(BeTrue())
 		})
@@ -841,27 +842,27 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "control.set_a"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 13)
+			completions := Completion(server, ctx, docURI, 0, 13)
 			Expect(completions).ToNot(BeNil())
 			item, found := FindCompletion(completions.Items, "set_authority")
 			Expect(found).To(BeTrue())
-			Expect(item.FilterText).To(Equal("control.set_authority"))
-			Expect(item.TextEdit).ToNot(BeNil())
-			Expect(item.TextEdit.NewText).To(Equal("control.set_authority{$0}"))
+			Expect(item.FilterText).To(Equal(protocol.NewOptional("control.set_authority")))
+			Expect(ItemTextEdit(item)).ToNot(BeNil())
+			Expect(ItemTextEdit(item).NewText).To(Equal("control.set_authority{$0}"))
 		})
 
 		It("Should suggest module names at top-level when typing a partial module name", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol { return NewRoot(nil) }}))
 			server.SetClient(&MockClient{})
 
-			OpenArcDocument(server, ctx, uri, "trig => contr")
-			completionsControl := Completion(server, ctx, uri, 0, 13)
+			OpenArcDocument(server, ctx, docURI, "trig => contr")
+			completionsControl := Completion(server, ctx, docURI, 0, 13)
 			Expect(completionsControl).ToNot(BeNil())
 
-			OpenArcDocument(server, ctx, uri, "trig => mat")
-			completionsMath := Completion(server, ctx, uri, 0, 11)
+			OpenArcDocument(server, ctx, docURI, "trig => mat")
+			completionsMath := Completion(server, ctx, docURI, 0, 11)
 			Expect(completionsMath).ToNot(BeNil())
 
 			controlHasModule := HasCompletion(completionsControl.Items, "control")
@@ -880,9 +881,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    error.\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 10)
+			completions := Completion(server, ctx, docURI, 1, 10)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "panic")).To(BeFalse(),
 				"internal module members must not appear in user-facing completions")
@@ -893,14 +894,14 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "math."
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 5)
+			completions := Completion(server, ctx, docURI, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
 			item, found := FindCompletion(completions.Items, "avg")
 			Expect(found).To(BeTrue())
-			Expect(item.FilterText).To(Equal("math.avg"))
+			Expect(item.FilterText).To(Equal(protocol.NewOptional("math.avg")))
 		})
 
 		It("Should set TextEdit that replaces the full module prefix", func(ctx SpecContext) {
@@ -908,18 +909,18 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "math."
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 5)
+			completions := Completion(server, ctx, docURI, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
 			item, found := FindCompletion(completions.Items, "avg")
 			Expect(found).To(BeTrue())
-			Expect(item.TextEdit).ToNot(BeNil())
-			Expect(item.TextEdit.NewText).To(Equal("math.avg{$0}"))
+			Expect(ItemTextEdit(item)).ToNot(BeNil())
+			Expect(ItemTextEdit(item).NewText).To(Equal("math.avg{$0}"))
 			Expect(item.InsertTextFormat).To(Equal(protocol.InsertTextFormatSnippet))
-			Expect(item.TextEdit.Range.Start.Character).To(Equal(uint32(0)))
-			Expect(item.TextEdit.Range.End.Character).To(Equal(uint32(5)))
+			Expect(ItemTextEdit(item).Range.Start.Character).To(Equal(uint32(0)))
+			Expect(ItemTextEdit(item).Range.End.Character).To(Equal(uint32(5)))
 		})
 
 		It("Should exclude channel symbols from module-qualified results", func(ctx SpecContext) {
@@ -927,9 +928,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    time.\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 9)
+			completions := Completion(server, ctx, docURI, 1, 9)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "now")).To(BeTrue())
 			Expect(HasCompletion(completions.Items, "sy_node_1_metrics_time")).To(BeFalse(),
@@ -941,9 +942,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    time.n\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 10)
+			completions := Completion(server, ctx, docURI, 1, 10)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "now")).To(BeTrue())
 			Expect(HasCompletion(completions.Items, "sy_node_1_metrics_time")).To(BeFalse())
@@ -955,9 +956,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    fake.\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 9)
+			completions := Completion(server, ctx, docURI, 1, 9)
 			Expect(completions).ToNot(BeNil())
 			Expect(completions.Items).To(BeEmpty())
 		})
@@ -967,9 +968,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    t\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 5)
+			completions := Completion(server, ctx, docURI, 1, 5)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "temperature_sensor")).To(BeTrue(),
 				"Unqualified prefix should still show channels")
@@ -982,9 +983,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    math.\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 9)
+			completions := Completion(server, ctx, docURI, 1, 9)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "pow")).To(BeFalse(),
 				"Internal symbol math.pow should not appear in module-qualified completion")
@@ -995,9 +996,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    time.\n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 9)
+			completions := Completion(server, ctx, docURI, 1, 9)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(),
 				"WASM function time.now should appear in func block")
@@ -1012,9 +1013,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "time."
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 5)
+			completions := Completion(server, ctx, docURI, 0, 5)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "interval")).To(BeTrue(),
 				"Flow function time.interval should appear at top level")
@@ -1027,9 +1028,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "time."
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 5)
+			completions := Completion(server, ctx, docURI, 0, 5)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(),
 				"ExecBoth function time.now should appear at top level")
@@ -1040,9 +1041,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "math."
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 0, 5)
+			completions := Completion(server, ctx, docURI, 0, 5)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "pow")).To(BeFalse(),
 				"WASM-only function math.pow should not appear at top level")
@@ -1053,9 +1054,9 @@ var _ = Describe("Completion", func() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    \n}"
-			OpenArcDocument(server, ctx, uri, content)
+			OpenArcDocument(server, ctx, docURI, content)
 
-			completions := Completion(server, ctx, uri, 1, 4)
+			completions := Completion(server, ctx, docURI, 1, 4)
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "interval")).To(BeFalse(),
 				"Flow-only function interval should not appear in func block")
@@ -1081,31 +1082,31 @@ var _ = Describe("Completion", func() {
 		// occurs while editing inside a body block.
 
 		It("labels an unimported module with Module kind and a non-'invalid' detail", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() {\n    mat\n}")
-			completions := Completion(server, ctx, uri, 1, 7)
+			OpenArcDocument(server, ctx, docURI, "func test() {\n    mat\n}")
+			completions := Completion(server, ctx, docURI, 1, 7)
 			Expect(completions).ToNot(BeNil())
 			item, found := FindCompletion(completions.Items, "math")
 			Expect(found).To(BeTrue(), "math module should be suggested for prefix 'mat'")
 			Expect(item.Kind).To(Equal(protocol.CompletionItemKindModule))
-			Expect(item.Detail).ToNot(Equal("invalid"),
+			Expect(ItemDetail(item)).ToNot(Equal("invalid"),
 				"module Detail must not be the 'invalid' fallback from types.Type.String()")
-			Expect(item.Detail).To(Equal("module"))
+			Expect(ItemDetail(item)).To(Equal("module"))
 		})
 
 		It("labels an already-imported module with Module kind and a non-'invalid' detail", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "import math\n\nfunc test() {\n    mat\n}")
-			completions := Completion(server, ctx, uri, 3, 7)
+			OpenArcDocument(server, ctx, docURI, "import math\n\nfunc test() {\n    mat\n}")
+			completions := Completion(server, ctx, docURI, 3, 7)
 			Expect(completions).ToNot(BeNil())
 			item, found := FindCompletion(completions.Items, "math")
 			Expect(found).To(BeTrue(), "math module should be suggested for prefix 'mat'")
 			Expect(item.Kind).To(Equal(protocol.CompletionItemKindModule))
-			Expect(item.Detail).ToNot(Equal("invalid"))
-			Expect(item.Detail).To(Equal("module"))
+			Expect(ItemDetail(item)).ToNot(Equal("invalid"))
+			Expect(ItemDetail(item)).To(Equal("module"))
 		})
 
 		It("inserts a loose import statement when no imports exist", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() {\n    mat\n}")
-			completions := Completion(server, ctx, uri, 1, 7)
+			OpenArcDocument(server, ctx, docURI, "func test() {\n    mat\n}")
+			completions := Completion(server, ctx, docURI, 1, 7)
 			item, found := FindCompletion(completions.Items, "math")
 			Expect(found).To(BeTrue())
 			Expect(item.AdditionalTextEdits).To(HaveLen(1))
@@ -1119,8 +1120,8 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("adds to an existing import block instead of creating a second block", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "import (\n    time\n)\n\nfunc test() {\n    mat\n}")
-			completions := Completion(server, ctx, uri, 5, 7)
+			OpenArcDocument(server, ctx, docURI, "import (\n    time\n)\n\nfunc test() {\n    mat\n}")
+			completions := Completion(server, ctx, docURI, 5, 7)
 			item, found := FindCompletion(completions.Items, "math")
 			Expect(found).To(BeTrue())
 			Expect(item.AdditionalTextEdits).To(HaveLen(1))
@@ -1133,8 +1134,8 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("consolidates a loose import statement into a single block when adding a module", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "import time\n\nfunc test() {\n    mat\n}")
-			completions := Completion(server, ctx, uri, 3, 7)
+			OpenArcDocument(server, ctx, docURI, "import time\n\nfunc test() {\n    mat\n}")
+			completions := Completion(server, ctx, docURI, 3, 7)
 			item, found := FindCompletion(completions.Items, "math")
 			Expect(found).To(BeTrue())
 			Expect(item.AdditionalTextEdits).To(HaveLen(1))
@@ -1147,8 +1148,8 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("consolidates multiple loose import statements into one block", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "import time\nimport control\n\nfunc test() {\n    mat\n}")
-			completions := Completion(server, ctx, uri, 4, 7)
+			OpenArcDocument(server, ctx, docURI, "import time\nimport control\n\nfunc test() {\n    mat\n}")
+			completions := Completion(server, ctx, docURI, 4, 7)
 			item, found := FindCompletion(completions.Items, "math")
 			Expect(found).To(BeTrue())
 			Expect(item.AdditionalTextEdits).To(HaveLen(2))
@@ -1163,8 +1164,8 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("preserves comments sitting between two loose import statements", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "import time\n// keep this\nimport control\n\nfunc test() {\n    mat\n}")
-			completions := Completion(server, ctx, uri, 5, 7)
+			OpenArcDocument(server, ctx, docURI, "import time\n// keep this\nimport control\n\nfunc test() {\n    mat\n}")
+			completions := Completion(server, ctx, docURI, 5, 7)
 			item, found := FindCompletion(completions.Items, "math")
 			Expect(found).To(BeTrue())
 			Expect(item.AdditionalTextEdits).To(HaveLen(2))
@@ -1179,8 +1180,8 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("does not attach an import edit when the module is already imported", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "import math\n\nfunc test() {\n    mat\n}")
-			completions := Completion(server, ctx, uri, 3, 7)
+			OpenArcDocument(server, ctx, docURI, "import math\n\nfunc test() {\n    mat\n}")
+			completions := Completion(server, ctx, docURI, 3, 7)
 			item, found := FindCompletion(completions.Items, "math")
 			Expect(found).To(BeTrue())
 			Expect(item.AdditionalTextEdits).To(BeEmpty(),
@@ -1195,8 +1196,8 @@ var _ = Describe("Completion", func() {
 		// the same way a bare module selection does.
 
 		It("attaches an import edit to a qualified member when the module is not imported", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() {\n    time.no\n}")
-			completions := Completion(server, ctx, uri, 1, 11)
+			OpenArcDocument(server, ctx, docURI, "func test() {\n    time.no\n}")
+			completions := Completion(server, ctx, docURI, 1, 11)
 			item, found := FindCompletion(completions.Items, "now")
 			Expect(found).To(BeTrue(), "time.now should be suggested for prefix 'time.no'")
 			Expect(item.AdditionalTextEdits).To(HaveLen(1))
@@ -1205,8 +1206,8 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("does not attach an import edit to a qualified member when the module is already imported", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "import time\n\nfunc test() {\n    time.no\n}")
-			completions := Completion(server, ctx, uri, 3, 11)
+			OpenArcDocument(server, ctx, docURI, "import time\n\nfunc test() {\n    time.no\n}")
+			completions := Completion(server, ctx, docURI, 3, 11)
 			item, found := FindCompletion(completions.Items, "now")
 			Expect(found).To(BeTrue())
 			Expect(item.AdditionalTextEdits).To(BeEmpty())
@@ -1217,8 +1218,8 @@ var _ = Describe("Completion", func() {
 			// (auto-imports it), types `.`, then triggers completion on
 			// `math.`. The `avg` completion must not carry another auto-
 			// import edit — the module is already in scope.
-			OpenArcDocument(server, ctx, uri, "import math\n\nmath.")
-			completions := Completion(server, ctx, uri, 2, 5)
+			OpenArcDocument(server, ctx, docURI, "import math\n\nmath.")
+			completions := Completion(server, ctx, docURI, 2, 5)
 			item, found := FindCompletion(completions.Items, "avg")
 			Expect(found).To(BeTrue())
 			Expect(item.AdditionalTextEdits).To(BeEmpty(),
@@ -1226,25 +1227,25 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("surfaces module members under their qualified name for a bare-name prefix and qualifies on insert", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() {\n    no\n}")
-			completions := Completion(server, ctx, uri, 1, 6)
+			OpenArcDocument(server, ctx, docURI, "func test() {\n    no\n}")
+			completions := Completion(server, ctx, docURI, 1, 6)
 			item, found := FindCompletion(completions.Items, "time.now")
 			Expect(found).To(BeTrue(),
 				"a bare 'no' prefix should surface qualified module members in addition to any bare alias")
-			Expect(item.TextEdit).ToNot(BeNil())
-			Expect(item.TextEdit.NewText).To(Equal("time.now($0)"))
+			Expect(ItemTextEdit(item)).ToNot(BeNil())
+			Expect(ItemTextEdit(item).NewText).To(Equal("time.now($0)"))
 			Expect(item.InsertTextFormat).To(Equal(protocol.InsertTextFormatSnippet))
 			Expect(item.AdditionalTextEdits).To(HaveLen(1))
 			Expect(item.AdditionalTextEdits[0].NewText).To(Equal("import time\n\n"))
 		})
 
 		It("does not attach an import edit to a bare-name qualified suggestion when the module is already imported", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "import time\n\nfunc test() {\n    no\n}")
-			completions := Completion(server, ctx, uri, 3, 6)
+			OpenArcDocument(server, ctx, docURI, "import time\n\nfunc test() {\n    no\n}")
+			completions := Completion(server, ctx, docURI, 3, 6)
 			item, found := FindCompletion(completions.Items, "time.now")
 			Expect(found).To(BeTrue())
-			Expect(item.TextEdit).ToNot(BeNil())
-			Expect(item.TextEdit.NewText).To(Equal("time.now($0)"))
+			Expect(ItemTextEdit(item)).ToNot(BeNil())
+			Expect(ItemTextEdit(item).NewText).To(Equal("time.now($0)"))
 			Expect(item.AdditionalTextEdits).To(BeEmpty())
 		})
 
@@ -1252,36 +1253,36 @@ var _ = Describe("Completion", func() {
 			// Flow contexts (sequence body, stage body, top level) invoke
 			// functions with a config block — the inserted text must end
 			// in `{$0}` and use snippet format so the cursor lands inside.
-			OpenArcDocument(server, ctx, uri, "import math\n\nsequence main {\n    math.av\n}")
-			completions := Completion(server, ctx, uri, 3, 11)
+			OpenArcDocument(server, ctx, docURI, "import math\n\nsequence main {\n    math.av\n}")
+			completions := Completion(server, ctx, docURI, 3, 11)
 			item, found := FindCompletion(completions.Items, "avg")
 			Expect(found).To(BeTrue())
-			Expect(item.TextEdit).ToNot(BeNil())
-			Expect(item.TextEdit.NewText).To(Equal("math.avg{$0}"))
+			Expect(ItemTextEdit(item)).ToNot(BeNil())
+			Expect(ItemTextEdit(item).NewText).To(Equal("math.avg{$0}"))
 			Expect(item.InsertTextFormat).To(Equal(protocol.InsertTextFormatSnippet))
 		})
 
 		It("appends a call-parens snippet when a function completes in an imperative context", func(ctx SpecContext) {
 			// A function body is imperative/WASM; functions invoke with
 			// parens — the snippet ends in `($0)`.
-			OpenArcDocument(server, ctx, uri, "import time\n\nfunc test() {\n    time.no\n}")
-			completions := Completion(server, ctx, uri, 3, 11)
+			OpenArcDocument(server, ctx, docURI, "import time\n\nfunc test() {\n    time.no\n}")
+			completions := Completion(server, ctx, docURI, 3, 11)
 			item, found := FindCompletion(completions.Items, "now")
 			Expect(found).To(BeTrue())
-			Expect(item.TextEdit).ToNot(BeNil())
-			Expect(item.TextEdit.NewText).To(Equal("time.now($0)"))
+			Expect(ItemTextEdit(item)).ToNot(BeNil())
+			Expect(ItemTextEdit(item).NewText).To(Equal("time.now($0)"))
 			Expect(item.InsertTextFormat).To(Equal(protocol.InsertTextFormatSnippet))
 		})
 
 		It("appends a config-block snippet for bare-name deep-search results in a flow context", func(ctx SpecContext) {
 			// The deep-search path that surfaces `time.wait` for a bare
 			// `wai` prefix must follow the same context-aware suffix rule.
-			OpenArcDocument(server, ctx, uri, "sequence main {\n    wai\n}")
-			completions := Completion(server, ctx, uri, 1, 7)
+			OpenArcDocument(server, ctx, docURI, "sequence main {\n    wai\n}")
+			completions := Completion(server, ctx, docURI, 1, 7)
 			item, found := FindCompletion(completions.Items, "time.wait")
 			Expect(found).To(BeTrue())
-			Expect(item.TextEdit).ToNot(BeNil())
-			Expect(item.TextEdit.NewText).To(Equal("time.wait{$0}"))
+			Expect(ItemTextEdit(item)).ToNot(BeNil())
+			Expect(ItemTextEdit(item).NewText).To(Equal("time.wait{$0}"))
 			Expect(item.InsertTextFormat).To(Equal(protocol.InsertTextFormatSnippet))
 		})
 
@@ -1295,11 +1296,11 @@ var _ = Describe("Completion", func() {
 				return NewRoot(nil, channels...)
 			}}))
 			server.SetClient(&MockClient{})
-			OpenArcDocument(server, ctx, uri, "sequence main {\n    temp\n}")
-			completions := Completion(server, ctx, uri, 1, 8)
+			OpenArcDocument(server, ctx, docURI, "sequence main {\n    temp\n}")
+			completions := Completion(server, ctx, docURI, 1, 8)
 			item, found := FindCompletion(completions.Items, "temperature_sensor")
 			Expect(found).To(BeTrue())
-			Expect(item.InsertText).To(BeEmpty(),
+			Expect(ItemInsertText(item)).To(BeEmpty(),
 				"a channel symbol must not carry a snippet invocation suffix")
 			Expect(item.InsertTextFormat).ToNot(Equal(protocol.InsertTextFormatSnippet))
 		})
@@ -1307,8 +1308,8 @@ var _ = Describe("Completion", func() {
 		It("filters bare-name qualified suggestions by execution context", func(ctx SpecContext) {
 			// time.interval is flow-only and must not appear in a func body
 			// even via the bare-name deep-search path.
-			OpenArcDocument(server, ctx, uri, "func test() {\n    inter\n}")
-			completions := Completion(server, ctx, uri, 1, 9)
+			OpenArcDocument(server, ctx, docURI, "func test() {\n    inter\n}")
+			completions := Completion(server, ctx, docURI, 1, 9)
 			_, found := FindCompletion(completions.Items, "time.interval")
 			Expect(found).To(BeFalse(),
 				"flow-only time.interval must not appear inside a func body")
@@ -1318,8 +1319,8 @@ var _ = Describe("Completion", func() {
 	Describe("Same-Line After Opening Brace", func() {
 		DescribeTable("returns no completions when the cursor is on the same line as the opening brace",
 			func(ctx SpecContext, content string, line, char uint32) {
-				OpenArcDocument(server, ctx, uri, content)
-				completions := Completion(server, ctx, uri, line, char)
+				OpenArcDocument(server, ctx, docURI, content)
+				completions := Completion(server, ctx, docURI, line, char)
 				Expect(completions).ToNot(BeNil())
 				Expect(completions.Items).To(BeEmpty())
 			},
@@ -1339,8 +1340,8 @@ var _ = Describe("Completion", func() {
 
 		DescribeTable("still returns block-body completions on the next line",
 			func(ctx SpecContext, content string, line, char uint32, expectedLabel string) {
-				OpenArcDocument(server, ctx, uri, content)
-				completions := Completion(server, ctx, uri, line, char)
+				OpenArcDocument(server, ctx, docURI, content)
+				completions := Completion(server, ctx, docURI, line, char)
 				Expect(completions).ToNot(BeNil())
 				Expect(HasCompletion(completions.Items, expectedLabel)).To(BeTrue(),
 					"Expected to find %q completion on the new line inside the block", expectedLabel)
