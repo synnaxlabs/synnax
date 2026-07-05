@@ -110,19 +110,21 @@ has_supported_extension() {
 }
 
 # Resolve per-extension header properties into globals: HEADER, HEADER_LINES,
-# LEADING_LINE_RE (a regex; when non-empty and the file's first line matches
-# it, that line is preserved above the header — shebangs, the cmd `@echo off`
-# directive that must stay first to suppress command echo, and the astro `---`
-# frontmatter fence that must open the file, with the header living inside the
-# frontmatter as a // comment), LEADING_BLANK (1 if a blank line separates the
-# leading line from the header; astro sets 0 because prettier strips blanks
-# adjacent to the frontmatter fences), and TRAILING_BLANK (1 if the canonical
-# layout puts a blank line between the header and the file body, 0 otherwise).
-# HEADER_LINES describes the canonical new header — the size of an *existing*
-# header is detected dynamically.
+# LEADING_LINE_RE (a regex; when non-empty and the file's first line matches it, that
+# line is preserved above the header — shebangs, the cmd `@echo off` directive that must
+# stay first to suppress command echo, and the astro `---` frontmatter fence that must
+# open the file, with the header living inside the frontmatter as a // comment),
+# LEADING_BLANK (1 if a blank line separates the leading line from the header; astro
+# sets 0 because prettier strips blanks adjacent to the frontmatter fences), and
+# TRAILING_BLANK (1 if the canonical layout puts a blank line between the header and the
+# file body, 0 otherwise), and FENCE (a closing delimiter that may sit directly after the
+# header with no separating blank — astro's `---` for comment-only frontmatter; a normal
+# trailing blank is still emitted when real body content follows). HEADER_LINES describes
+# the canonical new header — the size of an *existing* header is detected dynamically.
 resolve_header_for_ext() {
     local ext="$1"
     LEADING_LINE_RE=""
+    FENCE=""
     LEADING_BLANK=1
     case "$ext" in
         py | pyi)
@@ -151,7 +153,8 @@ resolve_header_for_ext() {
             HEADER_LINES=8
             LEADING_LINE_RE='^---$'
             LEADING_BLANK=0
-            TRAILING_BLANK=0
+            TRAILING_BLANK=1
+            FENCE='---'
             ;;
         cmd)
             HEADER="$HEADER_REM"
@@ -327,13 +330,14 @@ process_file() {
     local new_header="$HEADER"
     local trailing_blank="$TRAILING_BLANK"
     local leading_blank="$LEADING_BLANK"
+    local fence="$FENCE"
 
     read_whole_file "$file"
 
-    # Detect a preserved leading line (shebang, the cmd `@echo off` directive,
-    # or the astro `---` frontmatter fence). The canonical layout restores:
-    # leading line / [blank] / header / [blank] / body — the blank after the
-    # leading line is present unless LEADING_BLANK=0 (astro).
+    # Detect a preserved leading line (shebang, the cmd `@echo off` directive, or the
+    # astro `---` frontmatter fence). The canonical layout restores: leading line /
+    # [blank] / header / [blank] / body — the blank after the leading line is present
+    # unless LEADING_BLANK=0 (astro).
     local has_leading=0
     if [ -n "$LEADING_LINE_RE" ] && [ ${#LINES[@]} -gt 0 ]; then
         if [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
@@ -418,8 +422,13 @@ process_file() {
             fi
             local format_ok=1
             [ "$current_header" != "$new_header" ] && format_ok=0
-            if [ "$trailing_blank" = "1" ] && [ -n "$line_after_canonical" ]; then format_ok=0; fi
-            if [ "$trailing_blank" = "0" ] && [ -z "$line_after_canonical" ]; then format_ok=0; fi
+            if [ -n "$fence" ] && [ "$line_after_canonical" = "$fence" ]; then
+                : # closing fence directly after header — canonical, no blank
+            elif [ "$trailing_blank" = "1" ] && [ -n "$line_after_canonical" ]; then
+                format_ok=0
+            elif [ "$trailing_blank" = "0" ] && [ -z "$line_after_canonical" ]; then
+                format_ok=0
+            fi
             if [ "$format_ok" = "1" ]; then
                 printf 'SKIPPED\t%s\n' "$file"
                 return
@@ -454,6 +463,15 @@ process_file() {
         body+="$line"$'\n'
     done
 
+    # A closing fence immediately after the header (comment-only frontmatter)
+    # takes no separating blank; otherwise use the configured trailing_blank.
+    local eff_trailing="$trailing_blank"
+    if [ -n "$fence" ]; then
+        case "$body" in
+            "$fence" | "$fence"$'\n'*) eff_trailing=0 ;;
+        esac
+    fi
+
     # Write atomically via a temp file, then move it back to preserve the
     # destination's file mode (e.g. executable bit on shell scripts).
     local temp_file
@@ -467,7 +485,7 @@ process_file() {
             fi
         fi
         printf '%s\n' "$new_header"
-        if [ "$trailing_blank" = "1" ]; then
+        if [ "$eff_trailing" = "1" ]; then
             printf '\n'
         fi
         printf '%s' "$body"

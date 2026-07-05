@@ -120,19 +120,22 @@ should_ignore_file() {
     return 1
 }
 
-# Resolve per-extension header properties into globals. TRAILING_BLANK is 1
-# when the canonical layout requires a blank line between the header and the
-# file body. LEADING_LINE_RE is a regex; when non-empty and the file's first
-# line matches it, that line is preserved above the header (shebangs, the cmd
-# `@echo off` directive that must stay first to suppress command echo, and the
-# astro `---` frontmatter fence that must open the file — the header then lives
-# inside the frontmatter as a // comment). LEADING_BLANK is 1 when a blank line
-# separates the leading line from the header; astro sets it to 0 because
-# prettier strips blank lines adjacent to the frontmatter fences.
+# Resolve per-extension header properties into globals. TRAILING_BLANK is 1 when the
+# canonical layout requires a blank line between the header and the file body.
+# LEADING_LINE_RE is a regex; when non-empty and the file's first line matches it, that
+# line is preserved above the header (shebangs, the cmd `@echo off` directive that must
+# stay first to suppress command echo, and the astro `---` frontmatter fence that must
+# open the file — the header then lives inside the frontmatter as a // comment).
+# LEADING_BLANK is 1 when a blank line separates the leading line from the header; astro
+# sets it to 0 because prettier strips blank lines adjacent to the frontmatter fences.
+# FENCE, when non-empty, is a closing delimiter that may sit directly after the header
+# with no separating blank (astro's `---`, for comment-only frontmatter); a normal
+# trailing blank is still required when real body content follows instead.
 resolve_header_for_ext() {
     local ext="$1"
     LEADING_LINE_RE=""
     LEADING_BLANK=1
+    FENCE=""
     case "$ext" in
         py | pyi)
             EXPECTED_HEADER="$EXPECTED_HEADER_HASH_TWO"
@@ -160,7 +163,8 @@ resolve_header_for_ext() {
             HEADER_LINES=8
             LEADING_LINE_RE='^---$'
             LEADING_BLANK=0
-            TRAILING_BLANK=0
+            TRAILING_BLANK=1
+            FENCE='---'
             ;;
         cmd)
             EXPECTED_HEADER="$EXPECTED_HEADER_REM"
@@ -236,9 +240,9 @@ classify_file() {
     fi
 
     # Canonical layout: [leading line / [blank] /] header / [blank /] body. Header
-    # starts at index 0 normally; when a leading line is preserved, at index 2
-    # iff line 2 is blank (LEADING_BLANK=1), or at index 1 directly against the
-    # leading line (LEADING_BLANK=0, e.g. astro frontmatter).
+    # starts at index 0 normally; when a leading line is preserved, at index 2 iff line
+    # 2 is blank (LEADING_BLANK=1), or at index 1 directly against the leading line
+    # (LEADING_BLANK=0, e.g. astro frontmatter).
     local header_start_idx=0
     if [ -n "$LEADING_LINE_RE" ] && [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
         if [ "$LEADING_BLANK" = "0" ]; then
@@ -304,26 +308,29 @@ classify_file() {
     fi
 
     # Trailing-blank rule: the line immediately after the header must be blank
-    # (or absent) when TRAILING_BLANK=1, and non-blank otherwise.
+    # (or absent) when TRAILING_BLANK=1, and non-blank otherwise. Exception: a
+    # closing FENCE directly after the header (astro comment-only frontmatter)
+    # is valid with no blank, since prettier strips a blank adjacent to it.
     local line_after_header=""
     if [ $((header_end_idx + 1)) -lt ${#LINES[@]} ]; then
         line_after_header="${LINES[$((header_end_idx + 1))]}"
     fi
-    if [ "$trailing_blank" = "1" ] && [ -n "$line_after_header" ]; then
+    if [ -n "$FENCE" ] && [ "$line_after_header" = "$FENCE" ]; then
+        :
+    elif [ "$trailing_blank" = "1" ] && [ -n "$line_after_header" ]; then
         printf 'MALFORMED\t%s\n' "$file"
         return
-    fi
-    if [ "$trailing_blank" = "0" ] && [ -z "$line_after_header" ]; then
+    elif [ "$trailing_blank" = "0" ] && [ -z "$line_after_header" ]; then
         printf 'MALFORMED\t%s\n' "$file"
         return
     fi
 
-    # Duplicate check: count header copyright lines in the first 20 lines to
-    # guard against a header accidentally emitted twice. Only lines that *begin*
-    # with the notice (after stripping a leading comment marker and whitespace)
-    # count — a line that merely embeds the notice as data, such as the
-    # JetBrains copyright-profile XML's value="Copyright ..." attribute, is not
-    # a second header and must not trip this check.
+    # Duplicate check: count header copyright lines in the first 20 lines to guard
+    # against a header accidentally emitted twice. Only lines that *begin* with the
+    # notice (after stripping a leading comment marker and whitespace) count — a line
+    # that merely embeds the notice as data, such as the JetBrains copyright-profile
+    # XML's value="Copyright ..." attribute, is not a second header and must not trip
+    # this check.
     local dup_limit=20
     if [ $dup_limit -gt ${#LINES[@]} ]; then
         dup_limit=${#LINES[@]}
