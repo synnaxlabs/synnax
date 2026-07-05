@@ -152,7 +152,8 @@ func (o *Ontology) ObserveResources() observe.Observable[iter.Seq[Change]] {
 
 // ObserveRelationships returns an observable that notifies callers of changes to the
 // relationships in the ontology.
-func (o *Ontology) ObserveRelationships() observe.Observable[gorp.TxReader[string, Relationship]] {
+func (o *Ontology) ObserveRelationships() observe.Observable[gorp.TxReader[string,
+	Relationship]] {
 	return o.relationshipTable.Observe()
 }
 
@@ -176,9 +177,13 @@ func (o *Ontology) RelationshipExists(
 func (o *Ontology) RegisterService(svc Service) {
 	o.cfg.L.Debug("registering service", zap.Stringer("type", svc.Type()))
 	o.registrar.register(svc)
-	o.disconnectObservers = append(o.disconnectObservers, svc.OnChange(o.resourceObserver.Notify))
+	o.disconnectObservers = append(
+		o.disconnectObservers,
+		svc.OnChange(o.resourceObserver.Notify),
+	)
 }
 
+// Close closes the ontology and all of its observers and releases all resources.
 func (o *Ontology) Close() error {
 	for _, d := range o.disconnectObservers {
 		d()
