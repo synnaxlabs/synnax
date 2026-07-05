@@ -130,10 +130,13 @@ func (s *Service) AddChildren(
 		return types.Nil{}, err
 	}
 	w := s.ontology.NewWriter(tx)
-	for _, child := range req.Children {
-		if err := w.DefineRelationships(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
-			return types.Nil{}, err
-		}
+	if err := w.DefineRelationships(
+		ctx,
+		req.ID,
+		ontology.RelationshipTypeParentOf,
+		req.Children...,
+	); err != nil {
+		return types.Nil{}, err
 	}
 	return types.Nil{}, nil
 }
@@ -157,7 +160,11 @@ func (s *Service) RemoveChildren(
 	}
 	w := s.ontology.NewWriter(tx)
 	for _, child := range req.Children {
-		if err := w.DeleteRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
+		if err := w.DeleteRelationships(ctx, ontology.Relationship{
+			From: req.ID,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   child,
+		}); err != nil {
 			return types.Nil{}, err
 		}
 	}
@@ -184,7 +191,11 @@ func (s *Service) MoveChildren(
 	}
 	w := s.ontology.NewWriter(tx)
 	for _, child := range req.Children {
-		if err := w.DeleteRelationship(ctx, req.From, ontology.RelationshipTypeParentOf, child); err != nil {
+		if err := w.DeleteRelationships(ctx, ontology.Relationship{
+			From: req.From,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   child,
+		}); err != nil {
 			return types.Nil{}, err
 		}
 		if err := w.DefineRelationships(ctx, req.To, ontology.RelationshipTypeParentOf, child); err != nil {

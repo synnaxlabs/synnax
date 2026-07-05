@@ -84,7 +84,11 @@ func (w Writer) RemoveLabel(
 	labels []Key,
 ) error {
 	for _, label := range labels {
-		if err := w.otg.DeleteRelationship(ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label)); err != nil {
+		if err := w.otg.DeleteRelationships(ctx, ontology.Relationship{
+			From: target,
+			Type: OntologyRelationshipTypeLabeledBy,
+			To:   OntologyID(label),
+		}); err != nil {
 			return err
 		}
 	}

@@ -77,5 +77,9 @@ func (w Writer) AssignRole(ctx context.Context, subject ontology.ID, role Key) e
 // UnassignRole removes a role from a subject by deleting the ontology relationship. If
 // the relationship does not exist, this is a no-op.
 func (w Writer) UnassignRole(ctx context.Context, subject ontology.ID, role Key) error {
-	return w.otg.DeleteRelationship(ctx, OntologyID(role), ontology.RelationshipTypeParentOf, subject)
+	return w.otg.DeleteRelationships(ctx, ontology.Relationship{
+		From: OntologyID(role),
+		Type: ontology.RelationshipTypeParentOf,
+		To:   subject,
+	})
 }

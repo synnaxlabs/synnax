@@ -211,7 +211,11 @@ var _ = Describe("Writer", func() {
 		Describe("Deleting a Relationship", func() {
 			It("Should delete a relationship by its ID", func(ctx SpecContext) {
 				Expect(w.DefineRelationships(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
-				Expect(w.DeleteRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
+				Expect(w.DeleteRelationships(ctx, ontology.Relationship{
+					From: idOne,
+					Type: ontology.RelationshipTypeParentOf,
+					To:   idTwo,
+				})).To(Succeed())
 				var res []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(idOne).

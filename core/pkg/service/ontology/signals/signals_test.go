@@ -247,7 +247,11 @@ var _ = Describe("Signals", func() {
 		By("Creating the relationship")
 		Expect(w.DefineRelationships(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
 		By("Deleting the relationship")
-		Expect(w.DeleteRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
+		Expect(w.DeleteRelationships(ctx, ontology.Relationship{
+			From: firstResource,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   secondResource,
+		})).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		By("Decoding the relationships")

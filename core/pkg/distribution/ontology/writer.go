@@ -106,15 +106,12 @@ func (w Writer) DefineRelationships(
 	return w.relationshipTable.NewCreate().Entries(&rels).Exec(ctx, w.tx)
 }
 
-// DeleteRelationship deletes the relationship with the given keys and type. If the
-// relationship does not exist, DeleteRelationship does nothing.
-func (w Writer) DeleteRelationship(
-	ctx context.Context,
-	from ID,
-	t RelationshipType,
-	to ID,
-) error {
-	return w.relationshipTable.NewDelete().Where(gorp.MatchKeys[string, Relationship](Relationship{From: from, To: to, Type: t}.GorpKey())).
+// DeleteRelationships deletes the given relationships. Relationships that do not exist
+// are silently skipped.
+func (w Writer) DeleteRelationships(ctx context.Context, rels ...Relationship) error {
+	keys := lo.Map(rels, func(rel Relationship, _ int) string { return rel.GorpKey() })
+	return w.relationshipTable.NewDelete().
+		Where(gorp.MatchKeys[string, Relationship](keys...)).
 		Exec(ctx, w.tx)
 }
 

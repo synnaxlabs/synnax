@@ -187,12 +187,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		// delete any existing relationships between the parent Channels group and the
 		// metrics channels
 		for _, ch := range metricsChannels {
-			if err = otgWriter.DeleteRelationship(
-				ctx,
-				cfg.Channel.Group().OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				ch.OntologyID(),
-			); err != nil {
+			if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+				From: cfg.Channel.Group().OntologyID(),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   ch.OntologyID(),
+			}); err != nil {
 				return err
 			}
 		}
