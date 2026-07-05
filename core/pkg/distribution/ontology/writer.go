@@ -67,23 +67,20 @@ func (w Writer) DeleteResource(ctx context.Context, ids ...ID) error {
 }
 
 // DefineRelationship defines a directional relationship of type t from the resource
-// with the given from ID to one or more to IDs. Already-existing relationships are
-// silently skipped. Returns graph.ErrCyclicDependency if any of the new relationships
+// with the given from [ID] to one or more to [ID]s. Already-existing relationships are
+// silently skipped. Returns [graph.ErrCyclicDependency] if any of the new relationships
 // would create a cycle (including the case where the reverse-direction relationship
-// already exists). Returns nil if no to IDs are provided.
+// already exists).
 func (w Writer) DefineRelationship(
 	ctx context.Context,
 	from ID,
 	t RelationshipType,
 	to ...ID,
 ) error {
-	if len(to) == 0 {
-		return nil
-	}
-	to = lo.Uniq(to)
 	if err := w.validateResourcesExist(ctx, from); err != nil {
 		return err
 	}
+	to = lo.Uniq(to)
 	if err := w.validateResourcesExist(ctx, to...); err != nil {
 		return err
 	}
@@ -105,9 +102,6 @@ func (w Writer) DefineRelationship(
 			return graph.ErrCyclicDependency
 		}
 		rels = append(rels, rel)
-	}
-	if len(rels) == 0 {
-		return nil
 	}
 	return w.relationshipTable.NewCreate().Entries(&rels).Exec(ctx, w.tx)
 }

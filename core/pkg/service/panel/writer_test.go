@@ -161,10 +161,18 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).To(Succeed())
 			Expect(otg.RelationshipExists(
-				ctx, tx, parentID, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[0].Key),
+				ctx,
+				tx,
+				parentID,
+				ontology.RelationshipTypeParentOf,
+				panel.OntologyID(ps[0].Key),
 			)).To(BeTrue())
 			Expect(otg.RelationshipExists(
-				ctx, tx, other, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[1].Key),
+				ctx,
+				tx,
+				other,
+				ontology.RelationshipTypeParentOf,
+				panel.OntologyID(ps[1].Key),
 			)).To(BeTrue())
 		})
 
