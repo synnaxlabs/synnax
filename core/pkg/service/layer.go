@@ -79,7 +79,7 @@ type LayerConfig struct {
 	// [OPTIONAL]
 	RootCredentials auth.Credentials
 	// Verifier is for verifying. Magic.
-
+	//
 	// [OPTIONAL] - Defaults to "".
 	Verifier string
 	// ValidateChannelNames enables channel name validation during creation and
