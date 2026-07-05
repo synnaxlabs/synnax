@@ -75,6 +75,7 @@ HEADER_HASH_ONE=$(generate_line_header "#" 1)
 HEADER_C_STYLE=$(generate_block_header "/*" " *" " * " " */")
 HEADER_HTML=$(generate_block_header "<!--" "" "  " "  -->")
 HEADER_REM=$(generate_line_header "rem" 1)
+HEADER_SEMI=$(generate_line_header ";" 1)
 
 # Read .copyrightignore patterns
 declare -a IGNORE_PATTERNS
@@ -103,18 +104,20 @@ has_supported_extension() {
     local file="$1"
     local ext="${file##*.}"
     case "$ext" in
-        go | py | pyi | ts | tsx | js | jsx | c | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | xml | svg | proto | g4 | glsl | bazel | bzl | ps1 | cmd | yaml | yml) return 0 ;;
+        go | py | pyi | ts | tsx | js | jsx | c | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | xml | svg | proto | g4 | glsl | bazel | bzl | ps1 | cmd | yaml | yml | arc | astro | toml | nsi | def) return 0 ;;
         *) return 1 ;;
     esac
 }
 
 # Resolve per-extension header properties into globals: HEADER, HEADER_LINES,
 # LEADING_LINE_RE (a regex; when non-empty and the file's first line matches
-# it, that line is preserved above the header — shebangs, and the cmd `@echo
-# off` directive that must stay first to suppress command echo), and
-# TRAILING_BLANK (1 if the canonical layout puts a blank line between the
-# header and the file body, 0 otherwise). HEADER_LINES describes the canonical
-# new header — the size of an *existing* header is detected dynamically.
+# it, that line is preserved above the header — shebangs, the cmd `@echo off`
+# directive that must stay first to suppress command echo, and the astro `---`
+# frontmatter fence that must open the file, with the header living inside the
+# frontmatter as a // comment), and TRAILING_BLANK (1 if the canonical layout
+# puts a blank line between the header and the file body, 0 otherwise).
+# HEADER_LINES describes the canonical new header — the size of an *existing*
+# header is detected dynamically.
 resolve_header_for_ext() {
     local ext="$1"
     LEADING_LINE_RE=""
@@ -130,9 +133,20 @@ resolve_header_for_ext() {
             LEADING_LINE_RE='^#!'
             TRAILING_BLANK=1
             ;;
-        ps1 | bazel | bzl | yaml | yml)
+        ps1 | bazel | bzl | yaml | yml | toml)
             HEADER="$HEADER_HASH_ONE"
             HEADER_LINES=8
+            TRAILING_BLANK=1
+            ;;
+        nsi | def)
+            HEADER="$HEADER_SEMI"
+            HEADER_LINES=8
+            TRAILING_BLANK=1
+            ;;
+        astro)
+            HEADER="$HEADER_SLASHES"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^---$'
             TRAILING_BLANK=1
             ;;
         cmd)
@@ -273,6 +287,7 @@ locate_existing_header() {
             case "$first_line" in
                 "//"*) prefix="//" ;;
                 "#"*) prefix="#" ;;
+                ";"*) prefix=";" ;;
                 "rem "*) prefix="rem" ;;
                 *) prefix="" ;;
             esac
@@ -305,9 +320,9 @@ process_file() {
 
     read_whole_file "$file"
 
-    # Detect a preserved leading line (shebang, or the cmd `@echo off`
-    # directive). The canonical layout always restores: leading line / blank /
-    # header / [blank] / body.
+    # Detect a preserved leading line (shebang, the cmd `@echo off` directive,
+    # or the astro `---` frontmatter fence). The canonical layout always
+    # restores: leading line / blank / header / [blank] / body.
     local has_leading=0
     if [ -n "$LEADING_LINE_RE" ] && [ ${#LINES[@]} -gt 0 ]; then
         if [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then

@@ -91,6 +91,7 @@ EXPECTED_HEADER_HASH_ONE=$(generate_line_header "#" 1)
 EXPECTED_HEADER_C_STYLE=$(generate_block_header "/*" " *" " * " " */")
 EXPECTED_HEADER_HTML=$(generate_block_header "<!--" "" "  " "  -->")
 EXPECTED_HEADER_REM=$(generate_line_header "rem" 1)
+EXPECTED_HEADER_SEMI=$(generate_line_header ";" 1)
 
 # Read .copyrightignore patterns
 declare -a IGNORE_PATTERNS
@@ -123,7 +124,9 @@ should_ignore_file() {
 # when the canonical layout requires a blank line between the header and the
 # file body. LEADING_LINE_RE is a regex; when non-empty and the file's first
 # line matches it, that line is preserved above the header (shebangs, the cmd
-# `@echo off` directive that must stay first to suppress command echo).
+# `@echo off` directive that must stay first to suppress command echo, and the
+# astro `---` frontmatter fence that must open the file — the header then lives
+# inside the frontmatter as a // comment).
 resolve_header_for_ext() {
     local ext="$1"
     LEADING_LINE_RE=""
@@ -139,9 +142,20 @@ resolve_header_for_ext() {
             LEADING_LINE_RE='^#!'
             TRAILING_BLANK=1
             ;;
-        ps1 | bazel | bzl | yaml | yml)
+        ps1 | bazel | bzl | yaml | yml | toml)
             EXPECTED_HEADER="$EXPECTED_HEADER_HASH_ONE"
             HEADER_LINES=8
+            TRAILING_BLANK=1
+            ;;
+        nsi | def)
+            EXPECTED_HEADER="$EXPECTED_HEADER_SEMI"
+            HEADER_LINES=8
+            TRAILING_BLANK=1
+            ;;
+        astro)
+            EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^---$'
             TRAILING_BLANK=1
             ;;
         cmd)
@@ -353,7 +367,7 @@ while IFS= read -r file; do
     fi
     ext="${file##*.}"
     case "$ext" in
-        go | py | pyi | ts | tsx | js | jsx | c | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | xml | svg | proto | g4 | glsl | bazel | bzl | ps1 | cmd | yaml | yml)
+        go | py | pyi | ts | tsx | js | jsx | c | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | xml | svg | proto | g4 | glsl | bazel | bzl | ps1 | cmd | yaml | yml | arc | astro | toml | nsi | def)
             if ! should_ignore_file "$abs_file"; then
                 [ -f "$abs_file" ] && FILES_TO_CHECK+=("$abs_file")
             fi
