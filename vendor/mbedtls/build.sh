@@ -7,7 +7,6 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-#
 curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
 tar -xjf mbedtls-3.6.0.tar.bz2
 mv mbedtls-3.6.0 mbedtls

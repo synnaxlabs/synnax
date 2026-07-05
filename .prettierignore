@@ -1,9 +1,14 @@
-vendor
+# Third-party vendored submodules. Our own files under vendor/ are formatted.
+vendor/open62541/open62541/
+vendor/mbedtls/mbedtls/
+vendor/wasmtime/wasmtime/
+vendor/libmodbus/libmodbus/
+vendor/soem/SOEM/
+
 pnpm-lock.yaml
 pnpm-workspace.yaml
 *.mod
 *.rs
-compile_commands.json
 *.lock
 
 # Docker files
