@@ -33,8 +33,9 @@ func createPanel(ctx context.Context, name string) panel.Panel {
 }
 
 func hasParent(ctx context.Context, parent ontology.ID, key panel.Key) bool {
-	return MustSucceed(otg.NewWriter(nil).HasRelationship(
+	return MustSucceed(otg.RelationshipExists(
 		ctx,
+		nil,
 		parent,
 		ontology.RelationshipTypeParentOf,
 		panel.OntologyID(key),

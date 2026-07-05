@@ -46,7 +46,7 @@ import (
 
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
-	Config
+	cfg                  Config
 	ResourceObserver     observe.Observer[iter.Seq[Change]]
 	RelationshipObserver observe.Observable[gorp.TxReader[string, Relationship]]
 	registrar            serviceRegistrar
@@ -116,7 +116,7 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 		return nil, err
 	}
 	o = &Ontology{
-		Config:           cfg,
+		cfg:              cfg,
 		ResourceObserver: observe.New[iter.Seq[Change]](),
 		registrar:        serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
 		relIndexes:       newRelationshipIndexes(),
@@ -158,10 +158,25 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 // transaction does not root from the same database as the Ontology.
 func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:                o.DB.OverrideTx(tx),
+		tx:                o.cfg.DB.OverrideTx(tx),
 		resourceTable:     o.resourceTable,
 		relationshipTable: o.relationshipTable,
 	}
+}
+
+// RelationshipExists reports whether a relationship of type t from the resource with
+// the given from ID to the resource with the given to ID exists in the ontology. Reads
+// are executed against tx, falling back to the underlying database when tx is nil.
+func (o *Ontology) RelationshipExists(
+	ctx context.Context,
+	tx gorp.Tx,
+	from ID,
+	t RelationshipType,
+	to ID,
+) (bool, error) {
+	return o.relationshipTable.NewRetrieve().
+		Where(gorp.MatchKeys[string, Relationship](Relationship{From: from, Type: t, To: to}.GorpKey())).
+		Exists(ctx, o.cfg.DB.OverrideTx(tx))
 }
 
 // RegisterService registers a Service for a particular [Type] with the [Ontology].
@@ -169,7 +184,7 @@ func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 // provided Service. RegisterService panics if a Service is already registered for the
 // given Type.
 func (o *Ontology) RegisterService(svc Service) {
-	o.L.Debug("registering service", zap.Stringer("type", svc.Type()))
+	o.cfg.L.Debug("registering service", zap.Stringer("type", svc.Type()))
 	o.registrar.register(svc)
 	o.disconnectObservers = append(o.disconnectObservers, svc.OnChange(o.ResourceObserver.Notify))
 }

@@ -49,8 +49,9 @@ var _ = Describe("Writer", func() {
 		It("Should establish a ParentOf relationship to the project", func(ctx SpecContext) {
 			l := log.Log{Name: "with-proj"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
+			Expect(otg.RelationshipExists(
 				ctx,
+				tx,
 				project.OntologyID(proj.Key),
 				ontology.RelationshipTypeParentOf,
 				log.OntologyID(l.Key),
@@ -60,8 +61,9 @@ var _ = Describe("Writer", func() {
 		It("Should skip the project ParentOf relationship when proj is uuid.Nil", func(ctx SpecContext) {
 			l := log.Log{Name: "no-proj"}
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &l)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
+			Expect(otg.RelationshipExists(
 				ctx,
+				tx,
 				project.OntologyID(proj.Key),
 				ontology.RelationshipTypeParentOf,
 				log.OntologyID(l.Key),

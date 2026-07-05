@@ -22,16 +22,15 @@ import (
 )
 
 // Writer defines and deletes resources and relationships within the ontology. It is a
-// key-value backed directed acyclic graph. Open one with Ontology.NewWriter.
+// key-value backed directed acyclic graph. Open one with [Ontology.NewWriter].
 type Writer struct {
 	tx                gorp.Tx
 	resourceTable     *gorp.Table[string, Resource]
 	relationshipTable *gorp.Table[string, Relationship]
 }
 
-// DefineResource defines one or more new resources with the given IDs. If any of the
-// resources already exist, DefineResource does nothing for those. Returns nil if no IDs
-// are provided.
+// DefineResource defines one or more new resources with the given [ID]s. If any of the
+// resources already exist, DefineResource does nothing for those.
 func (w Writer) DefineResource(ctx context.Context, ids ...ID) error {
 	resources, err := lo.MapErr(ids, func(id ID, _ int) (Resource, error) {
 		if id.Key == "" {
@@ -48,28 +47,23 @@ func (w Writer) DefineResource(ctx context.Context, ids ...ID) error {
 	return w.resourceTable.NewCreate().Entries(&resources).Exec(ctx, w.tx)
 }
 
-// DeleteResource deletes one or more resources with the given IDs along with all of
-// their incoming and outgoing relationships. If any of the resources do not exist,
-// DeleteResource does nothing for those. Returns nil if no IDs are provided.
+// DeleteResource deletes one or more resources with the given [ID]s along with all of
+// their incoming and outgoing [Relationship]s.
 func (w Writer) DeleteResource(ctx context.Context, ids ...ID) error {
-	for _, id := range ids {
+	keys, err := lo.MapErr(ids, func(id ID, _ int) (string, error) {
 		if err := w.deleteIncomingRelationships(ctx, id); err != nil {
-			return err
+			return "", err
 		}
 		if err := w.deleteOutgoingRelationships(ctx, id); err != nil {
-			return err
+			return "", err
 		}
+		return id.String(), nil
+	})
+	if err != nil {
+		return err
 	}
 	return w.resourceTable.NewDelete().
-		Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).Exec(ctx, w.tx)
-}
-
-func (w Writer) HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error) {
-	return w.checkRelationshipExists(ctx, Relationship{
-		From: from,
-		Type: t,
-		To:   to,
-	})
+		Where(gorp.MatchKeys[string, Resource](keys...)).Exec(ctx, w.tx)
 }
 
 // DefineRelationship defines a directional relationship of type t from the resource

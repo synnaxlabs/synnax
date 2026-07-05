@@ -14,6 +14,7 @@ import (
 	"io"
 	"iter"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -25,9 +26,10 @@ import (
 )
 
 // Publish publishes changes from the provided ontology into the provided
-// signals.Provider.
+// signals.Provider. ins is used to report unexpected marshaling failures.
 func Publish(
 	ctx context.Context,
+	ins alamos.Instrumentation,
 	prov *signals.Provider,
 	otg *ontology.Ontology,
 ) (io.Closer, error) {
@@ -48,7 +50,7 @@ func Publish(
 				if ch.Variant == change.VariantSet {
 					key, err = signals.MarshalJSON(ch.Value)
 					if err != nil {
-						otg.L.DPanic(
+						ins.L.DPanic(
 							"unexpected failure to marshal ontology resource set",
 							zap.Error(err),
 						)

@@ -98,8 +98,9 @@ var _ = Describe("Writer", func() {
 		It("Should parent the panel to the provided parent", func(ctx SpecContext) {
 			p := panel.Panel{Name: "with-parent", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
+			Expect(otg.RelationshipExists(
 				ctx,
+				tx,
 				parentID,
 				ontology.RelationshipTypeParentOf,
 				panel.OntologyID(p.Key),
@@ -109,8 +110,9 @@ var _ = Describe("Writer", func() {
 		It("Should create a panel with no parent relationship when parent is absent", func(ctx SpecContext) {
 			p := panel.Panel{Name: "draft"}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
+			Expect(otg.RelationshipExists(
 				ctx,
+				tx,
 				parentID,
 				ontology.RelationshipTypeParentOf,
 				panel.OntologyID(p.Key),
@@ -158,11 +160,11 @@ var _ = Describe("Writer", func() {
 				{Name: "b", Parent: &other},
 			}
 			Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx, parentID, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[0].Key),
+			Expect(otg.RelationshipExists(
+				ctx, tx, parentID, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[0].Key),
 			)).To(BeTrue())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx, other, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[1].Key),
+			Expect(otg.RelationshipExists(
+				ctx, tx, other, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[1].Key),
 			)).To(BeTrue())
 		})
 
