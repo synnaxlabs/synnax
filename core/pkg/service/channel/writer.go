@@ -379,6 +379,8 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
 		}
 	}
+	// The lock is held across the table write so the overflow check, write, and set
+	// update are atomic: concurrent creates cannot interleave and exceed the cap.
 	w.svc.mu.Lock()
 	count := w.svc.mu.externalNonVirtualSet.Size()
 	if err := w.svc.cfg.IntOverflowCheck(types.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
