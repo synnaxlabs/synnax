@@ -10,14 +10,3 @@ pnpm-workspace.yaml
 *.mod
 *.rs
 *.lock
-
-# Docker files
-Dockerfile
-Dockerfile.*
-**/Dockerfile
-**/Dockerfile.*
-.dockerignore
-
-# Claude Code skill files contain shell command placeholders like <run-id>
-# inside fenced code blocks; prettier's shell formatter mangles them.
-.claude/skills/**/*.md
