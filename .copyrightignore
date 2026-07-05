@@ -7,7 +7,14 @@
 **/nisyscfg_errors.h
 **/nisyscfg.h
 **/nidaqmx.h
-vendor/**
+
+# Third-party vendored submodules. Our own files under vendor/ (Bazel glue, the
+# SOEM macOS port, etc.) are intentionally NOT ignored so they get headers.
+vendor/open62541/open62541/**
+vendor/mbedtls/mbedtls/**
+vendor/wasmtime/wasmtime/**
+vendor/libmodbus/libmodbus/**
+vendor/soem/SOEM/**
 
 # IgH EtherCAT Master
 driver/ethercat/igh/ecrt.h

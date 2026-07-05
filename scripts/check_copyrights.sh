@@ -90,6 +90,7 @@ EXPECTED_HEADER_HASH_TWO=$(generate_line_header "#" 2)
 EXPECTED_HEADER_HASH_ONE=$(generate_line_header "#" 1)
 EXPECTED_HEADER_C_STYLE=$(generate_block_header "/*" " *" " * " " */")
 EXPECTED_HEADER_HTML=$(generate_block_header "<!--" "" "  " "  -->")
+EXPECTED_HEADER_REM=$(generate_line_header "rem" 1)
 
 # Read .copyrightignore patterns
 declare -a IGNORE_PATTERNS
@@ -120,44 +121,59 @@ should_ignore_file() {
 
 # Resolve per-extension header properties into globals. TRAILING_BLANK is 1
 # when the canonical layout requires a blank line between the header and the
-# file body.
+# file body. LEADING_LINE_RE is a regex; when non-empty and the file's first
+# line matches it, that line is preserved above the header (shebangs, the cmd
+# `@echo off` directive, the glsl `#version` directive).
 resolve_header_for_ext() {
     local ext="$1"
+    LEADING_LINE_RE=""
     case "$ext" in
-        py)
+        py | pyi)
             EXPECTED_HEADER="$EXPECTED_HEADER_HASH_TWO"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
         sh | zsh)
             EXPECTED_HEADER="$EXPECTED_HEADER_HASH_ONE"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=1
+            LEADING_LINE_RE='^#!'
+            TRAILING_BLANK=1
+            ;;
+        ps1 | bazel | bzl)
+            EXPECTED_HEADER="$EXPECTED_HEADER_HASH_ONE"
+            HEADER_LINES=8
+            TRAILING_BLANK=1
+            ;;
+        cmd)
+            EXPECTED_HEADER="$EXPECTED_HEADER_REM"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^@[Ee][Cc][Hh][Oo]'
+            TRAILING_BLANK=1
+            ;;
+        glsl)
+            EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^#version'
             TRAILING_BLANK=1
             ;;
         css)
             EXPECTED_HEADER="$EXPECTED_HEADER_C_STYLE"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
-        html)
+        html | xml)
             EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
         svg)
             EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=0
             ;;
         *)
             EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
     esac
@@ -202,11 +218,11 @@ classify_file() {
         return
     fi
 
-    # Canonical layout: [shebang / blank /] header / [blank /] body. Header
-    # starts at index 0 normally; on a shebang file, at index 2 iff line 2 is
-    # blank.
+    # Canonical layout: [leading line / blank /] header / [blank /] body. Header
+    # starts at index 0 normally; when a leading line is preserved, at index 2
+    # iff line 2 is blank.
     local header_start_idx=0
-    if [ "$SUPPORTS_SHEBANG" = "1" ] && [[ "${LINES[0]}" =~ ^#! ]]; then
+    if [ -n "$LEADING_LINE_RE" ] && [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
         if [ -z "${LINES[1]:-}" ]; then
             header_start_idx=2
         else
@@ -282,16 +298,29 @@ classify_file() {
         return
     fi
 
-    # Duplicate check: count "Copyright ... Synnax Labs" occurrences in the
-    # first 20 lines. Guards against code generators that bake a header into
-    # template strings near the top of the file.
+    # Duplicate check: count header copyright lines in the first 20 lines to
+    # guard against a header accidentally emitted twice. Only lines that *begin*
+    # with the notice (after stripping a leading comment marker and whitespace)
+    # count — a line that merely embeds the notice as data, such as the
+    # JetBrains copyright-profile XML's value="Copyright ..." attribute, is not
+    # a second header and must not trip this check.
     local dup_limit=20
     if [ $dup_limit -gt ${#LINES[@]} ]; then
         dup_limit=${#LINES[@]}
     fi
     local copyright_count=0
     for ((i = 0; i < dup_limit; i++)); do
-        if [[ "${LINES[i]}" == *"Copyright"*"Synnax Labs"* ]]; then
+        local dl="${LINES[i]}"
+        dl="${dl#"${dl%%[![:space:]]*}"}"
+        case "$dl" in
+            "//"*) dl="${dl#//}" ;;
+            "#"*) dl="${dl#\#}" ;;
+            "*"*) dl="${dl#\*}" ;;
+            "~"*) dl="${dl#\~}" ;;
+            "rem "*) dl="${dl#rem}" ;;
+        esac
+        dl="${dl#"${dl%%[![:space:]]*}"}"
+        if [[ "$dl" == "Copyright"*"Synnax Labs"* ]]; then
             copyright_count=$((copyright_count + 1))
         fi
     done
@@ -330,7 +359,7 @@ while IFS= read -r file; do
     fi
     ext="${file##*.}"
     case "$ext" in
-        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | svg)
+        go | py | pyi | ts | tsx | js | jsx | c | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | xml | svg | proto | g4 | glsl | bazel | bzl | ps1 | cmd)
             if ! should_ignore_file "$abs_file"; then
                 [ -f "$abs_file" ] && FILES_TO_CHECK+=("$abs_file")
             fi

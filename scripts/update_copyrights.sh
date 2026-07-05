@@ -74,6 +74,7 @@ HEADER_HASH_TWO=$(generate_line_header "#" 2)
 HEADER_HASH_ONE=$(generate_line_header "#" 1)
 HEADER_C_STYLE=$(generate_block_header "/*" " *" " * " " */")
 HEADER_HTML=$(generate_block_header "<!--" "" "  " "  -->")
+HEADER_REM=$(generate_line_header "rem" 1)
 
 # Read .copyrightignore patterns
 declare -a IGNORE_PATTERNS
@@ -102,53 +103,68 @@ has_supported_extension() {
     local file="$1"
     local ext="${file##*.}"
     case "$ext" in
-        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | svg) return 0 ;;
+        go | py | pyi | ts | tsx | js | jsx | c | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | xml | svg | proto | g4 | glsl | bazel | bzl | ps1 | cmd) return 0 ;;
         *) return 1 ;;
     esac
 }
 
 # Resolve per-extension header properties into globals: HEADER, HEADER_LINES,
-# SUPPORTS_SHEBANG (1 if the extension preserves a leading #! line), and
-# TRAILING_BLANK (1 if the canonical layout puts a blank line between the
-# header and the file body, 0 otherwise). HEADER_LINES describes the canonical
-# new header — the size of an *existing* header is detected dynamically.
+# LEADING_LINE_RE (a regex; when non-empty and the file's first line matches
+# it, that line is preserved above the header — shebangs, the cmd `@echo off`
+# directive, the glsl `#version` directive), and TRAILING_BLANK (1 if the
+# canonical layout puts a blank line between the header and the file body, 0
+# otherwise). HEADER_LINES describes the canonical new header — the size of an
+# *existing* header is detected dynamically.
 resolve_header_for_ext() {
     local ext="$1"
+    LEADING_LINE_RE=""
     case "$ext" in
-        py)
+        py | pyi)
             HEADER="$HEADER_HASH_TWO"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
         sh | zsh)
             HEADER="$HEADER_HASH_ONE"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=1
+            LEADING_LINE_RE='^#!'
+            TRAILING_BLANK=1
+            ;;
+        ps1 | bazel | bzl)
+            HEADER="$HEADER_HASH_ONE"
+            HEADER_LINES=8
+            TRAILING_BLANK=1
+            ;;
+        cmd)
+            HEADER="$HEADER_REM"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^@[Ee][Cc][Hh][Oo]'
+            TRAILING_BLANK=1
+            ;;
+        glsl)
+            HEADER="$HEADER_SLASHES"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^#version'
             TRAILING_BLANK=1
             ;;
         css)
             HEADER="$HEADER_C_STYLE"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
-        html)
+        html | xml)
             HEADER="$HEADER_HTML"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
         svg)
             HEADER="$HEADER_HTML"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=0
             ;;
         *)
             HEADER="$HEADER_SLASHES"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
     esac
@@ -263,6 +279,7 @@ locate_existing_header() {
             case "$first_line" in
                 "//"*) prefix="//" ;;
                 "#"*) prefix="#" ;;
+                "rem "*) prefix="rem" ;;
                 *) prefix="" ;;
             esac
             if [ -n "$prefix" ]; then
@@ -294,15 +311,16 @@ process_file() {
 
     read_whole_file "$file"
 
-    # Detect a leading shebang on shell scripts. The canonical layout always
-    # restores: shebang / blank / header / [blank] / body.
-    local has_shebang=0
-    if [ "$SUPPORTS_SHEBANG" = "1" ] && [ ${#LINES[@]} -gt 0 ]; then
-        if [[ "${LINES[0]}" =~ ^#! ]]; then
-            has_shebang=1
+    # Detect a preserved leading line (shebang, cmd `@echo off`, glsl
+    # `#version`). The canonical layout always restores: leading line / blank /
+    # header / [blank] / body.
+    local has_leading=0
+    if [ -n "$LEADING_LINE_RE" ] && [ ${#LINES[@]} -gt 0 ]; then
+        if [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
+            has_leading=1
         fi
     fi
-    local scan_start_idx=$has_shebang
+    local scan_start_idx=$has_leading
 
     locate_existing_header "$scan_start_idx"
     local has_copyright=$OLD_HEADER_FOUND
@@ -353,7 +371,7 @@ process_file() {
         && [ "$old_copyright_year" = "$CURRENT_YEAR" ] \
         && [ "$between_start" = "-1" ]; then
         local canonical_header_start_idx=$scan_start_idx
-        if [ "$has_shebang" = "1" ]; then
+        if [ "$has_leading" = "1" ]; then
             local line2=""
             if [ ${#LINES[@]} -ge 2 ]; then
                 line2="${LINES[1]}"
@@ -421,7 +439,7 @@ process_file() {
     local temp_file
     temp_file=$(mktemp)
     {
-        if [ "$has_shebang" = "1" ]; then
+        if [ "$has_leading" = "1" ]; then
             printf '%s\n\n' "${LINES[0]}"
         fi
         printf '%s\n' "$new_header"
