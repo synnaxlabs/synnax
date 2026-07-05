@@ -63,14 +63,9 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 // Label assigns a set of labels to the target resource. If the target resource already
 // has labels, Label will add the new labels to the existing set.
 func (w Writer) Label(ctx context.Context, target ontology.ID, labels []Key) error {
-	for _, label := range labels {
-		if err := w.otg.DefineRelationships(
-			ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label),
-		); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DefineRelationships(
+		ctx, target, OntologyRelationshipTypeLabeledBy, OntologyIDs(labels)...,
+	)
 }
 
 // Clear removes all labels from the target resource.
