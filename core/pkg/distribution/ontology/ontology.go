@@ -164,6 +164,14 @@ func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
+// NewRetrieve opens a new Retrieve query, which can be used to traverse and read
+// resources from the underlying ontology.
+func (o *Ontology) NewRetrieve() Retrieve {
+	return newRetrieve(
+		o.registrar, o.cfg.DB, o.resourceTable, o.relationshipTable, o.relIndexes,
+	)
+}
+
 // RelationshipExists reports whether a relationship of type t from the resource with
 // the given from ID to the resource with the given to ID exists in the ontology. Reads
 // are executed against tx, falling back to the underlying database when tx is nil.

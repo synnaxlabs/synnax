@@ -50,14 +50,6 @@ func (r Retrieve) setCurrentClause(c clause) Retrieve {
 	return r
 }
 
-// NewRetrieve opens a new Retrieve query, which can be used to traverse and read
-// resources from the underlying ontology.
-func (o *Ontology) NewRetrieve() Retrieve {
-	return newRetrieve(
-		o.registrar, o.cfg.DB, o.resourceTable, o.relationshipTable, o.relIndexes,
-	)
-}
-
 func newRetrieve(
 	registrar serviceRegistrar,
 	tx gorp.Tx,
