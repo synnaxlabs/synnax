@@ -33,13 +33,11 @@ func createPanel(ctx context.Context, name string) panel.Panel {
 }
 
 func hasParent(ctx context.Context, parent ontology.ID, key panel.Key) bool {
-	return MustSucceed(otg.RelationshipExists(
-		ctx,
-		nil,
-		parent,
-		ontology.RelationshipTypeParentOf,
-		panel.OntologyID(key),
-	))
+	return MustSucceed(otg.RelationshipExists(ctx, nil, ontology.Relationship{
+		From: parent,
+		Type: ontology.RelationshipTypeParentOf,
+		To:   panel.OntologyID(key),
+	}))
 }
 
 var _ = Describe("api.Service.Create", func() {

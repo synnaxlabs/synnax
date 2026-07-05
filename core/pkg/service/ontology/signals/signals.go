@@ -36,7 +36,7 @@ func Publish(
 	resourceObserver := observe.Translator[
 		iter.Seq[ontology.Change], []change.Change[[]byte, struct{}],
 	]{
-		Observable: otg.ResourceObserver,
+		Observable: otg.ObserveResources(),
 		Translate: func(
 			_ context.Context,
 			nexter iter.Seq[ontology.Change],
@@ -90,7 +90,7 @@ func Publish(
 		ctx,
 		prov,
 		signals.GorpPublisherConfig[string, ontology.Relationship]{
-			Observable:     otg.RelationshipObserver,
+			Observable:     otg.ObserveRelationships(),
 			SetName:        "sy_ontology_relationship_set",
 			DeleteName:     "sy_ontology_relationship_delete",
 			SetDataType:    telem.StringT,

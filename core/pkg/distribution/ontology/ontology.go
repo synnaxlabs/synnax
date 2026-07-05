@@ -44,51 +44,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// Ontology exposes an ontology stored in a key-value database for reading and writing.
-type Ontology struct {
-	cfg                  Config
-	ResourceObserver     observe.Observer[iter.Seq[Change]]
-	RelationshipObserver observe.Observable[gorp.TxReader[string, Relationship]]
-	registrar            serviceRegistrar
-	disconnectObservers  []observe.Disconnect
-	closer               io.MultiCloser
-	resourceTable        *gorp.Table[string, Resource]
-	relationshipTable    *gorp.Table[string, Relationship]
-	relIndexes           relationshipIndexes
-}
-
-// relationshipIndexes bundles the secondary indexes registered on the relationship
-// table. relByTo answers "given an ID, which relationships point at it" in O(1), which
-// is the lookup that ParentsTraverser would otherwise serve via a full pebble scan.
-// relByFrom is the symmetric from-keyed index used by ChildrenTraverser; it duplicates
-// work that the from-prefix scan already does cheaply, but having both directions in
-// the index lets the traverse dispatcher pick the index uniformly without
-// special-casing direction.
-type relationshipIndexes struct {
-	byTo   *gorp.LookupIndex[string, Relationship, ID]
-	byFrom *gorp.LookupIndex[string, Relationship, ID]
-}
-
-func newRelationshipIndexes() relationshipIndexes {
-	return relationshipIndexes{
-		byTo: gorp.NewLookupIndex(
-			"relationship_by_to",
-			func(r *Relationship) ID { return r.To },
-		),
-		byFrom: gorp.NewLookupIndex(
-			"relationship_by_from",
-			func(r *Relationship) ID { return r.From },
-		),
-	}
-}
-
-func (i relationshipIndexes) all() []gorp.Index[string, Relationship] {
-	return []gorp.Index[string, Relationship]{i.byTo, i.byFrom}
-}
-
+// Config is the configuration for opening an [Ontology].
 type Config struct {
+	// DB is the key-value database the ontology persists its resources and
+	// relationships to.
+	//
+	// [REQUIRED]
 	DB *gorp.DB
 	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
@@ -108,6 +73,18 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
+// Ontology exposes an ontology stored in a key-value database for reading and writing.
+type Ontology struct {
+	cfg                 Config
+	resourceObserver    observe.Observer[iter.Seq[Change]]
+	registrar           serviceRegistrar
+	disconnectObservers []observe.Disconnect
+	closer              io.MultiCloser
+	resourceTable       *gorp.Table[string, Resource]
+	relationshipTable   *gorp.Table[string, Relationship]
+	relIndexes          relationshipIndexes
+}
+
 // Open opens the ontology using the given configuration. If the RootID resource does
 // not exist, it will be created.
 func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
@@ -117,7 +94,7 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 	}
 	o = &Ontology{
 		cfg:              cfg,
-		ResourceObserver: observe.New[iter.Seq[Change]](),
+		resourceObserver: observe.New[iter.Seq[Change]](),
 		registrar:        serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
 		relIndexes:       newRelationshipIndexes(),
 	}
@@ -142,7 +119,6 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 	}); !ok(err, o.relationshipTable) {
 		return nil, err
 	}
-	o.RelationshipObserver = o.relationshipTable.Observe()
 
 	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.ErrNotFound) {
 		err = o.NewWriter(cfg.DB).DefineResources(ctx, RootID)
@@ -172,18 +148,28 @@ func (o *Ontology) NewRetrieve() Retrieve {
 	)
 }
 
-// RelationshipExists reports whether a relationship of type t from the resource with
-// the given from ID to the resource with the given to ID exists in the ontology. Reads
-// are executed against tx, falling back to the underlying database when tx is nil.
+// ObserveResources returns an observable that notifies callers of changes to the
+// resources in the ontology.
+func (o *Ontology) ObserveResources() observe.Observable[iter.Seq[Change]] {
+	return o.resourceObserver
+}
+
+// ObserveRelationships returns an observable that notifies callers of changes to the
+// relationships in the ontology.
+func (o *Ontology) ObserveRelationships() observe.Observable[gorp.TxReader[string, Relationship]] {
+	return o.relationshipTable.Observe()
+}
+
+// RelationshipExists reports whether the given relationship exists in the ontology.
+// Reads are executed against tx, falling back to the underlying database when tx is
+// nil.
 func (o *Ontology) RelationshipExists(
 	ctx context.Context,
 	tx gorp.Tx,
-	from ID,
-	t RelationshipType,
-	to ID,
+	rel Relationship,
 ) (bool, error) {
 	return o.relationshipTable.NewRetrieve().
-		Where(gorp.MatchKeys[string, Relationship](Relationship{From: from, Type: t, To: to}.GorpKey())).
+		Where(gorp.MatchKeys[string, Relationship](rel.GorpKey())).
 		Exists(ctx, o.cfg.DB.OverrideTx(tx))
 }
 
@@ -194,7 +180,7 @@ func (o *Ontology) RelationshipExists(
 func (o *Ontology) RegisterService(svc Service) {
 	o.cfg.L.Debug("registering service", zap.Stringer("type", svc.Type()))
 	o.registrar.register(svc)
-	o.disconnectObservers = append(o.disconnectObservers, svc.OnChange(o.ResourceObserver.Notify))
+	o.disconnectObservers = append(o.disconnectObservers, svc.OnChange(o.resourceObserver.Notify))
 }
 
 func (o *Ontology) Close() error {
@@ -202,4 +188,33 @@ func (o *Ontology) Close() error {
 		d()
 	}
 	return o.closer.Close()
+}
+
+// relationshipIndexes bundles the secondary indexes registered on the relationship
+// table. relByTo answers "given an ID, which relationships point at it" in O(1), which
+// is the lookup that ParentsTraverser would otherwise serve via a full pebble scan.
+// relByFrom is the symmetric from-keyed index used by ChildrenTraverser; it duplicates
+// work that the from-prefix scan already does cheaply, but having both directions in
+// the index lets the traverse dispatcher pick the index uniformly without
+// special-casing direction.
+type relationshipIndexes struct {
+	byTo   *gorp.LookupIndex[string, Relationship, ID]
+	byFrom *gorp.LookupIndex[string, Relationship, ID]
+}
+
+func newRelationshipIndexes() relationshipIndexes {
+	return relationshipIndexes{
+		byTo: gorp.NewLookupIndex(
+			"relationship_by_to",
+			func(r *Relationship) ID { return r.To },
+		),
+		byFrom: gorp.NewLookupIndex(
+			"relationship_by_from",
+			func(r *Relationship) ID { return r.From },
+		),
+	}
+}
+
+func (i relationshipIndexes) all() []gorp.Index[string, Relationship] {
+	return []gorp.Index[string, Relationship]{i.byTo, i.byFrom}
 }
