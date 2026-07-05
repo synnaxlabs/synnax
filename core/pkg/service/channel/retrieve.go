@@ -80,10 +80,11 @@ func allLiteralNames(names []string) bool {
 }
 
 func formatNameMatcher(name string) func(name string) bool {
-	if !strings.HasPrefix(name, "^") && !strings.HasSuffix(name, "$") {
-		name = "^" + name + "$"
+	pattern := name
+	if !strings.HasPrefix(pattern, "^") && !strings.HasSuffix(pattern, "$") {
+		pattern = "^" + pattern + "$"
 	}
-	rx, err := regexp.Compile(name)
+	rx, err := regexp.Compile(pattern)
 	if err != nil {
 		return func(s string) bool { return s == name }
 	}
