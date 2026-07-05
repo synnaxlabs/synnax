@@ -86,9 +86,10 @@ func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 	if len(types) == 1 {
 		c.Retrieve = c.WherePrefix([]byte(types[0].String()))
 	} else {
-		c.Retrieve = c.Where(gorp.Match(func(_ gorp.Context, r *Resource) (bool, error) {
-			return lo.Contains(types, r.ID.Type), nil
-		}))
+		c.Retrieve = c.Where(gorp.Match(
+			func(_ gorp.Context, r *Resource) (bool, error) {
+				return lo.Contains(types, r.ID.Type), nil
+			}))
 	}
 	return r.setCurrentClause(c)
 }
@@ -130,13 +131,13 @@ func (d Direction) GetID(rel *Relationship) ID {
 	return lo.Ternary(d == DirectionForward, rel.To, rel.From)
 }
 
-// RawTraversal is a callback that operates on raw orc-encoded relationship bytes.
-// It checks whether the row matches any of the target IDs and, if so, appends the
+// RawTraversal is a callback that operates on raw orc-encoded relationship bytes. It
+// checks whether the row matches any of the target IDs and, if so, appends the
 // resulting ID to nextIDs. This avoids decoding the relationship entirely.
 type RawTraversal func(data []byte, nextIDs *[]ID) error
 
-// RelationshipPrefix returns a FilterPrefix function that scopes traversal queries
-// to relationships of the given type originating from a specific resource.
+// RelationshipPrefix returns a FilterPrefix function that scopes traversal queries to
+// relationships of the given type originating from a specific resource.
 func RelationshipPrefix(relType RelationshipType) func(id ID) []byte {
 	suffix := []byte("->" + string(relType) + "->")
 	return func(id ID) []byte {
@@ -160,21 +161,20 @@ func ReadRawID(r orc.Raw) ID {
 type Traverser struct {
 	// FilterPrefix is an optional function that returns a prefix for efficient lookup.
 	// If nil, a full table scan will be used.
-	FilterPrefix func(id ID) []byte
-	// Traverse builds a raw byte callback for the given IDs that extracts
-	// matching relationship targets directly from encoded bytes without decoding.
-	// When set, traverseByScan uses this instead of Filter.
-	Traverse func(ids []ID) RawTraversal
+	FilterPrefix func(ID) []byte
+	// Traverse builds a raw byte callback for the given IDs that extracts matching
+	// relationship targets directly from encoded bytes without decoding. When set,
+	// traverseByScan uses this instead of Filter.
+	Traverse func([]ID) RawTraversal
 	// Direction is the direction of the traversal. See (Direction) for more.
 	Direction Direction
-	// Index, if set, is invoked instead of traverseByPrefix / traverseByScan
-	// and is expected to resolve the next-hop IDs by probing the relationship
-	// secondary index. The closure receives the current Retrieve and the
-	// open transaction so index probes honor per-tx delta overlays: a
-	// traverse inside a write tx must see relationships written earlier in
-	// the same tx, not just committed state. When nil the dispatcher falls
-	// back to FilterPrefix or a full scan.
-	Index func(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error)
+	// Index, if set, is invoked instead of traverseByPrefix / traverseByScan and is
+	// expected to resolve the next-hop IDs by probing the relationship secondary index.
+	// The closure receives the current Retrieve and the open transaction so index
+	// probes honor per-tx delta overlays: a traverse inside a write tx must see
+	// relationships written earlier in the same tx, not just committed state. When nil
+	// the dispatcher falls back to FilterPrefix or a full scan.
+	Index func(Retrieve, gorp.Tx, []ID) ([]ID, error)
 }
 
 var (
@@ -216,25 +216,25 @@ var (
 	}
 )
 
-// parentsByIndex is the index-backed implementation of ParentsTraverser. It
-// probes r.relIndexes.byTo (one O(1) lookup per source ID), parses each
-// matched relationship key (no KV fetch, no ORC decode), filters by
-// RelationshipTypeParentOf, and emits the From end as a next-hop ID.
+// parentsByIndex is the index-backed implementation of ParentsTraverser. It probes
+// r.relIndexes.byTo (one O(1) lookup per source ID), parses each matched relationship
+// key (no KV fetch, no ORC decode), filters by RelationshipTypeParentOf, and emits the
+// From end as a next-hop ID.
 //
-// The index returns every relationship pointing at a given ID regardless of
-// type, so the type filter still has to run here; it's a string compare per
-// matched key, which is negligible compared to the scan it replaces.
+// The index returns every relationship pointing at a given ID regardless of type, so
+// the type filter still has to run here; it's a string compare per matched key, which
+// is negligible compared to the scan it replaces.
 //
-// The probe goes through Lookup.GetTx so the per-tx delta overlay
-// fires: a traverse inside the same write tx that just created a new
-// parent relationship will see that pending write and include it in the
-// next-hop set, preserving read-your-own-writes for graph traversal.
+// The probe goes through Lookup.GetTx so the per-tx delta overlay fires: a traverse
+// inside the same write tx that just created a new parent relationship will see that
+// pending write and include it in the next-hop set, preserving read-your-own-writes for
+// graph traversal.
 func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
 	idx := r.relIndexes.byTo
 	if idx == nil {
-		// Defensive: fall back to scan if the index isn't wired (e.g. tests
-		// that construct an Ontology without indexes for some reason). The
-		// caller will dispatch to traverseByScan instead.
+		// Defensive: fall back to scan if the index isn't wired (e.g. tests that
+		// construct an Ontology without indexes for some reason). The caller will
+		// dispatch to traverseByScan instead.
 		return nil, gorp.ErrIndexInvalid
 	}
 	nextIDs := make([]ID, 0, len(ids)*4)
@@ -306,7 +306,9 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.tx, tx)
 	for i, cls := range r.clauses {
 		if i != 0 {
-			cls.Retrieve = cls.Where(gorp.MatchKeys[string, Resource](IDsToKeys(nextIDs)...))
+			cls.Retrieve = cls.Where(
+				gorp.MatchKeys[string, Resource](IDsToKeys(nextIDs)...),
+			)
 		}
 		atLast := len(r.clauses) == i+1
 		entriesBound := cls.GetEntries().Bound()
@@ -380,7 +382,8 @@ func (r Retrieve) retrieveEntities(
 	if !entries.Bound() {
 		return entries.All(), nil
 	}
-	// Iterate over the entries in place, retrieving the resource if the query requires it.
+	// Iterate over the entries in place, retrieving the resource if the query requires
+	// it.
 	err := entries.MapInPlace(func(res Resource) (Resource, bool, error) {
 		if res.ID.IsZero() {
 			if !entries.IsMultiple() {
@@ -426,10 +429,9 @@ func (r Retrieve) traverse(
 		if err == nil {
 			return nextIDs, nil
 		}
-		// gorp.ErrIndexInvalid is the only sentinel that means "this index
-		// path can't help; fall back to a scan-based path" — covers both
-		// "index never registered" and "index failed to populate". Any
-		// other error is real and should propagate.
+		// gorp.ErrIndexInvalid is the only sentinel that means "this index path can't
+		// help; fall back to a scan-based path" — covers both "index never registered"
+		// and "index failed to populate". Any other error is real and should propagate.
 		if !errors.Is(err, gorp.ErrIndexInvalid) {
 			return nil, err
 		}
