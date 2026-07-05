@@ -45,10 +45,10 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 		return err
 	}
 	otgID := OntologyID(view.Key)
-	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
-	return w.otgWriter.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
 		w.group.OntologyID(),
 		ontology.RelationshipTypeParentOf,
@@ -74,7 +74,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}

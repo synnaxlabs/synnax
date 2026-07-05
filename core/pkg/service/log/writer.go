@@ -60,13 +60,13 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 		return nil
 	}
 	otgID := OntologyID(l.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if projectKey == uuid.Nil {
 		return nil
 	}
-	return w.otgWriter.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
 		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
@@ -117,7 +117,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}

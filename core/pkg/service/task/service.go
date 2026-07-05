@@ -175,7 +175,7 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	for _, t := range tasks {
 		ids = append(ids, OntologyID(t.Key))
 	}
-	if err := s.cfg.Ontology.NewWriter(nil).DeleteResource(ctx, ids...); err != nil {
+	if err := s.cfg.Ontology.NewWriter(nil).DeleteResources(ctx, ids...); err != nil {
 		s.cfg.L.Warn("unable to delete internal task resources", zap.Error(err))
 	}
 }

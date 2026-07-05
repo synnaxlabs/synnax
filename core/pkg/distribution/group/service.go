@@ -140,10 +140,10 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	if err = w.otgWriter.DefineResource(ctx, id); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, id); err != nil {
 		return
 	}
-	if err = w.otgWriter.DefineRelationship(
+	if err = w.otgWriter.DefineRelationships(
 		ctx,
 		parent,
 		ontology.RelationshipTypeParentOf,
@@ -169,10 +169,10 @@ func (w Writer) CreateWithKey(
 	if err = w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	if err = w.otgWriter.DefineResource(ctx, id); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, id); err != nil {
 		return
 	}
-	if err = w.otgWriter.DefineRelationship(
+	if err = w.otgWriter.DefineRelationships(
 		ctx,
 		parent,
 		ontology.RelationshipTypeParentOf,
@@ -204,7 +204,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		if len(children) > 0 {
 			return errors.Wrap(validate.ErrValidation, "cannot delete a group with children")
 		}
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}

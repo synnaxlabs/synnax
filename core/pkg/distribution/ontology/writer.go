@@ -29,9 +29,9 @@ type Writer struct {
 	relationshipTable *gorp.Table[string, Relationship]
 }
 
-// DefineResource defines one or more new resources with the given [ID]s. If any of the
-// resources already exist, DefineResource does nothing for those.
-func (w Writer) DefineResource(ctx context.Context, ids ...ID) error {
+// DefineResources defines one or more new resources with the given [ID]s. If any of the
+// resources already exist, DefineResources does nothing for those.
+func (w Writer) DefineResources(ctx context.Context, ids ...ID) error {
 	resources, err := lo.MapErr(ids, func(id ID, _ int) (Resource, error) {
 		if id.Key == "" {
 			return Resource{}, errors.Wrapf(validate.ErrValidation, "key is required")
@@ -47,9 +47,9 @@ func (w Writer) DefineResource(ctx context.Context, ids ...ID) error {
 	return w.resourceTable.NewCreate().Entries(&resources).Exec(ctx, w.tx)
 }
 
-// DeleteResource deletes one or more resources with the given [ID]s along with all of
+// DeleteResources deletes one or more resources with the given [ID]s along with all of
 // their incoming and outgoing [Relationship]s.
-func (w Writer) DeleteResource(ctx context.Context, ids ...ID) error {
+func (w Writer) DeleteResources(ctx context.Context, ids ...ID) error {
 	keys, err := lo.MapErr(ids, func(id ID, _ int) (string, error) {
 		if err := w.deleteIncomingRelationships(ctx, id); err != nil {
 			return "", err
@@ -66,12 +66,12 @@ func (w Writer) DeleteResource(ctx context.Context, ids ...ID) error {
 		Where(gorp.MatchKeys[string, Resource](keys...)).Exec(ctx, w.tx)
 }
 
-// DefineRelationship defines a directional relationship of type t from the resource
+// DefineRelationships defines a directional relationship of type t from the resource
 // with the given from [ID] to one or more to [ID]s. Already-existing relationships are
 // silently skipped. Returns [graph.ErrCyclicDependency] if any of the new relationships
 // would create a cycle (including the case where the reverse-direction relationship
 // already exists).
-func (w Writer) DefineRelationship(
+func (w Writer) DefineRelationships(
 	ctx context.Context,
 	from ID,
 	t RelationshipType,

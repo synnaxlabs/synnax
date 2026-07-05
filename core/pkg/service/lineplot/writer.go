@@ -53,13 +53,13 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 		return nil
 	}
 	otgID := OntologyID(lp.Key)
-	if err := w.otg.DefineResource(ctx, otgID); err != nil {
+	if err := w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if projectKey == uuid.Nil {
 		return nil
 	}
-	return w.otg.DefineRelationship(
+	return w.otg.DefineRelationships(
 		ctx,
 		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
@@ -110,7 +110,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otg.DeleteResources(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}

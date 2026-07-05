@@ -145,7 +145,7 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 	o.RelationshipObserver = o.relationshipTable.Observe()
 
 	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.ErrNotFound) {
-		err = o.NewWriter(cfg.DB).DefineResource(ctx, RootID)
+		err = o.NewWriter(cfg.DB).DefineResources(ctx, RootID)
 	}
 	if !ok(err, nil) {
 		return nil, err

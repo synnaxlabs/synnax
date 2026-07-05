@@ -299,7 +299,7 @@ func (s *Service) maybeDefineGroupRelationship(
 		if len(parents) > 0 {
 			continue
 		}
-		if err := otgWriter.DefineRelationship(
+		if err := otgWriter.DefineRelationships(
 			ctx,
 			s.group.OntologyID(),
 			ontology.RelationshipTypeParentOf,

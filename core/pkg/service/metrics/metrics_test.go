@@ -234,7 +234,7 @@ var _ = Describe("Metrics", func() {
 				cpuChannel.OntologyID(),
 			)).To(Succeed())
 
-			Expect(otgWriter.DefineRelationship(
+			Expect(otgWriter.DefineRelationships(
 				ctx,
 				newGroup.OntologyID(),
 				ontology.RelationshipTypeParentOf,

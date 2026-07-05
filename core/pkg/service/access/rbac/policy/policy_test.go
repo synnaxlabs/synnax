@@ -358,8 +358,8 @@ var _ = Describe("Retriever", func() {
 
 			subject1 = ontology.ID{Type: "user", Key: uuid.New().String()}
 			subject2 = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject1)).To(Succeed())
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject2)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject1)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject2)).To(Succeed())
 			Expect(rw.AssignRole(ctx, subject1, r.Key)).To(Succeed())
 		})
 

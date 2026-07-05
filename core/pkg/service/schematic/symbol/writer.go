@@ -50,7 +50,7 @@ func (w Writer) Create(
 		return err
 	}
 	otgID := OntologyID(s.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	// Symbol already exists = delete incoming relationships and define new parent
@@ -60,7 +60,7 @@ func (w Writer) Create(
 			return err
 		}
 	}
-	return w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID)
+	return w.otgWriter.DefineRelationships(ctx, parent, ontology.RelationshipTypeParentOf, otgID)
 }
 
 // CreateMany creates the given symbols as children of the ontology.Resource with the
@@ -92,7 +92,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}

@@ -54,11 +54,11 @@ func (w Writer) Create(
 		return
 	}
 	otgID := OntologyID(p.Key)
-	if err := w.otg.DefineResource(ctx, otgID); err != nil {
+	if err := w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if p.Parent != nil && !p.Parent.IsZero() {
-		if err := w.otg.DefineRelationship(
+		if err := w.otg.DefineRelationships(
 			ctx,
 			*p.Parent,
 			ontology.RelationshipTypeParentOf,
@@ -114,7 +114,7 @@ func (w Writer) Delete(
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otg.DeleteResources(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}

@@ -64,7 +64,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		return err
 	}
 	otgID := OntologyID(r.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if len(r.Labels) > 0 {
@@ -101,7 +101,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		}
 	}
 	if !relAlreadyExists {
-		if err = w.otgWriter.DefineRelationship(
+		if err = w.otgWriter.DefineRelationships(
 			ctx,
 			parent,
 			ontology.RelationshipTypeParentOf,
@@ -208,7 +208,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResource(ctx, OntologyIDs(allKeys)...)
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(allKeys)...)
 }
 
 func (w Writer) validate(r Range) error {

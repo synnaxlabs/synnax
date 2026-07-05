@@ -63,7 +63,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	}
 	otgID := OntologyID(a.Key)
 	if !exists {
-		if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
 	}
@@ -142,7 +142,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 		w.sweeper.forget(key)

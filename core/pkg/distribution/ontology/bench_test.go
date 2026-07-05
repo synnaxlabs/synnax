@@ -104,7 +104,7 @@ func (e *benchEnv) populate(b *testing.B, count int) []ontology.ID {
 	ids := make([]ontology.ID, count)
 	for i := range count {
 		ids[i] = newBenchID(strconv.Itoa(i))
-		if err := w.DefineResource(e.ctx, ids[i]); err != nil {
+		if err := w.DefineResources(e.ctx, ids[i]); err != nil {
 			b.Fatalf("failed to define resource: %v", err)
 		}
 	}
@@ -128,10 +128,10 @@ func (e *benchEnv) populateTree(b *testing.B, depth, width int) (root ontology.I
 		for range width {
 			child := newBenchID(strconv.Itoa(counter))
 			counter++
-			if err := w.DefineResource(e.ctx, child); err != nil {
+			if err := w.DefineResources(e.ctx, child); err != nil {
 				b.Fatalf("failed to define resource: %v", err)
 			}
-			if err := w.DefineRelationship(e.ctx, parent, ontology.RelationshipTypeParentOf, child); err != nil {
+			if err := w.DefineRelationships(e.ctx, parent, ontology.RelationshipTypeParentOf, child); err != nil {
 				b.Fatalf("failed to define relationship: %v", err)
 			}
 			result = append(result, build(d-1, child)...)
@@ -139,7 +139,7 @@ func (e *benchEnv) populateTree(b *testing.B, depth, width int) (root ontology.I
 		return result
 	}
 	root = newBenchID("root")
-	if err := w.DefineResource(e.ctx, root); err != nil {
+	if err := w.DefineResources(e.ctx, root); err != nil {
 		b.Fatalf("failed to define root: %v", err)
 	}
 	leaves = build(depth, root)
@@ -342,16 +342,16 @@ func (e *benchEnv) populateParentsWithChildren(b *testing.B, numParents, childre
 	counter := 0
 	for i := range numParents {
 		parents[i] = newBenchID(fmt.Sprintf("parent-%d", i))
-		if err := w.DefineResource(e.ctx, parents[i]); err != nil {
+		if err := w.DefineResources(e.ctx, parents[i]); err != nil {
 			b.Fatalf("failed to define parent: %v", err)
 		}
 		for range childrenPerParent {
 			child := newBenchID(fmt.Sprintf("child-%d", counter))
 			counter++
-			if err := w.DefineResource(e.ctx, child); err != nil {
+			if err := w.DefineResources(e.ctx, child); err != nil {
 				b.Fatalf("failed to define child: %v", err)
 			}
-			if err := w.DefineRelationship(e.ctx, parents[i], ontology.RelationshipTypeParentOf, child); err != nil {
+			if err := w.DefineRelationships(e.ctx, parents[i], ontology.RelationshipTypeParentOf, child); err != nil {
 				b.Fatalf("failed to define relationship: %v", err)
 			}
 		}
@@ -423,13 +423,13 @@ func (e *benchEnv) populateLinkedPairs(b *testing.B, count int) (parents, childr
 	for i := range count {
 		parents[i] = newBenchID(fmt.Sprintf("parent-%d", i))
 		children[i] = newBenchID(fmt.Sprintf("child-%d", i))
-		if err := w.DefineResource(e.ctx, parents[i]); err != nil {
+		if err := w.DefineResources(e.ctx, parents[i]); err != nil {
 			b.Fatalf("failed to define parent: %v", err)
 		}
-		if err := w.DefineResource(e.ctx, children[i]); err != nil {
+		if err := w.DefineResources(e.ctx, children[i]); err != nil {
 			b.Fatalf("failed to define child: %v", err)
 		}
-		if err := w.DefineRelationship(e.ctx, parents[i], ontology.RelationshipTypeParentOf, children[i]); err != nil {
+		if err := w.DefineRelationships(e.ctx, parents[i], ontology.RelationshipTypeParentOf, children[i]); err != nil {
 			b.Fatalf("failed to define relationship: %v", err)
 		}
 	}
@@ -484,7 +484,7 @@ func BenchmarkDeleteIncomingRelationshipsOfType(b *testing.B) {
 	}
 }
 
-func BenchmarkDeleteResource(b *testing.B) {
+func BenchmarkDeleteResources(b *testing.B) {
 	for _, count := range []int{100, 1000, 10000} {
 		b.Run(fmt.Sprintf("relationships=%d", count), func(b *testing.B) {
 			env := newBenchEnv(b)
@@ -492,7 +492,7 @@ func BenchmarkDeleteResource(b *testing.B) {
 			parents, _ := env.populateLinkedPairs(b, count)
 			target := parents[count/2]
 			runDeleteBench(b, env, func(w ontology.Writer) error {
-				return w.DeleteResource(env.ctx, target)
+				return w.DeleteResources(env.ctx, target)
 			})
 		})
 	}

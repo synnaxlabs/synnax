@@ -104,10 +104,10 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if err != nil || exists {
 		return err
 	}
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
-	return w.otgWriter.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
 		w.group.OntologyID(),
 		ontology.RelationshipTypeParentOf,
@@ -133,7 +133,7 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+	if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 		return err
 	}
 	return w.status.Delete(ctx, OntologyID(key).String())
@@ -163,7 +163,7 @@ func (w Writer) Copy(
 	if err = w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
 		return Task{}, err
 	}
-	if err = w.otgWriter.DefineResource(ctx, OntologyID(newKey)); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
 	return res, nil
