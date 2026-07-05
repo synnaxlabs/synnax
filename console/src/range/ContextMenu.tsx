@@ -29,13 +29,13 @@ import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/layered/service/lineplot
 import { Link } from "@/layered/service/link";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, type Range, remove, setActive, type StoreState } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 import { useAddToActivePlot } from "@/range/useAddToActivePlot";
 import { useAddToNewPlot } from "@/range/useAddToNewPlot";
+import { useCreateModal } from "@/range/useCreateModal";
 
 export interface SnapshotMenuItemProps {
   range?: Range | null;
@@ -163,7 +163,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const addToActivePlot = useAddToActivePlot();
   const addToNewPlot = useAddToNewPlot();
   const activeRange = useSelect();
-  const placeLayout = Layout.usePlacer();
+  const openCreate = useCreateModal();
   const handleSetActive = () => {
     dispatch(setActive(key));
   };
@@ -172,7 +172,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   };
   const handleViewDetails = useViewDetails();
   const handleAddChildRange = () => {
-    placeLayout(createCreateLayout({ parent: key }));
+    openCreate({ parent: key });
   };
 
   const rangeExists = rng != null;

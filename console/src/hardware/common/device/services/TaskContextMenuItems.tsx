@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type device, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Task } from "@/hardware/common/task";
@@ -24,12 +24,12 @@ export interface TaskContextMenuItemsProps extends Pick<
   Ontology.TreeContextMenuProps,
   "selection" | "state"
 > {
-  configureLayout: Layout.BaseState;
+  onConfigure: (deviceKey: device.Key) => void;
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];
 }
 
 export const TaskContextMenuItems = ({
-  configureLayout,
+  onConfigure,
   state: { getResource },
   selection: { ids },
   taskContextMenuItemConfigs,
@@ -40,7 +40,7 @@ export const TaskContextMenuItems = ({
   const first = getResource(firstID);
   const key = first.id.key;
   const maybeConfigure = () => {
-    if (first.data?.configured !== true) placeLayout({ ...configureLayout, key });
+    if (first.data?.configured !== true) onConfigure(key);
   };
   if (!hasCreatePermission) return null;
   return (

@@ -34,10 +34,10 @@ import { CSS } from "@/css";
 import { type Service } from "@/layered/service";
 import { Layout } from "@/layout";
 import { ContextMenu } from "@/range/ContextMenu";
-import { CREATE_LAYOUT } from "@/range/Create";
 import { EXPLORER_LAYOUT } from "@/range/Explorer";
 import { select, useSelect, useSelectStaticKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
+import { useCreateModal } from "@/range/useCreateModal";
 import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
@@ -174,16 +174,14 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
 
 const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
       {hasCreatePermission && (
-        <Toolbar.Action
-          tooltip="Create range"
-          onClick={() => placeLayout(CREATE_LAYOUT)}
-        >
+        <Toolbar.Action tooltip="Create range" onClick={() => openCreate()}>
           <Icon.Add />
         </Toolbar.Action>
       )}

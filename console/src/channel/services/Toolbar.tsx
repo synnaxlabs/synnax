@@ -11,29 +11,26 @@ import { channel, group } from "@synnaxlabs/client";
 import { Access, Channel, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";
-import { CREATE_LAYOUT } from "@/channel/Create";
+import { useCalculatedModal } from "@/channel/useCalculatedModal";
+import { useCreateModal } from "@/channel/useCreateModal";
 import { EmptyAction, Toolbar } from "@/components";
 import { type Service } from "@/layered/service";
-import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
 const Actions = (): ReactElement | null => {
-  const placeLayout = Layout.usePlacer();
+  const openCreate = useCreateModal();
+  const openCalculated = useCalculatedModal();
   const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
       <Toolbar.Action
-        onClick={() => placeLayout(CALCULATED_LAYOUT)}
+        onClick={() => openCalculated()}
         tooltip="Create calculated channel"
       >
         <Channel.CreateCalculatedIcon />
       </Toolbar.Action>
-      <Toolbar.Action
-        onClick={() => placeLayout(CREATE_LAYOUT)}
-        tooltip="Create channel"
-      >
+      <Toolbar.Action onClick={() => openCreate()} tooltip="Create channel">
         <Icon.Add />
       </Toolbar.Action>
     </Toolbar.Actions>
@@ -57,13 +54,13 @@ const Content = (): ReactElement => {
 };
 
 const EmptyContent = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
+  const openCreate = useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No channels."
       action={hasCreatePermission ? "Create a channel" : undefined}
-      onClick={() => placeLayout(CREATE_LAYOUT)}
+      onClick={() => openCreate()}
     />
   );
 };

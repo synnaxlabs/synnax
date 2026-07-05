@@ -13,19 +13,21 @@ import { Access, LinePlot } from "@synnaxlabs/pluto";
 import { useCreate } from "@/layered/service/lineplot/useCreate";
 import { Palette } from "@/palette";
 
+const COMMAND_NAME = "Create a line plot";
+
 const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
   const create = useCreate({});
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create a line plot"
+      name={COMMAND_NAME}
       icon={<LinePlot.CreateIcon />}
       onSelect={create}
     />
   );
 };
-CreateCommand.key = "create-line-plot";
-CreateCommand.commandName = "Create a line plot";
+CreateCommand.key = "create_line_plot";
+CreateCommand.commandName = COMMAND_NAME;
 CreateCommand.useVisible = () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
 
 export const COMMANDS = [CreateCommand];

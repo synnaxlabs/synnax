@@ -17,19 +17,21 @@ import { Palette } from "@/palette";
 const useCreateVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
 
+const COMMAND_NAME = "Create an Arc automation";
+
 export const CreateCommand: Palette.Command = ({ rename, ...listProps }) => {
   const create = useCreate();
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create an Arc automation"
+      name={COMMAND_NAME}
       icon={<Icon.Arc />}
       onSelect={create}
     />
   );
 };
 CreateCommand.key = "create_arc";
-CreateCommand.commandName = "Create an Arc automation";
+CreateCommand.commandName = COMMAND_NAME;
 CreateCommand.useVisible = useCreateVisible;
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({

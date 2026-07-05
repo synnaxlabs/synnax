@@ -21,10 +21,10 @@ export interface ProviderProps<K extends record.Key> extends PropsWithChildren {
  * The key is resolved from the surrounding scope unless overridden. If the hook has no
  * arguments other than the key, it may be called with no arguments at all.
  */
-export type Hook<K extends record.Key, Args extends record.Keyed<K>, R> =
-  {} extends optional.Optional<Args, "key">
-    ? (args?: optional.Optional<Args, "key">) => R
-    : (args: optional.Optional<Args, "key">) => R;
+export type Hook<K extends record.Key, Args extends record.Keyed<K>, R> = optional.Arg<
+  optional.Optional<Args, "key">,
+  R
+>;
 
 /** Instance is a created scope: a Provider plus hooks bound to a single key type. */
 export interface Instance<K extends record.Key> {

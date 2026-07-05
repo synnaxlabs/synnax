@@ -13,7 +13,7 @@ import { LAYOUT } from "@/docs/Docs";
 import { Palette } from "@/palette";
 
 export const ReadCommand = Palette.createSimpleCommand({
-  key: "read-the-docs",
+  key: "read_the_docs",
   name: "Read the documentation",
   icon: <Icon.QuestionMark />,
   layout: LAYOUT,

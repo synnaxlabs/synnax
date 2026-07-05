@@ -10,16 +10,15 @@
 import { Button, Flex, Header, Icon, Ranger } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { Layout } from "@/layout";
-import { createCreateLayout } from "@/range/Create";
 import { List } from "@/range/list/List";
+import { useCreateModal } from "@/range/useCreateModal";
 
 export interface ChildRangesProps {
   rangeKey: string;
 }
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
-  const placeLayout = Layout.usePlacer();
+  const openCreate = useCreateModal();
   const { data, getItem, subscribe, retrieve } = Ranger.useListChildren({
     initialQuery: { key: rangeKey },
   });
@@ -33,7 +32,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
           <Button.Button
             size="medium"
             variant="text"
-            onClick={() => placeLayout(createCreateLayout({ parent: rangeKey }))}
+            onClick={() => openCreate({ parent: rangeKey })}
           >
             <Icon.Add />
           </Button.Button>

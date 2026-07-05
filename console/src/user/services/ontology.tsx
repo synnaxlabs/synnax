@@ -12,10 +12,9 @@ import { Access, type Flux, Icon, Menu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { ContextMenu } from "@/components";
-import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
-import { ASSIGN_ROLE_LAYOUT } from "@/user/AssignRole";
+import { useAssignRoleModal } from "@/user/useAssignRoleModal";
 
 const useDelete = createUseDelete({
   type: "User",
@@ -45,18 +44,14 @@ const useRename = ({
 };
 
 const useAssignRole = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const placeLayout = Layout.usePlacer();
+  const openAssignRole = useAssignRoleModal();
 
   return useCallback(
     ({ selection: { ids }, state: { getResource } }: Ontology.TreeContextMenuProps) => {
       const resource = getResource(ids[0]);
-      placeLayout({
-        ...ASSIGN_ROLE_LAYOUT,
-        name: `Role.Assign.${resource.name}`,
-        args: { key: ids[0].key },
-      });
+      openAssignRole({ userKey: ids[0].key, title: `Role.Assign.${resource.name}` });
     },
-    [placeLayout],
+    [openAssignRole],
   );
 };
 

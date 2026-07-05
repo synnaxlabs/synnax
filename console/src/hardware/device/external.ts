@@ -8,14 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { TOOLBAR } from "@/hardware/device/Toolbar";
-import { EtherCAT } from "@/hardware/ethercat";
 import { HTTP } from "@/hardware/http";
-import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
-import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { type Service } from "@/layered/service";
-import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
 export * from "@/hardware/device/link";
@@ -29,14 +25,5 @@ export const COMMANDS: Palette.Command[] = [
   ...Modbus.Device.COMMANDS,
   ...OPC.Device.COMMANDS,
 ];
-
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  ...EtherCAT.Device.LAYOUTS,
-  ...HTTP.Device.LAYOUTS,
-  ...LabJack.Device.LAYOUTS,
-  ...Modbus.Device.LAYOUTS,
-  ...NI.Device.LAYOUTS,
-  ...OPC.Device.LAYOUTS,
-};
 
 export const NAV_DRAWER_ITEMS: Service.Nav.Item[] = [TOOLBAR];

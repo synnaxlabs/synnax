@@ -11,14 +11,14 @@ import { status } from "@synnaxlabs/client";
 import { Access, Icon, Status } from "@synnaxlabs/pluto";
 
 import { Palette } from "@/palette";
-import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
+import { useCreateModal } from "@/status/useCreateModal";
 
-const CreateCommand = Palette.createSimpleCommand({
+const CreateCommand = Palette.createCommand({
   key: "create_status",
   name: "Create a status",
   icon: <Status.CreateIcon />,
-  layout: CREATE_LAYOUT,
+  useOnSelect: useCreateModal,
   useVisible: () => Access.useCreateGranted(status.TYPE_ONTOLOGY_ID),
 });
 
