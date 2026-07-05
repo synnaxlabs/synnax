@@ -32,13 +32,11 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -87,12 +85,12 @@ type Ontology struct {
 
 // Open opens the ontology using the given configuration. If the RootID resource does
 // not exist, it will be created.
-func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
+func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 	cfg, err := config.New(Config{}, configs...)
 	if err != nil {
 		return nil, err
 	}
-	o = &Ontology{
+	o := &Ontology{
 		cfg:              cfg,
 		resourceObserver: observe.New[iter.Seq[Change]](),
 		registrar:        serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
@@ -109,29 +107,27 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 	}); !ok(err, o.resourceTable) {
 		return nil, err
 	}
-	if o.relationshipTable, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Relationship]{
-		DB:              cfg.DB,
-		Instrumentation: cfg.Instrumentation,
-		Indexes:         o.relIndexes.all(),
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[string, Relationship]("msgpack_to_orc"),
-		},
-	}); !ok(err, o.relationshipTable) {
+	if o.relationshipTable, err = gorp.OpenTable(
+		ctx,
+		gorp.TableConfig[string, Relationship]{
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Indexes:         o.relIndexes.all(),
+			Migrations: []migrate.Migration{
+				gorp.CodecMigration[string, Relationship]("msgpack_to_orc"),
+			},
+		}); !ok(err, o.relationshipTable) {
 		return nil, err
 	}
 
-	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.ErrNotFound) {
-		err = o.NewWriter(cfg.DB).DefineResources(ctx, RootID)
-	}
-	if !ok(err, nil) {
+	if err = o.NewWriter(cfg.DB).DefineResources(ctx, RootID); !ok(err, nil) {
 		return nil, err
 	}
 
 	return o, nil
 }
 
-// NewWriter opens a new Writer using the provided transaction. Panics if the
-// transaction does not root from the same database as the Ontology.
+// NewWriter opens a new Writer using the provided transaction.
 func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:                o.cfg.DB.OverrideTx(tx),
