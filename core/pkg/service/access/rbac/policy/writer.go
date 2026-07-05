@@ -68,7 +68,9 @@ func (w Writer) SetOnRole(
 ) error {
 	policyIDs := OntologyIDs(policies)
 	for _, p := range policyIDs {
-		if err := w.otg.DefineRelationships(ctx, role.OntologyID(roleKey), ontology.RelationshipTypeParentOf, p); err != nil {
+		if err := w.otg.DefineRelationships(
+			ctx, role.OntologyID(roleKey), ontology.RelationshipTypeParentOf, p,
+		); err != nil {
 			return err
 		}
 	}

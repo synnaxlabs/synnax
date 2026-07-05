@@ -160,7 +160,10 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 				if err = writer.Set(ctx, newParentRange); err != nil {
 					return err
 				}
-				if err = otgWriter.DefineResources(ctx, OntologyID(newParentRange.Key)); err != nil {
+				if err = otgWriter.DefineResources(
+					ctx,
+					OntologyID(newParentRange.Key),
+				); err != nil {
 					return err
 				}
 				if err = otgWriter.DefineRelationships(

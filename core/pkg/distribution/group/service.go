@@ -133,25 +133,24 @@ func (w Writer) Create(
 	ctx context.Context,
 	name string,
 	parent ontology.ID,
-) (g Group, err error) {
-	g.Key = uuid.New()
-	g.Name = name
+) (Group, error) {
+	g := Group{Key: uuid.New(), Name: name}
 	id := OntologyID(g.Key)
-	if err = w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
-		return
+	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
+		return Group{}, err
 	}
-	if err = w.otgWriter.DefineResources(ctx, id); err != nil {
-		return
+	if err := w.otgWriter.DefineResources(ctx, id); err != nil {
+		return Group{}, err
 	}
-	if err = w.otgWriter.DefineRelationships(
+	if err := w.otgWriter.DefineRelationships(
 		ctx,
 		parent,
 		ontology.RelationshipTypeParentOf,
 		id,
 	); err != nil {
-		return
+		return Group{}, err
 	}
-	return g, err
+	return g, nil
 }
 
 func (w Writer) CreateWithKey(
@@ -159,28 +158,27 @@ func (w Writer) CreateWithKey(
 	key Key,
 	name string,
 	parent ontology.ID,
-) (g Group, err error) {
-	g.Key = key
-	if key == uuid.Nil {
+) (Group, error) {
+	g := Group{Key: key, Name: name}
+	if g.Key == uuid.Nil {
 		g.Key = uuid.New()
 	}
-	g.Name = name
 	id := OntologyID(g.Key)
-	if err = w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
-		return
+	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
+		return Group{}, err
 	}
-	if err = w.otgWriter.DefineResources(ctx, id); err != nil {
-		return
+	if err := w.otgWriter.DefineResources(ctx, id); err != nil {
+		return Group{}, err
 	}
-	if err = w.otgWriter.DefineRelationships(
+	if err := w.otgWriter.DefineRelationships(
 		ctx,
 		parent,
 		ontology.RelationshipTypeParentOf,
 		id,
 	); err != nil {
-		return
+		return Group{}, err
 	}
-	return g, err
+	return g, nil
 }
 
 // Delete deletes the Groups with the given keys.

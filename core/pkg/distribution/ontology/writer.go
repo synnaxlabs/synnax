@@ -74,7 +74,7 @@ func (w Writer) DeleteResources(ctx context.Context, ids ...ID) error {
 func (w Writer) DefineRelationships(
 	ctx context.Context,
 	from ID,
-	t RelationshipType,
+	relationshipType RelationshipType,
 	to ...ID,
 ) error {
 	if err := w.validateResourcesExist(ctx, from); err != nil {
@@ -86,7 +86,7 @@ func (w Writer) DefineRelationships(
 	}
 	rels := make([]Relationship, 0, len(to))
 	for _, id := range to {
-		rel := Relationship{From: from, To: id, Type: t}
+		rel := Relationship{From: from, To: id, Type: relationshipType}
 		exists, err := w.checkRelationshipExists(ctx, rel)
 		if err != nil {
 			return err
@@ -115,7 +115,39 @@ func (w Writer) DeleteRelationships(ctx context.Context, rels ...Relationship) e
 		Exec(ctx, w.tx)
 }
 
-func (w Writer) retrieveOutgoingRelationships(ctx context.Context, key ID) ([]Resource, error) {
+// DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given
+// type from the resource with the given ID. If the resource does not exist, or if it
+// has no outgoing relationships of the given type, DeleteOutgoingRelationshipsOfType
+// does nothing.
+func (w Writer) DeleteOutgoingRelationshipsOfType(
+	ctx context.Context, from ID, relationshipType RelationshipType,
+) error {
+	prefix := from.String() + relationshipKeySep +
+		string(relationshipType) + relationshipKeySep
+	return w.relationshipTable.NewDelete().
+		WherePrefix([]byte(prefix)).
+		Exec(ctx, w.tx)
+}
+
+// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given
+// type to the resource with the given ID. If the resource does not exist, or if it has
+// no incoming relationships of the given type, DeleteIncomingRelationshipsOfType does
+// nothing.
+func (w Writer) DeleteIncomingRelationshipsOfType(
+	ctx context.Context, to ID, relationshipType RelationshipType,
+) error {
+	suffix := []byte(relationshipKeySep + string(relationshipType) +
+		relationshipKeySep + to.String())
+	return w.relationshipTable.NewDelete().
+		WhereRaw(func(key, _ []byte) (bool, error) {
+			return bytes.HasSuffix(key, suffix), nil
+		}).
+		Exec(ctx, w.tx)
+}
+
+func (w Writer) retrieveOutgoingRelationships(
+	ctx context.Context, key ID,
+) ([]Resource, error) {
 	var relationships []Relationship
 	if err := w.relationshipTable.NewRetrieve().
 		WherePrefix([]byte(key.String())).
@@ -123,16 +155,16 @@ func (w Writer) retrieveOutgoingRelationships(ctx context.Context, key ID) ([]Re
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	var keys []ID
-	for _, rel := range relationships {
-		keys = append(keys, rel.To)
-	}
-	return w.retrieveResources(ctx, keys)
+	return w.retrieveResources(
+		ctx,
+		lo.Map(relationships, func(rel Relationship, _ int) ID { return rel.To }),
+	)
 }
 
 func (w Writer) retrieveResources(ctx context.Context, ids []ID) ([]Resource, error) {
 	var resources []Resource
-	if err := w.resourceTable.NewRetrieve().Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).
+	if err := w.resourceTable.NewRetrieve().
+		Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).
 		Entries(&resources).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
@@ -140,14 +172,13 @@ func (w Writer) retrieveResources(ctx context.Context, ids []ID) ([]Resource, er
 	return resources, nil
 }
 
-func (w Writer) retrieveDescendants(ctx context.Context, id ID) (map[ID]Resource, error) {
+func (w Writer) retrieveDescendants(
+	ctx context.Context, id ID,
+) (map[ID]Resource, error) {
 	descendants := make(map[ID]Resource)
 	children, err := w.retrieveOutgoingRelationships(ctx, id)
 	if err != nil {
 		return nil, err
-	}
-	if len(children) == 0 {
-		return nil, nil
 	}
 	for _, child := range children {
 		childDescendants, err := w.retrieveDescendants(ctx, child.ID)
@@ -175,38 +206,18 @@ func (w Writer) deleteOutgoingRelationships(ctx context.Context, from ID) error 
 		Exec(ctx, w.tx)
 }
 
-// DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given
-// type from the resource with the given ID. If the resource does not exist, or if it
-// has no outgoing relationships of the given type, DeleteOutgoingRelationshipsOfType
-// does nothing.
-func (w Writer) DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, relationshipType RelationshipType) error {
-	prefix := from.String() + relationshipKeySep + string(relationshipType) + relationshipKeySep
-	return w.relationshipTable.NewDelete().
-		WherePrefix([]byte(prefix)).
-		Exec(ctx, w.tx)
-}
-
-// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given
-// type to the resource with the given ID. If the resource does not exist, or if it has
-// no incoming relationships of the given type, DeleteIncomingRelationshipsOfType does
-// nothing.
-func (w Writer) DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, relationshipType RelationshipType) error {
-	suffix := []byte(relationshipKeySep + string(relationshipType) + relationshipKeySep + to.String())
-	return w.relationshipTable.NewDelete().
-		WhereRaw(func(key, _ []byte) (bool, error) {
-			return bytes.HasSuffix(key, suffix), nil
-		}).
-		Exec(ctx, w.tx)
-}
-
-func (w Writer) checkRelationshipExists(ctx context.Context, rel Relationship) (bool, error) {
-	exists, err := w.relationshipTable.NewRetrieve().Where(gorp.MatchKeys[string, Relationship](rel.GorpKey())).
+func (w Writer) checkRelationshipExists(
+	ctx context.Context, rel Relationship,
+) (bool, error) {
+	exists, err := w.relationshipTable.NewRetrieve().
+		Where(gorp.MatchKeys[string, Relationship](rel.GorpKey())).
 		Exists(ctx, w.tx)
 	if err != nil {
 		return false, err
 	}
 	reverseRel := Relationship{From: rel.To, To: rel.From, Type: rel.Type}
-	reverseExists, err := w.relationshipTable.NewRetrieve().Where(gorp.MatchKeys[string, Relationship](reverseRel.GorpKey())).
+	reverseExists, err := w.relationshipTable.NewRetrieve().
+		Where(gorp.MatchKeys[string, Relationship](reverseRel.GorpKey())).
 		Exists(ctx, w.tx)
 	if err != nil {
 		return false, err
@@ -218,5 +229,6 @@ func (w Writer) checkRelationshipExists(ctx context.Context, rel Relationship) (
 }
 
 func (w Writer) validateResourcesExist(ctx context.Context, ids ...ID) error {
-	return w.resourceTable.NewRetrieve().Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).Exec(ctx, w.tx)
+	return w.resourceTable.NewRetrieve().
+		Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).Exec(ctx, w.tx)
 }

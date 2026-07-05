@@ -48,7 +48,11 @@ var _ = Describe("Relationship", func() {
 				MatchError(ContainSubstring(message)),
 			))
 		},
-			Entry("Invalid structure", "foo:qux-parent->bar", "invalid relationship key"),
+			Entry(
+				"Invalid structure",
+				"foo:qux-parent->bar",
+				"invalid relationship key",
+			),
 			Entry("Invalid from", "badfrom->parent->bar", "failed to parse id"),
 			Entry("Invalid to", "foo:qux->parent->badto", "failed to parse id"),
 		)

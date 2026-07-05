@@ -78,11 +78,15 @@ func (w Writer[D]) SetWithParent(
 		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.RelationshipTypeParentOf); err != nil {
 			return err
 		}
-		if err = w.otgWriter.DefineRelationships(ctx, parent, ontology.RelationshipTypeParentOf, otgID); err != nil {
+		if err = w.otgWriter.DefineRelationships(
+			ctx, parent, ontology.RelationshipTypeParentOf, otgID,
+		); err != nil {
 			return err
 		}
 	} else if !exists {
-		if err = w.otgWriter.DefineRelationships(ctx, parent, ontology.RelationshipTypeParentOf, otgID); err != nil {
+		if err = w.otgWriter.DefineRelationships(
+			ctx, parent, ontology.RelationshipTypeParentOf, otgID,
+		); err != nil {
 			return err
 		}
 	}
@@ -134,12 +138,7 @@ func (w Writer[D]) Delete(ctx context.Context, keys ...string) error {
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
 func (w Writer[D]) validate(s Status[D]) error {

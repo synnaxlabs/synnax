@@ -623,9 +623,7 @@ func (s *Service) maybeDeleteResources(
 	if s.cfg.Ontology == nil {
 		return nil
 	}
-	ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
-	w := s.cfg.Ontology.NewWriter(tx)
-	return w.DeleteResources(ctx, ids...)
+	return s.cfg.Ontology.NewWriter(tx).DeleteResources(ctx, keys.OntologyIDs()...)
 }
 
 func (s *Service) deleteRemote(ctx context.Context, target node.Key, keys Keys) error {

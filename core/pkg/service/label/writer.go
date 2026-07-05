@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -63,7 +64,9 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 // has labels, Label will add the new labels to the existing set.
 func (w Writer) Label(ctx context.Context, target ontology.ID, labels []Key) error {
 	for _, label := range labels {
-		if err := w.otg.DefineRelationships(ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label)); err != nil {
+		if err := w.otg.DefineRelationships(
+			ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label),
+		); err != nil {
 			return err
 		}
 	}
@@ -83,14 +86,14 @@ func (w Writer) RemoveLabel(
 	target ontology.ID,
 	labels []Key,
 ) error {
-	for _, label := range labels {
-		if err := w.otg.DeleteRelationships(ctx, ontology.Relationship{
-			From: target,
-			Type: OntologyRelationshipTypeLabeledBy,
-			To:   OntologyID(label),
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DeleteRelationships(
+		ctx,
+		lo.Map(labels, func(key Key, _ int) ontology.Relationship {
+			return ontology.Relationship{
+				From: target,
+				Type: OntologyRelationshipTypeLabeledBy,
+				To:   OntologyID(key),
+			}
+		})...,
+	)
 }

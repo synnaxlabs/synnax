@@ -131,7 +131,9 @@ func (e *benchEnv) populateTree(b *testing.B, depth, width int) (root ontology.I
 			if err := w.DefineResources(e.ctx, child); err != nil {
 				b.Fatalf("failed to define resource: %v", err)
 			}
-			if err := w.DefineRelationships(e.ctx, parent, ontology.RelationshipTypeParentOf, child); err != nil {
+			if err := w.DefineRelationships(
+				e.ctx, parent, ontology.RelationshipTypeParentOf, child,
+			); err != nil {
 				b.Fatalf("failed to define relationship: %v", err)
 			}
 			result = append(result, build(d-1, child)...)
@@ -351,7 +353,9 @@ func (e *benchEnv) populateParentsWithChildren(b *testing.B, numParents, childre
 			if err := w.DefineResources(e.ctx, child); err != nil {
 				b.Fatalf("failed to define child: %v", err)
 			}
-			if err := w.DefineRelationships(e.ctx, parents[i], ontology.RelationshipTypeParentOf, child); err != nil {
+			if err := w.DefineRelationships(
+				e.ctx, parents[i], ontology.RelationshipTypeParentOf, child,
+			); err != nil {
 				b.Fatalf("failed to define relationship: %v", err)
 			}
 		}
@@ -429,7 +433,9 @@ func (e *benchEnv) populateLinkedPairs(b *testing.B, count int) (parents, childr
 		if err := w.DefineResources(e.ctx, children[i]); err != nil {
 			b.Fatalf("failed to define child: %v", err)
 		}
-		if err := w.DefineRelationships(e.ctx, parents[i], ontology.RelationshipTypeParentOf, children[i]); err != nil {
+		if err := w.DefineRelationships(
+			e.ctx, parents[i], ontology.RelationshipTypeParentOf, children[i],
+		); err != nil {
 			b.Fatalf("failed to define relationship: %v", err)
 		}
 	}

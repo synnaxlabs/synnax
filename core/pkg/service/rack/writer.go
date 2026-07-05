@@ -102,7 +102,9 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	} else if err = w.healStatus(ctx, stat); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationships(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID)
+	return w.otg.DefineRelationships(
+		ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID,
+	)
 }
 
 // CreateMany creates the given racks. If racks with the same key already exist, they

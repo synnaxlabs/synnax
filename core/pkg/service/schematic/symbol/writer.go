@@ -60,7 +60,9 @@ func (w Writer) Create(
 			return err
 		}
 	}
-	return w.otgWriter.DefineRelationships(ctx, parent, ontology.RelationshipTypeParentOf, otgID)
+	return w.otgWriter.DefineRelationships(
+		ctx, parent, ontology.RelationshipTypeParentOf, otgID,
+	)
 }
 
 // CreateMany creates the given symbols as children of the ontology.Resource with the

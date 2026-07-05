@@ -208,7 +208,9 @@ var _ = Describe("Signals", func() {
 		secondResource := newChangeID("def")
 		Expect(w.DefineResources(ctx, firstResource)).To(Succeed())
 		Expect(w.DefineResources(ctx, secondResource)).To(Succeed())
-		Expect(w.DefineRelationships(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource,
+		)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
 		relationships := MustSucceed(decodeRelationships(res.Frame.SeriesAt(0).Data))
@@ -245,7 +247,9 @@ var _ = Describe("Signals", func() {
 		Expect(w.DefineResources(ctx, firstResource)).To(Succeed())
 		Expect(w.DefineResources(ctx, secondResource)).To(Succeed())
 		By("Creating the relationship")
-		Expect(w.DefineRelationships(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource,
+		)).To(Succeed())
 		By("Deleting the relationship")
 		Expect(w.DeleteRelationships(ctx, ontology.Relationship{
 			From: firstResource,

@@ -98,10 +98,5 @@ func (w Writer) Delete(
 	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Project](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otg.DeleteResources(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)
 }
