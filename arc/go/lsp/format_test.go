@@ -22,20 +22,20 @@ import (
 var _ = Describe("Formatting", func() {
 	var (
 		server *lsp.Server
-		docURI uri.URI
+		uri    uri.URI
 	)
 
 	BeforeEach(func() {
-		server, docURI = SetupTestServer()
+		server, uri = SetupTestServer()
 	})
 
 	Describe("Full Document Formatting", func() {
 		It("should format a simple function", func(ctx SpecContext) {
 			content := "func add(x i32,y i32)i32{return x+y}"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 				Options:      protocol.FormattingOptions{},
 			}))
 
@@ -47,10 +47,10 @@ var _ = Describe("Formatting", func() {
 
 		It("should return nil for already-formatted code", func(ctx SpecContext) {
 			content := "func add(x i32, y i32) i32 {\n    return x + y\n}\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			Expect(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 				Options:      protocol.FormattingOptions{},
 			})).To(BeNil())
 		})
@@ -64,10 +64,10 @@ var _ = Describe("Formatting", func() {
 
 		It("should format binary operators with spaces", func(ctx SpecContext) {
 			content := "x:=a+b*c"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 				Options:      protocol.FormattingOptions{},
 			}))
 
@@ -77,10 +77,10 @@ var _ = Describe("Formatting", func() {
 
 		It("should respect tab size option", func(ctx SpecContext) {
 			content := "func test(){x:=1}"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 				Options: protocol.FormattingOptions{
 					TabSize: 2,
 				},
@@ -92,10 +92,10 @@ var _ = Describe("Formatting", func() {
 
 		It("should preserve unit literals without space", func(ctx SpecContext) {
 			content := "delay:=100ms"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 				Options:      protocol.FormattingOptions{},
 			}))
 
@@ -108,10 +108,10 @@ var _ = Describe("Formatting", func() {
 	Describe("Range Formatting", func() {
 		It("should format a specific range", func(ctx SpecContext) {
 			content := "x:=1\ny:=2\nz:=3"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.RangeFormatting(ctx, &protocol.DocumentRangeFormattingParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 0},
 					End:   protocol.Position{Line: 0, Character: 4},

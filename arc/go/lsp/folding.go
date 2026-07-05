@@ -12,7 +12,6 @@ package lsp
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
 	"go.lsp.dev/protocol"
 )
@@ -41,9 +40,9 @@ func collectFoldingRanges(scope *symbol.Symbol, ranges *[]protocol.FoldingRange)
 				kind := foldingRangeKind(scope.Kind)
 				*ranges = append(*ranges, protocol.FoldingRange{
 					StartLine:      uint32(startLine),
-					StartCharacter: lo.ToPtr(uint32(start.GetColumn())),
+					StartCharacter: new(uint32(start.GetColumn())),
 					EndLine:        uint32(endLine),
-					EndCharacter:   lo.ToPtr(uint32(stop.GetColumn() + len(stop.GetText()))),
+					EndCharacter:   new(uint32(stop.GetColumn() + len(stop.GetText()))),
 					Kind:           kind,
 				})
 			}
