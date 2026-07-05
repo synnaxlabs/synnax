@@ -307,10 +307,10 @@ classify_file() {
         return
     fi
 
-    # Trailing-blank rule: the line immediately after the header must be blank
-    # (or absent) when TRAILING_BLANK=1, and non-blank otherwise. Exception: a
-    # closing FENCE directly after the header (astro comment-only frontmatter)
-    # is valid with no blank, since prettier strips a blank adjacent to it.
+    # Trailing-blank rule: the line immediately after the header must be blank (or
+    # absent) when TRAILING_BLANK=1, and non-blank otherwise. Exception: a closing FENCE
+    # directly after the header (astro comment-only frontmatter) is valid with no blank,
+    # since prettier strips a blank adjacent to it.
     local line_after_header=""
     if [ $((header_end_idx + 1)) -lt ${#LINES[@]} ]; then
         line_after_header="${LINES[$((header_end_idx + 1))]}"

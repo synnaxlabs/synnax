@@ -117,10 +117,11 @@ has_supported_extension() {
 # LEADING_BLANK (1 if a blank line separates the leading line from the header; astro
 # sets 0 because prettier strips blanks adjacent to the frontmatter fences), and
 # TRAILING_BLANK (1 if the canonical layout puts a blank line between the header and the
-# file body, 0 otherwise), and FENCE (a closing delimiter that may sit directly after the
-# header with no separating blank — astro's `---` for comment-only frontmatter; a normal
-# trailing blank is still emitted when real body content follows). HEADER_LINES describes
-# the canonical new header — the size of an *existing* header is detected dynamically.
+# file body, 0 otherwise), and FENCE (a closing delimiter that may sit directly after
+# the header with no separating blank — astro's `---` for comment-only frontmatter; a
+# normal trailing blank is still emitted when real body content follows). HEADER_LINES
+# describes the canonical new header — the size of an *existing* header is detected
+# dynamically.
 resolve_header_for_ext() {
     local ext="$1"
     LEADING_LINE_RE=""
@@ -463,8 +464,8 @@ process_file() {
         body+="$line"$'\n'
     done
 
-    # A closing fence immediately after the header (comment-only frontmatter)
-    # takes no separating blank; otherwise use the configured trailing_blank.
+    # A closing fence immediately after the header (comment-only frontmatter) takes no
+    # separating blank; otherwise use the configured trailing_blank.
     local eff_trailing="$trailing_blank"
     if [ -n "$fence" ]; then
         case "$body" in
