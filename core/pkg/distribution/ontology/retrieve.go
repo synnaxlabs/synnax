@@ -226,16 +226,9 @@ var (
 // pending write and include it in the next-hop set, preserving read-your-own-writes for
 // graph traversal.
 func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
-	idx := r.relIndexes.byTo
-	if idx == nil {
-		// Defensive: fall back to scan if the index isn't wired (e.g. tests that
-		// construct an Ontology without indexes for some reason). The caller will
-		// dispatch to traverseByScan instead.
-		return nil, gorp.ErrIndexInvalid
-	}
 	nextIDs := make([]ID, 0, len(ids)*4)
 	for _, id := range ids {
-		keys, err := idx.Get(tx, id)
+		keys, err := r.relIndexes.byTo.Get(tx, id)
 		if err != nil {
 			return nil, err
 		}
