@@ -74,13 +74,6 @@ func (r Retrieve) WhereIDs(ids ...ID) Retrieve {
 	return r.setCurrentClause(c)
 }
 
-// Where filters resources by the provided predicate.
-func (r Retrieve) Where(filter gorp.Filter[string, Resource]) Retrieve {
-	c := r.currentClause()
-	c.Retrieve = c.Where(filter)
-	return r.setCurrentClause(c)
-}
-
 // WhereTypes filters resources by the provided types.
 func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 	c := r.currentClause()
@@ -346,10 +339,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 	var resources []Resource
 	if err := r.ExcludeFieldData(true).Entries(&resources).Exec(ctx, tx); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return false, nil
-		}
-		return false, err
+		return false, errors.Skip(err, query.ErrNotFound)
 	}
 	return len(resources) > 0, nil
 }
