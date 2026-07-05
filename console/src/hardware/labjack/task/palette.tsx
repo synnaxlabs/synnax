@@ -17,7 +17,7 @@ import { Palette } from "@/palette";
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
 const CreateReadCommand = Palette.createSimpleCommand({
-  key: "labjack-create-read-task",
+  key: "labjack_create_read_task",
   name: "Create a LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
   layout: READ_LAYOUT,
@@ -25,7 +25,7 @@ const CreateReadCommand = Palette.createSimpleCommand({
 });
 
 const CreateWriteCommand = Palette.createSimpleCommand({
-  key: "labjack-create-write-task",
+  key: "labjack_create_write_task",
   name: "Create a LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
   layout: WRITE_LAYOUT,

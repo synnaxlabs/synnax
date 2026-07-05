@@ -10,14 +10,14 @@
 import { framer } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { DELETE_LAYOUT } from "@/framer/DeleteModal";
+import { useDeleteDataModal } from "@/framer/useDeleteDataModal";
 import { Palette } from "@/palette";
 
-const DeleteDataCommand = Palette.createSimpleCommand({
+const DeleteDataCommand = Palette.createCommand({
   key: "delete_data",
   name: "Delete data",
   icon: <Icon.Delete />,
-  layout: DELETE_LAYOUT,
+  useOnSelect: useDeleteDataModal,
   useVisible: () => Access.useDeleteGranted(framer.TYPE_ONTOLOGY_ID),
 });
 

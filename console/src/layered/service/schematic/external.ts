@@ -13,7 +13,6 @@ import { ContextMenu } from "@/layered/service/schematic/ContextMenu";
 import { extract } from "@/layered/service/schematic/imex/export";
 import { LAYOUT_TYPE } from "@/layered/service/schematic/layout";
 import { Selectable } from "@/layered/service/schematic/Selectable";
-import { Edit, EDIT_LAYOUT_TYPE } from "@/layered/service/schematic/symbols/edit/Edit";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 
@@ -33,7 +32,6 @@ export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Schematic,
-  [EDIT_LAYOUT_TYPE]: Edit,
 };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];

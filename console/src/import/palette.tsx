@@ -12,19 +12,21 @@ import { Icon } from "@synnaxlabs/pluto";
 import { useImport } from "@/import/import";
 import { Palette } from "@/palette";
 
+const COMMAND_NAME = "Import component(s)";
+
 export const ImportCommand: Palette.Command = (listProps) => {
   const handleSelect = useImport();
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Import component(s)"
+      name={COMMAND_NAME}
       icon={<Icon.Import />}
       onSelect={handleSelect}
     />
   );
 };
 ImportCommand.key = "import";
-ImportCommand.commandName = "Import component(s)";
+ImportCommand.commandName = COMMAND_NAME;
 ImportCommand.sortOrder = -1;
 
 export const COMMANDS = [ImportCommand];

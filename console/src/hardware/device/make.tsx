@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 import { z } from "zod";
 
 import { EtherCAT } from "@/hardware/ethercat";
@@ -17,7 +18,6 @@ import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { type Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 
 export const makeZ = z.enum([
@@ -45,13 +45,33 @@ const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
 export const getIcon = (make: Make | null) =>
   make ? MAKE_ICONS[make] : <Icon.Device />;
 
-export const CONFIGURE_LAYOUTS: Record<Make, Layout.BaseState> = {
-  [EtherCAT.Device.MAKE]: EtherCAT.Device.CONFIGURE_LAYOUT,
-  [HTTP.Device.MAKE]: HTTP.Device.CONNECT_LAYOUT,
-  [LabJack.Device.MAKE]: LabJack.Device.CONFIGURE_LAYOUT,
-  [Modbus.Device.MAKE]: Modbus.Device.CONNECT_LAYOUT,
-  [NI.Device.MAKE]: NI.Device.CONFIGURE_LAYOUT,
-  [OPC.Device.MAKE]: OPC.Device.CONNECT_LAYOUT,
+/**
+ * useConfigureModal returns an opener that launches the configure/connect modal for a device
+ * of the given make. Every integration's modal hook is called unconditionally so the
+ * returned opener can dispatch to any make at call time without violating the rules of
+ * hooks.
+ */
+export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => void) => {
+  const ethercat = EtherCAT.Device.useConfigureModal();
+  const http = HTTP.Device.useConnectModal();
+  const labjack = LabJack.Device.useConfigureModal();
+  const modbus = Modbus.Device.useConnectModal();
+  const ni = NI.Device.useConfigureModal();
+  const opc = OPC.Device.useConnectModal();
+  return useCallback(
+    (make, deviceKey) => {
+      const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
+        [EtherCAT.Device.MAKE]: ethercat,
+        [HTTP.Device.MAKE]: http,
+        [LabJack.Device.MAKE]: labjack,
+        [Modbus.Device.MAKE]: modbus,
+        [NI.Device.MAKE]: ni,
+        [OPC.Device.MAKE]: opc,
+      };
+      openers[make]({ deviceKey });
+    },
+    [ethercat, http, labjack, modbus, ni, opc],
+  );
 };
 
 const CONTEXT_MENU_ITEMS: Partial<

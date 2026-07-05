@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
@@ -20,17 +21,21 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Common.DeviceServices.TaskContextMenuItemC
     { itemKey: "opc.writeTask", label: "Create write task", layout: Task.WRITE_LAYOUT },
   ];
 
-export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => (
-  <>
-    <Common.DeviceServices.EditConnectionMenuItem
-      {...props}
-      configureLayout={Device.CONNECT_LAYOUT}
-    />
-    <Menu.Divider />
-    <Common.DeviceServices.TaskContextMenuItems
-      {...props}
-      configureLayout={Device.CONNECT_LAYOUT}
-      taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
-    />
-  </>
-);
+export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
+  const connect = Device.useConnectModal();
+  const onConfigure = (deviceKey: device.Key) => connect({ deviceKey });
+  return (
+    <>
+      <Common.DeviceServices.EditConnectionMenuItem
+        {...props}
+        onConfigure={onConfigure}
+      />
+      <Menu.Divider />
+      <Common.DeviceServices.TaskContextMenuItems
+        {...props}
+        onConfigure={onConfigure}
+        taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
+      />
+    </>
+  );
+};

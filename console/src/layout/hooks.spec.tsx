@@ -14,6 +14,7 @@ import { act, type PropsWithChildren } from "react";
 import { Provider, useStore } from "react-redux";
 import { describe, expect, it } from "vitest";
 
+import { Modals } from "@/layered/session/modals";
 import { Layout } from "@/layout";
 import { select } from "@/layout/selectors";
 
@@ -27,7 +28,9 @@ describe("layout hooks", () => {
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>{children}</Provider>
+        <Provider store={store}>
+          <Modals.Provider>{children}</Modals.Provider>
+        </Provider>
       );
       const { result } = renderHook(
         () => ({
@@ -63,7 +66,9 @@ describe("layout hooks", () => {
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>{children}</Provider>
+        <Provider store={store}>
+          <Modals.Provider>{children}</Modals.Provider>
+        </Provider>
       );
       const { result } = renderHook(
         () => ({
@@ -100,7 +105,9 @@ describe("layout hooks", () => {
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>{children}</Provider>
+        <Provider store={store}>
+          <Modals.Provider>{children}</Modals.Provider>
+        </Provider>
       );
       const { result } = renderHook(
         () => ({
@@ -144,13 +151,16 @@ describe("layout hooks", () => {
         }),
       });
       const wrapper = ({ children }: PropsWithChildren) => (
-        <Provider store={store}>{children}</Provider>
+        <Provider store={store}>
+          <Modals.Provider>{children}</Modals.Provider>
+        </Provider>
       );
       const { result } = renderHook(
         () => ({
           placer: Layout.usePlacer(),
           store: useStore(),
           activeTab: Layout.useSelectActiveMosaicTabState(),
+          modals: Modals.useStore("test"),
         }),
         { wrapper },
       );
@@ -174,24 +184,21 @@ describe("layout hooks", () => {
         layoutKey: "test-tab",
       });
 
-      // Place a modal
+      // Open a modal in the independent modal store
       act(() => {
-        result.current.placer({
-          key: "test-modal",
-          location: "modal",
-          type: "dog",
-          name: "Test Modal",
-          window: {
-            title: "modal",
-          },
-        });
+        result.current.modals.push(
+          () => null,
+          undefined,
+          () => {},
+        );
       });
 
-      // Now the active tab should be null because a modal is open
+      // The active tab is now blurred because a modal is open
       expect(result.current.activeTab).toEqual({
         blurred: true,
         layoutKey: "test-tab",
       });
+      result.current.modals.clear();
     });
   });
 });

@@ -10,20 +10,23 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { Common } from "@/hardware/common";
-import { CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
 import { MAKE } from "@/hardware/ni/device/types";
+import { useConfigureModal } from "@/hardware/ni/device/useConfigureModal";
 
 export interface SelectProps extends Omit<
   Common.Device.SelectProps,
-  "configureLayout" | "emptyContent" | "make"
+  "onConfigure" | "emptyContent" | "make"
 > {}
 
-export const Select = (props: SelectProps) => (
-  <Common.Device.Select
-    {...props}
-    configureLayout={CONFIGURE_LAYOUT}
-    emptyContent="No NI devices connected."
-    make={MAKE}
-    icon={<Icon.Logo.NI />}
-  />
-);
+export const Select = (props: SelectProps) => {
+  const configure = useConfigureModal();
+  return (
+    <Common.Device.Select
+      {...props}
+      onConfigure={(deviceKey) => configure({ deviceKey })}
+      emptyContent="No NI devices connected."
+      make={MAKE}
+      icon={<Icon.Logo.NI />}
+    />
+  );
+};

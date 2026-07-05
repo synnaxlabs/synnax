@@ -8,17 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type Layout } from "@/layout";
-import { Create, CREATE_LAYOUT_TYPE } from "@/status/Create";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/status/Explorer";
 
-export * from "@/status/Create";
 export * from "@/status/Explorer";
 export * from "@/status/palette";
 export * from "@/status/slice";
 export * from "@/status/Toolbar";
+export * from "@/status/useCreateModal";
 export * from "@/status/useListenForChanges";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [CREATE_LAYOUT_TYPE]: Create,
   [EXPLORER_LAYOUT_TYPE]: Explorer,
 };

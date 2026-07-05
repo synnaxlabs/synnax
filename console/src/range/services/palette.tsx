@@ -12,17 +12,18 @@ import { Access, Icon, Ranger } from "@synnaxlabs/pluto";
 
 import { Palette } from "@/palette";
 import { Range } from "@/range";
+import { useCreateModal } from "@/range/useCreateModal";
 
-export const CreateCommand = Palette.createSimpleCommand({
-  key: "define-range",
+export const CreateCommand = Palette.createCommand({
+  key: "define_range",
   name: "Create a range",
   icon: <Ranger.CreateIcon />,
-  layout: Range.CREATE_LAYOUT,
+  useOnSelect: useCreateModal,
   useVisible: () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
 });
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({
-  key: "open-explorer",
+  key: "open_explorer",
   name: "Open the Range Explorer",
   icon: <Icon.Explore />,
   layout: Range.EXPLORER_LAYOUT,

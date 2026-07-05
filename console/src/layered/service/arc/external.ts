@@ -9,7 +9,6 @@
 
 import { type Export } from "@/export";
 import { type Import } from "@/import";
-import { CREATE_ARC_LAYOUT_TYPE, CreateModal } from "@/layered/service/arc/CreateModal";
 import { Editor } from "@/layered/service/arc/editor";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/layered/service/arc/Explorer";
 import { extract } from "@/layered/service/arc/imex/export";
@@ -19,7 +18,6 @@ import { Selectable } from "@/layered/service/arc/Selectable";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 
-export * from "@/layered/service/arc/CreateModal";
 export * from "@/layered/service/arc/editor";
 export * from "@/layered/service/arc/Explorer";
 export * from "@/layered/service/arc/imex";
@@ -29,6 +27,7 @@ export * from "@/layered/service/arc/ontology";
 export * from "@/layered/service/arc/palette";
 export * from "@/layered/service/arc/toolbar/Toolbar";
 export * from "@/layered/service/arc/useCreate";
+export * from "@/layered/service/arc/useCreateModal";
 
 export const EDITOR_LAYOUT_TYPE = LAYOUT_TYPE;
 export type EditorLayoutType = typeof EDITOR_LAYOUT_TYPE;
@@ -40,7 +39,6 @@ export const FILE_INGESTERS: Import.FileIngesters = { [EDITOR_LAYOUT_TYPE]: inge
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
   [EDITOR_LAYOUT_TYPE]: Editor.Editor,
-  [CREATE_ARC_LAYOUT_TYPE]: CreateModal,
 };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];

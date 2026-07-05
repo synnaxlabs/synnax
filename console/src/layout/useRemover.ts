@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status, useMemoCompare } from "@synnaxlabs/pluto";
+import { Icon, Status, useMemoCompare } from "@synnaxlabs/pluto";
 import { compare, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { useConfirm } from "@/layered/service/modals/useConfirm";
 import { select } from "@/layout/selectors";
 import { remove } from "@/layout/slice";
 import { type State } from "@/layout/types";
-import { useConfirm } from "@/modals/Confirm";
 import { type RootState } from "@/store";
 
 /** A function that removes a layout. */
@@ -58,13 +58,12 @@ export const useRemover = (...baseKeys: string[]): Remover => {
           const { name, icon } = layout;
           let message = `${name} has unsaved changes. Are you sure you want to close it?`;
           if (name.includes(".")) message = `Are you sure you want to exit?`;
-          const result = await promptConfirm(
-            {
-              message,
-              description: "Any unsaved changes will be lost.",
-            },
-            { icon, name: `${name}.Lose Unsaved Changes` },
-          );
+          const result = await promptConfirm({
+            message,
+            description: "Any unsaved changes will be lost.",
+            title: `${name}.Lose Unsaved Changes`,
+            icon: Icon.resolve(icon),
+          });
           results.push(result);
         }
         dispatch(remove({ keys: keys.filter((_, i) => results[i] === true) }));
