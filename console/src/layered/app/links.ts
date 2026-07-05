@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { ChannelServices } from "@/channel/services";
-import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
 import { Arc } from "@/layered/service/arc";
 import { LinePlot } from "@/layered/service/lineplot";
@@ -16,6 +15,7 @@ import { Link } from "@/layered/service/link";
 import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
+import { NodeServices } from "@/node/services";
 import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
 
@@ -31,5 +31,5 @@ export const useLinks = (): void => {
     table: Table.useLink(),
     project: ProjectServices.useLink(),
   };
-  Link.useDeep(ClusterServices.useLink(), handlers);
+  Link.useDeep(NodeServices.useLink(), handlers);
 };

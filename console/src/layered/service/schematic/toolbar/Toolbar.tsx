@@ -21,7 +21,6 @@ import {
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
@@ -30,6 +29,7 @@ import { Control } from "@/layered/service/schematic/toolbar/Control";
 import { Properties } from "@/layered/service/schematic/toolbar/Properties";
 import { Symbols } from "@/layered/service/schematic/toolbar/Symbols";
 import { Session } from "@/layered/session";
+import { Node } from "@/node";
 
 const TABS = [
   { tabKey: "symbols", name: "Symbols" },
@@ -130,7 +130,7 @@ const Internal = (): ReactElement | null => {
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
               <Export.ToolbarButton onExport={() => handleExport(key)} />
-              <Cluster.CopyLinkToolbarButton
+              <Node.CopyLinkToolbarButton
                 name={name}
                 ontologyID={schematic.ontologyID(key)}
               />

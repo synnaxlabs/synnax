@@ -12,20 +12,20 @@ import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Auth } from "@/auth";
-import { Cluster } from "@/cluster";
 import { Hardware } from "@/hardware";
 import { App } from "@/layered/app";
 import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
 import { Notifications } from "@/layouts/Notifications";
 import { useTriggers } from "@/layouts/useTriggers";
+import { Node } from "@/node";
 import { Project } from "@/project";
 import { Range } from "@/range";
 import { Status } from "@/status";
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});
-  Cluster.useSyncClusterKey();
+  Node.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
   Range.useListenForChanges();
   Project.useCheckCore();

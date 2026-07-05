@@ -13,13 +13,13 @@ import { Button, Dialog, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
-import { logout } from "@/cluster/services/logout";
+import { Node } from "@/node";
+import { logout } from "@/node/services/logout";
 
 export const Badge = (): ReactElement | null => {
   const dispatch = useDispatch();
   const { data: u } = User.useRetrieve({}, { addStatusOnFailure: false });
-  const cluster = Cluster.useSelect();
+  const cluster = Node.useSelect();
   const handleLogout = useCallback(() => logout(dispatch), [dispatch]);
   const username = u?.username ?? cluster?.username ?? "";
   const displayName =

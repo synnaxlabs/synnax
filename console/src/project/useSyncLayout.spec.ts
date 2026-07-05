@@ -13,8 +13,8 @@ import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { logout } from "@/cluster/services/logout";
 import { Layout } from "@/layout";
+import { logout } from "@/node/services/logout";
 import { SLICE_NAME } from "@/project/slice";
 import { type Project, ZERO_SLICE_STATE } from "@/project/types";
 import { useSyncLayout } from "@/project/useSyncLayout";

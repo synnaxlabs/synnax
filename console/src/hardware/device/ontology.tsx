@@ -13,12 +13,12 @@ import { device, type ontology, status } from "@synnaxlabs/client";
 import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
-import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
 import { Group } from "@/group";
 import { getContextMenuItems, getIcon, getMake } from "@/hardware/device/make";
 import { Link } from "@/layered/service/link";
+import { Node } from "@/node";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -48,7 +48,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Node.useCopyLinkToClipboard();
   if (ids.length === 0) return null;
   const C = singleResource ? getContextMenuItems(first.data?.make) : null;
   const customMenuItems = C ? <C {...props} /> : null;

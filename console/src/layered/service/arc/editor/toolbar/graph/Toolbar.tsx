@@ -14,13 +14,13 @@ import { Arc, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { Export } from "@/export";
 import { Stages } from "@/layered/service/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/layered/service/arc/editor/toolbar/graph/Properties";
 import { useExport } from "@/layered/service/arc/imex/export";
 import { Session } from "@/layered/session";
+import { Node } from "@/node";
 
 const TABS = [
   { tabKey: "stages", name: "Stages" },
@@ -115,10 +115,7 @@ export const Toolbar = (): ReactElement | null => {
         <Flex.Box x align="center" empty>
           <Flex.Box x empty style={{ height: "100%", width: 66 }}>
             <Export.ToolbarButton onExport={() => void handleExport(key)} />
-            <Cluster.CopyLinkToolbarButton
-              name={name}
-              ontologyID={arc.ontologyID(key)}
-            />
+            <Node.CopyLinkToolbarButton name={name} ontologyID={arc.ontologyID(key)} />
           </Flex.Box>
           {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />}
         </Flex.Box>

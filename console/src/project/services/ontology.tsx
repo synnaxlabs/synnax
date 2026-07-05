@@ -28,7 +28,6 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
@@ -39,6 +38,7 @@ import { Log } from "@/layered/service/log";
 import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -87,7 +87,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const firstID = selection.ids[0];
   const createSchematic = Schematic.useCreate({ project: projectKey });
   const importComponent = Import.useImport();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Node.useCopyLinkToClipboard();
   const handleExport = useExport();
   const handleRename = useRename(props);
   const resources = getResource(ids);

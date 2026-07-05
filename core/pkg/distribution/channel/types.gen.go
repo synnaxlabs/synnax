@@ -26,7 +26,7 @@ import (
 type Key uint32
 
 // LocalKey is a 20-bit unsigned integer representing the locally-unique portion of a
-// channel key within a node. Combined with a NodeKey to form the global channel Key.
+// channel key within a node. Combined with a node.Key to form the global channel Key.
 type LocalKey types.Uint20
 
 // Name is a human-readable name for a channel. Must start with a letter or underscore

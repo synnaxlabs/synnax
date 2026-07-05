@@ -11,7 +11,6 @@ import { ontology, type Synnax, table } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Mosaic, Table as Base } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
-import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
@@ -20,6 +19,7 @@ import { ImEx } from "@/layered/service/table/imex";
 import { create } from "@/layered/service/table/layout";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -53,7 +53,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource, shape },
   } = props;
   const handleDelete = useDelete(props);
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Node.useCopyLinkToClipboard();
   const handleExport = ImEx.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();

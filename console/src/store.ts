@@ -18,10 +18,10 @@ import {
 import { Drift } from "@synnaxlabs/drift";
 import { type deep, type record } from "@synnaxlabs/x";
 
-import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { Persist } from "@/persist";
 import { Project } from "@/project";
 import { Range } from "@/range";
@@ -39,7 +39,7 @@ const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootSta
 
 const ZERO_STATE: RootState = {
   [Session.Arc.SLICE_NAME]: Session.Arc.ZERO_SLICE_STATE,
-  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
+  [Node.SLICE_NAME]: Node.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
@@ -56,7 +56,7 @@ const ZERO_STATE: RootState = {
 
 const reducer = combineReducers({
   [Session.Arc.SLICE_NAME]: Session.Arc.reducer,
-  [Cluster.SLICE_NAME]: Cluster.reducer,
+  [Node.SLICE_NAME]: Node.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
@@ -73,7 +73,7 @@ const reducer = combineReducers({
 
 export interface RootState {
   [Session.Arc.SLICE_NAME]: Session.Arc.SliceState;
-  [Cluster.SLICE_NAME]: Cluster.SliceState;
+  [Node.SLICE_NAME]: Node.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
@@ -90,7 +90,7 @@ export interface RootState {
 
 export type RootAction =
   | Session.Arc.Action
-  | Cluster.Action
+  | Node.Action
   | Docs.Action
   | Drift.Action
   | Layout.Action
@@ -113,7 +113,7 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
 
 export const migrateState = (prev: RootState): RootState => {
   console.group("Migrating State");
-  const cluster = Cluster.migrateSlice(prev.cluster);
+  const cluster = Node.migrateSlice(prev.cluster);
   const docs = Docs.migrateSlice(prev.docs);
   const layout = Layout.migrateSlice(prev.layout);
   // The project slice was persisted under "workspace" before the rename;

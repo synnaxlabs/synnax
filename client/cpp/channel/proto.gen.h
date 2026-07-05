@@ -121,7 +121,7 @@ Channel::from_proto(const ::api::channel::pb::Channel &pb) {
     Channel cpp;
     cpp.key = Key(pb.key());
     cpp.name = pb.name();
-    cpp.leaseholder = ::synnax::cluster::NodeKey(pb.leaseholder());
+    cpp.leaseholder = ::synnax::node::Key(pb.leaseholder());
     cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
     cpp.is_index = pb.is_index();
     cpp.index = Key(pb.index());

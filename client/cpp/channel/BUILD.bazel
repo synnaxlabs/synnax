@@ -12,7 +12,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//client/cpp/cluster",
+        "//client/cpp/node",
         "//client/cpp/errors",
         "//client/cpp/ontology",
         "//client/cpp/status",

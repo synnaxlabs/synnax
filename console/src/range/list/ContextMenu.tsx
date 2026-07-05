@@ -11,11 +11,11 @@ import { ranger } from "@synnaxlabs/client";
 import { Access, Divider, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/components";
 import { Link } from "@/layered/service/link";
 import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { CreateChildRangeIcon } from "@/range/ContextMenu";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
@@ -56,7 +56,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     dispatch(remove({ keys: ranges.map((r) => r.key) }));
   };
   const handleError = Status.useErrorHandler();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Node.useCopyLinkToClipboard();
 
   const handleDetails = () => {
     placeLayout({ ...OVERVIEW_LAYOUT, name: ranges[0].name, key: ranges[0].key });

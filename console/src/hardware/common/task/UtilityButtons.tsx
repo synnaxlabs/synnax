@@ -12,9 +12,9 @@ import { Button, Divider, Flex, Form, Icon } from "@synnaxlabs/pluto";
 import { binary, primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Cluster } from "@/cluster";
 import { useExport } from "@/hardware/common/task/export";
 import { useKey } from "@/hardware/common/task/useKey";
+import { Node } from "@/node";
 
 export const UtilityButtons = () => {
   const ctx = Form.useContext();
@@ -42,7 +42,7 @@ export const UtilityButtons = () => {
     const config = ctx.get("config").value;
     return binary.JSON_CODEC.encodeString(config);
   }, [ctx]);
-  const copyLink = Cluster.useCopyLinkToClipboard();
+  const copyLink = Node.useCopyLinkToClipboard();
   const handleCopyLink = () => {
     if (taskKey == null) return;
     copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });

@@ -28,9 +28,9 @@ import {
 import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
 import { Provider } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { Project } from "@/project";
 
 const consoleReducer = combineReducers({
@@ -38,7 +38,7 @@ const consoleReducer = combineReducers({
   [Drift.SLICE_NAME]: Drift.reducer,
   [Session.Log.SLICE_NAME]: Session.Log.reducer,
   [Project.SLICE_NAME]: Project.reducer,
-  [Cluster.SLICE_NAME]: Cluster.reducer,
+  [Node.SLICE_NAME]: Node.reducer,
   [Session.Nav.SLICE_NAME]: Session.Nav.reducer,
 });
 
@@ -46,7 +46,7 @@ export type ConsolePreloadedState = {
   [Layout.SLICE_NAME]?: Layout.SliceState;
   [Session.Log.SLICE_NAME]?: Session.Log.SliceState;
   [Project.SLICE_NAME]?: Project.SliceState;
-  [Cluster.SLICE_NAME]?: Cluster.SliceState;
+  [Node.SLICE_NAME]?: Node.SliceState;
   [Session.Nav.SLICE_NAME]?: Session.Nav.SliceState;
 };
 

@@ -14,7 +14,6 @@ import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
@@ -22,6 +21,7 @@ import { useExport } from "@/layered/service/log/imex/export";
 import { Channels } from "@/layered/service/log/toolbar/Channels";
 import { Properties } from "@/layered/service/log/toolbar/Properties";
 import { Session } from "@/layered/session";
+import { Node } from "@/node";
 
 const TABS: Tabs.Tab[] = [
   { tabKey: "channels", name: "Channels" },
@@ -67,7 +67,7 @@ const Internal = (): ReactElement => {
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
               <Export.ToolbarButton onExport={() => handleExport(key)} />
-              <Cluster.CopyLinkToolbarButton
+              <Node.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(key)}
               />

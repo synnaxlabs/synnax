@@ -23,11 +23,11 @@ import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/components";
 import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/layered/service/lineplot/layout";
 import { Link } from "@/layered/service/link";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { useConfirmDelete } from "@/ontology/hooks";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
@@ -178,7 +178,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const rangeExists = rng != null;
   const del = useDelete();
   const persist = usePersist();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Node.useCopyLinkToClipboard();
 
   return (
     <CMenu.Menu>

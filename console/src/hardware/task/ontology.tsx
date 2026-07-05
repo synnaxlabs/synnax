@@ -11,7 +11,6 @@ import { ontology, task } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
-import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
@@ -21,6 +20,7 @@ import { createLayout, retrieveAndPlaceLayout } from "@/hardware/task/layouts";
 import { useRangeSnapshot } from "@/hardware/task/useRangeSnapshot";
 import { Link } from "@/layered/service/link";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -81,7 +81,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { ids, rootID } = selection;
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Node.useCopyLinkToClipboard();
   const handleExport = Common.Task.useExport();
   const snap = useRangeSnapshot();
   const range = Range.useSelect();

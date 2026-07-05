@@ -27,12 +27,12 @@ import { color, deep, record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Tb } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
 import { useExport } from "@/layered/service/table/imex/export";
 import { Session } from "@/layered/session";
+import { Node } from "@/node";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -71,10 +71,7 @@ const Internal = (): ReactElement => {
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
           <Export.ToolbarButton onExport={() => handleExport(key)} />
-          <Cluster.CopyLinkToolbarButton
-            name={name}
-            ontologyID={table.ontologyID(key)}
-          />
+          <Node.CopyLinkToolbarButton name={name} ontologyID={table.ontologyID(key)} />
         </Flex.Box>
       </Tb.Header>
       <Flex.Box full>

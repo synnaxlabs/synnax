@@ -29,7 +29,6 @@ import { array, strings } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu, EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
@@ -43,6 +42,7 @@ import { type Service } from "@/layered/service";
 import { Link } from "@/layered/service/link";
 import { Modals } from "@/layered/service/modals";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { Range } from "@/range";
 
 const EmptyContent = () => {
@@ -365,7 +365,7 @@ const ContextMenu = ({
   );
 
   const addStatus = Status.useAdder();
-  const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
+  const copyLinkToClipboard = Node.useCopyLinkToClipboard();
 
   const handleExport = Common.Task.useExport();
   const handleLink = useCallback(

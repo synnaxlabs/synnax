@@ -25,8 +25,8 @@ import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { LoginNav } from "@/auth/LoginNav";
-import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
+import { Node } from "@/node";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
@@ -50,13 +50,13 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
 };
 
 export const Login = (): ReactElement => {
-  const servingCluster = Cluster.detectConnection();
+  const servingCluster = Node.detectConnection();
   const [stat, setStatus] = useState<status.Status>(() =>
     status.create({ variant: "disabled", message: "" }),
   );
-  const clusters = Cluster.useSelectMany();
+  const clusters = Node.useSelectMany();
   const [selectedKey, setSelectedKey] = useState<string | undefined>(clusters[0]?.key);
-  const selectedCluster = Cluster.useSelect(selectedKey);
+  const selectedCluster = Node.useSelect(selectedKey);
   const dispatch = useDispatch();
   const handleError = Status.useErrorHandler();
 
@@ -88,8 +88,8 @@ export const Login = (): ReactElement => {
         const message = state.message ?? "Unknown error";
         return setStatus(status.create({ variant: "error", message }));
       }
-      dispatch(Cluster.set({ ...clusterToConnect, key, ...credentials }));
-      dispatch(Cluster.setActive(key));
+      dispatch(Node.set({ ...clusterToConnect, key, ...credentials }));
+      dispatch(Node.setActive(key));
     }, "Failed to log in");
 
   const handleSelectedClusterChange = useCallback(
@@ -131,7 +131,7 @@ export const Login = (): ReactElement => {
           background={0}
         >
           {servingCluster == null && (
-            <Cluster.List
+            <Node.List
               className={CSS.BE("login", "list")}
               value={selectedKey}
               onChange={handleSelectedClusterChange}

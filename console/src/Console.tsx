@@ -24,7 +24,6 @@ import {
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { COMMANDS } from "@/commands";
 import { Docs } from "@/docs";
 import { Errors } from "@/errors";
@@ -40,6 +39,7 @@ import { Schematic } from "@/layered/service/schematic";
 import { Table } from "@/layered/service/table";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
+import { Node } from "@/node";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
 import { Range } from "@/range";
@@ -120,7 +120,7 @@ const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
 const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
 const MainUnderContext = (): ReactElement => {
-  const cluster = Cluster.useSelect();
+  const cluster = Node.useSelect();
   const themingProps = Session.Theme.useProviderProps();
   useBlockDefaultDropBehavior();
   Runtime.useExternalLinkHandler();

@@ -15,7 +15,7 @@ from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 
-from synnax import cluster
+from synnax import node
 from synnax import status as status_
 from synnax.ontology.payload import ID
 from x import control, telem
@@ -92,7 +92,7 @@ class Payload(BaseModel):
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
     name: Name
-    leaseholder: cluster.NodeKey = Field(default=cluster.NodeKey(0), ge=0, le=4095)
+    leaseholder: node.Key = Field(default=node.Key(0), ge=0, le=4095)
     data_type: telem.DataType
     is_index: bool = False
     index: Key = Field(default=Key(0), ge=0, le=4294967295)

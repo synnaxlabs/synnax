@@ -10,12 +10,12 @@
 import { group, ontology } from "@synnaxlabs/client";
 import { Access, Flux, Group, Icon, Menu, Tree } from "@synnaxlabs/pluto";
 
-import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
 import { ContextMenuItem } from "@/group/ContextMenuItem";
 import { useCreateEmpty } from "@/group/useCreateEmpty";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
 import { Link } from "@/layered/service/link";
+import { Node } from "@/node";
 import { Ontology } from "@/ontology";
 import { createUseRename } from "@/ontology/createUseRename";
 
@@ -36,7 +36,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const ungroup = useUngroupSelection();
   const createEmptyGroup = useCreateEmpty({ parent: ids[0], state, root: rootID });
   const createFromSelection = useCreateFromSelection();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Node.useCopyLinkToClipboard();
   const firstID = ids[0];
   const firstResource = getResource(firstID);
   const rename = useRename(props);

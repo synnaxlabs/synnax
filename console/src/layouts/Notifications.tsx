@@ -9,13 +9,13 @@
 
 import { type ReactElement } from "react";
 
-import { Cluster } from "@/cluster";
 import { Hardware } from "@/hardware";
+import { Node } from "@/node";
 import { Notifications as Base } from "@/notifications";
 import { Version } from "@/version";
 
 const NOTIFICATION_ADAPTERS: Base.Adapter[] = [
-  ...Cluster.NOTIFICATION_ADAPTERS,
+  ...Node.NOTIFICATION_ADAPTERS,
   ...Hardware.NOTIFICATION_ADAPTERS,
   ...Version.NOTIFICATION_ADAPTERS,
 ];

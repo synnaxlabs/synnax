@@ -11,7 +11,6 @@ import { lineplot, ontology } from "@synnaxlabs/client";
 import { Access, Icon, LinePlot as Base, Menu, Mosaic } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
-import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
 import { Export } from "@/export";
 import { Group } from "@/group";
@@ -20,6 +19,7 @@ import { create } from "@/layered/service/lineplot/layout";
 import { Link } from "@/layered/service/link";
 import { Session } from "@/layered/session";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -54,7 +54,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource, shape },
   } = props;
   const handleDelete = useDelete(props);
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Node.useCopyLinkToClipboard();
   const handleExport = useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();

@@ -26,12 +26,12 @@ import { id, primitive } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
-import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
 import { Group } from "@/group";
 import { LinePlot } from "@/layered/service/lineplot";
 import { Link } from "@/layered/service/link";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
@@ -212,7 +212,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
   const handleRename = useRename(props);
 
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Node.useCopyLinkToClipboard();
   const openCalculated = useEditCalculated();
   const singleResource = resources.length === 1;
 

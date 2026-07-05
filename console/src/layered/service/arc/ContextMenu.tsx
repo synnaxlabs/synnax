@@ -22,11 +22,11 @@ import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { ContextMenu as CMenu } from "@/components";
 import { create } from "@/layered/service/arc/layout";
 import { Link } from "@/layered/service/link";
 import { Layout } from "@/layout";
+import { Node } from "@/node";
 import { useConfirmDelete } from "@/ontology/hooks";
 
 export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
@@ -48,7 +48,7 @@ export const ContextMenu = ({
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
   const addStatus = Status.useAdder();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Node.useCopyLinkToClipboard();
   const confirm = useConfirmDelete({
     type: "Arc",
     description: "Deleting this Arc will permanently remove it.",

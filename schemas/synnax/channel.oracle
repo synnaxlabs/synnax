@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/telem"
-import "schemas/synnax/cluster"
+import "schemas/synnax/node"
 import "schemas/x/control"
 import "schemas/synnax/status"
 
@@ -30,7 +30,7 @@ Key uint32 {
 LocalKey uint20 {
     @doc value """
         is a 20-bit unsigned integer representing the locally-unique portion
-        of a channel key within a node. Combined with a NodeKey to form the
+        of a channel key within a node. Combined with a node.Key to form the
         global channel Key.
     """
     @go output "core/pkg/distribution/channel"
@@ -88,7 +88,7 @@ Channel struct {
         @doc value    "is the human-readable channel name."
         @index lookup
     }
-    leaseholder cluster.NodeKey     {
+    leaseholder node.Key     {
         @doc value """
             is the cluster node that holds the lease for this channel and is
             authorized to accept writes.
@@ -176,7 +176,7 @@ APIChannel struct {
     name        Name                {
         @doc value "is the human-readable channel name."
     }
-    leaseholder cluster.NodeKey = 0 {
+    leaseholder node.Key = 0 {
         @doc value """
             is the cluster node that holds the lease for this channel. Mostly
             for internal use.

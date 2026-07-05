@@ -14,7 +14,6 @@ import { Access, Button, Flex, Icon, LinePlot, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
@@ -26,6 +25,7 @@ import { Lines } from "@/layered/service/lineplot/toolbar/Lines";
 import { Properties } from "@/layered/service/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/layered/service/lineplot/useDownloadAsCSV";
 import { Session } from "@/layered/session";
+import { Node } from "@/node";
 
 interface Tab {
   tabKey: Session.LinePlot.ToolbarTab;
@@ -102,7 +102,7 @@ const Internal = (): ReactElement => {
                 <Icon.CSV />
               </Button.Button>
               <Export.ToolbarButton onExport={() => handleExport(key)} />
-              <Cluster.CopyLinkToolbarButton
+              <Node.CopyLinkToolbarButton
                 name={name}
                 ontologyID={lineplot.ontologyID(key)}
               />
