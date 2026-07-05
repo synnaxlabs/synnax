@@ -19,6 +19,9 @@ vendor/soem/SOEM/**
 # IgH EtherCAT Master
 driver/ethercat/igh/ecrt.h
 
+# Generated lockfiles
+pnpm-lock.yaml
+
 # Test fixtures and third-party assets
 integration/tests/fixtures/test_symbol.svg
 integration/tests/fixtures/styled_symbol.svg
