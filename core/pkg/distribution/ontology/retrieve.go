@@ -81,6 +81,7 @@ func (r Retrieve) Where(filter gorp.Filter[string, Resource]) Retrieve {
 	return r.setCurrentClause(c)
 }
 
+// WhereTypes filters resources by the provided types.
 func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 	c := r.currentClause()
 	if len(types) == 1 {
@@ -125,11 +126,6 @@ const (
 	// DirectionBackward represents a backward traversal i.e. To -> Start.
 	DirectionBackward Direction = 2
 )
-
-// GetID returns the directional ID of the relationship.
-func (d Direction) GetID(rel *Relationship) ID {
-	return lo.Ternary(d == DirectionForward, rel.To, rel.From)
-}
 
 // RawTraversal is a callback that operates on raw orc-encoded relationship bytes. It
 // checks whether the row matches any of the target IDs and, if so, appends the
@@ -292,7 +288,7 @@ func (r Retrieve) Entry(res *Resource) Retrieve {
 	return r.setCurrentClause(c)
 }
 
-// Entries binds a slice that the query will fill results into. Calls to Entry will
+// Entries binds a slice that the query will fill results into. Calls to Entries will
 // override all previous calls to Entries or Entry.
 func (r Retrieve) Entries(res *[]Resource) Retrieve {
 	c := r.currentClause()
