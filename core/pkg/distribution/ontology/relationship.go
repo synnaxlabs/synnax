@@ -48,7 +48,7 @@ type Relationship struct {
 var _ gorp.Entry[string] = Relationship{}
 
 // relationshipKeySep separates the From, Type, and To fields in an encoded relationship
-// gorp key. The four dagWriter delete helpers depend on this layout to short-circuit
+// gorp key. The four Writer delete helpers depend on this layout to short-circuit
 // scans without decoding the entry.
 const relationshipKeySep = "->"
 

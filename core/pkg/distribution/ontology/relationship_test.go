@@ -25,32 +25,32 @@ var _ = Describe("Relationship", func() {
 				Type: ontology.RelationshipTypeParentOf,
 			}.GorpKey()).To(Equal("channel:qux->parent->device:baz"))
 		})
-		Describe("SetOptions", func() {
-			It("Should return nil", func() {
-				Expect(ontology.Relationship{}.SetOptions()).To(BeNil())
-			})
+	})
+	Describe("SetOptions", func() {
+		It("Should return nil", func() {
+			Expect(ontology.Relationship{}.SetOptions()).To(BeNil())
 		})
-		Describe("ParseRelationship", func() {
-			It("Should parse a relationship from a string", func() {
-				Expect((ontology.ParseRelationship("channel:qux->parent->device:baz"))).
-					To(Equal(ontology.Relationship{
-						From: ontology.ID{Type: "channel", Key: "qux"},
-						To:   ontology.ID{Type: "device", Key: "baz"},
-						Type: ontology.RelationshipTypeParentOf,
-					}))
-			})
-			DescribeTable("Errors", func(key, message string) {
-				Expect(
-					ontology.ParseRelationship(key),
-				).Error().To(And(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(message)),
-				))
-			},
-				Entry("Invalid structure", "foo:qux-parent->bar", "invalid relationship key"),
-				Entry("Invalid from", "badfrom->parent->bar", "failed to parse id"),
-				Entry("Invalid to", "foo:qux->parent->badto", "failed to parse id"),
-			)
+	})
+	Describe("ParseRelationship", func() {
+		It("Should parse a relationship from a string", func() {
+			Expect((ontology.ParseRelationship("channel:qux->parent->device:baz"))).
+				To(Equal(ontology.Relationship{
+					From: ontology.ID{Type: "channel", Key: "qux"},
+					To:   ontology.ID{Type: "device", Key: "baz"},
+					Type: ontology.RelationshipTypeParentOf,
+				}))
 		})
+		DescribeTable("Errors", func(key, message string) {
+			Expect(
+				ontology.ParseRelationship(key),
+			).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(message)),
+			))
+		},
+			Entry("Invalid structure", "foo:qux-parent->bar", "invalid relationship key"),
+			Entry("Invalid from", "badfrom->parent->bar", "failed to parse id"),
+			Entry("Invalid to", "foo:qux->parent->badto", "failed to parse id"),
+		)
 	})
 })
