@@ -29,7 +29,8 @@ import (
 // on the database.
 type Writer struct {
 	tx         gorp.Tx
-	otg        ontology.Writer
+	otgWriter  ontology.Writer
+	otg        *ontology.Ontology
 	task       task.Writer
 	table      *gorp.Table[Key, Arc]
 	dispatcher actions.Dispatcher[Key, Action]
@@ -62,7 +63,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	}
 	otgID := OntologyID(a.Key)
 	if !exists {
-		if err = w.otg.DefineResource(ctx, otgID); err != nil {
+		if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 			return err
 		}
 	}
@@ -141,7 +142,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 		w.sweeper.forget(key)

@@ -25,10 +25,8 @@ import (
 // key-value backed directed acyclic graph. Open one with Ontology.NewWriter.
 type Writer struct {
 	tx                gorp.Tx
-	registrar         serviceRegistrar
 	resourceTable     *gorp.Table[string, Resource]
 	relationshipTable *gorp.Table[string, Relationship]
-	relIndexes        relationshipIndexes
 }
 
 // DefineResource defines one or more new resources with the given IDs. If any of the
@@ -130,14 +128,6 @@ func (w Writer) DeleteRelationship(
 ) error {
 	return w.relationshipTable.NewDelete().Where(gorp.MatchKeys[string, Relationship](Relationship{From: from, To: to, Type: t}.GorpKey())).
 		Exec(ctx, w.tx)
-}
-
-// NewRetrieve opens a new Retrieve query that provides a view of pending operations
-// merged with the underlying database. If the Writer is executing directly against the
-// underlying database, the Retrieve query behaves exactly as if calling
-// Ontology.NewRetrieve.
-func (w Writer) NewRetrieve() Retrieve {
-	return newRetrieve(w.registrar, w.tx, w.resourceTable, w.relationshipTable, w.relIndexes)
 }
 
 func (w Writer) retrieveOutgoingRelationships(ctx context.Context, key ID) ([]Resource, error) {

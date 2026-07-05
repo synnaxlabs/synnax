@@ -102,7 +102,12 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Group]] {
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.cfg.DB, tx), otg: s.cfg.Ontology.NewWriter(tx), table: s.table}
+	return Writer{
+		tx:        gorp.OverrideTx(s.cfg.DB, tx),
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
+		table:     s.table,
+	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
@@ -117,9 +122,10 @@ func (s *Service) Close() error {
 }
 
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	table *gorp.Table[Key, Group]
+	tx        gorp.Tx
+	otgWriter ontology.Writer
+	otg       *ontology.Ontology
+	table     *gorp.Table[Key, Group]
 }
 
 // Create creates a new Group with the given name and parent.
@@ -134,10 +140,10 @@ func (w Writer) Create(
 	if err = w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	if err = w.otg.DefineResource(ctx, id); err != nil {
+	if err = w.otgWriter.DefineResource(ctx, id); err != nil {
 		return
 	}
-	if err = w.otg.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, id); err != nil {
+	if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, id); err != nil {
 		return
 	}
 	return g, err
@@ -158,10 +164,10 @@ func (w Writer) CreateWithKey(
 	if err = w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	if err = w.otg.DefineResource(ctx, id); err != nil {
+	if err = w.otgWriter.DefineResource(ctx, id); err != nil {
 		return
 	}
-	if err = w.otg.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, id); err != nil {
+	if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, id); err != nil {
 		return
 	}
 	return g, err
@@ -188,7 +194,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		if len(children) > 0 {
 			return errors.Wrap(validate.ErrValidation, "cannot delete a group with children")
 		}
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}

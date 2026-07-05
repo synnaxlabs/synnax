@@ -28,7 +28,7 @@ var _ = Describe("Retrieve", func() {
 			id := newSampleType("A")
 			Expect(w.DefineResource(ctx, id)).To(Succeed())
 			var r ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereIDs(id).
 				Entry(&r).
 				Exec(ctx, tx),
@@ -42,10 +42,10 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.DefineResource(ctx, ids[0])).To(Succeed())
 			Expect(w.DefineResource(ctx, ids[1])).To(Succeed())
 			var r []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereIDs(ids...).
 				Entries(&r).
-				Exec(ctx, nil),
+				Exec(ctx, tx),
 			).To(Succeed())
 			var res Sample
 			Expect(schema.Parse(r[0].Data, &res)).To(Succeed())
@@ -58,10 +58,10 @@ var _ = Describe("Retrieve", func() {
 		It("Should return true when the query matches a resource", func(ctx SpecContext) {
 			id := newSampleType("A")
 			Expect(w.DefineResource(ctx, id)).To(Succeed())
-			Expect(w.NewRetrieve().WhereIDs(id).Exists(ctx, tx)).To(BeTrue())
+			Expect(otg.NewRetrieve().WhereIDs(id).Exists(ctx, tx)).To(BeTrue())
 		})
 		It("Should return false when the query matches no resources", func(ctx SpecContext) {
-			Expect(w.NewRetrieve().WhereIDs(newSampleType("nonexistent")).Exists(ctx, tx)).
+			Expect(otg.NewRetrieve().WhereIDs(newSampleType("nonexistent")).Exists(ctx, tx)).
 				To(BeFalse())
 		})
 		It("Should return true when a traversal matches a resource", func(ctx SpecContext) {
@@ -70,7 +70,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.DefineResource(ctx, a)).To(Succeed())
 			Expect(w.DefineResource(ctx, b)).To(Succeed())
 			Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereIDs(a).
 				TraverseTo(ontology.ChildrenTraverser).
 				Exists(ctx, tx)).To(BeTrue())
@@ -86,11 +86,11 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
 				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
 				var r ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(a).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&r).
-					Exec(ctx, nil),
+					Exec(ctx, tx),
 				).To(Succeed())
 				var res Sample
 				Expect(schema.Parse(r.Data, &res)).To(Succeed())
@@ -107,7 +107,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
 				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r []ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(a).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&r).
@@ -122,11 +122,11 @@ var _ = Describe("Retrieve", func() {
 
 			It("Should return ErrNotFound when traversing children of a non-existent parent", func(ctx SpecContext) {
 				var r []ontology.Resource
-				err := w.NewRetrieve().
+				err := otg.NewRetrieve().
 					WhereIDs(newSampleType("nonexistent")).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&r).
-					Exec(ctx, nil)
+					Exec(ctx, tx)
 				Expect(err).To(MatchError(query.ErrNotFound))
 			})
 
@@ -140,7 +140,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
 				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(a).
 					TraverseTo(ontology.ChildrenTraverser).
 					TraverseTo(ontology.ChildrenTraverser).
@@ -163,7 +163,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var intermediate []ontology.Resource
 				var final []ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(a).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&intermediate).
@@ -187,11 +187,11 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
 				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
 				var r ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(b).
 					TraverseTo(ontology.ParentsTraverser).
 					Entry(&r).
-					Exec(ctx, nil),
+					Exec(ctx, tx),
 				).To(Succeed())
 				var res Sample
 				Expect(schema.Parse(r.Data, &res)).To(Succeed())
@@ -208,7 +208,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r []ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(c).
 					TraverseTo(ontology.ParentsTraverser).
 					Entries(&r).
@@ -233,7 +233,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
 				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(c).
 					TraverseTo(ontology.ParentsTraverser).
 					TraverseTo(ontology.ParentsTraverser).
@@ -256,7 +256,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r []ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(a).
 					TraverseTo(ontology.ChildrenTraverser).
 					WhereTypes(ontology.ResourceTypeChannel).
@@ -287,7 +287,7 @@ var _ = Describe("Retrieve", func() {
 
 			// This query pattern has an intermediate clause (WhereTypes) with no bound entries
 			var results []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereIDs(grandparent).
 				TraverseTo(ontology.ChildrenTraverser).
 				WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter, no Entries() bound
@@ -320,7 +320,7 @@ var _ = Describe("Retrieve", func() {
 
 			// Multiple intermediate clauses with filters, no bound entries
 			var results []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereIDs(a).
 				TraverseTo(ontology.ChildrenTraverser).
 				WhereTypes(ontology.ResourceTypeChannel). // Intermediate filter #1
@@ -345,14 +345,14 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineResource(ctx, newSampleType(strconv.Itoa(i)))).To(Succeed())
 			}
 			var r []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				Offset(0).
 				Limit(5).
 				Entries(&r).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(r).To(HaveLen(5))
 			var r2 []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				Offset(5).
 				Limit(5).
 				Entries(&r2).
@@ -374,7 +374,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.DefineResource(ctx, a)).To(Succeed())
 			Expect(w.DefineResource(ctx, b)).To(Succeed())
 			var r []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereTypes(ontology.ResourceTypeChannel).
 				Entries(&r).
 				Exec(ctx, tx),
@@ -392,7 +392,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.DefineResource(ctx, newSampleType("type-filter-C"))).To(Succeed())
 			nonExistentType := ontology.ResourceType("nonexistent")
 			var r []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereTypes(nonExistentType).
 				Entries(&r).
 				Exec(ctx, tx),
@@ -407,7 +407,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.DefineResource(ctx, b)).To(Succeed())
 			otherType := ontology.ResourceType("other")
 			var r []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereTypes(ontology.ResourceTypeChannel, otherType).
 				Entries(&r).
 				Exec(ctx, tx),
@@ -421,7 +421,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should return empty when none of the multiple types match", func(ctx SpecContext) {
 			Expect(w.DefineResource(ctx, newSampleType("multi-type-none"))).To(Succeed())
 			var r []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereTypes(ontology.ResourceType("foo"), ontology.ResourceType("bar")).
 				Entries(&r).
 				Exec(ctx, tx),
@@ -435,7 +435,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.DefineResource(ctx, a)).To(Succeed())
 			Expect(w.DefineResource(ctx, b)).To(Succeed())
 			var r []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereIDs(a, b).
 				WhereTypes(ontology.ResourceTypeChannel).
 				Entries(&r).
@@ -453,7 +453,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(w.DefineResource(ctx, a)).To(Succeed())
 			var r []ontology.Resource
 			// Use multiple types to trigger filter function path (not prefix matching)
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereIDs(a).
 				WhereTypes(ontology.ResourceType("different"), ontology.ResourceType("another")).
 				Entries(&r).
@@ -467,7 +467,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineResource(ctx, newSampleType("limit-type-"+strconv.Itoa(i)))).To(Succeed())
 			}
 			var r []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereTypes(ontology.ResourceTypeChannel).
 				Limit(3).
 				Entries(&r).
@@ -481,7 +481,7 @@ var _ = Describe("Retrieve", func() {
 				Expect(w.DefineResource(ctx, newSampleType("limit-multi-"+strconv.Itoa(i)))).To(Succeed())
 			}
 			var r []ontology.Resource
-			Expect(w.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereTypes(ontology.ResourceTypeChannel, ontology.ResourceType("other")).
 				Limit(3).
 				Entries(&r).

@@ -33,19 +33,19 @@ var _ = Describe("Writer", func() {
 		Describe("Defining a Resource", func() {
 			It("Should define a resource by its ID", func(ctx SpecContext) {
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
-				Expect(w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
+				Expect(otg.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
 			})
 		})
 		It("Should define many resources by their names", func(ctx SpecContext) {
 			ids := []ontology.ID{id, newSampleType("bar")}
 			Expect(w.DefineResource(ctx, ids...)).To(Succeed())
-			Expect(w.NewRetrieve().WhereIDs(ids...).Exec(ctx, tx)).To(Succeed())
+			Expect(otg.NewRetrieve().WhereIDs(ids...).Exec(ctx, tx)).To(Succeed())
 		})
 		Describe("Deleting a Resource", func() {
 			It("Should delete a resource by its ID", func(ctx SpecContext) {
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
 				Expect(w.DeleteResource(ctx, id)).To(Succeed())
-				err := w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)
+				err := otg.NewRetrieve().WhereIDs(id).Exec(ctx, tx)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.Is(err, query.ErrNotFound)).To(BeTrue())
 			})
@@ -54,7 +54,7 @@ var _ = Describe("Writer", func() {
 			Specify("Defining a resource should be idempotent", func(ctx SpecContext) {
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
-				Expect(w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
+				Expect(otg.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
 			})
 		})
 	})
@@ -79,7 +79,7 @@ var _ = Describe("Writer", func() {
 					idTwo,
 				)).To(Succeed())
 				var res []ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(idOne).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
@@ -128,7 +128,7 @@ var _ = Describe("Writer", func() {
 					idTwo,
 				)).To(Succeed())
 				var res []ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(idOne).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
@@ -179,7 +179,7 @@ var _ = Describe("Writer", func() {
 					idTwo,
 				)).To(Succeed())
 				var res []ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(idOne).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
@@ -198,7 +198,7 @@ var _ = Describe("Writer", func() {
 					idTwo, idThree,
 				)).To(Succeed())
 				var res []ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(idOne).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
@@ -213,7 +213,7 @@ var _ = Describe("Writer", func() {
 				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 				Expect(w.DeleteRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 				var res []ontology.Resource
-				Expect(w.NewRetrieve().
+				Expect(otg.NewRetrieve().
 					WhereIDs(idOne).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
@@ -227,7 +227,7 @@ var _ = Describe("Writer", func() {
 					Expect(w.DefineRelationship(ctx, idOne, t, idTwo)).To(Succeed())
 					Expect(w.DeleteOutgoingRelationshipsOfType(ctx, idOne, ontology.RelationshipTypeParentOf)).To(Succeed())
 					var res []ontology.Resource
-					Expect(w.NewRetrieve().
+					Expect(otg.NewRetrieve().
 						WhereIDs(idOne).
 						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&res).
@@ -241,14 +241,14 @@ var _ = Describe("Writer", func() {
 					Expect(w.DefineRelationship(ctx, idOne, label.OntologyRelationshipTypeLabeledBy, idTwo)).To(Succeed())
 					Expect(w.DeleteIncomingRelationshipsOfType(ctx, idTwo, ontology.RelationshipTypeParentOf)).To(Succeed())
 					var res []ontology.Resource
-					Expect(w.NewRetrieve().
+					Expect(otg.NewRetrieve().
 						WhereIDs(idTwo).
 						TraverseTo(ontology.ParentsTraverser).
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(BeEmpty())
 					var res2 []ontology.Resource
-					Expect(w.NewRetrieve().
+					Expect(otg.NewRetrieve().
 						WhereIDs(idOne).
 						TraverseTo(label.LabelsOntologyTraverser).
 						Entries(&res2).
@@ -263,14 +263,14 @@ var _ = Describe("Writer", func() {
 					Expect(w.DefineRelationship(ctx, idOne, label.OntologyRelationshipTypeLabeledBy, idTwo)).To(Succeed())
 					Expect(w.DeleteOutgoingRelationshipsOfType(ctx, idOne, ontology.RelationshipTypeParentOf)).To(Succeed())
 					var res []ontology.Resource
-					Expect(w.NewRetrieve().
+					Expect(otg.NewRetrieve().
 						WhereIDs(idOne).
 						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(BeEmpty())
 					var res2 []ontology.Resource
-					Expect(w.NewRetrieve().
+					Expect(otg.NewRetrieve().
 						WhereIDs(idOne).
 						TraverseTo(label.LabelsOntologyTraverser).
 						Entries(&res2).

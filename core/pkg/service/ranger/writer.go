@@ -171,7 +171,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	frontier := keys
 	for len(frontier) > 0 {
 		var children []ontology.Resource
-		if err := w.otgWriter.
+		if err := w.otg.
 			NewRetrieve().
 			WhereIDs(OntologyIDs(frontier)...).
 			TraverseTo(ontology.ChildrenTraverser).

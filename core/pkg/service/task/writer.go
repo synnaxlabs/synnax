@@ -22,12 +22,13 @@ import (
 )
 
 type Writer struct {
-	tx     gorp.Tx
-	otg    ontology.Writer
-	rack   rack.Writer
-	group  group.Group
-	status status.Writer[StatusDetails]
-	table  *gorp.Table[Key, Task]
+	tx        gorp.Tx
+	otgWriter ontology.Writer
+	otg       *ontology.Ontology
+	rack      rack.Writer
+	group     group.Group
+	status    status.Writer[StatusDetails]
+	table     *gorp.Table[Key, Task]
 }
 
 func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Status[StatusDetails] {
@@ -99,14 +100,14 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return nil
 	}
 	otgID := OntologyID(t.Key)
-	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, nil)
+	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
 	if err != nil || exists {
 		return err
 	}
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(
+	return w.otgWriter.DefineRelationship(
 		ctx,
 		w.group.OntologyID(),
 		ontology.RelationshipTypeParentOf,
@@ -132,7 +133,7 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+	if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
 		return err
 	}
 	return w.status.Delete(ctx, OntologyID(key).String())
@@ -162,7 +163,7 @@ func (w Writer) Copy(
 	if err = w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
 		return Task{}, err
 	}
-	if err = w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {
+	if err = w.otgWriter.DefineResource(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
 	return res, nil

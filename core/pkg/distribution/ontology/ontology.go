@@ -159,10 +159,8 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:                o.DB.OverrideTx(tx),
-		registrar:         o.registrar,
 		resourceTable:     o.resourceTable,
 		relationshipTable: o.relationshipTable,
-		relIndexes:        o.relIndexes,
 	}
 }
 

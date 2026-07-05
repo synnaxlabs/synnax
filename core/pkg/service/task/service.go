@@ -185,12 +185,13 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:     tx,
-		otg:    s.cfg.Ontology.NewWriter(tx),
-		rack:   s.cfg.Rack.NewWriter(tx),
-		group:  s.group,
-		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
-		table:  s.table,
+		tx:        tx,
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
+		rack:      s.cfg.Rack.NewWriter(tx),
+		group:     s.group,
+		status:    status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		table:     s.table,
 	}
 }
 
