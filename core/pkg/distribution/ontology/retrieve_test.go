@@ -198,6 +198,18 @@ var _ = Describe("Retrieve", func() {
 				Expect(res.Key).To(Equal("A"))
 			})
 
+			It("Should return no parents when a resource has none using ParentsTraverser", func(ctx SpecContext) {
+				orphan := newSampleType("orphan")
+				Expect(w.DefineResources(ctx, orphan)).To(Succeed())
+				var res []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(orphan).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&res).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(BeEmpty())
+			})
 			It("Should retrieve multiple parents of a resource using ParentsTraverser", func(ctx SpecContext) {
 				a := newSampleType("A")
 				b := newSampleType("B")

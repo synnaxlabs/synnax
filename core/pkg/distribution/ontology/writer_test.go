@@ -35,6 +35,14 @@ var _ = Describe("Writer", func() {
 				Expect(w.DefineResources(ctx, id)).To(Succeed())
 				Expect(otg.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
 			})
+			It("Should return an error when the ID has an empty key", func(ctx SpecContext) {
+				Expect(w.DefineResources(ctx, ontology.ID{Type: ontology.ResourceTypeChannel})).
+					To(MatchError(ContainSubstring("key is required")))
+			})
+			It("Should return an error when the ID has an invalid type", func(ctx SpecContext) {
+				Expect(w.DefineResources(ctx, ontology.ID{Type: "not-a-type", Key: "foo"})).
+					To(MatchError(ContainSubstring("invalid type")))
+			})
 		})
 		It("Should define many resources by their names", func(ctx SpecContext) {
 			ids := []ontology.ID{id, newSampleType("bar")}
@@ -88,15 +96,21 @@ var _ = Describe("Writer", func() {
 				Expect(res[0].ID).To(Equal(idTwo))
 			})
 			Context("Resources are not defined", func() {
-				It("Should return a query.IDsNotFound error", func(ctx SpecContext) {
-					err := w.DefineRelationships(
+				It("Should return query.ErrNotFound when the to resource does not exist", func(ctx SpecContext) {
+					Expect(w.DefineRelationships(
 						ctx,
 						idOne,
 						ontology.RelationshipTypeParentOf,
 						newSampleType("42"),
-					)
-					Expect(err).To(HaveOccurred())
-					Expect(errors.Is(err, query.ErrNotFound)).To(BeTrue())
+					)).To(MatchError(query.ErrNotFound))
+				})
+				It("Should return query.ErrNotFound when the from resource does not exist", func(ctx SpecContext) {
+					Expect(w.DefineRelationships(
+						ctx,
+						newSampleType("42"),
+						ontology.RelationshipTypeParentOf,
+						idTwo,
+					)).To(MatchError(query.ErrNotFound))
 				})
 			})
 			Context("Cyclic violations", func() {

@@ -72,6 +72,13 @@ var _ = Describe("Ontology", func() {
 		})
 	})
 
+	Describe("Open", func() {
+		It("Should return an error when opened with an invalid config", func(ctx SpecContext) {
+			Expect(ontology.Open(ctx, ontology.Config{})).
+				Error().To(MatchError(ContainSubstring("db")))
+		})
+	})
+
 	Describe("RelationshipExists", func() {
 		var (
 			w             ontology.Writer
