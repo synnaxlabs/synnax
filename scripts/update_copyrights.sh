@@ -114,13 +114,16 @@ has_supported_extension() {
 # it, that line is preserved above the header — shebangs, the cmd `@echo off`
 # directive that must stay first to suppress command echo, and the astro `---`
 # frontmatter fence that must open the file, with the header living inside the
-# frontmatter as a // comment), and TRAILING_BLANK (1 if the canonical layout
-# puts a blank line between the header and the file body, 0 otherwise).
+# frontmatter as a // comment), LEADING_BLANK (1 if a blank line separates the
+# leading line from the header; astro sets 0 because prettier strips blanks
+# adjacent to the frontmatter fences), and TRAILING_BLANK (1 if the canonical
+# layout puts a blank line between the header and the file body, 0 otherwise).
 # HEADER_LINES describes the canonical new header — the size of an *existing*
 # header is detected dynamically.
 resolve_header_for_ext() {
     local ext="$1"
     LEADING_LINE_RE=""
+    LEADING_BLANK=1
     case "$ext" in
         py | pyi)
             HEADER="$HEADER_HASH_TWO"
@@ -147,7 +150,8 @@ resolve_header_for_ext() {
             HEADER="$HEADER_SLASHES"
             HEADER_LINES=8
             LEADING_LINE_RE='^---$'
-            TRAILING_BLANK=1
+            LEADING_BLANK=0
+            TRAILING_BLANK=0
             ;;
         cmd)
             HEADER="$HEADER_REM"
@@ -160,10 +164,15 @@ resolve_header_for_ext() {
             HEADER_LINES=10
             TRAILING_BLANK=1
             ;;
-        html | xml)
+        html)
             HEADER="$HEADER_HTML"
             HEADER_LINES=10
             TRAILING_BLANK=1
+            ;;
+        xml)
+            HEADER="$HEADER_HTML"
+            HEADER_LINES=10
+            TRAILING_BLANK=0
             ;;
         svg)
             HEADER="$HEADER_HTML"
@@ -317,12 +326,14 @@ process_file() {
     resolve_header_for_ext "$ext"
     local new_header="$HEADER"
     local trailing_blank="$TRAILING_BLANK"
+    local leading_blank="$LEADING_BLANK"
 
     read_whole_file "$file"
 
     # Detect a preserved leading line (shebang, the cmd `@echo off` directive,
-    # or the astro `---` frontmatter fence). The canonical layout always
-    # restores: leading line / blank / header / [blank] / body.
+    # or the astro `---` frontmatter fence). The canonical layout restores:
+    # leading line / [blank] / header / [blank] / body — the blank after the
+    # leading line is present unless LEADING_BLANK=0 (astro).
     local has_leading=0
     if [ -n "$LEADING_LINE_RE" ] && [ ${#LINES[@]} -gt 0 ]; then
         if [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
@@ -380,7 +391,7 @@ process_file() {
         && [ "$old_copyright_year" = "$CURRENT_YEAR" ] \
         && [ "$between_start" = "-1" ]; then
         local canonical_header_start_idx=$scan_start_idx
-        if [ "$has_leading" = "1" ]; then
+        if [ "$has_leading" = "1" ] && [ "$leading_blank" = "1" ]; then
             local line2=""
             if [ ${#LINES[@]} -ge 2 ]; then
                 line2="${LINES[1]}"
@@ -449,7 +460,11 @@ process_file() {
     temp_file=$(mktemp)
     {
         if [ "$has_leading" = "1" ]; then
-            printf '%s\n\n' "${LINES[0]}"
+            if [ "$leading_blank" = "1" ]; then
+                printf '%s\n\n' "${LINES[0]}"
+            else
+                printf '%s\n' "${LINES[0]}"
+            fi
         fi
         printf '%s\n' "$new_header"
         if [ "$trailing_blank" = "1" ]; then

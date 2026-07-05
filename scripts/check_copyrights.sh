@@ -126,10 +126,13 @@ should_ignore_file() {
 # line matches it, that line is preserved above the header (shebangs, the cmd
 # `@echo off` directive that must stay first to suppress command echo, and the
 # astro `---` frontmatter fence that must open the file — the header then lives
-# inside the frontmatter as a // comment).
+# inside the frontmatter as a // comment). LEADING_BLANK is 1 when a blank line
+# separates the leading line from the header; astro sets it to 0 because
+# prettier strips blank lines adjacent to the frontmatter fences.
 resolve_header_for_ext() {
     local ext="$1"
     LEADING_LINE_RE=""
+    LEADING_BLANK=1
     case "$ext" in
         py | pyi)
             EXPECTED_HEADER="$EXPECTED_HEADER_HASH_TWO"
@@ -156,7 +159,8 @@ resolve_header_for_ext() {
             EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
             HEADER_LINES=8
             LEADING_LINE_RE='^---$'
-            TRAILING_BLANK=1
+            LEADING_BLANK=0
+            TRAILING_BLANK=0
             ;;
         cmd)
             EXPECTED_HEADER="$EXPECTED_HEADER_REM"
@@ -169,10 +173,15 @@ resolve_header_for_ext() {
             HEADER_LINES=10
             TRAILING_BLANK=1
             ;;
-        html | xml)
+        html)
             EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
             HEADER_LINES=10
             TRAILING_BLANK=1
+            ;;
+        xml)
+            EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
+            HEADER_LINES=10
+            TRAILING_BLANK=0
             ;;
         svg)
             EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
@@ -226,12 +235,15 @@ classify_file() {
         return
     fi
 
-    # Canonical layout: [leading line / blank /] header / [blank /] body. Header
+    # Canonical layout: [leading line / [blank] /] header / [blank /] body. Header
     # starts at index 0 normally; when a leading line is preserved, at index 2
-    # iff line 2 is blank.
+    # iff line 2 is blank (LEADING_BLANK=1), or at index 1 directly against the
+    # leading line (LEADING_BLANK=0, e.g. astro frontmatter).
     local header_start_idx=0
     if [ -n "$LEADING_LINE_RE" ] && [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
-        if [ -z "${LINES[1]:-}" ]; then
+        if [ "$LEADING_BLANK" = "0" ]; then
+            header_start_idx=1
+        elif [ -z "${LINES[1]:-}" ]; then
             header_start_idx=2
         else
             printf 'MALFORMED\t%s\n' "$file"
