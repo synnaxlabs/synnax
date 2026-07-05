@@ -24,13 +24,14 @@ import (
 // between entities, it is a service's responsibility to provide the entities themselves
 // when the ontology requests them.
 type Service interface {
+	// Type returns the [ResourceType] this service is responsible for.
 	Type() ResourceType
-	// RetrieveResource returns the resource with the give key (Name.Name). If the resource
-	// does not exist, returns a query.ErrNotFound error.
+	// RetrieveResource returns the resource with the given key. If the resource does
+	// not exist, returns [query.ErrNotFound].
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)
-	// Observable is used by the ontology to subscribe to changes in the entities. This
-	// is used to propagate changes via the ResourceObserver for signals. If the
-	// service's entities are static, use observe.Noop.
+	// Observable is used by the [Ontology] to subscribe to changes in the entities.
+	// This is used to propagate changes via the ResourceObserver for signals. If the
+	// service's entities are static, use [observe.Noop].
 	observe.Observable[iter.Seq[Change]]
 }
 
@@ -45,7 +46,11 @@ func (s serviceRegistrar) register(svc Service) {
 	s[t] = svc
 }
 
-func (s serviceRegistrar) retrieveResource(ctx context.Context, id ID, tx gorp.Tx) (Resource, error) {
+func (s serviceRegistrar) retrieveResource(
+	ctx context.Context,
+	id ID,
+	tx gorp.Tx,
+) (Resource, error) {
 	svc, ok := s[id.Type]
 	if !ok {
 		panic(fmt.Sprintf("[ontology] - service %s not found", id.Type))

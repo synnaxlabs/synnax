@@ -143,7 +143,12 @@ func (w Writer) Create(
 	if err = w.otgWriter.DefineResource(ctx, id); err != nil {
 		return
 	}
-	if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, id); err != nil {
+	if err = w.otgWriter.DefineRelationship(
+		ctx,
+		parent,
+		ontology.RelationshipTypeParentOf,
+		id,
+	); err != nil {
 		return
 	}
 	return g, err
@@ -167,7 +172,12 @@ func (w Writer) CreateWithKey(
 	if err = w.otgWriter.DefineResource(ctx, id); err != nil {
 		return
 	}
-	if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, id); err != nil {
+	if err = w.otgWriter.DefineRelationship(
+		ctx,
+		parent,
+		ontology.RelationshipTypeParentOf,
+		id,
+	); err != nil {
 		return
 	}
 	return g, err
