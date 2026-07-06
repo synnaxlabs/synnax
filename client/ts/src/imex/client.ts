@@ -34,13 +34,13 @@ export interface ImportOptions extends Options {
    * top-level `name` field, the Core names the imported resource after the file, with
    * any trailing extension stripped. A `name` in the file always wins.
    */
-  fileName?: string;
+  fileName: string;
   /**
-   * The key of the project to create the imported resource under. The Core creates
-   * the resource and its project relationship in a single transaction, so a parenting
+   * The key of the project to create the imported resource under. The Core creates the
+   * resource and its project relationship in a single transaction, so a parenting
    * failure rolls back the import.
    */
-  project?: project.Key;
+  project: project.Key;
 }
 
 /**
@@ -96,10 +96,7 @@ export class Client {
         encoding,
         params: {
           file_name: fileName,
-          parent:
-            projectKey != null
-              ? ontology.idToString(project.ontologyID(projectKey))
-              : undefined,
+          parent: ontology.idToString(project.ontologyID(projectKey)),
         },
       },
       ontology.idZ,

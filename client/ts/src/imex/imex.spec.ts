@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { project } from "@/project";
 import { createTestClient } from "@/testutil";
@@ -36,12 +36,23 @@ const toBlob = (value: unknown): Blob => new Blob([JSON.stringify(value)]);
 
 describe("Imex", () => {
   const client = createTestClient();
+  let projectKey: project.Key;
+
+  beforeAll(async () => {
+    const proj = await client.projects.create({
+      name: `imex-proj-${id.create()}`,
+      layout: {},
+    });
+    projectKey = proj.key;
+  });
 
   describe("import", () => {
     it("should import from a Blob", async () => {
       const name = `imex-${id.create()}`;
       const ontologyID = await client.imex.import(toBlob(logEnvelope(name)), {
         encoding: "JSON",
+        fileName: `${name}.json`,
+        project: projectKey,
       });
       expect(ontologyID.type).toEqual("log");
       expect(ontologyID.key).not.toHaveLength(0);
@@ -50,7 +61,11 @@ describe("Imex", () => {
       const envelope = logEnvelope("invalid");
       envelope.version = -1;
       await expect(
-        client.imex.import(toBlob(envelope), { encoding: "JSON" }),
+        client.imex.import(toBlob(envelope), {
+          encoding: "JSON",
+          fileName: "invalid.json",
+          project: projectKey,
+        }),
       ).rejects.toThrow("failed to decode");
     });
 
@@ -60,6 +75,7 @@ describe("Imex", () => {
       const oid = await client.imex.import(toBlob(nameless), {
         encoding: "JSON",
         fileName: `${fileName}.json`,
+        project: projectKey,
       });
       const stream = await client.imex.export(oid, { encoding: "JSON" });
       const parsed = await new Response(stream).json();
@@ -71,16 +87,21 @@ describe("Imex", () => {
       const oid = await client.imex.import(toBlob(logEnvelope(name)), {
         encoding: "JSON",
         fileName: "Some Other Name.json",
+        project: projectKey,
       });
       const stream = await client.imex.export(oid, { encoding: "JSON" });
       const parsed = await new Response(stream).json();
       expect(parsed.name).toEqual(name);
     });
 
-    it("should throw an error when the envelope has no name and no file name is given", async () => {
+    it("should throw an error when the envelope has no name and the file name is empty", async () => {
       const { name: _, ...nameless } = logEnvelope("unused");
       await expect(
-        client.imex.import(toBlob(nameless), { encoding: "JSON" }),
+        client.imex.import(toBlob(nameless), {
+          encoding: "JSON",
+          fileName: "",
+          project: projectKey,
+        }),
       ).rejects.toThrow("name");
     });
 
@@ -89,8 +110,10 @@ describe("Imex", () => {
         name: `imex-proj-${id.create()}`,
         layout: {},
       });
-      const oid = await client.imex.import(toBlob(logEnvelope(`imex-${id.create()}`)), {
+      const name = `imex-${id.create()}`;
+      const oid = await client.imex.import(toBlob(logEnvelope(name)), {
         encoding: "JSON",
+        fileName: `${name}.json`,
         project: proj.key,
       });
       const children = await client.ontology.retrieveChildren(
@@ -100,9 +123,11 @@ describe("Imex", () => {
     });
 
     it("should throw an error when the parent does not exist", async () => {
+      const name = `imex-${id.create()}`;
       await expect(
-        client.imex.import(toBlob(logEnvelope(`imex-${id.create()}`)), {
+        client.imex.import(toBlob(logEnvelope(name)), {
           encoding: "JSON",
+          fileName: `${name}.json`,
           project: uuid.create(),
         }),
       ).rejects.toThrow("not found");
@@ -114,6 +139,8 @@ describe("Imex", () => {
       const name = `imex-${id.create()}`;
       const oid = await client.imex.import(toBlob(logEnvelope(name)), {
         encoding: "JSON",
+        fileName: `${name}.json`,
+        project: projectKey,
       });
       const stream = await client.imex.export(oid, { encoding: "JSON" });
       const parsed = await new Response(stream).json();
