@@ -41,6 +41,7 @@ export default defineConfig({
       entry: {
         index: path.resolve(".", "src/index.ts"),
         ether: path.resolve(".", "src/ether.ts"),
+        testutil: path.resolve(".", "src/testutil/index.ts"),
         tabs: path.resolve(".", "src/tabs/index.ts"),
         theming: path.resolve(".", "src/theming/index.ts"),
         menu: path.resolve(".", "src/menu/index.ts"),
@@ -60,6 +61,8 @@ export default defineConfig({
     },
     rolldownOptions: {
       external: [
+        "vitest",
+        /^@vitest\//,
         "react-hook-form",
         "zod",
         "@synnaxlabs/x",

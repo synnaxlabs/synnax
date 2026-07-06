@@ -227,6 +227,9 @@ export interface InitialValues<
   S extends task.Schemas = task.Schemas,
 > extends optional.Optional<task.Payload<S>, "key" | "internal" | "snapshot"> {
   key?: task.Key;
+  /** Rack to pre-select when creating a new task. Ignored when key is set, as the
+   * rack is already encoded in the task key. */
+  rackKey?: rack.Key;
 }
 
 export type FormQuery = {
@@ -238,7 +241,7 @@ const taskToFormValues = <S extends task.Schemas = task.Schemas>(
 ): z.infer<FormSchema<S>> => ({
   key: t.key,
   name: t.name,
-  rackKey: t.key == null ? 0 : task.rackKey(t.key),
+  rackKey: t.key == null ? (t.rackKey ?? 0) : task.rackKey(t.key),
   type: t.type,
   config: t.config,
   status: t.status,

@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Mock, vi } from "vitest";
+import { z } from "zod";
+
+import { aether } from "@/aether/aether";
+import { CSS } from "@/css";
 
 export interface MockRenderContext {
   loop: { set: Mock };
@@ -57,4 +61,45 @@ export const mockRenderContext = (): MockRenderContext => {
       scissor: vi.fn(() => vi.fn()),
     },
   };
+};
+
+const RENDER_CONTEXT_KEY = CSS.B("render-context");
+
+const mockRenderContexts = new Map<string, MockRenderContext>();
+
+/**
+ * Registers a mock render context under key so a {@link MockRenderContextProvider}
+ * whose state carries the same key can seed it into the aether tree.
+ */
+export const registerMockRenderContext = (
+  key: string,
+  ctx: MockRenderContext,
+): void => {
+  mockRenderContexts.set(key, ctx);
+};
+
+export const mockRenderContextProviderStateZ = z.object({ contextKey: z.string() });
+
+/**
+ * Aether composite that publishes a registered {@link MockRenderContext} to its
+ * descendants under the render context key, standing in for the real canvas provider.
+ */
+export class MockRenderContextProvider extends aether.Composite<
+  typeof mockRenderContextProviderStateZ
+> {
+  static readonly TYPE = "mock-render-context-provider";
+  schema = mockRenderContextProviderStateZ;
+
+  afterUpdate(ctx: aether.Context): void {
+    const mock = mockRenderContexts.get(this.state.contextKey);
+    if (mock == null)
+      throw new Error(
+        `no mock render context registered for key ${this.state.contextKey}`,
+      );
+    ctx.set(RENDER_CONTEXT_KEY, mock);
+  }
+}
+
+export const MOCK_RENDER_CONTEXT_REGISTRY: aether.ComponentRegistry = {
+  [MockRenderContextProvider.TYPE]: MockRenderContextProvider,
 };
