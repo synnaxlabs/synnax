@@ -70,9 +70,6 @@ var (
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeTask }
 
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
-
 // SearchableFields implements ontology.SearchableFieldsProvider.
 func (s *Service) SearchableFields() []string { return []string{"type"} }
 

@@ -59,13 +59,13 @@ func (w Writer) Create(
 		return
 	}
 	otgID := OntologyID(s.Key)
-	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if projectKey == uuid.Nil {
 		return nil
 	}
-	return w.otgWriter.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
 		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
@@ -132,14 +132,14 @@ func (w Writer) Copy(
 	if err != nil || !ok {
 		return err
 	}
-	if err := w.otgWriter.DefineResource(ctx, OntologyID(newKey)); err != nil {
+	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return err
 	}
 	// In the case of a snapshot, don't create a relationship to the project.
 	if result.Snapshot {
 		return nil
 	}
-	return w.otgWriter.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
 		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
@@ -194,10 +194,5 @@ func (w Writer) Delete(
 	if err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }

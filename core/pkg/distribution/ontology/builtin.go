@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 var (
@@ -31,17 +30,18 @@ type builtinService struct{ observe.Noop[iter.Seq[Change]] }
 
 var _ Service = (*builtinService)(nil)
 
-func (b *builtinService) Type() ResourceType { return ResourceTypeBuiltin }
-
-// Schema implements Service.
-func (b *builtinService) Schema() zyn.Schema { return zyn.Object(nil) }
+func (*builtinService) Type() ResourceType { return ResourceTypeBuiltin }
 
 // RetrieveResource implements Service.
-func (b *builtinService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (Resource, error) {
+func (*builtinService) RetrieveResource(
+	_ context.Context, key string, _ gorp.Tx,
+) (Resource, error) {
 	switch key {
 	case "root":
 		return rootResource, nil
 	default:
-		return Resource{}, errors.Wrapf(query.ErrNotFound, "builtin resource %q not found", key)
+		return Resource{}, errors.Wrapf(
+			query.ErrNotFound, "builtin resource %q not found", key,
+		)
 	}
 }
