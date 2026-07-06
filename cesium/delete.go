@@ -86,11 +86,18 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	// in case the channel is repeatedly created and deleted.
 	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+	transient := false
 	if err := (func() error {
 		db.mu.Lock()
 		defer db.mu.Unlock()
+		if v, ok := db.mu.dbs.virtual[ch]; ok {
+			transient = v.Channel().Transient
+		}
 		if err := db.removeChannel(ch); err != nil {
 			return err
+		}
+		if transient {
+			return nil
 		}
 		err := db.fs.Rename(oldName, newName)
 		if errors.Is(err, fs.ErrNotExist) {
@@ -99,6 +106,9 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 		return err
 	})(); err != nil {
 		return err
+	}
+	if transient {
+		return nil
 	}
 	return db.fs.Remove(newName)
 }

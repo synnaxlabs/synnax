@@ -15,8 +15,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -26,14 +24,12 @@ var _ = Describe("Write", func() {
 	var db *virtual.DB
 	BeforeEach(func(ctx SpecContext) {
 		db = MustSucceed(virtual.Open(ctx, virtual.Config{
-			MetaCodec: json.Codec,
 			Channel: channel.Channel{
 				Name:     "Ray",
 				Key:      2,
 				DataType: telem.TimeStampT,
 				Virtual:  true,
 			},
-			FS: fs.NewMem(),
 		}))
 	})
 	AfterEach(func() {
@@ -130,39 +126,6 @@ var _ = Describe("Write", func() {
 					Error().To(MatchError(virtual.ErrWriterClosed))
 			})
 
-		})
-
-		Describe("FS Interaction", func() {
-			It("Should not produce any data writes to the underlying FS", func(ctx SpecContext) {
-				// Virtual channels are defined as not persisting data; this
-				// test pins that contract directly by recording every Open,
-				// Read, ReadAt, Write, and WriteAt against the underlying FS
-				// and asserting that nothing is written during the writer's
-				// session.
-				rec := fs.NewRecorder(fs.NewMem())
-				virtualDB := MustSucceed(virtual.Open(ctx, virtual.Config{
-					MetaCodec: json.Codec,
-					Channel: channel.Channel{
-						Name:     "virtual-fs-check",
-						Key:      99,
-						DataType: telem.TimeStampT,
-						Virtual:  true,
-					},
-					FS: rec,
-				}))
-				rec.Reset()
-
-				w, _ := MustSucceed2(virtualDB.OpenWriter(ctx, virtual.WriterConfig{
-					Start:     10 * telem.SecondTS,
-					Authority: control.AuthorityAbsolute,
-					Subject:   control.Subject{Key: "fs-check"},
-				}))
-				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)))
-				MustSucceed(w.Close())
-				Expect(virtualDB.Close()).To(Succeed())
-
-				Expect(rec.Count(fs.MatchOp(fs.OpWrite, fs.OpWriteAt))).To(BeZero())
-			})
 		})
 
 		Describe("SetAuthority", func() {
