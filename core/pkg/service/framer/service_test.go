@@ -46,19 +46,17 @@ var _ = Describe("Service", func() {
 	}
 
 	write := func(ctx SpecContext, idxCh, dataCh channel.Channel) {
-		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+		w := MustOpen(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 			Start: telem.SecondTS,
 			Keys:  []channel.Key{idxCh.Key(), dataCh.Key()},
 		}))
-		MustSucceed(w.Write(frame.NewMulti(
+		Expect(w.Write(frame.NewMulti(
 			[]channel.Key{idxCh.Key(), dataCh.Key()},
 			[]telem.Series{
 				telem.NewSeriesSecondsTSV(1, 2, 3),
 				telem.NewSeriesV[float32](1, 2, 3),
 			},
-		)))
-		MustSucceed(w.Commit())
-		Expect(w.Close()).To(Succeed())
+		))).To(BeTrue())
 	}
 
 	Describe("ServiceConfig", func() {
@@ -114,10 +112,9 @@ var _ = Describe("Service", func() {
 
 	Describe("OpenService", func() {
 		It("Should open and close a service from a valid configuration", func(ctx SpecContext) {
-			svc := MustSucceed(framer.OpenService(
+			Expect(MustOpen(framer.OpenService(
 				ctx, newFramerConfig(ctx, mock.NewNode(ctx)),
-			))
-			Expect(svc.Close()).To(Succeed())
+			))).ToNot(BeNil())
 		})
 		It("Should return an error for an invalid configuration", func(ctx SpecContext) {
 			Expect(framer.OpenService(ctx, framer.ServiceConfig{})).
@@ -155,7 +152,7 @@ var _ = Describe("Service", func() {
 				Internal:    true,
 			}
 			Expect(cfg.Channel.NewWriter(nil).Create(ctx, &existing)).To(Succeed())
-			DeferClose(MustSucceed(framer.OpenService(ctx, cfg)))
+			Expect(MustOpen(framer.OpenService(ctx, cfg))).ToNot(BeNil())
 			Expect(cfg.Channel.
 				NewRetrieve().
 				Where(channel.MatchNames(name)).
@@ -178,7 +175,6 @@ var _ = Describe("Service", func() {
 					telem.NewSeriesV[float32](1, 2, 3),
 				},
 			)))
-			MustSucceed(w.Commit())
 		})
 	})
 
@@ -212,7 +208,7 @@ var _ = Describe("Service", func() {
 		It("Should iterate over previously written data", func(ctx SpecContext) {
 			idxCh, dataCh := createIndexed(ctx)
 			write(ctx, idxCh, dataCh)
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+			iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
 				Keys:   []channel.Key{idxCh.Key(), dataCh.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
@@ -220,7 +216,6 @@ var _ = Describe("Service", func() {
 			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
 			Expect(iter.Value().Get(idxCh.Key()).Series[0]).
 				To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(1, 2, 3)))
-			Expect(iter.Close()).To(Succeed())
 		})
 	})
 
@@ -268,7 +263,7 @@ var _ = Describe("Service", func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 			var res framer.StreamerResponse
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			Expect(res.Frame.Frame).To(telem.MatchWrittenFrame(writtenFr.Frame))
