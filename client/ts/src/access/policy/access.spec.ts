@@ -11,8 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { policy } from "@/access/policy";
 import { AuthError, NotFoundError } from "@/errors";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 

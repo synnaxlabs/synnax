@@ -13,8 +13,7 @@ import { AuthError, NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { symbol } from "@/schematic/symbol";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
