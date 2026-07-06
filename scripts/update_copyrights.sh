@@ -126,6 +126,7 @@ resolve_header_for_ext() {
     local ext="$1"
     LEADING_LINE_RE=""
     LEADING_BLANK=1
+    HOIST_LEADING=0
     FENCE=""
     case "$ext" in
         py | pyi)
@@ -167,6 +168,10 @@ resolve_header_for_ext() {
             HEADER="$HEADER_SLASHES"
             HEADER_LINES=8
             LEADING_LINE_RE='^#version'
+            # GLSL is the one leading-line kind that can legally appear buried below an
+            # old header (WebGL requires it first); hoist it to the top instead of
+            # leaving the file in the broken layout.
+            HOIST_LEADING=1
             TRAILING_BLANK=1
             ;;
         css)
@@ -346,12 +351,29 @@ process_file() {
     # [blank] / header / [blank] / body — the blank after the leading line is present
     # unless LEADING_BLANK=0 (astro).
     local has_leading=0
+    local leading_line=""
     if [ -n "$LEADING_LINE_RE" ] && [ ${#LINES[@]} -gt 0 ]; then
         if [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
             has_leading=1
+            leading_line="${LINES[0]}"
         fi
     fi
     local scan_start_idx=$has_leading
+
+    # When HOIST_LEADING is set (glsl) and the leading line is not already first, find
+    # it anywhere below and hoist it to the top. This repairs the layout where an old
+    # header was written above the `#version` directive, which WebGL rejects.
+    local hoist_idx=-1
+    if [ "$HOIST_LEADING" = "1" ] && [ "$has_leading" = "0" ]; then
+        local i
+        for ((i = 0; i < ${#LINES[@]}; i++)); do
+            if [[ "${LINES[i]}" =~ $LEADING_LINE_RE ]]; then
+                hoist_idx=$i
+                leading_line="${LINES[i]}"
+                break
+            fi
+        done
+    fi
 
     locate_existing_header "$scan_start_idx"
     local has_copyright=$OLD_HEADER_FOUND
@@ -397,10 +419,12 @@ process_file() {
         body_start_idx=$scan_start_idx
     fi
 
-    # Skip if the file already conforms to the canonical layout.
+    # Skip if the file already conforms to the canonical layout. A pending hoist
+    # (leading line buried below the header) is never canonical.
     if [ "$has_copyright" = "1" ] \
         && [ "$old_copyright_year" = "$CURRENT_YEAR" ] \
-        && [ "$between_start" = "-1" ]; then
+        && [ "$between_start" = "-1" ] \
+        && [ "$hoist_idx" = "-1" ]; then
         local canonical_header_start_idx=$scan_start_idx
         if [ "$has_leading" = "1" ] && [ "$leading_blank" = "1" ]; then
             local line2=""
@@ -453,6 +477,7 @@ process_file() {
     local i line
     if [ "$between_start" -ge 0 ]; then
         for ((i = between_start; i <= between_end; i++)); do
+            if [ "$i" = "$hoist_idx" ]; then continue; fi
             line="${LINES[i]}"
             if [ "$first_nonblank_seen" = "0" ] && [[ ! "$line" =~ [^[:space:]] ]]; then
                 continue
@@ -462,6 +487,7 @@ process_file() {
         done
     fi
     for ((i = body_start_idx; i < ${#LINES[@]}; i++)); do
+        if [ "$i" = "$hoist_idx" ]; then continue; fi
         line="${LINES[i]}"
         if [ "$first_nonblank_seen" = "0" ] && [[ ! "$line" =~ [^[:space:]] ]]; then
             continue
@@ -484,11 +510,11 @@ process_file() {
     local temp_file
     temp_file=$(mktemp)
     {
-        if [ "$has_leading" = "1" ]; then
+        if [ "$has_leading" = "1" ] || [ "$hoist_idx" -ge 0 ]; then
             if [ "$leading_blank" = "1" ]; then
-                printf '%s\n\n' "${LINES[0]}"
+                printf '%s\n\n' "$leading_line"
             else
-                printf '%s\n' "${LINES[0]}"
+                printf '%s\n' "$leading_line"
             fi
         fi
         printf '%s\n' "$new_header"
