@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	channelSvc *channel.Service
-	writer     channel.Writer
+	channelSvc    *channel.Service
+	channelWriter channel.Writer
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -54,20 +54,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       node.Search,
 		Status:       statusSvc,
 	}))
-	writer = channelSvc.NewWriter(nil)
+	channelWriter = channelSvc.NewWriter(nil)
 })
 
 var _ = Describe("Compile", func() {
 	It("Should compile simple expression", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
-		Expect(writer.Create(ctx, &base)).To(Succeed())
+		Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc",
 			DataType:   telem.Int64T,
 			Virtual:    true,
 			Expression: "return base * 2",
 		}
-		Expect(writer.Create(ctx, &calc)).To(Succeed())
+		Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -79,7 +79,7 @@ var _ = Describe("Compile", func() {
 
 	It("Should compile expression with operations", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base2", DataType: telem.Int64T, Virtual: true}
-		Expect(writer.Create(ctx, &base)).To(Succeed())
+		Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc2",
 			DataType:   telem.Int64T,
@@ -87,7 +87,7 @@ var _ = Describe("Compile", func() {
 			Expression: "return base2 + 1",
 			Operations: []channel.Operation{{Type: "avg", Duration: 5 * telem.Second}},
 		}
-		Expect(writer.Create(ctx, &calc)).To(Succeed())
+		Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -101,14 +101,14 @@ var _ = Describe("Compile", func() {
 			{Name: "base3", DataType: telem.Int64T, Virtual: true},
 			{Name: "base4", DataType: telem.Int64T, Virtual: true},
 		}
-		Expect(writer.CreateMany(ctx, &channels)).To(Succeed())
+		Expect(channelWriter.CreateMany(ctx, &channels)).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc3",
 			DataType:   telem.Int64T,
 			Virtual:    true,
 			Expression: "return base3 + base4",
 		}
-		Expect(writer.Create(ctx, &calc)).To(Succeed())
+		Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -119,7 +119,7 @@ var _ = Describe("Compile", func() {
 
 	It("Should compile expression with derivative operation", func(ctx SpecContext) {
 		base := channel.Channel{Name: UniqueChannelName(), DataType: telem.Float64T, Virtual: true}
-		Expect(writer.Create(ctx, &base)).To(Succeed())
+		Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float64T,
@@ -127,7 +127,7 @@ var _ = Describe("Compile", func() {
 			Expression: fmt.Sprintf("return %s", base.Name),
 			Operations: []channel.Operation{{Type: "derivative"}},
 		}
-		Expect(writer.Create(ctx, &calc)).To(Succeed())
+		Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
@@ -143,7 +143,7 @@ var _ = Describe("Compile", func() {
 			Virtual:    true,
 			Expression: "return 1",
 		}
-		Expect(writer.Create(ctx, &calc)).To(Succeed())
+		Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 		calc.Expression = "return invalid_syntax {{"
 		Expect(compiler.Compile(ctx, compiler.Config{
 			ChannelService: channelSvc,

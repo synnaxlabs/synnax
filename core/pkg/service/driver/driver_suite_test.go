@@ -33,7 +33,7 @@ var (
 	db           *gorp.DB
 	rackService  *rack.Service
 	taskService  *task.Service
-	writer       task.Writer
+	taskWriter   task.Writer
 	channelSvc   *channel.Service
 	framerSvc    *framer.Service
 	statusSvc    *status.Service
@@ -97,7 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:  channelSvc,
 		Search:   searchIdx,
 	}))
-	writer = taskService.NewWriter(nil)
+	taskWriter = taskService.NewWriter(nil)
 })
 
 // mockFactory is a test implementation of driver.Factory.

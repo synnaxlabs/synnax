@@ -27,7 +27,7 @@ import (
 
 var (
 	channelSvc    *channel.Service
-	writer        channel.Writer
+	channelWriter channel.Writer
 	apiChannelSvc *apichannel.Service
 )
 
@@ -61,7 +61,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       node.Search,
 		Status:       statusSvc,
 	}))
-	writer = channelSvc.NewWriter(nil)
+	channelWriter = channelSvc.NewWriter(nil)
 	apiChannelSvc = MustSucceed(apichannel.NewService(config.LayerConfig{
 		Distribution: &distribution.Layer{DB: node.DB},
 		Service:      &service.Layer{Channel: channelSvc},

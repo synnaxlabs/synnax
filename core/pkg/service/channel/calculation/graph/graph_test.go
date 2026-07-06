@@ -29,10 +29,10 @@ import (
 )
 
 var (
-	db         *gorp.DB
-	statusSvc  *status.Service
-	channelSvc *channel.Service
-	writer     channel.Writer
+	db            *gorp.DB
+	statusSvc     *status.Service
+	channelSvc    *channel.Service
+	channelWriter channel.Writer
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -61,7 +61,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       node.Search,
 		Status:       statusSvc,
 	}))
-	writer = channelSvc.NewWriter(nil)
+	channelWriter = channelSvc.NewWriter(nil)
 
 	// Pebble's first memtable is only 256KB, doubling on each rotation toward the
 	// configured size. The graph reactively writes statuses and DataType repairs on
@@ -154,7 +154,7 @@ func createBrokenCalc(ctx context.Context, name, depName string) channel.Channel
 		Name: name, DataType: telem.Int64T, Virtual: true,
 		Expression: "return " + depName + " + 1",
 	}
-	Expect(writer.Create(ctx, &calc)).To(Succeed())
+	Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 	deleteDep(ctx, depName)
 	return calc
 }
@@ -163,14 +163,14 @@ func createBrokenCalc(ctx context.Context, name, depName string) channel.Channel
 func createDep(ctx context.Context, depName string) channel.Channel {
 	GinkgoHelper()
 	dep := channel.Channel{Name: depName, DataType: telem.Int64T, Virtual: true}
-	Expect(writer.Create(ctx, &dep)).To(Succeed())
+	Expect(channelWriter.Create(ctx, &dep)).To(Succeed())
 	return dep
 }
 
 // deleteDep deletes the base channel with the given name.
 func deleteDep(ctx context.Context, depName string) {
 	GinkgoHelper()
-	Expect(writer.DeleteManyByNames(
+	Expect(channelWriter.DeleteManyByNames(
 		ctx, []string{depName}, false,
 	)).To(Succeed())
 }
@@ -180,7 +180,7 @@ func deleteDep(ctx context.Context, depName string) {
 // DataType drifts from what a calculated channel's expression now infers.
 func makeStale(ctx context.Context, ch channel.Channel, stale telem.DataType) {
 	GinkgoHelper()
-	Expect(writer.ChangeDataType(ctx, ch.Key(), stale)).To(Succeed())
+	Expect(channelWriter.ChangeDataType(ctx, ch.Key(), stale)).To(Succeed())
 }
 
 var _ = Describe("Graph", func() {
@@ -192,18 +192,18 @@ var _ = Describe("Graph", func() {
 				{Name: "hy_base1", DataType: telem.Int64T, Virtual: true},
 				{Name: "hy_base2", DataType: telem.Float64T, Virtual: true},
 			}
-			Expect(writer.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
 			openGraph(ctx)
 		})
 
 		It("Should open with a valid calculated channel and set no status", func(ctx SpecContext) {
 			base := channel.Channel{Name: "hy_valid_base", DataType: telem.Int64T, Virtual: true}
-			Expect(writer.Create(ctx, &base)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
 				Name: "hy_valid_calc", DataType: telem.Int64T, Virtual: true,
 				Expression: "return hy_valid_base * 2",
 			}
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 			openGraph(ctx)
 			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
@@ -222,13 +222,13 @@ var _ = Describe("Graph", func() {
 			base := channel.Channel{
 				Name: "hy_unresolvable_base", DataType: telem.Int64T, Virtual: true,
 			}
-			Expect(writer.Create(ctx, &base)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
 				Name: "hy_unresolvable", DataType: telem.Int64T, Virtual: true,
 				Expression: "return hy_unresolvable_base * 2",
 			}
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
-			Expect(writer.Delete(
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Delete(
 				ctx, base.Key(), false,
 			)).To(Succeed())
 			openGraph(ctx)
@@ -237,12 +237,12 @@ var _ = Describe("Graph", func() {
 
 		It("Should handle a mix of valid and invalid calculated channels", func(ctx SpecContext) {
 			base := channel.Channel{Name: "hy_mix_base", DataType: telem.Int64T, Virtual: true}
-			Expect(writer.Create(ctx, &base)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 			calcOk := channel.Channel{
 				Name: "hy_mix_ok", DataType: telem.Int64T, Virtual: true,
 				Expression: "return hy_mix_base + 1",
 			}
-			Expect(writer.Create(ctx, &calcOk)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calcOk)).To(Succeed())
 			calcBad := createBrokenCalc(ctx, "hy_mix_bad", "hy_mix_bad_dep")
 			openGraph(ctx)
 			eventuallyExpectNoStatus(ctx, calcOk.Key())
@@ -254,7 +254,7 @@ var _ = Describe("Graph", func() {
 				Name: "hy_orphan", DataType: telem.Int64T, Virtual: true,
 				Expression: "return 42",
 			}
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 			openGraph(ctx)
 			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
@@ -262,22 +262,22 @@ var _ = Describe("Graph", func() {
 		Context("Dependency Topologies", func() {
 			It("Should hydrate a diamond dependency graph", func(ctx SpecContext) {
 				base := channel.Channel{Name: "hy_dia_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calcB := channel.Channel{
 					Name: "hy_dia_b", DataType: telem.Int64T, Virtual: true,
 					Expression: "return hy_dia_base + 1",
 				}
-				Expect(writer.Create(ctx, &calcB)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calcB)).To(Succeed())
 				calcC := channel.Channel{
 					Name: "hy_dia_c", DataType: telem.Int64T, Virtual: true,
 					Expression: "return hy_dia_base * 2",
 				}
-				Expect(writer.Create(ctx, &calcC)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calcC)).To(Succeed())
 				calcA := channel.Channel{
 					Name: "hy_dia_a", DataType: telem.Int64T, Virtual: true,
 					Expression: "return hy_dia_b + hy_dia_c",
 				}
-				Expect(writer.Create(ctx, &calcA)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calcA)).To(Succeed())
 				openGraph(ctx)
 				eventuallyExpectNoStatus(ctx, calcA.Key())
 				eventuallyExpectNoStatus(ctx, calcB.Key())
@@ -286,27 +286,27 @@ var _ = Describe("Graph", func() {
 
 			It("Should hydrate a deep chain (4 levels)", func(ctx SpecContext) {
 				base := channel.Channel{Name: "hy_deep_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				c1 := channel.Channel{
 					Name: "hy_deep_c1", DataType: telem.Int64T, Virtual: true,
 					Expression: "return hy_deep_base + 1",
 				}
-				Expect(writer.Create(ctx, &c1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c1)).To(Succeed())
 				c2 := channel.Channel{
 					Name: "hy_deep_c2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return hy_deep_c1 + 1",
 				}
-				Expect(writer.Create(ctx, &c2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c2)).To(Succeed())
 				c3 := channel.Channel{
 					Name: "hy_deep_c3", DataType: telem.Int64T, Virtual: true,
 					Expression: "return hy_deep_c2 + 1",
 				}
-				Expect(writer.Create(ctx, &c3)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c3)).To(Succeed())
 				c4 := channel.Channel{
 					Name: "hy_deep_c4", DataType: telem.Int64T, Virtual: true,
 					Expression: "return hy_deep_c3 + 1",
 				}
-				Expect(writer.Create(ctx, &c4)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c4)).To(Succeed())
 				openGraph(ctx)
 				eventuallyExpectNoStatus(ctx, c1.Key())
 				eventuallyExpectNoStatus(ctx, c2.Key())
@@ -316,7 +316,7 @@ var _ = Describe("Graph", func() {
 
 			It("Should hydrate a fan-out topology", func(ctx SpecContext) {
 				base := channel.Channel{Name: "hy_fan_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				c1 := channel.Channel{
 					Name: "hy_fan_c1", DataType: telem.Int64T, Virtual: true,
 					Expression: "return hy_fan_base + 1",
@@ -330,7 +330,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return hy_fan_base - 1",
 				}
 				calcs := []channel.Channel{c1, c2, c3}
-				Expect(writer.CreateMany(ctx, &calcs)).To(Succeed())
+				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
 				openGraph(ctx)
 				eventuallyExpectNoStatus(ctx, calcs[0].Key())
 				eventuallyExpectNoStatus(ctx, calcs[1].Key())
@@ -343,12 +343,12 @@ var _ = Describe("Graph", func() {
 					{Name: "hy_fin_b2", DataType: telem.Int64T, Virtual: true},
 					{Name: "hy_fin_b3", DataType: telem.Int64T, Virtual: true},
 				}
-				Expect(writer.CreateMany(ctx, &bases)).To(Succeed())
+				Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
 				calc := channel.Channel{
 					Name: "hy_fin_calc", DataType: telem.Int64T, Virtual: true,
 					Expression: "return hy_fin_b1 + hy_fin_b2 + hy_fin_b3",
 				}
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				openGraph(ctx)
 				eventuallyExpectNoStatus(ctx, calc.Key())
 			})
@@ -357,26 +357,26 @@ var _ = Describe("Graph", func() {
 		Context("DataType Repair", func() {
 			It("Should not repair when DataType already matches", func(ctx SpecContext) {
 				base := channel.Channel{Name: "hy_norep_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc := channel.Channel{
 					Name: "hy_norep_calc", DataType: telem.Int64T, Virtual: true,
 					Expression: "return hy_norep_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				openGraph(ctx)
 				Expect(retrieveChannelDataType(ctx, calc.Key())).To(Equal(telem.Int64T))
 			})
 
 			It("Should repair a stale DataType during hydration", func(ctx SpecContext) {
 				base := channel.Channel{Name: "hy_rep_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc := channel.Channel{
 					Name:       "hy_rep_calc",
 					DataType:   telem.Int64T,
 					Virtual:    true,
 					Expression: "return hy_rep_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				makeStale(ctx, calc, telem.Float32T)
 				Expect(retrieveChannelDataType(ctx, calc.Key())).To(Equal(telem.Float32T))
 				openGraph(ctx)
@@ -385,7 +385,7 @@ var _ = Describe("Graph", func() {
 
 			It("Should repair cascaded DataType when a dependent has a lower key than its dependency", func(ctx SpecContext) {
 				base := channel.Channel{Name: "hy_ooo_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 
 				calc1 := channel.Channel{
 					Name:       "hy_ooo_c1",
@@ -393,16 +393,16 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return hy_ooo_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				calc2 := channel.Channel{
 					Name:       "hy_ooo_c2",
 					DataType:   telem.Int64T,
 					Virtual:    true,
 					Expression: "return hy_ooo_c1 + 1",
 				}
-				Expect(writer.Create(ctx, &calc2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
 				Expect(
-					writer.Delete(ctx, calc1.Key(), false),
+					channelWriter.Delete(ctx, calc1.Key(), false),
 				).To(Succeed())
 				calc1 = channel.Channel{
 					Name:       "hy_ooo_c1",
@@ -410,7 +410,7 @@ var _ = Describe("Graph", func() {
 					Virtual:    true,
 					Expression: "return hy_ooo_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 
 				Expect(calc2.Key()).To(BeNumerically("<", calc1.Key()))
 				makeStale(ctx, calc1, telem.Float32T)
@@ -432,12 +432,12 @@ var _ = Describe("Graph", func() {
 			It("Should inspect a new valid calculated channel", func(ctx SpecContext) {
 				openGraph(ctx)
 				base := channel.Channel{Name: "rc_create_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc := channel.Channel{
 					Name: "rc_create_calc", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_create_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc.Key())
 			})
 
@@ -450,31 +450,31 @@ var _ = Describe("Graph", func() {
 			It("Should handle incrementally building a chain after graph open", func(ctx SpecContext) {
 				openGraph(ctx)
 				base := channel.Channel{Name: "rc_chain_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc1 := channel.Channel{
 					Name: "rc_chain_c1", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_chain_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc1.Key())
 				calc2 := channel.Channel{
 					Name: "rc_chain_c2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_chain_c1 * 2",
 				}
-				Expect(writer.Create(ctx, &calc2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc2.Key())
 			})
 
 			It("Should process a batch CreateMany in a single handleChanges call", func(ctx SpecContext) {
 				openGraph(ctx)
 				base := channel.Channel{Name: "rc_batch_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calcs := []channel.Channel{
 					{Name: "rc_batch_c1", DataType: telem.Int64T, Virtual: true, Expression: "return rc_batch_base + 1"},
 					{Name: "rc_batch_c2", DataType: telem.Int64T, Virtual: true, Expression: "return rc_batch_base * 2"},
 					{Name: "rc_batch_c3", DataType: telem.Int64T, Virtual: true, Expression: "return rc_batch_base - 1"},
 				}
-				Expect(writer.CreateMany(ctx, &calcs)).To(Succeed())
+				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calcs[0].Key())
 				eventuallyExpectNoStatus(ctx, calcs[1].Key())
 				eventuallyExpectNoStatus(ctx, calcs[2].Key())
@@ -485,16 +485,16 @@ var _ = Describe("Graph", func() {
 			It("Should set error status when a base dependency is deleted", func(ctx SpecContext) {
 				openGraph(ctx)
 				base := channel.Channel{Name: "rc_del_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc := channel.Channel{
 					Name: "rc_del_calc", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_del_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Deleting the base dependency")
-				Expect(writer.Delete(ctx, base.Key(), false)).
+				Expect(channelWriter.Delete(ctx, base.Key(), false)).
 					To(Succeed())
 				expectStatus(ctx, calc.Key())
 			})
@@ -502,68 +502,68 @@ var _ = Describe("Graph", func() {
 			It("Should set error on downstream calc when intermediate calc is deleted", func(ctx SpecContext) {
 				openGraph(ctx)
 				base := channel.Channel{Name: "rc_del_mid_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc1 := channel.Channel{
 					Name: "rc_del_mid_c1", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_del_mid_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				calc2 := channel.Channel{
 					Name: "rc_del_mid_c2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_del_mid_c1 * 2",
 				}
-				Expect(writer.Create(ctx, &calc2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc1.Key())
 				eventuallyExpectNoStatus(ctx, calc2.Key())
 
 				By("Deleting the intermediate calculated channel")
-				Expect(writer.Delete(ctx, calc1.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, calc1.Key(), false)).To(Succeed())
 				expectStatus(ctx, calc2.Key())
 			})
 
 			It("Should leave upstream unaffected when a leaf calc is deleted", func(ctx SpecContext) {
 				openGraph(ctx)
 				base := channel.Channel{Name: "rc_del_leaf_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc1 := channel.Channel{
 					Name: "rc_del_leaf_c1", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_del_leaf_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				calc2 := channel.Channel{
 					Name: "rc_del_leaf_c2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_del_leaf_c1 * 2",
 				}
-				Expect(writer.Create(ctx, &calc2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
 
 				By("Deleting the leaf calc")
-				Expect(writer.Delete(ctx, calc2.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, calc2.Key(), false)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc1.Key())
 			})
 
 			It("Should not cascade invalidity through reconcileQueued in a diamond", func(ctx SpecContext) {
 				openGraph(ctx)
 				base := channel.Channel{Name: "rc_del_dia_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calcB := channel.Channel{
 					Name: "rc_del_dia_b", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_del_dia_base + 1",
 				}
-				Expect(writer.Create(ctx, &calcB)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calcB)).To(Succeed())
 				calcC := channel.Channel{
 					Name: "rc_del_dia_c", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_del_dia_base * 2",
 				}
-				Expect(writer.Create(ctx, &calcC)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calcC)).To(Succeed())
 				calcA := channel.Channel{
 					Name: "rc_del_dia_a", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_del_dia_b + rc_del_dia_c",
 				}
-				Expect(writer.Create(ctx, &calcA)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calcA)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calcA.Key())
 
 				By("Deleting the shared base dependency")
-				Expect(writer.Delete(ctx, base.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 
 				By("Verifying calc_b and calc_c get error statuses")
 				expectStatus(ctx, calcB.Key())
@@ -580,26 +580,26 @@ var _ = Describe("Graph", func() {
 				openGraph(ctx)
 				base1 := channel.Channel{Name: "rc_upd_b1", DataType: telem.Int64T, Virtual: true}
 				base2 := channel.Channel{Name: "rc_upd_b2", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base1)).To(Succeed())
-				Expect(writer.Create(ctx, &base2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base2)).To(Succeed())
 				calc := channel.Channel{
 					Name: "rc_upd_calc", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_upd_b1 + 1",
 				}
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Updating expression to use a different base")
 				calc.Expression = "return rc_upd_b2 * 2"
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Verifying old base deletion does not affect calc")
-				Expect(writer.Delete(ctx, base1.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, base1.Key(), false)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Verifying new base deletion does affect calc")
-				Expect(writer.Delete(ctx, base2.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, base2.Key(), false)).To(Succeed())
 				expectStatus(ctx, calc.Key())
 			})
 
@@ -610,7 +610,7 @@ var _ = Describe("Graph", func() {
 					Name: "rc_upd_bad_calc", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_upd_bad_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Removing the dependency so the expression no longer resolves")
@@ -633,24 +633,24 @@ var _ = Describe("Graph", func() {
 			It("Should not cascade invalidity from reconcileQueued to further dependents", func(ctx SpecContext) {
 				openGraph(ctx)
 				base := channel.Channel{Name: "rc_cas_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc1 := channel.Channel{
 					Name: "rc_cas_c1", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_cas_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				calc2 := channel.Channel{
 					Name: "rc_cas_c2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_cas_c1 * 2",
 				}
-				Expect(writer.Create(ctx, &calc2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc1.Key())
 				eventuallyExpectNoStatus(ctx, calc2.Key())
 
 				By("Deleting the base. calc1 becomes invalid. " +
 					"calc2 should NOT get error because reconcileQueued " +
 					"does not enqueue dependents when a node errors")
-				Expect(writer.Delete(ctx, base.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 				expectStatus(ctx, calc1.Key())
 				eventuallyExpectNoStatus(ctx, calc2.Key())
 			})
@@ -658,30 +658,30 @@ var _ = Describe("Graph", func() {
 			It("Should cascade deletion through a long chain", func(ctx SpecContext) {
 				openGraph(ctx)
 				base := channel.Channel{Name: "rc_long_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				c1 := channel.Channel{
 					Name: "rc_long_c1", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_long_base + 1",
 				}
-				Expect(writer.Create(ctx, &c1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c1)).To(Succeed())
 				c2 := channel.Channel{
 					Name: "rc_long_c2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_long_c1 + 1",
 				}
-				Expect(writer.Create(ctx, &c2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c2)).To(Succeed())
 				c3 := channel.Channel{
 					Name: "rc_long_c3", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_long_c2 + 1",
 				}
-				Expect(writer.Create(ctx, &c3)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c3)).To(Succeed())
 				c4 := channel.Channel{
 					Name: "rc_long_c4", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_long_c3 + 1",
 				}
-				Expect(writer.Create(ctx, &c4)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c4)).To(Succeed())
 
 				By("Deleting c2 from the middle of the chain")
-				Expect(writer.Delete(ctx, c2.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, c2.Key(), false)).To(Succeed())
 
 				By("c1 is upstream and unaffected")
 				eventuallyExpectNoStatus(ctx, c1.Key())
@@ -697,23 +697,23 @@ var _ = Describe("Graph", func() {
 			It("Should re-inspect dependents when a calculated channel is updated", func(ctx SpecContext) {
 				openGraph(ctx)
 				base := channel.Channel{Name: "rc_reins_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc1 := channel.Channel{
 					Name: "rc_reins_c1", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_reins_base + 1",
 				}
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				calc2 := channel.Channel{
 					Name: "rc_reins_c2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_reins_c1 * 2",
 				}
-				Expect(writer.Create(ctx, &calc2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc1.Key())
 				eventuallyExpectNoStatus(ctx, calc2.Key())
 
 				By("Updating calc1 expression - calc2 should be re-inspected via BFS")
 				calc1.Expression = "return rc_reins_base + 100"
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc1.Key())
 				eventuallyExpectNoStatus(ctx, calc2.Key())
 			})
@@ -725,18 +725,18 @@ var _ = Describe("Graph", func() {
 
 				By("Creating a base channel and a calc that depends on it")
 				base := channel.Channel{Name: "rc_dtp_base", DataType: telem.Float32T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc := channel.Channel{
 					Name: "rc_dtp_calc", DataType: telem.Float32T, Virtual: true,
 					Expression: "return rc_dtp_base * 2",
 				}
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Updating the calc expression to return a different type")
 				calc.Expression = "return i64(rc_dtp_base)"
 				calc.DataType = telem.Int64T
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Verifying the DataType was persisted to the DB")
@@ -750,22 +750,22 @@ var _ = Describe("Graph", func() {
 
 				By("Building a chain: base -> calc1 -> calc2")
 				base := channel.Channel{Name: "rc_dtpc_base", DataType: telem.Float32T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc1 := channel.Channel{
 					Name: "rc_dtpc_c1", DataType: telem.Float32T, Virtual: true,
 					Expression: "return rc_dtpc_base * 2",
 				}
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				calc2 := channel.Channel{
 					Name: "rc_dtpc_c2", DataType: telem.Float32T, Virtual: true,
 					Expression: "return rc_dtpc_c1 + 1",
 				}
-				Expect(writer.Create(ctx, &calc2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
 
 				By("Updating calc1 to return a different type, which should cascade to calc2")
 				calc1.Expression = "return i64(rc_dtpc_base)"
 				calc1.DataType = telem.Int64T
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 
 				By("Verifying calc1 DataType was persisted")
 				Eventually(func() telem.DataType {
@@ -803,8 +803,8 @@ var _ = Describe("Graph", func() {
 					Name: "rc_unres_multi_c2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_unres_shared_dep * 2",
 				}
-				Expect(writer.Create(ctx, &calc1)).To(Succeed())
-				Expect(writer.Create(ctx, &calc2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
 
 				By("Deleting the shared dependency so both calcs break")
 				deleteDep(ctx, "rc_unres_shared_dep")
@@ -836,23 +836,23 @@ var _ = Describe("Graph", func() {
 			It("Should isolate failures to their own subgraph", func(ctx SpecContext) {
 				openGraph(ctx)
 				baseA := channel.Channel{Name: "rc_iso_base_a", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &baseA)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &baseA)).To(Succeed())
 				calcA := channel.Channel{
 					Name: "rc_iso_calc_a", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_iso_base_a + 1",
 				}
-				Expect(writer.Create(ctx, &calcA)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calcA)).To(Succeed())
 
 				baseB := channel.Channel{Name: "rc_iso_base_b", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &baseB)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &baseB)).To(Succeed())
 				calcB := channel.Channel{
 					Name: "rc_iso_calc_b", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_iso_base_b + 1",
 				}
-				Expect(writer.Create(ctx, &calcB)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calcB)).To(Succeed())
 
 				By("Deleting base_a should only affect calc_a")
-				Expect(writer.Delete(ctx, baseA.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, baseA.Key(), false)).To(Succeed())
 				expectStatus(ctx, calcA.Key())
 				eventuallyExpectNoStatus(ctx, calcB.Key())
 			})
@@ -890,7 +890,7 @@ var _ = Describe("Graph", func() {
 				Name: "st_overwrite", DataType: telem.Int64T, Virtual: true,
 				Expression: "return st_ow_a + st_ow_b",
 			}
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 			eventuallyExpectNoStatus(ctx, calc.Key())
 
 			By("Deleting st_ow_a so the calc breaks on a missing st_ow_a")
@@ -915,12 +915,12 @@ var _ = Describe("Graph", func() {
 
 		It("Should not create any status entry for valid channels", func(ctx SpecContext) {
 			base := channel.Channel{Name: "st_none_base", DataType: telem.Int64T, Virtual: true}
-			Expect(writer.Create(ctx, &base)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
 				Name: "st_none_calc", DataType: telem.Int64T, Virtual: true,
 				Expression: "return st_none_base + 1",
 			}
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 			openGraph(ctx)
 			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
@@ -943,19 +943,19 @@ var _ = Describe("Graph", func() {
 				Status:  statusSvc,
 			}))
 			base := channel.Channel{Name: "lc_disc_base", DataType: telem.Int64T, Virtual: true}
-			Expect(writer.Create(ctx, &base)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
 				Name: "lc_disc_calc", DataType: telem.Int64T, Virtual: true,
 				Expression: "return lc_disc_base + 1",
 			}
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 			eventuallyExpectNoStatus(ctx, calc.Key())
 
 			By("Closing the graph to disconnect the observer")
 			Expect(g.Close()).To(Succeed())
 
 			By("Deleting the base after close should not set error status")
-			Expect(writer.Delete(ctx, base.Key(), false)).To(Succeed())
+			Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
 
@@ -1003,7 +1003,7 @@ var _ = Describe("Graph", func() {
 				bases[i] = channel.Channel{
 					Name: fmt.Sprintf("cc_base_%d", i), DataType: telem.Int64T, Virtual: true,
 				}
-				Expect(writer.Create(ctx, &bases[i])).To(Succeed())
+				Expect(channelWriter.Create(ctx, &bases[i])).To(Succeed())
 			}
 			wg.Add(n)
 			for i := range n {
@@ -1016,7 +1016,7 @@ var _ = Describe("Graph", func() {
 						Virtual:    true,
 						Expression: fmt.Sprintf("return cc_base_%d + 1", i),
 					}
-					Expect(writer.Create(ctx, &calcs[i])).To(Succeed())
+					Expect(channelWriter.Create(ctx, &calcs[i])).To(Succeed())
 				}()
 			}
 			wg.Wait()
@@ -1028,14 +1028,14 @@ var _ = Describe("Graph", func() {
 		It("Should produce a consistent state under concurrent create and delete", func(ctx SpecContext) {
 			openGraph(ctx)
 			base := channel.Channel{Name: "cc_race_base", DataType: telem.Int64T, Virtual: true}
-			Expect(writer.Create(ctx, &base)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 			stable := channel.Channel{Name: "cc_race_stable", DataType: telem.Int64T, Virtual: true}
-			Expect(writer.Create(ctx, &stable)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &stable)).To(Succeed())
 			calc := channel.Channel{
 				Name: "cc_race_calc", DataType: telem.Int64T, Virtual: true,
 				Expression: "return cc_race_base + 1",
 			}
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 			eventuallyExpectNoStatus(ctx, calc.Key())
 
 			var wg sync.WaitGroup
@@ -1043,7 +1043,7 @@ var _ = Describe("Graph", func() {
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				Expect(writer.Delete(ctx, base.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 			}()
 			go func() {
 				defer GinkgoRecover()
@@ -1054,7 +1054,7 @@ var _ = Describe("Graph", func() {
 					Name: "cc_race_calc2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return cc_race_stable * 2",
 				}
-				Expect(writer.Create(ctx, &newCalc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &newCalc)).To(Succeed())
 			}()
 			wg.Wait()
 		})
@@ -1062,14 +1062,14 @@ var _ = Describe("Graph", func() {
 		It("Should handle rapid sequential updates", func(ctx SpecContext) {
 			openGraph(ctx)
 			base := channel.Channel{Name: "cc_rapid_base", DataType: telem.Int64T, Virtual: true}
-			Expect(writer.Create(ctx, &base)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 			base2 := channel.Channel{Name: "cc_rapid_base2", DataType: telem.Int64T, Virtual: true}
-			Expect(writer.Create(ctx, &base2)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &base2)).To(Succeed())
 			calc := channel.Channel{
 				Name: "cc_rapid_calc", DataType: telem.Int64T, Virtual: true,
 				Expression: "return cc_rapid_base + 1",
 			}
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 
 			// Alternate the expression between two valid dependencies; an update to an
 			// invalid expression is rejected at creation, so the reachable form of
@@ -1080,10 +1080,10 @@ var _ = Describe("Graph", func() {
 				} else {
 					calc.Expression = "return cc_rapid_base2 * 2"
 				}
-				Expect(writer.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 			}
 			calc.Expression = "return cc_rapid_base + 1"
-			Expect(writer.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
 	})
@@ -1101,23 +1101,23 @@ var _ = Describe("Graph", func() {
 				openGraph(ctx)
 				base1 = channel.Channel{Name: "topo_dia_b1", DataType: telem.Int64T, Virtual: true}
 				base2 = channel.Channel{Name: "topo_dia_b2", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base1)).To(Succeed())
-				Expect(writer.Create(ctx, &base2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base2)).To(Succeed())
 				mid1 = channel.Channel{
 					Name: "topo_dia_m1", DataType: telem.Int64T, Virtual: true,
 					Expression: "return topo_dia_b1 + topo_dia_b2",
 				}
-				Expect(writer.Create(ctx, &mid1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &mid1)).To(Succeed())
 				mid2 = channel.Channel{
 					Name: "topo_dia_m2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return topo_dia_b1 * 2",
 				}
-				Expect(writer.Create(ctx, &mid2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &mid2)).To(Succeed())
 				top = channel.Channel{
 					Name: "topo_dia_top", DataType: telem.Int64T, Virtual: true,
 					Expression: "return topo_dia_m1 + topo_dia_m2",
 				}
-				Expect(writer.Create(ctx, &top)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &top)).To(Succeed())
 			})
 
 			It("Should set up all levels as valid", func(ctx SpecContext) {
@@ -1128,7 +1128,7 @@ var _ = Describe("Graph", func() {
 
 			It("Should only affect mid1 when base2 is deleted", func(ctx SpecContext) {
 				By("Deleting base2 which is only used by mid1")
-				Expect(writer.Delete(ctx, base2.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, base2.Key(), false)).To(Succeed())
 
 				By("mid1 depends on base2 so it gets error")
 				expectStatus(ctx, mid1.Key())
@@ -1142,7 +1142,7 @@ var _ = Describe("Graph", func() {
 			})
 
 			It("Should break top when mid1 is deleted", func(ctx SpecContext) {
-				Expect(writer.Delete(ctx, mid1.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, mid1.Key(), false)).To(Succeed())
 				expectStatus(ctx, top.Key())
 			})
 		})
@@ -1154,30 +1154,30 @@ var _ = Describe("Graph", func() {
 			})
 			It("Should only error the immediate dependent of a deleted node", func(ctx SpecContext) {
 				base := channel.Channel{Name: "topo_lc_base", DataType: telem.Int64T, Virtual: true}
-				Expect(writer.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				c1 := channel.Channel{
 					Name: "topo_lc_c1", DataType: telem.Int64T, Virtual: true,
 					Expression: "return topo_lc_base + 1",
 				}
-				Expect(writer.Create(ctx, &c1)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c1)).To(Succeed())
 				c2 := channel.Channel{
 					Name: "topo_lc_c2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return topo_lc_c1 + 1",
 				}
-				Expect(writer.Create(ctx, &c2)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c2)).To(Succeed())
 				c3 := channel.Channel{
 					Name: "topo_lc_c3", DataType: telem.Int64T, Virtual: true,
 					Expression: "return topo_lc_c2 + 1",
 				}
-				Expect(writer.Create(ctx, &c3)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c3)).To(Succeed())
 				c4 := channel.Channel{
 					Name: "topo_lc_c4", DataType: telem.Int64T, Virtual: true,
 					Expression: "return topo_lc_c3 + 1",
 				}
-				Expect(writer.Create(ctx, &c4)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &c4)).To(Succeed())
 
 				By("Deleting c2 from the middle")
-				Expect(writer.Delete(ctx, c2.Key(), false)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, c2.Key(), false)).To(Succeed())
 
 				By("c1 is upstream of deletion and unaffected")
 				eventuallyExpectNoStatus(ctx, c1.Key())
