@@ -43,8 +43,7 @@ export interface UseSingleRequiredProps<K extends record.Key> {
 }
 
 type UseSingleInternalProps<K extends record.Key> =
-  | UseSingleAllowNoneProps<K>
-  | UseSingleRequiredProps<K>;
+  UseSingleAllowNoneProps<K> | UseSingleRequiredProps<K>;
 
 export type UseSingleProps<K extends record.Key> = optional.Optional<
   UseSingleInternalProps<K>,

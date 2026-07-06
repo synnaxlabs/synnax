@@ -120,12 +120,10 @@ export const import_ = ({
     if (directory == null) return;
     name = directory.name;
     const fileData = await Promise.all(
-      directory.files.map(
-        async (file): Promise<Import.File> => ({
-          name: file.name,
-          data: JSON.parse(await file.read()),
-        }),
-      ),
+      directory.files.map(async (file): Promise<Import.File> => ({
+        name: file.name,
+        data: JSON.parse(await file.read()),
+      })),
     );
     await ingest(name, fileData, {
       client,

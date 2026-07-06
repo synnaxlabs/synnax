@@ -32,9 +32,8 @@ export interface KeyedSelectorParams extends record.Keyed<client.Key> {
 }
 
 const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  LinePlot.Scope.bindHook(
-    ({ key }: Omit<KeyedSelectorParams, "state">): R =>
-      Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
+  LinePlot.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
   );
 
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>

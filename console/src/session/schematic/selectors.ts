@@ -31,9 +31,8 @@ export interface KeyedSelectorParams extends record.Keyed<schematic.Key> {
 }
 
 const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  Schematic.Scope.bindHook(
-    ({ key }: Omit<KeyedSelectorParams, "state">): R =>
-      Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
+  Schematic.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
   );
 
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>
