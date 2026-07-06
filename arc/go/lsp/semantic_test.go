@@ -38,6 +38,7 @@ const (
 	tokenTypeStringRaw         = uint32(21)
 	tokenTypeStringPlaceholder = uint32(22)
 	tokenTypeChannelAlias      = uint32(23)
+	tokenTypeReactiveVariable  = uint32(24)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -493,7 +494,7 @@ func cat() {
 	})
 
 	Describe("variable kinds", func() {
-		It("classifies value variables, stateful variables, and channel aliases distinctly", func(ctx SpecContext) {
+		It("classifies constant, stateful, channel-alias, and reactive variables distinctly", func(ctx SpecContext) {
 			channels := []symbol.Symbol{
 				{
 					Name: "sensorData",
@@ -504,7 +505,7 @@ func cat() {
 			server, uri = SetupTestServer(lsp.Config{
 				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
 			})
-			OpenArcDocument(server, ctx, uri, "count := 0\ntotal $= 0\ncpu := sensorData\n")
+			OpenArcDocument(server, ctx, uri, "count := 0\ntotal $= 0\ncpu := sensorData\nrate := sensorData + 1.0\n")
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 
 			value := filterByType(tokens, tokenTypeVariable)
@@ -520,6 +521,12 @@ func cat() {
 			Expect(alias[0]).To(Equal(decodedToken{
 				Line: 2, StartChar: 0, Length: 3, TokenType: tokenTypeChannelAlias,
 			}))
+
+			reactive := filterByType(tokens, tokenTypeReactiveVariable)
+			Expect(reactive).To(HaveLen(1))
+			Expect(reactive[0]).To(Equal(decodedToken{
+				Line: 3, StartChar: 0, Length: 4, TokenType: tokenTypeReactiveVariable,
+			}))
 		})
 	})
 
@@ -534,9 +541,9 @@ func cat() {
 			Expect(ok).To(BeTrue())
 			Expect(legend.TokenTypes).ToNot(BeEmpty())
 			n := len(legend.TokenTypes)
-			Expect(string(legend.TokenTypes[tokenTypeStringPlaceholder])).To(Equal("stringPlaceholder"))
-			Expect(string(legend.TokenTypes[n-1])).To(Equal("channelAlias"))
-			Expect(uint32(n - 1)).To(Equal(tokenTypeChannelAlias))
+			Expect(string(legend.TokenTypes[tokenTypeChannelAlias])).To(Equal("channelAlias"))
+			Expect(string(legend.TokenTypes[n-1])).To(Equal("reactiveVariable"))
+			Expect(uint32(n - 1)).To(Equal(tokenTypeReactiveVariable))
 		})
 	})
 })
