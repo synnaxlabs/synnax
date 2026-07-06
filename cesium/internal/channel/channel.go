@@ -41,9 +41,11 @@ type Channel struct {
 	// [REQUIRED]
 	Key Key `json:"key" msgpack:"key"`
 	// Index is the key of the channel used to index the channel's values. The Index is
-	// used to associate a value in a data channel with a corresponding timestamp.
+	// used to associate a value in a data channel with a corresponding timestamp. For
+	// virtual channels, Index is optional and groups the channel with a virtual index
+	// channel for shared write alignment.
 	//
-	// [OPTIONAL if IsIndex is true and REQUIRED if IsIndex is false or Virtual is true]
+	// [OPTIONAL if IsIndex or Virtual is true, REQUIRED otherwise]
 	Index Key `json:"index" msgpack:"index"`
 	// IsIndex determines whether the channel acts as an index channel. If false, then
 	// the channel is a data channel, and the Index field must be set to the key of an
@@ -107,7 +109,10 @@ func (c Channel) Validate() error {
 	validate.NotEmptyString(v, "data_type", c.DataType)
 	validate.NotEmptyString(v, "name", c.Name)
 	if c.Virtual {
-		v.Ternaryf("index", c.Index != 0, "virtual channel cannot be indexed")
+		if c.IsIndex {
+			v.Ternary("data_type", c.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")
+		}
 	} else {
 		v.Ternary("transient", c.Transient, "only virtual channels can be transient")
 		if c.IsIndex {

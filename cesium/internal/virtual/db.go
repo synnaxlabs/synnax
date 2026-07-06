@@ -127,6 +127,13 @@ func (db *DB) Channel() channel.Channel {
 	return db.cfg.Channel
 }
 
+// AllocateLeadingAlignment reserves and returns a fresh leading alignment domain for
+// the channel. Writers on an index group allocate one domain per group from the
+// group's index channel so that alignments correlate across the group's members.
+func (db *DB) AllocateLeadingAlignment() telem.Alignment {
+	return telem.NewAlignment(db.leadingAlignment.Add(1), 0)
+}
+
 func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
