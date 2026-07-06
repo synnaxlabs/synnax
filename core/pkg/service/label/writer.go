@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -36,7 +37,7 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DefineResource(ctx, OntologyID(l.Key))
+	return w.otg.DefineResources(ctx, OntologyID(l.Key))
 }
 
 // CreateMany creates multiple labels in a single transaction. If any of the labels
@@ -56,18 +57,15 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Label](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DeleteResource(ctx, OntologyIDs(keys)...)
+	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
 // Label assigns a set of labels to the target resource. If the target resource already
 // has labels, Label will add the new labels to the existing set.
 func (w Writer) Label(ctx context.Context, target ontology.ID, labels []Key) error {
-	for _, label := range labels {
-		if err := w.otg.DefineRelationship(ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DefineRelationships(
+		ctx, target, OntologyRelationshipTypeLabeledBy, OntologyIDs(labels)...,
+	)
 }
 
 // Clear removes all labels from the target resource.
@@ -83,10 +81,14 @@ func (w Writer) RemoveLabel(
 	target ontology.ID,
 	labels []Key,
 ) error {
-	for _, label := range labels {
-		if err := w.otg.DeleteRelationship(ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DeleteRelationships(
+		ctx,
+		lo.Map(labels, func(key Key, _ int) ontology.Relationship {
+			return ontology.Relationship{
+				From: target,
+				Type: OntologyRelationshipTypeLabeledBy,
+				To:   OntologyID(key),
+			}
+		})...,
+	)
 }

@@ -175,12 +175,11 @@ var _ = Describe("Device", func() {
 				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
-			Expect(otg.NewWriter(tx).DeleteRelationship(
-				ctx,
-				rackSvc.EmbeddedKey.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				d.OntologyID(),
-			)).To(Succeed())
+			Expect(otg.NewWriter(tx).DeleteRelationships(ctx, ontology.Relationship{
+				From: rackSvc.EmbeddedKey.OntologyID(),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   d.OntologyID(),
+			})).To(Succeed())
 			d2 := device.Device{
 				Key:      "device3",
 				Rack:     rackSvc.EmbeddedKey,
