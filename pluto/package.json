@@ -34,14 +34,14 @@
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
-    "@tanstack/react-virtual": "^3.13.24",
-    "@xyflow/react": "^12.10.2",
+    "@tanstack/react-virtual": "^3.14.5",
+    "@xyflow/react": "^12.11.1",
     "async-mutex": "catalog:",
     "clsx": "catalog:",
     "compromise": "catalog:",
     "compromise-dates": "catalog:",
     "d3-scale": "^4.0.2",
-    "fuse.js": "^7.3.0",
+    "fuse.js": "^7.4.2",
     "mathjs": "^15.2.0",
     "pluralize": "catalog:",
     "react": "catalog:",
@@ -53,6 +53,14 @@
     "vscode-jsonrpc": "^8.2.1",
     "vscode-languageclient": "^9.0.1",
     "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "vitest": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@juggle/resize-observer": "^3.4.0",
@@ -100,6 +108,11 @@
       "types": "./dist/src/ether.d.ts",
       "import": "./dist/ether.js",
       "require": "./dist/ether.cjs"
+    },
+    "./testutil": {
+      "types": "./dist/src/testutil/index.d.ts",
+      "import": "./dist/testutil.js",
+      "require": "./dist/testutil.cjs"
     },
     "./flex": {
       "types": "./dist/src/flex/index.d.ts",

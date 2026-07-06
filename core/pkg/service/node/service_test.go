@@ -50,8 +50,8 @@ var _ = Describe("Service", func() {
 
 	Describe("NewService", func() {
 		It("Should define the free-node sentinel resource in the ontology", func(ctx SpecContext) {
-			Expect(testOtg.NewWriter(nil).HasResource(ctx, node.OntologyID(node.KeyFree))).
-				To(BeTrue())
+			Expect(testOtg.NewRetrieve().WhereIDs(node.OntologyID(node.KeyFree)).
+				Exists(ctx, nil)).To(BeTrue())
 		})
 
 		It("Should reject a config that fails validation", func(ctx SpecContext) {

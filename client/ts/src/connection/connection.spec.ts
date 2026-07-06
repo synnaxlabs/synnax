@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { auth } from "@/auth";
 import { connection } from "@/connection";
-import { TEST_CLIENT_PARAMS } from "@/testutil/client";
+import { TEST_CLIENT_PARAMS } from "@/testutil";
 import { Transport } from "@/transport";
 
 describe("connectivity", () => {

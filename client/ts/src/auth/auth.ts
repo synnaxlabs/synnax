@@ -44,8 +44,7 @@ const changePasswordResZ = z.object({});
 const RETRY_ON = [InvalidTokenError, ExpiredTokenError] as const;
 
 type AuthState =
-  | { authenticated: false }
-  | { authenticated: true; user: user.User; token: string };
+  { authenticated: false } | { authenticated: true; user: user.User; token: string };
 
 export class Client {
   private readonly client: UnaryClient;

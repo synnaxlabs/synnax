@@ -14,7 +14,7 @@ import z from "zod";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { status } from "@/status";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 

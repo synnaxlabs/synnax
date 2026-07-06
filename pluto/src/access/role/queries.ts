@@ -242,13 +242,11 @@ export const useForm = Flux.createForm<
         access.role.ontologyID(r.key),
         ...v.policies.map((p) => access.policy.ontologyID(p)),
       );
-      const newRels = v.policies.map(
-        (p): ontology.Relationship => ({
-          from: access.role.ontologyID(r.key),
-          to: access.policy.ontologyID(p),
-          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        }),
-      );
+      const newRels = v.policies.map((p): ontology.Relationship => ({
+        from: access.role.ontologyID(r.key),
+        to: access.policy.ontologyID(p),
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      }));
       newRels.forEach((rel) =>
         rollbacks.push(
           store.relationships.set(ontology.relationshipToString(rel), rel),

@@ -271,7 +271,8 @@ func (s *Service) OnAction(
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		otg:        s.cfg.Ontology.NewWriter(tx),
+		otgWriter:  s.cfg.Ontology.NewWriter(tx),
+		otg:        s.cfg.Ontology,
 		task:       s.cfg.Task.NewWriter(tx),
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),

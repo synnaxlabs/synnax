@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { task } from "@/task";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 

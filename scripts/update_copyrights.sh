@@ -74,6 +74,8 @@ HEADER_HASH_TWO=$(generate_line_header "#" 2)
 HEADER_HASH_ONE=$(generate_line_header "#" 1)
 HEADER_C_STYLE=$(generate_block_header "/*" " *" " * " " */")
 HEADER_HTML=$(generate_block_header "<!--" "" "  " "  -->")
+HEADER_REM=$(generate_line_header "rem" 1)
+HEADER_SEMI=$(generate_line_header ";" 1)
 
 # Read .copyrightignore patterns
 declare -a IGNORE_PATTERNS
@@ -102,53 +104,99 @@ has_supported_extension() {
     local file="$1"
     local ext="${file##*.}"
     case "$ext" in
-        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | svg) return 0 ;;
+        go | py | pyi | ts | tsx | js | jsx | c | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | xml | svg | proto | g4 | glsl | bazel | bzl | ps1 | cmd | yaml | yml | arc | astro | toml | nsi | def) return 0 ;;
         *) return 1 ;;
     esac
 }
 
 # Resolve per-extension header properties into globals: HEADER, HEADER_LINES,
-# SUPPORTS_SHEBANG (1 if the extension preserves a leading #! line), and
-# TRAILING_BLANK (1 if the canonical layout puts a blank line between the
-# header and the file body, 0 otherwise). HEADER_LINES describes the canonical
-# new header — the size of an *existing* header is detected dynamically.
+# LEADING_LINE_RE (a regex; when non-empty and the file's first line matches it, that
+# line is preserved above the header — shebangs, the cmd `@echo off` directive that must
+# stay first to suppress command echo, and the astro `---` frontmatter fence that must
+# open the file, with the header living inside the frontmatter as a // comment),
+# LEADING_BLANK (1 if a blank line separates the leading line from the header; astro
+# sets 0 because prettier strips blanks adjacent to the frontmatter fences), and
+# TRAILING_BLANK (1 if the canonical layout puts a blank line between the header and the
+# file body, 0 otherwise), and FENCE (a closing delimiter that may sit directly after
+# the header with no separating blank — astro's `---` for comment-only frontmatter; a
+# normal trailing blank is still emitted when real body content follows). HEADER_LINES
+# describes the canonical new header — the size of an *existing* header is detected
+# dynamically.
 resolve_header_for_ext() {
     local ext="$1"
+    LEADING_LINE_RE=""
+    LEADING_BLANK=1
+    HOIST_LEADING=0
+    FENCE=""
     case "$ext" in
-        py)
+        py | pyi)
             HEADER="$HEADER_HASH_TWO"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
         sh | zsh)
             HEADER="$HEADER_HASH_ONE"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=1
+            LEADING_LINE_RE='^#!'
+            TRAILING_BLANK=1
+            ;;
+        ps1 | bazel | bzl | yaml | yml | toml)
+            HEADER="$HEADER_HASH_ONE"
+            HEADER_LINES=8
+            TRAILING_BLANK=1
+            ;;
+        nsi | def)
+            HEADER="$HEADER_SEMI"
+            HEADER_LINES=8
+            TRAILING_BLANK=1
+            ;;
+        astro)
+            HEADER="$HEADER_SLASHES"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^---$'
+            LEADING_BLANK=0
+            TRAILING_BLANK=1
+            FENCE='---'
+            ;;
+        cmd)
+            HEADER="$HEADER_REM"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^@[Ee][Cc][Hh][Oo]'
+            TRAILING_BLANK=1
+            ;;
+        glsl)
+            HEADER="$HEADER_SLASHES"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^#version'
+            # GLSL is the one leading-line kind that can legally appear buried below an
+            # old header (WebGL requires it first); hoist it to the top instead of
+            # leaving the file in the broken layout.
+            HOIST_LEADING=1
             TRAILING_BLANK=1
             ;;
         css)
             HEADER="$HEADER_C_STYLE"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
         html)
             HEADER="$HEADER_HTML"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
+            ;;
+        xml)
+            HEADER="$HEADER_HTML"
+            HEADER_LINES=10
+            TRAILING_BLANK=0
             ;;
         svg)
             HEADER="$HEADER_HTML"
             HEADER_LINES=10
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=0
             ;;
         *)
             HEADER="$HEADER_SLASHES"
             HEADER_LINES=8
-            SUPPORTS_SHEBANG=0
             TRAILING_BLANK=1
             ;;
     esac
@@ -263,6 +311,8 @@ locate_existing_header() {
             case "$first_line" in
                 "//"*) prefix="//" ;;
                 "#"*) prefix="#" ;;
+                ";"*) prefix=";" ;;
+                "rem "*) prefix="rem" ;;
                 *) prefix="" ;;
             esac
             if [ -n "$prefix" ]; then
@@ -291,18 +341,39 @@ process_file() {
     resolve_header_for_ext "$ext"
     local new_header="$HEADER"
     local trailing_blank="$TRAILING_BLANK"
+    local leading_blank="$LEADING_BLANK"
+    local fence="$FENCE"
 
     read_whole_file "$file"
 
-    # Detect a leading shebang on shell scripts. The canonical layout always
-    # restores: shebang / blank / header / [blank] / body.
-    local has_shebang=0
-    if [ "$SUPPORTS_SHEBANG" = "1" ] && [ ${#LINES[@]} -gt 0 ]; then
-        if [[ "${LINES[0]}" =~ ^#! ]]; then
-            has_shebang=1
+    # Detect a preserved leading line (shebang, the cmd `@echo off` directive, or the
+    # astro `---` frontmatter fence). The canonical layout restores: leading line /
+    # [blank] / header / [blank] / body — the blank after the leading line is present
+    # unless LEADING_BLANK=0 (astro).
+    local has_leading=0
+    local leading_line=""
+    if [ -n "$LEADING_LINE_RE" ] && [ ${#LINES[@]} -gt 0 ]; then
+        if [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
+            has_leading=1
+            leading_line="${LINES[0]}"
         fi
     fi
-    local scan_start_idx=$has_shebang
+    local scan_start_idx=$has_leading
+
+    # When HOIST_LEADING is set (glsl) and the leading line is not already first, find
+    # it anywhere below and hoist it to the top. This repairs the layout where an old
+    # header was written above the `#version` directive, which WebGL rejects.
+    local hoist_idx=-1
+    if [ "$HOIST_LEADING" = "1" ] && [ "$has_leading" = "0" ]; then
+        local i
+        for ((i = 0; i < ${#LINES[@]}; i++)); do
+            if [[ "${LINES[i]}" =~ $LEADING_LINE_RE ]]; then
+                hoist_idx=$i
+                leading_line="${LINES[i]}"
+                break
+            fi
+        done
+    fi
 
     locate_existing_header "$scan_start_idx"
     local has_copyright=$OLD_HEADER_FOUND
@@ -348,12 +419,14 @@ process_file() {
         body_start_idx=$scan_start_idx
     fi
 
-    # Skip if the file already conforms to the canonical layout.
+    # Skip if the file already conforms to the canonical layout. A pending hoist
+    # (leading line buried below the header) is never canonical.
     if [ "$has_copyright" = "1" ] \
         && [ "$old_copyright_year" = "$CURRENT_YEAR" ] \
-        && [ "$between_start" = "-1" ]; then
+        && [ "$between_start" = "-1" ] \
+        && [ "$hoist_idx" = "-1" ]; then
         local canonical_header_start_idx=$scan_start_idx
-        if [ "$has_shebang" = "1" ]; then
+        if [ "$has_leading" = "1" ] && [ "$leading_blank" = "1" ]; then
             local line2=""
             if [ ${#LINES[@]} -ge 2 ]; then
                 line2="${LINES[1]}"
@@ -380,8 +453,13 @@ process_file() {
             fi
             local format_ok=1
             [ "$current_header" != "$new_header" ] && format_ok=0
-            if [ "$trailing_blank" = "1" ] && [ -n "$line_after_canonical" ]; then format_ok=0; fi
-            if [ "$trailing_blank" = "0" ] && [ -z "$line_after_canonical" ]; then format_ok=0; fi
+            if [ -n "$fence" ] && [ "$line_after_canonical" = "$fence" ]; then
+                : # closing fence directly after header — canonical, no blank
+            elif [ "$trailing_blank" = "1" ] && [ -n "$line_after_canonical" ]; then
+                format_ok=0
+            elif [ "$trailing_blank" = "0" ] && [ -z "$line_after_canonical" ]; then
+                format_ok=0
+            fi
             if [ "$format_ok" = "1" ]; then
                 printf 'SKIPPED\t%s\n' "$file"
                 return
@@ -399,6 +477,7 @@ process_file() {
     local i line
     if [ "$between_start" -ge 0 ]; then
         for ((i = between_start; i <= between_end; i++)); do
+            if [ "$i" = "$hoist_idx" ]; then continue; fi
             line="${LINES[i]}"
             if [ "$first_nonblank_seen" = "0" ] && [[ ! "$line" =~ [^[:space:]] ]]; then
                 continue
@@ -408,6 +487,7 @@ process_file() {
         done
     fi
     for ((i = body_start_idx; i < ${#LINES[@]}; i++)); do
+        if [ "$i" = "$hoist_idx" ]; then continue; fi
         line="${LINES[i]}"
         if [ "$first_nonblank_seen" = "0" ] && [[ ! "$line" =~ [^[:space:]] ]]; then
             continue
@@ -416,16 +496,29 @@ process_file() {
         body+="$line"$'\n'
     done
 
+    # A closing fence immediately after the header (comment-only frontmatter) takes no
+    # separating blank; otherwise use the configured trailing_blank.
+    local eff_trailing="$trailing_blank"
+    if [ -n "$fence" ]; then
+        case "$body" in
+            "$fence" | "$fence"$'\n'*) eff_trailing=0 ;;
+        esac
+    fi
+
     # Write atomically via a temp file, then move it back to preserve the
     # destination's file mode (e.g. executable bit on shell scripts).
     local temp_file
     temp_file=$(mktemp)
     {
-        if [ "$has_shebang" = "1" ]; then
-            printf '%s\n\n' "${LINES[0]}"
+        if [ "$has_leading" = "1" ] || [ "$hoist_idx" -ge 0 ]; then
+            if [ "$leading_blank" = "1" ]; then
+                printf '%s\n\n' "$leading_line"
+            else
+                printf '%s\n' "$leading_line"
+            fi
         fi
         printf '%s\n' "$new_header"
-        if [ "$trailing_blank" = "1" ]; then
+        if [ "$eff_trailing" = "1" ]; then
             printf '\n'
         fi
         printf '%s' "$body"
