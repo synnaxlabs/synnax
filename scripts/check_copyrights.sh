@@ -172,6 +172,12 @@ resolve_header_for_ext() {
             LEADING_LINE_RE='^@[Ee][Cc][Hh][Oo]'
             TRAILING_BLANK=1
             ;;
+        glsl)
+            EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^#version'
+            TRAILING_BLANK=1
+            ;;
         css)
             EXPECTED_HEADER="$EXPECTED_HEADER_C_STYLE"
             HEADER_LINES=10

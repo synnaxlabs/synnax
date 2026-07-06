@@ -470,7 +470,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we
         // might be selecting nodes AND their children.
-        key: keys.sort((a, b) => Base.getDepth(a, shape) - Base.getDepth(b, shape))[0],
+        key: keys.sort(
+          (a, b) =>
+            Base.getDepth(a, shapeRef.current) - Base.getDepth(b, shapeRef.current),
+        )[0],
       });
 
       const parentID = parent == null ? root : ontology.idZ.parse(parent.key);

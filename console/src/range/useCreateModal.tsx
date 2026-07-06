@@ -75,18 +75,17 @@ export const useCreateModal = Modals.create<CreateModalParams>(
 
     const saveLocal = useCallback(() => {
       if (!form.validate()) return;
-      const value = form.value();
-      if (value.key == null) return;
+      const { name, key, timeRange } = form.value();
+      if (key == null) return;
       dispatch(
         add({
           ranges: [
             {
               persisted: false,
-              ...value,
-              key: value.key ?? "",
+              name,
+              key,
               variant: "static",
-              timeRange: new TimeRange(value.timeRange.start, value.timeRange.end)
-                .numeric,
+              timeRange: new TimeRange(timeRange.start, timeRange.end).numeric,
             },
           ],
         }),
