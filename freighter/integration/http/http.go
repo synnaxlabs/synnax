@@ -12,6 +12,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,6 +53,9 @@ func BindTo(f *fiber.App) error {
 
 	unaryGetEchoServer := http.NewUnaryServer[Message, Message](router, "/unary/echo")
 	unaryGetEchoServer.BindHandler(unaryEcho)
+
+	unaryParamEchoServer := http.NewUnaryServer[Message, Message](router, "/unary/paramEcho")
+	unaryParamEchoServer.BindHandler(unaryParamEcho)
 
 	unaryMiddlewareCheckServer := http.NewUnaryServer[Message, Message](router, "/unary/middlewareCheck")
 	unaryMiddlewareCheckServer.BindHandler(unaryEcho)
@@ -101,6 +105,20 @@ func checkMiddleware(
 func unaryEcho(_ context.Context, req Message) (Message, error) {
 	req.ID++
 	return req, nil
+}
+
+// unaryParamEcho echoes the request params named in req.Message (comma-separated)
+// back joined by "|", with absent params echoed as empty strings. Lets clients verify
+// which out-of-band request params reached the handler and with what values.
+func unaryParamEcho(ctx context.Context, req Message) (Message, error) {
+	keys := strings.Split(req.Message, ",")
+	values := make([]string, len(keys))
+	for i, k := range keys {
+		if v, ok := freighter.MDFromContext(ctx).Params.Get(k); ok {
+			values[i], _ = v.(string)
+		}
+	}
+	return Message{Message: strings.Join(values, "|")}, nil
 }
 
 var (

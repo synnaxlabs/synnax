@@ -41,9 +41,9 @@ export interface FileOptions {
    * Request params appended to the URL as freighterctx-prefixed query parameters. The
    * body is the raw file bytes, so per-transfer metadata (e.g. the source file's name)
    * travels out-of-band here. Keys are the bare param names — the transport adds the
-   * prefix — and undefined values are omitted.
+   * prefix.
    */
-  params?: Record<string, string | undefined>;
+  params?: Record<string, string>;
 }
 
 /**

@@ -75,20 +75,16 @@ const shouldCastToUnreachable = (
 const HTTP_STATUS_BAD_REQUEST = 400;
 
 /**
- * Appends the defined entries of params to target as a percent-encoded query string,
- * prefixing each key with FREIGHTER_METADATA_PREFIX so the server exposes it to the
- * handler as a request param. Returns target unchanged when params has no defined
- * entries.
+ * Appends the entries of params to target as a percent-encoded query string, prefixing
+ * each key with FREIGHTER_METADATA_PREFIX so the server exposes it to the handler as a
+ * request param. Returns target unchanged when params is empty.
  */
-const appendQueryParams = (
-  target: string,
-  params?: Record<string, string | undefined>,
-): string => {
+const appendQueryParams = (target: string, params?: Record<string, string>): string => {
   if (params == null) return target;
   const search = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value != null) search.set(`${FREIGHTER_METADATA_PREFIX}${key}`, value);
-  });
+  Object.entries(params).forEach(([key, value]) =>
+    search.set(`${FREIGHTER_METADATA_PREFIX}${key}`, value),
+  );
   const query = search.toString();
   return query.length === 0 ? target : `${target}?${query}`;
 };

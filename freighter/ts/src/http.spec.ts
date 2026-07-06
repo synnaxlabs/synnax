@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { binary, url } from "@synnaxlabs/x";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { Unreachable } from "@/errors";
@@ -131,53 +131,27 @@ describe("http", () => {
       ).rejects.toThrow("Not Found");
     });
 
-    test("query params are percent-encoded and appended to the URL", async () => {
-      const fetchSpy = vi
-        .spyOn(globalThis, "fetch")
-        .mockResolvedValue(
-          new Response(JSON.stringify({ id: 1, message: "ok" }), { status: 200 }),
-        );
-      try {
-        await client.upload(
-          "/echo",
-          JSON.stringify({}),
-          {
-            encoding: "JSON",
-            params: {
-              file_name: "My Log.json",
-              parent: "project:abc",
-              skip: undefined,
-            },
-          },
-          messageZ,
-        );
-        const target = fetchSpy.mock.calls[0][0] as string;
-        expect(target).toContain("/unary/echo?");
-        expect(target).toContain("freighterctxfile_name=My+Log.json");
-        expect(target).toContain("freighterctxparent=project%3Aabc");
-        expect(target).not.toContain("skip");
-      } finally {
-        fetchSpy.mockRestore();
-      }
+    test("params reach the server as request params", async () => {
+      const response = await client.upload(
+        "/paramEcho",
+        JSON.stringify({ message: "file_name,parent" }),
+        {
+          encoding: "JSON",
+          params: { file_name: "My Log.json", parent: "project:abc" },
+        },
+        messageZ,
+      );
+      expect(response.message).toEqual("My Log.json|project:abc");
     });
 
-    test("the URL carries no query string when params are omitted", async () => {
-      const fetchSpy = vi
-        .spyOn(globalThis, "fetch")
-        .mockResolvedValue(
-          new Response(JSON.stringify({ id: 1, message: "ok" }), { status: 200 }),
-        );
-      try {
-        await client.upload(
-          "/echo",
-          JSON.stringify({}),
-          { encoding: "JSON" },
-          messageZ,
-        );
-        expect(fetchSpy.mock.calls[0][0] as string).not.toContain("?");
-      } finally {
-        fetchSpy.mockRestore();
-      }
+    test("the server sees no request params when params are omitted", async () => {
+      const response = await client.upload(
+        "/paramEcho",
+        JSON.stringify({ message: "file_name,parent" }),
+        { encoding: "JSON" },
+        messageZ,
+      );
+      expect(response.message).toEqual("|");
     });
 
     test("unreachable", async () => {
@@ -207,6 +181,31 @@ describe("http", () => {
       expect(stream).toBeInstanceOf(ReadableStream);
       const decoded = await new Response(stream).json();
       expect(decoded).toEqual({ id: 2, message: "hello" });
+    });
+
+    test("params reach the server as request params", async () => {
+      const stream = await client.download(
+        "/paramEcho",
+        { message: "file_name,parent" },
+        messageZ,
+        {
+          encoding: "JSON",
+          params: { file_name: "My Log.json", parent: "project:abc" },
+        },
+      );
+      const decoded = await new Response(stream).json();
+      expect(decoded.message).toEqual("My Log.json|project:abc");
+    });
+
+    test("the server sees no request params when params are omitted", async () => {
+      const stream = await client.download(
+        "/paramEcho",
+        { message: "file_name,parent" },
+        messageZ,
+        { encoding: "JSON" },
+      );
+      const decoded = await new Response(stream).json();
+      expect(decoded.message).toEqual("|");
     });
 
     test("not found", async () => {
