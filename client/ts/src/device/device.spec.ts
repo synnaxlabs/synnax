@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { type device } from "@/device";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 

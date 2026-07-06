@@ -729,6 +729,59 @@ describe("queries", () => {
       expect(result.current.form.get("snapshot").value).toEqual(false);
     });
 
+    it("should honor an initial rackKey when creating a new task", async () => {
+      const useForm = Task.createForm({
+        schemas: {
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any().optional(),
+        },
+        initialValues: {
+          name: "testTask",
+          type: "testType",
+          config: {},
+          rackKey: testRack.key,
+        },
+      });
+      const { result } = renderHook(() => useForm({ query: {} }), {
+        wrapper,
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+      expect(result.current.form.get("rackKey").value).toEqual(testRack.key);
+    });
+
+    it("should derive rackKey from the task key even when an initial rackKey is set", async () => {
+      const otherRack = await client.racks.create({ name: "otherRack" });
+      const existing = await testRack.createTask({
+        name: "rackKeyDeriveTask",
+        type: "testType",
+        config: {},
+      });
+      const useForm = Task.createForm({
+        schemas: {
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any().optional(),
+        },
+        initialValues: {
+          key: existing.key,
+          name: "rackKeyDeriveTask",
+          type: "testType",
+          config: {},
+          rackKey: otherRack.key,
+        },
+      });
+      const { result } = renderHook(() => useForm({ query: {} }), {
+        wrapper,
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+      expect(result.current.form.get("rackKey").value).toEqual(testRack.key);
+    });
+
     it("should retrieve and populate form with existing task", async () => {
       const testTask = await testRack.createTask({
         name: "existingTask",

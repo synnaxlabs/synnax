@@ -10,7 +10,7 @@
 import { url } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 interface JSONRPCRequest {
   jsonrpc: "2.0";

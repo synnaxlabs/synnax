@@ -11,7 +11,7 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { project } from "@/project";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const logEnvelope = (name: string) => ({
   version: 2,
