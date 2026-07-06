@@ -45,7 +45,7 @@ import { Nav as AppNav } from "@/app/nav";
 import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
 import { LinePlot } from "@/feature/lineplot";
 import { Project } from "@/feature/project";
-import { ContextMenu as CommonContextMenu } from "@/platform/context-menu";
+import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
@@ -77,18 +77,18 @@ export const MOSAIC_LAYOUT_TYPE = "mosaic";
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   if (keys.length === 0)
     return (
-      <CommonContextMenu.Menu>
-        <CommonContextMenu.ReloadConsoleItem />
-      </CommonContextMenu.Menu>
+      <PlatformContextMenu.Menu>
+        <PlatformContextMenu.ReloadConsoleItem />
+      </PlatformContextMenu.Menu>
     );
   const layoutKey = keys[0];
   const layout = Session.Layout.useSelect(layoutKey);
   if (layout == null) return null;
   const C = Layout.useContextMenuRenderer(layout.type);
   return C == null ? (
-    <CommonContextMenu.Menu>
+    <PlatformContextMenu.Menu>
       <Layout.MenuItems layoutKey={layoutKey} />
-    </CommonContextMenu.Menu>
+    </PlatformContextMenu.Menu>
   ) : (
     <C layoutKey={layoutKey} />
   );

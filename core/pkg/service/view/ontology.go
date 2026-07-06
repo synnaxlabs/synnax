@@ -67,8 +67,6 @@ type change = xchange.Change[Key, View]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeView }
 
-func (s *Service) Schema() zyn.Schema { return schema }
-
 func (s *Service) RetrieveResource(
 	ctx context.Context,
 	key string,

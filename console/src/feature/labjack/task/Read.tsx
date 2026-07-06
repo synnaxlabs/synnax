@@ -31,7 +31,7 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/feature/labjack/task/types";
-import { Device as CommonDevice } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -226,13 +226,13 @@ const Form: FC<Task.FormProps<ReadSchemas>> = (props) => {
   const isSnapshot = Task.useIsSnapshot();
   const configure = useConfigureModal();
   return (
-    <CommonDevice.Provider
+    <PlatformDevice.Provider
       canConfigure={!isSnapshot}
       onConfigure={(deviceKey) => configure({ deviceKey })}
       schemas={Device.SCHEMAS}
     >
       {({ device }) => <ChannelsForm device={device} {...props} />}
-    </CommonDevice.Provider>
+    </PlatformDevice.Provider>
   );
 };
 
@@ -253,7 +253,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  CommonDevice.checkConfigured(dev);
+  PlatformDevice.checkConfigured(dev);
   let shouldCreateIndex = false;
   if (dev.properties.readIndex)
     try {

@@ -31,7 +31,7 @@ import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
-import { Status as CommonStatus } from "@/platform/status";
+import { Status as PlatformStatus } from "@/platform/status";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -136,7 +136,7 @@ const Content = (): ReactElement => (
 
 const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const openCreate = CommonStatus.useCreateModal();
+  const openCreate = PlatformStatus.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;

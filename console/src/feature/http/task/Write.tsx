@@ -47,7 +47,7 @@ import {
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { Form as CommonForm } from "@/platform/form";
+import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -133,7 +133,7 @@ const TEXT_PROPS = { weight: 450, color: 9 } as const;
 const writeEndpointListItem = Component.renderProp(WriteEndpointListItem);
 
 const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
-  <CommonForm.KeyValueEditor
+  <PlatformForm.KeyValueEditor
     path={`${channelPath}.enumValues`}
     label="Enum mappings"
     keyField="label"
@@ -450,7 +450,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
         </Flex.Box>
         <Divider.Divider x />
-        <CommonForm.KeyValueEditor
+        <PlatformForm.KeyValueEditor
           path={`${path}.headers`}
           label="Headers"
           keyField="name"
@@ -459,7 +459,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           valuePlaceholder="Value"
         />
         <Divider.Divider x />
-        <CommonForm.KeyValueEditor
+        <PlatformForm.KeyValueEditor
           path={`${path}.queryParams`}
           label="Query parameters"
           keyField="parameter"

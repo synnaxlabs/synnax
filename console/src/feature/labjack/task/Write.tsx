@@ -27,7 +27,7 @@ import {
   ZERO_OUTPUT_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/feature/labjack/task/types";
-import { Device as CommonDevice } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -74,7 +74,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
             if (port === value) return;
             const existingCommandStatePair =
               device.properties[type].channels[value] ??
-              CommonDevice.ZERO_COMMAND_STATE_PAIR;
+              PlatformDevice.ZERO_COMMAND_STATE_PAIR;
             set(path, {
               ...item,
               cmdChannel: existingCommandStatePair.command,
@@ -104,7 +104,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
                   const port = Device.PORTS[device.model][value][0].key;
                   const existingCommandStatePair =
                     device.properties[value].channels[port] ??
-                    CommonDevice.ZERO_COMMAND_STATE_PAIR;
+                    PlatformDevice.ZERO_COMMAND_STATE_PAIR;
                   set(path, {
                     ...item,
                     cmdChannel: existingCommandStatePair.command,
@@ -147,7 +147,7 @@ const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
   if (port == null) return null;
   const existingCommandStatePair =
     device.properties[port.type].channels[port.key] ??
-    CommonDevice.ZERO_COMMAND_STATE_PAIR;
+    PlatformDevice.ZERO_COMMAND_STATE_PAIR;
   return {
     ...deep.copy(last),
     ...Task.WRITE_CHANNEL_OVERRIDE,
@@ -187,13 +187,13 @@ const Form: FC<Task.FormProps<WriteSchemas>> = () => {
   const isSnapshot = Task.useIsSnapshot();
   const configure = useConfigureModal();
   return (
-    <CommonDevice.Provider
+    <PlatformDevice.Provider
       canConfigure={!isSnapshot}
       onConfigure={(deviceKey) => configure({ deviceKey })}
       schemas={Device.SCHEMAS}
     >
       {({ device }) => <ChannelList device={device} />}
-    </CommonDevice.Provider>
+    </PlatformDevice.Provider>
   );
 };
 
@@ -214,7 +214,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  CommonDevice.checkConfigured(dev);
+  PlatformDevice.checkConfigured(dev);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.writeStateIndex);
   if (!shouldCreateStateIndex)
