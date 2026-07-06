@@ -32,29 +32,163 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
+// Config is the configuration for opening an [Ontology].
+type Config struct {
+	// DB is the key-value database the ontology persists its resources and
+	// relationships to.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
+}
+
+var _ config.Config[Config] = Config{}
+
+// Validate implements config.Config.
+func (c Config) Validate() error {
+	v := validate.New("ontology")
+	validate.NotNil(v, "db", c.DB)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	return c
+}
+
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
-	Config
-	ResourceObserver     observe.Observer[iter.Seq[Change]]
-	RelationshipObserver observe.Observable[gorp.TxReader[string, Relationship]]
-	registrar            serviceRegistrar
-	disconnectObservers  []observe.Disconnect
-	closer               io.MultiCloser
-	resourceTable        *gorp.Table[string, Resource]
-	relationshipTable    *gorp.Table[string, Relationship]
-	relIndexes           relationshipIndexes
+	cfg                 Config
+	resourceObserver    observe.Observer[iter.Seq[Change]]
+	registrar           serviceRegistrar
+	disconnectObservers []observe.Disconnect
+	closer              io.MultiCloser
+	resourceTable       *gorp.Table[string, Resource]
+	relationshipTable   *gorp.Table[string, Relationship]
+	relIndexes          relationshipIndexes
+}
+
+// Open opens the ontology using the given configuration. If the RootID resource does
+// not exist, it will be created.
+func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
+	cfg, err := config.New(Config{}, configs...)
+	if err != nil {
+		return nil, err
+	}
+	o := &Ontology{
+		cfg:              cfg,
+		resourceObserver: observe.New[iter.Seq[Change]](),
+		registrar:        serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
+		relIndexes:       newRelationshipIndexes(),
+	}
+	cleanup, ok := service.NewOpener(ctx, &o.closer)
+	defer func() { err = cleanup(err) }()
+	if o.resourceTable, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Resource]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[string, Resource]("msgpack_to_orc"),
+		},
+	}); !ok(err, o.resourceTable) {
+		return nil, err
+	}
+	if o.relationshipTable, err = gorp.OpenTable(
+		ctx,
+		gorp.TableConfig[string, Relationship]{
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Indexes:         o.relIndexes.all(),
+			Migrations: []migrate.Migration{
+				gorp.CodecMigration[string, Relationship]("msgpack_to_orc"),
+			},
+		}); !ok(err, o.relationshipTable) {
+		return nil, err
+	}
+
+	if err = o.NewWriter(cfg.DB).DefineResources(ctx, RootID); !ok(err, nil) {
+		return nil, err
+	}
+
+	return o, nil
+}
+
+// NewWriter opens a new Writer using the provided transaction.
+func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
+	return Writer{
+		tx:                o.cfg.DB.OverrideTx(tx),
+		resourceTable:     o.resourceTable,
+		relationshipTable: o.relationshipTable,
+	}
+}
+
+// NewRetrieve opens a new Retrieve query, which can be used to traverse and read
+// resources from the underlying ontology.
+func (o *Ontology) NewRetrieve() Retrieve {
+	return newRetrieve(
+		o.registrar, o.cfg.DB, o.resourceTable, o.relationshipTable, o.relIndexes,
+	)
+}
+
+// ObserveResources returns an observable that notifies callers of changes to the
+// resources in the ontology.
+func (o *Ontology) ObserveResources() observe.Observable[iter.Seq[Change]] {
+	return o.resourceObserver
+}
+
+// ObserveRelationships returns an observable that notifies callers of changes to the
+// relationships in the ontology.
+func (o *Ontology) ObserveRelationships() observe.Observable[gorp.TxReader[string,
+	Relationship]] {
+	return o.relationshipTable.Observe()
+}
+
+// RelationshipExists reports whether the given relationship exists in the ontology.
+// Reads are executed against tx, falling back to the underlying database when tx is
+// nil.
+func (o *Ontology) RelationshipExists(
+	ctx context.Context,
+	tx gorp.Tx,
+	rel Relationship,
+) (bool, error) {
+	return o.relationshipTable.NewRetrieve().
+		Where(gorp.MatchKeys[string, Relationship](rel.GorpKey())).
+		Exists(ctx, o.cfg.DB.OverrideTx(tx))
+}
+
+// RegisterService registers a Service for a particular [Type] with the [Ontology].
+// Ontology will execute queries for Entity information for the given Type using the
+// provided Service. RegisterService panics if a Service is already registered for the
+// given Type.
+func (o *Ontology) RegisterService(svc Service) {
+	o.cfg.L.Debug("registering service", zap.Stringer("type", svc.Type()))
+	o.registrar.register(svc)
+	o.disconnectObservers = append(
+		o.disconnectObservers,
+		svc.OnChange(o.resourceObserver.Notify),
+	)
+}
+
+// Close closes the ontology and all of its observers and releases all resources.
+func (o *Ontology) Close() error {
+	for _, d := range o.disconnectObservers {
+		d()
+	}
+	return o.closer.Close()
 }
 
 // relationshipIndexes bundles the secondary indexes registered on the relationship
@@ -84,140 +218,4 @@ func newRelationshipIndexes() relationshipIndexes {
 
 func (i relationshipIndexes) all() []gorp.Index[string, Relationship] {
 	return []gorp.Index[string, Relationship]{i.byTo, i.byFrom}
-}
-
-type Config struct {
-	DB *gorp.DB
-	alamos.Instrumentation
-}
-
-var _ config.Config[Config] = Config{}
-
-// Validate implements config.Config.
-func (c Config) Validate() error {
-	v := validate.New("ontology")
-	validate.NotNil(v, "db", c.DB)
-	return v.Error()
-}
-
-// Override implements config.Config.
-func (c Config) Override(other Config) Config {
-	c.DB = override.Nil(c.DB, other.DB)
-	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	return c
-}
-
-// Open opens the ontology using the given configuration. If the RootID resource does
-// not exist, it will be created.
-func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
-	cfg, err := config.New(Config{}, configs...)
-	if err != nil {
-		return nil, err
-	}
-	o = &Ontology{
-		Config:           cfg,
-		ResourceObserver: observe.New[iter.Seq[Change]](),
-		registrar:        serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
-		relIndexes:       newRelationshipIndexes(),
-	}
-	cleanup, ok := service.NewOpener(ctx, &o.closer)
-	defer func() { err = cleanup(err) }()
-	if o.resourceTable, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Resource]{
-		DB:              cfg.DB,
-		Instrumentation: cfg.Instrumentation,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[string, Resource]("msgpack_to_orc"),
-		},
-	}); !ok(err, o.resourceTable) {
-		return nil, err
-	}
-	if o.relationshipTable, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Relationship]{
-		DB:              cfg.DB,
-		Instrumentation: cfg.Instrumentation,
-		Indexes:         o.relIndexes.all(),
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[string, Relationship]("msgpack_to_orc"),
-		},
-	}); !ok(err, o.relationshipTable) {
-		return nil, err
-	}
-	o.RelationshipObserver = o.relationshipTable.Observe()
-
-	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.ErrNotFound) {
-		err = o.NewWriter(cfg.DB).DefineResource(ctx, RootID)
-	}
-	if !ok(err, nil) {
-		return nil, err
-	}
-
-	return o, nil
-}
-
-// Writer defines and deletes resources within the ontology.
-type Writer interface {
-	// DefineResource defines one or more new resources with the given IDs. If any of
-	// the resources already exist, DefineResource does nothing for those. Returns nil
-	// if no IDs are provided.
-	DefineResource(context.Context, ...ID) error
-	// HasResource returns true if the resource with the given ID exists.
-	HasResource(context.Context, ID) (bool, error)
-	// DeleteResource deletes one or more resources with the given IDs along with all of
-	// their incoming and outgoing relationships. If any of the resources do not exist,
-	// DeleteResource does nothing for those. Returns nil if no IDs are provided.
-	DeleteResource(context.Context, ...ID) error
-	HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error)
-	// DefineRelationship defines a directional relationship of type t from the resource
-	// with the given from ID to one or more to IDs. Already-existing relationships are
-	// silently skipped. Returns graph.ErrCyclicDependency if any of the new
-	// relationships would create a cycle (including the case where the
-	// reverse-direction relationship already exists). Returns nil if no to IDs are
-	// provided.
-	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ...ID) error
-	// DeleteRelationship deletes the relationship with the given keys and type. If the
-	// relationship does not exist, DeleteRelationship does nothing.
-	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
-	// DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given
-	// types from the resource with the given ID. If the resource does not exist, or if
-	// it has no outgoing relationships of the given types,
-	// DeleteOutgoingRelationshipsOfTypes does nothing.
-	DeleteOutgoingRelationshipsOfType(context.Context, ID, RelationshipType) error
-	// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given
-	// types to the resource with the given ID. If the resource does not exist, or if it
-	// has no incoming relationships of the given types,
-	// DeleteIncomingRelationshipsOfTypes does nothing.
-	DeleteIncomingRelationshipsOfType(context.Context, ID, RelationshipType) error
-	// NewRetrieve opens a new Retrieve query that provides a view of pending operations
-	// merged with the underlying database. If the Writer is executing directly against
-	// the underlying database, the Retrieve query behaves exactly as if calling
-	// Ontology.NewRetrieve.
-	NewRetrieve() Retrieve
-}
-
-// NewWriter opens a new Writer using the provided transaction. Panics if the
-// transaction does not root from the same database as the Ontology.
-func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
-	return dagWriter{
-		tx:                o.DB.OverrideTx(tx),
-		registrar:         o.registrar,
-		resourceTable:     o.resourceTable,
-		relationshipTable: o.relationshipTable,
-		relIndexes:        o.relIndexes,
-	}
-}
-
-// RegisterService registers a Service for a particular [Type] with the [Ontology].
-// Ontology will execute queries for Entity information for the given Type using the
-// provided Service. RegisterService panics if a Service is already registered for the
-// given Type.
-func (o *Ontology) RegisterService(svc Service) {
-	o.L.Debug("registering service", zap.Stringer("type", svc.Type()))
-	o.registrar.register(svc)
-	o.disconnectObservers = append(o.disconnectObservers, svc.OnChange(o.ResourceObserver.Notify))
-}
-
-func (o *Ontology) Close() error {
-	for _, d := range o.disconnectObservers {
-		d()
-	}
-	return o.closer.Close()
 }

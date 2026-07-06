@@ -69,9 +69,6 @@ var (
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRack }
 
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
-
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k, err := strconv.Atoi(key)

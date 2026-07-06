@@ -41,7 +41,7 @@ func (w Writer) Create(ctx context.Context, p *Policy) error {
 	if err := w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DefineResource(ctx, OntologyID(p.Key))
+	return w.otg.DefineResources(ctx, OntologyID(p.Key))
 }
 
 // CreateMany creates the given policies. If policies with the same key already exist,
@@ -66,11 +66,10 @@ func (w Writer) SetOnRole(
 	roleKey role.Key,
 	policies ...Key,
 ) error {
-	policyIDs := OntologyIDs(policies)
-	for _, p := range policyIDs {
-		if err := w.otg.DefineRelationship(ctx, role.OntologyID(roleKey), ontology.RelationshipTypeParentOf, p); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DefineRelationships(
+		ctx,
+		role.OntologyID(roleKey),
+		ontology.RelationshipTypeParentOf,
+		OntologyIDs(policies)...,
+	)
 }

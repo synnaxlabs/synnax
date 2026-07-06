@@ -124,7 +124,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 		return err
 	}
 	otgID := OntologyID(device.Key)
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if err = w.otg.DeleteIncomingRelationshipsOfType(
@@ -134,7 +134,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 	); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(
+	return w.otg.DefineRelationships(
 		ctx,
 		parentID,
 		ontology.RelationshipTypeParentOf,
@@ -155,7 +155,7 @@ func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 
 // Delete deletes the device with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key) error {
-	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+	if err := w.otg.DeleteResources(ctx, OntologyID(key)); err != nil {
 		return err
 	}
 	if err := w.status.Delete(ctx, OntologyID(key).String()); err != nil {
