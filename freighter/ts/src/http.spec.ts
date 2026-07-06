@@ -153,8 +153,8 @@ describe("http", () => {
         );
         const target = fetchSpy.mock.calls[0][0] as string;
         expect(target).toContain("/unary/echo?");
-        expect(target).toContain("file_name=My+Log.json");
-        expect(target).toContain("parent=project%3Aabc");
+        expect(target).toContain("freighterctxfile_name=My+Log.json");
+        expect(target).toContain("freighterctxparent=project%3Aabc");
         expect(target).not.toContain("skip");
       } finally {
         fetchSpy.mockRestore();

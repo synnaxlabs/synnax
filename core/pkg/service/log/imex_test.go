@@ -160,9 +160,11 @@ var _ = Describe("ImEx", func() {
 				ctx, db, loadEnvelope(v2Fixture),
 				imex.ImportOptions{Parent: project.OntologyID(proj.Key)},
 			))
-			Expect(otg.NewWriter(nil).HasRelationship(
-				ctx, project.OntologyID(proj.Key), ontology.RelationshipTypeParentOf, id,
-			)).To(BeTrue())
+			Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
+				From: project.OntologyID(proj.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   id,
+			})).To(BeTrue())
 		})
 
 		It("Should name the imported log from the file name when the body has no name", func(ctx SpecContext) {

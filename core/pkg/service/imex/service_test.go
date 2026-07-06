@@ -97,7 +97,7 @@ func (s *testService) Import(
 		return ontology.ID{}, err
 	}
 	id := ontology.ID{Type: ontology.ResourceTypeChannel, Key: key}
-	if err := otg.NewWriter(tx).DefineResource(ctx, id); err != nil {
+	if err := otg.NewWriter(tx).DefineResources(ctx, id); err != nil {
 		return ontology.ID{}, err
 	}
 	return id, nil
@@ -344,7 +344,7 @@ var _ = Describe("Service", func() {
 					Type: ontology.ResourceTypeGroup,
 					Key:  uuid.NewString(),
 				}
-				Expect(otg.NewWriter(nil).DefineResource(ctx, parent)).To(Succeed())
+				Expect(otg.NewWriter(nil).DefineResources(ctx, parent)).To(Succeed())
 			})
 
 			It("Should parent the imported resource under the given parent", func(ctx SpecContext) {
@@ -352,9 +352,11 @@ var _ = Describe("Service", func() {
 					ctx, db, sampleEnvelope("Parented", ontology.ResourceTypeChannel),
 					imex.ImportOptions{Parent: parent},
 				))
-				Expect(otg.NewWriter(nil).HasRelationship(
-					ctx, parent, ontology.RelationshipTypeParentOf, id,
-				)).To(BeTrue())
+				Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
+					From: parent,
+					Type: ontology.RelationshipTypeParentOf,
+					To:   id,
+				})).To(BeTrue())
 			})
 
 			It("Should roll back the import when the parent does not exist", func(ctx SpecContext) {

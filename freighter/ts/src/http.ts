@@ -23,6 +23,13 @@ import { type UnaryClient } from "@/unary";
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 const ACCEPT_HEADER_KEY = "Accept";
 
+/**
+ * The prefix freighter servers require on query-string parameters that should be
+ * exposed to handlers as request params. Unprefixed query parameters are ignored so
+ * arbitrary query strings never leak into the request context.
+ */
+export const FREIGHTER_METADATA_PREFIX = "freighterctx";
+
 const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   JSON: "application/json",
 };
@@ -68,8 +75,10 @@ const shouldCastToUnreachable = (
 const HTTP_STATUS_BAD_REQUEST = 400;
 
 /**
- * Appends the defined entries of params to target as a percent-encoded query string.
- * Returns target unchanged when params has no defined entries.
+ * Appends the defined entries of params to target as a percent-encoded query string,
+ * prefixing each key with FREIGHTER_METADATA_PREFIX so the server exposes it to the
+ * handler as a request param. Returns target unchanged when params has no defined
+ * entries.
  */
 const appendQueryParams = (
   target: string,
@@ -78,7 +87,7 @@ const appendQueryParams = (
   if (params == null) return target;
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (value != null) search.set(key, value);
+    if (value != null) search.set(`${FREIGHTER_METADATA_PREFIX}${key}`, value);
   });
   const query = search.toString();
   return query.length === 0 ? target : `${target}?${query}`;

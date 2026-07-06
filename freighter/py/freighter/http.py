@@ -28,6 +28,15 @@ from x.fs import FilePath, stream_to_file
 
 _FILE_CONTENT_TYPES: dict[str, str] = {"json": "application/json"}
 
+# The prefix freighter servers require on query-string parameters that should be
+# exposed to handlers as request params. Unprefixed query parameters are ignored so
+# arbitrary query strings never leak into the request context.
+_FREIGHTER_CTX_PREFIX = "freighterctx"
+
+# The request param carrying the uploaded file's name, sent automatically by upload so
+# servers can derive resource metadata (e.g. a default name) from it.
+_FILE_NAME_PARAM = "file_name"
+
 
 def _file_content_type(path: FilePath) -> str:
     """:returns: the wire content type negotiated for path's extension.
@@ -108,8 +117,9 @@ class HTTPClient(MiddlewareCollector):
         object is handed to urllib3 as the request body and read in fixed-size blocks,
         so the full body never has to fit in memory. The Content-Type is derived from
         the file path's extension, while the typed response is decoded via the codec —
-        the two need not agree. Query parameters carry per-transfer metadata
-        out-of-band, since the body is the raw file bytes.
+        the two need not agree. Params carry per-transfer metadata out-of-band as
+        freighterctx-prefixed query parameters, since the body is the raw file bytes;
+        the file's base name is always sent as the file_name param.
 
         Retries are disabled for uploads because an upload mutates server state and is
         not assumed to be idempotent: a transient failure that occurs after the server
@@ -119,6 +129,9 @@ class HTTPClient(MiddlewareCollector):
         the concern is request semantics, not the body.) A failed upload surfaces to the
         caller instead, leaving the retry decision to the caller.
         """
+        all_params = {_FILE_NAME_PARAM: os.path.basename(os.fspath(req))}
+        if params is not None:
+            all_params.update(params)
         with open(req, "rb") as f:
             return self._typed_response_request(
                 target=target,
@@ -126,7 +139,7 @@ class HTTPClient(MiddlewareCollector):
                 content_type=_file_content_type(req),
                 res_t=res_t,
                 retries=False,
-                params=params,
+                params=all_params,
             )
 
     def download(self, target: str, req: RQ, dest: FilePath) -> None:
@@ -166,7 +179,8 @@ class HTTPClient(MiddlewareCollector):
         url = self._endpoint.child(target).stringify()
         if params is None or len(params) == 0:
             return url
-        return f"{url}?{urlencode(params)}"
+        prefixed = {f"{_FREIGHTER_CTX_PREFIX}{k}": v for k, v in params.items()}
+        return f"{url}?{urlencode(prefixed)}"
 
     def _typed_response_request(
         self,

@@ -8,8 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 
-import os
-
 from freighter import FileTransport
 from synnax import ontology
 from x.fs import FilePath
@@ -46,9 +44,7 @@ class Client:
             the import back.
         :returns: the new resource's ontology ID.
         """
-        params = {"file_name": os.path.basename(os.fspath(source))}
-        if parent is not None:
-            params["parent"] = str(parent)
+        params = {"parent": str(parent)} if parent is not None else None
         return self._file_transport.upload("/imex/import", source, ontology.ID, params)
 
     def export(self, id: ontology.ID, dest: FilePath) -> None:

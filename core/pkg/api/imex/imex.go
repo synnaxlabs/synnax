@@ -44,9 +44,10 @@ type (
 	ImportResponse = ontology.ID
 )
 
-// The out-of-band import settings arrive as HTTP query parameters — the request body
-// is the file's raw bytes, so there is nowhere in-band to carry them. The transport
-// exposes query parameters through freighter's request params.
+// The out-of-band import settings arrive as freighterctx-prefixed HTTP query
+// parameters (e.g. freighterctxfile_name) — the request body is the file's raw bytes,
+// so there is nowhere in-band to carry them. The transport strips the prefix and
+// exposes the values through freighter's request params under the names below.
 const (
 	// fileNameParam carries the name of the file the envelope was read from, used as
 	// the envelope name when the body has no `name` field.

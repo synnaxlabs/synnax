@@ -137,7 +137,7 @@ func (s *Service) Import(
 		return ontology.ID{}, errors.Wrap(err, "import envelope")
 	}
 	if !opts.Parent.IsZero() {
-		if err = s.otg.NewWriter(tx).DefineRelationship(
+		if err = s.otg.NewWriter(tx).DefineRelationships(
 			ctx, opts.Parent, ontology.RelationshipTypeParentOf, id,
 		); err != nil {
 			return ontology.ID{}, errors.Wrap(err, "parent imported resource")
