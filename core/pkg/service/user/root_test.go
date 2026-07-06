@@ -59,7 +59,7 @@ func seedUser(
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 			return err
 		}
-		return otg.NewWriter(tx).DefineResource(ctx, user.OntologyID(u.Key))
+		return otg.NewWriter(tx).DefineResources(ctx, user.OntologyID(u.Key))
 	})).To(Succeed())
 	return u
 }
@@ -79,7 +79,7 @@ func seedUserRecordOnly(
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
 			return err
 		}
-		return otg.NewWriter(tx).DefineResource(ctx, user.OntologyID(u.Key))
+		return otg.NewWriter(tx).DefineResources(ctx, user.OntologyID(u.Key))
 	})).To(Succeed())
 	return u
 }
@@ -131,7 +131,7 @@ func purgeUsersAndAuth(ctx context.Context) {
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Delete(ctx, keys...); err != nil {
 			return err
 		}
-		if err := otg.NewWriter(tx).DeleteResource(
+		if err := otg.NewWriter(tx).DeleteResources(
 			ctx, user.OntologyIDsFromKeys(keys)...,
 		); err != nil {
 			return err

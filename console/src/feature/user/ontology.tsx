@@ -13,7 +13,7 @@ import { useCallback } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Ontology } from "@/platform/ontology";
-import { User as CommonUser } from "@/platform/user";
+import { User as PlatformUser } from "@/platform/user";
 
 const useDelete = Ontology.createUseDelete({
   type: "User",
@@ -45,7 +45,7 @@ const useRename = ({
 };
 
 const useAssignRole = (): ((props: Ontology.TreeContextMenuProps) => void) => {
-  const openAssignRole = CommonUser.useAssignRoleModal();
+  const openAssignRole = PlatformUser.useAssignRoleModal();
 
   return useCallback(
     ({ selection: { ids }, state: { getResource } }: Ontology.TreeContextMenuProps) => {

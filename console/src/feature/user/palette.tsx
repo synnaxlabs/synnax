@@ -11,13 +11,13 @@ import { user } from "@synnaxlabs/client";
 import { Access, User as PUser } from "@synnaxlabs/pluto";
 
 import { Palette } from "@/platform/palette";
-import { User as CommonUser } from "@/platform/user";
+import { User as PlatformUser } from "@/platform/user";
 
 const RegisterCommand = Palette.createCommand({
   key: "register_user",
   name: "Register a user",
   icon: <PUser.CreateIcon />,
-  useOnSelect: CommonUser.useRegisterModal,
+  useOnSelect: PlatformUser.useRegisterModal,
   useVisible: () => Access.useCreateGranted(user.TYPE_ONTOLOGY_ID),
 });
 

@@ -12,10 +12,10 @@ import { Menu } from "@synnaxlabs/pluto";
 
 import { useConnectModal } from "@/feature/opc/device/useConnectModal";
 import { Task } from "@/feature/opc/task";
-import { Device as CommonDevice } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { type Ontology } from "@/platform/ontology";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] = [
+const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[] = [
   { itemKey: "opc.readTask", label: "Create read task", layout: Task.READ_LAYOUT },
   { itemKey: "opc.writeTask", label: "Create write task", layout: Task.WRITE_LAYOUT },
 ];
@@ -25,9 +25,9 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const onConfigure = (deviceKey: device.Key) => connect({ deviceKey });
   return (
     <>
-      <CommonDevice.EditConnectionMenuItem {...props} onConfigure={onConfigure} />
+      <PlatformDevice.EditConnectionMenuItem {...props} onConfigure={onConfigure} />
       <Menu.Divider />
-      <CommonDevice.TaskContextMenuItems
+      <PlatformDevice.TaskContextMenuItems
         {...props}
         onConfigure={onConfigure}
         taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}

@@ -21,7 +21,7 @@ import { Device } from "@/feature/device";
 import { Project } from "@/feature/project";
 import { Cluster } from "@/platform/cluster";
 import { Layout } from "@/platform/layout";
-import { Project as CommonProject } from "@/platform/project";
+import { Project as PlatformProject } from "@/platform/project";
 import { Range } from "@/platform/range";
 import { Status } from "@/platform/status";
 
@@ -30,7 +30,7 @@ const SideEffect = (): null => {
   Cluster.useSyncClusterKey();
   Device.useListenForChanges();
   Range.useListenForChanges();
-  CommonProject.useCheckCore();
+  PlatformProject.useCheckCore();
   Status.useListenForChanges();
   useLinks();
   useTriggers();
@@ -38,7 +38,7 @@ const SideEffect = (): null => {
 };
 
 // ProjectSideEffect holds effects that only make sense with an active project. It is
-// rendered inside CommonProject.Guard, so it mounts only once a project is active - layout
+// rendered inside PlatformProject.Guard, so it mounts only once a project is active - layout
 // sync and the file-drop importer never run against the select-or-create screen.
 const ProjectSideEffect = (): null => {
   Project.useSyncLayout();
@@ -58,7 +58,7 @@ export const Main = (): ReactElement => (
     <Notifications />
     <SideEffect />
     <Auth.Guard>
-      <CommonProject.Guard>
+      <PlatformProject.Guard>
         <ProjectSideEffect />
         <Nav.Bar.Top />
         <Flex.Box
@@ -76,7 +76,7 @@ export const Main = (): ReactElement => (
             <Nav.Drawer.Bottom />
           </Flex.Box>
         </Flex.Box>
-      </CommonProject.Guard>
+      </PlatformProject.Guard>
     </Auth.Guard>
   </>
 );

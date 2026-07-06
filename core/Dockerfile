@@ -104,8 +104,8 @@ LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 
 # Create nonroot user
-RUN groupadd -g 65532 nonroot && \
-    useradd -u 65532 -g nonroot -s /bin/false -m nonroot
+RUN groupadd -g 65532 nonroot \
+    && useradd -u 65532 -g nonroot -s /bin/false -m nonroot
 
 WORKDIR /synnax
 
@@ -114,10 +114,10 @@ COPY --from=builder /workspace/core/synnax /synnax/synnax
 COPY --from=builder /workspace/core/docker-entrypoint.sh /docker-entrypoint.sh
 
 # Install gosu for dropping privileges and curl for health checks
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gosu curl && \
-    rm -rf /var/lib/apt/lists/* && \
-    chmod +x /docker-entrypoint.sh
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gosu curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && chmod +x /docker-entrypoint.sh
 
 # Expose default Synnax port (documentation only)
 EXPOSE 9090

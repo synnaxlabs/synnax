@@ -31,7 +31,7 @@ import { useCallback, useState } from "react";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
 import { Cluster } from "@/platform/cluster";
-import { ContextMenu as CommonContextMenu } from "@/platform/context-menu";
+import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
@@ -40,13 +40,13 @@ import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
 import { Range } from "@/platform/range";
-import { Task as CommonTask } from "@/platform/task";
+import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const handleClick = () => placeLayout(CommonTask.SELECTOR_LAYOUT);
+  const handleClick = () => placeLayout(PlatformTask.SELECTOR_LAYOUT);
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
@@ -73,7 +73,7 @@ const Content = () => {
   const menuProps = Menu.useContextMenu();
   const dispatch = Session.useDispatch();
   const placeLayout = Layout.usePlacer();
-  const { createLayout } = CommonTask.useRegistry();
+  const { createLayout } = PlatformTask.useRegistry();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
@@ -189,7 +189,7 @@ const Content = () => {
     ],
   );
   const handleListItemStopStart = useCallback(
-    (command: CommonTask.Command, key: task.Key) => handleCommand([key], command),
+    (command: PlatformTask.Command, key: task.Key) => handleCommand([key], command),
     [handleCommand],
   );
   return (
@@ -201,7 +201,7 @@ const Content = () => {
             <Toolbar.Actions>
               <Toolbar.Action
                 tooltip="Create task"
-                onClick={() => placeLayout(CommonTask.SELECTOR_LAYOUT)}
+                onClick={() => placeLayout(PlatformTask.SELECTOR_LAYOUT)}
               >
                 <Icon.Add />
               </Toolbar.Action>
@@ -251,13 +251,13 @@ export const TOOLBAR: Nav.Item = {
 };
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
-  onStopStart: (command: CommonTask.Command) => void;
+  onStopStart: (command: PlatformTask.Command) => void;
   onRename: (name: string) => void;
 }
 
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
   const { itemKey } = rest;
-  const { getIcon, parseType } = CommonTask.useRegistry();
+  const { getIcon, parseType } = PlatformTask.useRegistry();
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
   const hasUpdatePermission = Access.useUpdateGranted(task.ontologyID(itemKey));
   const details = task_?.status?.details;
@@ -368,7 +368,7 @@ const ContextMenu = ({
   const addStatus = Status.useAdder();
   const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
-  const handleExport = CommonTask.useExport();
+  const handleExport = PlatformTask.useExport();
   const handleLink = useCallback(
     (key: task.Key) => {
       const name = selectedTasks.find((t) => t.key === key)?.name;
@@ -385,7 +385,7 @@ const ContextMenu = ({
   const showSnapshotToActiveRange =
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
-    <CommonContextMenu.Menu>
+    <PlatformContextMenu.Menu>
       {hasUpdatePermission && (
         <>
           {canStart && (
@@ -422,7 +422,7 @@ const ContextMenu = ({
           {(canEnableDataSaving || canDisableDataSaving) && <Menu.Divider />}
           {isSingle && (
             <>
-              <CommonContextMenu.RenameItem
+              <PlatformContextMenu.RenameItem
                 onClick={() => Text.edit(`text-${keys[0]}`)}
               />
               <Menu.Divider />
@@ -465,11 +465,11 @@ const ContextMenu = ({
       )}
       {hasDeletePermission && someSelected && (
         <>
-          <CommonContextMenu.DeleteItem onClick={() => onDelete(keys)} />
+          <PlatformContextMenu.DeleteItem onClick={() => onDelete(keys)} />
           <Menu.Divider />
         </>
       )}
-      <CommonContextMenu.ReloadConsoleItem />
-    </CommonContextMenu.Menu>
+      <PlatformContextMenu.ReloadConsoleItem />
+    </PlatformContextMenu.Menu>
   );
 };

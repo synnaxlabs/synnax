@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import { Haul } from "@synnaxlabs/pluto";
+import { Haul, Triggers } from "@synnaxlabs/pluto";
 import { fireEvent, render, type RenderResult, screen } from "@testing-library/react";
 
 import { Modals } from "@/platform/modals";
@@ -30,6 +30,8 @@ export interface OntologyTreeHandle extends RenderResult {
 /**
  * Renders the real Ontology.Tree against the live cluster inside the full console
  * provider stack, with a mounted modal stack so context-menu flows can open prompts.
+ * The Triggers provider is included so held-modifier interactions (control-click
+ * multi-select) behave as they do in the app.
  */
 export const renderOntologyTree = async ({
   client,
@@ -38,12 +40,14 @@ export const renderOntologyTree = async ({
 }: RenderOntologyTreeOptions): Promise<OntologyTreeHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const rendered = render(
-    <Haul.Provider>
-      <Ontology.ServicesProvider services={createServices(services)}>
-        <Ontology.Tree root={root} />
-        <Modals.Stack />
-      </Ontology.ServicesProvider>
-    </Haul.Provider>,
+    <Triggers.Provider>
+      <Haul.Provider>
+        <Ontology.ServicesProvider services={createServices(services)}>
+          <Ontology.Tree root={root} />
+          <Modals.Stack />
+        </Ontology.ServicesProvider>
+      </Haul.Provider>
+    </Triggers.Provider>,
     { wrapper },
   );
   return { ...rendered, store };

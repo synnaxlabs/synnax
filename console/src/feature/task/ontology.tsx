@@ -20,7 +20,7 @@ import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
-import { Task as CommonTask } from "@/platform/task";
+import { Task as PlatformTask } from "@/platform/task";
 import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -56,7 +56,7 @@ export const useRename = Ontology.createUseRename({
     const { key, name } = data;
     const layout = Session.Layout.selectByFilter(
       store.getState(),
-      (l) => (l.args as CommonTask.FormLayoutArgs)?.taskKey === key,
+      (l) => (l.args as PlatformTask.FormLayoutArgs)?.taskKey === key,
     );
     if (layout != null) {
       store.dispatch(Session.Layout.rename({ key: layout.key, name }));
@@ -79,7 +79,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const handleExport = CommonTask.useExport();
+  const handleExport = PlatformTask.useExport();
   const snap = useRangeSnapshot();
   const range = Session.Range.useSelectState();
   const group = Group.useCreateFromSelection();

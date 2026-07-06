@@ -49,23 +49,21 @@ var _ = Describe("Writer", func() {
 		It("Should establish a ParentOf relationship to the project", func(ctx SpecContext) {
 			l := log.Log{Name: "with-proj"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx,
-				project.OntologyID(proj.Key),
-				ontology.RelationshipTypeParentOf,
-				log.OntologyID(l.Key),
-			)).To(BeTrue())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: project.OntologyID(proj.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   log.OntologyID(l.Key),
+			})).To(BeTrue())
 		})
 
 		It("Should skip the project ParentOf relationship when proj is uuid.Nil", func(ctx SpecContext) {
 			l := log.Log{Name: "no-proj"}
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &l)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx,
-				project.OntologyID(proj.Key),
-				ontology.RelationshipTypeParentOf,
-				log.OntologyID(l.Key),
-			)).To(BeFalse())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: project.OntologyID(proj.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   log.OntologyID(l.Key),
+			})).To(BeFalse())
 		})
 
 		It("Should still register the resource in the ontology when proj is uuid.Nil", func(ctx SpecContext) {

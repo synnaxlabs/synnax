@@ -12,8 +12,9 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import { createHTTPDevice, getSwitchInput } from "@/feature/http/testutil";
+import { createHTTPDevice } from "@/feature/http/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
+import { getSwitchInput } from "@/testutil";
 
 const client = createTestClient();
 

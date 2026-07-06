@@ -12,7 +12,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import { createHTTPDevice, getHeaderIconButton } from "@/feature/http/testutil";
+import { createHTTPDevice } from "@/feature/http/testutil";
 import { type Task } from "@/platform/task";
 import {
   awaitTaskKey,
@@ -24,6 +24,7 @@ import {
 import {
   awaitTextEditingElement,
   commitTextEdit,
+  getHeaderIconButton,
   stubGeometry,
   uniqueName,
 } from "@/testutil";

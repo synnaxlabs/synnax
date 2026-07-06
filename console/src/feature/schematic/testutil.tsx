@@ -28,7 +28,6 @@ import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
   createConsoleWrapper,
-  installDirectoryPicker,
   uniqueName,
 } from "@/testutil";
 
@@ -125,43 +124,6 @@ export const renderSchematic = async (
 };
 
 /**
- * Finds the input nested inside the pluto input item with the given label text,
- * preferring an exact label match over a substring one.
- */
-export const getInputByItemLabel = (
-  container: ParentNode,
-  label: string,
-): HTMLInputElement => {
-  const items = Array.from(
-    container.querySelectorAll<HTMLElement>(".pluto-input__item"),
-  );
-  const labelOf = (el: HTMLElement): string =>
-    el.querySelector("label")?.textContent?.trim() ?? "";
-  const item =
-    items.find((el) => labelOf(el) === label) ??
-    items.find((el) => labelOf(el).includes(label));
-  const input = item?.querySelector("input");
-  if (input == null) throw new Error(`no input in item labeled ${label}`);
-  return input;
-};
-
-/**
- * Finds the button whose subtree renders every one of the given pluto icons, for
- * icon-only composite buttons (e.g. group + add) with no accessible text.
- */
-export const findCompositeIconButton = (
-  container: ParentNode,
-  icons: string[],
-): HTMLButtonElement => {
-  const buttons = Array.from(container.querySelectorAll("button"));
-  const btn = buttons.find((b) =>
-    icons.every((i) => b.querySelector(`[aria-label="pluto-icon--${i}"]`) != null),
-  );
-  if (btn == null) throw new Error(`no button with icons ${icons.join(", ")}`);
-  return btn;
-};
-
-/**
  * renderSchematicTree creates a schematic on the server under a fresh project and
  * mounts the real ontology tree rooted at that project with the schematic ontology
  * service registered, plus a live modal stack. Returns the created schematic, its
@@ -242,53 +204,3 @@ export const createSymbolPayload = (name: string) => ({
     previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
   },
 });
-
-export interface InstallFakeDirectoryPickerArgs {
-  name?: string;
-  preExisted?: boolean;
-}
-
-export interface FakeDirectoryPicker {
-  /** Files written through the picker, keyed by filename. */
-  files: Map<string, string>;
-}
-
-/**
- * Installs a window.showDirectoryPicker returning a minimal writable directory
- * handle that records written files. jsdom cannot construct real
- * FileSystemDirectoryHandle instances, so the sanctioned casts to the DOM types
- * live here.
- */
-export const installFakeDirectoryPicker = ({
-  name = "exports",
-  preExisted = false,
-}: InstallFakeDirectoryPickerArgs = {}): FakeDirectoryPicker => {
-  const files = new Map<string, string>();
-  const createSubdir = (subName: string): FileSystemDirectoryHandle =>
-    ({
-      name: subName,
-      getFileHandle: async (fileName: string) => ({
-        createWritable: async () => {
-          let text = "";
-          return {
-            write: async (chunk: string) => {
-              text += chunk;
-            },
-            close: async () => {
-              files.set(fileName, text);
-            },
-          };
-        },
-      }),
-    }) as unknown as FileSystemDirectoryHandle;
-  const root = {
-    name,
-    getDirectoryHandle: async (subName: string, opts?: { create?: boolean }) => {
-      if (!preExisted && opts?.create !== true)
-        throw new DOMException("directory not found", "NotFoundError");
-      return createSubdir(subName);
-    },
-  } as unknown as FileSystemDirectoryHandle;
-  installDirectoryPicker(async () => root);
-  return { files };
-};

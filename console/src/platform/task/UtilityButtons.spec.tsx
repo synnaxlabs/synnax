@@ -10,11 +10,10 @@
 import { fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { createClusterState } from "@/platform/cluster/testutil";
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { getIconButton, queryIcon } from "@/testutil";
+import { getIconButton, queryIcon, stubClipboardWriteText } from "@/testutil";
 
 const clickIcon = (container: HTMLElement, icon: string): void => {
   fireEvent.click(getIconButton(container, icon));

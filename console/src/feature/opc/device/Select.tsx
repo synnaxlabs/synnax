@@ -11,7 +11,7 @@ import { Dialog, Icon } from "@synnaxlabs/pluto";
 
 import { MAKE } from "@/feature/opc/device/types";
 import { useConnectModal } from "@/feature/opc/device/useConnectModal";
-import { Device as CommonDevice } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
 
 const EmptyContent = () => {
@@ -33,7 +33,7 @@ const EmptyContent = () => {
 export const Select = () => {
   const connect = useConnectModal();
   return (
-    <CommonDevice.Select
+    <PlatformDevice.Select
       onConfigure={(deviceKey) => connect({ deviceKey })}
       emptyContent={<EmptyContent />}
       label="OPC UA Server"

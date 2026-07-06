@@ -39,10 +39,12 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 	if err := w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DefineResource(ctx, OntologyID(r.Key)); err != nil {
+	if err := w.otg.DefineResources(ctx, OntologyID(r.Key)); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, r.OntologyID())
+	return w.otg.DefineRelationships(
+		ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, r.OntologyID(),
+	)
 }
 
 // CreateMany creates the given roles. If roles with the same key already exist, they
@@ -71,11 +73,17 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 // relationship. The relationship is idempotent - calling this multiple times with the
 // same subject and role has no effect.
 func (w Writer) AssignRole(ctx context.Context, subject ontology.ID, role Key) error {
-	return w.otg.DefineRelationship(ctx, OntologyID(role), ontology.RelationshipTypeParentOf, subject)
+	return w.otg.DefineRelationships(
+		ctx, OntologyID(role), ontology.RelationshipTypeParentOf, subject,
+	)
 }
 
 // UnassignRole removes a role from a subject by deleting the ontology relationship. If
 // the relationship does not exist, this is a no-op.
 func (w Writer) UnassignRole(ctx context.Context, subject ontology.ID, role Key) error {
-	return w.otg.DeleteRelationship(ctx, OntologyID(role), ontology.RelationshipTypeParentOf, subject)
+	return w.otg.DeleteRelationships(ctx, ontology.Relationship{
+		From: OntologyID(role),
+		Type: ontology.RelationshipTypeParentOf,
+		To:   subject,
+	})
 }

@@ -33,7 +33,7 @@ import * as Device from "@/feature/opc/device/types";
 import { useConnectModal } from "@/feature/opc/device/useConnectModal";
 import { type Channel } from "@/feature/opc/task/types";
 import { CSS } from "@/platform/css";
-import { Device as CommonDevice } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Task } from "@/platform/task";
 
 export interface ExtraItemProps {
@@ -212,7 +212,7 @@ export const Form = <C extends Channel>({
   const isSnapshot = Task.useIsSnapshot();
   const connect = useConnectModal();
   return (
-    <CommonDevice.Provider
+    <PlatformDevice.Provider
       canConfigure={!isSnapshot}
       onConfigure={(deviceKey) => connect({ deviceKey })}
       schemas={Device.SCHEMAS}
@@ -230,6 +230,6 @@ export const Form = <C extends Channel>({
           </ChannelList>
         </>
       )}
-    </CommonDevice.Provider>
+    </PlatformDevice.Provider>
   );
 };

@@ -10,13 +10,13 @@
 import { log } from "@synnaxlabs/client";
 import { Access, Log } from "@synnaxlabs/pluto";
 
-import { Log as CommonLog } from "@/platform/log";
+import { Log as PlatformLog } from "@/platform/log";
 import { Palette } from "@/platform/palette";
 
 const COMMAND_NAME = "Create a log";
 
 const CreateCommand: Palette.Command = (listProps) => {
-  const create = CommonLog.useCreate({});
+  const create = PlatformLog.useCreate({});
   return (
     <Palette.CommandListItem
       {...listProps}

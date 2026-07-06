@@ -12,14 +12,14 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import { createHTTPDevice, getHeaderIconButton } from "@/feature/http/testutil";
+import { createHTTPDevice } from "@/feature/http/testutil";
 import { type Task } from "@/platform/task";
 import {
   awaitTaskKey,
   clickConfigure,
   renderTaskFormLayout,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { getHeaderIconButton, uniqueName } from "@/testutil";
 
 const renderRead = async (
   options: { client?: Synnax | null; args?: Task.FormLayoutArgs } = {},

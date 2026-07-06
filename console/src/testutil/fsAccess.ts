@@ -49,3 +49,95 @@ export const removeFilePickers = (): void => {
   delete window.showSaveFilePicker;
   delete window.showDirectoryPicker;
 };
+
+export interface InstallFakeDirectoryPickerArgs {
+  name?: string;
+  preExisted?: boolean;
+}
+
+export interface FakeDirectoryPicker {
+  /** Files written through the picker, keyed by filename. */
+  files: Map<string, string>;
+}
+
+/**
+ * Installs a window.showDirectoryPicker returning a minimal writable directory
+ * handle that records written files. jsdom cannot construct real
+ * FileSystemDirectoryHandle instances, so the sanctioned casts to the DOM types
+ * live here.
+ */
+export const installFakeDirectoryPicker = ({
+  name = "exports",
+  preExisted = false,
+}: InstallFakeDirectoryPickerArgs = {}): FakeDirectoryPicker => {
+  const files = new Map<string, string>();
+  const createSubdir = (subName: string): FileSystemDirectoryHandle =>
+    ({
+      name: subName,
+      getFileHandle: async (fileName: string) => ({
+        createWritable: async () => {
+          let text = "";
+          return {
+            write: async (chunk: string) => {
+              text += chunk;
+            },
+            close: async () => {
+              files.set(fileName, text);
+            },
+          };
+        },
+      }),
+    }) as unknown as FileSystemDirectoryHandle;
+  const root = {
+    name,
+    getDirectoryHandle: async (subName: string, opts?: { create?: boolean }) => {
+      if (!preExisted && opts?.create !== true)
+        throw new DOMException("directory not found", "NotFoundError");
+      return createSubdir(subName);
+    },
+  } as unknown as FileSystemDirectoryHandle;
+  installDirectoryPicker(async () => root);
+  return { files };
+};
+
+export interface InstallPickedDirectoryOptions {
+  /**
+   * Whether the export subdirectory already exists in the picked directory. When
+   * false, the first lookup rejects with NotFoundError so the export proceeds
+   * without a replace confirmation.
+   */
+  exists?: boolean;
+}
+
+/**
+ * Installs a fake FS Access directory picker whose picked directory records every
+ * file write into the returned map, keyed by file name. The fake handles cover the
+ * minimal surface the project export path touches; jsdom cannot construct real
+ * FileSystemDirectoryHandles, so the sanctioned cast lives here.
+ */
+export const installPickedDirectory = ({
+  exists = true,
+}: InstallPickedDirectoryOptions = {}): Map<string, string> => {
+  const writes = new Map<string, string>();
+  const subHandle = {
+    getFileHandle: async (name: string) => ({
+      createWritable: async () => ({
+        write: async (data: string) => void writes.set(name, data),
+        close: async () => {},
+      }),
+    }),
+  };
+  let firstLookup = true;
+  const root = {
+    name: "Downloads",
+    getDirectoryHandle: async () => {
+      if (!exists && firstLookup) {
+        firstLookup = false;
+        throw new DOMException("missing", "NotFoundError");
+      }
+      return subHandle;
+    },
+  };
+  installDirectoryPicker(async () => root as unknown as FileSystemDirectoryHandle);
+  return writes;
+};

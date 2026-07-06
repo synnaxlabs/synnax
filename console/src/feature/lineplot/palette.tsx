@@ -10,13 +10,13 @@
 import { lineplot } from "@synnaxlabs/client";
 import { Access, LinePlot } from "@synnaxlabs/pluto";
 
-import { LinePlot as CommonLinePlot } from "@/platform/lineplot";
+import { LinePlot as PlatformLinePlot } from "@/platform/lineplot";
 import { Palette } from "@/platform/palette";
 
 const COMMAND_NAME = "Create a line plot";
 
 const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
-  const create = CommonLinePlot.useCreate({});
+  const create = PlatformLinePlot.useCreate({});
   return (
     <Palette.CommandListItem
       {...listProps}
