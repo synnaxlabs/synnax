@@ -15,11 +15,11 @@ import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { Ontology } from "@/platform/ontology";
 import { Toolbar } from "@/platform/toolbar";
-import { User as CommonUser } from "@/platform/user";
+import { User as PlatformUser } from "@/platform/user";
 
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
-  const openRegister = CommonUser.useRegisterModal();
+  const openRegister = PlatformUser.useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
@@ -39,7 +39,7 @@ const Content = (): ReactElement => {
 };
 
 const EmptyContent = (): ReactElement => {
-  const openRegister = CommonUser.useRegisterModal();
+  const openRegister = PlatformUser.useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action

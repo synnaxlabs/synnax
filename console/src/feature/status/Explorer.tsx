@@ -15,7 +15,7 @@ import { useCallback } from "react";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { Label } from "@/platform/label";
 import { type Layout } from "@/platform/layout";
-import { Status as CommonStatus } from "@/platform/status";
+import { Status as PlatformStatus } from "@/platform/status";
 import { View } from "@/platform/view";
 import { type Session } from "@/session";
 
@@ -29,7 +29,7 @@ export const EXPLORER_LAYOUT: Session.Layout.BaseState = {
   location: "mosaic",
 };
 
-const item = Component.renderProp(CommonStatus.List.Item);
+const item = Component.renderProp(PlatformStatus.List.Item);
 
 export const Explorer: Layout.Renderer = () => (
   <View.Frame resourceType="status" icon="Status">
@@ -41,7 +41,7 @@ const Internal = () => {
   const listProps = Status.useList({
     initialQuery: View.useContext().getInitialView().query,
   });
-  const openCreate = CommonStatus.useCreateModal();
+  const openCreate = PlatformStatus.useCreateModal();
   const handleCreate = useCallback(() => openCreate(), [openCreate]);
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   return (
@@ -49,11 +49,11 @@ const Internal = () => {
       <View.Toolbar>
         <View.FilterMenu>
           <Label.Filter.MenuItem />
-          <CommonStatus.Filter.MenuItem />
+          <PlatformStatus.Filter.MenuItem />
         </View.FilterMenu>
         <View.Search />
         <Label.Filter.Chips />
-        <CommonStatus.Filter.Chips />
+        <PlatformStatus.Filter.Chips />
         {hasCreatePermission && (
           <Button.Button
             onClick={handleCreate}

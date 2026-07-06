@@ -29,7 +29,7 @@ import {
   type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
 } from "@/feature/ni/task/types";
-import { Device as CommonDevice } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -123,7 +123,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  CommonDevice.checkConfigured(dev);
+  PlatformDevice.checkConfigured(dev);
   dev.properties = enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(dev.properties.analogOutput.stateIndex);

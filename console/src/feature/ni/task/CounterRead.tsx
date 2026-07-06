@@ -29,7 +29,7 @@ import {
   ZERO_CI_CHANNEL,
   ZERO_COUNTER_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
-import { Device as CommonDevice } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -154,7 +154,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   const rackKey: rack.Key = allDevices[0].rack;
 
   for (const dev of allDevices) {
-    CommonDevice.checkConfigured(dev);
+    PlatformDevice.checkConfigured(dev);
     dev.properties = enrich(dev.model, dev.properties);
     let devModified = false;
 

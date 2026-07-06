@@ -46,8 +46,8 @@ import {
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
-import { type Device as CommonDevice } from "@/platform/device";
-import { Form as CommonForm } from "@/platform/form";
+import { type Device as PlatformDevice } from "@/platform/device";
+import { Form as PlatformForm } from "@/platform/form";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
@@ -108,7 +108,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<CommonDevice.ConnectParams>(
+export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   ({ deviceKey, close }) => {
     const {
       form,
@@ -340,14 +340,14 @@ export const useConnectModal = Modals.create<CommonDevice.ConnectParams>(
                     inputProps={HEALTH_BODY_INPUT_PROPS}
                   />
                 )}
-                <CommonForm.KeyValueEditor
+                <PlatformForm.KeyValueEditor
                   path="properties.healthCheck.headers"
                   label="Headers"
                   keyField="name"
                   keyPlaceholder="Name"
                   valuePlaceholder="Value"
                 />
-                <CommonForm.KeyValueEditor
+                <PlatformForm.KeyValueEditor
                   path="properties.healthCheck.queryParams"
                   label="Query parameters"
                   keyField="parameter"

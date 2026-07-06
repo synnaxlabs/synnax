@@ -9,6 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Button, Icon, Text } from "@synnaxlabs/pluto";
+import { z } from "zod";
 
 import { getIcon, getMake, type Make, useConfigureModal } from "@/feature/device/make";
 import { getKeyFromStatus } from "@/feature/device/useListenForChanges";
@@ -17,13 +18,13 @@ import { type Notifications } from "@/platform/notifications";
 const shouldShowConfigureButton = (make: Make): boolean =>
   make === "NI" || make === "LabJack" || make === "ethercat";
 
-const notificationAdapter: Notifications.Adapter<ReturnType<typeof device.deviceZ>> = (
-  status,
-) => {
+const detailsZ = z.object({ make: z.unknown() });
+
+const notificationAdapter: Notifications.Adapter = (status) => {
   const key = getKeyFromStatus(status);
   if (key == null) return null;
   const sugared: Notifications.Sugared = { ...status };
-  const make = getMake(status.details?.make);
+  const make = getMake(detailsZ.safeParse(status.details).data?.make);
   const startIcon = getIcon(make);
   sugared.content = (
     <Text.Text>
@@ -55,6 +56,4 @@ const ConfigureButton = ({ make, deviceKey }: ConfigureButtonProps) => {
   );
 };
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter<any>[] = [
-  notificationAdapter,
-];
+export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];

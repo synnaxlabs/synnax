@@ -40,28 +40,3 @@ export const createPortValidator =
       issues.push({ path: [i, "port"], code, message, input: channels });
     });
   };
-
-/**
- * Simple port validator for v0 tasks (without device awareness).
- * Validates that ports are not duplicated within a channel array.
- * @param portTypeLabel - Optional label for the port type (e.g., "Counter").
- *                        If not provided or empty, the message will be "Port X has already been used..."
- * @returns A validator function for use with zod schemas
- */
-export const createSimplePortValidator =
-  (portTypeLabel?: string) =>
-  ({ value: channels, issues }: z.core.ParsePayload<{ port: number }[]>) => {
-    const portToIndexMap = new Map<number, number>();
-    channels.forEach(({ port }, i) => {
-      if (!portToIndexMap.has(port)) {
-        portToIndexMap.set(port, i);
-        return;
-      }
-      const index = portToIndexMap.get(port) as number;
-      const code = "custom";
-      const prefix = portTypeLabel ? `${portTypeLabel} port` : "Port";
-      const message = `${prefix} ${port} has already been used on another channel`;
-      issues.push({ path: [index, "port"], code, message, input: channels });
-      issues.push({ path: [i, "port"], code, message, input: channels });
-    });
-  };

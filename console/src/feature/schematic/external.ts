@@ -15,7 +15,7 @@ import { Selectable } from "@/feature/schematic/Selectable";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
-import { Schematic as CommonSchematic } from "@/platform/schematic";
+import { Schematic as PlatformSchematic } from "@/platform/schematic";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/schematic/import";
@@ -27,17 +27,19 @@ export * from "@/feature/schematic/toolbar/Toolbar";
 export * from "@/platform/schematic/external";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
-  [CommonSchematic.LAYOUT_TYPE]: ContextMenu,
+  [PlatformSchematic.LAYOUT_TYPE]: ContextMenu,
 };
 
-export const EXTRACTORS: Export.Extractors = { [CommonSchematic.LAYOUT_TYPE]: extract };
+export const EXTRACTORS: Export.Extractors = {
+  [PlatformSchematic.LAYOUT_TYPE]: extract,
+};
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [CommonSchematic.LAYOUT_TYPE]: ingest,
+  [PlatformSchematic.LAYOUT_TYPE]: ingest,
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [CommonSchematic.LAYOUT_TYPE]: Schematic,
+  [PlatformSchematic.LAYOUT_TYPE]: Schematic,
 };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];

@@ -139,6 +139,25 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   return { ...rendered, store: resolvedStore, result: () => box.current, reopen };
 };
 
+export interface OpenModalOptions<P> {
+  client?: Client | null;
+  params?: P;
+}
+
+/**
+ * Opens the given modal-opener hook inside the full console provider stack with a
+ * mounted modal stack, and returns the render result plus the console store. Pass a real
+ * client to exercise the enabled/save path, or omit it (null) to exercise the no-cluster
+ * branch.
+ */
+export const openModal = async <P,>(
+  useOpen: () => Modals.Opener<P>,
+  { client = null, params }: OpenModalOptions<P> = {},
+): Promise<ModalOpenerHandle<void>> =>
+  await renderModalOpener(useOpen as () => (params?: P) => void, [params], {
+    client,
+  });
+
 /**
  * Finds the rendered button whose subtree contains the given text. Pluto buttons nest
  * their label, so role-name queries often miss them.

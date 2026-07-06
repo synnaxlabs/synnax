@@ -32,7 +32,7 @@ import {
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
-import { type Device as CommonDevice } from "@/platform/device";
+import { type Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
@@ -98,7 +98,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const useConnectModal = Modals.create<CommonDevice.ConnectParams>(
+export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   ({ deviceKey, close }) => {
     const {
       form,

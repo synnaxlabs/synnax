@@ -27,7 +27,7 @@ import {
 import { type ReactElement, useCallback, useEffect } from "react";
 
 import { CSS } from "@/platform/css";
-import { Nav as CommonNav } from "@/platform/nav";
+import { Nav as PlatformNav } from "@/platform/nav";
 import { Triggers } from "@/platform/triggers";
 import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
@@ -49,7 +49,7 @@ const listItem = Component.renderProp(
 const SplashNav = (): ReactElement => {
   const os = OS.use();
   return (
-    <CommonNav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
+    <PlatformNav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
       <Nav.Bar.Start data-tauri-drag-region>
         <Window.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>
@@ -57,7 +57,7 @@ const SplashNav = (): ReactElement => {
         <Version.Badge />
         <Window.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
-    </CommonNav.Bar>
+    </PlatformNav.Bar>
   );
 };
 

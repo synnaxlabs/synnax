@@ -15,7 +15,7 @@ import { Selectable } from "@/feature/lineplot/Selectable";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
-import { LinePlot as CommonLinePlot } from "@/platform/lineplot";
+import { LinePlot as PlatformLinePlot } from "@/platform/lineplot";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/lineplot/import";
@@ -27,17 +27,19 @@ export * from "@/feature/lineplot/useTriggerHold";
 export * from "@/platform/lineplot/external";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
-  [CommonLinePlot.LAYOUT_TYPE]: ContextMenu,
+  [PlatformLinePlot.LAYOUT_TYPE]: ContextMenu,
 };
 
-export const EXTRACTORS: Export.Extractors = { [CommonLinePlot.LAYOUT_TYPE]: extract };
+export const EXTRACTORS: Export.Extractors = {
+  [PlatformLinePlot.LAYOUT_TYPE]: extract,
+};
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [CommonLinePlot.LAYOUT_TYPE]: ingest,
+  [PlatformLinePlot.LAYOUT_TYPE]: ingest,
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [CommonLinePlot.LAYOUT_TYPE]: LinePlot,
+  [PlatformLinePlot.LAYOUT_TYPE]: LinePlot,
 };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
