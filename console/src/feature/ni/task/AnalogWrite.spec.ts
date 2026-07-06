@@ -13,17 +13,13 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import {
-  createNIDevice,
-  isSelectButtonSelected,
-  renderNITaskForm,
-} from "@/feature/ni/task/testutil";
+import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
 import {
   awaitTaskKey,
   clickConfigure,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
+import { isSelectButtonSelected, stubGeometry, uniqueName } from "@/testutil";
 
 stubGeometry();
 
