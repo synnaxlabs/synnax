@@ -333,13 +333,13 @@ func (c *Codec) encodeIteratorResponse(
 // WithCodec returns a StreamServerOption that registers the WS framer codec on a
 // streaming server. A fresh codec instance is constructed per connection because the
 // framer codec is stateful (it tracks the channel keys for the active stream).
-func WithCodec(codecResolver codec.ChannelResolver) http.StreamServerOption {
+func WithCodec(channelResolver codec.ChannelResolver) http.StreamServerOption {
 	return http.WithAdditionalCodec(
 		"application/vnd.synnax.frame",
 		func() encoding.Codec {
 			return &Codec{
 				LowerPerfCodec: json.Codec,
-				Codec:          codec.NewDynamic(codecResolver),
+				Codec:          codec.NewDynamic(channelResolver),
 			}
 		})
 }

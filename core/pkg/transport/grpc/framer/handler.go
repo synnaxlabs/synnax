@@ -399,7 +399,10 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func New(t *api.Transport, codecResolver codec.ChannelResolver) fgrpc.BindableTransport {
+func New(
+	t *api.Transport,
+	channelResolver codec.ChannelResolver,
+) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
@@ -407,7 +410,7 @@ func New(t *api.Transport, codecResolver codec.ChannelResolver) fgrpc.BindableTr
 					fgrpc.Translator[framer.WriterRequest, *WriterRequest],
 					fgrpc.Translator[framer.WriterResponse, *WriterResponse],
 				) {
-					codec := codec.NewDynamic(codecResolver)
+					codec := codec.NewDynamic(channelResolver)
 					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
 				},
 				ServiceDesc: &FrameWriterService_ServiceDesc,
@@ -419,7 +422,7 @@ func New(t *api.Transport, codecResolver codec.ChannelResolver) fgrpc.BindableTr
 					fgrpc.Translator[framer.IteratorRequest, *IteratorRequest],
 					fgrpc.Translator[framer.IteratorResponse, *IteratorResponse],
 				) {
-					codec := codec.NewDynamic(codecResolver)
+					codec := codec.NewDynamic(channelResolver)
 					return frameIteratorRequestTranslator{codec: codec},
 						frameIteratorResponseTranslator{codec: codec}
 				},
@@ -432,7 +435,7 @@ func New(t *api.Transport, codecResolver codec.ChannelResolver) fgrpc.BindableTr
 					fgrpc.Translator[framer.StreamerRequest, *StreamerRequest],
 					fgrpc.Translator[framer.StreamerResponse, *StreamerResponse],
 				) {
-					codec := codec.NewDynamic(codecResolver)
+					codec := codec.NewDynamic(channelResolver)
 					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
 				},
 				ServiceDesc: &FrameStreamerService_ServiceDesc,
