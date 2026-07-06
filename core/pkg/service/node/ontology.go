@@ -45,9 +45,6 @@ var (
 // Type implements ontology.Service.
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeNode }
 
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
-
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
 	_ context.Context,
