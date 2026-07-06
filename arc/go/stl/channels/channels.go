@@ -120,14 +120,14 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if !isSource && !isSink {
 		return nil, query.ErrNotFound
 	}
-	var nodeCfg config
-	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &nodeCfg); err != nil {
+	var inputs nodeInputs
+	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &inputs); err != nil {
 		return nil, err
 	}
 	if isSource {
 		return &source{
 			State: cfg.State,
-			key:   nodeCfg.Channel,
+			key:   inputs.Channel,
 			state: h.state,
 		}, nil
 	}
@@ -135,14 +135,14 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &sink{State: cfg.State, state: h.state, key: nodeCfg.Channel, inputIdx: inputIdx}, nil
+	return &sink{State: cfg.State, state: h.state, key: inputs.Channel, inputIdx: inputIdx}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Uint32().Coerce(),
 })
 
-type config struct {
+type nodeInputs struct {
 	Channel uint32 `json:"channel"`
 }
 
