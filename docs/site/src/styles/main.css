@@ -20,12 +20,12 @@
 @layer pluto, base, overrides;
 
 /* Import Pluto CSS into its layer */
-@import "@synnaxlabs/pluto/dist/pluto.css" layer(pluto);
-@import "@synnaxlabs/pluto/dist/theme.css" layer(pluto);
-@import "@synnaxlabs/media/dist/media.css" layer(pluto);
+@import url("@synnaxlabs/pluto/dist/pluto.css") layer(pluto);
+@import url("@synnaxlabs/pluto/dist/theme.css") layer(pluto);
+@import url("@synnaxlabs/media/dist/media.css") layer(pluto);
 
 /* Import our CSS into higher priority layers */
-@import "./base.css" layer(base);
-@import "./pluto.css" layer(overrides);
-@import "./layout.css" layer(overrides);
-@import "./code.css" layer(overrides);
+@import url("./base.css") layer(base);
+@import url("./pluto.css") layer(overrides);
+@import url("./layout.css") layer(overrides);
+@import url("./code.css") layer(overrides);
