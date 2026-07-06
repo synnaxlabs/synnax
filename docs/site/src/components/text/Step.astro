@@ -24,8 +24,7 @@ const { step, level, name = "Step", ...rest } = Astro.props;
             alignItems: "center",
         }}
     >
-        {name}
-        {step}
+        {`${name} ${step}`}
         <Icon.Arrow.Right style={{ margin: "0 1rem" }} />
     </span>
     <slot />

@@ -105,17 +105,17 @@
   },
   "devDependencies": {
     "@prettier/plugin-xml": "^3.4.2",
-    "knip": "^6.14.1",
-    "prettier": "^3.8.3",
+    "knip": "^6.24.0",
+    "prettier": "^3.9.4",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-sh": "^0.18.1",
     "prettier-plugin-toml": "^2.0.6",
     "stylelint-config-standard": "catalog:",
-    "turbo": "^2.9.14"
+    "turbo": "^2.10.3"
   },
   "engines": {
-    "node": "^24.15.0"
+    "node": "^24.18.0"
   },
-  "packageManager": "pnpm@11.1.3",
+  "packageManager": "pnpm@11.10.0+sha512.0b7f8b98060031904c017e3a41eb187a16d40eeb829b95c4f8cb03681761fc4ab53dd219115b9b447f4dce1a05a214764461e7d3703392a9f32f9511ce8c86c8",
   "name": "synnax"
 }

@@ -1,3 +1,5 @@
+#version 300 es
+
 // Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -9,6 +11,8 @@
 
 precision mediump float;
 
+out vec4 fragColor;
+
 void main(void) {
-    gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);    
+    fragColor = vec4(0.0, 0.0, 0.0, 0.0);
 }

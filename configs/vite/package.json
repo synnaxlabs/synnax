@@ -20,8 +20,8 @@
     "@synnaxlabs/tsconfig": "workspace:^",
     "eslint": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:",
-    "unplugin-dts": "^1.0.0"
+    "unplugin-dts": "^1.0.3",
+    "vite": "catalog:"
   },
   "main": "dist/src/index.js",
   "module": "dist/src/index.js",
