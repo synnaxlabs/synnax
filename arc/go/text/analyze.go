@@ -96,6 +96,60 @@ type shellBuilder struct {
 	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol
 	// varChannels holds the channel keys backing reactive value variables.
 	varChannels set.Set[uint32]
+	// reExprs records reactive re-expressions (`r = new_expr`) in walk order, so a
+	// post-pass can assemble each reactive var's feeder state machine.
+	reExprs []reExprFeeder
+}
+
+// reExprFeeder records a reactive re-expression: its feeder subgraph and switch channel.
+type reExprFeeder struct {
+	// target is the reactive variable being re-expressed.
+	target *symbol.Symbol
+	// nodes and edges are the feeder subgraph computing the new expression.
+	nodes []ir.Node
+	edges []ir.Edge
+	// switchSym backs a program-local signal channel the reassignment writes and the
+	// feeder machine reads to advance to this feeder; it persists across walk cycles.
+	switchSym *symbol.Symbol
+}
+
+// recordReExpr records a reactive re-expression for the feeder-machine post-pass.
+func (s *shellBuilder) recordReExpr(f reExprFeeder) {
+	s.reExprs = append(s.reExprs, f)
+}
+
+// isReExpressed reports whether sym is the target of any recorded re-expression.
+func (s *shellBuilder) isReExpressed(sym *symbol.Symbol) bool {
+	for _, f := range s.reExprs {
+		if f.target == sym {
+			return true
+		}
+	}
+	return false
+}
+
+// reExprTargets returns each re-expressed variable once, in first-seen order.
+func (s *shellBuilder) reExprTargets() []*symbol.Symbol {
+	seen := set.New[*symbol.Symbol]()
+	var out []*symbol.Symbol
+	for _, f := range s.reExprs {
+		if !seen.Contains(f.target) {
+			seen.Add(f.target)
+			out = append(out, f.target)
+		}
+	}
+	return out
+}
+
+// reExprsFor returns target's recorded re-expressions in execution order.
+func (s *shellBuilder) reExprsFor(target *symbol.Symbol) []reExprFeeder {
+	var out []reExprFeeder
+	for _, f := range s.reExprs {
+		if f.target == target {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *shellBuilder {
@@ -728,9 +782,88 @@ func lowerAssignment[T antlr.ParserRuleContext](
 	case symbol.VarKindChannelAlias:
 		rebindAlias(ctx, target, expr)
 		return nil, nil, true
+	case symbol.VarKindReactive:
+		return lowerReExpr(ctx, target, expr, kg, shell)
 	default:
 		return nil, nil, true
 	}
+}
+
+// lowerReExpr records target's feeder subgraph and lowers the reassignment to a pulse
+// that writes a switch channel, advancing both the sequence and target's feeder machine.
+func lowerReExpr[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	target *symbol.Symbol,
+	expr parser.IExpressionContext,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) ([]ir.Node, []ir.Edge, bool) {
+	feederNodes, feederEdges, ok := lowerVarWrite(ctx, target, expr, kg, shell)
+	if !ok {
+		return nil, nil, false
+	}
+	sw, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
+		Kind:    symbol.KindVariable,
+		VarKind: symbol.VarKindReactive,
+		Type:    types.U8(),
+	})
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return nil, nil, false
+	}
+	sw.Name = fmt.Sprintf("__reexpr_switch_%s_%d", target.Name, sw.ID)
+	write, ok := buildChannelWriteNode(sw.Name, sw, kg)
+	if !ok {
+		return nil, nil, false
+	}
+	shell.varChannels.Add(channelKey(sw))
+	pulse := buildActivationPulse(kg)
+	shell.recordReExpr(reExprFeeder{
+		target:    target,
+		nodes:     feederNodes,
+		edges:     feederEdges,
+		switchSym: sw,
+	})
+	stepEdge := ir.Edge{Source: pulse.output, Target: write.input, Kind: ir.EdgeKindContinuous}
+	return []ir.Node{pulse.node, write.node}, []ir.Edge{stepEdge}, true
+}
+
+// buildReExprMachine builds target's feeder machine (init + reassignment states) and
+// returns its switch-reader nodes; each state reads the next feeder's switch to advance.
+func buildReExprMachine(
+	target *symbol.Symbol,
+	initNodes []ir.Node,
+	feeders []reExprFeeder,
+	kg *keyGenerator,
+) (ir.Scope, []ir.Node, bool) {
+	machineKey := kg.generate("reexpr", target.Name)
+	machine := ir.Scope{
+		Key:      machineKey,
+		Mode:     ir.ScopeModeSequential,
+		Liveness: ir.LivenessAlways,
+	}
+	stateNodes := make([][]ir.Node, len(feeders)+1)
+	stateNodes[0] = initNodes
+	for k := range feeders {
+		stateNodes[k+1] = feeders[k].nodes
+	}
+	var readers []ir.Node
+	for k, f := range feeders {
+		read, ok := buildChannelReadNode(f.switchSym.Name, f.switchSym, kg)
+		if !ok {
+			return ir.Scope{}, nil, false
+		}
+		stateNodes[k] = append(stateNodes[k], read.node)
+		readers = append(readers, read.node)
+		targetKey := fmt.Sprintf("%s_s%d", machineKey, k+1)
+		machine.Transitions = append(machine.Transitions,
+			ir.Transition{On: read.output, TargetKey: new(targetKey)})
+	}
+	for i, nodes := range stateNodes {
+		state := flowScope(fmt.Sprintf("%s_s%d", machineKey, i), nodes)
+		machine.Steps = append(machine.Steps, ir.Member{Scope: &state})
+	}
+	return machine, readers, true
 }
 
 // rebindAlias re-points target's alias binding to the channel named by expr, so later
@@ -1043,8 +1176,12 @@ func Analyze(
 		i.VarSeeds = append(i.VarSeeds, buildVarSeed(v, shell))
 	}
 
-	// Lower each expression-initialized value variable into a reactive flow.
+	// Lower each expression-initialized value variable into a reactive flow. A
+	// re-expressed variable is assembled into a feeder machine below instead.
 	for _, v := range collectExprVars(aCtx.Scope.Root()) {
+		if shell.isReExpressed(v) {
+			continue
+		}
 		nodes, edges, ok := lowerVarInit(aCtx, v, kg, shell)
 		if !ok {
 			return i, aCtx.Diagnostics
@@ -1054,6 +1191,27 @@ func Analyze(
 		}
 		i.Nodes = append(i.Nodes, nodes...)
 		i.Edges = append(i.Edges, edges...)
+	}
+
+	// Assemble each re-expressed reactive variable's feeder state machine.
+	for _, target := range shell.reExprTargets() {
+		initNodes, initEdges, ok := lowerVarInit(aCtx, target, kg, shell)
+		if !ok {
+			return i, aCtx.Diagnostics
+		}
+		feeders := shell.reExprsFor(target)
+		machine, readers, ok := buildReExprMachine(target, initNodes, feeders, kg)
+		if !ok {
+			return i, aCtx.Diagnostics
+		}
+		i.Nodes = append(i.Nodes, initNodes...)
+		i.Edges = append(i.Edges, initEdges...)
+		for _, f := range feeders {
+			i.Nodes = append(i.Nodes, f.nodes...)
+			i.Edges = append(i.Edges, f.edges...)
+		}
+		i.Nodes = append(i.Nodes, readers...)
+		rootMembers = append(rootMembers, ir.Member{Scope: &machine})
 	}
 
 	// Inline bodies live as members of their enclosing scope; their flat IR

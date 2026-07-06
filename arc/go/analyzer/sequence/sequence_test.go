@@ -227,6 +227,22 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
+			Entry("re-expressing a reactive variable in a sequence body", `
+				sequence main {
+					r := pressure + 1
+					r = pressure + 2
+					stage s1 {
+					}
+				}
+			`),
+			Entry("re-expressing a reactive variable in a stage", `
+				sequence main {
+					r := pressure + 1
+					stage s1 {
+						r = pressure + 2
+					}
+				}
+			`),
 			Entry("nested stage reads a variable from the enclosing sequence", `
 				sequence main {
 					counter := 0
@@ -292,14 +308,6 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`, "undefined symbol: x"),
-			Entry("reassigning a reactive variable in a stage", `
-				sequence main {
-					r := pressure + 1
-					stage s1 {
-						r = pressure + 2
-					}
-				}
-			`, "cannot reassign reactive variable"),
 			Entry("using a variable before it is declared in the same scope", `
 				sequence main {
 					stage s1 {

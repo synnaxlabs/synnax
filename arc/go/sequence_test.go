@@ -2758,5 +2758,54 @@ var _ = Describe("Sequence", func() {
 			out, _ := h.Flush()
 			Expect(lastU8(out, 202)).To(Equal(uint8(2)))
 		})
+
+		It("Switches a reactive variable's expression on re-expression", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_val":    {types.U8(), 200},
+				"out":       {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    r := in_val + u8(1)
+				    r = in_val + u8(100)
+				    r -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(200, telem.NewSeriesV[uint8](5))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(105)))
+		})
+
+		It("Advances through multiple re-expressions to the final feeder", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_val":    {types.U8(), 200},
+				"out":       {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    r := in_val + u8(1)
+				    r = in_val + u8(10)
+				    r = in_val + u8(100)
+				    r -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(200, telem.NewSeriesV[uint8](5))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(105)))
+		})
 	})
 })

@@ -197,17 +197,80 @@ var _ = Describe("Text", func() {
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
 		})
 
-		It("Should reject reassigning a reactive variable", func(ctx SpecContext) {
+		It("Should build a feeder state machine for a re-expressed reactive variable", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				r := count_ch + 1
-				r = count_ch
+				r = count_ch + 2
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
-			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
-			Expect(diagnostics.String()).To(ContainSubstring(
-				"cannot reassign reactive variable r; it is read-only"))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			var machine *ir.Scope
+			for i := range inter.Root.Strata {
+				for _, m := range inter.Root.Strata[i] {
+					if m.Scope != nil && m.Scope.Mode == ir.ScopeModeSequential &&
+						m.Scope.Liveness == ir.LivenessAlways {
+						machine = m.Scope
+					}
+				}
+			}
+			Expect(machine).ToNot(BeNil(), "expected a sequential feeder machine")
+			Expect(machine.Steps).To(HaveLen(2))
+			Expect(machine.Transitions).To(HaveLen(1))
+		})
+
+		It("DUMP", func(ctx SpecContext) {
+			source := `
+			sequence s {
+				r := count_ch + 1
+				r = count_ch + 2
+				r -> out_ch
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			var dumpScope func(s *ir.Scope, indent string)
+			dumpScope = func(s *ir.Scope, indent string) {
+				GinkgoWriter.Printf("%sSCOPE key=%s mode=%v live=%v\n", indent, s.Key, s.Mode, s.Liveness)
+				if s.Activation != nil {
+					GinkgoWriter.Printf("%s  activation=%s.%s\n", indent, s.Activation.Node, s.Activation.Param)
+				}
+				for i, st := range s.Strata {
+					GinkgoWriter.Printf("%s  stratum %d:\n", indent, i)
+					for _, m := range st {
+						if m.NodeKey != nil {
+							GinkgoWriter.Printf("%s    node %s\n", indent, *m.NodeKey)
+						} else if m.Scope != nil {
+							dumpScope(m.Scope, indent+"    ")
+						}
+					}
+				}
+				for si, m := range s.Steps {
+					GinkgoWriter.Printf("%s  step %d:\n", indent, si)
+					if m.NodeKey != nil {
+						GinkgoWriter.Printf("%s    node %s\n", indent, *m.NodeKey)
+					} else if m.Scope != nil {
+						dumpScope(m.Scope, indent+"    ")
+					}
+				}
+				for _, t := range s.Transitions {
+					tk := "<exit>"
+					if t.TargetKey != nil {
+						tk = *t.TargetKey
+					}
+					GinkgoWriter.Printf("%s  transition on=%s.%s -> %s\n", indent, t.On.Node, t.On.Param, tk)
+				}
+			}
+			dumpScope(&inter.Root, "")
+			GinkgoWriter.Printf("EDGES:\n")
+			for _, e := range inter.Edges {
+				GinkgoWriter.Printf("  %s.%s -> %s.%s\n", e.Source.Node, e.Source.Param, e.Target.Node, e.Target.Param)
+			}
+			GinkgoWriter.Printf("NODES:\n")
+			for _, n := range inter.Nodes {
+				GinkgoWriter.Printf("  %s type=%s read=%v write=%v\n", n.Key, n.Type, n.Channels.Read, n.Channels.Write)
+			}
 		})
 
 		It("Should rebind a channel alias so later reads bake the new channel", func(ctx SpecContext) {

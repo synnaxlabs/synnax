@@ -47,16 +47,13 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		return
 	}
 	switch sym.VarKind {
-	case symbol.VarKindConstant:
+	case symbol.VarKindConstant, symbol.VarKindReactive:
 		statement.AnalyzeAssignment(context.Child(ctx, assign))
 		if expr := assign.Expression(); expr != nil {
 			flow.AnalyzeSingleExpression(context.Child(ctx, expr))
 		}
 	case symbol.VarKindChannelAlias:
 		analyzeAliasRebind(ctx, assign, sym)
-	case symbol.VarKindReactive:
-		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
-			"cannot reassign reactive variable %s; it is read-only", name))
 	default:
 		rejectReactiveAssignment(ctx.Diagnostics, assign)
 	}
