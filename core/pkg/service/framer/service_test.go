@@ -46,7 +46,7 @@ var _ = Describe("Service", func() {
 	}
 
 	write := func(ctx SpecContext, idxCh, dataCh channel.Channel) {
-		w := MustOpen(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 			Start: telem.SecondTS,
 			Keys:  []channel.Key{idxCh.Key(), dataCh.Key()},
 		}))
@@ -57,6 +57,7 @@ var _ = Describe("Service", func() {
 				telem.NewSeriesV[float32](1, 2, 3),
 			},
 		))).To(BeTrue())
+		Expect(w.Close()).To(Succeed())
 	}
 
 	Describe("ServiceConfig", func() {
@@ -282,12 +283,11 @@ var _ = Describe("Service", func() {
 				channel.Keys{idxCh.Key(), dataCh.Key()},
 				telem.TimeRangeMax,
 			)).To(Succeed())
-			iter := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+			iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
 				Keys:   []channel.Key{idxCh.Key(), dataCh.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
 			Expect(iter.SeekFirst()).To(BeFalse())
-			Expect(iter.Close()).To(Succeed())
 		})
 	})
 })
