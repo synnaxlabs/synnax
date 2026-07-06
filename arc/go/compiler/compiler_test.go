@@ -30,6 +30,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
@@ -101,9 +102,9 @@ func assertResult(result uint64, expected any) {
 }
 
 // bindDefaultModules creates a state.ProgramState and binds all default STL modules
-// to the given wazero.Runtime. Returns the state and string module for
-// post-instantiation setup.
-func bindDefaultModules(ctx context.Context, r wazero.Runtime) (*node.ProgramState, *stlstrings.Host, *stlstrings.ProgramState) {
+// to the given wazero.Runtime. Returns the state, string module, string state, and
+// channel state for post-instantiation setup.
+func bindDefaultModules(ctx context.Context, r wazero.Runtime) (*node.ProgramState, *stlstrings.Host, *stlstrings.ProgramState, *stlchannels.ProgramState) {
 	s := node.New(ir.IR{Nodes: []ir.Node{{Key: "test"}}})
 	stringsState := stlstrings.NewProgramState()
 	seriesState := series.NewProgramState()
@@ -115,7 +116,7 @@ func bindDefaultModules(ctx context.Context, r wazero.Runtime) (*node.ProgramSta
 	MustSucceed(stlerrors.NewHost(ctx, r, nil))
 	MustSucceed(stltime.NewHost(ctx, r))
 	MustSucceed(stlchannels.NewHost(ctx, r, channelState, stringsState))
-	return s, stringsMod, stringsState
+	return s, stringsMod, stringsState, channelState
 }
 
 // bindMockChannelModule registers mock channel host functions under the
@@ -2155,7 +2156,7 @@ var _ = Describe("Compiler", func() {
 		var strState *stlstrings.ProgramState
 
 		BeforeEach(func(ctx SpecContext) {
-			_, strMod, strState = bindDefaultModules(ctx, r)
+			_, strMod, strState, _ = bindDefaultModules(ctx, r)
 		})
 
 		It("Should return string handle from function", func(ctx SpecContext) {
@@ -2945,7 +2946,7 @@ var _ = Describe("Compiler", func() {
 		var strMod *stlstrings.Host
 
 		BeforeEach(func(ctx SpecContext) {
-			_, strMod, _ = bindDefaultModules(ctx, r)
+			_, strMod, _, _ = bindDefaultModules(ctx, r)
 		})
 
 		It("Should compare strings with default", func(ctx SpecContext) {
@@ -3016,9 +3017,10 @@ var _ = Describe("Compiler", func() {
 	Describe("Format String Synthetic Functions", func() {
 		var strMod *stlstrings.Host
 		var strState *stlstrings.ProgramState
+		var chanState *stlchannels.ProgramState
 
 		BeforeEach(func(ctx SpecContext) {
-			_, strMod, strState = bindDefaultModules(ctx, r)
+			_, strMod, strState, chanState = bindDefaultModules(ctx, r)
 		})
 
 		It("Compiles a flow-form raw string with a single literal placeholder", func(ctx SpecContext) {
@@ -3121,6 +3123,28 @@ var _ = Describe("Compiler", func() {
 			strMod.SetMemory(mod.Memory())
 			Expect(mod.ExportedFunction("fmt$fmt_0")).ToNot(BeNil())
 			Expect(mod.ExportedFunction("fmt$fmt_1")).ToNot(BeNil())
+		})
+
+		It("Compiles a placeholder that reads a channel-alias variable", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 101},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 102},
+			}
+			output := MustSucceed(compileWithHostImports(
+				ctx,
+				"cpu := sensor\ntrig -> "+`f"v={cpu}"`+" -> log",
+				resolver,
+			))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			chanState.Ingest(telem.UnaryFrame[uint32](100, telem.NewSeriesV[float32](3.5)))
+			synth := mod.ExportedFunction("fmt$fmt_0")
+			Expect(synth).ToNot(BeNil())
+			handle := uint32(MustSucceed(synth.Call(ctx))[0])
+			str, ok := strState.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("v=3.5"))
 		})
 	})
 

@@ -220,7 +220,11 @@ func compileFmtStrSynthetic(
 	if err != nil {
 		return compiledFunction{}, err
 	}
-	ctx := rootCtx.WithNewWriter()
+	scope, err := rootCtx.Scope.Resolve(rootCtx, fn.Key, symbol.IncludeInternal)
+	if err != nil {
+		return compiledFunction{}, err
+	}
+	ctx := rootCtx.WithScope(scope).WithNewWriter()
 	funcT := wasm.FunctionType{
 		Results: []wasm.ValueType{wasm.ConvertType(types.String())},
 	}

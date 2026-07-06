@@ -3552,6 +3552,23 @@ time.wait{duration=500ms} -> output`
 			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(102), "t"))
 		})
 
+		It("Records the aliased channel key for a placeholder that reads a channel alias", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			source := "cpu := sensor\nsensor -> " + `f"v={cpu}"` + " -> log"
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
+				return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+			})
+			Expect(synth).To(HaveLen(1))
+			Expect(synth[0].Channels.Read).To(HaveKey(uint32(100)))
+		})
+
 		It("Does not synthesize a fmt$ function for a literal format string with no placeholders", func(ctx SpecContext) {
 			resolver := []symbol.Symbol{
 				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},

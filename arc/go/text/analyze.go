@@ -1007,6 +1007,7 @@ func tryAnalyzeFmtStrLiteral(
 	}
 	key := kg.generate("fmt", "")
 	synthKey := compiler.FmtStrSyntheticPrefix + key
+	sym.Name = synthKey
 	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 		Key:      synthKey,
 		Body:     ir.Body{Raw: body},
@@ -1099,6 +1100,9 @@ func Analyze(
 
 	for _, c := range i.Symbols.Children() {
 		if c.Kind != symbol.KindFunction || c.AST == nil {
+			continue
+		}
+		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
 			continue
 		}
 		fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)

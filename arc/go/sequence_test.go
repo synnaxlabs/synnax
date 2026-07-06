@@ -2808,4 +2808,98 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 101)).To(Equal(uint8(105)))
 		})
 	})
+
+	Describe("Format-string interpolation of variables", func() {
+		It("Interpolates a reassigned constant variable", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    my_var := "hello"
+				    my_var = "updated"
+				    `+`f"val={my_var}"`+` -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("val=updated"))
+		})
+
+		It("Interpolates a self-referentially incremented variable", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    counter u8 := 5
+				    counter = counter + 1
+				    `+`f"n={counter}"`+` -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("n=6"))
+		})
+
+		It("Interpolates a channel alias that follows a rebind", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"sensor_a":  {types.U8(), 201},
+				"sensor_b":  {types.U8(), 202},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    src := sensor_a
+				    src = sensor_b
+				    `+`f"v={src}"`+` -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(201, telem.NewSeriesV[uint8](3))
+			h.Ingest(202, telem.NewSeriesV[uint8](7))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("v=7"))
+		})
+
+		It("Interpolates a re-expressed reactive variable", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_val":    {types.U8(), 200},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    r := in_val + u8(1)
+				    r = in_val + u8(100)
+				    `+`f"r={r}"`+` -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(200, telem.NewSeriesV[uint8](5))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("r=105"))
+		})
+	})
 })
