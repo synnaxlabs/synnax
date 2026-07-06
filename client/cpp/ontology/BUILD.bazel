@@ -23,7 +23,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//core/pkg/distribution/ontology:ontology_grpc",
+        "//core/pkg/service/ontology:ontology_grpc",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/pb",

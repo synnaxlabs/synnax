@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
+	pb1 "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	pb "github.com/synnaxlabs/x/spatial/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -632,7 +632,7 @@ var File_core_pkg_service_panel_pb_panel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_panel_pb_panel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/service/panel/pb/panel.proto\x12\x10service.panel.pb\x1a0core/pkg/distribution/ontology/pb/ontology.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\x1b\n" +
+	"%core/pkg/service/panel/pb/panel.proto\x12\x10service.panel.pb\x1a+core/pkg/service/ontology/pb/ontology.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\x1b\n" +
 	"\aTabBase\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\"[\n" +
 	"\x04View\x12\x12\n" +

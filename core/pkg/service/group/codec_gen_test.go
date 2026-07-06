@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 )
 
 var _ = Describe("Codec", func() {

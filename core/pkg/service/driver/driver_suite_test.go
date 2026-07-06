@@ -16,12 +16,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
@@ -51,24 +53,30 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = mock.NewNode(ctx)
 	db = node.DB
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.Open())
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
+		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		Ontology: node.Ontology,
+		Ontology: otg,
 		DB:       node.DB,
-		Group:    node.Group,
+		Group:    groupSvc,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
 	rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           node.DB,
-		Ontology:     node.Ontology,
-		Group:        node.Group,
+		Ontology:     otg,
+		Group:        groupSvc,
 		HostProvider: hostProvider,
 		Status:       statusSvc,
 		Search:       searchIdx,
@@ -77,8 +85,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostResolver: node.Cluster,
-		Ontology:     node.Ontology,
-		Group:        node.Group,
+		Ontology:     otg,
+		Group:        groupSvc,
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
@@ -90,8 +98,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
+		Ontology: otg,
+		Group:    groupSvc,
 		Rack:     rackService,
 		Status:   statusSvc,
 		Channel:  channelSvc,

@@ -19,12 +19,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io"
@@ -46,15 +48,29 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	RegisterTestingT(b)
 	node := mock.OpenNode(b.Context())
 
+	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
+	if err != nil {
+		b.Fatalf("failed to open ontology: %v", err)
+	}
+
 	searchIdx, err := search.Open()
 	if err != nil {
-		b.Fatalf("failed to create search index: %v", err)
+		b.Fatalf("failed to open search index: %v", err)
+	}
+
+	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	})
+	if err != nil {
+		b.Fatalf("failed to open group service: %v", err)
 	}
 
 	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
+		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	})
 	if err != nil {
@@ -63,8 +79,8 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
 		DB:       node.DB,
-		Group:    node.Group,
-		Ontology: node.Ontology,
+		Group:    groupSvc,
+		Ontology: otg,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	})
@@ -76,9 +92,9 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostResolver: node.Cluster,
-		Ontology:     node.Ontology,
-		Group:        node.Group,
-		Search:       node.Search,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
 		Status:       statusSvc,
 	})
 	if err != nil {
@@ -113,7 +129,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		ctx:  b.Context(),
 		node: node,
 		closer: io.MultiCloser{
-			calc, channelSvc, statusSvc, labelSvc, searchIdx, node,
+			calc, channelSvc, statusSvc, labelSvc, groupSvc, searchIdx, otg, node,
 		},
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),

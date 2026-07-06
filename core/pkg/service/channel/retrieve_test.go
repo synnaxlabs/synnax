@@ -29,7 +29,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		svc = openService(ctx, mock.NewNode(ctx))
+		svc, _ = openService(ctx, mock.NewNode(ctx))
 		writer = svc.NewWriter(nil)
 	})
 	Describe("Retrieve", func() {
@@ -198,7 +198,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 
 		It("Should return empty when no calculated channels exist on a fresh node", func(ctx SpecContext) {
-			freshSvc := openService(ctx, mock.NewNode(ctx))
+			freshSvc, _ := openService(ctx, mock.NewNode(ctx))
 			base := channel.Channel{
 				Virtual:  true,
 				DataType: telem.Float32T,

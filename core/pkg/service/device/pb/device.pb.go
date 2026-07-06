@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
+	pb1 "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -227,7 +227,7 @@ var File_core_pkg_service_device_pb_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a0core/pkg/distribution/ontology/pb/ontology.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\";\n" +
+	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/ontology/pb/ontology.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\";\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
 	"\x06device\x18\x02 \x01(\tR\x06device\"\xea\x02\n" +

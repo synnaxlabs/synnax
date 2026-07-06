@@ -16,7 +16,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 
-#include "core/pkg/distribution/ontology/pb/ontology.pb.h"
+#include "core/pkg/service/ontology/pb/ontology.pb.h"
 
 namespace synnax::ontology {
 /// @brief An ontology ID is a composite identifier consisting of a type and key.

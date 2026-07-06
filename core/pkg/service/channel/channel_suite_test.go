@@ -18,7 +18,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -44,28 +47,35 @@ func openService(
 	ctx context.Context,
 	node mock.Node,
 	cfgs ...channel.ServiceConfig,
-) *channel.Service {
+) (*channel.Service, *ontology.Ontology) {
 	GinkgoHelper()
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	searchIdx := MustOpen(search.Open())
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
-		Search:   node.Search,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       node.DB,
-		Group:    node.Group,
-		Ontology: node.Ontology,
+		Group:    groupSvc,
+		Ontology: otg,
 		Label:    labelSvc,
-		Search:   node.Search,
+		Search:   searchIdx,
 	}))
 	cfg := channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostResolver: node.Cluster,
-		Ontology:     node.Ontology,
-		Group:        node.Group,
-		Search:       node.Search,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
 		Status:       statusSvc,
 	}
 	channelSvc := MustOpen(channel.OpenService(
@@ -85,13 +95,13 @@ func openService(
 	Expect(node.Framer.ConfigureControlUpdateChannel(
 		ctx, controlCh.Key(), controlCh.Name,
 	)).To(Succeed())
-	Expect(node.Search.Initialize(ctx)).To(Succeed())
-	return channelSvc
+	Expect(searchIdx.Initialize(ctx)).To(Succeed())
+	return channelSvc, otg
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
-	svc = openService(ctx, node)
+	svc, _ = openService(ctx, node)
 	channelWriter = svc.NewWriter(nil)
 })

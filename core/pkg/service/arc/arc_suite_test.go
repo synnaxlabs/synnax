@@ -15,12 +15,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
@@ -50,20 +51,25 @@ var (
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		searchIdx := MustOpen(search.Open())
 		node := mock.NewNode(ctx)
 		db = node.DB
-		otg = node.Ontology
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.Open())
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    node.Group,
+			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    node.Group,
+			Group:    groupSvc,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
@@ -71,15 +77,15 @@ var (
 			Channel:      node.Channel,
 			DB:           node.DB,
 			HostResolver: node.Cluster,
-			Ontology:     node.Ontology,
-			Group:        node.Group,
-			Search:       node.Search,
+			Ontology:     otg,
+			Group:        groupSvc,
+			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
-			Group:               node.Group,
+			Group:               groupSvc,
 			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
@@ -88,7 +94,7 @@ var (
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    node.Group,
+			Group:    groupSvc,
 			Rack:     rackSvc,
 			Status:   statusSvc,
 			Search:   searchIdx,

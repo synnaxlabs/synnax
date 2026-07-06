@@ -13,7 +13,7 @@ syntax = "proto3";
 
 package service.device.pb;
 
-import "core/pkg/distribution/ontology/pb/ontology.proto";
+import "core/pkg/service/ontology/pb/ontology.proto";
 import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/struct.proto";
 

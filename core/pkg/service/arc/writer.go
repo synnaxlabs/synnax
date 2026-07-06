@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
