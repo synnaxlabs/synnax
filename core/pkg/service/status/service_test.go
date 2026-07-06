@@ -28,8 +28,9 @@ import (
 
 var _ = Describe("Dispatch", Ordered, func() {
 	var (
-		db  *gorp.DB
-		svc *status.Service
+		db     *gorp.DB
+		svc    *status.Service
+		writer status.Writer[any]
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -45,6 +46,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: db, Ontology: otg, Group: g, Label: labelSvc, Search: searchIdx,
 		}))
+		writer = svc.NewWriter(nil)
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 
@@ -82,7 +84,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 		Describe("By-key path", func() {
 			It("Should update an existing row whose Key matches the input", func(ctx SpecContext) {
 				key := uuid.NewString()
-				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(writer.Set(ctx, &status.Status[any]{
 					Key: key, Name: "by_key_orig", Variant: status.VariantInfo,
 					Message: "old", Time: telem.Now(),
 				})).To(Succeed())
@@ -100,7 +102,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 			It("Should match arbitrary (non-UUID) string keys", func(ctx SpecContext) {
 				key := "by_key_plain_string"
-				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(writer.Set(ctx, &status.Status[any]{
 					Key: key, Name: "by_key_plain_orig", Variant: status.VariantInfo,
 					Message: "old", Time: telem.Now(),
 				})).To(Succeed())
@@ -112,11 +114,11 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 			It("Should prefer the by-key match over a by-name match for the same input", func(ctx SpecContext) {
 				shared := "shared_token"
-				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(writer.Set(ctx, &status.Status[any]{
 					Key: shared, Name: "by_key_winner", Variant: status.VariantInfo,
 					Message: "key", Time: telem.Now(),
 				})).To(Succeed())
-				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(writer.Set(ctx, &status.Status[any]{
 					Key: uuid.NewString(), Name: shared, Variant: status.VariantInfo,
 					Message: "name", Time: telem.Now(),
 				})).To(Succeed())
@@ -131,7 +133,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 			It("Should update in place when there is a single name match", func(ctx SpecContext) {
 				name := "by_name_single"
 				existingKey := uuid.NewString()
-				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(writer.Set(ctx, &status.Status[any]{
 					Key: existingKey, Name: name, Variant: status.VariantSuccess,
 					Message: "ok", Time: telem.Now(),
 				})).To(Succeed())
@@ -150,11 +152,11 @@ var _ = Describe("Dispatch", Ordered, func() {
 				name := "by_name_multi"
 				firstKey := uuid.NewString()
 				secondKey := uuid.NewString()
-				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(writer.Set(ctx, &status.Status[any]{
 					Key: firstKey, Name: name, Variant: status.VariantInfo,
 					Message: "first", Time: telem.Now(),
 				})).To(Succeed())
-				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(writer.Set(ctx, &status.Status[any]{
 					Key: secondKey, Name: name, Variant: status.VariantInfo,
 					Message: "second", Time: telem.Now(),
 				})).To(Succeed())
@@ -182,7 +184,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 			It("Should accept an empty message on the by-name path", func(ctx SpecContext) {
 				name := "by_name_empty_msg"
 				existingKey := uuid.NewString()
-				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Expect(writer.Set(ctx, &status.Status[any]{
 					Key: existingKey, Name: name, Variant: status.VariantInfo,
 					Message: "old", Time: telem.Now(),
 				})).To(Succeed())

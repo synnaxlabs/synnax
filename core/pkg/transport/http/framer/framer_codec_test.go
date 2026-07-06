@@ -86,7 +86,7 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{
@@ -159,7 +159,7 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{
@@ -196,7 +196,7 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 			cdec := codec.NewDynamic(apiChannelSvc)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
@@ -318,7 +318,7 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{
@@ -501,7 +501,7 @@ var _ = Describe("FramerCodec", func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 			cdec := codec.NewDynamic(apiChannelSvc)
 			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}

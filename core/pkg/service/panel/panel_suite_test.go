@@ -37,6 +37,7 @@ var (
 	db         *gorp.DB
 	otg        *ontology.Ontology
 	svc        *panel.Service
+	writer     panel.Writer
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
 	parentID   ontology.ID
@@ -86,6 +87,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   node.Search,
 		Signals:  sigs,
 	}))
+	writer = svc.NewWriter(nil)
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       node.DB,
 		Ontology: node.Ontology,

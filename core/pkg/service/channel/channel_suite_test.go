@@ -24,7 +24,10 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var svc *channel.Service
+var (
+	svc      *channel.Service
+	chWriter channel.Writer
+)
 
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -90,4 +93,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
 	svc = openService(ctx, node)
+	chWriter = svc.NewWriter(nil)
 })

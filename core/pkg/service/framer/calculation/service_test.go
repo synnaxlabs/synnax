@@ -41,6 +41,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		dist       mock.Node
 		statusSvc  *status.Service
 		channelSvc *channel.Service
+		chWriter   channel.Writer
 		writerSvc  *writer.Service
 	)
 	open := func(
@@ -51,9 +52,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		streamKeys func([]channel.Channel) channel.Keys,
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
 		if indexChannels != nil {
-			Expect(
-				channelSvc.NewWriter(nil).CreateMany(ctx, indexChannels),
-			).To(Succeed())
+			Expect(chWriter.CreateMany(ctx, indexChannels)).To(Succeed())
 		}
 		for i, channel := range *baseChannels {
 			if channel.Virtual {
@@ -66,8 +65,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			channel.LocalIndex = (*indexChannels)[toGet].LocalKey
 			(*baseChannels)[i] = channel
 		}
-		Expect(channelSvc.NewWriter(nil).CreateMany(ctx, baseChannels)).To(Succeed())
-		Expect(channelSvc.NewWriter(nil).CreateMany(ctx, calculations)).To(Succeed())
+		Expect(chWriter.CreateMany(ctx, baseChannels)).To(Succeed())
+		Expect(chWriter.CreateMany(ctx, calculations)).To(Succeed())
 		rm := c.OpenRequestManager()
 		Expect(rm.Set(ctx, channel.KeysFromChannels(*calculations))).To(Succeed())
 		writerKeys := channel.KeysFromChannels(*baseChannels)
@@ -126,6 +125,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Search:       dist.Search,
 			Status:       statusSvc,
 		}))
+		chWriter = channelSvc.NewWriter(nil)
 		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
 			Framer: dist.Framer, Channel: channelSvc,
 		}))
@@ -486,7 +486,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
+			Expect(chWriter.Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
 				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
@@ -494,8 +494,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", base.Name),
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
-			Expect(channelSvc.NewWriter(nil).Delete(
+			Expect(chWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(chWriter.Delete(
 				ctx, base.Key(), false),
 			).To(Succeed())
 			rm := c.OpenRequestManager()
@@ -517,7 +517,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
+			Expect(chWriter.Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
 				Name:        UniqueChannelName(),
 				DataType:    telem.Float64T,
@@ -525,7 +525,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s + 1", base.Name),
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
+			Expect(chWriter.Create(ctx, &calc)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 			// Delete the dependency, then rename the calc to force a write of its
@@ -534,8 +534,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			// (unlike Create) persists the record without re-analyzing the expression,
 			// so the failure surfaces asynchronously as an error status rather than
 			// synchronously.
-			Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
-			Expect(channelSvc.NewWriter(nil).Rename(
+			Expect(chWriter.Delete(ctx, base.Key(), false)).To(Succeed())
+			Expect(chWriter.Rename(
 				ctx, calc.Key(), UniqueChannelName(), false),
 			).To(Succeed())
 			var st calculation.Status
@@ -556,7 +556,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
+			Expect(chWriter.Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
 				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
@@ -564,10 +564,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", base.Name),
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
-			Expect(
-				channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false),
-			).To(Succeed())
+			Expect(chWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(chWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 			var st calculation.Status
@@ -606,7 +604,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", bases[0].Name)
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calcs[0])).To(Succeed())
+			Expect(chWriter.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
@@ -647,7 +645,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &calcs[0])).To(Succeed())
+			Expect(chWriter.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2))))

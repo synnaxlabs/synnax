@@ -39,6 +39,7 @@ var (
 	db         *gorp.DB
 	otg        *ontology.Ontology
 	svc        *arc.Service
+	writer     arc.Writer
 	channelSvc *channel.Service
 	tx         gorp.Tx
 	taskSvc    *task.Service
@@ -104,6 +105,7 @@ var (
 			TextSweepThreshold:  1,
 			Now:                 func() telem.TimeStamp { return arcClock() },
 		}))
+		writer = svc.NewWriter(nil)
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

@@ -23,10 +23,14 @@ import (
 const internalChannelCount = 1
 
 var _ = Describe("Retrieve", Ordered, func() {
-	var svc *channel.Service
+	var (
+		svc    *channel.Service
+		writer channel.Writer
+	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		svc = openService(ctx, mock.NewNode(ctx))
+		writer = svc.NewWriter(nil)
 	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func(ctx SpecContext) {
@@ -41,7 +45,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					DataType: telem.Float32T,
 					Name:     UniqueChannelName(),
 				}}
-			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 
 			var resChannels []channel.Channel
 
@@ -65,7 +69,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     UniqueChannelName(),
 				},
 			}
-			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
 			Expect(svc.
@@ -85,7 +89,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     n,
 				},
 			}
-			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
 			Expect(svc.
@@ -109,7 +113,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "SG223",
 				},
 			}
-			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
 			Expect(svc.
@@ -140,7 +144,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "catalina",
 				},
 			}
-			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var resChannels []channel.Channel
 				g.Expect(svc.
@@ -176,8 +180,8 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Name:       "wc_calc",
 				Expression: "return wc_base * 2",
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
-			Expect(svc.NewWriter(nil).Create(ctx, &calc)).To(Succeed())
+			Expect(writer.Create(ctx, &base)).To(Succeed())
+			Expect(writer.Create(ctx, &calc)).To(Succeed())
 
 			var results []channel.Channel
 			Expect(svc.
@@ -227,7 +231,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     UniqueChannelName(),
 				},
 			}
-			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 
 			Expect(svc.
 				NewRetrieve().

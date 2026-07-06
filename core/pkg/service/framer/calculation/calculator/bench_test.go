@@ -28,10 +28,11 @@ import (
 )
 
 type benchEnv struct {
-	ctx        context.Context
-	dist       mock.Node
-	closer     io.MultiCloser
-	channelSvc *channel.Service
+	ctx           context.Context
+	dist          mock.Node
+	closer        io.MultiCloser
+	channelSvc    *channel.Service
+	channelWriter channel.Writer
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
@@ -60,10 +61,11 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		Status:       statusSvc,
 	}))
 	return &benchEnv{
-		ctx:        b.Context(),
-		dist:       dist,
-		channelSvc: channelSvc,
-		closer:     io.MultiCloser{dist, channelSvc, statusSvc, labelSvc},
+		ctx:           b.Context(),
+		dist:          dist,
+		channelSvc:    channelSvc,
+		channelWriter: channelSvc.NewWriter(nil),
+		closer:        io.MultiCloser{dist, channelSvc, statusSvc, labelSvc},
 	}
 }
 
@@ -79,7 +81,7 @@ func (e *benchEnv) openCalculator(
 	calc *channel.Channel,
 ) *calculator.Calculator {
 	if len(indexes) > 0 {
-		if err := e.channelSvc.NewWriter(nil).CreateMany(e.ctx, &indexes); err != nil {
+		if err := e.channelWriter.CreateMany(e.ctx, &indexes); err != nil {
 			b.Fatalf("failed to create index channels: %v", err)
 		}
 	}
@@ -95,11 +97,11 @@ func (e *benchEnv) openCalculator(
 			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
-		if err := e.channelSvc.NewWriter(nil).CreateMany(e.ctx, &bases); err != nil {
+		if err := e.channelWriter.CreateMany(e.ctx, &bases); err != nil {
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := e.channelSvc.NewWriter(nil).Create(e.ctx, calc); err != nil {
+	if err := e.channelWriter.Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
