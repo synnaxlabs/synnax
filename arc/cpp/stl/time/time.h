@@ -47,10 +47,10 @@ inline x::telem::TimeSpan calculate_tolerance(
     }
 }
 
-struct IntervalConfig {
+struct IntervalInputs {
     x::telem::TimeSpan interval;
 
-    static std::pair<IntervalConfig, x::errors::Error>
+    static std::pair<IntervalInputs, x::errors::Error>
     create(const types::Params &params) {
         const auto &param = params["period"];
         auto sv = types::to_sample_value(param.value, param.type);
@@ -71,27 +71,29 @@ struct IntervalConfig {
 
 class Interval : public runtime::node::Node {
     runtime::state::Node state;
-    IntervalConfig cfg;
+    IntervalInputs inputs;
     x::telem::TimeSpan last_fired;
 
 public:
-    explicit Interval(const IntervalConfig &cfg, runtime::state::Node &&state):
-        state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
+    explicit Interval(const IntervalInputs &inputs, runtime::state::Node &&state):
+        state(std::move(state)),
+        inputs(inputs),
+        last_fired(-1 * this->inputs.interval) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (ctx.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
-            ctx.set_deadline(this->last_fired + this->cfg.interval);
+            ctx.set_deadline(this->last_fired + this->inputs.interval);
             return x::errors::NIL;
         }
-        if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance) {
+        if (ctx.elapsed - this->last_fired < this->inputs.interval - ctx.tolerance) {
             ctx.mark_self_changed();
-            ctx.set_deadline(this->last_fired + this->cfg.interval);
+            ctx.set_deadline(this->last_fired + this->inputs.interval);
             return x::errors::NIL;
         }
         this->last_fired = ctx.elapsed;
         ctx.mark_self_changed();
-        ctx.set_deadline(this->last_fired + this->cfg.interval);
+        ctx.set_deadline(this->last_fired + this->inputs.interval);
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
@@ -102,17 +104,17 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override { last_fired = -1 * cfg.interval; }
+    void reset() override { last_fired = -1 * inputs.interval; }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return state.is_output_truthy(output_idx);
     }
 };
 
-struct WaitConfig {
+struct WaitInputs {
     x::telem::TimeSpan duration;
 
-    static std::pair<WaitConfig, x::errors::Error> create(const types::Params &params) {
+    static std::pair<WaitInputs, x::errors::Error> create(const types::Params &params) {
         const auto &param = params["duration"];
         auto sv = types::to_sample_value(param.value, param.type);
         if (!sv.has_value())
@@ -133,23 +135,23 @@ struct WaitConfig {
 /// @brief One-shot timer that fires once after a specified duration.
 class Wait : public runtime::node::Node {
     runtime::state::Node state;
-    WaitConfig cfg;
+    WaitInputs inputs;
     x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
 
 public:
-    explicit Wait(const WaitConfig &cfg, runtime::state::Node &&state):
-        state(std::move(state)), cfg(cfg) {}
+    explicit Wait(const WaitInputs &inputs, runtime::state::Node &&state):
+        state(std::move(state)), inputs(inputs) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->fired) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
-        ctx.set_deadline(this->start_time + this->cfg.duration);
+        ctx.set_deadline(this->start_time + this->inputs.duration);
         if (ctx.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
             return x::errors::NIL;
         }
-        if (ctx.elapsed - this->start_time < this->cfg.duration - ctx.tolerance) {
+        if (ctx.elapsed - this->start_time < this->inputs.duration - ctx.tolerance) {
             ctx.mark_self_changed();
             return x::errors::NIL;
         }
@@ -174,9 +176,9 @@ public:
     }
 };
 
-struct NowConfig {
-    static std::pair<NowConfig, x::errors::Error> create(const types::Params &) {
-        return {NowConfig{}, x::errors::NIL};
+struct NowInputs {
+    static std::pair<NowInputs, x::errors::Error> create(const types::Params &) {
+        return {NowInputs{}, x::errors::NIL};
     }
 };
 
@@ -187,7 +189,7 @@ class Now : public runtime::node::Node {
 
 public:
     explicit Now(
-        const NowConfig &,
+        const NowInputs &,
         runtime::state::Node &&state,
         x::telem::MonoClock *clock
     ):
@@ -228,28 +230,28 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
-            auto [node_cfg, err] = IntervalConfig::create(cfg.node.inputs);
+            auto [inputs, err] = IntervalInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
-            this->update_base_interval(node_cfg.interval);
+            this->update_base_interval(inputs.interval);
             return {
-                std::make_unique<Interval>(node_cfg, std::move(cfg.state)),
+                std::make_unique<Interval>(inputs, std::move(cfg.state)),
                 x::errors::NIL
             };
         }
         if (cfg.node.type == "wait") {
-            auto [node_cfg, err] = WaitConfig::create(cfg.node.inputs);
+            auto [inputs, err] = WaitInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
-            this->update_base_interval(node_cfg.duration);
+            this->update_base_interval(inputs.duration);
             return {
-                std::make_unique<Wait>(node_cfg, std::move(cfg.state)),
+                std::make_unique<Wait>(inputs, std::move(cfg.state)),
                 x::errors::NIL
             };
         }
         if (cfg.node.type == "now") {
-            auto [node_cfg, err] = NowConfig::create(cfg.node.inputs);
+            auto [inputs, err] = NowInputs::create(cfg.node.inputs);
             if (err) return {nullptr, err};
             return {
-                std::make_unique<Now>(node_cfg, std::move(cfg.state), &this->clock),
+                std::make_unique<Now>(inputs, std::move(cfg.state), &this->clock),
                 x::errors::NIL
             };
         }
