@@ -89,15 +89,15 @@ var _ = Describe("Migrate", func() {
 		Expect(bareTable.NewCreate().Entry(&r2).Exec(ctx, tx)).To(Succeed())
 
 		otgWriter := otg.NewWriter(tx)
-		Expect(otgWriter.DefineResource(ctx, ranger.OntologyID(r1.Key))).To(Succeed())
-		Expect(otgWriter.DefineResource(ctx, ranger.OntologyID(r2.Key))).To(Succeed())
-		Expect(otgWriter.DefineRelationship(
+		Expect(otgWriter.DefineResources(ctx, ranger.OntologyID(r1.Key))).To(Succeed())
+		Expect(otgWriter.DefineResources(ctx, ranger.OntologyID(r2.Key))).To(Succeed())
+		Expect(otgWriter.DefineRelationships(
 			ctx,
 			subGroup.OntologyID(),
 			ontology.RelationshipTypeParentOf,
 			ranger.OntologyID(r1.Key),
 		)).To(Succeed())
-		Expect(otgWriter.DefineRelationship(
+		Expect(otgWriter.DefineRelationships(
 			ctx,
 			subGroup.OntologyID(),
 			ontology.RelationshipTypeParentOf,

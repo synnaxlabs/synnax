@@ -64,7 +64,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		return err
 	}
 	otgID := OntologyID(r.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if len(r.Labels) > 0 {
@@ -81,11 +81,14 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	parent := r.Parent.OntologyID()
 	var relAlreadyExists bool
 	if exists {
-		if relAlreadyExists, err = w.otgWriter.HasRelationship(
+		if relAlreadyExists, err = w.otg.RelationshipExists(
 			ctx,
-			parent,
-			ontology.RelationshipTypeParentOf,
-			otgID,
+			w.tx,
+			ontology.Relationship{
+				From: parent,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   otgID,
+			},
 		); err != nil {
 			return err
 		}
@@ -100,7 +103,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		}
 	}
 	if !relAlreadyExists {
-		if err = w.otgWriter.DefineRelationship(
+		if err = w.otgWriter.DefineRelationships(
 			ctx,
 			parent,
 			ontology.RelationshipTypeParentOf,
@@ -171,7 +174,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	frontier := keys
 	for len(frontier) > 0 {
 		var children []ontology.Resource
-		if err := w.otgWriter.
+		if err := w.otg.
 			NewRetrieve().
 			WhereIDs(OntologyIDs(frontier)...).
 			TraverseTo(ontology.ChildrenTraverser).
@@ -207,7 +210,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResource(ctx, OntologyIDs(allKeys)...)
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(allKeys)...)
 }
 
 func (w Writer) validate(r Range) error {
