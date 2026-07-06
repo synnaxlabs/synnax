@@ -10,9 +10,8 @@
 import { act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Link } from "@/platform/link";
-import { renderHookWithConsole } from "@/testutil";
+import { renderHookWithConsole, stubClipboardWriteText } from "@/testutil";
 
 describe("Link.useCopyToClipboard", () => {
   let writeText: Mock;

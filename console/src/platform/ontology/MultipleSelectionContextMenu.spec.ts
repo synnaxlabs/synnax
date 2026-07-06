@@ -11,13 +11,15 @@ import { createTestClient, group, ontology, ranger } from "@synnaxlabs/client";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import {
-  renderOntologyTree,
-  treeRow,
-  withControlHeld,
-} from "@/platform/group/testutil";
+import { getTreeRow } from "@/platform/ontology/menuTestutil";
+import { renderOntologyTree } from "@/platform/ontology/treeTestutil";
 import { createTestRange } from "@/platform/range/testutil";
-import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
+import {
+  awaitTextEditingElement,
+  commitTextEdit,
+  uniqueName,
+  withControlHeld,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -42,9 +44,9 @@ const setupMixedSelection = async (): Promise<MixedSelection> => {
   await renderOntologyTree({ client, root: parentID });
   await screen.findByText(child.name);
   await screen.findByText(range.name);
-  fireEvent.click(treeRow(child.name));
-  withControlHeld(() => fireEvent.click(treeRow(range.name)));
-  fireEvent.contextMenu(treeRow(range.name));
+  fireEvent.click(getTreeRow(child.name));
+  withControlHeld(() => fireEvent.click(getTreeRow(range.name)));
+  fireEvent.contextMenu(getTreeRow(range.name));
   return { parentID, child, range };
 };
 
