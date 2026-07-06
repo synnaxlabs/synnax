@@ -1,0 +1,28 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { arc } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
+
+import { Arc } from "@/platform/arc";
+import { Selector } from "@/platform/selector";
+
+export const Selectable: Selector.Selectable = ({ layoutKey }) => {
+  const create = Arc.useCreate();
+  const handleClick = useCallback(
+    () => create({ key: layoutKey }),
+    [create, layoutKey],
+  );
+  return (
+    <Selector.Item title="Arc Automation" icon={<Icon.Arc />} onClick={handleClick} />
+  );
+};
+Selectable.type = Arc.LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
