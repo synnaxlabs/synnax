@@ -91,7 +91,7 @@ describe("Imex", () => {
       });
       const oid = await client.imex.import(toBlob(logEnvelope(`imex-${id.create()}`)), {
         encoding: "JSON",
-        parent: project.ontologyID(proj.key),
+        project: proj.key,
       });
       const children = await client.ontology.retrieveChildren(
         project.ontologyID(proj.key),
@@ -103,7 +103,7 @@ describe("Imex", () => {
       await expect(
         client.imex.import(toBlob(logEnvelope(`imex-${id.create()}`)), {
           encoding: "JSON",
-          parent: project.ontologyID(uuid.create()),
+          project: uuid.create(),
         }),
       ).rejects.toThrow("not found");
     });

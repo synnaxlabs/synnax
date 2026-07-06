@@ -10,6 +10,8 @@
 
 from freighter import FileTransport
 from synnax import ontology
+from synnax.project import Key as ProjectKey
+from synnax.project import ontology_id as project_ontology_id
 from x.fs import FilePath
 
 
@@ -29,7 +31,7 @@ class Client:
     def import_(
         self,
         source: FilePath,
-        parent: ontology.ID | None = None,
+        project: ProjectKey | None = None,
     ) -> ontology.ID:
         """Imports the resource at source and returns its new ontology ID.
 
@@ -38,13 +40,16 @@ class Client:
         file, with the extension stripped. A ``name`` in the file always wins.
 
         :param source: a file path streamed from disk.
-        :param parent: the ontology resource to parent the imported resource under
-            (e.g. a project for a visualization). The Core creates the resource and the
-            parent relationship in a single transaction, so a parenting failure rolls
-            the import back.
+        :param project: the key of the project to create the imported resource under.
+            The Core creates the resource and its project relationship in a single
+            transaction, so a parenting failure rolls the import back.
         :returns: the new resource's ontology ID.
         """
-        params = {"parent": str(parent)} if parent is not None else None
+        params = (
+            {"parent": str(project_ontology_id(project))}
+            if project is not None
+            else None
+        )
         return self._file_transport.upload("/imex/import", source, ontology.ID, params)
 
     def export(self, id: ontology.ID, dest: FilePath) -> None:

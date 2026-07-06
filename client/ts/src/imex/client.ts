@@ -10,6 +10,7 @@
 import { type FileTransport, type UploadBody } from "@synnaxlabs/freighter";
 
 import { ontology } from "@/ontology";
+import { project } from "@/project";
 
 /**
  * The serialized wire formats a resource can be imported from or exported to. Today
@@ -35,11 +36,11 @@ export interface ImportOptions extends Options {
    */
   fileName?: string;
   /**
-   * The ontology resource to parent the imported resource under (e.g. a project for a
-   * visualization). The Core creates the resource and the parent relationship in a
-   * single transaction, so a parenting failure rolls back the import.
+   * The key of the project to create the imported resource under. The Core creates
+   * the resource and its project relationship in a single transaction, so a parenting
+   * failure rolls back the import.
    */
-  parent?: ontology.ID;
+  project?: project.Key;
 }
 
 /**
@@ -81,12 +82,12 @@ export class Client {
    * ArrayBufferView or string is sent as-is.
    * @param options - the import options, including the wire format of source, the
    * source file's name (used to name the resource when the file carries no name), and
-   * the parent to create the resource under.
+   * the project to create the resource under.
    * @returns the new resource's ontology ID as stamped by the Core.
    */
   async import(
     source: UploadBody,
-    { encoding, fileName, parent }: ImportOptions,
+    { encoding, fileName, project: projectKey }: ImportOptions,
   ): Promise<ontology.ID> {
     return await this.fileTransport.upload(
       "/imex/import",
@@ -95,7 +96,10 @@ export class Client {
         encoding,
         params: {
           file_name: fileName,
-          parent: parent != null ? ontology.idToString(parent) : undefined,
+          parent:
+            projectKey != null
+              ? ontology.idToString(project.ontologyID(projectKey))
+              : undefined,
         },
       },
       ontology.idZ,

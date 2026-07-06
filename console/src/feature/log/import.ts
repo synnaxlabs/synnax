@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, log, project } from "@synnaxlabs/client";
+import { DisconnectedError, log } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { type Import } from "@/platform/import";
@@ -26,7 +26,7 @@ export const ingest: Import.FileIngester = async (
   const id = await client.imex.import(JSON.stringify(data), {
     encoding: "JSON",
     fileName,
-    parent: project.ontologyID(projectKey),
+    project: projectKey,
   });
   placeLayout(Log.create({ ...layout, key: id.key }));
   return id;

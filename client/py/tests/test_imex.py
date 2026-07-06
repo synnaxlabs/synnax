@@ -93,7 +93,7 @@ class TestImex:
         proj = client.projects.create(name=f"imex-proj-{uuid.uuid4()}")
         path = tmp_path / "in.json"
         path.write_text(_log_envelope_json(f"imex-parent-{uuid.uuid4()}"))
-        id = client.imex.import_(path, parent=sy.project.ontology_id(proj.key))
+        id = client.imex.import_(path, project=proj.key)
         children = client.ontology.retrieve_children(sy.project.ontology_id(proj.key))
         assert id.key in [child.id.key for child in children]
 
@@ -104,9 +104,7 @@ class TestImex:
         path = tmp_path / "in.json"
         path.write_text(_log_envelope_json(f"imex-orphan-{uuid.uuid4()}"))
         with pytest.raises(sy.NotFoundError):
-            client.imex.import_(
-                path, parent=sy.ontology.ID(type="project", key=str(uuid.uuid4()))
-            )
+            client.imex.import_(path, project=uuid.uuid4())
 
     def test_export(self, client: sy.Synnax, tmp_path: Path) -> None:
         """Path dest → streamed download; on-disk content parses back."""
