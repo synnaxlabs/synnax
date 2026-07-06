@@ -26,12 +26,12 @@ import (
 )
 
 const (
-	intervalSymbolName  = "interval"
-	waitSymbolName      = "wait"
-	nowSymbolName       = "now"
-	periodConfigParam   = "period"
-	durationConfigParam = "duration"
-	name                = "time"
+	intervalSymbolName = "interval"
+	waitSymbolName     = "wait"
+	nowSymbolName      = "now"
+	periodInputParam   = "period"
+	durationInputParam = "duration"
+	name               = "time"
 )
 
 // MinTolerance is the minimum tolerance for timing comparisons,
@@ -72,7 +72,7 @@ func NewSymbols() []*symbol.Symbol {
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Inputs:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
+			Inputs:  types.Params{{Name: periodInputParam, Type: types.TimeSpan()}},
 		}),
 		Trigger: symbol.TriggerOnly,
 		Doc:     intervalDoc,
@@ -83,7 +83,7 @@ func NewSymbols() []*symbol.Symbol {
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Inputs:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
+			Inputs:  types.Params{{Name: durationInputParam, Type: types.TimeSpan()}},
 		}),
 		Trigger: symbol.TriggerOnly,
 		Doc:     waitDoc,
@@ -143,7 +143,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:
-		periodParam, ok := cfg.Node.Inputs.Get(periodConfigParam)
+		periodParam, ok := cfg.Node.Inputs.Get(periodInputParam)
 		if !ok {
 			return nil, query.ErrNotFound
 		}
@@ -159,7 +159,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}, nil
 
 	case waitSymbolName:
-		durationParam, ok := cfg.Node.Inputs.Get(durationConfigParam)
+		durationParam, ok := cfg.Node.Inputs.Get(durationInputParam)
 		if !ok {
 			return nil, query.ErrNotFound
 		}

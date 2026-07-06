@@ -29,9 +29,9 @@ import (
 
 const (
 	avgSymbolName        = "avg"
-	countConfigParam     = "count"
+	countInputParam      = "count"
 	derivativeSymbolName = "derivative"
-	durationConfigParam  = "duration"
+	durationInputParam   = "duration"
 	maxSymbolName        = "max"
 	minSymbolName        = "min"
 	powSymbolName        = "pow"
@@ -61,8 +61,8 @@ func createBaseSymbol(name string, doc doc.Doc) *symbol.Symbol {
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.DefaultInputParam, Type: types.Variable("T", &numConstraint)},
-				{Name: durationConfigParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
-				{Name: countConfigParam, Type: types.I64(), Value: 0},
+				{Name: durationInputParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
+				{Name: countInputParam, Type: types.I64(), Value: 0},
 				{Name: resetInputParam, Type: types.U8(), Value: 0},
 			},
 			Outputs: types.Params{
@@ -245,8 +245,8 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 			telem.NewSeriesV[telem.TimeStamp](1),
 		)
 	}
-	var cfg WindowConfig
-	if err := windowConfigSchema.Parse(nodeCfg.Node.Inputs.ValueMap(), &cfg); err != nil {
+	var inputs WindowInputs
+	if err := windowInputsSchema.Parse(nodeCfg.Node.Inputs.ValueMap(), &inputs); err != nil {
 		return nil, err
 	}
 	return &avgNode{
@@ -255,24 +255,24 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 		resetIdx:    resetIdx,
 		process:     reductionFn,
 		sampleCount: 0,
-		cfg:         cfg,
+		inputs:      inputs,
 	}, nil
 }
 
-type WindowConfig struct {
+type WindowInputs struct {
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 	Count    int64          `json:"count" msgpack:"count"`
 }
 
-var windowConfigSchema = zyn.Object(map[string]zyn.Schema{
-	durationConfigParam: zyn.Int64().Optional().Coerce(),
-	countConfigParam:    zyn.Int64().Optional().Coerce(),
+var windowInputsSchema = zyn.Object(map[string]zyn.Schema{
+	durationInputParam: zyn.Int64().Optional().Coerce(),
+	countInputParam:    zyn.Int64().Optional().Coerce(),
 })
 
 type avgNode struct {
 	*node.State
 	process       reductionFn
-	cfg           WindowConfig
+	inputs        WindowInputs
 	inputIdx      int
 	resetIdx      int
 	sampleCount   int64
@@ -316,15 +316,15 @@ func (r *avgNode) Next(ctx node.Context) {
 		}
 	}
 
-	if r.cfg.Duration > 0 && inputTime.Len() > 0 {
+	if r.inputs.Duration > 0 && inputTime.Len() > 0 {
 		currentTime := telem.ValueAt[telem.TimeStamp](inputTime, -1)
-		if telem.TimeSpan(currentTime-r.startTime) >= r.cfg.Duration {
+		if telem.TimeSpan(currentTime-r.startTime) >= r.inputs.Duration {
 			shouldReset = true
 			r.startTime = currentTime
 		}
 	}
 
-	if r.cfg.Count > 0 && r.sampleCount >= r.cfg.Count {
+	if r.inputs.Count > 0 && r.sampleCount >= r.inputs.Count {
 		shouldReset = true
 	}
 

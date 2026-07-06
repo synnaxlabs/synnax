@@ -290,7 +290,7 @@ TEST(MathAvgTest, WeightedAverageWithUnequalBatchSizes) {
     EXPECT_NEAR(checker.output(0)->at<double>(0), 23.333, 0.01);
 }
 
-TEST(MathAvgTest, ResetsWithCountConfig) {
+TEST(MathAvgTest, ResetsWithCountInput) {
     types::Param count_param;
     count_param.name = "count";
     count_param.type = types::Type{.kind = types::Kind::I64};
@@ -319,7 +319,7 @@ TEST(MathAvgTest, ResetsWithCountConfig) {
     EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 50.0);
 }
 
-TEST(MathAvgTest, ResetsWithDurationConfig) {
+TEST(MathAvgTest, ResetsWithDurationInput) {
     types::Param duration_param;
     duration_param.name = "duration";
     duration_param.type = types::Type{.kind = types::Kind::I64};
@@ -419,7 +419,7 @@ TEST(MathMinTest, MaintainsMinAcrossBatches) {
     EXPECT_EQ(checker.output(0)->at<int32_t>(0), 30);
 }
 
-TEST(MathMinTest, ResetsWithDurationConfig) {
+TEST(MathMinTest, ResetsWithDurationInput) {
     types::Param duration_param;
     duration_param.name = "duration";
     duration_param.type = types::Type{.kind = types::Kind::I64};
@@ -454,7 +454,7 @@ TEST(MathMinTest, ResetsWithDurationConfig) {
     EXPECT_EQ(checker2.output(0)->at<int32_t>(0), 40);
 }
 
-TEST(MathMinTest, ResetsWithCountConfig) {
+TEST(MathMinTest, ResetsWithCountInput) {
     types::Param count_param;
     count_param.name = "count";
     count_param.type = types::Type{.kind = types::Kind::I64};
@@ -575,7 +575,7 @@ TEST(MathMaxTest, MaintainsMaxAcrossBatches) {
     EXPECT_DOUBLE_EQ(checker.output(0)->at<double>(0), 50.0);
 }
 
-TEST(MathMaxTest, ResetsWithDurationConfig) {
+TEST(MathMaxTest, ResetsWithDurationInput) {
     types::Param duration_param;
     duration_param.name = "duration";
     duration_param.type = types::Type{.kind = types::Kind::I64};
@@ -604,7 +604,7 @@ TEST(MathMaxTest, ResetsWithDurationConfig) {
     EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 15.0);
 }
 
-TEST(MathMaxTest, ResetsWithCountConfig) {
+TEST(MathMaxTest, ResetsWithCountInput) {
     types::Param count_param;
     count_param.name = "count";
     count_param.type = types::Type{.kind = types::Kind::I64};
