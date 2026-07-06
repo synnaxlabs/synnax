@@ -190,8 +190,8 @@ class Project(ConsoleCase):
                 self.console.layout.command_palette("Import component(s)")
             fc_info.value.set_files(tmp_path)
             # The tab initially carries the file-derived layout name and converges to
-            # the log's real name once retrieved, so wait for either before asserting
-            # on the tree.
+            # the log's real name once retrieved, so wait for either before asserting on
+            # the tree.
             self.console.layout.get_tab(body_name).or_(
                 self.console.layout.get_tab(file_name)
             ).first.wait_for(state="visible", timeout=10000)
