@@ -11,11 +11,13 @@ package channel
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Create assigns local keys to the provided new channels (those with a zero LocalKey)
@@ -134,8 +136,15 @@ func (s *Service) allocateFree(
 	if err := assignKeys(ctx, s.freeCounter, chs); err != nil {
 		return err
 	}
-	// Free channels are non-leased and virtual; they have no persistent storage, so no
-	// storage channel is created for them.
+	// Free channels are registered transiently in the creating node's local storage;
+	// other nodes provision them lazily at writer open. A missing index means the
+	// index channel was created through another node and is not registered locally
+	// yet - lazy provisioning resolves the full group later, so it is skipped here.
+	if err := s.cfg.TS.CreateChannel(ctx, lo.Map(chs, func(c Channel, _ int) ts.Channel {
+		return c.Storage()
+	})...); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
 	putBack(out, indices, chs)
 	return nil
 }
@@ -162,4 +171,36 @@ func (s *Service) allocateRemote(
 	}
 	putBack(out, indices, res.Channels)
 	return nil
+}
+
+// EnsureFreeStorage registers the given free channels in the local storage engine as
+// transient virtual channels, skipping channels that are already registered. Free
+// channels have no leaseholder, so each node provisions them on demand before opening
+// writers against them. Channels that are not free are ignored.
+func (s *Service) EnsureFreeStorage(ctx context.Context, channels []Channel) error {
+	s.freeStorageMu.Lock()
+	defer s.freeStorageMu.Unlock()
+	free := lo.Filter(channels, func(c Channel, _ int) bool { return c.Free() })
+	// Indexes must be registered before the channels they index.
+	slices.SortStableFunc(free, func(a, b Channel) int {
+		return boolToInt(b.IsIndex) - boolToInt(a.IsIndex)
+	})
+	for _, ch := range free {
+		if _, err := s.cfg.TS.RetrieveChannel(ctx, ch.Key().StorageKey()); err == nil {
+			continue
+		} else if !errors.Is(err, query.ErrNotFound) {
+			return err
+		}
+		if err := s.cfg.TS.CreateChannel(ctx, ch.Storage()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

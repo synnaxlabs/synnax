@@ -130,7 +130,7 @@ var _ = Describe("Writer", func() {
 			}))
 			fr := frame.NewUnary(vCh.Key(), telem.NewSeriesV[float64](1, 2, 3))
 			Expect(w.Write(fr)).
-				Error().To(MatchError(ContainSubstring("expected data type")))
+				Error().To(MatchError(ContainSubstring("invalid data type")))
 		})
 
 		It("Should return an error when a key has no corresponding channel", func(ctx SpecContext) {

@@ -15,8 +15,9 @@ import (
 )
 
 // Delete deletes the storage channels for the provided keys, routing each key to its
-// leaseholder. Free-virtual channels have no persistent storage and are skipped. It
-// does not touch channel metadata.
+// leaseholder. Free-virtual channels remove only this node's transient registration,
+// if present; registrations on other nodes vanish on their next restart. It does not
+// touch channel metadata.
 func (s *Service) Delete(ctx context.Context, keys Keys) error {
 	batch := s.deleteRouter.Batch(keys)
 	for nodeKey, entries := range batch.Peers {
@@ -27,6 +28,11 @@ func (s *Service) Delete(ctx context.Context, keys Keys) error {
 		if _, err := s.cfg.Transport.DeleteClient().Send(
 			ctx, addr, DeleteRequest{Keys: entries},
 		); err != nil {
+			return err
+		}
+	}
+	for _, key := range batch.Free {
+		if err := s.cfg.TS.DeleteChannel(key.StorageKey()); err != nil {
 			return err
 		}
 	}

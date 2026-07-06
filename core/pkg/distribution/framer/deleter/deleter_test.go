@@ -43,9 +43,8 @@ var _ = Describe("Deleter", Ordered, func() {
 				var i *iterator.Iterator
 				BeforeEach(func(ctx SpecContext) {
 					w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-						Keys:     s.keys,
-						Channels: s.channels,
-						Start:    10 * telem.SecondTS,
+						Keys:  s.keys,
+						Start: 10 * telem.SecondTS,
 					}))
 					Expect(w.Write(frame.NewMulti(
 						s.keys,
@@ -120,10 +119,9 @@ var _ = Describe("Deleter", Ordered, func() {
 
 		It("Should delete channels across gateway and peer nodes", func(ctx SpecContext) {
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-				Keys:     s.keys,
-				Channels: s.channels,
-				Start:    10 * telem.SecondTS,
-				Sync:     new(true),
+				Keys:  s.keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
 			}))
 			Expect(w.Write(frame.NewMulti(
 				s.keys,
@@ -155,10 +153,9 @@ var _ = Describe("Deleter", Ordered, func() {
 
 		It("Should delete all data across gateway and peer nodes", func(ctx SpecContext) {
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-				Keys:     s.keys,
-				Channels: s.channels,
-				Start:    10 * telem.SecondTS,
-				Sync:     new(true),
+				Keys:  s.keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
 			}))
 			Expect(w.Write(frame.NewMulti(
 				s.keys,

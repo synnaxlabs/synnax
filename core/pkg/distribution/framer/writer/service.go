@@ -20,13 +20,11 @@ package writer
 
 import (
 	"context"
-	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -77,15 +75,6 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Keys channel.Keys
-	// Channels carries the resolved distribution-layer metadata for every key in Keys
-	// (the validator reads data types from it; the free-channel writer reads index
-	// relationships). The caller supplies it — the service layer resolves it from the
-	// channel service — so the distribution writer needs no channel retriever. Channels
-	// must contain exactly one entry per key in Keys. It is never serialized: peers
-	// receive only Keys and open storage writers directly from them.
-	//
-	// [REQUIRED]
-	Channels []channel.Channel
 	// Authorities sets the control authority the writer has on each channel for the
 	// write. This should either be a single authority for all channels or a slice of
 	// authorities with the same length as the number of channels where each authority
@@ -207,15 +196,6 @@ func (c Config) Validate() error {
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
 		"authorities must be a single authority or a slice of authorities with the same length as keys",
 	)
-	if len(c.Keys) > 0 {
-		missing, _ := lo.Difference(c.Keys, channel.KeysFromChannels(c.Channels))
-		v.Ternaryf(
-			"channels",
-			len(missing) > 0,
-			"missing channel metadata for keys: %v",
-			missing,
-		)
-	}
 	return v.Error()
 }
 
@@ -225,7 +205,6 @@ func (c Config) Override(other Config) Config {
 	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
 	c.ControlSubject.Group = override.Numeric(c.ControlSubject.Group, other.ControlSubject.Group)
 	c.Keys = override.Slice(c.Keys, other.Keys.Unique())
-	c.Channels = override.Slice(c.Channels, other.Channels)
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
@@ -243,9 +222,6 @@ type ServiceConfig struct {
 	// nodes in the cluster.
 	// [REQUIRED]
 	Transport Transport
-	// FreeWrites is the write pipeline where samples from free channels should be
-	// written.
-	FreeWrites confluence.Inlet[relay.Response]
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
@@ -277,16 +253,14 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.FreeWrites = override.Nil(cfg.FreeWrites, other.FreeWrites)
 	return cfg
 }
 
 // Service is the central service for the writer package, allowing the caller to open
 // Writers and StreamWriters for writing data to the cluster.
 type Service struct {
-	server              *server
-	freeWriteAlignments *freeWriteAlignments
-	cfg                 ServiceConfig
+	server *server
+	cfg    ServiceConfig
 }
 
 // NewService opens the writer service using the given configuration. Also binds a
@@ -296,21 +270,14 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
-		cfg:    cfg,
-		server: startServer(cfg),
-		freeWriteAlignments: &freeWriteAlignments{
-			alignments: make(map[channel.Key]*atomic.Uint32),
-		},
-	}, nil
+	return &Service{cfg: cfg, server: startServer(cfg)}, nil
 }
 
 const (
 	synchronizerAddr       = address.Address("synchronizer")
 	peerSenderAddr         = address.Address("peer_sender")
 	gatewayWriterAddr      = address.Address("gateway_writer")
-	freeWriterAddr         = address.Address("free_writer")
-	peerGatewaySwitchAddr  = address.Address("peer_gateway_free_switch")
+	peerGatewaySwitchAddr  = address.Address("peer_gateway_switch")
 	validatorAddr          = address.Address("validator")
 	validatorResponsesAddr = address.Address("validator_responses")
 )
@@ -359,27 +326,27 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		hostKey           = s.cfg.HostResolver.HostKey()
 		batch             = proxy.BatchFactory[keyAuthority](hostKey).Batch(cfg.keyAuthorities())
 		pipe              = plumber.New()
-		hasPeer           = len(batch.Peers) > 0
-		hasGateway        = len(batch.Gateway) > 0
-		hasFree           = len(batch.Free) > 0
 		receiverAddresses []address.Address
 		routeValidatorTo  address.Address
 	)
+	// Free channels are registered as transient virtual channels in the local
+	// storage engine, so their writes ride the gateway branch.
+	batch.Gateway = append(batch.Gateway, batch.Free...)
+	var (
+		hasPeer    = len(batch.Peers) > 0
+		hasGateway = len(batch.Gateway) > 0
+	)
 
-	channelMap := make(map[channel.Key]channel.Channel, len(cfg.Channels))
-	for _, ch := range cfg.Channels {
-		channelMap[ch.Key()] = ch
-	}
-	v := &validator{keys: cfg.Keys, channels: channelMap}
+	v := &validator{keys: cfg.Keys}
 	plumber.SetSegment(pipe, validatorAddr, v)
 	plumber.SetSource(pipe, validatorResponsesAddr, &v.responses)
 	plumber.SetSegment(
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.cfg.Instrumentation),
+		newSynchronizer(len(batch.Peers)+lo.Ternary(hasGateway, 1, 0), s.cfg.Instrumentation),
 	)
 
-	switchTargets := make([]address.Address, 0, 3)
+	switchTargets := make([]address.Address, 0, 2)
 	if hasPeer {
 		routeValidatorTo = peerSenderAddr
 		switchTargets = append(switchTargets, peerSenderAddr)
@@ -409,20 +376,12 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		receiverAddresses = append(receiverAddresses, gatewayWriterAddr)
 	}
 
-	if hasFree {
-		routeValidatorTo = freeWriterAddr
-		switchTargets = append(switchTargets, freeWriterAddr)
-		w := s.newFree(cfg.Mode, *cfg.Sync, cfg.Channels, cfg.ControlSubject.Group)
-		plumber.SetSegment(pipe, freeWriterAddr, w)
-		receiverAddresses = append(receiverAddresses, freeWriterAddr)
-	}
-
 	if len(switchTargets) > 1 {
 		routeValidatorTo = peerGatewaySwitchAddr
 		plumber.SetSegment(
 			pipe,
 			peerGatewaySwitchAddr,
-			newPeerGatewayFreeSwitch(hostKey, hasPeer, hasGateway, hasFree),
+			newPeerGatewaySwitch(hostKey, hasPeer, hasGateway),
 		)
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{peerGatewaySwitchAddr},
