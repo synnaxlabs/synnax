@@ -276,7 +276,6 @@ describe("errors", () => {
     it("should return true when the type matches exactly", () => {
       const e = new ErrorOne("test");
       expect(ErrorOne.matchExact(e)).toBe(true);
-      expect(e.matchExact(e)).toBe(true);
     });
 
     it("should return false for a sub-error, unlike matches", () => {

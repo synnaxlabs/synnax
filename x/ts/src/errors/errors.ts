@@ -34,10 +34,6 @@ export interface Matchable {
    * or raw string. This is a fuzzy membership test for control flow, not a type guard.
    */
   matches: Matcher;
-  /**
-   * Narrows the provided value to this error type when its type is exactly this type.
-   */
-  matchExact: ExactMatcher;
 }
 
 /**
@@ -66,6 +62,12 @@ export interface TypedClass extends Matchable {
    * @returns a new TypedError.
    */
   new (message?: string, options?: ErrorOptions): Typed;
+  /**
+   * Narrows a value to this error type when its type is exactly this class's type.
+   * Errors carrying extra structured fields may override this to narrow to their
+   * concrete type.
+   */
+  matchExact: ExactMatcher;
   /**
    * the type of the error.
    */
@@ -130,7 +132,6 @@ export const createTyped = (type: string): TypedClass =>
     readonly matches: Matcher = Internal.matches;
 
     static readonly matchExact = createExactMatcher(type);
-    readonly matchExact: ExactMatcher = Internal.matchExact;
 
     constructor(message?: string, options?: ErrorOptions) {
       super(message, options);
