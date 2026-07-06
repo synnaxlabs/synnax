@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -89,12 +90,12 @@ var _ = Describe("Calculator", Ordered, func() {
 	Describe("Alignment", func() {
 		Specify("Single alignment propagation", func(ctx SpecContext) {
 			base := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", base[0].Name),
@@ -113,18 +114,18 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Multiple alignments accumulation", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
@@ -147,12 +148,12 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Alignment persistence across calls", func(ctx SpecContext) {
 			base := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + 5", base[0].Name),
@@ -179,23 +180,23 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Mixed alignment sources", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s + %s", bases[0].Name, bases[1].Name, bases[2].Name),
@@ -222,18 +223,18 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Two virtual channels", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Float32T,
 					Virtual:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Float32T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Float32T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
@@ -254,23 +255,23 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Three virtual channels", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int32T,
 					Virtual:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int32T,
 					Virtual:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int32T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int32T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * %s + %s", bases[0].Name, bases[1].Name, bases[2].Name),
@@ -291,16 +292,16 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Single persisted channel", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Float64T,
 			}}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Float64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s / 2", bases[0].Name),
@@ -325,22 +326,22 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Two persisted channels shared index", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 				},
 			}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
@@ -369,28 +370,28 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Two persisted channels unique indexes", func(ctx SpecContext) {
 			indexes := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				},
 			}
 			bases := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Float32T,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Float32T,
 				},
 			}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Float32T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
@@ -416,23 +417,23 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Mixed virtual and persisted", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
@@ -459,18 +460,18 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Float32", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Float32T,
 					Virtual:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Float32T,
 					Virtual:  true,
 				},
 			}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Float32T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s / %s", bases[0].Name, bases[1].Name),
@@ -492,16 +493,16 @@ var _ = Describe("Calculator", Ordered, func() {
 	Describe("Accumulation", func() {
 		Specify("Index after data", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Int64T,
 			}}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 3", bases[0].Name),
@@ -526,16 +527,16 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Data after index", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Int64T,
 			}}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
@@ -560,22 +561,22 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Sequential channel arrivals", func(ctx SpecContext) {
 			indexes := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}}
 			bases := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Float64T,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Float64T,
 				},
 			}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Float64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
@@ -609,28 +610,28 @@ var _ = Describe("Calculator", Ordered, func() {
 		Specify("Different indexes from different writers", func(ctx SpecContext) {
 			indexes := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				},
 			}
 			bases := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Float64T,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Float64T,
 				},
 			}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Float64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
@@ -666,16 +667,16 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	It("Operations", func(ctx SpecContext) {
 		idx := []channel.Channel{{
-			Name:     channel.NewRandomName(),
+			Name:     testutil.RandomName(),
 			DataType: telem.TimeStampT,
 			IsIndex:  true,
 		}}
 		base := []channel.Channel{{
-			Name:     channel.NewRandomName(),
+			Name:     testutil.RandomName(),
 			DataType: telem.Int64T,
 		}}
 		calc := channel.Channel{
-			Name:       channel.NewRandomName(),
+			Name:       testutil.RandomName(),
 			DataType:   telem.Int64T,
 			Virtual:    true,
 			Expression: fmt.Sprintf("return %s", base[0].Name),
@@ -718,16 +719,16 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	It("Should compute derivative operation with type promotion", func(ctx SpecContext) {
 		idx := []channel.Channel{{
-			Name:     channel.NewRandomName(),
+			Name:     testutil.RandomName(),
 			DataType: telem.TimeStampT,
 			IsIndex:  true,
 		}}
 		base := []channel.Channel{{
-			Name:     channel.NewRandomName(),
+			Name:     testutil.RandomName(),
 			DataType: telem.Int64T,
 		}}
 		calc := channel.Channel{
-			Name:       channel.NewRandomName(),
+			Name:       testutil.RandomName(),
 			DataType:   telem.Float64T,
 			Virtual:    true,
 			Expression: fmt.Sprintf("return %s", base[0].Name),
@@ -770,16 +771,16 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	It("Should correctly chain multiple operations", func(ctx SpecContext) {
 		idx := []channel.Channel{{
-			Name:     channel.NewRandomName(),
+			Name:     testutil.RandomName(),
 			DataType: telem.TimeStampT,
 			IsIndex:  true,
 		}}
 		base := []channel.Channel{{
-			Name:     channel.NewRandomName(),
+			Name:     testutil.RandomName(),
 			DataType: telem.Int64T,
 		}}
 		calc := channel.Channel{
-			Name:       channel.NewRandomName(),
+			Name:       testutil.RandomName(),
 			DataType:   telem.Int64T,
 			Virtual:    true,
 			Expression: fmt.Sprintf("return %s", base[0].Name),
@@ -816,17 +817,17 @@ var _ = Describe("Calculator", Ordered, func() {
 	Describe("Group", func() {
 
 		It("Should aggregate ReadFrom keys from all calculators", func(ctx SpecContext) {
-			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
-			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}
-			b2 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
+			idx := []channel.Channel{{Name: testutil.RandomName(), DataType: telem.TimeStampT, IsIndex: true}}
+			b1 := []channel.Channel{{Name: testutil.RandomName(), DataType: telem.Int64T}}
+			b2 := []channel.Channel{{Name: testutil.RandomName(), DataType: telem.Int64T, Virtual: true}}
 			c1 := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + 1", b1[0].Name),
 			}
 			c2 := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", b2[0].Name),
@@ -840,17 +841,17 @@ var _ = Describe("Calculator", Ordered, func() {
 		})
 
 		It("Should execute all calculators and aggregate results", func(ctx SpecContext) {
-			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
-			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}
-			b2 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
+			idx := []channel.Channel{{Name: testutil.RandomName(), DataType: telem.TimeStampT, IsIndex: true}}
+			b1 := []channel.Channel{{Name: testutil.RandomName(), DataType: telem.Int64T}}
+			b2 := []channel.Channel{{Name: testutil.RandomName(), DataType: telem.Int64T, Virtual: true}}
 			c1 := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + 1", b1[0].Name),
 			}
 			c2 := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", b2[0].Name),
@@ -873,17 +874,17 @@ var _ = Describe("Calculator", Ordered, func() {
 		})
 
 		It("Should close all calculators", func(ctx SpecContext) {
-			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
-			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}
-			b2 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
+			idx := []channel.Channel{{Name: testutil.RandomName(), DataType: telem.TimeStampT, IsIndex: true}}
+			b1 := []channel.Channel{{Name: testutil.RandomName(), DataType: telem.Int64T}}
+			b2 := []channel.Channel{{Name: testutil.RandomName(), DataType: telem.Int64T, Virtual: true}}
 			c1 := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s", b1[0].Name),
 			}
 			c2 := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s", b2[0].Name),
@@ -896,18 +897,18 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		It("Should execute nested calculators", func(ctx SpecContext) {
 			b1 := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			c1 := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + 1", b1[0].Name),
 			}
 			c2 := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", c1.Name),
@@ -953,12 +954,12 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Float literal * f32 channel should infer f32 and produce correct results", func(ctx SpecContext) {
 			base := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
 			}
@@ -977,12 +978,12 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Integer literal - f32 channel should infer f32 and produce correct results", func(ctx SpecContext) {
 			base := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 1000 - %s", base[0].Name),
 			}
@@ -1001,12 +1002,12 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Float literal / f32 channel should infer f32 and produce correct results", func(ctx SpecContext) {
 			base := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 1000.0 / %s", base[0].Name),
 			}
@@ -1025,12 +1026,12 @@ var _ = Describe("Calculator", Ordered, func() {
 
 		Specify("Stale f64 output type from old inference with f32 channel and leading literal", func(ctx SpecContext) {
 			base := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}}
 			calc := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       testutil.RandomName(),
 				DataType:   telem.Float32T,
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),

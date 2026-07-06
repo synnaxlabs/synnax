@@ -23,12 +23,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type benchIterEnv struct {
 	ctx         context.Context
 	node        mock.Node
+	closer      io.MultiCloser
 	channelSvc  *channel.Service
 	writerSvc   *writer.Service
 	iteratorSvc *iterator.Service
@@ -90,6 +92,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	return &benchIterEnv{
 		ctx:         b.Context(),
 		node:        node,
+		closer:      io.MultiCloser{node, channelSvc, statusSvc, labelSvc},
 		channelSvc:  channelSvc,
 		writerSvc:   writerSvc,
 		iteratorSvc: iteratorSvc,
@@ -97,8 +100,8 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 }
 
 func (e *benchIterEnv) close(b *testing.B) {
-	if err := e.node.Close(); err != nil {
-		b.Errorf("failed to close cluster: %v", err)
+	if err := e.closer.Close(); err != nil {
+		b.Errorf("failed to close env: %v", err)
 	}
 }
 

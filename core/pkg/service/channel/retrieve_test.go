@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,12 +34,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 				}}
 			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
@@ -56,12 +57,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 				},
 			}
 			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
@@ -76,7 +77,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))
 		})
 		It("Should correctly retrieve a channel by its name", func(ctx SpecContext) {
-			n := channel.NewRandomName()
+			n := testutil.RandomName()
 			created := []channel.Channel{
 				{
 					Virtual:  true,
@@ -218,12 +219,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 				},
 			}
 			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())

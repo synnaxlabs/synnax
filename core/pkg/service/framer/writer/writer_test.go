@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
@@ -26,13 +27,13 @@ import (
 var _ = Describe("Writer", func() {
 	createIndexed := func(ctx SpecContext) (channel.Channel, channel.Channel) {
 		idxCh := channel.Channel{
-			Name:     channel.NewRandomName(),
+			Name:     testutil.RandomName(),
 			DataType: telem.TimeStampT,
 			IsIndex:  true,
 		}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &idxCh)).To(Succeed())
 		dataCh := channel.Channel{
-			Name:       channel.NewRandomName(),
+			Name:       testutil.RandomName(),
 			DataType:   telem.Float32T,
 			LocalIndex: idxCh.LocalKey,
 		}
@@ -119,7 +120,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should reject a write whose series data type does not match the resolved channel", func(ctx SpecContext) {
 			vCh := channel.Channel{
-				Name: channel.NewRandomName(), DataType: telem.Float32T, Virtual: true,
+				Name: testutil.RandomName(), DataType: telem.Float32T, Virtual: true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &vCh)).To(Succeed())
 			w := MustSucceed(writerSvc.Open(ctx, writer.Config{

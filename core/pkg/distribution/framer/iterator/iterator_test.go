@@ -26,16 +26,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func openWriter(
-	ctx context.Context,
-	n mock.Node,
-	channels []channel.Channel,
-	cfg writer.Config,
-) (*writer.Writer, error) {
-	cfg.Channels = channels
-	return n.Framer.OpenWriter(ctx, cfg)
-}
-
 var _ = Describe("Iterator", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func(context.Context) scenario{
@@ -49,14 +39,12 @@ var _ = Describe("Iterator", func() {
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
 					s = sF(ctx)
-					writer := MustSucceed(openWriter(ctx,
-						s.dist,
-						s.channels,
-						writer.Config{
-							Keys:  s.keys,
-							Start: 10 * telem.SecondTS,
-							Sync:  new(true),
-						}))
+					writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+						Channels: s.channels,
+						Keys:     s.keys,
+						Start:    10 * telem.SecondTS,
+						Sync:     new(true),
+					}))
 					writeBatch := func(ts ...telem.TimeStamp) {
 						series := make([]telem.Series, len(s.keys))
 						for i := range s.keys {

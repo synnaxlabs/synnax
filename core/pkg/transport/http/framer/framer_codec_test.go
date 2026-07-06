@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/telem"
@@ -75,12 +76,12 @@ var _ = Describe("FramerCodec", func() {
 		It("Should encode and decode open command", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
@@ -148,12 +149,12 @@ var _ = Describe("FramerCodec", func() {
 		It("Should encode and decode request", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
@@ -190,7 +191,7 @@ var _ = Describe("FramerCodec", func() {
 		It("Should preserve the existing codec state when a later request has no keys", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
@@ -307,12 +308,12 @@ var _ = Describe("FramerCodec", func() {
 		It("Should encode and decode an open request and update the codec", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     channel.NewRandomName(),
+					Name:     testutil.RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
@@ -496,7 +497,7 @@ var _ = Describe("FramerCodec", func() {
 
 		It("Should keep the codec initialized across non-open iterator requests", func(ctx SpecContext) {
 			channels := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}

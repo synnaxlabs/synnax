@@ -399,7 +399,7 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func New(t *api.Transport, codecResolver codec.Resolver) fgrpc.BindableTransport {
+func New(t *api.Transport, codecResolver codec.ChannelResolver) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{

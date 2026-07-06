@@ -71,15 +71,6 @@ var _ = Describe("Names", func() {
 	})
 })
 
-var _ = Describe("NewRandomName", func() {
-	It("Should generate a name with the test channel prefix", func() {
-		Expect(channel.NewRandomName()).To(HavePrefix("test_ch_"))
-	})
-	It("Should generate distinct names across calls", func() {
-		Expect(channel.NewRandomName()).ToNot(Equal(channel.NewRandomName()))
-	})
-})
-
 var _ = Describe("IsCalculated", func() {
 	It("Should return true when the channel has an expression", func() {
 		Expect(channel.Channel{Expression: "a + b"}.IsCalculated()).To(BeTrue())

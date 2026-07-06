@@ -59,12 +59,12 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}, nil
 }
 
-var _ codec.Resolver = (*Service)(nil)
+var _ codec.ChannelResolver = (*Service)(nil)
 
-// RetrieveDataTypes implements codec.Resolver, resolving the data types of the channels
-// with the given keys so that a dynamic framer codec can resolve channel metadata
-// through the API layer. Resolution intentionally bypasses access control, as it runs
-// on the per-frame encode/decode hot path.
+// RetrieveDataTypes implements codec.ChannelResolver, resolving the data types of the
+// channels with the given keys so that a dynamic framer codec can resolve channel
+// metadata through the API layer. Resolution intentionally bypasses access control, as
+// it runs on the per-frame encode/decode hot path.
 func (s *Service) RetrieveDataTypes(
 	ctx context.Context,
 	keys channel.Keys,
@@ -81,8 +81,8 @@ func (s *Service) RetrieveDataTypes(
 	}), nil
 }
 
-// RetrieveName implements codec.Resolver, resolving the name of the channel with the
-// given key, returning an empty string if no channel with the key exists.
+// RetrieveName implements codec.ChannelResolver, resolving the name of the channel
+// with the given key, returning an empty string if no channel with the key exists.
 func (s *Service) RetrieveName(ctx context.Context, key channel.Key) string {
 	var ch channel.Channel
 	if err := s.internal.NewRetrieve().

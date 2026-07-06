@@ -285,12 +285,12 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 	updates = append(updates, s.reconcileQueued(ctx, nil, queued, unresolvedNames, nil, analyzer)...)
 	s.mu.Unlock()
 	if len(updates) > 0 {
-		s.L.Info("persisting DataType updates", zap.Int("count", len(updates)))
+		s.L.Info("updating channel data types", zap.Int("count", len(updates)))
 		w := s.svc.NewWriter(nil)
 		for _, ch := range updates {
 			if err := w.ChangeDataType(ctx, ch.Key(), ch.DataType); err != nil {
 				s.L.Error(
-					"failed to persist DataType update",
+					"failed to update channel data type",
 					zap.Stringer("channel", ch.Key()),
 					zap.Error(err),
 				)

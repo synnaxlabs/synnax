@@ -59,16 +59,12 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		Search:       dist.Search,
 		Status:       statusSvc,
 	}))
-	var closer io.MultiCloser
-	closer = append(closer, dist)
-	closer = append(closer, channelSvc)
-	closer = append(closer, statusSvc)
-	closer = append(closer, labelSvc)
 	return &benchEnv{
 		ctx:        b.Context(),
 		dist:       dist,
 		channelSvc: channelSvc,
-		closer:     closer}
+		closer:     io.MultiCloser{dist, channelSvc, statusSvc, labelSvc},
+	}
 }
 
 func (e *benchEnv) close(b *testing.B) {

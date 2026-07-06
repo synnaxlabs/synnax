@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
@@ -113,10 +114,10 @@ var _ = Describe("Compile", func() {
 	})
 
 	It("Should compile expression with derivative operation", func(ctx SpecContext) {
-		base := channel.Channel{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true}
+		base := channel.Channel{Name: testutil.RandomName(), DataType: telem.Float64T, Virtual: true}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
-			Name:       channel.NewRandomName(),
+			Name:       testutil.RandomName(),
 			DataType:   telem.Float64T,
 			Virtual:    true,
 			Expression: fmt.Sprintf("return %s", base.Name),

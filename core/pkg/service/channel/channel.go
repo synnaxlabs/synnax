@@ -12,7 +12,6 @@ package channel
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"slices"
 	"strconv"
 
@@ -228,11 +227,4 @@ func (c *Channel) DecodeMsgpack(dec *msgpack.Decoder) error {
 		c.Leaseholder = legacy.NodeID
 	}
 	return nil
-}
-
-// NewRandomName generates a random channel name that should be unique. It is a test
-// helper for generating distinct channel names; channel name uniqueness itself is
-// enforced by the service layer during creation.
-func NewRandomName() string {
-	return fmt.Sprintf("test_ch_%09d", rand.Intn(999999999))
 }

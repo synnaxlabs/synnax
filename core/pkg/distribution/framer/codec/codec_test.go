@@ -31,11 +31,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// mapResolver is a codec.Resolver backed by a static key-to-data-type map. Keys absent
-// from the map are omitted from the result, mirroring the channel service.
+// mapResolver is a codec.ChannelResolver backed by a static key-to-data-type map. Keys
+// absent from the map are omitted from the result, mirroring the channel service.
 type mapResolver map[channel.Key]telem.DataType
 
-var _ codec.Resolver = mapResolver{}
+var _ codec.ChannelResolver = mapResolver{}
 
 func (m mapResolver) RetrieveDataTypes(
 	_ context.Context,
@@ -54,8 +54,8 @@ func (m mapResolver) RetrieveName(_ context.Context, key channel.Key) string {
 	return fmt.Sprintf("channel-%d", key)
 }
 
-// configResolver is a configurable codec.Resolver used to exercise the codec's resolver
-// error and naming paths. When dataTypesErr is non-nil it is returned from
+// configResolver is a configurable codec.ChannelResolver used to exercise the codec's
+// resolver error and naming paths. When dataTypesErr is non-nil it is returned from
 // RetrieveDataTypes; otherwise data types are returned in key order for keys present in
 // dataTypes (so a missing key yields a shorter slice). name is returned verbatim from
 // RetrieveName.
@@ -65,7 +65,7 @@ type configResolver struct {
 	name         string
 }
 
-var _ codec.Resolver = configResolver{}
+var _ codec.ChannelResolver = configResolver{}
 
 func (r configResolver) RetrieveDataTypes(
 	_ context.Context,

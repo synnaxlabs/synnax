@@ -98,7 +98,7 @@ type Codec struct {
 	reader *binary.Reader
 	// resolver is used in dynamic codecs to look up the data types of channels when
 	// Update is called. It is nil for codecs created with NewStatic.
-	resolver Resolver
+	resolver ChannelResolver
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
@@ -174,11 +174,12 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType, opts ...Opt
 	return c
 }
 
-// Resolver resolves channel metadata (data types and names) by key. It is supplied to
-// NewDynamic so the codec can look up channel information when Update is called. The
-// channel service implementations satisfy this interface, allowing a dynamic codec to
-// resolve channel metadata through them without depending on the service layer.
-type Resolver interface {
+// ChannelResolver resolves channel metadata (data types and names) by key. It is
+// supplied to NewDynamic so the codec can look up channel information when Update is
+// called. The channel service implementations satisfy this interface, allowing a
+// dynamic codec to resolve channel metadata through them without depending on the
+// service layer.
+type ChannelResolver interface {
 	// RetrieveDataTypes returns the data types of the channels with the given keys in
 	// the same order as keys. The returned slice must contain exactly one entry per
 	// key; Codec.Update returns an error if the lengths differ.
@@ -189,10 +190,10 @@ type Resolver interface {
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by resolving channel
-// data types through the provided Resolver with default configuration (alignment
-// compression enabled). Codec.Update must be called before the first call to
-// Codec.Encode and Codec.Decode.
-func NewDynamic(resolver Resolver, opts ...Option) *Codec {
+// data types through the provided ChannelResolver with default configuration
+// (alignment compression enabled). Codec.Update must be called before the first call
+// to Codec.Encode and Codec.Decode.
+func NewDynamic(resolver ChannelResolver, opts ...Option) *Codec {
 	c := newCodec(opts...)
 	c.resolver = resolver
 	return c
@@ -212,8 +213,8 @@ func newCodec(opts ...Option) *Codec {
 }
 
 // Update updates the codec to use the given keys in its state, resolving their data
-// types through the codec's Resolver. It returns an error if the resolver does not
-// return exactly one data type per key.
+// types through the codec's ChannelResolver. It returns an error if the resolver does
+// not return exactly one data type per key.
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 	dataTypes, err := c.resolver.RetrieveDataTypes(ctx, keys)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -30,13 +31,13 @@ import (
 var _ = Describe("Service", func() {
 	createIndexed := func(ctx SpecContext) (channel.Channel, channel.Channel) {
 		idxCh := channel.Channel{
-			Name:     channel.NewRandomName(),
+			Name:     testutil.RandomName(),
 			DataType: telem.TimeStampT,
 			IsIndex:  true,
 		}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &idxCh)).To(Succeed())
 		dataCh := channel.Channel{
-			Name:       channel.NewRandomName(),
+			Name:       testutil.RandomName(),
 			DataType:   telem.Float32T,
 			LocalIndex: idxCh.LocalKey,
 		}
@@ -247,7 +248,7 @@ var _ = Describe("Service", func() {
 	Describe("NewStreamer", func() {
 		It("Should stream live writes to resolved channels", func(ctx SpecContext) {
 			ch := channel.Channel{
-				Name:     channel.NewRandomName(),
+				Name:     testutil.RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}

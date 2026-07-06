@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -20,7 +21,7 @@ import (
 func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
 	GinkgoHelper()
 	ch := channel.Channel{
-		Name:     channel.NewRandomName(),
+		Name:     testutil.RandomName(),
 		DataType: dt,
 		Virtual:  true,
 	}
@@ -28,7 +29,7 @@ func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
 	return ch
 }
 
-var _ = Describe("api/channel Resolver", func() {
+var _ = Describe("API Channel Resolver", func() {
 	Describe("RetrieveDataTypes", func() {
 		It("Should resolve the data types of the channels in key order", func(ctx SpecContext) {
 			ch1 := createChannel(ctx, telem.Float32T)
