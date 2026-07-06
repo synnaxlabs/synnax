@@ -1,0 +1,223 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { channel, NotFoundError } from "@synnaxlabs/client";
+import { Component, Flex, Icon } from "@synnaxlabs/pluto";
+import { errors, type optional, primitive } from "@synnaxlabs/x";
+import { type FC } from "react";
+
+import { enrich } from "@/feature/ni/device/enrich";
+import { Select } from "@/feature/ni/device/Select";
+import * as Device from "@/feature/ni/device/types";
+import { createDOChannel } from "@/feature/ni/task/createChannel";
+import {
+  DigitalChannelList,
+  type DigitalNameComponentProps,
+} from "@/feature/ni/task/DigitalChannelList";
+import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
+import {
+  DIGITAL_WRITE_SCHEMAS,
+  DIGITAL_WRITE_TYPE,
+  digitalWriteConfigZ,
+  type DigitalWriteSchemas,
+  type DOChannel,
+  ZERO_DIGITAL_WRITE_PAYLOAD,
+} from "@/feature/ni/task/types";
+import { Device as PlatformDevice } from "@/platform/device";
+import { Selector } from "@/platform/selector";
+import { Task } from "@/platform/task";
+
+export const DIGITAL_WRITE_LAYOUT: Task.Layout = {
+  ...Task.LAYOUT,
+  icon: "Logo.NI",
+  name: ZERO_DIGITAL_WRITE_PAYLOAD.name,
+  type: DIGITAL_WRITE_TYPE,
+};
+
+export const DigitalWriteSelectable = Selector.createSimpleItem({
+  title: "NI Digital Write Task",
+  icon: <Icon.Logo.NI />,
+  layout: DIGITAL_WRITE_LAYOUT,
+});
+
+const Properties = () => (
+  <>
+    <Select />
+    <Flex.Box x>
+      <Task.Fields.StateUpdateRate />
+      <Task.Fields.DataSaving />
+      <Task.Fields.AutoStart />
+    </Flex.Box>
+  </>
+);
+
+interface NameComponentProps extends DigitalNameComponentProps<DOChannel> {}
+
+const NameComponent = ({ path, ...rest }: NameComponentProps) => {
+  const filteredRest: optional.Optional<
+    typeof rest,
+    "cmdChannelName" | "stateChannelName"
+  > = rest;
+  delete filteredRest.cmdChannelName;
+  delete filteredRest.stateChannelName;
+  return (
+    <Task.WriteChannelNames
+      {...rest}
+      cmdNamePath={`${path}.cmdChannelName`}
+      stateNamePath={`${path}.stateChannelName`}
+    />
+  );
+};
+
+const name = Component.renderProp(NameComponent);
+
+const Form: FC<Task.FormProps<DigitalWriteSchemas>> = (props) => (
+  <DigitalChannelList
+    {...props}
+    createChannel={createDOChannel}
+    name={name}
+    contextMenuItems={Task.writeChannelContextMenuItems}
+  />
+);
+
+const getInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
+  deviceKey,
+  config,
+}) => {
+  const cfg =
+    config != null
+      ? digitalWriteConfigZ.parse(config)
+      : ZERO_DIGITAL_WRITE_PAYLOAD.config;
+  return {
+    ...ZERO_DIGITAL_WRITE_PAYLOAD,
+    config: { ...cfg, device: deviceKey ?? cfg.device },
+  };
+};
+
+const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
+  client,
+  config,
+) => {
+  const dev = await client.devices.retrieve({
+    key: config.device,
+    schemas: Device.SCHEMAS,
+  });
+  PlatformDevice.checkConfigured(dev);
+  dev.properties = enrich(dev.model, dev.properties);
+  let modified = false;
+  let shouldCreateStateIndex = primitive.isZero(
+    dev.properties.digitalOutput.stateIndex,
+  );
+  if (!shouldCreateStateIndex)
+    try {
+      await client.channels.retrieve(dev.properties.digitalOutput.stateIndex);
+    } catch (e) {
+      if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
+      else throw errors.fromUnknown(e);
+    }
+  const identifier = channel.escapeInvalidName(dev.properties.identifier);
+  try {
+    if (shouldCreateStateIndex) {
+      modified = true;
+      const stateIndex = await client.channels.create({
+        name: `${identifier}_do_state_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.digitalOutput.stateIndex = stateIndex.key;
+      dev.properties.digitalOutput.channels = {};
+    }
+    const commandsToCreate: DOChannel[] = [];
+    const statesToCreate: DOChannel[] = [];
+    for (const channel of config.channels) {
+      const key = getDigitalChannelDeviceKey(channel);
+      const exPair = dev.properties.digitalOutput.channels[key];
+      if (exPair == null) {
+        commandsToCreate.push(channel);
+        statesToCreate.push(channel);
+      } else {
+        const { state, command } = exPair;
+        try {
+          await client.channels.retrieve(state);
+        } catch (e) {
+          if (NotFoundError.matches(e)) statesToCreate.push(channel);
+          else throw errors.fromUnknown(e);
+        }
+        try {
+          await client.channels.retrieve(command);
+        } catch (e) {
+          if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+          else throw errors.fromUnknown(e);
+        }
+      }
+    }
+    if (statesToCreate.length > 0) {
+      modified = true;
+      const states = await client.channels.create(
+        statesToCreate.map((c) => ({
+          name: primitive.isNonZero(c.stateChannelName)
+            ? c.stateChannelName
+            : `${identifier}_do_${c.port}_${c.line}_state`,
+          index: dev.properties.digitalOutput.stateIndex,
+          dataType: "uint8",
+        })),
+      );
+      states.forEach((s, i) => {
+        const key = getDigitalChannelDeviceKey(statesToCreate[i]);
+        if (!(key in dev.properties.digitalOutput.channels))
+          dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
+        else dev.properties.digitalOutput.channels[key].state = s.key;
+      });
+    }
+    if (commandsToCreate.length > 0) {
+      modified = true;
+      const commandIndexes = await client.channels.create(
+        commandsToCreate.map((c) => ({
+          name: primitive.isNonZero(c.cmdChannelName)
+            ? `${c.cmdChannelName}_time`
+            : `${identifier}_do_${c.port}_${c.line}_cmd_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        })),
+      );
+      const commands = await client.channels.create(
+        commandsToCreate.map((c, i) => ({
+          name: primitive.isNonZero(c.cmdChannelName)
+            ? c.cmdChannelName
+            : `${identifier}_do_${c.port}_${c.line}_cmd`,
+          index: commandIndexes[i].key,
+          dataType: "uint8",
+        })),
+      );
+      commands.forEach((s, i) => {
+        const key = getDigitalChannelDeviceKey(commandsToCreate[i]);
+        if (!(key in dev.properties.digitalOutput.channels))
+          dev.properties.digitalOutput.channels[key] = { state: 0, command: s.key };
+        else dev.properties.digitalOutput.channels[key].command = s.key;
+      });
+    }
+  } finally {
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+  }
+  config.channels = config.channels.map((c) => {
+    const key = getDigitalChannelDeviceKey(c);
+    const pair = dev.properties.digitalOutput.channels[key];
+    return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
+  });
+  return [config, dev.rack];
+};
+
+export const DigitalWrite = Task.wrapForm({
+  Properties,
+  Form,
+  schemas: DIGITAL_WRITE_SCHEMAS,
+  getInitialValues,
+  onConfigure,
+  type: "ni_digital_write",
+});
