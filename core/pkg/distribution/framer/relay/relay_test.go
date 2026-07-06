@@ -117,7 +117,7 @@ var _ = Describe("Relay", func() {
 	Describe("ExcludeGroups", Ordered, func() {
 		It("Should filter out frames from a matching group on gateway writes", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := DeferClose(mock.OpenCluster(ctx, 1))
+			builder := mock.NewCluster(ctx, 1)
 			svc := builder.Nodes[1]
 			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
@@ -153,7 +153,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := DeferClose(mock.OpenCluster(ctx, 1))
+			builder := mock.NewCluster(ctx, 1)
 			svc := builder.Nodes[1]
 			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
@@ -192,7 +192,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames with no group even when ExcludeGroups is set", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := DeferClose(mock.OpenCluster(ctx, 1))
+			builder := mock.NewCluster(ctx, 1)
 			svc := builder.Nodes[1]
 			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
@@ -229,7 +229,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should filter out free channel frames from a matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := DeferClose(mock.OpenCluster(ctx, 1))
+			builder := mock.NewCluster(ctx, 1)
 			svc := builder.Nodes[1]
 			for i, ch := range channels {
 				ch.Leaseholder = node.KeyFree
