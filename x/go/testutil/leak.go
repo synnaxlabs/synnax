@@ -88,10 +88,10 @@ func assertNoLeakedGoroutines(snapshot []gleak.Goroutine) {
 		// is closed. The commit that fills a memtable rotates the WAL, replacing the
 		// goroutine 1:1 with one for the new WAL file — a swap, not a leak. Against a
 		// DB shared across specs the swap lands mid-spec (pebble's first memtable is
-		// only 256KB, doubling per rotation, so cumulative suite writes cross the
-		// early boundaries), and the per-spec check would misattribute the replacement
-		// to whichever spec was running. An unclosed DB is still caught through its
-		// other long-lived goroutines (e.g. pebble's cleanupManager.mainLoop).
+		// only 256KB, doubling per rotation, so cumulative suite writes cross the early
+		// boundaries), and the per-spec check would misattribute the replacement to
+		// whichever spec was running. An unclosed DB is still caught through its other
+		// long-lived goroutines (e.g. pebble's cleanupManager.mainLoop).
 		gleak.IgnoringCreator("github.com/cockroachdb/pebble/v2/record.NewLogWriter"),
 	}
 	gomega.Eventually(gleak.Goroutines).ShouldNot(gleak.HaveLeaked(args...))
