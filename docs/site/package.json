@@ -30,11 +30,11 @@
     "astro": "^7.0.6",
     "astro-seo": "^1.1.0",
     "clsx": "catalog:",
-    "posthog-js": "^1.396.5",
+    "posthog-js": "^1.396.6",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-icons": "catalog:",
-    "shiki": "^4.3.0",
+    "shiki": "^4.3.1",
     "zod": "catalog:"
   },
   "devDependencies": {
