@@ -135,6 +135,7 @@ resolve_header_for_ext() {
     local ext="$1"
     LEADING_LINE_RE=""
     LEADING_BLANK=1
+    LEADING_REQUIRED=0
     FENCE=""
     case "$ext" in
         py | pyi)
@@ -170,6 +171,16 @@ resolve_header_for_ext() {
             EXPECTED_HEADER="$EXPECTED_HEADER_REM"
             HEADER_LINES=8
             LEADING_LINE_RE='^@[Ee][Cc][Hh][Oo]'
+            TRAILING_BLANK=1
+            ;;
+        glsl)
+            EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
+            HEADER_LINES=8
+            LEADING_LINE_RE='^#version'
+            # WebGL requires the #version directive on the first line; a shader with the
+            # directive buried below the header (or absent) fails to compile, so the
+            # leading line is mandatory rather than optional.
+            LEADING_REQUIRED=1
             TRAILING_BLANK=1
             ;;
         css)
@@ -243,6 +254,10 @@ classify_file() {
     # starts at index 0 normally; when a leading line is preserved, at index 2 iff line
     # 2 is blank (LEADING_BLANK=1), or at index 1 directly against the leading line
     # (LEADING_BLANK=0, e.g. astro frontmatter).
+    if [ "$LEADING_REQUIRED" = "1" ] && [[ ! "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
+        printf 'MALFORMED\t%s\n' "$file"
+        return
+    fi
     local header_start_idx=0
     if [ -n "$LEADING_LINE_RE" ] && [[ "${LINES[0]}" =~ $LEADING_LINE_RE ]]; then
         if [ "$LEADING_BLANK" = "0" ]; then
