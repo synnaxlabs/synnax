@@ -14,6 +14,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -275,6 +276,51 @@ var _ = Describe("Unary", func() {
 			Expect(httpRes.StatusCode).To(Equal(http.StatusInternalServerError))
 			respBody := MustSucceed(io.ReadAll(httpRes.Body))
 			Expect(string(respBody)).To(ContainSubstring(errFailingEncoderEncodeFail.Error()))
+		})
+	})
+
+	Describe("Query Params", func() {
+		// Binds a handler that echoes the named request params back in the response
+		// message, joined by "|", so the test can observe what parseRequestCtx put in
+		// freighter.Context.Params.
+		bindParamEcho := func(keys ...string) {
+			unaryServer.BindHandler(func(ctx context.Context, _ test.Request) (test.Response, error) {
+				params := freighter.MDFromContext(ctx).Params
+				values := make([]string, len(keys))
+				for i, k := range keys {
+					if v, ok := params.Get(k); ok {
+						values[i], _ = v.(string)
+					}
+				}
+				return test.Response{Message: strings.Join(values, "|")}, nil
+			})
+		}
+		post := func(ctx context.Context, query string) test.Response {
+			body := MustSucceed(json.Codec.Encode(ctx, test.Request{}))
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, http.MethodPost,
+				"http://"+unaryAddr.String()+"/?"+query,
+				bytes.NewReader(body),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+			httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+			DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+			respBody := MustSucceed(io.ReadAll(httpRes.Body))
+			var res test.Response
+			Expect(json.Codec.Decode(ctx, respBody, &res)).To(Succeed())
+			return res
+		}
+
+		It("should expose plain query params to the handler through Params", func(ctx context.Context) {
+			bindParamEcho("file_name", "parent")
+			res := post(ctx, "file_name=Metrics%20Log.json&parent=project:abc")
+			Expect(res.Message).To(Equal("Metrics Log.json|project:abc"))
+		})
+
+		It("should still strip the freighterctx prefix from prefixed params", func(ctx context.Context) {
+			bindParamEcho("Token")
+			res := post(ctx, "freighterctxToken=secret")
+			Expect(res.Message).To(Equal("secret"))
 		})
 	})
 

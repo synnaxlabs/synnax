@@ -68,6 +68,23 @@ const shouldCastToUnreachable = (
 const HTTP_STATUS_BAD_REQUEST = 400;
 
 /**
+ * Appends the defined entries of params to target as a percent-encoded query string.
+ * Returns target unchanged when params has no defined entries.
+ */
+const appendQueryParams = (
+  target: string,
+  params?: Record<string, string | undefined>,
+): string => {
+  if (params == null) return target;
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null) search.set(key, value);
+  });
+  const query = search.toString();
+  return query.length === 0 ? target : `${target}?${query}`;
+};
+
+/**
  * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
  *
  * @param url - The base URL of the API.
@@ -132,7 +149,7 @@ export class HTTPClient
   async upload<RS extends z.ZodType>(
     target: string,
     body: UploadBody,
-    { encoding }: FileOptions,
+    { encoding, params }: FileOptions,
     resSchema: RS,
   ): Promise<z.infer<RS>> {
     let res: z.infer<RS> | null = null;
@@ -153,7 +170,11 @@ export class HTTPClient
           },
           duplex: "half",
         };
-        const httpRes = await this.fetch(url, ctx.target, init);
+        const httpRes = await this.fetch(
+          url,
+          appendQueryParams(ctx.target, params),
+          init,
+        );
         const data = await httpRes.arrayBuffer();
         if (httpRes.ok) {
           res = this.encoder.decode<RS>(data, resSchema);
@@ -170,7 +191,7 @@ export class HTTPClient
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
-    { encoding }: FileOptions,
+    { encoding, params }: FileOptions,
   ): Promise<ReadableStream<Uint8Array>> {
     let stream: ReadableStream<Uint8Array> | null = null;
     const url = this.endpoint.child(target);
@@ -178,7 +199,7 @@ export class HTTPClient
       this.context(url),
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
-        const httpRes = await this.fetch(url, ctx.target, {
+        const httpRes = await this.fetch(url, appendQueryParams(ctx.target, params), {
           method: "POST",
           body: this.encoder.encode(req, reqSchema),
           headers: {

@@ -107,7 +107,9 @@ type Envelope struct {
 	// Importer's Type() method.
 	Type string
 	// Name is the human-readable name of the resource. Required on export — Encode
-	// enforces that the input value carries a top-level string `name` field.
+	// enforces that the input value carries a top-level string `name` field. On import
+	// it may be empty at decode time; Service.Import fills it from the caller-supplied
+	// file name and rejects the envelope if it is still empty after that fallback.
 	Name string
 
 	codec encoding.Codec
@@ -148,10 +150,12 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 // unmarshal is the codec-agnostic tail shared by every UnmarshalX method on Envelope.
 // Given the body already decoded as a flat map, the original wire bytes, and the codec
 // that produced them, it promotes the {version, type, name} headers onto the receiver
-// and stashes raw + codec for the later typed decode via Decode[T]. Both `type` and
-// `name` are required headers — an envelope that omits either, or that carries an empty
-// string for either, is rejected so the failure surfaces at the transport boundary
-// instead of routing to a no-op handler.
+// and stashes raw + codec for the later typed decode via Decode[T]. `type` is a
+// required header — an envelope that omits it, or that carries an empty string for it,
+// is rejected so the failure surfaces at the transport boundary instead of routing to a
+// no-op handler. `name` is optional at decode time: the import path may fall back to a
+// caller-supplied file name, so Service.Import enforces the non-empty name after that
+// fallback is applied.
 func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec) error {
 	if v, ok := m["version"]; ok {
 		ver, err := versionFromAny(v)
@@ -176,9 +180,6 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 			return newFieldError("name", "name must be a string, got %T", v)
 		}
 		e.Name = s
-	}
-	if e.Name == "" {
-		return newFieldError("name", "name must be a non-empty string")
 	}
 	e.codec = codec
 	e.raw = raw
@@ -373,7 +374,10 @@ func flattenStruct(rv reflect.Value, m map[string]any) {
 // Type is informational only, since the registry has already routed to this handler.
 type Importer interface {
 	// Import validates and persists the given envelope on tx, returning the ontology.ID
-	// of the newly-created resource.
+	// of the newly-created resource. The envelope's Name is fully resolved (non-empty)
+	// by the time Import is called — the registry has already applied the file-name
+	// fallback — so importers should treat it as the resource's name rather than
+	// re-deriving one from the body.
 	Import(context.Context, gorp.Tx, Envelope) (ontology.ID, error)
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under

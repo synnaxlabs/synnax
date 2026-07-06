@@ -12,6 +12,7 @@ package imex
 import (
 	"context"
 
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -43,6 +44,18 @@ type (
 	ImportResponse = ontology.ID
 )
 
+// The out-of-band import settings arrive as HTTP query parameters — the request body
+// is the file's raw bytes, so there is nowhere in-band to carry them. The transport
+// exposes query parameters through freighter's request params.
+const (
+	// fileNameParam carries the name of the file the envelope was read from, used as
+	// the envelope name when the body has no `name` field.
+	fileNameParam = "file_name"
+	// parentParam carries the string form of the ontology ID to parent the imported
+	// resource under.
+	parentParam = "parent"
+)
+
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -52,18 +65,57 @@ func (s *Service) Import(
 	if err != nil {
 		return ImportResponse{}, err
 	}
+	opts, err := parseImportOptions(ctx)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	objects := []ontology.ID{{Type: resourceType, Key: ""}}
 	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
+		Objects: objects,
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	id, err := s.internal.Import(ctx, tx, req)
+	if !opts.Parent.IsZero() {
+		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: []ontology.ID{opts.Parent},
+		}); err != nil {
+			return ImportResponse{}, err
+		}
+	}
+	id, err := s.internal.Import(ctx, tx, req, opts)
 	if err != nil {
 		return ImportResponse{}, err
 	}
 	return id, nil
+}
+
+// parseImportOptions extracts the optional file_name and parent query parameters from
+// the request's freighter params. An empty or absent parent yields a zero Parent;
+// a malformed parent ID returns a validation error.
+func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
+	var (
+		opts   imex.ImportOptions
+		params = freighter.MDFromContext(ctx).Params
+	)
+	if v, ok := params.Get(fileNameParam); ok {
+		if s, ok := v.(string); ok {
+			opts.FileName = s
+		}
+	}
+	if v, ok := params.Get(parentParam); ok {
+		if s, ok := v.(string); ok && s != "" {
+			parent, err := ontology.ParseID(s)
+			if err != nil {
+				return imex.ImportOptions{}, err
+			}
+			opts.Parent = parent
+		}
+	}
+	return opts, nil
 }
 
 type (

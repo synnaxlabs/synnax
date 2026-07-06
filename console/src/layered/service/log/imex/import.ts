@@ -9,33 +9,25 @@
 
 import { DisconnectedError, log, project } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/layered/service/log/layout";
 
-// The Core owns log envelope decoding and legacy-version migration, so the file's bytes
-// are streamed up untouched and the imported log is read back to populate local state.
-// The Core import path does not yet parent the log to a project, so the project ->
-// ParentOf -> log relationship is wired here to mirror a regular log create.
+// The Core owns log envelope decoding, legacy-version migration, file-name naming, and
+// project parenting, so the file's bytes are streamed up untouched and the log is
+// created under the project in a single network call.
 const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client, projectKey },
+  { layout, placeLayout, store, client, projectKey, fileName },
 ) => {
   if (!Access.createGranted({ id: log.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import logs");
   if (client == null) throw new DisconnectedError();
-  const id = await client.imex.import(JSON.stringify(data), { encoding: "JSON" });
-  try {
-    await client.ontology.addChildren(project.ontologyID(projectKey), id);
-  } catch (err) {
-    try {
-      await client.logs.delete(id.key);
-    } catch (deleteErr) {
-      console.error("failed to delete orphaned log after import failure", deleteErr);
-    }
-    throw errors.fromUnknown(err);
-  }
+  const id = await client.imex.import(JSON.stringify(data), {
+    encoding: "JSON",
+    fileName,
+    parent: project.ontologyID(projectKey),
+  });
   placeLayout(create({ ...layout, key: id.key }));
   return id;
 };

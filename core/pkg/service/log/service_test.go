@@ -31,7 +31,7 @@ var _ = Describe("ServiceConfig", func() {
 				DB:       db,
 				Ontology: otg,
 				Search:   &search.Index{},
-				ImEx:     imex.NewService(),
+				ImEx:     imex.NewService(otg),
 			}
 			Expect(cfg.Validate()).To(Succeed())
 		})
@@ -40,7 +40,7 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := log.ServiceConfig{
 				Ontology: otg,
 				Search:   &search.Index{},
-				ImEx:     imex.NewService(),
+				ImEx:     imex.NewService(otg),
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("db")))
 		})
@@ -49,7 +49,7 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := log.ServiceConfig{
 				DB:     db,
 				Search: &search.Index{},
-				ImEx:   imex.NewService(),
+				ImEx:   imex.NewService(otg),
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("ontology")))
 		})
@@ -58,7 +58,7 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := log.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				ImEx:     imex.NewService(),
+				ImEx:     imex.NewService(otg),
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("search")))
 		})
@@ -80,7 +80,7 @@ var _ = Describe("ServiceConfig", func() {
 				DB:       db,
 				Ontology: otg,
 				Search:   &search.Index{},
-				ImEx:     imex.NewService(),
+				ImEx:     imex.NewService(otg),
 			}
 			merged := initial.Override(other)
 			Expect(merged.DB).To(BeIdenticalTo(other.DB))
@@ -94,7 +94,7 @@ var _ = Describe("ServiceConfig", func() {
 				DB:       db,
 				Ontology: otg,
 				Search:   &search.Index{},
-				ImEx:     imex.NewService(),
+				ImEx:     imex.NewService(otg),
 			}
 			merged := initial.Override(log.ServiceConfig{})
 			Expect(merged.DB).To(BeIdenticalTo(initial.DB))
@@ -151,7 +151,7 @@ var _ = Describe("OpenService", func() {
 			DB:       node.DB,
 			Ontology: node.Ontology,
 			Search:   node.Search,
-			ImEx:     imex.NewService(),
+			ImEx:     imex.NewService(otg),
 			Signals:  sigs,
 		}))
 		for _, name := range []string{"sy_log_set", "sy_log_delete"} {

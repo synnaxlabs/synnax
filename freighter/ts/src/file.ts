@@ -40,6 +40,12 @@ export interface FileOptions {
    * single representation, so pass a single encoding.
    */
   encoding: FileEncoding;
+  /**
+   * Query parameters appended to the request URL. The body is the raw file bytes, so
+   * per-transfer metadata (e.g. the source file's name) travels out-of-band here.
+   * Undefined values are omitted.
+   */
+  params?: Record<string, string | undefined>;
 }
 
 /**

@@ -39,7 +39,7 @@ class ID(BaseModel):
             super().__init__(key=key, type=type)
 
     def __str__(self) -> str:
-        return f"{self.key}:{self.type}"
+        return f"{self.type}:{self.key}"
 
 
 ROOT_ID = ID(key="root", type="builtin")

@@ -11,6 +11,7 @@ import os
 import pathlib
 from collections.abc import Iterable
 from typing import IO, Any
+from urllib.parse import urlencode
 
 import urllib3
 from urllib3 import PoolManager, Retry
@@ -95,13 +96,20 @@ class HTTPClient(MiddlewareCollector):
             res_t=res_t,
         )
 
-    def upload(self, target: str, req: FilePath, res_t: type[RS]) -> RS:
+    def upload(
+        self,
+        target: str,
+        req: FilePath,
+        res_t: type[RS],
+        params: dict[str, str] | None = None,
+    ) -> RS:
         """
         Streams the file at req to target and decodes the response into res_t. The file
         object is handed to urllib3 as the request body and read in fixed-size blocks,
         so the full body never has to fit in memory. The Content-Type is derived from
         the file path's extension, while the typed response is decoded via the codec —
-        the two need not agree.
+        the two need not agree. Query parameters carry per-transfer metadata
+        out-of-band, since the body is the raw file bytes.
 
         Retries are disabled for uploads because an upload mutates server state and is
         not assumed to be idempotent: a transient failure that occurs after the server
@@ -118,6 +126,7 @@ class HTTPClient(MiddlewareCollector):
                 content_type=_file_content_type(req),
                 res_t=res_t,
                 retries=False,
+                params=params,
             )
 
     def download(self, target: str, req: RQ, dest: FilePath) -> None:
@@ -153,8 +162,11 @@ class HTTPClient(MiddlewareCollector):
         in_ctx = Context(url, self._endpoint.protocol, "client")
         self.exec(in_ctx, finalizer)
 
-    def _build_url(self, target: str) -> str:
-        return self._endpoint.child(target).stringify()
+    def _build_url(self, target: str, params: dict[str, str] | None = None) -> str:
+        url = self._endpoint.child(target).stringify()
+        if params is None or len(params) == 0:
+            return url
+        return f"{url}?{urlencode(params)}"
 
     def _typed_response_request(
         self,
@@ -163,8 +175,9 @@ class HTTPClient(MiddlewareCollector):
         content_type: str,
         res_t: type[RS],
         retries: Retry | bool | None = None,
+        params: dict[str, str] | None = None,
     ) -> RS:
-        url = self._build_url(target)
+        url = self._build_url(target, params)
         in_ctx = Context(url, self._endpoint.protocol, "client")
         res_container: list[RS | None] = [None]
 

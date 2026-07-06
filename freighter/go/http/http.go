@@ -91,6 +91,8 @@ func parseRequestCtx(
 	for k, v := range parseQueryString(fiberCtx) {
 		if isFreighterQueryStringParam(k) {
 			freighterCtx.Params[strings.TrimPrefix(k, freighterCtxPrefix)] = v
+		} else {
+			freighterCtx.Params[k] = v
 		}
 	}
 	return freighterCtx

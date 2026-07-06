@@ -10,6 +10,7 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { project } from "@/project";
 import { createTestClient } from "@/testutil/client";
 
 const logEnvelope = (name: string) => ({
@@ -51,6 +52,60 @@ describe("Imex", () => {
       await expect(
         client.imex.import(toBlob(envelope), { encoding: "JSON" }),
       ).rejects.toThrow("failed to decode");
+    });
+
+    it("should name the resource after the file when the envelope has no name", async () => {
+      const { name: _, ...nameless } = logEnvelope("unused");
+      const fileName = `imex-file-${id.create()}`;
+      const oid = await client.imex.import(toBlob(nameless), {
+        encoding: "JSON",
+        fileName: `${fileName}.json`,
+      });
+      const stream = await client.imex.export(oid, { encoding: "JSON" });
+      const parsed = await new Response(stream).json();
+      expect(parsed.name).toEqual(fileName);
+    });
+
+    it("should prefer the envelope's name over the file name", async () => {
+      const name = `imex-${id.create()}`;
+      const oid = await client.imex.import(toBlob(logEnvelope(name)), {
+        encoding: "JSON",
+        fileName: "Some Other Name.json",
+      });
+      const stream = await client.imex.export(oid, { encoding: "JSON" });
+      const parsed = await new Response(stream).json();
+      expect(parsed.name).toEqual(name);
+    });
+
+    it("should throw an error when the envelope has no name and no file name is given", async () => {
+      const { name: _, ...nameless } = logEnvelope("unused");
+      await expect(
+        client.imex.import(toBlob(nameless), { encoding: "JSON" }),
+      ).rejects.toThrow("name");
+    });
+
+    it("should parent the imported resource under the given parent", async () => {
+      const proj = await client.projects.create({
+        name: `imex-proj-${id.create()}`,
+        layout: {},
+      });
+      const oid = await client.imex.import(toBlob(logEnvelope(`imex-${id.create()}`)), {
+        encoding: "JSON",
+        parent: project.ontologyID(proj.key),
+      });
+      const children = await client.ontology.retrieveChildren(
+        project.ontologyID(proj.key),
+      );
+      expect(children.map((child) => child.id.key)).toContain(oid.key);
+    });
+
+    it("should throw an error when the parent does not exist", async () => {
+      await expect(
+        client.imex.import(toBlob(logEnvelope(`imex-${id.create()}`)), {
+          encoding: "JSON",
+          parent: project.ontologyID(uuid.create()),
+        }),
+      ).rejects.toThrow("not found");
     });
   });
 

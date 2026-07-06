@@ -24,6 +24,12 @@ export interface FileIngesterContext {
   store: Pluto.FluxStore;
   client: Synnax | null;
   projectKey: project.Key;
+  /**
+   * The name of the file the data was read from, extension included. Server-side
+   * ingesters forward it so the Core can name the resource after the file when the
+   * file's contents carry no name.
+   */
+  fileName: string;
 }
 
 export interface FileIngester {

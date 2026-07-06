@@ -31,9 +31,9 @@ type Writer struct {
 }
 
 // Create creates the given log within the project provided. If the log does not have
-// a key, a new key will be generated. If projectKey is uuid.Nil, the log is created without a
-// project ParentOf relationship; this is used by the import path, which does not yet
-// wire project relationships.
+// a key, a new key will be generated. If projectKey is uuid.Nil, the log is created
+// without a project ParentOf relationship; this is used by the import path, where the
+// imex service parents the log from its ImportOptions instead.
 func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) error {
 	var (
 		exists bool

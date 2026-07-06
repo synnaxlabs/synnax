@@ -25,7 +25,13 @@ class FileTransport(Transport, Protocol):
     metadata is inferred from the file path (e.g., from its extension).
     """
 
-    def upload(self, target: str, req: FilePath, res_t: type[RS]) -> RS:
+    def upload(
+        self,
+        target: str,
+        req: FilePath,
+        res_t: type[RS],
+        params: dict[str, str] | None = None,
+    ) -> RS:
         """Streams the file at req to target and decodes the response into res_t.
 
         The contents of req are streamed from disk as the request body and the wire
@@ -34,6 +40,8 @@ class FileTransport(Transport, Protocol):
         :param target: the target address of the server.
         :param req: a file path streamed from disk as the request body.
         :param res_t: the expected response payload type.
+        :param params: query parameters appended to the request URL. The body is the
+            raw file bytes, so per-transfer metadata travels out-of-band here.
         :return: the response returned by the server.
         :raises Unreachable: when the target cannot be reached.
         :raises Exception: any error returned by the server.

@@ -26,6 +26,22 @@ export interface Options {
   encoding: Encoding;
 }
 
+/** Options for a single import call. */
+export interface ImportOptions extends Options {
+  /**
+   * The name of the file the resource was read from. When the file's contents carry no
+   * top-level `name` field, the Core names the imported resource after the file, with
+   * any trailing extension stripped. A `name` in the file always wins.
+   */
+  fileName?: string;
+  /**
+   * The ontology resource to parent the imported resource under (e.g. a project for a
+   * visualization). The Core creates the resource and the parent relationship in a
+   * single transaction, so a parenting failure rolls back the import.
+   */
+  parent?: ontology.ID;
+}
+
 /**
  * Imports and exports resources to and from a Synnax cluster as serialized bytes — the
  * same on-disk representation a user reads from or writes to a file. The bytes are
@@ -63,14 +79,25 @@ export class Client {
    * @param source - the serialized resource (e.g. a file's contents). A ReadableStream
    * or Blob is streamed to the Core without buffering it in client memory; an
    * ArrayBufferView or string is sent as-is.
-   * @param options - the import options, including the wire format of source.
+   * @param options - the import options, including the wire format of source, the
+   * source file's name (used to name the resource when the file carries no name), and
+   * the parent to create the resource under.
    * @returns the new resource's ontology ID as stamped by the Core.
    */
-  async import(source: UploadBody, options: Options): Promise<ontology.ID> {
+  async import(
+    source: UploadBody,
+    { encoding, fileName, parent }: ImportOptions,
+  ): Promise<ontology.ID> {
     return await this.fileTransport.upload(
       "/imex/import",
       source,
-      options,
+      {
+        encoding,
+        params: {
+          file_name: fileName,
+          parent: parent != null ? ontology.idToString(parent) : undefined,
+        },
+      },
       ontology.idZ,
     );
   }

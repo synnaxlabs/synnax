@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
+import os
+
 from freighter import FileTransport
 from synnax import ontology
 from x.fs import FilePath
@@ -26,13 +28,28 @@ class Client:
     def __init__(self, file_transport: FileTransport) -> None:
         self._file_transport = file_transport
 
-    def import_(self, source: FilePath) -> ontology.ID:
+    def import_(
+        self,
+        source: FilePath,
+        parent: ontology.ID | None = None,
+    ) -> ontology.ID:
         """Imports the resource at source and returns its new ontology ID.
 
+        The source file's name travels with the request: when the file's contents carry
+        no top-level ``name`` field, the Core names the imported resource after the
+        file, with the extension stripped. A ``name`` in the file always wins.
+
         :param source: a file path streamed from disk.
+        :param parent: the ontology resource to parent the imported resource under
+            (e.g. a project for a visualization). The Core creates the resource and the
+            parent relationship in a single transaction, so a parenting failure rolls
+            the import back.
         :returns: the new resource's ontology ID.
         """
-        return self._file_transport.upload("/imex/import", source, ontology.ID)
+        params = {"file_name": os.path.basename(os.fspath(source))}
+        if parent is not None:
+            params["parent"] = str(parent)
+        return self._file_transport.upload("/imex/import", source, ontology.ID, params)
 
     def export(self, id: ontology.ID, dest: FilePath) -> None:
         """Exports the resource identified by id, streaming it into dest.
