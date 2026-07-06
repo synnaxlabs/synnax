@@ -18,6 +18,8 @@ export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
   const stream = await client.imex.export(log.ontologyID(key), { encoding: "JSON" });
   const data = await new Response(stream).text();
+  // When this is fully migrated, we can remove the envelopeZ and parsing that happens
+  // here.
   const { name } = envelopeZ.parse(JSON.parse(data));
   return { data, name };
 };
