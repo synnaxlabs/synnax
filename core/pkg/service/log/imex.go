@@ -16,7 +16,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -50,14 +52,21 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // Import decodes the envelope into a Log and persists it on tx, returning the
 // ontology.ID of the newly-created log. The exported key is discarded and a fresh one
 // is generated so that importing always materializes a new resource rather than
-// overwriting an existing log with a colliding key. Envelopes older than Version are
+// overwriting an existing log with a colliding key. When opts.Parent is given it must
+// be a project, and the log is created within it exactly as a regular create would be;
+// otherwise the log is created without a project. Envelopes older than Version are
 // legacy camelCase Console exports and are lifted forward through the migration chain;
 // an envelope newer than Version is rejected with a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
+	opts imex.ImportOptions,
 ) (ontology.ID, error) {
+	projectKey, err := parentProjectKey(opts.Parent)
+	if err != nil {
+		return ontology.ID{}, err
+	}
 	l, err := s.decodeImport(ctx, env)
 	if err != nil {
 		return ontology.ID{}, err
@@ -67,10 +76,29 @@ func (s *Service) Import(
 	// caller-supplied file name fallback applied by the imex service. The two agree
 	// whenever the body carries a name, so this only matters for nameless bodies.
 	l.Name = env.Name
-	if err = s.NewWriter(tx).Create(ctx, uuid.Nil, &l); err != nil {
+	if err = s.NewWriter(tx).Create(ctx, projectKey, &l); err != nil {
 		return ontology.ID{}, err
 	}
 	return OntologyID(l.Key), nil
+}
+
+// parentProjectKey resolves the import parent to a project key. A zero parent resolves
+// to uuid.Nil (no project); any parent that is not a project is rejected with a
+// validation error scoped to the "parent" field.
+func parentProjectKey(parent ontology.ID) (project.Key, error) {
+	if parent.IsZero() {
+		return uuid.Nil, nil
+	}
+	if parent.Type != ontology.ResourceTypeProject {
+		return uuid.Nil, imex.NewErrUnsupportedParent(
+			"log", parent, ontology.ResourceTypeProject,
+		)
+	}
+	key, err := uuid.Parse(parent.Key)
+	if err != nil {
+		return uuid.Nil, errors.Wrapf(err, "invalid project key %q", parent.Key)
+	}
+	return key, nil
 }
 
 func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Log, error) {

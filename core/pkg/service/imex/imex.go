@@ -81,6 +81,21 @@ func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 	)
 }
 
+// NewErrUnsupportedParent constructs a validation error for an Importer that was handed
+// a parent it does not support — e.g. a log import parented under anything other than a
+// project. The returned error is path-scoped to the "parent" field so API responses can
+// present it as a structured field error.
+func NewErrUnsupportedParent(typ string, parent ontology.ID, supported ontology.ResourceType) error {
+	return validate.PathedError(
+		errors.Wrapf(
+			validate.ErrValidation,
+			"a %s can only be imported under a %s, got parent of type %q",
+			typ, supported, parent.Type,
+		),
+		"parent",
+	)
+}
+
 // newFieldError constructs a validation error scoped to the named wire field so API
 // responses can present it as a structured field error, mirroring the path-scoping done
 // by NewErrUnsupportedVersion for the "version" field.
@@ -370,6 +385,22 @@ func flattenStruct(rv reflect.Value, m map[string]any) {
 	}
 }
 
+// ImportOptions carries the per-request settings for an import that arrive out-of-band
+// from the envelope body — transport metadata like the source file's name and the
+// desired parent resource.
+type ImportOptions struct {
+	// FileName is the name of the file the envelope was read from. When the envelope
+	// body carries no `name` field, the file name — with any trailing extension
+	// stripped — becomes the envelope's name. A `name` in the body always wins. The
+	// fallback is applied by the registry before the envelope reaches an Importer.
+	FileName string
+	// Parent is the ontology resource to attach the imported resource under. The
+	// registry passes it through untouched: each Importer decides how (and whether) a
+	// parent applies to its resource type, and must reject parents it does not
+	// support. A zero Parent means no parent was requested.
+	Parent ontology.ID
+}
+
 // Importer materializes a resource from an Envelope and persists it. The envelope's
 // Type is informational only, since the registry has already routed to this handler.
 type Importer interface {
@@ -377,8 +408,9 @@ type Importer interface {
 	// of the newly-created resource. The envelope's Name is fully resolved (non-empty)
 	// by the time Import is called — the registry has already applied the file-name
 	// fallback — so importers should treat it as the resource's name rather than
-	// re-deriving one from the body.
-	Import(context.Context, gorp.Tx, Envelope) (ontology.ID, error)
+	// re-deriving one from the body. The importer owns all ontology writes for the
+	// resource, including attaching it under opts.Parent when one is given.
+	Import(ctx context.Context, tx gorp.Tx, env Envelope, opts ImportOptions) (ontology.ID, error)
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under
 	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the

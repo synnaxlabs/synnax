@@ -86,6 +86,7 @@ func (s *testService) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
+	opts imex.ImportOptions,
 ) (ontology.ID, error) {
 	r, err := imex.Decode[testResource](ctx, env)
 	if err != nil {
@@ -97,8 +98,16 @@ func (s *testService) Import(
 		return ontology.ID{}, err
 	}
 	id := ontology.ID{Type: ontology.ResourceTypeChannel, Key: key}
-	if err := otg.NewWriter(tx).DefineResources(ctx, id); err != nil {
+	w := otg.NewWriter(tx)
+	if err := w.DefineResources(ctx, id); err != nil {
 		return ontology.ID{}, err
+	}
+	if !opts.Parent.IsZero() {
+		if err := w.DefineRelationships(
+			ctx, opts.Parent, ontology.RelationshipTypeParentOf, id,
+		); err != nil {
+			return ontology.ID{}, err
+		}
 	}
 	return id, nil
 }
@@ -140,7 +149,9 @@ type errorService struct{}
 
 func (errorService) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
 
-func (errorService) Import(context.Context, gorp.Tx, imex.Envelope) (ontology.ID, error) {
+func (errorService) Import(
+	context.Context, gorp.Tx, imex.Envelope, imex.ImportOptions,
+) (ontology.ID, error) {
 	return ontology.ID{}, errors.New("importer error: forced failure")
 }
 
@@ -152,7 +163,9 @@ type noopImporter struct{ typ ontology.ResourceType }
 
 func (n noopImporter) Type() ontology.ResourceType { return n.typ }
 
-func (n noopImporter) Import(context.Context, gorp.Tx, imex.Envelope) (ontology.ID, error) {
+func (n noopImporter) Import(
+	context.Context, gorp.Tx, imex.Envelope, imex.ImportOptions,
+) (ontology.ID, error) {
 	return ontology.ID{Type: n.typ, Key: "noop-key"}, nil
 }
 
@@ -174,7 +187,7 @@ var _ = Describe("Service", func() {
 		ts  *testService
 	)
 	BeforeEach(func(ctx SpecContext) {
-		svc = imex.NewService(otg)
+		svc = imex.NewService()
 		ts = DeferClose(openTestService(ctx, db))
 		svc.RegisterImportExporter(ts)
 		svc.RegisterImportExporter(errorService{})
@@ -198,7 +211,7 @@ var _ = Describe("Service", func() {
 
 	Describe("RegisterImporter", func() {
 		It("Should register an importer under a narrow type string", func() {
-			s := imex.NewService(otg)
+			s := imex.NewService()
 			s.RegisterImporter("narrow", noopImporter{typ: ontology.ResourceTypeChannel})
 			Expect(s.ImporterType("narrow")).To(Equal(ontology.ResourceTypeChannel))
 		})
@@ -206,7 +219,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should map the narrow type to the importer's broader Type for access control",
 			func(ctx SpecContext) {
-				s := imex.NewService(otg)
+				s := imex.NewService()
 				s.RegisterImporter("http_read", noopImporter{typ: ontology.ResourceTypeTask})
 				s.RegisterImporter("opc_scan", noopImporter{typ: ontology.ResourceTypeTask})
 				Expect(s.ImporterType("http_read")).To(Equal(ontology.ResourceTypeTask))
@@ -229,7 +242,7 @@ var _ = Describe("Service", func() {
 
 	Describe("RegisterExporter", func() {
 		It("Should register an exporter under its own Type", func(ctx SpecContext) {
-			s := imex.NewService(otg)
+			s := imex.NewService()
 			s.RegisterExporter(noopExporter{typ: ontology.ResourceTypeLog})
 			env := MustSucceed(s.Export(ctx, ontology.ID{
 				Type: ontology.ResourceTypeLog,
@@ -371,7 +384,7 @@ var _ = Describe("Service", func() {
 					)
 					return err
 				})
-				Expect(err).To(MatchError(ContainSubstring("parent imported resource")))
+				Expect(err).To(MatchError(query.ErrNotFound))
 				Expect(ts.Retrieve(ctx, "Orphaned")).Error().To(
 					MatchError(query.ErrNotFound),
 				)
@@ -413,7 +426,7 @@ var _ = Describe("Service", func() {
 
 	Describe("Concurrency", func() {
 		It("Should be safe to register and look up handlers from multiple goroutines", func() {
-			s := imex.NewService(otg)
+			s := imex.NewService()
 			const N = 64
 			types := make([]string, N)
 			for i := range types {

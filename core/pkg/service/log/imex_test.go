@@ -167,6 +167,26 @@ var _ = Describe("ImEx", func() {
 			})).To(BeTrue())
 		})
 
+		It("Should reject a parent that is not a project", func(ctx SpecContext) {
+			Expect(imexSvc.Import(
+				ctx, db, loadEnvelope(v2Fixture),
+				imex.ImportOptions{Parent: ontology.ID{
+					Type: ontology.ResourceTypeGroup,
+					Key:  uuid.NewString(),
+				}},
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("can only be imported under a project")),
+				MatchError(ContainSubstring("validation error")),
+			))
+		})
+
+		It("Should reject a parent that does not exist", func(ctx SpecContext) {
+			Expect(imexSvc.Import(
+				ctx, db, loadEnvelope(v2Fixture),
+				imex.ImportOptions{Parent: project.OntologyID(uuid.New())},
+			)).Error().To(MatchError(query.ErrNotFound))
+		})
+
 		It("Should name the imported log from the file name when the body has no name", func(ctx SpecContext) {
 			raw := MustSucceed(os.ReadFile(v2Fixture))
 			var body map[string]any

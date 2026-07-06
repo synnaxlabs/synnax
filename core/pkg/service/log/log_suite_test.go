@@ -60,7 +60,7 @@ var (
 				Search:   searchIdx,
 			}))
 		)
-		imexSvc = imex.NewService(otg)
+		imexSvc = imex.NewService()
 		svc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       db,
 			Ontology: otg,

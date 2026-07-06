@@ -29,17 +29,13 @@ type Service struct {
 	mu        sync.RWMutex
 	importers map[string]Importer
 	exporters map[ontology.ResourceType]Exporter
-	// otg is used to parent imported resources when ImportOptions.Parent is set.
-	otg *ontology.Ontology
 }
 
-// NewService creates a new, empty [Service], safe for concurrent use. otg is used to
-// define parent relationships for imported resources.
-func NewService(otg *ontology.Ontology) *Service {
+// NewService creates a new, empty [Service], safe for concurrent use.
+func NewService() *Service {
 	return &Service{
 		importers: make(map[string]Importer),
 		exporters: make(map[ontology.ResourceType]Exporter),
-		otg:       otg,
 	}
 }
 
@@ -95,25 +91,13 @@ func notFoundError[T ~string](typ T, kind string) error {
 	)
 }
 
-// ImportOptions carries the per-request settings for [Service.Import] that arrive
-// out-of-band from the envelope body — transport metadata like the source file's name
-// and the desired parent resource.
-type ImportOptions struct {
-	// FileName is the name of the file the envelope was read from. When the envelope
-	// body carries no `name` field, the file name — with any trailing extension
-	// stripped — becomes the envelope's name. A `name` in the body always wins.
-	FileName string
-	// Parent is the ontology resource to parent the imported resource under. When
-	// non-zero, a Parent -> ParentOf -> imported resource relationship is defined on
-	// the same transaction as the import, so a parenting failure rolls the import back.
-	Parent ontology.ID
-}
-
 // Import routes envelope to the [Importer] registered under envelope.Type, persists it
-// on tx, and returns the ontology.ID of the created resource. Returns a validation error
-// scoped to the "type" field if no [Importer] is registered for envelope.Type, and a
-// validation error scoped to the "name" field if the envelope has no name after the
-// opts.FileName fallback is applied.
+// on tx, and returns the ontology.ID of the created resource. The opts.FileName name
+// fallback is applied to the envelope before routing; opts is then handed to the
+// importer untouched — the importer owns all ontology writes, including attaching the
+// resource under opts.Parent. Returns a validation error scoped to the "type" field if
+// no [Importer] is registered for envelope.Type, and a validation error scoped to the
+// "name" field if the envelope has no name after the opts.FileName fallback is applied.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -132,16 +116,9 @@ func (s *Service) Import(
 	if envelope.Name == "" {
 		return ontology.ID{}, newFieldError("name", "name must be a non-empty string")
 	}
-	id, err := importer.Import(ctx, tx, envelope)
+	id, err := importer.Import(ctx, tx, envelope, opts)
 	if err != nil {
 		return ontology.ID{}, errors.Wrap(err, "import envelope")
-	}
-	if !opts.Parent.IsZero() {
-		if err = s.otg.NewWriter(tx).DefineRelationships(
-			ctx, opts.Parent, ontology.RelationshipTypeParentOf, id,
-		); err != nil {
-			return ontology.ID{}, errors.Wrap(err, "parent imported resource")
-		}
 	}
 	return id, nil
 }
