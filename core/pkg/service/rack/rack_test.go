@@ -40,7 +40,7 @@ import (
 var _ = Describe("Rack", Ordered, func() {
 	var (
 		writer     rack.Writer
-		rackWriter rack.Writer
+		noTxWriter rack.Writer
 		tx         gorp.Tx
 		db         *gorp.DB
 		svc        *rack.Service
@@ -90,7 +90,7 @@ var _ = Describe("Rack", Ordered, func() {
 				return telem.Now()
 			},
 		}))
-		rackWriter = svc.NewWriter(nil)
+		noTxWriter = svc.NewWriter(nil)
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
@@ -501,9 +501,9 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("NewTaskKey", func() {
 		It("Should correctly return sequential keys", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "niceRack"}
-			Expect(rackWriter.Create(ctx, r)).To(Succeed())
-			t1 := MustSucceed(rackWriter.NewTaskKey(ctx, r.Key))
-			t2 := MustSucceed(rackWriter.NewTaskKey(ctx, r.Key))
+			Expect(noTxWriter.Create(ctx, r)).To(Succeed())
+			t1 := MustSucceed(noTxWriter.NewTaskKey(ctx, r.Key))
+			t2 := MustSucceed(noTxWriter.NewTaskKey(ctx, r.Key))
 			Expect(t2 - t1).To(BeEquivalentTo(1))
 		})
 
@@ -514,11 +514,11 @@ var _ = Describe("Rack", Ordered, func() {
 				keys  = make([]uint32, count)
 				wg    sync.WaitGroup
 			)
-			Expect(rackWriter.Create(ctx, r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, r)).To(Succeed())
 
 			for i := range count {
 				wg.Go(func() {
-					keys[i] = MustSucceed(rackWriter.NewTaskKey(ctx, r.Key))
+					keys[i] = MustSucceed(noTxWriter.NewTaskKey(ctx, r.Key))
 				})
 			}
 			wg.Wait()
@@ -537,7 +537,7 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Status", func() {
 		It("Should initialize a rack with an unknown status", func(ctx SpecContext) {
 			r := rack.Rack{Name: "test rack"}
-			Expect(rackWriter.Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 			Expect(s.Message).To(Equal("Status unknown"))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
@@ -554,7 +554,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Description: "Custom description",
 			}
 			r := rack.Rack{Name: "rack with custom status", Status: providedStatus}
-			Expect(rackWriter.Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 			Expect(s.Message).To(Equal("Custom status message"))
 			Expect(s.Description).To(Equal("Custom description"))
@@ -575,7 +575,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Time:    telem.Now(),
 			}
 			r := rack.Rack{Name: "rack with invalid status", Status: providedStatus}
-			Expect(rackWriter.Create(ctx, &r)).Error().To(MatchError(ContainSubstring("variant")))
+			Expect(noTxWriter.Create(ctx, &r)).Error().To(MatchError(ContainSubstring("variant")))
 		})
 
 		It("Should restore a missing status row when the rack is re-configured", func(ctx SpecContext) {
@@ -624,7 +624,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should mark a rack as dead when it doesn't receive a status within the health check interval", func(ctx SpecContext) {
 			r := rack.Rack{Name: "dead test rack"}
-			Expect(rackWriter.Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
@@ -645,7 +645,7 @@ var _ = Describe("Rack", Ordered, func() {
 			frozenNow.Store(int64(telem.Now()))
 
 			r := rack.Rack{Name: "active test rack"}
-			Expect(rackWriter.Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
 				Key:     rack.OntologyID(r.Key).String(),
@@ -666,7 +666,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should dampen alerts after first dead check", func(ctx SpecContext) {
 			r := rack.Rack{Name: "dampening test rack"}
-			Expect(rackWriter.Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 			var (
 				alertCount int
@@ -695,7 +695,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should reset alert count when rack comes back alive", func(ctx SpecContext) {
 			r := rack.Rack{Name: "reset test rack"}
-			Expect(rackWriter.Create(ctx, &r)).To(Succeed())
+			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 			var (
 				alertCount int
