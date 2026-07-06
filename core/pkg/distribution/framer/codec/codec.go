@@ -96,9 +96,9 @@ type Codec struct {
 	// reader is reused for each decode operation. Unlike the standard library
 	// binary.Read, this avoids reflection overhead.
 	reader *binary.Reader
-	// resolver is used in dynamic codecs to look up the data types of channels when
-	// Update is called. It is nil for codecs created with NewStatic.
-	resolver ChannelResolver
+	// channelResolver is used in dynamic codecs to look up the data types of channels
+	// when Update is called. It is nil for codecs created with NewStatic.
+	channelResolver ChannelResolver
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
@@ -190,12 +190,12 @@ type ChannelResolver interface {
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by resolving channel
-// data types through the provided ChannelResolver with default configuration
-// (alignment compression enabled). Codec.Update must be called before the first call
-// to Codec.Encode and Codec.Decode.
+// data types through the provided ChannelResolver with default configuration (alignment
+// compression enabled). Codec.Update must be called before the first call to
+// Codec.Encode and Codec.Decode.
 func NewDynamic(channelResolver ChannelResolver, opts ...Option) *Codec {
 	c := newCodec(opts...)
-	c.resolver = channelResolver
+	c.channelResolver = channelResolver
 	return c
 }
 
@@ -213,17 +213,18 @@ func newCodec(opts ...Option) *Codec {
 }
 
 // Update updates the codec to use the given keys in its state, resolving their data
-// types through the codec's ChannelResolver. It returns an error if the resolver does
-// not return exactly one data type per key.
+// types through the codec's ChannelResolver. It returns an error if the channel
+// resolver does not return exactly one data type per key.
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
-	dataTypes, err := c.resolver.RetrieveDataTypes(ctx, keys)
+	dataTypes, err := c.channelResolver.RetrieveDataTypes(ctx, keys)
 	if err != nil {
 		return err
 	}
 	if len(dataTypes) != len(keys) {
 		return errors.Newf(
-			"resolver returned %d data types for %d channel keys",
-			len(dataTypes), len(keys),
+			"channel resolver returned %d data types for %d channel keys",
+			len(dataTypes),
+			len(keys),
 		)
 	}
 	keyDataTypes := make(map[channel.Key]telem.DataType, len(keys))
@@ -505,8 +506,8 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, src framer.Frame)
 }
 
 func (c *Codec) retrieveName(ctx context.Context, key channel.Key) string {
-	if c.resolver != nil {
-		if name := c.resolver.RetrieveName(ctx, key); name != "" {
+	if c.channelResolver != nil {
+		if name := c.channelResolver.RetrieveName(ctx, key); name != "" {
 			return name
 		}
 	}
