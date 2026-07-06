@@ -51,7 +51,7 @@ var _ = Describe("Service", func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(chWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 			sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, ch.Name))
 			Expect(sym.Name).To(Equal(ch.Name))
 			Expect(sym.ID).To(Equal(int(ch.Key())))
@@ -62,7 +62,7 @@ var _ = Describe("Service", func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(chWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 			Eventually(func(g Gomega) {
 				results := MustSucceed(
 					svc.NewArcSymbolResolver(nil).Search(ctx, ch.Name),
@@ -83,7 +83,7 @@ var _ = Describe("Service", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(chWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 			var retrieved channel.Channel
 			Expect(svc.NewRetrieve().Where(
 				channel.MatchKeys(ch.Key()),
@@ -110,7 +110,7 @@ var _ = Describe("Service", func() {
 				IsIndex:     true,
 				Leaseholder: 1,
 			}
-			Expect(chWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 			Eventually(called.Load).Should(BeTrue())
 		})
 	})

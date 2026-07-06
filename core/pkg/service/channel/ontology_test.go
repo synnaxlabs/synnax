@@ -73,19 +73,19 @@ var _ = Describe("Ontology", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}
-			Expect(chWriter.Create(ctx, ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 			Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
 		})
 	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func(ctx SpecContext) {
-			Expect(chWriter.Create(ctx, &channel.Channel{
+			Expect(channelWriter.Create(ctx, &channel.Channel{
 				Name: "SG01", DataType: telem.Int64T, Virtual: true,
 			})).To(Succeed())
-			Expect(chWriter.Create(ctx, &channel.Channel{
+			Expect(channelWriter.Create(ctx, &channel.Channel{
 				Name: "SG02", DataType: telem.Int64T, Virtual: true,
 			})).To(Succeed())
-			Expect(chWriter.Create(ctx, &channel.Channel{
+			Expect(channelWriter.Create(ctx, &channel.Channel{
 				Name: "SG03", DataType: telem.Int64T, Virtual: true,
 			})).To(Succeed())
 			n, closer := MustSucceed2(svc.OpenNexter(ctx))
@@ -122,7 +122,7 @@ var _ = Describe("Ontology", Ordered, func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
-				Expect(chWriter.Create(ctx, ch)).To(Succeed())
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 				Eventually(func(g Gomega) {
 					c := <-changes
 					g.Expect(c).To(HaveLen(1))
@@ -140,7 +140,7 @@ var _ = Describe("Ontology", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}
-			Expect(chWriter.Create(ctx, ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 			r := MustSucceed(svc.RetrieveResource(ctx, ch.Key().String(), nil))
 			Expect(r.Name).To(Equal(ch.Name))
 		})

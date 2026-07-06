@@ -28,10 +28,10 @@ func TestWriter(t *testing.T) {
 }
 
 var (
-	node       mock.Node
-	channelSvc *channel.Service
-	chWriter   channel.Writer
-	writerSvc  *writer.Service
+	node          mock.Node
+	channelSvc    *channel.Service
+	channelWriter channel.Writer
+	writerSvc     *writer.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -59,7 +59,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       node.Search,
 		Status:       statusSvc,
 	}))
-	chWriter = channelSvc.NewWriter(nil)
+	channelWriter = channelSvc.NewWriter(nil)
 	writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
 		Framer:  node.Framer,
 		Channel: channelSvc,

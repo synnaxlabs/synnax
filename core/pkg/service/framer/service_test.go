@@ -35,13 +35,13 @@ var _ = Describe("Service", func() {
 			DataType: telem.TimeStampT,
 			IsIndex:  true,
 		}
-		Expect(chWriter.Create(ctx, &idxCh)).To(Succeed())
+		Expect(channelWriter.Create(ctx, &idxCh)).To(Succeed())
 		dataCh := channel.Channel{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float32T,
 			LocalIndex: idxCh.LocalKey,
 		}
-		Expect(chWriter.Create(ctx, &dataCh)).To(Succeed())
+		Expect(channelWriter.Create(ctx, &dataCh)).To(Succeed())
 		return idxCh, dataCh
 	}
 
@@ -249,7 +249,7 @@ var _ = Describe("Service", func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
-			Expect(chWriter.Create(ctx, &ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
 			w := MustOpen(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),

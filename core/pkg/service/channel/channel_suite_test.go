@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	svc      *channel.Service
-	chWriter channel.Writer
+	svc           *channel.Service
+	channelWriter channel.Writer
 )
 
 func TestChannel(t *testing.T) {
@@ -93,5 +93,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
 	svc = openService(ctx, node)
-	chWriter = svc.NewWriter(nil)
+	channelWriter = svc.NewWriter(nil)
 })
