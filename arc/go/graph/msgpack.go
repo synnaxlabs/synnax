@@ -87,10 +87,10 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 		if len(legacy.Nodes) > 0 {
 			g.Inputs = make(map[string]xmsgpack.EncodedJSON, len(legacy.Nodes))
 			for _, ln := range legacy.Nodes {
-				cfg := xmsgpack.EncodedJSON{}
-				maps.Copy(cfg, ln.Config)
-				cfg["type"] = ln.Type
-				g.Inputs[ln.Key] = cfg
+				inputs := xmsgpack.EncodedJSON{}
+				maps.Copy(inputs, ln.Config)
+				inputs["type"] = ln.Type
+				g.Inputs[ln.Key] = inputs
 			}
 		}
 	}

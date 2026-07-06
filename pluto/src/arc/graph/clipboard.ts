@@ -46,7 +46,8 @@ export const useClipboard = ({
       const actions: arc.Action[] = [];
       for (const { node, config } of nodes) {
         actions.push(arc.setNode({ node }));
-        if (config != null) actions.push(arc.setNodeConfig({ key: node.key, config }));
+        if (config != null)
+          actions.push(arc.setNodeInputs({ key: node.key, inputs: config }));
       }
       for (const { edge } of edges)
         actions.push(arc.addEdge({ edge: { ...edge, key: uuid.create() } }));

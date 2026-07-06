@@ -27,8 +27,8 @@ export type RenamePayload = z.infer<typeof renamePayloadZ>;
 /**
  * SetNode inserts the node if no node with the same key exists, otherwise
  * replaces the existing node in place. Operates only on the node's
- * position; the node's function type and config are set separately
- * via SetNodeConfig.
+ * position; the node's function type and inputs are set separately
+ * via SetNodeInputs.
  */
 export const setNodePayloadZ = z.object({
   node: graph.nodeZ,
@@ -45,20 +45,20 @@ export const setNodePositionPayloadZ = z.object({
 export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
- * SetNodeConfig merges the given config into the entry for the given key in the
+ * SetNodeInputs merges the given inputs into the entry for the given key in the
  * graph inputs map. Top-level fields present in the payload overwrite
  * existing fields; fields absent from the payload are preserved. The
  * node's function type is held under "type".
  */
-export const setNodeConfigPayloadZ = z.object({
+export const setNodeInputsPayloadZ = z.object({
   key: z.string(),
-  config: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
+  inputs: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });
 
-export type SetNodeConfigPayload = z.infer<typeof setNodeConfigPayloadZ>;
+export type SetNodeInputsPayload = z.infer<typeof setNodeInputsPayloadZ>;
 
 /**
- * RemoveNode removes the node with the given key along with its config entry and
+ * RemoveNode removes the node with the given key along with its inputs entry and
  * any edges connected to it.
  */
 export const removeNodePayloadZ = z.object({
@@ -143,8 +143,8 @@ export const actionZ = z.discriminatedUnion("type", [
     setNodePosition: setNodePositionPayloadZ,
   }),
   z.object({
-    type: z.literal("set_node_config"),
-    setNodeConfig: setNodeConfigPayloadZ,
+    type: z.literal("set_node_inputs"),
+    setNodeInputs: setNodeInputsPayloadZ,
   }),
   z.object({ type: z.literal("remove_node"), removeNode: removeNodePayloadZ }),
   z.object({ type: z.literal("add_edge"), addEdge: addEdgePayloadZ }),
@@ -174,11 +174,11 @@ export const setNodePosition = (
   setNodePosition: setNodePositionPayloadZ.parse(payload),
 });
 
-export const setNodeConfig = (
-  payload: z.input<typeof setNodeConfigPayloadZ>,
+export const setNodeInputs = (
+  payload: z.input<typeof setNodeInputsPayloadZ>,
 ): Action => ({
-  type: "set_node_config",
-  setNodeConfig: setNodeConfigPayloadZ.parse(payload),
+  type: "set_node_inputs",
+  setNodeInputs: setNodeInputsPayloadZ.parse(payload),
 });
 
 export const removeNode = (payload: z.input<typeof removeNodePayloadZ>): Action => ({
@@ -229,7 +229,7 @@ export interface Handlers {
     state: Draft<Arc>,
     payload: SetNodePositionPayload,
   ) => HandlerResult;
-  setNodeConfig: (state: Draft<Arc>, payload: SetNodeConfigPayload) => HandlerResult;
+  setNodeInputs: (state: Draft<Arc>, payload: SetNodeInputsPayload) => HandlerResult;
   removeNode: (state: Draft<Arc>, payload: RemoveNodePayload) => HandlerResult;
   addEdge: (state: Draft<Arc>, payload: AddEdgePayload) => HandlerResult;
   removeEdge: (state: Draft<Arc>, payload: RemoveEdgePayload) => HandlerResult;
@@ -248,8 +248,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setNode(state, action.setNode);
       case "set_node_position":
         return handlers.setNodePosition(state, action.setNodePosition);
-      case "set_node_config":
-        return handlers.setNodeConfig(state, action.setNodeConfig);
+      case "set_node_inputs":
+        return handlers.setNodeInputs(state, action.setNodeInputs);
       case "remove_node":
         return handlers.removeNode(state, action.removeNode);
       case "add_edge":

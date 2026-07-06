@@ -92,30 +92,30 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
-	Describe("SetNodeConfig", func() {
+	Describe("SetNodeInputs", func() {
 		It("Should merge the configuration into the existing entry", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
 			state.Graph.Inputs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
-			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeConfigAction(arc.SetNodeConfigPayload{
+			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeInputsAction(arc.SetNodeInputsPayload{
 				Key:    "n1",
-				Config: msgpack.EncodedJSON{"offset": 2},
+				Inputs: msgpack.EncodedJSON{"offset": 2},
 			})))
 			Expect(out.Graph.Inputs["n1"]).To(Equal(msgpack.EncodedJSON{"gain": 1, "offset": 2}))
 		})
 		It("Should overwrite fields present in both the existing and payload configs", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
 			state.Graph.Inputs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
-			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeConfigAction(arc.SetNodeConfigPayload{
+			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeInputsAction(arc.SetNodeInputsPayload{
 				Key:    "n1",
-				Config: msgpack.EncodedJSON{"gain": 5},
+				Inputs: msgpack.EncodedJSON{"gain": 5},
 			})))
 			Expect(out.Graph.Inputs["n1"]).To(Equal(msgpack.EncodedJSON{"gain": 5}))
 		})
 		It("Should write the configuration even when no node has the key", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeConfigAction(arc.SetNodeConfigPayload{
+			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeInputsAction(arc.SetNodeInputsPayload{
 				Key:    "ghost",
-				Config: msgpack.EncodedJSON{"offset": 2},
+				Inputs: msgpack.EncodedJSON{"offset": 2},
 			})))
 			Expect(out.Graph.Inputs["ghost"]).To(Equal(msgpack.EncodedJSON{"offset": 2}))
 		})
@@ -265,7 +265,7 @@ var _ = Describe("Reducer", func() {
 			Entry("rename", arc.ActionTypeRename),
 			Entry("set_node", arc.ActionTypeSetNode),
 			Entry("set_node_position", arc.ActionTypeSetNodePosition),
-			Entry("set_node_config", arc.ActionTypeSetNodeConfig),
+			Entry("set_node_inputs", arc.ActionTypeSetNodeInputs),
 			Entry("remove_node", arc.ActionTypeRemoveNode),
 			Entry("add_edge", arc.ActionTypeAddEdge),
 			Entry("remove_edge", arc.ActionTypeRemoveEdge),

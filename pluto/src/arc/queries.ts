@@ -221,9 +221,9 @@ export const useAddNode = (keyOverride?: arc.Key) => {
           arc.setNode({
             node: { key: nodeKey, position: xy.construct(position ?? xy.ZERO) },
           }),
-          arc.setNodeConfig({
+          arc.setNodeInputs({
             key: nodeKey,
-            config: spec.defaultConfig(theme) as record.Unknown,
+            inputs: spec.defaultConfig(theme) as record.Unknown,
           }),
         ],
       });

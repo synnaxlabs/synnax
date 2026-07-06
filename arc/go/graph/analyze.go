@@ -116,8 +116,8 @@ func Analyze(
 	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		cfg := g.Inputs[n.Key]
-		rawType, ok := cfg["type"]
+		inputs := g.Inputs[n.Key]
+		rawType, ok := inputs["type"]
 		if !ok {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(
 				nil,
@@ -152,7 +152,7 @@ func Analyze(
 		}
 		// Param values come from the node's entry in the graph inputs map.
 		for j, param := range freshType.Inputs {
-			paramValue, ok := cfg[param.Name]
+			paramValue, ok := inputs[param.Name]
 			if !ok {
 				continue
 			}

@@ -1062,7 +1062,7 @@ describe("Arc queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: isolated.key,
-          actions: [arc.setNodeConfig({ key: "n1", config: { value: 99 } })],
+          actions: [arc.setNodeInputs({ key: "n1", inputs: { value: 99 } })],
         });
       });
       expect(result.current.nodes).toBe(initial);
@@ -1177,7 +1177,7 @@ describe("Arc queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: isolated.key,
-          actions: [arc.setNodeConfig({ key: "n2", config: { value: 42 } })],
+          actions: [arc.setNodeInputs({ key: "n2", inputs: { value: 42 } })],
         });
       });
       expect(result.current.config).toBe(initial);
@@ -1196,7 +1196,7 @@ describe("Arc queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: isolated.key,
-          actions: [arc.setNodeConfig({ key: "n1", config: { value: 42 } })],
+          actions: [arc.setNodeInputs({ key: "n1", inputs: { value: 42 } })],
         });
       });
       await waitFor(() => {
@@ -1286,7 +1286,7 @@ describe("Arc queries", () => {
           key: isolated.key,
           actions: [
             arc.setNode({ node: { key: "n3", position: { x: 5, y: 5 } } }),
-            arc.setNodeConfig({ key: "n3", config: { type: "constant", value: 7 } }),
+            arc.setNodeInputs({ key: "n3", inputs: { type: "constant", value: 7 } }),
           ],
         });
       });

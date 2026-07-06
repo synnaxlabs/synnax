@@ -90,7 +90,7 @@ describe("arc reducer", () => {
     });
   });
 
-  describe("setNodeConfig", () => {
+  describe("setNodeInputs", () => {
     it("should overwrite fields present in both the existing and payload configs", () => {
       const state = empty({
         nodes: [node("n1", 0, 0)],
@@ -98,7 +98,7 @@ describe("arc reducer", () => {
       });
       const out = apply(
         state,
-        arc.setNodeConfig({ key: "n1", config: cfg("constant", { value: 2 }) }),
+        arc.setNodeInputs({ key: "n1", inputs: cfg("constant", { value: 2 }) }),
       );
       expect(out.graph.inputs.n1).toEqual(cfg("constant", { value: 2 }));
     });
@@ -107,11 +107,11 @@ describe("arc reducer", () => {
         nodes: [node("n1", 0, 0)],
         inputs: { n1: cfg("constant", { value: 1 }) },
       });
-      const out = apply(state, arc.setNodeConfig({ key: "n1", config: { value: 2 } }));
+      const out = apply(state, arc.setNodeInputs({ key: "n1", inputs: { value: 2 } }));
       expect(out.graph.inputs.n1).toEqual(cfg("constant", { value: 2 }));
     });
     it("should write the config even when no entry exists yet", () => {
-      const out = apply(empty(), arc.setNodeConfig({ key: "n1", config: cfg("add") }));
+      const out = apply(empty(), arc.setNodeInputs({ key: "n1", inputs: cfg("add") }));
       expect(out.graph.inputs.n1).toEqual(cfg("add"));
     });
   });
@@ -371,9 +371,9 @@ describe("arc reducer", () => {
       const out = apply(
         empty(),
         arc.setNode({ node: node("src", 0, 0) }),
-        arc.setNodeConfig({ key: "src", config: cfg("on", { channel: 1 }) }),
+        arc.setNodeInputs({ key: "src", inputs: cfg("on", { channel: 1 }) }),
         arc.setNode({ node: node("sink", 200, 0) }),
-        arc.setNodeConfig({ key: "sink", config: cfg("write", { channel: 2 }) }),
+        arc.setNodeInputs({ key: "sink", inputs: cfg("write", { channel: 2 }) }),
         arc.addEdge({
           edge: {
             key: "srcsink",
@@ -413,7 +413,7 @@ describe("arc reducer inverses", () => {
   };
 
   // Node removal cascades to its config and connected edges; the inverse
-  // re-inserts the node via setNode (which appends) plus setNodeConfig and
+  // re-inserts the node via setNode (which appends) plus setNodeInputs and
   // addEdge. Slice order is not preserved, so compare nodes by key.
   const expectGraphRoundTrip = (state: arc.Arc, actions: arc.Action[]) => {
     const { next, inverse } = arc.reduceAll(state, actions);
@@ -465,14 +465,14 @@ describe("arc reducer inverses", () => {
     });
   });
 
-  describe("setNodeConfig", () => {
+  describe("setNodeInputs", () => {
     it("should invert by restoring the prior config", () => {
       expectGraphRoundTrip(
         empty({
           nodes: [node("n1", 0, 0)],
           inputs: { n1: cfg("constant", { value: 1 }) },
         }),
-        [arc.setNodeConfig({ key: "n1", config: cfg("constant", { value: 2 }) })],
+        [arc.setNodeInputs({ key: "n1", inputs: cfg("constant", { value: 2 }) })],
       );
     });
   });
@@ -541,7 +541,7 @@ describe("arc reducer inverses", () => {
       expect(
         arc.isUndoable(arc.setNodePosition({ key: "n1", position: { x: 0, y: 0 } })),
       ).toBe(true);
-      expect(arc.isUndoable(arc.setNodeConfig({ key: "n1", config: cfg("add") }))).toBe(
+      expect(arc.isUndoable(arc.setNodeInputs({ key: "n1", inputs: cfg("add") }))).toBe(
         true,
       );
       expect(arc.isUndoable(arc.removeNode({ key: "n1" }))).toBe(true);
