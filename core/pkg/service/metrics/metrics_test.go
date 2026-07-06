@@ -226,14 +226,13 @@ var _ = Describe("Metrics", func() {
 				ctx, "Metrics", channelSvc.Group().OntologyID(),
 			))
 			otgWriter := dist.Ontology.NewWriter(nil)
-			Expect(otgWriter.DeleteRelationship(
-				ctx,
-				metricsGroup.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				cpuChannel.OntologyID(),
-			)).To(Succeed())
+			Expect(otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+				From: metricsGroup.OntologyID(),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   cpuChannel.OntologyID(),
+			})).To(Succeed())
 
-			Expect(otgWriter.DefineRelationship(
+			Expect(otgWriter.DefineRelationships(
 				ctx,
 				newGroup.OntologyID(),
 				ontology.RelationshipTypeParentOf,
@@ -302,12 +301,11 @@ var _ = Describe("Metrics", func() {
 			))
 
 			otgWriter := dist.Ontology.NewWriter(nil)
-			Expect(otgWriter.DeleteRelationship(
-				ctx,
-				metricsGroup.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				memChannel.OntologyID(),
-			)).To(Succeed())
+			Expect(otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+				From: metricsGroup.OntologyID(),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   memChannel.OntologyID(),
+			})).To(Succeed())
 
 			var parentsBefore []ontology.Resource
 			Expect(dist.Ontology.NewRetrieve().

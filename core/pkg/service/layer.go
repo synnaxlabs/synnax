@@ -307,6 +307,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if closer, err := ontologysignals.Publish(
 		ctx,
+		cfg.Child("ontology_signals"),
 		l.Signals,
 		cfg.Distribution.Ontology,
 	); !ok(err, closer) {

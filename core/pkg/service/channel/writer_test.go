@@ -340,8 +340,12 @@ var _ = Describe("Writer", func() {
 					}
 					Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 					originalKey := ch.Key()
-					Expect(dist.Ontology.NewWriter(nil).
-						HasResource(ctx, channel.OntologyID(originalKey))).To(BeTrue())
+					Expect(dist.
+						Ontology.
+						NewRetrieve().
+						WhereIDs(channel.OntologyID(originalKey)).
+						Exists(ctx, nil),
+					).To(BeTrue())
 
 					newCh := channel.Channel{
 						Virtual:     true,
@@ -352,10 +356,14 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewWriter(nil).Create(ctx, &newCh, channel.OverwriteIfNameExistsAndDifferentProperties())).To(Succeed())
 					Expect(newCh.Key()).ToNot(Equal(originalKey))
 
-					Expect(dist.Ontology.NewWriter(nil).
-						HasResource(ctx, channel.OntologyID(originalKey))).To(BeFalse())
-					Expect(dist.Ontology.NewWriter(nil).
-						HasResource(ctx, channel.OntologyID(newCh.Key()))).To(BeTrue())
+					Expect(dist.Ontology.NewRetrieve().
+						WhereIDs(channel.OntologyID(originalKey)).
+						Exists(ctx, nil),
+					).To(BeFalse())
+					Expect(dist.Ontology.NewRetrieve().
+						WhereIDs(channel.OntologyID(newCh.Key())).
+						Exists(ctx, nil),
+					).To(BeTrue())
 				})
 			})
 			It("Should not create a free channel if it already exists by name", func(ctx SpecContext) {

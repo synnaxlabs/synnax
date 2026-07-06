@@ -426,13 +426,13 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
 		return OntologyID(ch.Key()), !ch.Internal
 	})
-	if err := w.otg.DefineResource(ctx, externalIDs...); err != nil {
+	if err := w.otg.DefineResources(ctx, externalIDs...); err != nil {
 		return err
 	}
 	if opts.createWithoutGroupRelationship {
 		return nil
 	}
-	return w.otg.DefineRelationship(
+	return w.otg.DefineRelationships(
 		ctx,
 		group.OntologyID(w.svc.group.Key),
 		ontology.RelationshipTypeParentOf,
@@ -530,7 +530,7 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DeleteResource(ctx, OntologyIDsFromKeys(keys)...); err != nil {
+	if err := w.otg.DeleteResources(ctx, OntologyIDsFromKeys(keys)...); err != nil {
 		return err
 	}
 	// Storage deletion goes last, as it is the only operation that can fail without an

@@ -94,9 +94,6 @@ type change = xchange.Change[Key, Channel]
 // Type implements ontology.Service.
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
-
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k, err := ParseKey(key)
