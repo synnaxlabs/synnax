@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -119,19 +119,19 @@ var _ = Describe("Streamer", Ordered, func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			indexCh = &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, indexCh)).To(Succeed())
 			dataCh1 = &channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, dataCh1)).To(Succeed())
 			dataCh2 = &channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
@@ -141,7 +141,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should receive calculated values", func(ctx SpecContext) {
 			calculation := &channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Float32T,
 				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
 			}
@@ -179,7 +179,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should allow the user to dynamically update the channels being calculated", func(ctx SpecContext) {
 			calculation := &channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Float32T,
 				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
 			}
@@ -219,32 +219,32 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should compute when inputs with different indexes arrive in separate frames", func(ctx SpecContext) {
 			idxA := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, idxA)).To(Succeed())
 			idxB := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, idxB)).To(Succeed())
 			dataA := &channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: idxA.LocalKey,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, dataA)).To(Succeed())
 			dataB := &channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: idxB.LocalKey,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, dataB)).To(Succeed())
 
 			calculation := &channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Float32T,
 				Expression: fmt.Sprintf("return %s + %s", dataA.Name, dataB.Name),
 			}
@@ -303,7 +303,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	Describe("Downsampling", func() {
 		It("Should correctly downsample a factor of 2", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -334,7 +334,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should handle invalid downsampling factors", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -351,28 +351,28 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should correctly combine downsampling with calculations", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, indexCh)).To(Succeed())
 
 			dataCh1 := &channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, dataCh1)).To(Succeed())
 
 			dataCh2 := &channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, dataCh2)).To(Succeed())
 
 			calculation := &channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Float32T,
 				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
 			}
@@ -419,7 +419,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	Describe("Throttling", func() {
 		It("Should accumulate and throttle frames", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -457,7 +457,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should not throttle when rate is 0", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -494,7 +494,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should combine throttling and downsampling", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -534,7 +534,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	Describe("Throttling", func() {
 		It("Should accumulate and throttle frames", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -572,7 +572,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should not throttle when rate is 0", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}
@@ -609,7 +609,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 		It("Should combine throttling and downsampling", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}

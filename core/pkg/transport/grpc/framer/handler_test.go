@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -27,7 +27,7 @@ func createVirtualChannels(ctx context.Context, dt telem.DataType, n int) channe
 	chs := make([]channel.Channel, n)
 	for i := range chs {
 		chs[i] = channel.Channel{
-			Name:     testutil.RandomName(),
+			Name:     RandomName(),
 			DataType: dt,
 			Virtual:  true,
 		}

@@ -19,7 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -69,7 +69,7 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("OntologyID", func() {
 		It("Should correctly return the ontology.ID for the specified channel", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}
@@ -118,7 +118,7 @@ var _ = Describe("Ontology", Ordered, func() {
 					})
 				defer dc()
 				ch := &channel.Channel{
-					Name:     testutil.RandomName(),
+					Name:     RandomName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
@@ -136,7 +136,7 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("RetrieveResource", func() {
 		It("Should correctly retrieve a resource", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}

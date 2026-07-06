@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -79,7 +79,7 @@ var _ = Describe("Service", func() {
 	Describe("NewRetrieve", func() {
 		It("Should retrieve a channel created through the service", func(ctx SpecContext) {
 			ch := channel.Channel{
-				Name:     testutil.RandomName(),
+				Name:     RandomName(),
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
@@ -105,7 +105,7 @@ var _ = Describe("Service", func() {
 				})
 			defer disconnect()
 			ch := channel.Channel{
-				Name:        testutil.RandomName(),
+				Name:        RandomName(),
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Leaseholder: 1,
@@ -119,7 +119,7 @@ var _ = Describe("Service", func() {
 		It("Should create a writer that infers types for calculated channels", func(ctx SpecContext) {
 			w := svc.NewWriter(nil)
 			ch := channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				Expression: "return 1 + 1",
 				Virtual:    true,
 			}

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -21,7 +21,7 @@ import (
 func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
 	GinkgoHelper()
 	ch := channel.Channel{
-		Name:     testutil.RandomName(),
+		Name:     RandomName(),
 		DataType: dt,
 		Virtual:  true,
 	}

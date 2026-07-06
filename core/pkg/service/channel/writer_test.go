@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
@@ -56,14 +56,14 @@ var _ = Describe("Writer", func() {
 		It("Should not count virtual or internal channels toward the limit", func(ctx SpecContext) {
 			for range 5 {
 				virtual := channel.Channel{
-					Name:        testutil.RandomName(),
+					Name:        RandomName(),
 					DataType:    telem.Float64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
 				}
 				Expect(overflowSvc.NewWriter(nil).Create(ctx, &virtual)).To(Succeed())
 				internal := channel.Channel{
-					Name:        testutil.RandomName(),
+					Name:        RandomName(),
 					DataType:    telem.TimeStampT,
 					IsIndex:     true,
 					Internal:    true,
@@ -75,7 +75,7 @@ var _ = Describe("Writer", func() {
 		It("Should reject external non-virtual channels past the limit", func(ctx SpecContext) {
 			for range 2 {
 				ch := channel.Channel{
-					Name:        testutil.RandomName(),
+					Name:        RandomName(),
 					DataType:    telem.TimeStampT,
 					IsIndex:     true,
 					Leaseholder: 1,
@@ -83,7 +83,7 @@ var _ = Describe("Writer", func() {
 				Expect(overflowSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			}
 			third := channel.Channel{
-				Name:        testutil.RandomName(),
+				Name:        RandomName(),
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Leaseholder: 1,
@@ -96,13 +96,13 @@ var _ = Describe("Writer", func() {
 				IntOverflowCheck: fixedOverflowChecker(3),
 			})
 			idx := channel.Channel{
-				Name:        testutil.RandomName(),
+				Name:        RandomName(),
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Leaseholder: 1,
 			}
 			Expect(cleanupSvc.NewWriter(nil).Create(ctx, &idx)).To(Succeed())
-			name := testutil.RandomName()
+			name := RandomName()
 			data := channel.Channel{
 				Name:        name,
 				DataType:    telem.Float64T,
@@ -124,7 +124,7 @@ var _ = Describe("Writer", func() {
 			// been left behind, creating another external channel would push the count
 			// to 4 and trip the limit-of-3 overflow check.
 			another := channel.Channel{
-				Name:        testutil.RandomName(),
+				Name:        RandomName(),
 				DataType:    telem.Float64T,
 				LocalIndex:  idx.LocalKey,
 				Leaseholder: 1,
@@ -172,13 +172,13 @@ var _ = Describe("Writer", func() {
 			var ch channel.Channel
 			JustBeforeEach(func(ctx SpecContext) {
 				ch.IsIndex = true
-				ch.Name = testutil.RandomName()
+				ch.Name = RandomName()
 				ch.DataType = telem.TimeStampT
 				ch.Leaseholder = 1
 				Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			})
 			It("Should create the channel without a group relationship", func(ctx SpecContext) {
-				ch.Name = testutil.RandomName()
+				ch.Name = RandomName()
 				Expect(svc.NewWriter(nil).Create(ctx, &ch, channel.CreateWithoutGroupRelationship())).To(Succeed())
 				entries := []ontology.Resource{}
 				Expect(dist.Ontology.
@@ -211,13 +211,13 @@ var _ = Describe("Writer", func() {
 			It("Should create multiple channels without error", func(ctx SpecContext) {
 				chs := []channel.Channel{
 					{
-						Name:        testutil.RandomName(),
+						Name:        RandomName(),
 						DataType:    telem.TimeStampT,
 						Leaseholder: 1,
 						IsIndex:     true,
 					},
 					{
-						Name:        testutil.RandomName(),
+						Name:        RandomName(),
 						DataType:    telem.TimeStampT,
 						Leaseholder: 1,
 						IsIndex:     true,
@@ -232,7 +232,7 @@ var _ = Describe("Writer", func() {
 			})
 			It("Should return an error if the names are duplicates", func(ctx SpecContext) {
 				ch1 := channel.Channel{
-					Name:        testutil.RandomName(),
+					Name:        RandomName(),
 					DataType:    telem.Float64T,
 					Leaseholder: 1,
 					Virtual:     true,
@@ -251,7 +251,7 @@ var _ = Describe("Writer", func() {
 			var ch channel.Channel
 			BeforeEach(func() {
 				ch.IsIndex = true
-				ch.Name = testutil.RandomName()
+				ch.Name = RandomName()
 				ch.DataType = telem.TimeStampT
 				ch.Leaseholder = 1
 			})
@@ -272,7 +272,7 @@ var _ = Describe("Writer", func() {
 			Describe("OverwriteIfNameExists", func() {
 
 				It("Should overwrite the channel if it already exists by name and the new channel has different properties than the old one", func(ctx SpecContext) {
-					name := testutil.RandomName()
+					name := RandomName()
 					ch := channel.Channel{
 						Virtual:     true,
 						Name:        name,
@@ -331,7 +331,7 @@ var _ = Describe("Writer", func() {
 					Expect(resChannels[0].DataType).To(Equal(telem.TimeStampT))
 				})
 				It("Should delete the overwritten channel's ontology resource", func(ctx SpecContext) {
-					name := testutil.RandomName()
+					name := RandomName()
 					ch := channel.Channel{
 						Virtual:     true,
 						Name:        name,
@@ -544,7 +544,7 @@ var _ = Describe("Writer", func() {
 
 			It("Should infer the calculated channel DataType from its expression on update", func(ctx SpecContext) {
 				calcCh := channel.Channel{
-					Name:       testutil.RandomName(),
+					Name:       RandomName(),
 					DataType:   telem.Float64T,
 					Expression: "return 1.0",
 				}
@@ -573,14 +573,14 @@ var _ = Describe("Writer", func() {
 			var ch channel.Channel
 			var ch2 channel.Channel
 			BeforeEach(func(ctx SpecContext) {
-				ch.Name = testutil.RandomName()
+				ch.Name = RandomName()
 				ch.DataType = telem.Float64T
 				ch.Virtual = true
 				ch.Internal = false
 				ch.Leaseholder = node.KeyFree
 
 				ch2.IsIndex = true
-				ch2.Name = testutil.RandomName()
+				ch2.Name = RandomName()
 				ch2.DataType = telem.TimeStampT
 				ch2.Leaseholder = 1
 
@@ -588,7 +588,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(nil).Create(ctx, &ch2)).To(Succeed())
 			})
 			It("Should update the channel name without error", func(ctx SpecContext) {
-				newName := testutil.RandomName()
+				newName := RandomName()
 				ch.Name = newName
 				Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 				Expect(ch.Name).To(Equal(newName))
@@ -735,7 +735,7 @@ var _ = Describe("Writer", func() {
 		Context("Single Channel", func() {
 			var idxCh, ch channel.Channel
 			JustBeforeEach(func(ctx SpecContext) {
-				prefix := testutil.RandomName()
+				prefix := RandomName()
 				idxCh.Name = prefix + "_time"
 				idxCh.DataType = telem.TimeStampT
 				idxCh.IsIndex = true
@@ -774,7 +774,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(nil).DeleteMany(ctx, keys, false)).To(Succeed())
 			})
 			It("Should succeed when deleting by names that do not exist", func(ctx SpecContext) {
-				names := []string{testutil.RandomName(), testutil.RandomName()}
+				names := []string{RandomName(), RandomName()}
 				Expect(svc.NewWriter(nil).DeleteManyByNames(ctx, names, false)).To(Succeed())
 			})
 		})
@@ -782,7 +782,7 @@ var _ = Describe("Writer", func() {
 			var internalCh channel.Channel
 			JustBeforeEach(func(ctx SpecContext) {
 				internalCh = channel.Channel{
-					Name:        testutil.RandomName(),
+					Name:        RandomName(),
 					DataType:    telem.TimeStampT,
 					IsIndex:     true,
 					Internal:    true,
@@ -806,7 +806,7 @@ var _ = Describe("Writer", func() {
 			})
 			It("Should not delete any channels when the batch contains an internal channel", func(ctx SpecContext) {
 				externalCh := channel.Channel{
-					Name:        testutil.RandomName(),
+					Name:        RandomName(),
 					DataType:    telem.TimeStampT,
 					IsIndex:     true,
 					Leaseholder: 1,
@@ -841,13 +841,13 @@ var _ = Describe("Writer", func() {
 			var ch channel.Channel
 			JustBeforeEach(func(ctx SpecContext) {
 				ch.Virtual = true
-				ch.Name = testutil.RandomName()
+				ch.Name = RandomName()
 				ch.DataType = telem.Float64T
 				ch.Leaseholder = 1
 				Expect(svc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			})
 			It("Should rename the channel without error", func(ctx SpecContext) {
-				name := testutil.RandomName()
+				name := RandomName()
 				Expect(svc.NewWriter(nil).Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
 				Expect(svc.NewRetrieve().
@@ -864,7 +864,7 @@ var _ = Describe("Writer", func() {
 			Context("new name is a duplicate", func() {
 				It("Should return an error", func(ctx SpecContext) {
 					secondCh := channel.Channel{
-						Name:     testutil.RandomName(),
+						Name:     RandomName(),
 						Virtual:  true,
 						DataType: telem.Float64T,
 					}
@@ -878,17 +878,17 @@ var _ = Describe("Writer", func() {
 			It("Should rename the channels without error", func(ctx SpecContext) {
 				channels := []channel.Channel{
 					{
-						Name:     testutil.RandomName(),
+						Name:     RandomName(),
 						Virtual:  true,
 						DataType: telem.Int64T,
 					},
 					{
-						Name:     testutil.RandomName(),
+						Name:     RandomName(),
 						Virtual:  true,
 						DataType: telem.Float32T,
 					},
 					{
-						Name:        testutil.RandomName(),
+						Name:        RandomName(),
 						DataType:    telem.StringT,
 						Leaseholder: node.KeyFree,
 						Virtual:     true,
@@ -896,7 +896,7 @@ var _ = Describe("Writer", func() {
 				}
 				Expect(svc.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 				keys := channel.KeysFromChannels(channels)
-				names := []string{testutil.RandomName(), testutil.RandomName(), testutil.RandomName()}
+				names := []string{RandomName(), RandomName(), RandomName()}
 				Expect(svc.NewWriter(nil).RenameMany(
 					ctx,
 					keys,
@@ -1066,7 +1066,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should change the data type of a calculated channel", func(ctx SpecContext) {
 			base := channel.Channel{
-				Name:       testutil.RandomName(),
+				Name:       RandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
 				Expression: "return 1",
@@ -1079,7 +1079,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should return a validation error when changing the data type of a non-calculated channel", func(ctx SpecContext) {
 			ch := channel.Channel{
-				Name:        testutil.RandomName(),
+				Name:        RandomName(),
 				DataType:    telem.Float64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
