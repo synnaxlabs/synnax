@@ -141,11 +141,14 @@ var _ = Describe("Create", Ordered, func() {
 				ch.Leaseholder = node.KeyFree
 				ch.Virtual = true
 			})
-			It("Should create the channel without error", func(ctx SpecContext) {
+			It("Should create the channel with a transient storage registration", func(ctx SpecContext) {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
-				Expect(cluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).
-					Error().To(MatchError(query.ErrNotFound))
+				stored := MustSucceed(
+					cluster.Nodes[1].Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+				)
+				Expect(stored.Virtual).To(BeTrue())
+				Expect(stored.Transient).To(BeTrue())
 			})
 		})
 
@@ -510,17 +513,18 @@ var _ = Describe("Create", Ordered, func() {
 		var ch channel.Channel
 		var ch2 channel.Channel
 		BeforeEach(func(ctx SpecContext) {
-			ch.Name = channel.NewRandomName()
-			ch.DataType = telem.Float64T
-			ch.Virtual = true
-			ch.Internal = false
-			ch.Leaseholder = node.KeyFree
-
-			ch2.IsIndex = true
-			ch2.Name = channel.NewRandomName()
-			ch2.DataType = telem.TimeStampT
-			ch2.Leaseholder = 1
-
+			ch = channel.Channel{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+			}
+			ch2 = channel.Channel{
+				IsIndex:     true,
+				Name:        channel.NewRandomName(),
+				DataType:    telem.TimeStampT,
+				Leaseholder: 1,
+			}
 			Expect(cluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 			Expect(cluster.Nodes[1].Channel.Create(ctx, &ch2)).To(Succeed())
 		})

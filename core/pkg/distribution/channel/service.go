@@ -51,6 +51,9 @@ type Service struct {
 	// only populated on the bootstrapper node.
 	leasedCounter *counter
 	freeCounter   *counter
+	// freeStorageMu serializes transient free-channel registrations in the local
+	// storage engine so concurrent writer opens do not race on creation.
+	freeStorageMu sync.Mutex
 	// mu guards externalNonVirtualSet, which tracks the key set used by
 	// validateChannels to enforce the uint20 channel-index overflow limit.
 	// Retrieve.Validate routes through here, and createGateway/deleteGateway

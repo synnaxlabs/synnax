@@ -30,6 +30,11 @@ type StreamerConfig struct {
 	Channels []channel.Key
 	// OnSuccessfulStart is closed when the Streamer is successfully opened.
 	SendOpenAck bool
+	// MatchAll subscribes the Streamer to every frame written to the DB, ignoring
+	// Channels and any subsequent channel set updates. Use this when the caller
+	// maintains its own downstream filter and needs a subscription that can never
+	// be stale with respect to that filter's key set.
+	MatchAll bool
 }
 
 // StreamerResponse contains a frame representing the series of all subscribed channels.
@@ -132,7 +137,11 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				}
 				s.Channels = s.translateRequest(req).Channels
 			case rf := <-frames.Outlet():
-				if filtered := rf.frame.KeepKeys(s.Channels); !filtered.Empty() {
+				filtered := rf.frame
+				if !s.MatchAll {
+					filtered = rf.frame.KeepKeys(s.Channels)
+				}
+				if !filtered.Empty() {
 					if err := signal.SendUnderContext(
 						ctx,
 						s.Out.Inlet(),

@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -93,8 +92,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-const freeWritePipelineBuffer = 4000
-
 // OpenService opens a new service using the provided configuration(s). Fields defined
 // in each subsequent configuration override those in previous configurations. See the
 // ServiceConfig struct for information required fields.
@@ -120,14 +117,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	freeWrites := confluence.NewStream[relay.Response](freeWritePipelineBuffer)
 	if s.relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Child("relay"),
 		Channel:         cfg.Channel,
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Relay(),
-		FreeWrites:      freeWrites,
 	}); !ok(err, s.relay) {
 		return nil, err
 	}
@@ -137,7 +132,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
 		Channel:         cfg.Channel,
-		FreeWrites:      freeWrites,
 	}); !ok(err, nil) {
 		return nil, err
 	}

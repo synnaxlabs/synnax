@@ -65,9 +65,6 @@ type tapper struct {
 	// AbstractUnarySource is where we send our responses to, which are the frames
 	// we receive from the tapController relays.
 	confluence.AbstractUnarySource[Response]
-	// freeWrites is where we receive writes from free channels in the distribution
-	// write pipeline.
-	freeWrites confluence.Outlet[Response]
 	// demands track the current channels demanded by each entity.
 	demands map[address.Address]channel.Keys
 	// taps tracks the current taps we have open.
@@ -81,10 +78,9 @@ type tapper struct {
 
 func newTapper(config Config) confluence.Segment[demand, Response] {
 	t := &tapper{
-		Config:     config,
-		demands:    make(map[address.Address]channel.Keys),
-		taps:       make(map[node.Key]tapController),
-		freeWrites: config.FreeWrites,
+		Config:  config,
+		demands: make(map[address.Address]channel.Keys),
+		taps:    make(map[node.Key]tapController),
 	}
 	t.Sink = t.sink
 	return t
@@ -248,15 +244,32 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.Key) (tap, error)
 }
 
 func (t *tapper) tapIntoFreeWrites() (tap, error) {
-	f := &freeWriteTap{freeWrites: t.freeWrites}
+	str, err := cesium.NewTranslatedStreamer(
+		t.TS,
+		ts.StreamerConfig{MatchAll: true},
+		reqToStorage,
+		resFromStorage,
+	)
+	if err != nil {
+		return nil, err
+	}
+	f := &freeWriteTap{streamer: str}
 	t.freeTap = f
 	return f, nil
 }
 
+// freeWriteTap streams writes to free channels out of the local storage engine. Free
+// channels are registered transiently in every node's local storage, so their writes
+// surface through the same streaming mechanism as stored channels. The tap subscribes
+// to every locally written frame rather than to the demanded key set, and filters
+// against an atomically published key set - so a demand acknowledged by the tapper is
+// guaranteed to already be filtering its keys in, which is the happens-before barrier
+// SendOpenAck provides for free channels.
 type freeWriteTap struct {
 	confluence.AbstractUnarySink[Request]
 	confluence.AbstractUnarySource[Response]
-	freeWrites confluence.Outlet[Response]
+	// streamer is the match-all storage streamer that surfaces every local write.
+	streamer tap
 	// keys is the set of free channels currently being filtered in. It is updated
 	// synchronously by the tapper (setKeys) and read on every free write, so it is
 	// an atomic pointer: the read path takes a single lock-free atomic load and the
@@ -272,7 +285,13 @@ func (f *freeWriteTap) setKeys(keys channel.Keys) { f.keys.Store(&keys) }
 func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(f.Out)
+	streamerRequests := confluence.NewStream[Request](1)
+	streamerResponses := confluence.NewStream[Response](1)
+	f.streamer.InFrom(streamerRequests)
+	f.streamer.OutTo(streamerResponses)
+	f.streamer.Flow(sCtx)
 	sCtx.Go(func(ctx context.Context) error {
+		defer streamerRequests.Close()
 		for {
 			select {
 			case <-ctx.Done():
@@ -283,14 +302,17 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-			case req := <-f.freeWrites.Outlet():
+			case res, ok := <-streamerResponses.Outlet():
+				if !ok {
+					return nil
+				}
 				keys := f.keys.Load()
 				if keys == nil {
 					continue
 				}
-				req.Frame = req.Frame.KeepKeys(*keys)
-				if !req.Frame.Empty() {
-					f.Out.Inlet() <- req
+				res.Frame = res.Frame.KeepKeys(*keys)
+				if !res.Frame.Empty() {
+					f.Out.Inlet() <- res
 				}
 			}
 		}

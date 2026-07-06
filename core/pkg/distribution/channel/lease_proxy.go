@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"go/types"
+	"slices"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -285,7 +286,91 @@ func (s *Service) createAndUpdateFreeVirtual(
 		}
 	}
 
+	// Free channels are registered transiently in this node's local storage; other
+	// nodes provision them lazily at writer open.
+	if err := s.registerFreeStorage(ctx, toCreate); err != nil {
+		return err
+	}
+
 	return s.maybeSetResources(ctx, tx, toCreate, opts)
+}
+
+// EnsureFreeStorage registers the free channels among the given channels, along with
+// their index channels, in this node's local storage engine as transient virtual
+// channels so that writers can be opened against them. Channels that are not free are
+// ignored, and channels already registered locally are skipped.
+func (s *Service) EnsureFreeStorage(ctx context.Context, channels []Channel) error {
+	free := lo.Filter(channels, func(c Channel, _ int) bool { return c.Free() })
+	if len(free) == 0 {
+		return nil
+	}
+	present := lo.SliceToMap(free, func(c Channel) (Key, struct{}) {
+		return c.Key(), struct{}{}
+	})
+	var indexKeys Keys
+	for _, ch := range free {
+		idx := ch.Index()
+		if _, ok := present[idx]; idx != 0 && !ok {
+			indexKeys = append(indexKeys, idx)
+			present[idx] = struct{}{}
+		}
+	}
+	if len(indexKeys) > 0 {
+		var indexes []Channel
+		if err := s.NewRetrieve().
+			Where(MatchKeys(indexKeys...)).
+			Entries(&indexes).
+			Exec(ctx, nil); err != nil {
+			return err
+		}
+		free = append(free, indexes...)
+	}
+	return s.registerFreeStorage(ctx, free)
+}
+
+// registerFreeStorage registers the free channels among the given channels in the
+// local storage engine, skipping channels that are already registered. A channel whose
+// index is not registered locally is skipped as well: the index was created through
+// another node, and the group is resolved on the next provision.
+func (s *Service) registerFreeStorage(ctx context.Context, channels []Channel) error {
+	s.freeStorageMu.Lock()
+	defer s.freeStorageMu.Unlock()
+	free := lo.Filter(channels, func(c Channel, _ int) bool { return c.Free() })
+	// Indexes must be registered before the channels they index.
+	slices.SortStableFunc(free, func(a, b Channel) int {
+		return boolToInt(b.IsIndex) - boolToInt(a.IsIndex)
+	})
+	for _, ch := range free {
+		if _, err := s.cfg.TSChannel.RetrieveChannel(ctx, ch.Key().StorageKey()); err == nil {
+			continue
+		} else if !errors.Is(err, query.ErrNotFound) {
+			return err
+		}
+		if err := s.cfg.TSChannel.CreateChannel(ctx, ch.Storage()); err != nil {
+			if isStorageNotFound(err) {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// isStorageNotFound reports whether err is a not-found error from the storage engine,
+// piercing validate.PathError, which does not implement Unwrap.
+func isStorageNotFound(err error) bool {
+	if errors.Is(err, query.ErrNotFound) {
+		return true
+	}
+	var pathErr validate.PathError
+	return errors.As(err, &pathErr) && errors.Is(pathErr.Err, query.ErrNotFound)
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // validateChannelNames rejects a create/rename request whose proposed names
@@ -594,7 +679,19 @@ func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIntern
 }
 
 func (s *Service) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
-	return s.table.NewDelete().Where(gorp.MatchKeys[Key, Channel](channels...)).Exec(ctx, tx)
+	if err := s.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Channel](channels...)).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	// Remove this node's transient storage registrations, where present.
+	// Registrations on other nodes vanish on their next restart.
+	for _, key := range channels {
+		if err := s.cfg.TSChannel.DeleteChannel(key.StorageKey()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
@@ -712,10 +809,21 @@ func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.Chan
 }
 
 func (s *Service) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
-	return s.table.NewUpdate().
+	if err := s.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](channels...)).
 		ChangeErr(channelNameUpdater(allowInternal, channels, names)).
-		Exec(ctx, tx)
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	// Rename this node's transient storage registrations, where present. Other
+	// nodes pick up the new name when they next provision the channel.
+	for i, key := range channels {
+		if err := s.cfg.TSChannel.RenameChannel(ctx, key.StorageKey(), names[i]); err != nil &&
+			!errors.Is(err, query.ErrNotFound) {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {

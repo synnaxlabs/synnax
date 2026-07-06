@@ -593,10 +593,10 @@ var _ = Describe("Writer", func() {
 			Expect(writtenData).To(telem.MatchSeriesData(data))
 			writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
 			Expect(writtenIdx).To(telem.MatchSeriesData(idx))
-			Expect(writtenData.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
+			groupDomain := writtenData.Alignment.DomainIndex()
+			Expect(groupDomain).To(BeNumerically(">", cesium.ZeroLeadingAlignment))
 			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
-			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
-			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(0))
+			Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
 			data = telem.NewSeriesV[float32](3, 4)
 			idx = telem.NewSeriesSecondsTSV(12*telem.SecondTS, 13*telem.SecondTS)
 			MustSucceed(writer.Write(frame.NewMulti(
@@ -609,10 +609,9 @@ var _ = Describe("Writer", func() {
 			Expect(writtenData).To(telem.MatchSeriesData(data))
 			writtenIdx = res.Frame.Get(idxCh.Key()).Series[0]
 			Expect(writtenIdx).To(telem.MatchSeriesData(idx))
-			Expect(writtenData.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
+			Expect(writtenData.Alignment.DomainIndex()).To(Equal(groupDomain))
 			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
-			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
-			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(2))
+			Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
 		})
 	})
 })

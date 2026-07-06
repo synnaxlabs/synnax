@@ -44,13 +44,6 @@ type Config struct {
 	// HostResolver is used to retrieve information about the host node.
 	// [REQUIRED]
 	HostResolver node.HostResolver
-	// FreeWrites is the pipeline for moving data for free virtual channels. Free virtual
-	// channels are not leased to any node, and their data is not stored in the cluster
-	// and is propagated through the cluster using a separate mechanism. This is mostly
-	// used for signaling changes in the cluster meta-data through aspen based key-value
-	// gossip.
-	// [REQUIRED]
-	FreeWrites confluence.Outlet[Response]
 	// TS is the underlying time-series database engine that serves as one of the three
 	// main data sources for the relay.
 	//
@@ -99,7 +92,6 @@ func (c Config) Override(other Config) Config {
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
-	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
 	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
@@ -113,7 +105,6 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "transport", c.Transport)
 	validate.NotNil(v, "host_provider", c.HostResolver)
 	validate.NotNil(v, "ts", c.TS)
-	validate.NotNil(v, "free_writers", c.FreeWrites)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
 	validate.Positive(v, "response_buffer_size", c.ResponseBufferSize)
