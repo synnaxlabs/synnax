@@ -62,6 +62,28 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 	}))
 	writer = channelSvc.NewWriter(nil)
+
+	// Pebble's first memtable is only 256KB, doubling on each rotation toward the
+	// configured size. The graph reactively writes statuses and DataType repairs on
+	// top of every channel create/delete, so this suite's cumulative KV writes cross
+	// the early boundaries mid-suite; the commit that fills a memtable rotates the
+	// WAL, spawning a replacement flush goroutine that the per-spec leak check would
+	// misattribute to whichever spec is running. Fill the first three memtables
+	// (256KB + 512KB + 1MB) here so the rotations land in the suite baseline; the
+	// resulting 2MB memtable is an order of magnitude beyond the suite's remaining
+	// write volume. Commits must stay small: a batch half the memtable size or
+	// larger takes pebble's flushable-batch path, which rotates immediately and
+	// shrinks the next memtable back down.
+	junk := make([]byte, 1024)
+	for batch := range 400 {
+		tx := db.OpenTx()
+		for i := range 5 {
+			Expect(tx.Set(
+				ctx, fmt.Appendf(nil, "warmup-%d-%d", batch, i), junk,
+			)).To(Succeed())
+		}
+		Expect(tx.Commit(ctx)).To(Succeed())
+	}
 })
 
 func openGraph(ctx context.Context) *graph.Graph {
