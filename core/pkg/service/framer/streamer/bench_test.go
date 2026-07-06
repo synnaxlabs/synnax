@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -34,6 +35,7 @@ import (
 type benchStreamerEnv struct {
 	ctx         context.Context
 	node        mock.Node
+	closer      io.MultiCloser
 	channelSvc  *channel.Service
 	writerSvc   *writer.Service
 	streamerSvc *streamer.Service
@@ -109,6 +111,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	return &benchStreamerEnv{
 		ctx:         b.Context(),
 		node:        node,
+		closer:      io.MultiCloser{calc, channelSvc, statusSvc, labelSvc, searchIdx, node},
 		channelSvc:  channelSvc,
 		writerSvc:   writerSvc,
 		streamerSvc: streamerSvc,
@@ -116,8 +119,8 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 }
 
 func (e *benchStreamerEnv) close(b *testing.B) {
-	if err := e.node.Close(); err != nil {
-		b.Errorf("failed to close cluster: %v", err)
+	if err := e.closer.Close(); err != nil {
+		b.Errorf("failed to close env: %v", err)
 	}
 }
 

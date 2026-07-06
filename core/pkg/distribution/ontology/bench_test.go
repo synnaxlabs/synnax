@@ -89,6 +89,9 @@ func newBenchEnv(b *testing.B) *benchEnv {
 }
 
 func (e *benchEnv) close(b *testing.B) {
+	if err := e.searchIdx.Close(); err != nil {
+		b.Errorf("failed to close search index: %v", err)
+	}
 	if err := e.otg.Close(); err != nil {
 		b.Errorf("failed to close ontology: %v", err)
 	}

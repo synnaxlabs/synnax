@@ -54,6 +54,11 @@ func newBenchIndex(b *testing.B) *search.Index {
 	if err != nil {
 		b.Fatal(err)
 	}
+	b.Cleanup(func() {
+		if err := idx.Close(); err != nil {
+			b.Errorf("failed to close search index: %v", err)
+		}
+	})
 	svc := &benchService{}
 	idx.RegisterService(svc)
 	if err := idx.Initialize(context.Background()); err != nil {
