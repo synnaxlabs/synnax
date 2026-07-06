@@ -348,11 +348,41 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		}
 	}
 
+	// Group virtual writers by their index channel. Each group allocates one fresh
+	// alignment domain per writer open from the index channel's DB, so alignments
+	// correlate across the group's members and stay unique across writers.
+	var memberGroups map[ChannelKey]*virtualGroup
+	if len(virtualWriters) > 0 {
+		groupsByIndex := make(map[ChannelKey]*virtualGroup)
+		for key, vw := range virtualWriters {
+			idxKey := vw.Channel.Index
+			if vw.Channel.IsIndex {
+				idxKey = vw.Channel.Key
+			}
+			if idxKey == 0 {
+				continue
+			}
+			g, ok := groupsByIndex[idxKey]
+			if !ok {
+				idxDB, idxOk := db.mu.dbs.virtual[idxKey]
+				if !idxOk {
+					return nil, channel.NewNotFoundError(idxKey)
+				}
+				g = &virtualGroup{indexKey: idxKey, alignment: idxDB.AllocateLeadingAlignment()}
+				groupsByIndex[idxKey] = g
+			}
+			if memberGroups == nil {
+				memberGroups = make(map[ChannelKey]*virtualGroup)
+			}
+			memberGroups[key] = g
+		}
+	}
+
 	w = &streamWriter{
 		WriterConfig: cfg,
 		internal:     make([]*idxWriter, 0, len(domainWriters)),
 		relay:        db.relay.inlet,
-		virtual:      &virtualWriter{internal: virtualWriters, digestKey: db.mu.digests.key},
+		virtual:      &virtualWriter{internal: virtualWriters, digestKey: db.mu.digests.key, groups: memberGroups},
 		keyToIdx:     keyToIdx,
 		updateDBControl: func(ctx context.Context, update ControlUpdate) error {
 			db.mu.RLock()

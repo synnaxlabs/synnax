@@ -99,15 +99,15 @@ var _ = Describe("Meta", func() {
 						"data_type",
 					),
 					Entry(
-						"virtual indexed",
+						"transient but not virtual",
 						channel.Channel{
-							Key:      GenerateChannelKey(),
-							Virtual:  true,
-							Name:     "Snow?",
-							Index:    500000000,
-							DataType: telem.Int64T,
+							Key:       GenerateChannelKey(),
+							Transient: true,
+							IsIndex:   true,
+							Name:      "Snow?",
+							DataType:  telem.TimeStampT,
 						},
-						"virtual channel cannot be indexed",
+						"only virtual channels can be transient",
 					),
 					Entry(
 						"index not type timestamp",

@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -798,9 +799,23 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 	return w.idx.Stamp(ctx, w.start, w.sampleCount-1, true)
 }
 
+// virtualGroup tracks the shared write alignment for an index group of virtual
+// channels within a single writer. Every member of the group is stamped with the
+// group's current alignment, and writes to the group's index channel advance the
+// sample position, so series written across the group correlate sample-for-sample.
+type virtualGroup struct {
+	// indexKey is the key of the group's index channel.
+	indexKey ChannelKey
+	// alignment is the group's current write position.
+	alignment telem.Alignment
+}
+
 type virtualWriter struct {
 	internal  map[ChannelKey]*virtual.Writer
 	digestKey channel.Key
+	// groups maps each virtual channel belonging to an index group to the group's
+	// shared alignment state. Channels without an index are absent.
+	groups map[ChannelKey]*virtualGroup
 }
 
 func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame, error) {
@@ -823,8 +838,21 @@ func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame,
 			*filterUnauthorized = append(*filterUnauthorized, k)
 			continue
 		}
+		if g, grouped := w.groups[k]; grouped {
+			alignment = g.alignment
+		}
 		s.Alignment = alignment
 		fr.SetRawSeriesAt(rawI, s)
+	}
+	// Advance group alignments only after stamping the whole frame so that every
+	// series in it, including the index series itself, shares the same alignment.
+	for rawI, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(rawI) || lo.Contains(*filterUnauthorized, k) {
+			continue
+		}
+		if g, grouped := w.groups[k]; grouped && g.indexKey == k {
+			g.alignment = g.alignment.AddSamples(uint32(fr.RawSeriesAt(rawI).Len()))
+		}
 	}
 	return fr, accumulatedErr
 }

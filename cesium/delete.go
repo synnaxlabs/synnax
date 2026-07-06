@@ -207,6 +207,18 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 		return nil
 	}
 	if vDB, ok := db.mu.dbs.virtual[ch]; ok {
+		if vDB.Channel().IsIndex {
+			for otherDBKey, otherDB := range db.mu.dbs.virtual {
+				if otherDBKey != ch && otherDB.Channel().Index == vDB.Channel().Key {
+					return errors.Newf(
+						"cannot delete channel %v "+
+							"because it indexes data in channel %v",
+						vDB.Channel(),
+						otherDB.Channel(),
+					)
+				}
+			}
+		}
 		if err := vDB.Close(); err != nil {
 			return err
 		}

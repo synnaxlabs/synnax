@@ -180,11 +180,41 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		return errors.Wrapf(validate.ErrValidation, "cannot create channel %v because it already exists", ch)
 	}
 	if ch.Virtual {
+		if ch.Index != 0 && !ch.IsIndex {
+			indexDB, ok := db.mu.dbs.virtual[ch.Index]
+			if !ok {
+				if _, unaryOk := db.mu.dbs.unary[ch.Index]; unaryOk {
+					return validate.PathedError(
+						errors.Wrapf(validate.ErrValidation, "virtual channel cannot be indexed by stored channel %d", ch.Index),
+						"index",
+					)
+				}
+				return validate.PathedError(indexChannelNotFoundError(ch.Index), "index")
+			}
+			if !indexDB.Channel().IsIndex {
+				return validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "channel %v is not an index", indexDB.Channel()),
+					"index",
+				)
+			}
+			if indexDB.Channel().Transient && !ch.Transient {
+				return validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "persistent channel cannot be indexed by transient channel %v", indexDB.Channel()),
+					"index",
+				)
+			}
+		}
 		return nil
 	}
 	if ch.Index != 0 && !ch.IsIndex {
 		indexDB, ok := db.mu.dbs.unary[ch.Index]
 		if !ok {
+			if _, virtualOk := db.mu.dbs.virtual[ch.Index]; virtualOk {
+				return validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "stored channel cannot be indexed by virtual channel %d", ch.Index),
+					"index",
+				)
+			}
 			return validate.PathedError(indexChannelNotFoundError(ch.Index), "index")
 		}
 		if !indexDB.Channel().IsIndex {
