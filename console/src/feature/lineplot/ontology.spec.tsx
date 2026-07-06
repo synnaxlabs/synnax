@@ -18,7 +18,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { createCluster, createClusterState } from "@/platform/cluster/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton, findLastButton } from "@/platform/modals/testutil";
@@ -36,6 +35,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestStore,
+  stubClipboardWriteText,
   uniqueName,
 } from "@/testutil";
 

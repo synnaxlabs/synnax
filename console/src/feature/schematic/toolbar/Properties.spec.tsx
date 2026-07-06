@@ -15,14 +15,15 @@ import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
-import {
-  client,
-  getInputByItemLabel,
-  renderSchematic,
-} from "@/feature/schematic/testutil";
+import { client, renderSchematic } from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { type Session } from "@/session";
-import { CaptureStatuses, getIconButton, isPlutoDisabled } from "@/testutil";
+import {
+  CaptureStatuses,
+  getIconButton,
+  getInputByItemLabel,
+  isPlutoDisabled,
+} from "@/testutil";
 
 const theme = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark);
 

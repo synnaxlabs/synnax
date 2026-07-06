@@ -14,7 +14,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Table } from "@/feature/table";
 import { client, createPreloadedState, project } from "@/feature/table/testutil";
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { createCluster, createClusterState } from "@/platform/cluster/testutil";
 import { Modals } from "@/platform/modals";
 import { findLastButton } from "@/platform/modals/testutil";
@@ -32,6 +31,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestStore,
+  stubClipboardWriteText,
   uniqueName,
 } from "@/testutil";
 

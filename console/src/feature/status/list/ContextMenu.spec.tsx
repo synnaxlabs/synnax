@@ -13,11 +13,15 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { List } from "@/feature/status/list";
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Modals } from "@/platform/modals";
 import { findModalButton } from "@/platform/ontology/menuTestutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  stubClipboardWriteText,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 

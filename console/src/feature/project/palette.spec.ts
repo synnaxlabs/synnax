@@ -12,10 +12,10 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Project } from "@/feature/project";
-import { installPickedDirectory } from "@/feature/project/testutil";
 import { renderPalette } from "@/platform/palette/testutil";
 import { Session } from "@/session";
 import {
+  installPickedDirectory,
   interceptFilePicker,
   removeFilePickers,
   stubGeometry,

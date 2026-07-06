@@ -16,13 +16,16 @@ import { Schematic } from "@/feature/schematic";
 import {
   client,
   createSymbolPayload,
-  findCompositeIconButton,
   renderSchematic,
   SYMBOL_FILE_DROP_PROMPT,
 } from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import { getInputByNodePlaceholder, uniqueName } from "@/testutil";
+import {
+  getCompositeIconButton,
+  getInputByNodePlaceholder,
+  uniqueName,
+} from "@/testutil";
 
 const renderSymbolsToolbar = async () =>
   await renderSchematic(Schematic.Toolbar, {
@@ -151,7 +154,7 @@ describe("Schematic toolbar Symbols", () => {
     const { result } = await renderSymbolsToolbar();
     await screen.findByText("Gauge");
     const createGroup = await waitFor(() =>
-      findCompositeIconButton(result.container, ["group", "add"]),
+      getCompositeIconButton(result.container, ["group", "add"]),
     );
     fireEvent.click(createGroup);
     await screen.findByText("Create Group");

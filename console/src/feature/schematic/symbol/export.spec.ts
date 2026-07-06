@@ -13,14 +13,11 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
-import {
-  client,
-  createSymbolPayload,
-  installFakeDirectoryPicker,
-} from "@/feature/schematic/testutil";
+import { client, createSymbolPayload } from "@/feature/schematic/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import {
   captureBrowserDownloads,
+  installFakeDirectoryPicker,
   removeFilePickers,
   renderHookWithConsole,
   uniqueName,

@@ -12,11 +12,11 @@ import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Project } from "@/feature/project";
-import { installPickedDirectory } from "@/feature/project/testutil";
 import { createExecutingHandleError } from "@/platform/ontology/testutil";
 import { Session } from "@/session";
 import {
   createTestStore,
+  installPickedDirectory,
   removeFilePickers,
   type TestStore,
   uniqueName,
