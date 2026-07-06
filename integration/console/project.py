@@ -12,6 +12,7 @@ import os
 import random
 import re
 import shutil
+import tempfile
 from typing import Any, Literal, TypeVar, overload
 
 from playwright.sync_api import Locator
@@ -604,40 +605,37 @@ class ProjectClient:
         )
         return files
 
-    def import_page(self, json_path: str) -> str:
+    def import_page(self, json_path: str, name: str) -> None:
         """Import a component via the real "Import component(s)" command palette flow.
 
-        The imported page takes its name from the fixture: client-side importers
-        (schematic/table/plot) derive the tab name from the file name (via
-        trimFileName), while the server-side log importer reads it from the envelope's
-        top-level ``name`` field. The fixtures are named ``{name}.json`` with a matching
-        ``name`` field, so the tab and the project-tree row agree, and this method
-        returns that name.
+        The import pipeline derives the tab name from the chosen filename (via
+        trimFileName), so we copy ``json_path`` into a temp file named
+        ``{name}.json`` to control the resulting tab name independently of
+        the source fixture's filename.
 
-        Waits for the page to appear in the project resource tree before returning.
-        Non-schematic types (lineplot/log/table) only persist to the server via the
-        mounted tab's debounced ``useSyncComponent`` hook; if the caller closes the tab
-        before that debounce flushes, the save is cancelled and the tree row never
-        appears. Waiting on the tree row guarantees the server-side resource exists.
+        Waits for the page to appear in the project resource tree before
+        returning. Non-schematic types (lineplot/log/table) only persist to
+        the server via the mounted tab's debounced ``useSyncComponent`` hook;
+        if the caller closes the tab before that debounce flushes, the save
+        is cancelled and the tree row never appears. Waiting on the tree row
+        guarantees the server-side resource exists.
 
         Args:
-            json_path: Path to the fixture JSON file to import.
-
-        Returns:
-            The name of the imported page.
+            json_path: Path to the JSON file to import.
+            name: Display name for the imported page tab.
         """
-        with open(json_path, "r") as f:
-            name: str = json.load(f)["name"]
-        with self.layout.page.expect_file_chooser() as fc_info:
-            self.layout.command_palette("Import component(s)")
-        fc_info.value.set_files(json_path)
-        self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
-        if not self.page_exists(name):
-            raise AssertionError(
-                f"Imported page {name!r} did not appear in project tree"
-            )
-        self.layout.close_left_toolbar()
-        return name
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = os.path.join(tmp_dir, f"{name}.json")
+            shutil.copyfile(json_path, tmp_path)
+            with self.layout.page.expect_file_chooser() as fc_info:
+                self.layout.command_palette("Import component(s)")
+            fc_info.value.set_files(tmp_path)
+            self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
+            if not self.page_exists(name):
+                raise AssertionError(
+                    f"Imported page {name!r} did not appear in project tree"
+                )
+            self.layout.close_left_toolbar()
 
     def import_project_from_directory(self, directory_path: str) -> None:
         """Import a project via the real "Import a project" command flow.

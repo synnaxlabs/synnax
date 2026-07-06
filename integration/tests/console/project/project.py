@@ -114,13 +114,13 @@ class Project(ConsoleCase):
         """Test importing a line plot from a JSON file."""
         self.log("Testing import line plot")
         json_path = get_fixture_path("ImportSpace/Metrics Plot.json")
-        name = self.console.project.import_page(json_path)
+        self.console.project.import_page(json_path, "Metrics Plot")
 
-        assert self.console.project.page_exists(name), (
+        assert self.console.project.page_exists("Metrics Plot"), (
             "Imported line plot should appear in project resources"
         )
 
-        plot = Plot.from_open_page(self.console.layout, self.client, name)
+        plot = Plot.from_open_page(self.console.layout, self.client, "Metrics Plot")
         labels = plot.get_line_labels()
         expected = [
             "sy_node_1_metrics_cpu_percentage",
@@ -128,53 +128,55 @@ class Project(ConsoleCase):
         ]
         assert labels == expected, f"Expected line labels {expected}, got {labels}"
 
-        self.console.layout.close_tab(name)
+        self.console.layout.close_tab("Metrics Plot")
 
     def test_import_schematic(self) -> None:
         """Test importing a schematic from a JSON file."""
         self.log("Testing import schematic")
         json_path = get_fixture_path("ImportSpace/Metrics Schematic.json")
-        name = self.console.project.import_page(json_path)
+        self.console.project.import_page(json_path, "Metrics Schematic")
 
-        assert self.console.project.page_exists(name), (
+        assert self.console.project.page_exists("Metrics Schematic"), (
             "Imported schematic should appear in project resources"
         )
 
-        schematic = Schematic.from_open_page(self.console.layout, self.client, name)
+        schematic = Schematic.from_open_page(
+            self.console.layout, self.client, "Metrics Schematic"
+        )
         assert schematic.get_symbol_count() == 2, (
             "Imported schematic should have 2 gauge symbols"
         )
 
-        self.console.layout.close_tab(name)
+        self.console.layout.close_tab("Metrics Schematic")
 
     def test_import_log(self) -> None:
         """Test importing a log from a JSON file."""
         self.log("Testing import log")
         json_path = get_fixture_path("ImportSpace/Metrics Log.json")
-        name = self.console.project.import_page(json_path)
+        self.console.project.import_page(json_path, "Metrics Log")
 
-        assert self.console.project.page_exists(name), (
+        assert self.console.project.page_exists("Metrics Log"), (
             "Imported log should appear in project resources"
         )
 
-        log = Log.from_open_page(self.console.layout, self.client, name)
+        log = Log.from_open_page(self.console.layout, self.client, "Metrics Log")
         assert log.has_channel("sy_node_1_metrics_cpu_percentage"), (
             "Imported log should have sy_node_1_metrics_cpu_percentage channel"
         )
 
-        self.console.layout.close_tab(name)
+        self.console.layout.close_tab("Metrics Log")
 
     def test_import_table(self) -> None:
         """Test importing a table from a JSON file."""
         self.log("Testing import table")
         json_path = get_fixture_path("ImportSpace/Metrics Table.json")
-        name = self.console.project.import_page(json_path)
+        self.console.project.import_page(json_path, "Metrics Table")
 
-        assert self.console.project.page_exists(name), (
+        assert self.console.project.page_exists("Metrics Table"), (
             "Imported table should appear in project resources"
         )
 
-        table = Table.from_open_page(self.console.layout, self.client, name)
+        table = Table.from_open_page(self.console.layout, self.client, "Metrics Table")
         assert table.get_row_count() == 2, (
             f"Expected 2 rows, got {table.get_row_count()}"
         )
@@ -190,7 +192,7 @@ class Project(ConsoleCase):
             "Cell [1,1] should have sy_node_1_metrics_mem_percentage"
         )
 
-        self.console.layout.close_tab(name)
+        self.console.layout.close_tab("Metrics Table")
 
     def test_export_project(self) -> None:
         """Test exporting a project through the real Export action."""
