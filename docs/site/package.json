@@ -18,6 +18,7 @@
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
+    "@astrojs/markdown-remark": "^7.2.1",
     "@astrojs/mdx": "^7.0.2",
     "@astrojs/react": "^6.0.1",
     "@astrojs/vercel": "^11.0.2",

@@ -472,6 +472,9 @@ importers:
 
   docs/site:
     dependencies:
+      '@astrojs/markdown-remark':
+        specifier: ^7.2.1
+        version: 7.2.1
       '@astrojs/mdx':
         specifier: ^7.0.2
         version: 7.0.2(@astrojs/markdown-satteri@0.3.3)(astro@7.0.6(@astrojs/markdown-remark@7.2.1)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@26.1.0)(@vercel/functions@3.7.5(ws@8.21.0))(jiti@2.7.0)(rollup@4.62.2)(yaml@2.9.0))
