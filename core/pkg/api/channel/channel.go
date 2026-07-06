@@ -81,8 +81,8 @@ func (s *Service) RetrieveDataTypes(
 	}), nil
 }
 
-// RetrieveName implements codec.ChannelResolver, resolving the name of the channel
-// with the given key, returning an empty string if no channel with the key exists.
+// RetrieveName implements codec.ChannelResolver, resolving the name of the channel with
+// the given key, returning an empty string if no channel with the key exists.
 func (s *Service) RetrieveName(ctx context.Context, key channel.Key) string {
 	var ch channel.Channel
 	if err := s.internal.NewRetrieve().

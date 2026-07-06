@@ -29,7 +29,7 @@ func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
 	return ch
 }
 
-var _ = Describe("API Channel Resolver", func() {
+var _ = Describe("Service", func() {
 	Describe("RetrieveDataTypes", func() {
 		It("Should resolve the data types of the channels in key order", func(ctx SpecContext) {
 			ch1 := createChannel(ctx, telem.Float32T)
