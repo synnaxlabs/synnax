@@ -27,13 +27,13 @@ import (
 var _ = Describe("Writer", func() {
 	createIndexed := func(ctx SpecContext) (channel.Channel, channel.Channel) {
 		idxCh := channel.Channel{
-			Name:     RandomName(),
+			Name:     UniqueChannelName(),
 			DataType: telem.TimeStampT,
 			IsIndex:  true,
 		}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &idxCh)).To(Succeed())
 		dataCh := channel.Channel{
-			Name:       RandomName(),
+			Name:       UniqueChannelName(),
 			DataType:   telem.Float32T,
 			LocalIndex: idxCh.LocalKey,
 		}
@@ -120,7 +120,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should reject a write whose series data type does not match the resolved channel", func(ctx SpecContext) {
 			vCh := channel.Channel{
-				Name: RandomName(), DataType: telem.Float32T, Virtual: true,
+				Name: UniqueChannelName(), DataType: telem.Float32T, Virtual: true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &vCh)).To(Succeed())
 			w := MustSucceed(writerSvc.Open(ctx, writer.Config{

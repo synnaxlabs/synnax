@@ -141,12 +141,12 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		Specify("Single Virtual Channel as Base", func(ctx SpecContext) {
 			bases := []channel.Channel{{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calcs := []channel.Channel{{
-				Name:        RandomName(),
+				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
@@ -172,18 +172,18 @@ var _ = Describe("Calculation", Ordered, func() {
 			BeforeEach(func(ctx SpecContext) {
 				bases = []channel.Channel{
 					{
-						Name:     RandomName(),
+						Name:     UniqueChannelName(),
 						DataType: telem.Int64T,
 						Virtual:  true,
 					},
 					{
-						Name:     RandomName(),
+						Name:     UniqueChannelName(),
 						DataType: telem.Int64T,
 						Virtual:  true,
 					},
 				}
 				calcs = []channel.Channel{{
-					Name:        RandomName(),
+					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
@@ -226,16 +226,16 @@ var _ = Describe("Calculation", Ordered, func() {
 		Specify("Single Data Channel as Base", func(ctx SpecContext) {
 			var (
 				indexes = []channel.Channel{{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				}}
 				bases = []channel.Channel{{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 				}}
 				calcs = []channel.Channel{{
-					Name:        RandomName(),
+					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
@@ -265,22 +265,22 @@ var _ = Describe("Calculation", Ordered, func() {
 			Specify("Shared Index", func(ctx SpecContext) {
 				var (
 					indexes = []channel.Channel{{
-						Name:     RandomName(),
+						Name:     UniqueChannelName(),
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
 					}}
 					bases = []channel.Channel{
 						{
-							Name:     RandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 						{
-							Name:     RandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 					}
 					calcs = []channel.Channel{{
-						Name:        RandomName(),
+						Name:        UniqueChannelName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
 						Leaseholder: node.KeyFree,
@@ -310,28 +310,28 @@ var _ = Describe("Calculation", Ordered, func() {
 				var (
 					indexes = []channel.Channel{
 						{
-							Name:     RandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 						{
-							Name:     RandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 					}
 					bases = []channel.Channel{
 						{
-							Name:     RandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 						{
-							Name:     RandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 					}
 					calcs = []channel.Channel{{
-						Name:        RandomName(),
+						Name:        UniqueChannelName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
 						Leaseholder: node.KeyFree,
@@ -365,28 +365,28 @@ var _ = Describe("Calculation", Ordered, func() {
 				var (
 					indexes = []channel.Channel{
 						{
-							Name:     RandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 						{
-							Name:     RandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 					}
 					bases = []channel.Channel{
 						{
-							Name:     RandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 						{
-							Name:     RandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 					}
 					calcs = []channel.Channel{{
-						Name:        RandomName(),
+						Name:        UniqueChannelName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
 						Leaseholder: node.KeyFree,
@@ -428,9 +428,9 @@ var _ = Describe("Calculation", Ordered, func() {
 				calcs []channel.Channel
 			)
 			BeforeEach(func(ctx SpecContext) {
-				calc1Name := RandomName()
+				calc1Name := UniqueChannelName()
 				bases = []channel.Channel{{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}}
@@ -441,7 +441,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}, {
-					Name:        RandomName(),
+					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
@@ -483,12 +483,12 @@ var _ = Describe("Calculation", Ordered, func() {
 	Describe("Calculation Status", func() {
 		Specify("Should persist error status on invalid expression request", func(ctx SpecContext) {
 			base := channel.Channel{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
-				Name:        RandomName(),
+				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
@@ -513,13 +513,13 @@ var _ = Describe("Calculation", Ordered, func() {
 		})
 		Specify("Should persist error status on calculation update failure", func(ctx SpecContext) {
 			base := channel.Channel{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
-				Name:        RandomName(),
+				Name:        UniqueChannelName(),
 				DataType:    telem.Float64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
@@ -536,7 +536,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			// synchronously.
 			Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
 			Expect(channelSvc.NewWriter(nil).Rename(
-				ctx, calc.Key(), RandomName(), false),
+				ctx, calc.Key(), UniqueChannelName(), false),
 			).To(Succeed())
 			var st calculation.Status
 			statusKey := calc.OntologyID().String()
@@ -552,13 +552,13 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		Specify("Should use channel ontology ID as status key", func(ctx SpecContext) {
 			base := channel.Channel{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}
 			Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
 			calc := channel.Channel{
-				Name:        RandomName(),
+				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
@@ -584,12 +584,12 @@ var _ = Describe("Calculation", Ordered, func() {
 	Describe("Calculation Updates", func() {
 		Specify("Modified Expression, No New Dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calcs := []channel.Channel{{
-				Name:        RandomName(),
+				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
@@ -620,16 +620,16 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		Specify("Modified Expression, New Dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}, {
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calcs := []channel.Channel{{
-				Name:        RandomName(),
+				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,

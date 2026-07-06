@@ -114,10 +114,10 @@ var _ = Describe("Compile", func() {
 	})
 
 	It("Should compile expression with derivative operation", func(ctx SpecContext) {
-		base := channel.Channel{Name: RandomName(), DataType: telem.Float64T, Virtual: true}
+		base := channel.Channel{Name: UniqueChannelName(), DataType: telem.Float64T, Virtual: true}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
-			Name:       RandomName(),
+			Name:       UniqueChannelName(),
 			DataType:   telem.Float64T,
 			Virtual:    true,
 			Expression: fmt.Sprintf("return %s", base.Name),

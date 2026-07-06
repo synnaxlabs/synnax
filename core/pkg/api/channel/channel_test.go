@@ -21,7 +21,7 @@ import (
 func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
 	GinkgoHelper()
 	ch := channel.Channel{
-		Name:     RandomName(),
+		Name:     UniqueChannelName(),
 		DataType: dt,
 		Virtual:  true,
 	}

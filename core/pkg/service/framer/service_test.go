@@ -31,13 +31,13 @@ import (
 var _ = Describe("Service", func() {
 	createIndexed := func(ctx SpecContext) (channel.Channel, channel.Channel) {
 		idxCh := channel.Channel{
-			Name:     RandomName(),
+			Name:     UniqueChannelName(),
 			DataType: telem.TimeStampT,
 			IsIndex:  true,
 		}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &idxCh)).To(Succeed())
 		dataCh := channel.Channel{
-			Name:       RandomName(),
+			Name:       UniqueChannelName(),
 			DataType:   telem.Float32T,
 			LocalIndex: idxCh.LocalKey,
 		}
@@ -248,7 +248,7 @@ var _ = Describe("Service", func() {
 	Describe("NewStreamer", func() {
 		It("Should stream live writes to resolved channels", func(ctx SpecContext) {
 			ch := channel.Channel{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}

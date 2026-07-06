@@ -16,15 +16,15 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-var _ = Describe("RandomName", func() {
+var _ = Describe("UniqueChannelName", func() {
 	It("Should generate a name with the test channel prefix", func() {
-		Expect(RandomName()).To(HavePrefix("test_ch_"))
+		Expect(UniqueChannelName()).To(HavePrefix("test_ch_"))
 	})
 	It("Should generate unique channel names", func() {
 		count := 100
 		existingNames := make(set.Set[string], count)
 		for range count {
-			nextName := RandomName()
+			nextName := UniqueChannelName()
 			Expect(existingNames.Contains(nextName)).To(BeFalse())
 			existingNames.Add(nextName)
 		}

@@ -34,12 +34,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 				}}
 			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
@@ -57,12 +57,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 				},
 			}
 			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
@@ -77,7 +77,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))
 		})
 		It("Should correctly retrieve a channel by its name", func(ctx SpecContext) {
-			n := RandomName()
+			n := UniqueChannelName()
 			created := []channel.Channel{
 				{
 					Virtual:  true,
@@ -219,12 +219,12 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 				},
 			}
 			Expect(svc.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())

@@ -69,7 +69,7 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("OntologyID", func() {
 		It("Should correctly return the ontology.ID for the specified channel", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}
@@ -118,7 +118,7 @@ var _ = Describe("Ontology", Ordered, func() {
 					})
 				defer dc()
 				ch := &channel.Channel{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}
@@ -136,7 +136,7 @@ var _ = Describe("Ontology", Ordered, func() {
 	Describe("RetrieveResource", func() {
 		It("Should correctly retrieve a resource", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}

@@ -15,8 +15,8 @@ import (
 	"math/rand"
 )
 
-// RandomName generates a random channel name that should be unique. Channel name
+// UniqueChannelName generates a random channel name that should be unique. Channel name
 // uniqueness itself is enforced by the channel service during creation.
-func RandomName() string {
+func UniqueChannelName() string {
 	return fmt.Sprintf("test_ch_%09d", rand.Intn(999999999))
 }

@@ -79,7 +79,7 @@ var _ = Describe("Service", func() {
 	Describe("NewRetrieve", func() {
 		It("Should retrieve a channel created through the service", func(ctx SpecContext) {
 			ch := channel.Channel{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
@@ -105,7 +105,7 @@ var _ = Describe("Service", func() {
 				})
 			defer disconnect()
 			ch := channel.Channel{
-				Name:        RandomName(),
+				Name:        UniqueChannelName(),
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Leaseholder: 1,
@@ -119,7 +119,7 @@ var _ = Describe("Service", func() {
 		It("Should create a writer that infers types for calculated channels", func(ctx SpecContext) {
 			w := svc.NewWriter(nil)
 			ch := channel.Channel{
-				Name:       RandomName(),
+				Name:       UniqueChannelName(),
 				Expression: "return 1 + 1",
 				Virtual:    true,
 			}

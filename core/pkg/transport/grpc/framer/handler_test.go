@@ -27,7 +27,7 @@ func createVirtualChannels(ctx context.Context, dt telem.DataType, n int) channe
 	chs := make([]channel.Channel, n)
 	for i := range chs {
 		chs[i] = channel.Channel{
-			Name:     RandomName(),
+			Name:     UniqueChannelName(),
 			DataType: dt,
 			Virtual:  true,
 		}

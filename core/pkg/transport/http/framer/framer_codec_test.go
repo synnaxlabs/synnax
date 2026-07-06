@@ -76,12 +76,12 @@ var _ = Describe("FramerCodec", func() {
 		It("Should encode and decode open command", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
@@ -149,12 +149,12 @@ var _ = Describe("FramerCodec", func() {
 		It("Should encode and decode request", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
@@ -191,7 +191,7 @@ var _ = Describe("FramerCodec", func() {
 		It("Should preserve the existing codec state when a later request has no keys", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
@@ -308,12 +308,12 @@ var _ = Describe("FramerCodec", func() {
 		It("Should encode and decode an open request and update the codec", func(ctx SpecContext) {
 			channels := []channel.Channel{
 				{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
 				{
-					Name:     RandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				},
@@ -497,7 +497,7 @@ var _ = Describe("FramerCodec", func() {
 
 		It("Should keep the codec initialized across non-open iterator requests", func(ctx SpecContext) {
 			channels := []channel.Channel{{
-				Name:     RandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}

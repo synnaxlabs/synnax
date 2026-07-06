@@ -55,7 +55,7 @@ var _ = Describe("Signals", func() {
 	It("Should propagate a channel creation to the set channel", func(ctx SpecContext) {
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_set")
 		ch := channel.Channel{
-			Name: RandomName(), DataType: telem.TimeStampT, IsIndex: true,
+			Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		var res framer.StreamerResponse
@@ -75,7 +75,7 @@ var _ = Describe("Signals", func() {
 
 	It("Should propagate a channel deletion to the delete channel", func(ctx SpecContext) {
 		ch := channel.Channel{
-			Name: RandomName(), DataType: telem.TimeStampT, IsIndex: true,
+			Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_delete")
