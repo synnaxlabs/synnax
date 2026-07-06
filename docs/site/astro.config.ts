@@ -20,9 +20,9 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   markdown: {
-    // Astro 7's native Markdown pipeline (Sätteri) emits highlighted code fences as
-    // raw HTML that bypasses the MDX `pre` component override (Block.astro). Opt back
-    // into the legacy remark/rehype pipeline so the override keeps applying.
+    // Astro 7's native Markdown pipeline (Sätteri) emits highlighted code fences as raw
+    // HTML that bypasses the MDX `pre` component override (Block.astro). Opt back into
+    // the legacy remark/rehype pipeline so the override keeps applying.
     processor: unified(),
     shikiConfig: {
       theme: "css-variables",
