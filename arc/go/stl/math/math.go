@@ -245,8 +245,8 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 			telem.NewSeriesV[telem.TimeStamp](1),
 		)
 	}
-	var cfg WindowInputs
-	if err := windowInputsSchema.Parse(nodeCfg.Node.Inputs.ValueMap(), &cfg); err != nil {
+	var inputs WindowInputs
+	if err := windowInputsSchema.Parse(nodeCfg.Node.Inputs.ValueMap(), &inputs); err != nil {
 		return nil, err
 	}
 	return &avgNode{
@@ -255,7 +255,7 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 		resetIdx:    resetIdx,
 		process:     reductionFn,
 		sampleCount: 0,
-		cfg:         cfg,
+		inputs:      inputs,
 	}, nil
 }
 
@@ -272,7 +272,7 @@ var windowInputsSchema = zyn.Object(map[string]zyn.Schema{
 type avgNode struct {
 	*node.State
 	process       reductionFn
-	cfg           WindowInputs
+	inputs        WindowInputs
 	inputIdx      int
 	resetIdx      int
 	sampleCount   int64
@@ -316,15 +316,15 @@ func (r *avgNode) Next(ctx node.Context) {
 		}
 	}
 
-	if r.cfg.Duration > 0 && inputTime.Len() > 0 {
+	if r.inputs.Duration > 0 && inputTime.Len() > 0 {
 		currentTime := telem.ValueAt[telem.TimeStamp](inputTime, -1)
-		if telem.TimeSpan(currentTime-r.startTime) >= r.cfg.Duration {
+		if telem.TimeSpan(currentTime-r.startTime) >= r.inputs.Duration {
 			shouldReset = true
 			r.startTime = currentTime
 		}
 	}
 
-	if r.cfg.Count > 0 && r.sampleCount >= r.cfg.Count {
+	if r.inputs.Count > 0 && r.sampleCount >= r.inputs.Count {
 		shouldReset = true
 	}
 

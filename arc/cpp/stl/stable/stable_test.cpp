@@ -120,8 +120,8 @@ TEST(StableForInputsTest, CreatesInputsFromValidParams) {
     duration_param.value = x::telem::SECOND.nanoseconds();
     types::Params params;
     params.push_back(duration_param);
-    const auto cfg = ASSERT_NIL_P(StableForInputs::create(params));
-    EXPECT_EQ(cfg.duration, x::telem::SECOND);
+    const auto inputs = ASSERT_NIL_P(StableForInputs::create(params));
+    EXPECT_EQ(inputs.duration, x::telem::SECOND);
 }
 
 TEST(StableForInputsTest, ReturnsErrorForNullDuration) {
