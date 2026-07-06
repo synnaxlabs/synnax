@@ -56,6 +56,12 @@ type Channel struct {
 	//
 	// [OPTIONAL]
 	Virtual bool `json:"virtual" msgpack:"virtual"`
+	// Transient specifies whether the channel's registration is kept purely in memory:
+	// no directory or metadata is written to the file system, and the channel ceases to
+	// exist when the database is closed. Only virtual channels can be transient.
+	//
+	// [OPTIONAL]
+	Transient bool `json:"transient" msgpack:"transient"`
 	// Concurrency specifies the concurrency setting for the channel's controller
 	// (Exclusive or Shared).
 	//
@@ -103,6 +109,7 @@ func (c Channel) Validate() error {
 	if c.Virtual {
 		v.Ternaryf("index", c.Index != 0, "virtual channel cannot be indexed")
 	} else {
+		v.Ternary("transient", c.Transient, "only virtual channels can be transient")
 		if c.IsIndex {
 			v.Ternary("data_type", c.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")

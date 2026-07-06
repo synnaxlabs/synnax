@@ -78,13 +78,11 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
+func (db *DB) openVirtual(ctx context.Context, ch Channel) error {
 	if _, isOpen := db.mu.dbs.virtual[ch.Key]; isOpen {
 		return nil
 	}
 	v, err := virtual.Open(ctx, virtual.Config{
-		MetaCodec:       db.metaCodec,
-		FS:              fs,
 		Channel:         ch,
 		Instrumentation: db.Instrumentation,
 	})
@@ -128,16 +126,25 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	return nil
 }
 
+// openVirtualOrUnary resolves the channel's metadata and opens the appropriate engine
+// for it. For persistent channels, metadata is read from (or created in) the channel's
+// directory before routing; transient channels never touch the file system.
 func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
+	if ch.Transient {
+		return db.openVirtual(ctx, ch)
+	}
 	fs, err := db.fs.Sub(keyToDirName(ch.Key))
 	if err != nil {
 		return err
 	}
-	err = db.openVirtual(ctx, ch, fs)
-	if errors.Is(err, virtual.ErrNotVirtual) {
-		err = db.openUnary(ctx, ch, fs)
+	ch, err = meta.Open(ctx, fs, ch, db.metaCodec)
+	if err != nil {
+		return errors.Skip(err, meta.ErrIgnoreChannel)
 	}
-	return errors.Skip(err, meta.ErrIgnoreChannel)
+	if ch.Virtual {
+		return db.openVirtual(ctx, ch)
+	}
+	return errors.Skip(db.openUnary(ctx, ch, fs), meta.ErrIgnoreChannel)
 }
 
 func openFS(opts *options) error {
