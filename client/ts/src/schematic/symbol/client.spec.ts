@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 

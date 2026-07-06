@@ -13,8 +13,7 @@ import { describe, expect, it } from "vitest";
 import { AuthError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { createTestClientWithPolicy } from "@/testutil/access";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 

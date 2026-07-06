@@ -11,7 +11,7 @@ import { id, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type rack } from "@/rack";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 

@@ -50,8 +50,11 @@ export { schematic } from "@/schematic";
 export { status } from "@/status";
 export { table } from "@/table";
 export { task } from "@/task";
-export { createTestClientWithPolicy } from "@/testutil/access";
-export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
+export {
+  createTestClient,
+  createTestClientWithPolicy,
+  TEST_CLIENT_PARAMS,
+} from "@/testutil";
 export { user } from "@/user";
 export { view } from "@/view";
 export {
