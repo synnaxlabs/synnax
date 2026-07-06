@@ -193,9 +193,9 @@ type ChannelResolver interface {
 // data types through the provided ChannelResolver with default configuration
 // (alignment compression enabled). Codec.Update must be called before the first call
 // to Codec.Encode and Codec.Decode.
-func NewDynamic(resolver ChannelResolver, opts ...Option) *Codec {
+func NewDynamic(channelResolver ChannelResolver, opts ...Option) *Codec {
 	c := newCodec(opts...)
-	c.resolver = resolver
+	c.resolver = channelResolver
 	return c
 }
 
