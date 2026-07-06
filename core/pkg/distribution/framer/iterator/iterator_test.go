@@ -38,7 +38,7 @@ var _ = Describe("Iterator", func() {
 			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					s = sF(ctx)
+					s = DeferClose(sF(ctx))
 					writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 						Channels: s.channels,
 						Keys:     s.keys,
@@ -61,7 +61,6 @@ var _ = Describe("Iterator", func() {
 					Expect(writer.Commit()).To(BeNumerically("==", telem.SecondTS*22+1))
 					Expect(writer.Close()).To(Succeed())
 				})
-				AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 				Specify(fmt.Sprintf("Scenario: %v - Iteration", i), func(ctx SpecContext) {
 					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 						Keys:   s.keys,
@@ -138,6 +137,8 @@ type scenario struct {
 	keys     channel.Keys
 	channels []channel.Channel
 }
+
+func (s scenario) Close() error { return s.close.Close() }
 
 func newChannelSet() []channel.Channel {
 	return []channel.Channel{

@@ -36,9 +36,8 @@ var _ = Describe("Deleter", Ordered, func() {
 		var s scenario
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			s = createScenario(ctx)
+			s = DeferClose(createScenario(ctx))
 		})
-		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		Describe("Happy Path", func() {
 			Context(s.name+" - Happy Path", func() {
 				var i *iterator.Iterator
@@ -116,9 +115,8 @@ var _ = Describe("Deleter", Ordered, func() {
 		var s scenario
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			s = mixedScenario(context.Background())
+			s = DeferClose(mixedScenario(context.Background()))
 		})
-		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 
 		It("Should delete channels across gateway and peer nodes", func(ctx SpecContext) {
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -193,6 +191,8 @@ type scenario struct {
 	channels []channel.Channel
 	names    []string
 }
+
+func (s scenario) Close() error { return s.closer.Close() }
 
 func newChannelSet() []channel.Channel {
 	return []channel.Channel{

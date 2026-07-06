@@ -40,6 +40,8 @@ type scenario struct {
 	resCount int
 }
 
+func (s scenario) Close() error { return s.close.Close() }
+
 func openWriter(
 	ctx context.Context, n mock.Node, channels []channel.Channel, cfg writer.Config,
 ) (*writer.Writer, error) {
@@ -61,9 +63,8 @@ var _ = Describe("Relay", func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				s = _sF(ctx)
+				s = DeferClose(_sF(ctx))
 			})
-			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				keys := channel.KeysFromChannels(s.channels)
 				reader := MustSucceed(s.dist.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -276,16 +277,12 @@ var _ = Describe("Relay", func() {
 	// edge cases that could deadlock the synchronous wait — empty initial keys,
 	// non-free leases, context cancellation mid-wait, and concurrent streamers.
 	Describe("SendOpenAck", Ordered, func() {
-		var (
-			builder *mock.Cluster
-			svc     mock.Node
-		)
+		var svc mock.Node
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			builder = mock.OpenCluster(ctx, 1)
+			builder := mock.NewCluster(ctx, 1)
 			svc = builder.Nodes[1]
 		})
-		AfterAll(func() { Expect(builder.Close()).To(Succeed()) })
 
 		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
 			chs := make([]channel.Channel, n)
