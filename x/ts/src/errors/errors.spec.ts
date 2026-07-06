@@ -271,4 +271,36 @@ describe("errors", () => {
       expect(SubError.matches(e1)).toBe(false);
     });
   });
+
+  describe("matchExact", () => {
+    it("should return true when the type matches exactly", () => {
+      const e = new ErrorOne("test");
+      expect(ErrorOne.matchExact(e)).toBe(true);
+      expect(e.matchExact(e)).toBe(true);
+    });
+
+    it("should return false for a sub-error, unlike matches", () => {
+      const sub = new SubError("test");
+      expect(ErrorOne.matches(sub)).toBe(true);
+      expect(ErrorOne.matchExact(sub)).toBe(false);
+      expect(SubError.matchExact(sub)).toBe(true);
+    });
+
+    it("should return false for a different typed error", () => {
+      expect(ErrorOne.matchExact(new ErrorTwo("test"))).toBe(false);
+    });
+
+    it("should return false for an untyped error, a raw string, or undefined", () => {
+      expect(ErrorOne.matchExact(new Error("one"))).toBe(false);
+      expect(ErrorOne.matchExact("one")).toBe(false);
+      expect(ErrorOne.matchExact(undefined)).toBe(false);
+    });
+
+    it("should narrow an unknown value to the matched error", () => {
+      const e: unknown = new ErrorOne("hello");
+      if (!ErrorOne.matchExact(e)) throw new Error("expected an exact match");
+      expect(e.type).toEqual("one");
+      expect(e.message).toEqual("hello");
+    });
+  });
 });
