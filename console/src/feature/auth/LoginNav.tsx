@@ -10,14 +10,14 @@
 import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Nav as CommonNav } from "@/platform/nav";
+import { Nav as PlatformNav } from "@/platform/nav";
 import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 
 export const LoginNav = (): ReactElement => {
   const os = OS.use();
   return (
-    <CommonNav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
+    <PlatformNav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
       <Nav.Bar.Start data-tauri-drag-region>
         <Window.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>
@@ -25,6 +25,6 @@ export const LoginNav = (): ReactElement => {
         <Version.Badge />
         <Window.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
-    </CommonNav.Bar>
+    </PlatformNav.Bar>
   );
 };

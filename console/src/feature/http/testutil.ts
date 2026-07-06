@@ -9,11 +9,10 @@
 
 import { type device, type Synnax } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
-import { screen } from "@testing-library/react";
 
 import { MAKE, type Properties, ZERO_PROPERTIES } from "@/feature/http/device/types";
 import { createTestDevice } from "@/platform/device/testutil";
-import { getBySelector, getIconButton, getInputItem, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 export interface CreateHTTPDeviceOptions {
   configured?: boolean;
@@ -32,23 +31,3 @@ export const createHTTPDevice = async (
     configured,
     properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
   });
-
-/**
- * Finds the checkbox input of the pluto switch field labeled with labelText. Pluto
- * switch labels are sibling elements, so role/label queries cannot reach the input.
- */
-export const getSwitchInput = (labelText: string): HTMLInputElement =>
-  getBySelector<HTMLInputElement>(getInputItem(labelText), "input[type='checkbox']");
-
-/**
- * Finds the icon-only action button inside the pluto header titled title. Task form
- * headers stack multiple icon buttons with no accessible names.
- */
-export const getHeaderIconButton = (
-  title: string,
-  icon: string = "add",
-): HTMLButtonElement => {
-  const header = screen.getByText(title).closest(".pluto-header");
-  if (header == null) throw new Error(`no header titled ${title}`);
-  return getIconButton(header, icon);
-};

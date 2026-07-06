@@ -11,10 +11,9 @@ import { status } from "@synnaxlabs/client";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Task } from "@/platform/task";
 import { createTaskStatus } from "@/platform/task/testutil";
-import { queryIcon, renderWithConsole } from "@/testutil";
+import { queryIcon, renderWithConsole, stubClipboardWriteText } from "@/testutil";
 
 describe("Controls.Status", () => {
   it("should invoke onToggle when clicked", async () => {

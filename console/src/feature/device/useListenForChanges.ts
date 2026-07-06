@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { device } from "@synnaxlabs/client";
 import { Device, Status } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
@@ -31,7 +31,10 @@ export const useListenForChanges = () => {
 
 export const getKeyFromStatus = ({
   details,
-}: Status.NotificationSpec<ReturnType<typeof device.deviceZ>>): device.Key | null => {
-  if (details == null || details.configured || !("key" in details)) return null;
-  return details.key;
+}: {
+  details?: unknown;
+}): device.Key | null => {
+  const parsed = device.deviceZ().safeParse(details);
+  if (!parsed.success || parsed.data.configured) return null;
+  return parsed.data.key;
 };

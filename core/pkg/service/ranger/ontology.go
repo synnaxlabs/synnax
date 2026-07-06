@@ -67,9 +67,6 @@ type change = xchange.Change[Key, Range]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRange }
 
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
-
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
 	ctx context.Context,

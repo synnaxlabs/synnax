@@ -10,7 +10,7 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { screen, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { expect } from "vitest";
 
 import * as Device from "@/feature/ni/device/types";
@@ -81,16 +81,6 @@ export const renderNITaskForm = async (
     },
   });
   return { ...result, statuses };
-};
-
-/**
- * Reports whether the pluto select button showing `label` is currently selected.
- * jsdom applies no CSS, so selection must be asserted through the class flip.
- */
-export const isSelectButtonSelected = (label: string): boolean => {
-  const el = screen.getByText(label).closest("button");
-  if (el == null) throw new Error(`select button "${label}" not found`);
-  return el.className.includes("pluto-context--selected");
 };
 
 /**

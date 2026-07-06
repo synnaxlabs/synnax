@@ -10,10 +10,9 @@
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { getIconButton } from "@/testutil";
+import { getIconButton, stubClipboardWriteText } from "@/testutil";
 
 describe("layouts.DetailsHeader", () => {
   it("should copy the form value at the given path as JSON", async () => {

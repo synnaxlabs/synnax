@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 func OntologyID(key Key) ontology.ID {
@@ -45,8 +44,6 @@ var (
 )
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeGroup }
-
-func (s *Service) Schema() zyn.Schema { return schema }
 
 func (s *Service) RetrieveResource(
 	ctx context.Context,

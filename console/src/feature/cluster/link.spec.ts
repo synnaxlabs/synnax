@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type connection,
-  createTestClient,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { type connection, createTestClient } from "@synnaxlabs/client";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -20,8 +16,6 @@ import { Cluster } from "@/feature/cluster";
 import { Session } from "@/session";
 import { type State } from "@/session/store";
 import { createConnectedConsoleWrapper } from "@/testutil";
-
-const client = (): Client => createTestClient();
 
 const connState = (
   status: connection.Status,
@@ -93,7 +87,7 @@ describe("connectToCluster", () => {
 
   it("should return the managed client when already active and connected", async () => {
     const setActive = vi.fn();
-    const active = client();
+    const active = createTestClient();
     const result = await Cluster.connectToCluster("a", {
       getState: () => createState(["a"], "a"),
       getSnapshot: sequence({ client: active, connState: connState("connected", "a") }),
@@ -106,8 +100,8 @@ describe("connectToCluster", () => {
 
   it("should switch clusters and resolve once the new client connects", async () => {
     const setActive = vi.fn();
-    const prior = client();
-    const next = client();
+    const prior = createTestClient();
+    const next = createTestClient();
     const result = await Cluster.connectToCluster("b", {
       getState: () => createState(["a", "b"], "a"),
       getSnapshot: sequence(
@@ -125,8 +119,8 @@ describe("connectToCluster", () => {
 
   it("should ignore a stale failure from the previous cluster while switching", async () => {
     const setActive = vi.fn();
-    const prior = client();
-    const next = client();
+    const prior = createTestClient();
+    const next = createTestClient();
     const result = await Cluster.connectToCluster("b", {
       getState: () => createState(["a", "b"], "a"),
       getSnapshot: sequence(
@@ -142,7 +136,7 @@ describe("connectToCluster", () => {
   });
 
   it("should throw when the target connection fails", async () => {
-    const active = client();
+    const active = createTestClient();
     await expect(
       Cluster.connectToCluster("a", {
         getState: () => createState(["a"], "a"),
@@ -157,7 +151,7 @@ describe("connectToCluster", () => {
   });
 
   it("should throw when the connection times out", async () => {
-    const active = client();
+    const active = createTestClient();
     await expect(
       Cluster.connectToCluster("a", {
         getState: () => createState(["a"], "a"),

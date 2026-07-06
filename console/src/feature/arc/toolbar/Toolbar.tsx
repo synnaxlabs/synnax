@@ -25,7 +25,7 @@ import {
 import { type ReactElement, useCallback, useState } from "react";
 
 import { EXPLORER_LAYOUT } from "@/feature/arc/Explorer";
-import { Arc as CommonArc } from "@/platform/arc";
+import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Layout } from "@/platform/layout";
@@ -56,7 +56,7 @@ const Content = () => {
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
-  const { update: handleRename } = CommonArc.useRename(getItem);
+  const { update: handleRename } = PlatformArc.useRename(getItem);
 
   const handleEdit = useCallback(
     (key: arc.Key) => {
@@ -68,15 +68,15 @@ const Content = () => {
           description: `Arc with key ${key} not found`,
         });
       const { name } = retrieved;
-      placeLayout(CommonArc.create({ key, name }));
+      placeLayout(PlatformArc.create({ key, name }));
     },
     [getItem, addStatus, placeLayout],
   );
 
-  const create = CommonArc.useCreate();
+  const create = PlatformArc.useCreate();
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <CommonArc.ContextMenu {...props} getItem={getItem} />,
+    (props) => <PlatformArc.ContextMenu {...props} getItem={getItem} />,
     [getItem],
   );
 
@@ -171,7 +171,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
     running,
     onStartStop,
     taskStatus: status,
-  } = CommonArc.useTask(itemKey, arcItem?.name ?? "");
+  } = PlatformArc.useTask(itemKey, arcItem?.name ?? "");
   let statusMessage = "Stopped";
   if (status.variant === "success" && running) statusMessage = "Running";
   else if (status.variant === "error") statusMessage = "Error";

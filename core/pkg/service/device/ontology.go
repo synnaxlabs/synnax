@@ -71,9 +71,6 @@ type change = xchange.Change[Key, Device]
 // Type returns the type of the device ontology service.
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
 
-// Schema returns the schema for the device ontology service.
-func (s *Service) Schema() zyn.Schema { return schema }
-
 // SearchableFields implements ontology.SearchableFieldsProvider.
 func (s *Service) SearchableFields() []string {
 	return []string{"make", "model", "location"}
