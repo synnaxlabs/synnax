@@ -12,12 +12,11 @@ import { TimeRange } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, stubClipboardWriteText } from "@/testutil";
 
 const client = createTestClient();
 

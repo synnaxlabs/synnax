@@ -11,9 +11,9 @@ import { type ontology } from "@synnaxlabs/client";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Cluster } from "@/platform/cluster";
 import { createClusterState, renderClusterUI } from "@/platform/cluster/testutil";
+import { stubClipboardWriteText } from "@/testutil";
 
 describe("CopyLinkToolbarButton", () => {
   let writeText: Mock;

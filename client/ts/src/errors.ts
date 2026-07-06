@@ -37,6 +37,18 @@ export class PathError extends ValidationError.sub("path") {
     const decoded = PathError.encodedSchema.parse(JSON.parse(payload.data));
     return new PathError(decoded.path, errors.decode(decoded.error) as Error);
   }
+
+  static matchExact(e: unknown): e is PathError {
+    return (
+      e != null &&
+      typeof e === "object" &&
+      "path" in e &&
+      "error" in e &&
+      "type" in e &&
+      typeof e.type === "string" &&
+      e.type === PathError.TYPE
+    );
+  }
 }
 
 /**
@@ -144,8 +156,8 @@ const decode = (payload: errors.Payload): Error | null => {
 
 const encode: errors.Encoder = (error) => {
   if (!error.type.startsWith(SynnaxError.TYPE)) return null;
-  if (error.type === PathError.TYPE) {
-    const { path, error: cause } = error as PathError;
+  if (PathError.matchExact(error)) {
+    const { path, error: cause } = error;
     return {
       type: PathError.TYPE,
       data: JSON.stringify({ path, error: errors.encode(cause) }),

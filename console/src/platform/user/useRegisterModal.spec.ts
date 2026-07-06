@@ -11,9 +11,8 @@ import { createTestClient, user } from "@synnaxlabs/client";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { findButton } from "@/platform/modals/testutil";
+import { findButton, openModal } from "@/platform/modals/testutil";
 import { User } from "@/platform/user";
-import { openModal } from "@/platform/user/testutil";
 import { uniqueName } from "@/testutil";
 
 describe("User.useRegisterModal", () => {

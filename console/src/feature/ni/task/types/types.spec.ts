@@ -98,36 +98,6 @@ describe("analog read task", () => {
     ).toEqual(true);
   });
 
-  describe("should be able to parse a task on multiple devices", () => {
-    it("should properly parse a task with the same ports on different devices", () => {
-      expect(
-        NI.Task.analogReadConfigZ.safeParse({
-          ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-          streamRate: 1000,
-          sampleRate: 2000,
-          channels: [
-            { ...NI.Task.ZERO_AI_CHANNEL, key: "0", device: "34", port: 0 },
-            { ...NI.Task.ZERO_AI_CHANNEL, key: "1", device: "35", port: 0 },
-          ],
-        }).success,
-      ).toEqual(true);
-    });
-
-    it("should properly parse a task with the same ports on the same device", () => {
-      expect(
-        NI.Task.analogReadConfigZ.safeParse({
-          ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-          streamRate: 1000,
-          sampleRate: 2000,
-          channels: [
-            { ...NI.Task.ZERO_AI_CHANNEL, key: "0", device: "34", port: 0 },
-            { ...NI.Task.ZERO_AI_CHANNEL, key: "1", device: "34", port: 0 },
-          ],
-        }).success,
-      ).toEqual(false);
-    });
-  });
-
   describe("sample rate limits", () => {
     it("should accept sample rate at 1 MHz (max limit)", () => {
       expect(

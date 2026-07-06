@@ -12,7 +12,6 @@ import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Ontology } from "@/platform/ontology";
 import {
   createBaseProps,
@@ -20,7 +19,7 @@ import {
   createSelection,
   createState,
 } from "@/platform/ontology/testutil";
-import { createTestStore, renderWithConsole } from "@/testutil";
+import { createTestStore, renderWithConsole, stubClipboardWriteText } from "@/testutil";
 
 const client = createTestClient();
 

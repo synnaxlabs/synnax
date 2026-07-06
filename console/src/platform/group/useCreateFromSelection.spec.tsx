@@ -13,19 +13,16 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
-import {
-  expandTreeRow,
-  renderOntologyTree,
-  treeRow,
-  withControlHeld,
-} from "@/platform/group/testutil";
 import { Ontology } from "@/platform/ontology";
+import { expandTreeRow, getTreeRow } from "@/platform/ontology/menuTestutil";
 import { createServices } from "@/platform/ontology/testutil";
+import { renderOntologyTree } from "@/platform/ontology/treeTestutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
   commitTextEdit,
   uniqueName,
+  withControlHeld,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -60,9 +57,9 @@ const setup = async () => {
   await renderOntologyTree({ client, root: parentID, services });
   await screen.findByText(a.name);
   await screen.findByText(b.name);
-  fireEvent.click(treeRow(a.name));
-  withControlHeld(() => fireEvent.click(treeRow(b.name)));
-  fireEvent.contextMenu(treeRow(b.name));
+  fireEvent.click(getTreeRow(a.name));
+  withControlHeld(() => fireEvent.click(getTreeRow(b.name)));
+  fireEvent.contextMenu(getTreeRow(b.name));
   fireEvent.click(await screen.findByText("group selection"));
   const editable = await awaitTextEditingElement();
   return { parentID, a, b, editable };
@@ -114,9 +111,9 @@ describe("useCreateFromSelection", () => {
     expandTreeRow(sub.name);
     await screen.findByText(a.name);
     await screen.findByText(b.name);
-    fireEvent.click(treeRow(a.name));
-    withControlHeld(() => fireEvent.click(treeRow(b.name)));
-    fireEvent.contextMenu(treeRow(b.name));
+    fireEvent.click(getTreeRow(a.name));
+    withControlHeld(() => fireEvent.click(getTreeRow(b.name)));
+    fireEvent.contextMenu(getTreeRow(b.name));
     fireEvent.click(await screen.findByText("group selection"));
     const editable = await awaitTextEditingElement();
     const name = uniqueName("grp");

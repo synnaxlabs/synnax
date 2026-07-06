@@ -13,9 +13,9 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
-import { renderOntologyTree, treeRow } from "@/platform/group/testutil";
 import { Ontology } from "@/platform/ontology";
-import { createServices } from "@/platform/ontology/testutil";
+import { getTreeRow } from "@/platform/ontology/menuTestutil";
+import { renderOntologyTree } from "@/platform/ontology/treeTestutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
@@ -81,16 +81,19 @@ describe("useCreateEmpty", () => {
       return <button onClick={() => createEmpty()}>new group here</button>;
     };
     CreateUnderSelectionMenu.displayName = "CreateUnderSelectionMenu";
-    const services = createServices({
-      group: {
-        ...Ontology.NOOP_SERVICE,
-        type: "group",
-        TreeContextMenu: CreateUnderSelectionMenu,
+    await renderOntologyTree({
+      client,
+      root: parentID,
+      services: {
+        group: {
+          ...Ontology.NOOP_SERVICE,
+          type: "group",
+          TreeContextMenu: CreateUnderSelectionMenu,
+        },
       },
     });
-    await renderOntologyTree({ client, root: parentID, services });
     await screen.findByText(child.name);
-    fireEvent.contextMenu(treeRow(child.name));
+    fireEvent.contextMenu(getTreeRow(child.name));
     fireEvent.click(await screen.findByText("new group here"));
     const editable = await awaitTextEditingElement();
     const name = uniqueName("grp");

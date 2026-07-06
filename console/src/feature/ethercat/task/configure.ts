@@ -17,7 +17,7 @@ import {
   type InputChannel,
   type OutputChannel,
 } from "@/feature/ethercat/task/types";
-import { Device as CommonDevice } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 
 type Channel = InputChannel | OutputChannel;
 
@@ -39,7 +39,7 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
     schemas: Device.SLAVE_SCHEMAS,
   });
 
-  for (const slave of slaves) CommonDevice.checkConfigured(slave);
+  for (const slave of slaves) PlatformDevice.checkConfigured(slave);
 
   const networks = [...new Set(slaves.map((s) => s.properties.network))];
   if (networks.length > 1)

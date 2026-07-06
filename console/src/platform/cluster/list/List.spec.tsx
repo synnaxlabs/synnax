@@ -10,7 +10,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { stubClipboardWriteText } from "@/platform/clipboard/testutil";
 import { Cluster } from "@/platform/cluster";
 import {
   createCluster,
@@ -18,6 +17,7 @@ import {
   renderClusterUI,
 } from "@/platform/cluster/testutil";
 import { Session } from "@/session";
+import { stubClipboardWriteText } from "@/testutil";
 
 describe("cluster List", () => {
   it("should call onChange with the clicked cluster's key", async () => {

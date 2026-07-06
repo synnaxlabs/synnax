@@ -12,10 +12,10 @@ import { Menu } from "@synnaxlabs/pluto";
 
 import { useConfigureModal } from "@/feature/ni/device/useConfigureModal";
 import { Task } from "@/feature/ni/task";
-import { Device as CommonDevice } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 import { type Ontology } from "@/platform/ontology";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: CommonDevice.TaskContextMenuItemConfig[] = [
+const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[] = [
   {
     itemKey: "ni.analogReadTask",
     label: "Create analog read task",
@@ -48,10 +48,10 @@ export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
   const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
   return (
     <>
-      <CommonDevice.ConfigureMenuItem {...props} onConfigure={onConfigure} />
-      <CommonDevice.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
+      <PlatformDevice.ConfigureMenuItem {...props} onConfigure={onConfigure} />
+      <PlatformDevice.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
       <Menu.Divider />
-      <CommonDevice.TaskContextMenuItems
+      <PlatformDevice.TaskContextMenuItems
         {...props}
         onConfigure={onConfigure}
         taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}

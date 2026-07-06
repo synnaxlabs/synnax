@@ -11,12 +11,12 @@ import { table } from "@synnaxlabs/client";
 import { Access, Table } from "@synnaxlabs/pluto";
 
 import { Palette } from "@/platform/palette";
-import { Table as CommonTable } from "@/platform/table";
+import { Table as PlatformTable } from "@/platform/table";
 
 const COMMAND_NAME = "Create a table";
 
 const CreateCommand: Palette.Command = (listProps) => {
-  const create = CommonTable.useCreate({});
+  const create = PlatformTable.useCreate({});
   return (
     <Palette.CommandListItem
       {...listProps}

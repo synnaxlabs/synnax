@@ -12,12 +12,11 @@ import { Button, Synnax } from "@synnaxlabs/pluto";
 import { type Notifications } from "@/platform/notifications";
 import { Version } from "@/platform/version";
 
-export const versionOutdatedAdapter: Notifications.Adapter<
-  typeof Synnax.statusDetailsSchema
-> = (status) => {
-  if (status.details == null) return null;
-  if (status.details.type !== Synnax.SERVER_VERSION_MISMATCH) return null;
-  const oldServer = status.details.oldServer;
+export const versionOutdatedAdapter: Notifications.Adapter = (status) => {
+  const details = Synnax.statusDetailsSchema.safeParse(status.details);
+  if (!details.success) return null;
+  if (details.data.type !== Synnax.SERVER_VERSION_MISMATCH) return null;
+  const oldServer = details.data.oldServer;
   const nextStatus: Notifications.Sugared = { ...status };
   if (oldServer)
     nextStatus.actions = [

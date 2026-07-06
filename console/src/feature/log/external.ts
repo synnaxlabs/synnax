@@ -14,7 +14,7 @@ import { Selectable } from "@/feature/log/Selectable";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
-import { Log as CommonLog } from "@/platform/log";
+import { Log as PlatformLog } from "@/platform/log";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/log/import";
@@ -25,12 +25,14 @@ export * from "@/feature/log/Selectable";
 export * from "@/feature/log/toolbar";
 export * from "@/platform/log/external";
 
-export const EXTRACTORS: Export.Extractors = { [CommonLog.LAYOUT_TYPE]: extract };
+export const EXTRACTORS: Export.Extractors = { [PlatformLog.LAYOUT_TYPE]: extract };
 
-export const FILE_INGESTERS: Import.FileIngesters = { [CommonLog.LAYOUT_TYPE]: ingest };
+export const FILE_INGESTERS: Import.FileIngesters = {
+  [PlatformLog.LAYOUT_TYPE]: ingest,
+};
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [CommonLog.LAYOUT_TYPE]: Log,
+  [PlatformLog.LAYOUT_TYPE]: Log,
 };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
