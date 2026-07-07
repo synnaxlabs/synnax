@@ -119,8 +119,7 @@ func resolveChannelSource(
 	}
 	// Param or variable with channel type - has a WASM local holding the key
 	if scope.Type.Kind == types.KindChan &&
-		(scope.Kind == symbol.KindConfig ||
-			scope.Kind == symbol.KindInput ||
+		(scope.Kind == symbol.KindInput ||
 			scope.Kind == symbol.KindVariable) {
 		return scope, channelSourceLocal
 	}
@@ -393,8 +392,8 @@ func compileAssignment(
 			// Direct reference: scope.ID is the Synnax channel key
 			ctx.Writer.WriteI32Const(int32(scope.ID))
 		}
-	} else if varType.Kind == types.KindChan && (sym.Kind == symbol.KindConfig || sym.Kind == symbol.KindVariable || sym.Kind == symbol.KindInput) {
-		// For config params, variables, and input params with channel type,
+	} else if varType.Kind == types.KindChan && (sym.Kind == symbol.KindVariable || sym.Kind == symbol.KindInput) {
+		// For variables and input params with channel type,
 		// scope.ID is a WASM local index that holds the channel key at runtime
 		ctx.Writer.WriteLocalGet(scope.ID)
 	}
@@ -436,13 +435,6 @@ func compileAssignment(
 		}
 	case symbol.KindChannel:
 		ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
-	case symbol.KindConfig:
-		if varType.Kind == types.KindChan {
-			ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
-		} else {
-			// Non-channel config param - just set the local
-			ctx.Writer.WriteLocalSet(scope.ID)
-		}
 	case symbol.KindOutput:
 		// Named output - needs special handling for multi-output routing
 		if err := compileOutputAssignment(ctx, name, scope); err != nil {

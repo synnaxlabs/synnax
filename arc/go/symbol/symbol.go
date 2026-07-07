@@ -116,8 +116,6 @@ const (
 	KindFunction
 	// KindBlock represents a block scope such as a task or stage.
 	KindBlock
-	// KindConfig represents a configuration parameter (constant).
-	KindConfig
 	// KindInput represents an input parameter to a function or task.
 	KindInput
 	// KindOutput represents an output parameter from a function or task.
@@ -160,7 +158,7 @@ const (
 // by Kind.
 //
 // ID Assignment: Symbols whose Kind allocates a runtime slot (KindVariable,
-// KindStatefulVariable, KindChannel, KindInput, KindOutput, KindConfig,
+// KindStatefulVariable, KindChannel, KindInput, KindOutput,
 // KindLoopVariable) receive a unique ID from the nearest ancestor that owns an
 // ID counter (the root and each function or sequence).
 type Symbol struct {
@@ -170,7 +168,7 @@ type Symbol struct {
 	// from a resolver or pre-populated module members have AST == nil.
 	AST antlr.ParserRuleContext
 	// DefaultValue stores the default value literal for optional parameters.
-	// Only used for KindInput and KindConfig symbols. Nil means no default.
+	// Only used for KindInput symbols. Nil means no default.
 	DefaultValue any
 	// Name is the symbol's identifier. Container symbols of anonymous kinds
 	// (KindBlock, KindLoop, top-level stages) may have an empty Name.
@@ -366,7 +364,6 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Kind == KindVariable ||
 		sym.Kind == KindStatefulVariable ||
 		sym.Kind == KindInput ||
-		sym.Kind == KindConfig ||
 		sym.Kind == KindOutput ||
 		sym.Kind == KindLoopVariable {
 		child.ID = s.addIndex()
