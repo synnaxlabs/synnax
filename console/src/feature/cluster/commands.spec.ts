@@ -17,7 +17,7 @@ import { stubGeometry } from "@/testutil";
 
 stubGeometry();
 
-describe("cluster palette", () => {
+describe("Cluster Commands", () => {
   it("should deselect the active cluster when logging out", async () => {
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: Cluster.COMMANDS,
@@ -36,7 +36,7 @@ describe("cluster palette", () => {
     store.dispatch(Session.Cluster.select("local"));
     expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("local");
     await openCommandPalette();
-    await selectCommand("Log out");
+    await selectCommand("Log Out");
     await waitFor(() =>
       expect(Session.Cluster.selectSelectedKey(store.getState())).toBeUndefined(),
     );

@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Theme } from "@/feature/theme";
 
-describe("Theme.COMMANDS", () => {
+describe("Theme Commands", () => {
   it("should toggle the color theme when the command is selected", () => {
     const toggleTheme = vi.fn();
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => (

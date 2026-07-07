@@ -19,7 +19,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("label palette", () => {
+describe("Label Commands", () => {
   it("should open the label edit modal when the command is selected", async () => {
     const { openCommandPalette, selectCommand } = await renderPalette({
       commands: Label.COMMANDS,

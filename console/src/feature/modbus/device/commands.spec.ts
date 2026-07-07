@@ -16,7 +16,7 @@ import { assertDefined, renderHookWithConsole } from "@/testutil";
 
 const client = createTestClient();
 
-describe("Modbus.Device.COMMANDS", () => {
+describe("Modbus.Device Commands", () => {
   it("should expose a connect command visible to device creators", async () => {
     const [connect] = Modbus.Device.COMMANDS;
     assertDefined(connect.useVisible);

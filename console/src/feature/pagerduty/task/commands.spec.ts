@@ -18,7 +18,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("PagerDuty palette commands", () => {
+describe("PagerDuty.Task Commands", () => {
   it("should place the alert task layout from the create alert task command", async () => {
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: PagerDuty.Task.COMMANDS,

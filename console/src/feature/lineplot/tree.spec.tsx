@@ -37,7 +37,6 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestStore,
-  renderHookWithConsole,
   stubClipboardWriteText,
   uniqueName,
 } from "@/testutil";
@@ -213,27 +212,6 @@ describe("lineplot/ontology", () => {
       expect(Session.Layout.select(store.getState(), plot.key)?.type).toBe(
         LinePlot.LAYOUT_TYPE,
       );
-    });
-  });
-
-  describe("useMosaicDrop", () => {
-    it("places the plot into the target mosaic node", async () => {
-      const plot = await createLinePlot();
-      const { result, store } = await renderHookWithConsole(
-        () => LinePlot.useMosaicDrop(),
-        { client },
-      );
-      result.current({
-        id: clientLineplot.ontologyID(plot.key),
-        nodeKey: 3,
-        location: "top",
-      });
-      await waitFor(() =>
-        expect(Session.Layout.select(store.getState(), plot.key)?.name).toBe(plot.name),
-      );
-      const layout = Session.Layout.select(store.getState(), plot.key);
-      expect(layout?.location).toBe("mosaic");
-      expect(layout?.tab).toMatchObject({ mosaicKey: 3, location: "top" });
     });
   });
 

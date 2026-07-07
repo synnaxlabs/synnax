@@ -18,7 +18,7 @@ import { stubGeometry, waitForPlacedLayout } from "@/testutil";
 
 stubGeometry();
 
-describe("lineplot palette", () => {
+describe("LinePlot Commands", () => {
   it("creates a line plot on the server and places its layout", async () => {
     const proj = await client.projects.retrieve(await project());
     const { store, openCommandPalette, selectCommand } = await renderPalette({

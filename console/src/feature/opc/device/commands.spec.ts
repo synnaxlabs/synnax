@@ -16,7 +16,7 @@ import { assertDefined, renderHookWithConsole } from "@/testutil";
 
 const client = createTestClient();
 
-describe("OPC.Device.COMMANDS", () => {
+describe("OPC.Device Commands", () => {
   it("should expose a connect command visible to device creators", async () => {
     const [connect] = OPC.Device.COMMANDS;
     assertDefined(connect.useVisible);

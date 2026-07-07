@@ -16,7 +16,7 @@ import { renderHookWithConsole } from "@/testutil";
 
 const client = createTestClient();
 
-describe("range/palette", () => {
+describe("Range Commands", () => {
   it("shows both commands to a user with range permissions", async () => {
     const { result } = await renderHookWithConsole(
       () => ({

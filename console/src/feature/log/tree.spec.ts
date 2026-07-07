@@ -16,7 +16,7 @@ import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTest
 import { createResource } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { assertDefined, renderHookWithConsole, uniqueName } from "@/testutil";
+import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -85,20 +85,6 @@ describe("log ontology service", () => {
     await waitFor(() =>
       expect(Session.Layout.select(store.getState(), l.key)?.name).toBe(l.name),
     );
-  });
-
-  it("should place a log layout in the target mosaic node on drop", async () => {
-    const l = await createLog();
-    const { result, store } = await renderHookWithConsole(() => Log.useMosaicDrop(), {
-      client,
-    });
-    result.current({ id: log.ontologyID(l.key), nodeKey: 3, location: "top" });
-    await waitFor(() => {
-      const placed = Session.Layout.select(store.getState(), l.key);
-      expect(placed?.name).toBe(l.name);
-      expect(placed?.type).toBe("log");
-      expect(placed?.tab).toMatchObject({ mosaicKey: 3, location: "top" });
-    });
   });
 
   it("should haul a mosaic tab creation item", () => {

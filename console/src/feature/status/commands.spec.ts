@@ -21,7 +21,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("status palette", () => {
+describe("Status Commands", () => {
   it("should open the status creation modal when the create command is selected", async () => {
     const { openCommandPalette, selectCommand } = await renderPalette({
       commands: Status.COMMANDS,

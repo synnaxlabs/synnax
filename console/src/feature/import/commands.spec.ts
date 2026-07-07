@@ -16,7 +16,7 @@ import { interceptFilePicker, stubGeometry } from "@/testutil";
 
 stubGeometry();
 
-describe("import palette", () => {
+describe("Import Commands", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });

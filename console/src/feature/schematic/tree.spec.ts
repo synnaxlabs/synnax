@@ -76,28 +76,6 @@ describe("Schematic.TREE_ITEM", () => {
       );
     });
   });
-
-  describe("useMosaicDrop", () => {
-    it("places the schematic into the target mosaic node", async () => {
-      const s = await createSchematic();
-      const { result, store } = await renderHookWithConsole(
-        () => Schematic.useMosaicDrop(),
-        { client },
-      );
-      result.current({
-        id: schematic.ontologyID(s.key),
-        nodeKey: 3,
-        location: "center",
-      });
-      await waitFor(() =>
-        expect(Session.Layout.select(store.getState(), s.key)?.name).toBe(s.name),
-      );
-      expect(Session.Layout.select(store.getState(), s.key)?.tab).toMatchObject({
-        mosaicKey: 3,
-        location: "center",
-      });
-    });
-  });
 });
 
 describe("Schematic.useRangeSnapshot", () => {

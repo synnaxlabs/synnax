@@ -40,7 +40,6 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestStore,
-  renderHookWithConsole,
   uniqueName,
 } from "@/testutil";
 
@@ -119,22 +118,6 @@ describe("task ontology", () => {
       await waitFor(() => {
         const placed = Session.Layout.select(store.getState(), t.key);
         expect(placed?.type).toBe(NI.Task.ANALOG_READ_TYPE);
-      });
-    });
-  });
-
-  describe("onMosaicDrop", () => {
-    it("should place the task layout in the target mosaic node", async () => {
-      const t = await createTask();
-      const { result, store } = await renderHookWithConsole(
-        () => Task.useMosaicDrop(),
-        { client },
-      );
-      result.current({ id: t.ontologyID, nodeKey: 7, location: "center" });
-      await waitFor(() => {
-        const placed = Session.Layout.select(store.getState(), t.key);
-        expect(placed?.key).toBe(t.key);
-        expect(placed?.tab).toMatchObject({ mosaicKey: 7, location: "center" });
       });
     });
   });

@@ -17,7 +17,7 @@ import { stubGeometry } from "@/testutil";
 
 stubGeometry();
 
-describe("docs palette", () => {
+describe("Docs Commands", () => {
   it("should place the docs layout when the read command is selected", async () => {
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: Docs.COMMANDS,

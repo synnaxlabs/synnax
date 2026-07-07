@@ -18,7 +18,7 @@ import { renderHookWithConsole, stubGeometry, waitForPlacedLayout } from "@/test
 
 stubGeometry();
 
-describe("Schematic.COMMANDS", () => {
+describe("Schematic Commands", () => {
   it("is visible when the user may create schematics", async () => {
     const { result } = await renderHookWithConsole(
       () => Schematic.COMMANDS[0].useVisible?.(),

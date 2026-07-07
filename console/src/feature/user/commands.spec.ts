@@ -20,7 +20,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("user palette", () => {
+describe("User Commands", () => {
   it("should open the register modal when the command is selected", async () => {
     const { openCommandPalette, selectCommand } = await renderPalette({
       commands: User.COMMANDS,

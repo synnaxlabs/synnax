@@ -33,7 +33,7 @@ const selectClearCommand = async () => {
   return dispatch;
 };
 
-describe("persist palette", () => {
+describe("Persist Commands", () => {
   it("should clear local storage after the user confirms", async () => {
     const dispatch = await selectClearCommand();
     fireEvent.click(findButton("Confirm"));

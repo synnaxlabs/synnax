@@ -19,7 +19,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("log palette", () => {
+describe("Log Commands", () => {
   it("should create a log in the active project and place its layout", async () => {
     const project = await client.projects.create({
       name: uniqueName("project"),

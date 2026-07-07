@@ -19,7 +19,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("HTTP palette commands", () => {
+describe("HTTP.Device Commands", () => {
   it("should open the connect modal from the connect server command", async () => {
     const { openCommandPalette, selectCommand } = await renderPalette({
       commands: HTTP.Device.COMMANDS,
@@ -29,7 +29,9 @@ describe("HTTP palette commands", () => {
     await selectCommand("Connect an HTTP server");
     expect(await screen.findByPlaceholderText("www.example.com")).toBeTruthy();
   });
+});
 
+describe("HTTP.Task Commands", () => {
   it("should place the read task layout from the create read task command", async () => {
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: HTTP.Task.COMMANDS,

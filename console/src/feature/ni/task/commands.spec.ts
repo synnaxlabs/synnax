@@ -32,7 +32,7 @@ const createScanTask = async () => {
   );
 };
 
-describe("palette", () => {
+describe("NI.Task Commands", () => {
   it("should list every NI command once task-create access resolves", async () => {
     const { openCommandPalette } = await renderPalette({
       commands: NI.Task.COMMANDS,

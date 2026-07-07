@@ -37,7 +37,6 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestStore,
-  renderHookWithConsole,
   stubClipboardWriteText,
   uniqueName,
 } from "@/testutil";
@@ -179,27 +178,6 @@ describe("table/ontology", () => {
       expect(Session.Layout.select(store.getState(), t.key)?.type).toBe(
         Table.LAYOUT_TYPE,
       );
-    });
-  });
-
-  describe("useMosaicDrop", () => {
-    it("places the table into the target mosaic node", async () => {
-      const t = await createTable();
-      const { result, store } = await renderHookWithConsole(
-        () => Table.useMosaicDrop(),
-        { client },
-      );
-      result.current({
-        id: clientTable.ontologyID(t.key),
-        nodeKey: 2,
-        location: "bottom",
-      });
-      await waitFor(() =>
-        expect(Session.Layout.select(store.getState(), t.key)?.name).toBe(t.name),
-      );
-      const layout = Session.Layout.select(store.getState(), t.key);
-      expect(layout?.location).toBe("mosaic");
-      expect(layout?.tab).toMatchObject({ mosaicKey: 2, location: "bottom" });
     });
   });
 

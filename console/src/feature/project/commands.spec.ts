@@ -26,7 +26,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("project palette", () => {
+describe("Project Commands", () => {
   afterEach(() => {
     removeFilePickers();
     vi.restoreAllMocks();

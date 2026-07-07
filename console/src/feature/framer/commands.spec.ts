@@ -19,7 +19,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("framer palette", () => {
+describe("Framer Commands", () => {
   it("should open the delete data modal when the command is selected", async () => {
     const { openCommandPalette, selectCommand } = await renderPalette({
       commands: Framer.COMMANDS,
