@@ -52,7 +52,9 @@ type Service struct {
 	leasedCounter *counter
 	freeCounter   *counter
 	// freeStorageMu serializes transient free-channel registrations in the local
-	// storage engine so concurrent writer opens do not race on creation.
+	// storage engine, whose check-then-create is not atomic: concurrent create
+	// requests registering the same channel would otherwise race and surface
+	// spurious already-exists errors from storage.
 	freeStorageMu sync.Mutex
 	// mu guards externalNonVirtualSet, which tracks the key set used by
 	// validateChannels to enforce the uint20 channel-index overflow limit.

@@ -576,6 +576,46 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(resChannels[1].Name).To(Equal("UpdatedName"))
 			})
 	})
+	Context("Free storage registration", func() {
+		newFreeChannel := func() channel.Channel {
+			return channel.Channel{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+			}
+		}
+		It("Should register a free channel on the requesting node when the create routes through the bootstrapper", func(ctx SpecContext) {
+			ch := newFreeChannel()
+			Expect(cluster.Nodes[2].Channel.Create(ctx, &ch)).To(Succeed())
+			bootstrapperCh := MustSucceed(
+				cluster.Nodes[1].Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+			)
+			Expect(bootstrapperCh.Transient).To(BeTrue())
+			requesterCh := MustSucceed(
+				cluster.Nodes[2].Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+			)
+			Expect(requesterCh.Transient).To(BeTrue())
+		})
+		It("Should register a free channel retrieved by name on the requesting node", func(ctx SpecContext) {
+			ch := newFreeChannel()
+			Expect(cluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			retrieved := channel.Channel{
+				Name:        ch.Name,
+				DataType:    ch.DataType,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+			}
+			Expect(cluster.Nodes[2].Channel.Create(
+				ctx, &retrieved, channel.RetrieveIfNameExists(),
+			)).To(Succeed())
+			Expect(retrieved.Key()).To(Equal(ch.Key()))
+			requesterCh := MustSucceed(
+				cluster.Nodes[2].Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+			)
+			Expect(requesterCh.Transient).To(BeTrue())
+		})
+	})
 })
 
 var _ = Context("Name Validation Disabled", func() {

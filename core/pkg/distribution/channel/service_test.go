@@ -15,9 +15,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagemock "github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -122,5 +125,33 @@ var _ = Describe("Service", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
 			Eventually(called.Load).Should(BeTrue())
 		})
+	})
+})
+
+var _ = Describe("Startup Free Storage Registration", func() {
+	It("Should register free channels found in the channel table at startup", func(ctx SpecContext) {
+		freshStorageCluster := DeferClose(storagemock.NewCluster())
+		c := mock.NewCluster(ctx, 1)
+		n := c.Nodes[1]
+		ch := channel.Channel{
+			Name:        channel.NewRandomName(),
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: node.KeyFree,
+		}
+		Expect(n.Channel.Create(ctx, &ch)).To(Succeed())
+
+		// Restart the node's distribution layer with the same key-value store but a
+		// fresh time-series engine, mirroring a process restart: the channel table
+		// survives on disk while transient channel registrations do not.
+		Expect(n.Layer.Close()).To(Succeed())
+		freshStorage := freshStorageCluster.Provision(ctx)
+		c.Provision(ctx, distribution.LayerConfig{
+			Storage: &storage.Layer{KV: n.Storage.KV, TS: freshStorage.TS},
+		})
+		stored := MustSucceed(
+			freshStorage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+		)
+		Expect(stored.Transient).To(BeTrue())
 	})
 })
