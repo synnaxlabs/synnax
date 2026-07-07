@@ -137,11 +137,12 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		}()
 		if *s.cfg.SendOpenAck {
 			// Wait for the relay to confirm our demand has been applied before
-			// signaling readiness. For free/virtual channels this is a true
-			// happens-before barrier: updateTaps installs the keys synchronously, so
-			// a write to a free channel issued after the open ack is guaranteed to be
-			// delivered. Gateway and peer taps receive key updates asynchronously and
-			// are not covered by this barrier.
+			// signaling readiness. For channels served from local storage (host-leased
+			// and free channels alike) this is a true happens-before barrier:
+			// updateTaps opens the gateway tap and applies its key updates
+			// synchronously, so a write issued after the open ack is guaranteed to be
+			// delivered. Peer taps receive key updates asynchronously and are not
+			// covered by this barrier.
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
