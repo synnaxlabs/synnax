@@ -21,7 +21,7 @@ import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export * from "@/feature/ethercat/task/palette";
+export * from "@/feature/ethercat/task/commands";
 export * from "@/feature/ethercat/task/Read";
 export * from "@/feature/ethercat/task/types";
 export * from "@/feature/ethercat/task/Write";

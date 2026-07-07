@@ -21,7 +21,7 @@ import { type Selector } from "@/platform/selector";
 export * from "@/feature/lineplot/import";
 export * from "@/feature/lineplot/link";
 export * from "@/feature/lineplot/ontology";
-export * from "@/feature/lineplot/palette";
+export * from "@/feature/lineplot/commands";
 export * from "@/feature/lineplot/toolbar";
 export * from "@/feature/lineplot/useTriggerHold";
 export * from "@/platform/lineplot/external";

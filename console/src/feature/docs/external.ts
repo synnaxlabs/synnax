@@ -10,7 +10,7 @@
 import { Docs } from "@/platform/docs";
 import { type Layout } from "@/platform/layout";
 
-export * from "@/feature/docs/palette";
+export * from "@/feature/docs/commands";
 export * from "@/platform/docs/external";
 export * from "@/session/docs/selectors";
 export * from "@/session/docs/slice";

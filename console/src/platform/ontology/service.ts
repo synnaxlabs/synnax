@@ -52,10 +52,6 @@ export interface HandleSelectProps extends BaseProps {
   selection: ontology.Resource[];
 }
 
-export interface HandleSelect {
-  (props: HandleSelectProps): void;
-}
-
 export interface HandleMosaicDropProps extends BaseProps {
   nodeKey: number;
   location: location.Location;

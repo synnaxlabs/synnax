@@ -21,7 +21,7 @@ import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export * from "@/feature/modbus/task/palette";
+export * from "@/feature/modbus/task/commands";
 export * from "@/feature/modbus/task/Read";
 export * from "@/feature/modbus/task/types";
 export * from "@/feature/modbus/task/Write";

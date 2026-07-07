@@ -24,7 +24,6 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
 
-import { COMMANDS } from "@/app/commands";
 import { EXTRACTORS } from "@/app/extractors";
 import { FILE_INGESTERS } from "@/app/ingesters";
 import { Main, MAIN_LAYOUT_TYPE } from "@/app/Main";
@@ -47,7 +46,6 @@ import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
 import { Ontology } from "@/platform/ontology";
-import { Palette } from "@/platform/palette";
 import { Range as PlatformRange } from "@/platform/range";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
@@ -160,15 +158,13 @@ export const App = (): ReactElement => {
               <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
                 <Export.ExtractorsProvider extractors={EXTRACTORS}>
                   <Ontology.ServicesProvider services={SERVICES}>
-                    <Palette.CommandProvider commands={COMMANDS}>
-                      <PlatformRange.SnapshotServicesProvider
-                        services={SNAPSHOT_SERVICES}
-                      >
-                        <Task.RegistryProvider registry={Task.REGISTRY}>
-                          <AppUnderContext />
-                        </Task.RegistryProvider>
-                      </PlatformRange.SnapshotServicesProvider>
-                    </Palette.CommandProvider>
+                    <PlatformRange.SnapshotServicesProvider
+                      services={SNAPSHOT_SERVICES}
+                    >
+                      <Task.RegistryProvider registry={Task.REGISTRY}>
+                        <AppUnderContext />
+                      </Task.RegistryProvider>
+                    </PlatformRange.SnapshotServicesProvider>
                   </Ontology.ServicesProvider>
                 </Export.ExtractorsProvider>
               </Import.FileIngestersProvider>

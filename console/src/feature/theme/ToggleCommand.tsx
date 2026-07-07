@@ -14,7 +14,7 @@ import { Palette } from "@/platform/palette";
 const COMMAND_NAME = "Toggle color theme";
 
 export interface ToggleCommandProps extends Omit<
-  Palette.CommandListItemProps,
+  Palette.ListItemProps,
   "name" | "onSelect" | "icon"
 > {}
 

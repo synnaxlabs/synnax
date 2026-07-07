@@ -21,7 +21,7 @@ import { type Selector } from "@/platform/selector";
 export * from "@/feature/schematic/import";
 export * from "@/feature/schematic/link";
 export * from "@/feature/schematic/ontology";
-export * from "@/feature/schematic/palette";
+export * from "@/feature/schematic/commands";
 export * from "@/feature/schematic/symbol";
 export * from "@/feature/schematic/toolbar/Toolbar";
 export * from "@/platform/schematic/external";

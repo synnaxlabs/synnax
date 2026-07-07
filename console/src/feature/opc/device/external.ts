@@ -9,7 +9,7 @@
 
 export * from "@/feature/opc/device/Browser";
 export * from "@/feature/opc/device/ontology";
-export * from "@/feature/opc/device/palette";
+export * from "@/feature/opc/device/commands";
 export * from "@/feature/opc/device/Select";
 export * from "@/feature/opc/device/types";
 export * from "@/feature/opc/device/useConnectModal";

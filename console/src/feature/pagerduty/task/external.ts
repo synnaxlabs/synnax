@@ -16,7 +16,7 @@ import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 export * from "@/feature/pagerduty/task/Alert";
-export * from "@/feature/pagerduty/task/palette";
+export * from "@/feature/pagerduty/task/commands";
 export * from "@/feature/pagerduty/task/types";
 
 export const EXTRACTORS: Export.Extractors = { [ALERT_TYPE]: Task.extract };
