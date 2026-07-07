@@ -9,19 +9,21 @@
 
 // Package writer is the service-layer entry point for writing telemetry to a Synnax
 // cluster. It is a thin shim over the distribution-layer writer: before delegating, it
-// ensures any free channels in the Config's Keys are registered in this node's local
-// storage engine, where free writes are serviced.
+// validates that every key in the Config's Keys references an existing channel.
 package writer
 
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -48,8 +50,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
-	// Channel provisions free channels in local storage before writers open against
-	// them.
+	// Channel validates that writer keys reference existing channels before writers
+	// open against them.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
@@ -96,7 +98,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 // Keys is empty and query.ErrNotFound if any key does not reference an existing
 // channel.
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, error) {
-	if err := s.cfg.Channel.EnsureFreeStorage(ctx, cfg.Keys); err != nil {
+	if err := s.validateKeys(ctx, cfg.Keys); err != nil {
 		return nil, err
 	}
 	return s.cfg.Framer.NewStreamWriter(ctx, cfg)
@@ -105,8 +107,28 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 // Open opens a Writer for the channels in cfg. It returns validate.Error if Keys is
 // empty and query.ErrNotFound if any key does not reference an existing channel.
 func (s *Service) Open(ctx context.Context, cfg Config) (*Writer, error) {
-	if err := s.cfg.Channel.EnsureFreeStorage(ctx, cfg.Keys); err != nil {
+	if err := s.validateKeys(ctx, cfg.Keys); err != nil {
 		return nil, err
 	}
 	return s.cfg.Framer.OpenWriter(ctx, cfg)
+}
+
+// validateKeys returns query.ErrNotFound if any key in keys does not reference an
+// existing channel.
+func (s *Service) validateKeys(ctx context.Context, keys channel.Keys) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	var channels []channel.Channel
+	if err := s.cfg.Channel.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	if len(channels) < len(lo.Uniq(keys)) {
+		missing, _ := lo.Difference(lo.Uniq(keys), channel.KeysFromChannels(channels))
+		return errors.Wrapf(query.ErrNotFound, "channels %v not found", missing)
+	}
+	return nil
 }

@@ -242,6 +242,9 @@ func (w *streamWriter) maybeSendRes(
 }
 
 func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
+	if err := w.validateSeries(req.Frame); err != nil {
+		return err
+	}
 	if *w.AutoIndex {
 		req.Frame = w.autoStamp(req.Frame)
 	}
@@ -283,6 +286,42 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	return accumulatedErr
+}
+
+// validateSeries checks that every series in fr targets a channel the writer is
+// responsible for and has a structurally valid data buffer for its declared data
+// type (see telem.Series.Validate), rejecting the write before any data is applied.
+func (w *streamWriter) validateSeries(fr Frame) error {
+	for rawI, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(rawI) {
+			continue
+		}
+		if !w.owns(k) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"channel %d is not part of the writer's channel set",
+				k,
+			)
+		}
+		s := fr.RawSeriesAt(rawI)
+		if err := s.Validate(); err != nil {
+			return errors.Wrapf(err, "channel %d", k)
+		}
+	}
+	return nil
+}
+
+// owns reports whether the writer is responsible for writes to the given channel.
+func (w *streamWriter) owns(k ChannelKey) bool {
+	if _, ok := w.virtual.internal[k]; ok {
+		return true
+	}
+	for _, idx := range w.internal {
+		if _, ok := idx.internal[k]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // autoStamp injects a TimeStamp series for each idxWriter whose index channel is

@@ -16,9 +16,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,6 +43,30 @@ var _ = Describe("Service", func() {
 				ValidateNames: new(false),
 			})
 			Expect(noValidateSvc.ShouldValidateNames()).To(BeFalse())
+		})
+	})
+
+	Describe("OpenService", func() {
+		It("Should register free channels found in the channel table at startup", func(ctx SpecContext) {
+			n := mock.NewNode(ctx)
+			first := openService(ctx, n)
+			ch := channel.Channel{
+				Name:        UniqueChannelName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+			}
+			Expect(first.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			// Drop the transient registration to mirror a process restart: the channel
+			// table survives on disk while transient channel registrations do not.
+			Expect(n.Storage.TS.DeleteChannel(ch.Key().StorageKey())).To(Succeed())
+			Expect(n.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).Error().
+				To(MatchError(query.ErrNotFound))
+			MustOpen(channel.OpenService(ctx, serviceConfig(ctx, n)))
+			stored := MustSucceed(
+				n.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+			)
+			Expect(stored.Transient).To(BeTrue())
 		})
 	})
 

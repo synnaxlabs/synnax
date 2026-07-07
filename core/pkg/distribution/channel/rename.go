@@ -17,8 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
@@ -32,9 +30,9 @@ var _ proxy.Entry = renameBatchEntry{}
 func (r renameBatchEntry) Lease() node.Key { return r.key.Lease() }
 
 // Rename renames each storage channel keyed in renames to its corresponding new name,
-// routing each key to its leaseholder. Free-virtual channels rename only this node's
-// transient registration, if present; other nodes pick up the new name when they next
-// provision the channel.
+// routing each key to its leaseholder. Free-virtual channels are renamed on the same
+// path as gateway-leased channels, renaming this node's transient registration; other
+// nodes pick up the new name when they next register the channel at startup.
 func (s *Service) Rename(ctx context.Context, renames map[Key]string) error {
 	entries := lo.MapToSlice(renames, func(key Key, name string) renameBatchEntry {
 		return renameBatchEntry{key: key, name: name}
@@ -51,13 +49,10 @@ func (s *Service) Rename(ctx context.Context, renames map[Key]string) error {
 			return err
 		}
 	}
-	for _, e := range batch.Free {
-		if err := s.cfg.TS.RenameChannel(ctx, e.key.StorageKey(), e.name); err != nil &&
-			!errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-	}
-	return s.cfg.TS.RenameChannels(ctx, storageRenames(zipRenameBatch(batch.Gateway)))
+	return s.cfg.TS.RenameChannels(
+		ctx,
+		storageRenames(zipRenameBatch(append(batch.Gateway, batch.Free...))),
+	)
 }
 
 func (s *Service) renameHandler(

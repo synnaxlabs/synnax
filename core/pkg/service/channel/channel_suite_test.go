@@ -36,15 +36,9 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// openService opens a channel service for the node and creates the node's internal
-// control channel, mirroring what the service layer's OpenLayer does in production.
-// Tests rely on the control channel for their local-key and channel-count expectations.
-// Extra configs override the derived distribution-layer fields.
-func openService(
-	ctx context.Context,
-	node mock.Node,
-	cfgs ...channel.ServiceConfig,
-) *channel.Service {
+// serviceConfig builds a channel ServiceConfig for the node, opening the label and
+// status services the channel service depends on.
+func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
 	GinkgoHelper()
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
@@ -59,7 +53,7 @@ func openService(
 		Label:    labelSvc,
 		Search:   node.Search,
 	}))
-	cfg := channel.ServiceConfig{
+	return channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostResolver: node.Cluster,
@@ -68,9 +62,21 @@ func openService(
 		Search:       node.Search,
 		Status:       statusSvc,
 	}
+}
+
+// openService opens a channel service for the node and creates the node's internal
+// control channel, mirroring what the service layer's OpenLayer does in production.
+// Tests rely on the control channel for their local-key and channel-count expectations.
+// Extra configs override the derived distribution-layer fields.
+func openService(
+	ctx context.Context,
+	node mock.Node,
+	cfgs ...channel.ServiceConfig,
+) *channel.Service {
+	GinkgoHelper()
 	channelSvc := MustOpen(channel.OpenService(
 		ctx,
-		append([]channel.ServiceConfig{cfg}, cfgs...)...,
+		append([]channel.ServiceConfig{serviceConfig(ctx, node)}, cfgs...)...,
 	))
 	controlCh := channel.Channel{
 		Name:        fmt.Sprintf("sy_node_%v_control", node.Cluster.HostKey()),

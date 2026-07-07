@@ -271,10 +271,11 @@ var _ = Describe("Relay", func() {
 	})
 	// These tests cover the SendOpenAck happens-before guarantee: once a caller
 	// sees the open ack, a subsequent write must be observable on the streamer.
-	// The relay implements this by waiting for the freeWriteTap to install the
-	// streamer's keys before sending the ack. The cases below also exercise the
-	// edge cases that could deadlock the synchronous wait — empty initial keys,
-	// non-free leases, context cancellation mid-wait, and concurrent streamers.
+	// The relay implements this by waiting for the tapper to install the
+	// streamer's keys into the gateway tap before sending the ack. The cases below
+	// also exercise the edge cases that could deadlock the synchronous wait —
+	// empty initial keys, non-free leases, context cancellation mid-wait, and
+	// concurrent streamers.
 	Describe("SendOpenAck", Ordered, func() {
 		var svc mock.Node
 		BeforeAll(func(ctx SpecContext) {
@@ -349,9 +350,9 @@ var _ = Describe("Relay", func() {
 
 		It("Should deliver the open ack when the streamer subscribes only to gateway-leased channels", func(ctx SpecContext) {
 			// Channels with no explicit leaseholder are assigned to the host
-			// node, so they route through the gateway tap rather than the free
-			// write tap. This exercises the path where updateTaps does not
-			// create an applied channel and the demand returns immediately.
+			// node and are served by the gateway tap alongside free channels.
+			// This exercises the ack path for a demand whose keys are all
+			// host-leased.
 			chs := MustSucceed(svc.Channel.Create(ctx, newChannelSet()))
 			keys := channel.KeysFromChannels(chs)
 

@@ -79,7 +79,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 
-				It("Should receive frames for every channel when MatchAll is set", func(ctx SpecContext) {
+				It("Should deliver writes issued after SetChannels returns", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(
 						ctx,
@@ -89,28 +89,21 @@ var _ = Describe("Streamer Behavior", func() {
 						Channels: []cesium.ChannelKey{key},
 						Start:    10 * telem.SecondTS,
 					}))
-					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{MatchAll: true}))
+					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{}))
 					i, o := confluence.Attach(r, 1)
 					sCtx, cancel := signal.WithCancel(ctx)
 					defer cancel()
 					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
+					r.SetChannels([]cesium.ChannelKey{key})
 					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{key},
 						[]telem.Series{telem.NewSeriesSecondsTSV(10, 11)},
 					)))
 
-					// The match-all subscription also surfaces control digest frames, so
-					// poll until the written frame arrives rather than asserting on the
-					// first response.
-					Eventually(func() []cesium.ChannelKey {
-						select {
-						case res := <-o.Outlet():
-							return res.Frame.KeysSlice()
-						default:
-							return nil
-						}
-					}).Should(ContainElement(key))
+					var res cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Frame.KeysSlice()).To(ContainElement(key))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())

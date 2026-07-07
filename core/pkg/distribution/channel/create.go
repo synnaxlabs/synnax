@@ -11,13 +11,11 @@ package channel
 
 import (
 	"context"
-	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 // Create assigns local keys to the provided new channels (those with a zero LocalKey)
@@ -136,13 +134,14 @@ func (s *Service) allocateFree(
 	if err := assignKeys(ctx, s.freeCounter, chs); err != nil {
 		return err
 	}
-	// Free channels are registered transiently in the creating node's local storage;
-	// other nodes provision them lazily at writer open. A missing index means the
-	// index channel was created through another node and is not registered locally
-	// yet - lazy provisioning resolves the full group later, so it is skipped here.
+	// Free channels are created in the local storage engine on the same path as
+	// gateway-leased channels. Every free create executes here on the bootstrapper, so
+	// a newly created channel can never collide with an existing storage registration;
+	// other nodes register free channels when they scan the channel table at startup
+	// (see RegisterFreeStorage).
 	if err := s.cfg.TS.CreateChannel(ctx, lo.Map(chs, func(c Channel, _ int) ts.Channel {
 		return c.Storage()
-	})...); err != nil && !errors.Is(err, query.ErrNotFound) {
+	})...); err != nil {
 		return err
 	}
 	putBack(out, indices, chs)
@@ -173,34 +172,12 @@ func (s *Service) allocateRemote(
 	return nil
 }
 
-// EnsureFreeStorage registers the given free channels in the local storage engine as
-// transient virtual channels, skipping channels that are already registered. Free
-// channels have no leaseholder, so each node provisions them on demand before opening
-// writers against them. Channels that are not free are ignored.
-func (s *Service) EnsureFreeStorage(ctx context.Context, channels []Channel) error {
-	s.freeStorageMu.Lock()
-	defer s.freeStorageMu.Unlock()
-	free := lo.Filter(channels, func(c Channel, _ int) bool { return c.Free() })
-	// Indexes must be registered before the channels they index.
-	slices.SortStableFunc(free, func(a, b Channel) int {
-		return boolToInt(b.IsIndex) - boolToInt(a.IsIndex)
-	})
-	for _, ch := range free {
-		if _, err := s.cfg.TS.RetrieveChannel(ctx, ch.Key().StorageKey()); err == nil {
-			continue
-		} else if !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-		if err := s.cfg.TS.CreateChannel(ctx, ch.Storage()); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func boolToInt(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
+// RegisterFreeStorage registers the given free channels in this node's local storage
+// engine as transient virtual channels. Free channels are transient in storage and
+// vanish on restart, so each node registers the cluster's free channels once at
+// startup; creates after startup register on the bootstrapper through Create.
+func (s *Service) RegisterFreeStorage(ctx context.Context, channels []Channel) error {
+	return s.cfg.TS.CreateChannel(ctx, lo.Map(channels, func(c Channel, _ int) ts.Channel {
+		return c.Storage()
+	})...)
 }

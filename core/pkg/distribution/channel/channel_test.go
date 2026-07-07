@@ -194,5 +194,27 @@ var _ = Describe("Channel", func() {
 				Concurrency: control.ConcurrencyShared,
 			}))
 		})
+		It("Should mark a free channel's storage registration as transient", func() {
+			ch := channel.Channel{
+				Name:        "free_ch",
+				LocalKey:    1,
+				Leaseholder: node.KeyFree,
+				DataType:    telem.Int64T,
+				Virtual:     true,
+			}
+			stored := ch.Storage()
+			Expect(stored.Key).To(Equal(ch.Key().StorageKey()))
+			Expect(stored.Virtual).To(BeTrue())
+			Expect(stored.Transient).To(BeTrue())
+		})
+		It("Should not mark a leased channel's storage registration as transient", func() {
+			ch := channel.Channel{
+				Name:        "leased_ch",
+				LocalKey:    1,
+				Leaseholder: 1,
+				DataType:    telem.Int64T,
+			}
+			Expect(ch.Storage().Transient).To(BeFalse())
+		})
 	})
 })

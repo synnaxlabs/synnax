@@ -426,7 +426,7 @@ func addConfigToScope[T antlr.ParserRuleContext](
 
 		if _, err := scope.Add(ctx, symbol.Symbol{
 			Name:         configName,
-			Kind:         symbol.KindConfig,
+			Kind:         symbol.KindInput,
 			Type:         configType,
 			AST:          cfg,
 			DefaultValue: defaultValue,

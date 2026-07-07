@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -76,9 +75,6 @@ type Service struct {
 	freeCounter   *counter
 	renameRouter  proxy.BatchFactory[renameBatchEntry]
 	deleteRouter  proxy.BatchFactory[Key]
-	// freeStorageMu serializes transient free-channel registrations in the local
-	// storage engine so concurrent writer opens do not race on creation.
-	freeStorageMu sync.Mutex
 }
 
 // NewService opens the distribution-layer channel service, which is responsible for

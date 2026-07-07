@@ -130,7 +130,8 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(out[0].LocalKey).ToNot(BeZero())
 			Expect(out[0].Key().Lease()).To(Equal(node.KeyFree))
 			// Free allocation routes through the bootstrapper, so the transient storage
-			// registration lands there; the peer provisions lazily at writer open.
+			// registration lands there; the peer registers the channel when it next
+			// scans the channel table at startup.
 			Expect(peer.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Error().To(
 				MatchError(query.ErrNotFound),
 			)
