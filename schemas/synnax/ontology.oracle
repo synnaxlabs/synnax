@@ -40,7 +40,6 @@ ResourceType enum {
     view             = "view"
 
     @doc value "is the type of the resource."
-    @go output "core/pkg/service/ontology"
 }
 
 RelationshipType string {
