@@ -9,7 +9,6 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Icon } from "@synnaxlabs/pluto";
-import { Fragment } from "react";
 
 const {
     tabindex,
@@ -27,12 +26,10 @@ if (wrap) className += " wrap";
     {
         !hideCopyButton && (
             <Button.Button variant="outlined" size="medium" square>
-                <Fragment>
-                    <>
-                        <Icon.Copy className="copy" />
-                        <Icon.Check className="check" />
-                    </>
-                </Fragment>
+                <>
+                    <Icon.Copy className="copy" />
+                    <Icon.Check className="check" />
+                </>
             </Button.Button>
         )
     }

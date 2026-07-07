@@ -67,12 +67,10 @@ describe("layouts.ListAndDetails", () => {
   });
 
   it("should create a channel with the selected key as the copy source when Add is pressed", async () => {
-    const createChannel = vi.fn(
-      (_channels: Channel[], copyFrom?: string): Channel => ({
-        key: `new_${copyFrom ?? "none"}`,
-        enabled: true,
-      }),
-    );
+    const createChannel = vi.fn((_channels: Channel[], copyFrom?: string): Channel => ({
+      key: `new_${copyFrom ?? "none"}`,
+      enabled: true,
+    }));
     const { container, form } = await renderListAndDetails(
       [{ key: "a", enabled: true }],
       createChannel,

@@ -2342,22 +2342,14 @@ export type CrudeTimeStamp =
   | primitive.CrudeValueExtension<bigint>;
 export type TimeStampT = number;
 export type CrudeTimeSpan =
-  | bigint
-  | TimeSpan
-  | TimeStamp
-  | number
-  | Rate
-  | primitive.CrudeValueExtension<bigint>;
+  bigint | TimeSpan | TimeStamp | number | Rate | primitive.CrudeValueExtension<bigint>;
 export type TimeSpanT = number;
 export type CrudeRate = Rate | number | primitive.CrudeValueExtension<number>;
 export type RateT = number;
 export type CrudeDensity = Density | number | primitive.CrudeValueExtension<number>;
 export type DensityT = number;
 export type CrudeDataType =
-  | DataType
-  | string
-  | TypedArray
-  | primitive.CrudeValueExtension<string>;
+  DataType | string | TypedArray | primitive.CrudeValueExtension<string>;
 export type DataTypeT = string;
 export type CrudeSize = Size | number | primitive.CrudeValueExtension<number>;
 export type SizeT = number;
@@ -2404,13 +2396,7 @@ type TypedArrayConstructor =
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
 export type TelemValue =
-  | number
-  | bigint
-  | string
-  | boolean
-  | Date
-  | TimeStamp
-  | TimeSpan;
+  number | bigint | string | boolean | Date | TimeStamp | TimeSpan;
 
 export const isTelemValue = (value: unknown): value is TelemValue => {
   const ot = typeof value;

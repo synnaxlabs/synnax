@@ -236,9 +236,7 @@ export class Writer {
   ): Promise<void>;
   async write(
     channelsOrData:
-      | channel.Params
-      | Record<channel.Key | channel.Name, CrudeSeries>
-      | CrudeFrame,
+      channel.Params | Record<channel.Key | channel.Name, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void>;
 
@@ -259,9 +257,7 @@ export class Writer {
    */
   async write(
     channelsOrData:
-      | channel.Params
-      | Record<channel.Key | channel.Name, CrudeSeries>
-      | CrudeFrame,
+      channel.Params | Record<channel.Key | channel.Name, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;
