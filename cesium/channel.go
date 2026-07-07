@@ -24,7 +24,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// CreateChannel creates a channel in the database.
+// CreateChannel creates the given channels in the database. Index channels are
+// created before the other channels in the batch, so a channel may reference an
+// index defined anywhere within the same call.
 func (db *DB) CreateChannel(ctx context.Context, ch ...Channel) error {
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -32,8 +34,17 @@ func (db *DB) CreateChannel(ctx context.Context, ch ...Channel) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	for _, c := range ch {
-		if err := db.createChannel(ctx, c); err != nil {
-			return err
+		if c.IsIndex {
+			if err := db.createChannel(ctx, c); err != nil {
+				return err
+			}
+		}
+	}
+	for _, c := range ch {
+		if !c.IsIndex {
+			if err := db.createChannel(ctx, c); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

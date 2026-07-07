@@ -15,9 +15,9 @@ import (
 )
 
 // Delete deletes the storage channels for the provided keys, routing each key to its
-// leaseholder. Free-virtual channels remove only this node's transient registration,
-// if present; registrations on other nodes vanish on their next restart. It does not
-// touch channel metadata.
+// leaseholder. Free-virtual channels are deleted on the same path as gateway-leased
+// channels, removing this node's transient registration; registrations on other nodes
+// vanish on their next restart. It does not touch channel metadata.
 func (s *Service) Delete(ctx context.Context, keys Keys) error {
 	batch := s.deleteRouter.Batch(keys)
 	for nodeKey, entries := range batch.Peers {
@@ -31,12 +31,7 @@ func (s *Service) Delete(ctx context.Context, keys Keys) error {
 			return err
 		}
 	}
-	for _, key := range batch.Free {
-		if err := s.cfg.TS.DeleteChannel(key.StorageKey()); err != nil {
-			return err
-		}
-	}
-	return s.cfg.TS.DeleteChannels(Keys(batch.Gateway).Storage())
+	return s.cfg.TS.DeleteChannels(Keys(append(batch.Gateway, batch.Free...)).Storage())
 }
 
 func (s *Service) deleteHandler(

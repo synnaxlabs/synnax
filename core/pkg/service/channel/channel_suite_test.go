@@ -39,15 +39,9 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// openService opens a channel service for the node and creates the node's internal
-// control channel, mirroring what the service layer's OpenLayer does in production.
-// Tests rely on the control channel for their local-key and channel-count expectations.
-// Extra configs override the derived distribution-layer fields.
-func openService(
-	ctx context.Context,
-	node mock.Node,
-	cfgs ...channel.ServiceConfig,
-) (*channel.Service, *ontology.Ontology) {
+// serviceConfig builds a channel ServiceConfig for the node, opening the ontology,
+// search, group, label, and status services the channel service depends on.
+func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
 	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	searchIdx := MustOpen(search.OpenIndex())
@@ -69,7 +63,7 @@ func openService(
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
-	cfg := channel.ServiceConfig{
+	return channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostResolver: node.Cluster,
@@ -78,6 +72,19 @@ func openService(
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}
+}
+
+// openService opens a channel service for the node and creates the node's internal
+// control channel, mirroring what the service layer's OpenLayer does in production.
+// Tests rely on the control channel for their local-key and channel-count expectations.
+// Extra configs override the derived distribution-layer fields.
+func openService(
+	ctx context.Context,
+	node mock.Node,
+	cfgs ...channel.ServiceConfig,
+) (*channel.Service, *ontology.Ontology) {
+	GinkgoHelper()
+	cfg := serviceConfig(ctx, node)
 	channelSvc := MustOpen(channel.OpenService(
 		ctx,
 		append([]channel.ServiceConfig{cfg}, cfgs...)...,
@@ -95,8 +102,8 @@ func openService(
 	Expect(node.Framer.ConfigureControlUpdateChannel(
 		ctx, controlCh.Key(), controlCh.Name,
 	)).To(Succeed())
-	Expect(searchIdx.Initialize(ctx)).To(Succeed())
-	return channelSvc, otg
+	Expect(cfg.Search.Initialize(ctx)).To(Succeed())
+	return channelSvc, cfg.Ontology
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {

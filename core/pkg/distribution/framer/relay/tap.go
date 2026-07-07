@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
@@ -45,14 +44,40 @@ type demand struct {
 	ack chan struct{}
 }
 
-// tap is a tap into a relay, whether another node's distribution relay or the hosts
-// relay. It can receive updates for channels to stream, and sends frames it receives
-// from the relay to an outlet.
-type tap = confluence.Segment[Request, Response]
+// tap is a tap into a source of frames, whether another node's distribution relay or
+// the host's local storage engine. A tap streams the frames it receives to the relay's
+// delta until closed.
+type tap interface {
+	io.Closer
+	// setChannels replaces the set of channels the tap subscribes to. Gateway taps
+	// apply the new set before returning, which is what lets a demand acknowledged by
+	// the tapper guarantee its keys are already being filtered in (see demand.ack).
+	// Peer taps apply the new set asynchronously over the network and carry no such
+	// guarantee.
+	setChannels(channel.Keys)
+}
 
-type tapController struct {
-	confluence.Inlet[Request]
-	closer io.Closer
+// gatewayTap streams frames from the host's local storage engine, which serves both
+// host-leased and free channels.
+type gatewayTap struct {
+	io.Closer
+	streamer cesium.Streamer[Request, Response]
+}
+
+// setChannels implements tap.
+func (g *gatewayTap) setChannels(keys channel.Keys) {
+	g.streamer.SetChannels(keys.Storage())
+}
+
+// peerTap streams frames from another node's relay.
+type peerTap struct {
+	io.Closer
+	requests confluence.Inlet[Request]
+}
+
+// setChannels implements tap.
+func (p *peerTap) setChannels(keys channel.Keys) {
+	p.requests.Inlet() <- Request{Keys: keys}
 }
 
 // tapper tracks readers demands for channel's to stream. It uses these demands to tap
@@ -68,11 +93,7 @@ type tapper struct {
 	// demands track the current channels demanded by each entity.
 	demands map[address.Address]channel.Keys
 	// taps tracks the current taps we have open.
-	taps map[node.Key]tapController
-	// freeTap is the always-open tap for free (virtual) channel writes. It is held
-	// directly, rather than only through taps, so updateTaps can apply free-channel
-	// key updates synchronously and lock-free (see freeWriteTap.keys).
-	freeTap *freeWriteTap
+	taps map[node.Key]tap
 	Config
 }
 
@@ -80,7 +101,7 @@ func newTapper(config Config) confluence.Segment[demand, Response] {
 	t := &tapper{
 		Config:  config,
 		demands: make(map[address.Address]channel.Keys),
-		taps:    make(map[node.Key]tapController),
+		taps:    make(map[node.Key]tap),
 	}
 	t.Sink = t.sink
 	return t
@@ -105,19 +126,25 @@ func (t *tapper) updateDemands(d demand) map[node.Key]channel.Keys {
 	} else {
 		t.demands[d.Key] = d.Value.Keys
 	}
+	host := t.HostResolver.HostKey()
 	nodeDemands := make(map[node.Key]channel.Keys, len(t.taps))
 	for _, d := range t.demands {
 		for _, k := range d {
-			nodeDemands[k.Lease()] = append(nodeDemands[k.Lease()], k)
+			nk := k.Lease()
+			// Free channels are registered transiently in every node's local storage,
+			// so their writes are served by the gateway tap.
+			if nk.IsFree() {
+				nk = host
+			}
+			nodeDemands[nk] = append(nodeDemands[nk], k)
 		}
 	}
 	return nodeDemands
 }
 
-// Flow starts the tapper goroutines, which listen for demands that update relevant
-// taps into remote nodes, the host time-series db, or the free write pipeline.
+// Flow starts the tapper goroutines, which listen for demands that update relevant taps
+// into remote nodes or the host time-series db.
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
-	t.taps[node.KeyFree], _ = t.tapInto(sCtx, node.KeyFree, channel.Keys{})
 	t.UnarySink.Flow(sCtx, append(opts,
 		// Order is very important here, we need to make sure the tapper deferral
 		// runs before we close the inlet to the delta.
@@ -127,11 +154,8 @@ func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
 }
 
 func (t *tapper) close() {
-	if len(t.taps) > 1 {
+	if len(t.taps) > 0 {
 		panic("[relay] - tapper closed with open taps")
-	}
-	if err := t.taps[node.KeyFree].closer.Close(); err != nil {
-		t.L.Error("failed to close free write tap", zap.Error(err))
 	}
 }
 
@@ -139,16 +163,8 @@ func (t *tapper) updateTaps(
 	ctx context.Context,
 	nodeDemands map[node.Key]channel.Keys,
 ) {
-	// Apply free-channel keys synchronously and lock-free. This is what lets a
-	// streamer's readiness acknowledgment guarantee its demanded free channels are
-	// already being filtered in by the time the ack fires.
-	t.freeTap.setKeys(nodeDemands[node.KeyFree])
-
 	// Open any new taps we may need
 	for nk, keys := range nodeDemands {
-		if nk.IsFree() {
-			continue
-		}
 		if _, ok := t.taps[nk]; !ok {
 			tc, err := t.tapInto(ctx, nk, keys)
 			if err != nil {
@@ -159,19 +175,14 @@ func (t *tapper) updateTaps(
 		}
 	}
 
-	// Update or close any non-free taps. The free tap is driven by setKeys above
-	// and is never opened or closed here.
 	for nk, tc := range t.taps {
-		if nk.IsFree() {
-			continue
-		}
 		if keys, ok := nodeDemands[nk]; ok {
 			// If we still need the tap, send the updated key set
-			tc.Inlet.Inlet() <- Request{Keys: keys}
+			tc.setChannels(keys)
 		} else {
 			// This does a hard shutdown on the tap, cancelling its context and causing
 			// it to immediately exit.
-			if err := tc.closer.Close(); err != nil {
+			if err := tc.Close(); err != nil {
 				t.L.Error("tap failed to close", zap.Error(err))
 			}
 			// If we need this tap again, we'll just open it again.
@@ -184,41 +195,41 @@ func (t *tapper) tapInto(
 	ctx context.Context,
 	nodeKey node.Key,
 	keys channel.Keys,
-) (tapController, error) {
-	var (
-		tp     tap
-		err    error
-		tapKey string
-	)
-	if nodeKey.IsFree() {
-		tp, err = t.tapIntoFreeWrites()
-		tapKey = "free_write_tap"
-	} else if nodeKey == t.HostResolver.HostKey() {
-		tp, err = t.tapIntoGateway(keys)
-		tapKey = "gateway_tap"
-	} else {
-		tp, err = t.tapIntoPeer(ctx, nodeKey)
-		tapKey = fmt.Sprintf("peer_tap_%v", nodeKey)
+) (tap, error) {
+	if nodeKey == t.HostResolver.HostKey() {
+		return t.tapIntoGateway(keys)
 	}
-	if err != nil {
-		return tapController{}, err
-	}
-	requests := confluence.NewStream[Request](1)
-	tp.InFrom(requests)
-	tp.OutTo(t.Out)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Child(tapKey)))
-	tp.Flow(sCtx, confluence.RecoverWithErrOnPanic(), confluence.WithAddress(address.Address(tapKey)))
-	return tapController{Inlet: requests, closer: signal.NewHardShutdown(sCtx, cancel)}, nil
+	return t.tapIntoPeer(ctx, nodeKey)
 }
 
-// tapIntoGateway opens a new tap over the given storage layer streamer.
+// startTap wires the given segment's frames into the tapper's outlet and starts it,
+// returning the segment's request inlet and a closer that hard-shuts it down.
+func (t *tapper) startTap(
+	seg confluence.Segment[Request, Response],
+	tapKey string,
+) (confluence.Inlet[Request], io.Closer) {
+	requests := confluence.NewStream[Request](1)
+	seg.InFrom(requests)
+	seg.OutTo(t.Out)
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Child(tapKey)))
+	seg.Flow(sCtx, confluence.RecoverWithErrOnPanic(), confluence.WithAddress(address.Address(tapKey)))
+	return requests, signal.NewHardShutdown(sCtx, cancel)
+}
+
+// tapIntoGateway opens a new tap over the host's local storage engine, subscribed to
+// the given channels.
 func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, error) {
-	return cesium.NewTranslatedStreamer(
+	str, err := cesium.NewTranslatedStreamer(
 		t.TS,
 		ts.StreamerConfig{Channels: keys.Storage()},
 		reqToStorage,
 		resFromStorage,
 	)
+	if err != nil {
+		return nil, err
+	}
+	_, closer := t.startTap(str, "gateway_tap")
+	return &gatewayTap{Closer: closer, streamer: str}, nil
 }
 
 // tapIntoPeer opens a new tap that sends requests and receives responses
@@ -240,81 +251,6 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.Key) (tap, error)
 	seg := &plumber.Segment[Request, Response]{Pipeline: p}
 	lo.Must0(seg.RouteOutletFrom("receiver"))
 	lo.Must0(seg.RouteInletTo("sender"))
-	return seg, nil
-}
-
-func (t *tapper) tapIntoFreeWrites() (tap, error) {
-	str, err := cesium.NewTranslatedStreamer(
-		t.TS,
-		ts.StreamerConfig{MatchAll: true},
-		reqToStorage,
-		resFromStorage,
-	)
-	if err != nil {
-		return nil, err
-	}
-	f := &freeWriteTap{streamer: str}
-	t.freeTap = f
-	return f, nil
-}
-
-// freeWriteTap streams writes to free channels out of the local storage engine. Free
-// channels are registered transiently in every node's local storage, so their writes
-// surface through the same streaming mechanism as stored channels. The tap subscribes
-// to every locally written frame rather than to the demanded key set, and filters
-// against an atomically published key set - so a demand acknowledged by the tapper is
-// guaranteed to already be filtering its keys in, which is the happens-before barrier
-// SendOpenAck provides for free channels.
-type freeWriteTap struct {
-	confluence.AbstractUnarySink[Request]
-	confluence.AbstractUnarySource[Response]
-	// streamer is the match-all storage streamer that surfaces every local write.
-	streamer tap
-	// keys is the set of free channels currently being filtered in. It is updated
-	// synchronously by the tapper (setKeys) and read on every free write, so it is
-	// an atomic pointer: the read path takes a single lock-free atomic load and the
-	// write path publishes a new slice without blocking the tapper. nil means no
-	// free channels are demanded yet, in which case all free writes are filtered out.
-	keys atomic.Pointer[channel.Keys]
-}
-
-// setKeys publishes the set of free channels the tap should filter in. It is safe
-// to call from the tapper goroutine concurrently with the tap's own read loop.
-func (f *freeWriteTap) setKeys(keys channel.Keys) { f.keys.Store(&keys) }
-
-func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
-	o := confluence.NewOptions(opts)
-	o.AttachClosables(f.Out)
-	streamerRequests := confluence.NewStream[Request](1)
-	streamerResponses := confluence.NewStream[Response](1)
-	f.streamer.InFrom(streamerRequests)
-	f.streamer.OutTo(streamerResponses)
-	f.streamer.Flow(sCtx)
-	sCtx.Go(func(ctx context.Context) error {
-		defer streamerRequests.Close()
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case _, ok := <-f.In.Outlet():
-				// Free-channel keys are applied via setKeys, not through this inlet;
-				// we only watch it for closure.
-				if !ok {
-					return nil
-				}
-			case res, ok := <-streamerResponses.Outlet():
-				if !ok {
-					return nil
-				}
-				keys := f.keys.Load()
-				if keys == nil {
-					continue
-				}
-				res.Frame = res.Frame.KeepKeys(*keys)
-				if !res.Frame.Empty() {
-					f.Out.Inlet() <- res
-				}
-			}
-		}
-	}, append(o.Signal, signal.WithKey("free-write-tap"))...)
+	requests, closer := t.startTap(seg, fmt.Sprintf("peer_tap_%v", nodeKey))
+	return &peerTap{Closer: closer, requests: requests}, nil
 }

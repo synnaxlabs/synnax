@@ -103,7 +103,7 @@ var _ = Describe("Analyzer Integration", func() {
 
 		It("Should resolve to local variable when shadowing global", func(bCtx SpecContext) {
 			globalResolver := []symbol.Symbol{
-				{Name: "value", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "value", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			prog := MustSucceed(parser.Parse(`
 				func test() i32 {
@@ -122,7 +122,7 @@ var _ = Describe("Analyzer Integration", func() {
 
 		It("Should use shadowed local in expressions", func(bCtx SpecContext) {
 			globalResolver := []symbol.Symbol{
-				{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "x", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			prog := MustSucceed(parser.Parse(`
 				func test() i64 {

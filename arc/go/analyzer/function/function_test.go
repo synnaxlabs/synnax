@@ -304,11 +304,12 @@ var _ = Describe("Function Analyzer", func() {
 				Expect(fScope.Type.Inputs[3]).To(Equal(types.Param{Name: "enable", Type: types.U8()}))
 
 				By("creating symbols in scope")
-				configSymbols := fScope.FilterChildrenByKind(symbol.KindConfig)
-				Expect(configSymbols).To(HaveLen(3))
-				Expect(configSymbols[0].Name).To(Equal("setpoint"))
-				Expect(configSymbols[1].Name).To(Equal("sensor"))
-				Expect(configSymbols[2].Name).To(Equal("actuator"))
+				inputSymbols := fScope.FilterChildrenByKind(symbol.KindInput)
+				Expect(inputSymbols).To(HaveLen(4))
+				Expect(inputSymbols[0].Name).To(Equal("setpoint"))
+				Expect(inputSymbols[1].Name).To(Equal("sensor"))
+				Expect(inputSymbols[2].Name).To(Equal("actuator"))
+				Expect(inputSymbols[3].Name).To(Equal("enable"))
 			})
 		})
 

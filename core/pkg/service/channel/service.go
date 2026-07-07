@@ -25,13 +25,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
@@ -181,6 +179,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
+	// Free channels are transient in storage and vanish on restart, so register every
+	// free channel in the cluster's table with the local storage engine at startup.
+	// Creates after startup register on the bootstrapper through the create path.
+	var freeChannels []Channel
+	if err = s.table.NewRetrieve().
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
+			return c.Free(), nil
+		})).
+		Entries(&freeChannels).
+		Exec(ctx, cfg.DB); !ok(err, nil) {
+		return nil, err
+	}
+	if err = cfg.Channel.RegisterFreeStorage(ctx, lo.Map(
+		freeChannels,
+		func(ch Channel, _ int) channel.Channel { return ch.Distribution() },
+	)); !ok(err, nil) {
+		return nil, err
+	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	return s, nil
@@ -214,48 +230,6 @@ func (s *Service) NewRetrieve() Retrieve {
 	r := s.newRetrieve()
 	r.gorp = r.gorp.Validate(s.validateChannels)
 	return r
-}
-
-// EnsureFreeStorage registers the free channels among keys, along with their index
-// channels, in this node's local storage engine as transient virtual channels so that
-// writers can be opened against them. Keys that are not free are ignored, and keys
-// already registered locally are skipped. It returns query.ErrNotFound if a free key
-// does not reference an existing channel.
-func (s *Service) EnsureFreeStorage(ctx context.Context, keys Keys) error {
-	free := lo.Filter(keys, func(k Key, _ int) bool { return k.Free() })
-	if len(free) == 0 {
-		return nil
-	}
-	var channels []Channel
-	if err := s.NewRetrieve().
-		Where(MatchKeys(free...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
-		return err
-	}
-	if len(channels) < len(lo.Uniq(free)) {
-		missing, _ := lo.Difference(lo.Uniq(free), KeysFromChannels(channels))
-		return errors.Wrapf(query.ErrNotFound, "channels %v not found", missing)
-	}
-	present := set.New(KeysFromChannels(channels)...)
-	indexKeys := lo.Uniq(lo.FilterMap(channels, func(ch Channel, _ int) (Key, bool) {
-		idx := ch.Index()
-		return idx, idx != 0 && !present.Contains(idx)
-	}))
-	if len(indexKeys) > 0 {
-		var indexes []Channel
-		if err := s.NewRetrieve().
-			Where(MatchKeys(indexKeys...)).
-			Entries(&indexes).
-			Exec(ctx, nil); err != nil {
-			return err
-		}
-		channels = append(channels, indexes...)
-	}
-	return s.cfg.Channel.EnsureFreeStorage(ctx, lo.Map(
-		channels,
-		func(ch Channel, _ int) channel.Channel { return ch.Distribution() },
-	))
 }
 
 // Close releases the resources held by the Service.
