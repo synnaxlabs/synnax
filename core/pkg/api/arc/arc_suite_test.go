@@ -33,7 +33,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -56,10 +55,10 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
+	node := mock.NewNode(ctx)
+	db = node.DB
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.Open())
-	node := mock.NewNode(ctx)
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -95,21 +94,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:   statusSvc,
 		Search:   searchIdx,
 	}))
-	nodeOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	nodeSearchIdx := MustOpen(search.Open())
-	nodeGroupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: nodeOtg,
-		Search:   nodeSearchIdx,
-	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
-		DB:           node.DB,
+		DB:           db,
 		HostResolver: node.Cluster,
-		Ontology:     nodeOtg,
-		Group:        nodeGroupSvc,
+		Ontology:     otg,
+		Group:        groupSvc,
 		Status:       statusSvc,
-		Search:       nodeSearchIdx,
+		Search:       searchIdx,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,
