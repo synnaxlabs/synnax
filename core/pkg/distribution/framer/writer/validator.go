@@ -59,9 +59,9 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 // validate checks the request's command and, for writes, that every series in the
-// frame targets one of the writer's keys and is internally consistent. Data types are
-// validated by the storage engine on the node that services each channel, against its
-// own authoritative channel record.
+// frame targets one of the writer's keys. Series structure and data types are
+// validated by the storage engine on the node that services each channel, against
+// its own authoritative channel record.
 func (v *validator) validate(req Request) error {
 	if err := validateCommand(req.Command); err != nil {
 		return err
@@ -73,10 +73,6 @@ func (v *validator) validate(req Request) error {
 			}
 			if !lo.Contains(v.keys, k) {
 				return errors.Wrapf(validate.ErrValidation, "invalid key: %s", k)
-			}
-			s := req.Frame.RawSeriesAt(rawI)
-			if err := s.Validate(); err != nil {
-				return errors.Wrapf(err, "channel %s", k)
 			}
 		}
 	}

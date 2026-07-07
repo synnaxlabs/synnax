@@ -1570,6 +1570,34 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err).To(MatchError(ContainSubstring("invalid data type")))
 					Expect(w.Close()).To(MatchError(validate.ErrValidation))
 				})
+				Specify("Structurally invalid series buffer", func(ctx SpecContext) {
+					var key = GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Name:     "Malformed",
+							Key:      key,
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						})).To(Succeed())
+					w := MustSucceed(db.OpenWriter(
+						ctx,
+						cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{key},
+							Start:    10 * telem.SecondTS,
+							Sync:     new(true),
+						}))
+					s := telem.NewSeriesSecondsTSV(10, 11, 12)
+					s.Data = s.Data[:len(s.Data)-1]
+					authorized, err := w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{key},
+						[]telem.Series{s},
+					))
+					Expect(authorized).To(BeFalse())
+					Expect(err).To(MatchError(validate.ErrValidation))
+					Expect(err).To(MatchError(ContainSubstring("multiple of")))
+					Expect(w.Close()).To(MatchError(validate.ErrValidation))
+				})
 			})
 
 			Describe("Error On ErrUnauthorized Open", func() {
