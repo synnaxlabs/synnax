@@ -325,7 +325,7 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 				return err
 			}
 		}
-		newDB, err := virtual.Open(ctx, virtual.Config{
+		newDB, err := virtual.Open(virtual.Config{
 			Instrumentation: db.Instrumentation,
 			Channel:         newChannel,
 		})
