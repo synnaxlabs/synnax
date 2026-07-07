@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"go/types"
-	"slices"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -291,32 +290,11 @@ func (s *Service) createAndUpdateFreeVirtual(
 	// so a newly created channel can never collide with an existing storage
 	// registration; other nodes register free channels when they scan the channel
 	// table at startup (see OpenService).
-	if err := s.createFreeStorage(ctx, toCreate); err != nil {
+	if err := s.cfg.TSChannel.CreateChannel(ctx, toStorage(toCreate)...); err != nil {
 		return err
 	}
 
 	return s.maybeSetResources(ctx, tx, toCreate, opts)
-}
-
-// createFreeStorage creates the given free channels in the local storage engine as
-// transient virtual channels, creating index channels before the channels that
-// reference them.
-func (s *Service) createFreeStorage(ctx context.Context, channels []Channel) error {
-	if len(channels) == 0 {
-		return nil
-	}
-	sorted := slices.Clone(channels)
-	slices.SortStableFunc(sorted, func(a, b Channel) int {
-		return boolToInt(b.IsIndex) - boolToInt(a.IsIndex)
-	})
-	return s.cfg.TSChannel.CreateChannel(ctx, toStorage(sorted)...)
-}
-
-func boolToInt(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
 }
 
 // validateChannelNames rejects a create/rename request whose proposed names
@@ -612,9 +590,6 @@ func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIntern
 			return err
 		}
 	}
-	// Free channels are registered in this node's local storage, so they take the
-	// same path as gateway-leased channels. Registrations on other nodes vanish on
-	// their next restart.
 	if err := s.deleteGateway(ctx, tx, append(batch.Gateway, batch.Free...)); err != nil {
 		return err
 	}
@@ -703,14 +678,9 @@ func (s *Service) rename(
 			return err
 		}
 	}
-	// Free channels are registered in this node's local storage, so they take the
-	// same path as gateway-leased channels. Registrations on other nodes pick up
-	// the new name on their next restart.
-	if gateway := append(batch.Gateway, batch.Free...); len(gateway) > 0 {
-		keys, names := unzipRenameBatch(gateway)
-		return s.renameGateway(ctx, tx, keys, names, allowInternal)
-	}
-	return nil
+	keys, names = unzipRenameBatch(append(batch.Gateway, batch.Free...))
+	return s.renameGateway(ctx, tx, keys, names, allowInternal)
+
 }
 
 func (s *Service) renameRemote(ctx context.Context, target node.Key, keys Keys, names []string) error {

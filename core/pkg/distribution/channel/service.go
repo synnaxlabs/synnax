@@ -183,7 +183,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Exec(ctx, cfg.ClusterDB); !ok(err, nil) {
 		return nil, err
 	}
-	if err = s.createFreeStorage(ctx, freeChannels); !ok(err, nil) {
+	if err = s.cfg.TSChannel.CreateChannel(ctx, toStorage(freeChannels)...); !ok(err, nil) {
 		return nil, err
 	}
 	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {

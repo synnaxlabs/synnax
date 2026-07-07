@@ -71,6 +71,17 @@ var _ = Describe("Virtual Index Channels", func() {
 					Expect(idxCh.Index).To(Equal(idx))
 				})
 
+				It("Should create a batch whose index appears after the channel it indexes", func(ctx SpecContext) {
+					idx := GenerateChannelKey()
+					data := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx,
+						virtualDataChannel(data, idx, "unordered_data"),
+						virtualIndexChannel(idx, "unordered_idx"),
+					)).To(Succeed())
+					ch := MustSucceed(db.RetrieveChannel(ctx, data))
+					Expect(ch.Index).To(Equal(idx))
+				})
+
 				It("Should reject a virtual index channel that is not a timestamp", func(ctx SpecContext) {
 					Expect(db.CreateChannel(ctx, cesium.Channel{
 						Key:      GenerateChannelKey(),
