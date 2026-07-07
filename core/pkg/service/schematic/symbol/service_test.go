@@ -30,7 +30,7 @@ var _ = Describe("Service", func() {
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
-			testSearchIdx := MustOpen(search.Open())
+			testSearchIdx := MustOpen(search.OpenIndex())
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
@@ -43,7 +43,7 @@ var _ = Describe("Service", func() {
 		It("Should create a service with group configuration", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
-			testSearchIdx := MustOpen(search.Open())
+			testSearchIdx := MustOpen(search.OpenIndex())
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
@@ -78,7 +78,7 @@ var _ = Describe("Service", func() {
 			testOtg2 := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB2,
 			}))
-			testSearchIdx := MustOpen(search.Open())
+			testSearchIdx := MustOpen(search.OpenIndex())
 
 			cfg1 := symbol.ServiceConfig{
 				DB:       testDB1,
@@ -123,7 +123,7 @@ var _ = Describe("Service", func() {
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
-			testSearchIdx := MustOpen(search.Open())
+			testSearchIdx := MustOpen(search.OpenIndex())
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,

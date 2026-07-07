@@ -41,7 +41,7 @@ var _ = Describe("Status", Ordered, func() {
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,

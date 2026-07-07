@@ -44,7 +44,7 @@ var (
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		var (
 			otg       = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx = MustOpen(search.Open())
+			searchIdx = MustOpen(search.OpenIndex())
 			g         = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,

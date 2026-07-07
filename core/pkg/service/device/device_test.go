@@ -41,7 +41,7 @@ var _ = Describe("Device", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -834,7 +834,7 @@ var _ = Describe("Device", func() {
 		It("Should propagate rack warning status to devices on that rack", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -901,7 +901,7 @@ var _ = Describe("Device", func() {
 		It("Should create unknown statuses for devices missing them", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -962,7 +962,7 @@ var _ = Describe("Device", func() {
 		It("Should not create statuses for devices that already have them", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,

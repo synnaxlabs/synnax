@@ -224,7 +224,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Ontology) {
 		return nil, err
 	}
-	if l.Search, err = search.Open(
+	if l.Search, err = search.OpenIndex(
 		search.Config{Instrumentation: cfg.Child("search")},
 	); !ok(err, l.Search) {
 		return nil, err

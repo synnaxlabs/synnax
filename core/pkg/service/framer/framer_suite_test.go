@@ -47,7 +47,7 @@ var (
 // channel).
 func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: n.DB}))
-	searchIdx := MustOpen(search.Open())
+	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       n.DB,
 		Ontology: otg,

@@ -107,7 +107,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		dist = mock.NewNode(ctx)
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: otg,

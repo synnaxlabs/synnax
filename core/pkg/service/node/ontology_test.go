@@ -35,7 +35,7 @@ import (
 func openTestService(ctx context.Context, c node.Cluster) (*node.Service, *ontology.Ontology) {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	idx := MustOpen(search.Open())
+	idx := MustOpen(search.OpenIndex())
 	svc := MustSucceed(node.NewService(ctx, node.ServiceConfig{
 		Cluster:  c,
 		Ontology: otg,

@@ -48,7 +48,7 @@ var _ = Describe("Task", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -534,7 +534,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should create unknown statuses for tasks missing them", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -595,7 +595,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should not create statuses for tasks that already have them", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,

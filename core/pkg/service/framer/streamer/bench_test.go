@@ -53,7 +53,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
 
-	searchIdx, err := search.Open()
+	searchIdx, err := search.OpenIndex()
 	if err != nil {
 		b.Fatalf("failed to open search index: %v", err)
 	}
