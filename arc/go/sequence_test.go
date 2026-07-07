@@ -2886,6 +2886,126 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 202)).To(Equal(uint8(2)))
 		})
 
+		It("Walks multiple sequential read-alias rebinds to the final binding", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"sensor_a":  {types.U8(), 201},
+				"sensor_b":  {types.U8(), 202},
+				"sensor_c":  {types.U8(), 203},
+				"out":       {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    src := sensor_a
+				    src = sensor_b
+				    src = sensor_c
+				    src -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(201, telem.NewSeriesV[uint8](1))
+			h.Ingest(202, telem.NewSeriesV[uint8](2))
+			h.Ingest(203, telem.NewSeriesV[uint8](3))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(3)))
+		})
+
+		It("Walks multiple sequential write-alias rebinds to the final binding", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out_a":     {types.U8(), 201},
+				"out_b":     {types.U8(), 202},
+				"out_c":     {types.U8(), 203},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    sink := out_a
+				    sink = out_b
+				    sink = out_c
+				    u8(9) -> sink
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 201, DataType: telem.Uint8T},
+				channels.Digest{Key: 202, DataType: telem.Uint8T},
+				channels.Digest{Key: 203, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 203)).To(Equal(uint8(9)))
+			Expect(out.Get(201).Series).To(BeEmpty(), "original target must not be written")
+			Expect(out.Get(202).Series).To(BeEmpty(), "intermediate target must not be written")
+		})
+
+		It("Rebinds an alias to the same channel without crashing", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"sensor":    {types.U8(), 201},
+				"out":       {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    src := sensor
+				    src = sensor
+				    src -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(201, telem.NewSeriesV[uint8](5))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(5)))
+		})
+
+		It("Reads through an alias before its source has data without crashing", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"sensor":    {types.U8(), 201},
+				"out":       {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    src := sensor
+				    src -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			advance(h, ctx, telem.Millisecond)
+			_, ok := h.Flush()
+			Expect(ok).To(BeFalse(), "no source data means nothing should be emitted")
+		})
+
+		It("Writes through an alias bound to an unbacked channel without crashing", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"ghost":     {types.U8(), 299},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    sink := ghost
+				    u8(1) -> sink
+				}
+				start_cmd => s`, resolver,
+			)
+			defer h.Close(ctx)
+
+			Expect(func() { trigger(h, ctx, 100) }).ToNot(Panic())
+		})
+
 		It("Switches a reactive variable's expression on re-expression", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
@@ -3067,6 +3187,62 @@ var _ = Describe("Sequence", func() {
 			advance(h, ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastString(out, 102)).To(Equal("r=105"))
+		})
+
+		It("Reads and interpolates an inherited channel alias from a nested stage", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd":  {types.U8(), 100},
+				"sensor":     {types.U8(), 201},
+				"out_direct": {types.U8(), 102},
+				"out_fmt":    {types.String(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    ia := sensor
+				    stage {
+				        ia -> out_direct
+				        `+`f"a={ia}"`+` -> out_fmt
+				    }
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(201, telem.NewSeriesV[uint8](7))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(7)))
+			Expect(lastString(out, 103)).To(Equal("a=7"))
+		})
+
+		It("Reads an inherited reactive variable from a nested stage", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_val":    {types.U8(), 200},
+				"out":       {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    r := in_val + u8(1)
+				    stage {
+				        r -> out
+				    }
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(200, telem.NewSeriesV[uint8](5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(6)))
 		})
 	})
 })

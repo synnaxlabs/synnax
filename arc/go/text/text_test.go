@@ -366,6 +366,48 @@ var _ = Describe("Text", func() {
 				"compound and indexed assignment to a variable are not yet supported"))
 		})
 
+		It("Should reject redeclaring a variable in the same scope", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				c i64 := 0
+				c i64 := 1
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"name c conflicts with existing variable"))
+		})
+
+		It("Should reject reassigning a variable with an incompatible value type", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				c i64 := 0
+				c = "hello"
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"cannot assign str to 'c' (type i64)"))
+		})
+
+		It("Should reject reading a variable outside its declaring scope", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				stage s1 {
+					x i64 := 0
+				}
+				stage s2 {
+					x -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring("undefined symbol: x"))
+		})
+
 		It("Should assign distinct keys to variables in sibling sequences", func(ctx SpecContext) {
 			source := `
 			sequence a {
