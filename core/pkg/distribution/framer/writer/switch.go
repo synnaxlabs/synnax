@@ -46,8 +46,8 @@ func (rs *peerSwitchSender) _switch(
 		for nodeKey, frame := range r.Frame.SplitByLeaseholder() {
 			addr, ok := rs.addresses[nodeKey]
 			if !ok {
-				// The frame targets channels leased to a node the writer was not
-				// opened against, so no storage writer downstream could reject it.
+				// The frame targets channels leased to a node the writer was not opened
+				// against, so no storage writer downstream could reject it.
 				return errors.Wrapf(
 					validate.ErrValidation,
 					"invalid key(s) %v: writer is not open on leaseholder node %d",

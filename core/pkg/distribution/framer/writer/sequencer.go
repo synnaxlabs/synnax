@@ -17,12 +17,11 @@ import (
 )
 
 // sequencer stamps every request entering the writer pipeline with a monotonically
-// increasing sequence number, which the synchronizer uses to correlate
-// acknowledgements from the writer's peer and gateway branches. Request validation
-// happens downstream, as close to storage as possible: frame keys that cannot be
-// routed are rejected by the peer switch, and everything else is validated by the
-// storage engine on the node that services each channel, against its own
-// authoritative channel record.
+// increasing sequence number, which the synchronizer uses to correlate acknowledgements
+// from the writer's peer and gateway branches. Request validation happens downstream,
+// as close to storage as possible: frame keys that cannot be routed are rejected by the
+// peer switch, and everything else is validated by the storage engine on the node that
+// services each channel, against its own authoritative channel record.
 type sequencer struct {
 	confluence.AbstractLinear[Request, Request]
 	responses struct {
