@@ -145,7 +145,10 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 				stored := MustSucceed(
-					cluster.Nodes[1].Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+					cluster.Nodes[1].Storage.TS.RetrieveChannel(
+						ctx,
+						ch.Key().StorageKey(),
+					),
 				)
 				Expect(stored.Virtual).To(BeTrue())
 				Expect(stored.Transient).To(BeTrue())

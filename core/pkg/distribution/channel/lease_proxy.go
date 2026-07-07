@@ -286,10 +286,10 @@ func (s *Service) createAndUpdateFreeVirtual(
 	}
 
 	// Free channels are created in the local storage engine on the same path as
-	// gateway-leased channels. Every free create executes here on the bootstrapper,
-	// so a newly created channel can never collide with an existing storage
-	// registration; other nodes register free channels when they scan the channel
-	// table at startup (see OpenService).
+	// gateway-leased channels. Every free create executes here on the bootstrapper, so
+	// a newly created channel can never collide with an existing storage registration;
+	// other nodes register free channels when they scan the channel table at startup
+	// (see OpenService).
 	if err := s.cfg.TSChannel.CreateChannel(ctx, toStorage(toCreate)...); err != nil {
 		return err
 	}
@@ -590,7 +590,11 @@ func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIntern
 			return err
 		}
 	}
-	if err := s.deleteGateway(ctx, tx, append(batch.Gateway, batch.Free...)); err != nil {
+	if err := s.deleteGateway(
+		ctx,
+		tx,
+		append(batch.Gateway, batch.Free...),
+	); err != nil {
 		return err
 	}
 	return s.maybeDeleteResources(ctx, tx, keys)

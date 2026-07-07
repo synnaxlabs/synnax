@@ -170,10 +170,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
-	// Free channels live transiently in every node's local storage engine, which
-	// starts empty on every boot, so create all free channels known to the cluster
-	// at startup. Channels created while this node is up are created in storage by
-	// the create path on the bootstrapper (see createFreeVirtual).
 	var freeChannels []Channel
 	if err = s.table.NewRetrieve().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
@@ -183,7 +179,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Exec(ctx, cfg.ClusterDB); !ok(err, nil) {
 		return nil, err
 	}
-	if err = s.cfg.TSChannel.CreateChannel(ctx, toStorage(freeChannels)...); !ok(err, nil) {
+	if err = s.cfg.TSChannel.CreateChannel(
+		ctx, toStorage(freeChannels)...,
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {
