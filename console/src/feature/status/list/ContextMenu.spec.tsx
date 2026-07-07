@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { List } from "@/feature/status/list";
 import { Modals } from "@/platform/modals";
-import { findModalButton } from "@/platform/ontology/menuTestutil";
+import { findModalButton } from "@/platform/tree/menuTestutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,

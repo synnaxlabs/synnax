@@ -35,26 +35,25 @@ const createNotification = (dev: device.Device): DeviceNotification => ({
   count: 1,
 });
 
-const adapter = Device.NOTIFICATION_ADAPTERS[0];
 const silence = (): void => {};
 
 describe("device/notifications", () => {
-  it("ignores statuses for devices that are already configured", async () => {
+  it("does not match statuses for devices that are already configured", async () => {
     const dev = await createTestDevice(client, { configured: true });
-    expect(adapter(createNotification(dev), silence)).toBeNull();
+    expect(Device.Notification.match(createNotification(dev))).toBe(false);
   });
 
-  it("sugars the status with the device message", async () => {
+  it("renders the device message without a configure action for OPC", async () => {
     const dev = await createTestDevice(client, {
       configured: false,
       make: OPC.Device.MAKE,
     });
-    const sugared = adapter(createNotification(dev), silence);
-    if (sugared == null) throw new Error("expected a sugared notification");
-    expect(sugared.actions).toBeUndefined();
-    if (sugared.content == null) throw new Error("expected sugared content");
-    render(sugared.content);
-    expect(screen.getByText(`New ${dev.model} connected`)).toBeTruthy();
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Device.Notification status={createNotification(dev)} silence={silence} />, {
+      wrapper,
+    });
+    expect(await screen.findByText(`New ${dev.model} connected`)).toBeTruthy();
+    expect(screen.queryByText("Configure")).toBeNull();
   });
 
   it("offers a configure action that opens the vendor configure modal", async () => {
@@ -62,12 +61,10 @@ describe("device/notifications", () => {
       configured: false,
       make: NI.Device.MAKE,
     });
-    const sugared = adapter(createNotification(dev), silence);
-    if (sugared == null) throw new Error("expected a sugared notification");
     const { wrapper } = await createConsoleWrapper({ client });
     render(
       <>
-        {sugared.actions}
+        <Device.Notification status={createNotification(dev)} silence={silence} />
         <Modals.Stack />
       </>,
       { wrapper },

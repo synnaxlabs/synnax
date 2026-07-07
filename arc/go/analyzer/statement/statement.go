@@ -195,7 +195,7 @@ func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Sy
 		return nil
 	}
 	// Must be an actual channel symbol (KindChannel), not just a symbol with channel type.
-	// Config params with channel type (KindConfig) should be read from, not aliased.
+	// Input params with channel type (KindInput) should be read from, not aliased.
 	if sym.Kind == symbol.KindChannel && sym.Type.Kind == types.KindChan {
 		return sym
 	}

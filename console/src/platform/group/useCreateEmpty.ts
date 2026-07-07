@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { type Flux, Group, List, Text, Tree } from "@synnaxlabs/pluto";
+import { type Flux, Group, List, Text, Tree as PTree } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 
 export interface UseCreateEmptyProps {
   parent: ontology.ID;
   root: ontology.ID;
-  state: Ontology.TreeState;
+  state: Tree.TreeState;
 }
 
 export const useCreateEmpty = ({
@@ -31,15 +31,15 @@ export const useCreateEmpty = ({
         const newID = group.ontologyID(uuid.create());
         const newIDString = ontology.idToString(newID);
         const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
-        const node: Tree.Node<string> = { key: newIDString, children: [] };
+        const node: PTree.Node<string> = { key: newIDString, children: [] };
         setResource(res);
         const destination = ontology.idsEqual(data.parent, root)
           ? null
           : ontology.idToString(data.parent);
         if (destination != null) expand(destination);
-        setNodes([...Tree.setNode({ tree, destination, additions: node })]);
+        setNodes([...PTree.setNode({ tree, destination, additions: node })]);
         rollbacks.push(() =>
-          setNodes([...Tree.removeNode({ tree, keys: newIDString })]),
+          setNodes([...PTree.removeNode({ tree, keys: newIDString })]),
         );
         const [name, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
         if (!renamed || name === "") return false;

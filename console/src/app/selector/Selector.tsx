@@ -10,19 +10,11 @@
 import { type panel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Vis } from "@/app/vis";
-import { Arc } from "@/feature/arc";
-import { Task } from "@/feature/task";
+import { SELECTABLES } from "@/app/selector/selectables";
 import { Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
-const SELECTABLES: Base.Selectable[] = [
-  ...Vis.SELECTABLES,
-  ...Task.SELECTABLES,
-  ...Arc.SELECTABLES,
-];
-
-export const useSelectorVisible = (): boolean =>
+export const useVisible = (): boolean =>
   // It's safe to call hooks in map since SELECTABLES is a module-level constant
   // and never changes between renders, ensuring consistent hook order.
   SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);

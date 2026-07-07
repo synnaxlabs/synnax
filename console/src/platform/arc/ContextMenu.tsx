@@ -24,8 +24,8 @@ import { useCallback } from "react";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Link } from "@/platform/link";
-import { Ontology } from "@/platform/ontology";
 import { Panel } from "@/platform/panel";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
@@ -48,7 +48,7 @@ export const ContextMenu = ({
   const openTab = Panel.useOpenTab();
   const addStatus = Status.useAdder();
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const confirm = Ontology.useConfirmDelete({
+  const confirm = Tree.useConfirmDelete({
     type: "Arc",
     description: "Deleting this Arc will permanently remove it.",
   });

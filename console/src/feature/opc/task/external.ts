@@ -21,7 +21,7 @@ import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export * from "@/feature/opc/task/palette";
+export * from "@/feature/opc/task/commands";
 export * from "@/feature/opc/task/Read";
 export * from "@/feature/opc/task/types";
 export * from "@/feature/opc/task/Write";

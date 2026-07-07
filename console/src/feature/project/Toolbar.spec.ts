@@ -12,7 +12,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
-import { renderToolbar } from "@/platform/ontology/menuTestutil";
+import { renderToolbar } from "@/platform/tree/menuTestutil";
 import { getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();

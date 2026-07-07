@@ -136,7 +136,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "arc",
   icon: <Icon.Arc />,
   content: <Content />,

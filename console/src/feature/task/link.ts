@@ -20,3 +20,5 @@ export const useLink = (): Link.Handler => {
     [openTab],
   );
 };
+
+export const LINKS: Link.Registry = { task: useLink };

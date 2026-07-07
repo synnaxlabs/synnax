@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Modals } from "@/platform/modals";
-import { createResource } from "@/platform/ontology/testutil";
+import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
 

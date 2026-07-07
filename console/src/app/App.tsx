@@ -24,22 +24,15 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
 
-import { COMMANDS } from "@/app/commands";
-import { EXTRACTORS } from "@/app/extractors";
-import { FILE_INGESTERS } from "@/app/ingesters";
-import { SERVICES } from "@/app/services";
-import { SNAPSHOT_SERVICES } from "@/app/snapshots";
+import { Imex } from "@/app/imex";
+import { Range } from "@/app/range";
 import { TABS } from "@/app/tabs";
+import { Tree } from "@/app/tree";
 import { Vis } from "@/app/vis";
 import { Window } from "@/app/Window";
 import { Task } from "@/feature/task";
 import { Errors } from "@/platform/errors";
-import { Export } from "@/platform/export";
-import { Import } from "@/platform/import";
-import { Ontology } from "@/platform/ontology";
-import { Palette } from "@/platform/palette";
 import { Panel } from "@/platform/panel";
-import { Range as PlatformRange } from "@/platform/range";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 import WorkerURL from "@/worker?worker&url";
@@ -125,19 +118,15 @@ export const App = (): ReactElement => {
       <Provider store={storeRef.current}>
         <Errors.OverlayWithStore>
           <Panel.RendererContext value={TABS}>
-            <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
-              <Export.ExtractorsProvider extractors={EXTRACTORS}>
-                <Ontology.ServicesProvider services={SERVICES}>
-                  <Palette.CommandProvider commands={COMMANDS}>
-                    <PlatformRange.SnapshotServicesProvider services={SNAPSHOT_SERVICES}>
-                      <Task.RegistryProvider registry={Task.REGISTRY}>
-                        <AppUnderContext />
-                      </Task.RegistryProvider>
-                    </PlatformRange.SnapshotServicesProvider>
-                  </Palette.CommandProvider>
-                </Ontology.ServicesProvider>
-              </Export.ExtractorsProvider>
-            </Import.FileIngestersProvider>
+            <Tree.Context>
+              <Range.Context>
+                <Imex.Context>
+                  <Task.RegistryProvider registry={Task.REGISTRY}>
+                    <AppUnderContext />
+                  </Task.RegistryProvider>
+                </Imex.Context>
+              </Range.Context>
+            </Tree.Context>
           </Panel.RendererContext>
         </Errors.OverlayWithStore>
       </Provider>

@@ -159,7 +159,7 @@ const Actions = (): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "status",
   icon: <Icon.Status />,
   content: <Content />,

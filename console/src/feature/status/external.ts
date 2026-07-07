@@ -10,9 +10,10 @@
 import { Explorer } from "@/feature/status/explorer";
 import { type Panel } from "@/platform/panel";
 
+export * from "@/feature/status/commands";
 export * from "@/feature/status/explorer";
-export * from "@/feature/status/palette";
 export * from "@/feature/status/Toolbar";
+export * from "@/feature/status/tree";
 export * from "@/platform/status/external";
 
 export const TABS: Panel.Tabs = Explorer.TABS;

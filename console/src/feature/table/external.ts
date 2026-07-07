@@ -20,11 +20,12 @@ import { type Import } from "@/platform/import";
 import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 
+export * from "@/feature/table/commands";
 export * from "@/feature/table/import";
 export * from "@/feature/table/link";
-export * from "@/feature/table/ontology";
-export * from "@/feature/table/palette";
+export * from "@/feature/table/search";
 export * from "@/feature/table/Toolbar";
+export * from "@/feature/table/tree";
 export * from "@/platform/table/external";
 
 const TAB_TYPE = table.TYPE_ONTOLOGY_ID.type;

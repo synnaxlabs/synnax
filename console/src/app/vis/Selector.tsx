@@ -9,26 +9,16 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { LinePlot } from "@/feature/lineplot";
-import { Log } from "@/feature/log";
-import { Schematic } from "@/feature/schematic";
-import { Table } from "@/feature/table";
+import { Selector as AppSelector } from "@/app/selector";
 import { Selector as Base } from "@/platform/selector";
 
-export const SELECTABLES: Base.Selectable[] = [
-  ...LinePlot.SELECTABLES,
-  ...Schematic.SELECTABLES,
-  ...Log.SELECTABLES,
-  ...Table.SELECTABLES,
-];
-
 export const useSelectorVisible = (): boolean =>
-  // It's safe to call hooks in map since SELECTABLES is a module-level constant
+  // It's safe to call hooks in map since VIS_SELECTABLES is a module-level constant
   // and never changes between renders, ensuring consistent hook order.
-  SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
+  AppSelector.VIS_SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
 
 export const Selector = Base.create({
-  selectables: SELECTABLES,
+  selectables: AppSelector.VIS_SELECTABLES,
   icon: <Icon.Visualize />,
   tabTitle: "Create visualization",
   text: "Create a visualization",

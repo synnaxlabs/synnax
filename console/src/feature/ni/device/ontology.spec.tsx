@@ -15,12 +15,12 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createDeviceResource } from "@/platform/device/testutil";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createSelection,
   createState,
-} from "@/platform/ontology/testutil";
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
 
@@ -46,7 +46,7 @@ const renderContextMenu = async () => {
     name: "ni_dev",
     configured: true,
   });
-  const props: Ontology.TreeContextMenuProps = {
+  const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
     state: createState([resource]),

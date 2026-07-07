@@ -14,8 +14,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createDeviceResource, renderMenuItem } from "@/platform/device/testutil";
-import { createSelection, createState } from "@/platform/ontology/testutil";
 import { type SeededPanel, seedSelectedPanel } from "@/platform/task/testutil";
+import { createSelection, createState } from "@/platform/tree/testutil";
 import { assertDefined } from "@/testutil";
 
 const client = createTestClient();

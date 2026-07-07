@@ -21,7 +21,7 @@ import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export * from "@/feature/labjack/task/palette";
+export * from "@/feature/labjack/task/commands";
 export * from "@/feature/labjack/task/Read";
 export * from "@/feature/labjack/task/SelectInputChannelTypeField";
 export * from "@/feature/labjack/task/SelectOutputChannelType";

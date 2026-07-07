@@ -33,3 +33,5 @@ export const useLink = (): Link.Handler => {
     [create, getOptionalSelected, getSelectedKey],
   );
 };
+
+export const LINKS: Link.Registry = { channel: useLink };

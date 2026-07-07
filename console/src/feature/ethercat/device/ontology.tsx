@@ -18,7 +18,7 @@ import {
 import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: Device.TaskContextMenuItemConfig[] = [
   {
@@ -33,7 +33,7 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Device.TaskContextMenuItemConfig[] = [
   },
 ];
 
-export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
+export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
   const keys = props.selection.ids.map((id) => id.key);
   const { update: toggleEnabled } = useToggleEnabled();
   const configure = useConfigureModal();
