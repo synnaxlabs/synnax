@@ -64,7 +64,7 @@ type Streamer[RQ any, RS any] interface {
 	// the new set applies to every frame written after SetChannels returns, so it
 	// can be used as a readiness barrier. Callers should update the channel set
 	// through SetChannels or through requests, not both.
-	SetChannels(keys []channel.Key)
+	SetChannels([]channel.Key)
 }
 
 func passThroughStreamerRequestTranslator(req StreamerRequest) StreamerRequest {

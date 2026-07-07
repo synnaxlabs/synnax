@@ -86,7 +86,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	// in case the channel is repeatedly created and deleted.
 	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	transient := false
+	var transient bool
 	if err := (func() error {
 		db.mu.Lock()
 		defer db.mu.Unlock()

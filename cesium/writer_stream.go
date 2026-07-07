@@ -292,8 +292,8 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 // responsible for and has a structurally valid data buffer for its declared data
 // type (see telem.Series.Validate), rejecting the write before any data is applied.
 func (w *streamWriter) validateSeries(fr Frame) error {
-	for rawI, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(rawI) {
+	for i, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) {
 			continue
 		}
 		if !w.owns(k) {
@@ -303,7 +303,7 @@ func (w *streamWriter) validateSeries(fr Frame) error {
 				k,
 			)
 		}
-		s := fr.RawSeriesAt(rawI)
+		s := fr.RawSeriesAt(i)
 		if err := s.Validate(); err != nil {
 			return errors.Wrapf(err, "channel %d", k)
 		}
