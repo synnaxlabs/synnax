@@ -12,14 +12,14 @@ import { useInitializerRef } from "@synnaxlabs/pluto";
 import { type ReactNode } from "react";
 
 import { Modals } from "@/session/modals";
-import { configureStore } from "@/session/store";
+import { createStore } from "@/session/store";
 
 export interface ContextProps {
   children: ReactNode;
 }
 
 export const Context = (props: ContextProps) => {
-  const storeRef = useInitializerRef(() => configureStore());
+  const storeRef = useInitializerRef(() => createStore());
   return (
     <Modals.Context>
       <Provider store={storeRef.current} {...props} />
