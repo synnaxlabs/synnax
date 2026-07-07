@@ -12,10 +12,10 @@ import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Link } from "@/app/link";
-import { Mosaic } from "@/app/Mosaic";
+import { Mosaic } from "@/app/mosaic/Mosaic";
 import { Nav } from "@/app/nav";
 import { Notifications } from "@/app/notifications";
-import { useTriggers } from "@/app/useTriggers";
+import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
@@ -33,7 +33,7 @@ const SideEffect = (): null => {
   PlatformProject.useCheckCore();
   Status.useListenForChanges();
   Link.useDeep();
-  useTriggers();
+  Triggers.use();
   return null;
 };
 
@@ -80,3 +80,7 @@ export const Main = (): ReactElement => (
     </Auth.Guard>
   </>
 );
+
+export const LAYOUTS: Layout.Renderers = {
+  [MAIN_LAYOUT_TYPE]: Main,
+};

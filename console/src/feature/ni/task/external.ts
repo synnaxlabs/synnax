@@ -74,7 +74,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [DIGITAL_WRITE_TYPE]: Task.createIngester(digitalWriteConfigZ, DIGITAL_WRITE_LAYOUT),
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [ANALOG_READ_TYPE]: AnalogRead,
   [ANALOG_WRITE_TYPE]: AnalogWrite,
   [COUNTER_READ_TYPE]: CounterRead,

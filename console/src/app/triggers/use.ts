@@ -18,7 +18,7 @@ import { Modals } from "@/session/modals";
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 
-export const useTriggers = (): void => {
+export const use = (): void => {
   const store = Session.useStore();
   const modals = Modals.useStore("Layout.useTriggers");
   const remove = Layout.useRemover();

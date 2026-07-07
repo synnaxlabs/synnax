@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Main, MAIN_LAYOUT_TYPE } from "@/app/Main";
-import { Mosaic, MOSAIC_LAYOUT_TYPE, MosaicWindow } from "@/app/Mosaic";
+import { Main } from "@/app/main";
+import { Mosaic } from "@/app/mosaic";
 import { Selector } from "@/app/selector";
 import { Vis } from "@/app/vis";
 import { Arc } from "@/feature/arc";
@@ -21,14 +21,12 @@ import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { type Layout } from "@/platform/layout";
-import { Session } from "@/session";
 
-export const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   ...Docs.LAYOUTS,
   ...Task.LAYOUTS,
-  [MAIN_LAYOUT_TYPE]: Main,
-  [MOSAIC_LAYOUT_TYPE]: Mosaic,
-  [Session.Layout.MOSAIC_WINDOW_TYPE]: MosaicWindow,
+  ...Main.LAYOUTS,
+  ...Mosaic.LAYOUTS,
   ...Selector.LAYOUTS,
   ...LinePlot.LAYOUTS,
   ...Log.LAYOUTS,
@@ -40,7 +38,7 @@ export const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Status.LAYOUTS,
 };
 
-export const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
+export const CONTEXT_MENUS: Layout.ContextMenuRenderers = {
   ...Schematic.CONTEXT_MENUS,
   ...LinePlot.CONTEXT_MENUS,
 };

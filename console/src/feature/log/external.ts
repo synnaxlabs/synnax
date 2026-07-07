@@ -33,7 +33,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [PlatformLog.LAYOUT_TYPE]: ingest,
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [PlatformLog.LAYOUT_TYPE]: Log,
 };
 

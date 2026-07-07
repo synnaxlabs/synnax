@@ -23,7 +23,7 @@ export * from "@/feature/range/Toolbar";
 export * from "@/feature/range/tree";
 export * from "@/platform/range/external";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [Range.OVERVIEW_LAYOUT_TYPE]: Overview,
   [EXPLORER_LAYOUT_TYPE]: Explorer,
 };

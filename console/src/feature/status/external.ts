@@ -16,6 +16,6 @@ export * from "@/feature/status/Toolbar";
 export * from "@/feature/status/tree";
 export * from "@/platform/status/external";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
 };

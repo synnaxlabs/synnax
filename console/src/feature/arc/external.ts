@@ -36,7 +36,7 @@ export const EXTRACTORS: Export.Extractors = { [EDITOR_LAYOUT_TYPE]: extract };
 
 export const FILE_INGESTERS: Import.FileIngesters = { [EDITOR_LAYOUT_TYPE]: ingest };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
   [EDITOR_LAYOUT_TYPE]: Editor.Editor,
 };

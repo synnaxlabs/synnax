@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/app/Mosaic.css";
+import "@/app/mosaic/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
@@ -76,7 +76,7 @@ const EmptyContent = (): ReactElement => {
     </Eraser.Eraser>
   );
 };
-export const MOSAIC_LAYOUT_TYPE = "mosaic";
+export const LAYOUT_TYPE = "mosaic";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   if (keys.length === 0)
@@ -389,29 +389,32 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 };
 
-export const MosaicWindow = memo<Layout.Renderer>(
-  ({ layoutKey }: Layout.RendererProps) => {
-    const dispatch = Session.useDispatch();
-    const [windowKey, mosaic] = Session.Layout.useSelectMosaic();
-    useLayoutEffect(() => {
-      dispatch(Session.Nav.showBottom({}));
-    }, [layoutKey]);
-    if (windowKey == null || mosaic == null) return null;
-    return (
-      <>
-        <AppNav.Bar.AuxTop />
-        <Flex.Box
-          y
-          gap="tiny"
-          grow
-          className={CSS.B("mosaic-window")}
-          style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
-        >
-          <Internal windowKey={windowKey} mosaic={mosaic} />
-          <AppNav.Drawer.Bottom />
-        </Flex.Box>
-      </>
-    );
-  },
-);
-MosaicWindow.displayName = "MosaicWindow";
+export const Window = memo<Layout.Renderer>(({ layoutKey }: Layout.RendererProps) => {
+  const dispatch = Session.useDispatch();
+  const [windowKey, mosaic] = Session.Layout.useSelectMosaic();
+  useLayoutEffect(() => {
+    dispatch(Session.Nav.showBottom({}));
+  }, [layoutKey]);
+  if (windowKey == null || mosaic == null) return null;
+  return (
+    <>
+      <AppNav.Bar.AuxTop />
+      <Flex.Box
+        y
+        gap="tiny"
+        grow
+        className={CSS.B("mosaic-window")}
+        style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
+      >
+        <Internal windowKey={windowKey} mosaic={mosaic} />
+        <AppNav.Drawer.Bottom />
+      </Flex.Box>
+    </>
+  );
+});
+Window.displayName = "MosaicWindow";
+
+export const LAYOUTS: Layout.Renderers = {
+  [LAYOUT_TYPE]: Mosaic,
+  [Session.Layout.MOSAIC_WINDOW_TYPE]: Window,
+};

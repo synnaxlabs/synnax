@@ -32,7 +32,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [PlatformTable.LAYOUT_TYPE]: ingest,
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [PlatformTable.LAYOUT_TYPE]: Table,
 };
 

@@ -32,7 +32,7 @@ export * from "@/feature/schematic/tree";
 export * from "@/feature/schematic/useMosaicDrop";
 export * from "@/platform/schematic/external";
 
-export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
+export const CONTEXT_MENUS: Layout.ContextMenuRenderers = {
   [PlatformSchematic.LAYOUT_TYPE]: ContextMenu,
 };
 
@@ -44,7 +44,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [PlatformSchematic.LAYOUT_TYPE]: ingest,
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [PlatformSchematic.LAYOUT_TYPE]: Schematic,
 };
 

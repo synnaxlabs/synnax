@@ -9,14 +9,14 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { CONTEXT_MENU_RENDERERS, LAYOUT_RENDERERS } from "@/app/layout/layouts";
+import { CONTEXT_MENUS, LAYOUTS } from "@/app/layout/layouts";
 import { Layout } from "@/platform/layout";
 
 export interface ContextProps extends PropsWithChildren<{}> {}
 
 export const Context = ({ children }: ContextProps): ReactElement => (
-  <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-    <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
+  <Layout.RendererProvider value={LAYOUTS}>
+    <Layout.ContextMenuProvider value={CONTEXT_MENUS}>
       {children}
     </Layout.ContextMenuProvider>
   </Layout.RendererProvider>

@@ -13,6 +13,6 @@ import { type Layout } from "@/platform/layout";
 export * from "@/app/selector/selectables";
 export * from "@/app/selector/Selector";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [LAYOUT_TYPE]: Selector,
 };

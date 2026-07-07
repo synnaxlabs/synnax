@@ -28,7 +28,7 @@ export * from "@/feature/lineplot/useMosaicDrop";
 export * from "@/feature/lineplot/useTriggerHold";
 export * from "@/platform/lineplot/external";
 
-export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
+export const CONTEXT_MENUS: Layout.ContextMenuRenderers = {
   [PlatformLinePlot.LAYOUT_TYPE]: ContextMenu,
 };
 
@@ -40,7 +40,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [PlatformLinePlot.LAYOUT_TYPE]: ingest,
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [PlatformLinePlot.LAYOUT_TYPE]: LinePlot,
 };
 

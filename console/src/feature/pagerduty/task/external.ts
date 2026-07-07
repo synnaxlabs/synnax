@@ -25,7 +25,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [ALERT_TYPE]: Task.createIngester(ALERT_SCHEMAS.config, ALERT_LAYOUT),
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = { [ALERT_TYPE]: Alert };
+export const LAYOUTS: Layout.Renderers = { [ALERT_TYPE]: Alert };
 
 export const SELECTABLES: Selector.Selectable[] = [AlertSelectable];
 

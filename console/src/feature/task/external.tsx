@@ -71,7 +71,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   ...PagerDuty.Task.FILE_INGESTERS,
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   ...EtherCAT.Task.LAYOUTS,
   ...HTTP.Task.LAYOUTS,
   ...LabJack.Task.LAYOUTS,
