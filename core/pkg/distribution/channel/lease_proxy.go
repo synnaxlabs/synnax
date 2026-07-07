@@ -612,32 +612,13 @@ func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIntern
 			return err
 		}
 	}
-	if len(batch.Free) > 0 {
-		err := s.deleteFreeVirtual(ctx, tx, batch.Free)
-		if err != nil {
-			return err
-		}
-	}
-	if err := s.deleteGateway(ctx, tx, batch.Gateway); err != nil {
+	// Free channels are registered in this node's local storage, so they take the
+	// same path as gateway-leased channels. Registrations on other nodes vanish on
+	// their next restart.
+	if err := s.deleteGateway(ctx, tx, append(batch.Gateway, batch.Free...)); err != nil {
 		return err
 	}
 	return s.maybeDeleteResources(ctx, tx, keys)
-}
-
-func (s *Service) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
-	if err := s.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Channel](channels...)).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	// Remove this node's transient storage registrations, where present.
-	// Registrations on other nodes vanish on their next restart.
-	for _, key := range channels {
-		if err := s.cfg.TSChannel.DeleteChannel(key.StorageKey()); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *Service) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
@@ -722,14 +703,11 @@ func (s *Service) rename(
 			return err
 		}
 	}
-	if len(batch.Free) > 0 {
-		keys, names := unzipRenameBatch(batch.Free)
-		if err := s.renameFreeVirtual(ctx, tx, keys, names, allowInternal); err != nil {
-			return err
-		}
-	}
-	if len(batch.Gateway) > 0 {
-		keys, names := unzipRenameBatch(batch.Gateway)
+	// Free channels are registered in this node's local storage, so they take the
+	// same path as gateway-leased channels. Registrations on other nodes pick up
+	// the new name on their next restart.
+	if gateway := append(batch.Gateway, batch.Free...); len(gateway) > 0 {
+		keys, names := unzipRenameBatch(gateway)
 		return s.renameGateway(ctx, tx, keys, names, allowInternal)
 	}
 	return nil
@@ -752,24 +730,6 @@ func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.Chan
 		c.Name = names[lo.IndexOf(keys, c.Key())]
 		return c, nil
 	}
-}
-
-func (s *Service) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
-	if err := s.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Channel](channels...)).
-		ChangeErr(channelNameUpdater(allowInternal, channels, names)).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	// Rename this node's transient storage registrations, where present. Other
-	// nodes pick up the new name when they next provision the channel.
-	for i, key := range channels {
-		if err := s.cfg.TSChannel.RenameChannel(ctx, key.StorageKey(), names[i]); err != nil &&
-			!errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *Service) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {
