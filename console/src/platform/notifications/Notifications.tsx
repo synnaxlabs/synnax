@@ -9,58 +9,44 @@
 
 import "@/platform/notifications/Notifications.css";
 
-import { type Button, Flex, Status } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Flex, Status } from "@synnaxlabs/pluto";
+import { type FC, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/platform/css";
 
-export interface Sugared extends Status.NotificationSpec {
-  actions?: ReactElement | Button.ButtonProps[];
-  content?: ReactElement;
+export interface NotificationProps {
+  status: Status.NotificationSpec & { details?: unknown };
+  silence: (key: string) => void;
 }
 
-export interface Adapter {
-  (
-    status: Status.NotificationSpec & { details?: unknown },
-    silence: (key: string) => void,
-  ): null | Sugared;
+export interface Notification extends FC<NotificationProps> {
+  match: (status: Status.NotificationSpec & { details?: unknown }) => boolean;
 }
+
+const Default: Notification = ({ status, silence }) => (
+  <Status.Notification status={status} silence={silence} />
+);
+Default.match = () => true;
+
+export const createSuppressed = (match: Notification["match"]): Notification => {
+  const Suppressed: Notification = () => null;
+  Suppressed.match = match;
+  return Suppressed;
+};
 
 interface NotificationsProps {
-  adapters: Adapter[];
+  notifications: Notification[];
 }
 
-// Note: Hack to hide repeated device and rack success notifications.
-const hideRackAndDeviceSuccesses = (status: Status.NotificationSpec) =>
-  (status.variant !== "success" && status.variant !== "loading") ||
-  (!status.key.startsWith("rack") &&
-    !status.key.startsWith("device") &&
-    !status.key.startsWith("task"));
-
-export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
+export const Notifications = ({ notifications }: NotificationsProps): ReactElement => {
   const { statuses, silence } = Status.useNotifications();
-  const sugared = statuses
-    .map((status) => {
-      for (const adapter of adapters) {
-        const result = adapter(status, silence);
-        if (result != null) return result;
-      }
-      return status;
-    })
-    .filter(hideRackAndDeviceSuccesses) as Sugared[];
   return createPortal(
     <Flex.Box y className={CSS.B("notifications")}>
-      {sugared.map((status) => (
-        <Status.Notification
-          key={status.key}
-          status={status}
-          silence={silence}
-          actions={status.actions}
-        >
-          {status.content}
-        </Status.Notification>
-      ))}
+      {statuses.map((status) => {
+        const Match = notifications.find((n) => n.match(status)) ?? Default;
+        return <Match key={status.key} status={status} silence={silence} />;
+      })}
     </Flex.Box>,
     document.getElementById("root") as HTMLElement,
   );

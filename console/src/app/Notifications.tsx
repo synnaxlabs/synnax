@@ -14,12 +14,22 @@ import { Device } from "@/feature/device";
 import { Notifications as Base } from "@/platform/notifications";
 import { Version } from "@/platform/version";
 
-const NOTIFICATION_ADAPTERS: Base.Adapter[] = [
-  ...Cluster.NOTIFICATION_ADAPTERS,
-  ...Device.NOTIFICATION_ADAPTERS,
-  ...Version.NOTIFICATION_ADAPTERS,
+const suppressRoutine = (prefix: string): Base.Notification =>
+  Base.createSuppressed(
+    (status) =>
+      (status.variant === "success" || status.variant === "loading") &&
+      status.key.startsWith(prefix),
+  );
+
+const NOTIFICATIONS: Base.Notification[] = [
+  suppressRoutine("rack"),
+  suppressRoutine("device"),
+  suppressRoutine("task"),
+  ...Cluster.NOTIFICATIONS,
+  ...Device.NOTIFICATIONS,
+  ...Version.NOTIFICATIONS,
 ];
 
 export const Notifications = (): ReactElement => (
-  <Base.Notifications adapters={NOTIFICATION_ADAPTERS} />
+  <Base.Notifications notifications={NOTIFICATIONS} />
 );

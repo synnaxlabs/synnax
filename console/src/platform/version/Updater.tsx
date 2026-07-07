@@ -52,10 +52,14 @@ export const useCheckForUpdates = (): boolean => {
   return available;
 };
 
-export const notificationAdapter: Notifications.Adapter = (status) => {
-  if (!status.key.startsWith(STATUS_KEY_PREFIX)) return null;
-  return { ...status, actions: [<OpenUpdateDialogAction key="update" />] };
-};
+export const Notification: Notifications.Notification = ({ status, silence }) => (
+  <Status.Notification
+    status={status}
+    silence={silence}
+    actions={[<OpenUpdateDialogAction key="update" />]}
+  />
+);
+Notification.match = (status) => status.key.startsWith(STATUS_KEY_PREFIX);
 
 export const OpenUpdateDialogAction = () => {
   const openInfo = useInfoModal();
