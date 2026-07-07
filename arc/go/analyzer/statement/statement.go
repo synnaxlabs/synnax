@@ -194,6 +194,18 @@ func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
 	return primary != nil && primary.Literal() != nil
 }
 
+// constDefaultValue folds a literal initializer into a seed value, returning nil when
+// expr is absent or not a compile-time constant.
+func constDefaultValue(expr parser.IExpressionContext, varType types.Type) any {
+	if expr == nil {
+		return nil
+	}
+	if parsed, err := literal.ParseConst(expr, varType); err == nil {
+		return parsed.Value
+	}
+	return nil
+}
+
 func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	expr := ctx.AST.Expression()
@@ -242,14 +254,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 		sourceID = getChannelSourceFromExpr(ctx, expr)
 	}
 
-	var defaultValue any
-	if expr != nil && isLiteralExpression(context.Child(ctx, expr)) {
-		if lit := parser.GetLiteral(expr); lit != nil {
-			if parsed, perr := literal.Parse(lit, varType); perr == nil {
-				defaultValue = parsed.Value
-			}
-		}
-	}
+	defaultValue := constDefaultValue(expr, varType)
 
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name:         name,
@@ -331,14 +336,7 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 	if varType.Kind == types.KindChan {
 		varType = varType.Unwrap()
 	}
-	var defaultValue any
-	if expr != nil && isLiteralExpression(context.Child(ctx, expr)) {
-		if lit := parser.GetLiteral(expr); lit != nil {
-			if parsed, perr := literal.Parse(lit, varType); perr == nil {
-				defaultValue = parsed.Value
-			}
-		}
-	}
+	defaultValue := constDefaultValue(expr, varType)
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name:         name,
 		Kind:         symbol.KindStatefulVariable,

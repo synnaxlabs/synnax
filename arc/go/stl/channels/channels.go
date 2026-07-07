@@ -175,7 +175,7 @@ func (s *source) Init(node.Context) {}
 // data that arrives after activation rather than stale pre-existing data.
 func (s *source) Reset() {
 	s.State.Reset()
-	if backsInternalChannel(s.varKind) {
+	if s.varKind == ir.VarKindConstant {
 		return
 	}
 	data, _, ok := s.state.readSeries(s.key)

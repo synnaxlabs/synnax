@@ -59,6 +59,29 @@ var _ = Describe("Statement", func() {
 				}),
 			)
 
+			DescribeTable("seeds a default value from a literal initializer",
+				func(bCtx SpecContext, code string, expected any) {
+					stmt := MustSucceed(parser.ParseStatement(code))
+					ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+					statement.Analyze(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+					sym := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
+					Expect(sym.DefaultValue).To(Equal(expected))
+				},
+				Entry("i8 positive", `x i8 := 7`, int8(7)),
+				Entry("i8 negative", `x i8 := -5`, int8(-5)),
+				Entry("i16 negative", `x i16 := -5`, int16(-5)),
+				Entry("i32 negative", `x i32 := -5`, int32(-5)),
+				Entry("i64 positive", `x i64 := 5`, int64(5)),
+				Entry("i64 negative", `x i64 := -5`, int64(-5)),
+				Entry("f32 negative", `x f32 := -2.5`, float32(-2.5)),
+				Entry("f64 positive", `x f64 := 2.5`, float64(2.5)),
+				Entry("f64 negative", `x f64 := -2.5`, float64(-2.5)),
+				Entry("i8 type minimum", `x i8 := -128`, int8(-128)),
+				Entry("i16 type minimum", `x i16 := -32768`, int16(-32768)),
+				Entry("i32 type minimum", `x i32 := -2147483648`, int32(-2147483648)),
+			)
+
 			It("should detect type mismatch between declaration and initializer", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`x i32 := "hello"`))
 				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
@@ -66,6 +89,14 @@ var _ = Describe("Statement", func() {
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign str to 'x' (type i32)"))
+			})
+
+			It("should reject a negative literal assigned to a string variable", func(bCtx SpecContext) {
+				stmt := MustSucceed(parser.ParseStatement(`x str := -5`))
+				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("integer is not compatible with str"))
 			})
 
 			It("should detect duplicate variable declaration", func(bCtx SpecContext) {

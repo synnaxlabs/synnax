@@ -804,7 +804,7 @@ func lowerReExpr[T antlr.ParserRuleContext](
 	}
 	sw, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Kind:    symbol.KindVariable,
-		VarKind: symbol.VarKindReactive,
+		VarKind: symbol.VarKindConstant,
 		Type:    types.U8(),
 	})
 	if err != nil {
@@ -1042,8 +1042,7 @@ func analyzeExpression(
 
 	if sym.Kind == symbol.KindConstant {
 		outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
-		literalCtx := parser.GetLiteral(ctx.AST)
-		parsedValue, err := literal.Parse(literalCtx, outputType)
+		parsedValue, err := literal.ParseConst(ctx.AST, outputType)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return nodeResult{}, false
@@ -1568,15 +1567,10 @@ func extractConfigValues(
 			return nil, false
 		}
 
-		negated := parser.IsNegatedLiteral(expr)
-		literalCtx := parser.GetLiteral(expr)
-		parsedValue, err := literal.Parse(literalCtx, paramType)
+		parsedValue, err := literal.ParseConst(expr, paramType)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 			return nil, false
-		}
-		if negated {
-			parsedValue.Value = literal.Negate(parsedValue.Value)
 		}
 		return parsedValue.Value, true
 	}

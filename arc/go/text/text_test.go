@@ -163,6 +163,24 @@ var _ = Describe("Text", func() {
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
 		})
 
+		DescribeTable("Should seed a value variable's channel with its constant value",
+			func(ctx SpecContext, decl string, expected any) {
+				source := "sequence main {\n" + decl + "\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.VarSeeds).To(HaveLen(1))
+				Expect(inter.VarSeeds[0].Value).To(Equal(expected))
+			},
+			Entry("i8", `a i8 := -5`, int8(-5)),
+			Entry("i16", `a i16 := -5`, int16(-5)),
+			Entry("i32", `a i32 := -5`, int32(-5)),
+			Entry("i64", `a i64 := -5`, int64(-5)),
+			Entry("f32", `a f32 := -2.5`, float32(-2.5)),
+			Entry("f64", `a f64 := -2.5`, float64(-2.5)),
+			Entry("i8 type minimum", `a i8 := -128`, int8(-128)),
+		)
+
 		It("Should reject a write to a reactive variable", func(ctx SpecContext) {
 			source := `
 			sequence main {
@@ -647,6 +665,17 @@ var _ = Describe("Text", func() {
 					false, types.Type{}, // Type ignored when expectConstant is false
 				),
 			)
+
+			It("Should reject a negative constant that is out of range for its target", func(ctx SpecContext) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: `-5 -> output`}))
+				root := symbol.NewRoot(nil, stl.NewSymbols())
+				root.Parent.AddChild(&symbol.Symbol{
+					Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10098,
+				})
+				_, diagnostics := text.Analyze(ctx, parsedText, root)
+				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+				Expect(diagnostics.String()).To(ContainSubstring("out of range for u8"))
+			})
 		})
 
 		Context("Config Values", func() {
@@ -722,6 +751,29 @@ var _ = Describe("Text", func() {
 				Expect(node.Inputs).To(HaveLen(1))
 				Expect(node.Inputs[0].Name).To(Equal("threshold"))
 				Expect(node.Inputs[0].Value).To(Equal(int64(-100)))
+			})
+
+			It("Should handle a type-minimum config value whose magnitude overflows the target", func(ctx SpecContext) {
+				source := `
+				func processor{
+					threshold i8
+				} () i8 {
+					return threshold
+				}
+
+				func print{} () {
+				}
+
+				processor{threshold=-128} -> print{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "processor_0")
+				Expect(node.Inputs).To(HaveLen(1))
+				Expect(node.Inputs[0].Name).To(Equal("threshold"))
+				Expect(node.Inputs[0].Value).To(Equal(int8(-128)))
 			})
 
 			It("Should handle negated float config value", func(ctx SpecContext) {

@@ -198,8 +198,8 @@ type Symbol struct {
 	// AST is the parser node for source location information. Built-in symbols
 	// from a resolver or pre-populated module members have AST == nil.
 	AST antlr.ParserRuleContext
-	// DefaultValue stores the default value literal for optional parameters.
-	// Only used for KindInput and KindConfig symbols. Nil means no default.
+	// DefaultValue holds the symbol's default or seed value, or nil if it has none:
+	// an optional parameter's default, or a constant variable's initial value.
 	DefaultValue any
 	// Name is the symbol's identifier. Container symbols of anonymous kinds
 	// (KindBlock, KindLoop, top-level stages) may have an empty Name.

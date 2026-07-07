@@ -68,6 +68,133 @@ var _ = Describe("Sequence", func() {
 		h.channelState.ClearReads()
 	}
 
+	Describe("Negative literal variable seeds", func() {
+		chanFor := func(expected any) (types.Type, telem.DataType) {
+			switch expected.(type) {
+			case int8:
+				return types.I8(), telem.Int8T
+			case int16:
+				return types.I16(), telem.Int16T
+			case int32:
+				return types.I32(), telem.Int32T
+			case int64:
+				return types.I64(), telem.Int64T
+			case float32:
+				return types.F32(), telem.Float32T
+			default:
+				return types.F64(), telem.Float64T
+			}
+		}
+		assertLast := func(s telem.Series, expected any) {
+			switch e := expected.(type) {
+			case int8:
+				Expect(telem.UnmarshalSeries[int8](s)).To(ContainElement(e))
+			case int16:
+				Expect(telem.UnmarshalSeries[int16](s)).To(ContainElement(e))
+			case int32:
+				Expect(telem.UnmarshalSeries[int32](s)).To(ContainElement(e))
+			case int64:
+				Expect(telem.UnmarshalSeries[int64](s)).To(ContainElement(e))
+			case float32:
+				Expect(telem.UnmarshalSeries[float32](s)).To(ContainElement(e))
+			case float64:
+				Expect(telem.UnmarshalSeries[float64](s)).To(ContainElement(e))
+			}
+		}
+
+		DescribeTable("Reads back the declared negative value across data types",
+			func(ctx SpecContext, arcType, lit string, expected any) {
+				vt, dt := chanFor(expected)
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {vt, 101},
+				})
+				h := newRuntimeHarness(ctx, `
+					sequence main {
+					    a `+arcType+` := `+lit+`
+					    a -> out
+					}
+					start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: dt},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				s := out.Get(101).Series
+				Expect(s).ToNot(BeEmpty(), "var channel not written")
+				assertLast(s[len(s)-1], expected)
+			},
+			Entry("i8", "i8", "-5", int8(-5)),
+			Entry("i16", "i16", "-5", int16(-5)),
+			Entry("i32", "i32", "-5", int32(-5)),
+			Entry("i64", "i64", "-5", int64(-5)),
+			Entry("i8 type minimum", "i8", "-128", int8(-128)),
+			Entry("i16 type minimum", "i16", "-32768", int16(-32768)),
+			Entry("f32", "f32", "-2.5", float32(-2.5)),
+			Entry("f64", "f64", "-2.5", float64(-2.5)),
+		)
+
+		DescribeTable("Seeds the constant so a stage reading it never surfaces the zero value",
+			func(ctx SpecContext, lit string, want int64) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
+					sequence main {
+					    a i64 := `+lit+`
+					    stage s {
+					        a -> out
+					    }
+					}
+					start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				s := out.Get(101).Series
+				Expect(s).ToNot(BeEmpty(), "var channel not written")
+				for _, ser := range s {
+					for _, v := range telem.UnmarshalSeries[int64](ser) {
+						Expect(v).To(Equal(want), "seeded constant must not glitch through its zero value")
+					}
+				}
+			},
+			Entry("negated literal", "-5", int64(-5)),
+		)
+
+		DescribeTable("Reassigns a constant variable to a negative value",
+			func(ctx SpecContext, lit string, want int64) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
+					sequence main {
+					    a i64 := 0
+					    stage s {
+					        a = `+lit+`
+					        a -> out
+					    }
+					}
+					start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				s := out.Get(101).Series
+				Expect(s).ToNot(BeEmpty(), "var channel not written")
+				Expect(telem.UnmarshalSeries[int64](s[len(s)-1])).To(ContainElement(want))
+			},
+			Entry("negated literal", "-100", int64(-100)),
+		)
+	})
+
 	Describe("Sequential execution", func() {
 		It("Executes writes in declaration order, gated by wait", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
@@ -2806,6 +2933,46 @@ var _ = Describe("Sequence", func() {
 			advance(h, ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(105)))
+		})
+
+		It("Re-gates a reactive reader on a fresh input after re-expression", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_val":    {types.U8(), 200},
+				"out":       {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    r := in_val + u8(1)
+				    r -> out
+				    r = in_val + u8(100)
+				    r -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			var got []uint8
+			drain := func() {
+				out, _ := h.Flush()
+				for _, s := range out.Get(101).Series {
+					got = append(got, telem.UnmarshalSeries[uint8](s)...)
+				}
+			}
+			step := func(val uint8) {
+				h.Ingest(200, telem.NewSeriesV[uint8](val))
+				for range 5 {
+					advance(h, ctx, telem.Millisecond)
+				}
+				drain()
+			}
+
+			trigger(h, ctx, 100)
+			drain()
+			step(10)  // first reader: in=10 -> r=11
+			step(100) // second reader (post re-expr): in=100 -> r=200, must not surface stale 11
+			Expect(got).To(Equal([]uint8{11, 200}))
 		})
 	})
 
