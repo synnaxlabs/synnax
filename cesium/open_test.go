@@ -147,3 +147,59 @@ var _ = Describe("Open", func() {
 		})
 	}
 })
+
+var _ = Describe("Transient Channels On Reopen", func() {
+	for fsName, openFS := range FileSystems {
+		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
+			var xFS fs.FS
+			BeforeAll(func() {
+				ShouldNotLeakGoroutines()
+				xFS = openFS()
+			})
+
+			It("Should not survive a database reopen, while persistent virtual channels do", func(ctx SpecContext) {
+				subFS := MustSucceed(xFS.Sub("restart"))
+				restartDB := openDBOnFS(ctx, subFS)
+				transientKey := GenerateChannelKey()
+				persistentKey := GenerateChannelKey()
+				Expect(restartDB.CreateChannel(ctx,
+					transientChannel(transientKey, "gone_on_restart"),
+					cesium.Channel{
+						Key:      persistentKey,
+						Name:     "kept_on_restart",
+						DataType: telem.Int64T,
+						Virtual:  true,
+					},
+				)).To(Succeed())
+				Expect(restartDB.Close()).To(Succeed())
+
+				restartDB = openDBOnFS(ctx, subFS)
+				Expect(restartDB.RetrieveChannel(ctx, transientKey)).Error().
+					To(MatchError(cesium.ErrChannelNotFound))
+				ch := MustSucceed(restartDB.RetrieveChannel(ctx, persistentKey))
+				Expect(ch.Name).To(Equal("kept_on_restart"))
+				Expect(restartDB.Close()).To(Succeed())
+			})
+
+			It("Should persist renames of persistent virtual channels across reopens", func(ctx SpecContext) {
+				subFS := MustSucceed(xFS.Sub("rename-restart"))
+				restartDB := openDBOnFS(ctx, subFS)
+				key := GenerateChannelKey()
+				Expect(restartDB.CreateChannel(ctx, cesium.Channel{
+					Key:      key,
+					Name:     "before",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				})).To(Succeed())
+				Expect(restartDB.RenameChannel(ctx, key, "after")).To(Succeed())
+				Expect(restartDB.Close()).To(Succeed())
+
+				restartDB = openDBOnFS(ctx, subFS)
+				ch := MustSucceed(restartDB.RetrieveChannel(ctx, key))
+				Expect(ch.Name).To(Equal("after"))
+				Expect(restartDB.Close()).To(Succeed())
+			})
+		})
+	}
+})
