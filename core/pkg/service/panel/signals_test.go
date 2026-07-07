@@ -66,7 +66,9 @@ var _ = Describe("Signals", func() {
 		responses := openStreamer(ctx, setChannelName)
 		p := panel.Panel{Name: "sig", Parent: &parentID}
 		Expect(writer.Create(ctx, &p)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) { Expect(writer.Delete(ctx, p.Key)).To(Succeed()) })
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+		})
 		Expect(writer.Dispatch(ctx, p.Key, "dk-1", []panel.Action{
 			panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
 		})).To(Succeed())

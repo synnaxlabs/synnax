@@ -36,7 +36,6 @@ func TestAPIChannel(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	node       mock.Node
 	channelSvc *channel.Service
 	apiSvc     *apichannel.Service
 )
@@ -75,10 +74,7 @@ func openService(ctx context.Context, node mock.Node) *channel.Service {
 		DataType:    telem.StringT,
 		Internal:    true,
 	}
-	Expect(channelSvc.
-		NewWriter(nil).
-		Create(ctx, &controlCh, channel.RetrieveIfNameExists()),
-	).To(Succeed())
+	Expect(channelSvc.NewWriter(nil).Create(ctx, &controlCh)).To(Succeed())
 	Expect(node.Framer.ConfigureControlUpdateChannel(
 		ctx, controlCh.Key(), controlCh.Name,
 	)).To(Succeed())
@@ -87,7 +83,7 @@ func openService(ctx context.Context, node mock.Node) *channel.Service {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node := mock.NewNode(ctx)
 	channelSvc = openService(ctx, node)
 	apiSvc = MustSucceed(apichannel.NewService(apicfg.LayerConfig{
 		Distribution: &distribution.Layer{DB: node.DB},

@@ -41,7 +41,9 @@ var _ = Describe("Cluster", func() {
 			ch = MustSucceed(nodeOne.Channel.Create(ctx, []channel.Channel{ch}))[0]
 			Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 
-			chs := MustSucceed(nodeOne.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()))
+			chs := MustSucceed(nodeOne.Storage.TS.RetrieveChannels(
+				ctx, ch.Key().StorageKey(),
+			))
 			Expect(chs).To(HaveLen(1))
 			Expect(chs[0].Key).To(Equal(ch.Key().StorageKey()))
 		})

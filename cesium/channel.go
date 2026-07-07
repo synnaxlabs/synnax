@@ -81,7 +81,9 @@ func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 }
 
 // RenameChannels renames each channel keyed in renames to its corresponding new name.
-func (db *DB) RenameChannels(ctx context.Context, renames map[ChannelKey]string) error {
+func (db *DB) RenameChannels(
+	ctx context.Context, renames map[ChannelKey]string,
+) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
