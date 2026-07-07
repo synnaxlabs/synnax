@@ -10,14 +10,12 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Layout } from "@/platform/layout";
-import { Schematic } from "@/platform/schematic";
+import { Panel } from "@/platform/panel";
 import { Search } from "@/platform/search";
 
 const useOpen = () => {
-  const placeLayout = Layout.usePlacer();
-  return ({ id, name }: ontology.Resource) =>
-    placeLayout(Schematic.create({ key: id.key, name }));
+  const openTab = Panel.useOpenTab();
+  return ({ id }: ontology.Resource) => openTab({ variant: "resource", resource: id });
 };
 
 export const SearchListItem = Search.createListItem({

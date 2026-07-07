@@ -24,7 +24,7 @@ import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/platform/context-menu";
-import { Ontology } from "@/platform/ontology";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 interface ContextMenuProps extends Menu.ContextMenuMenuProps {
@@ -35,7 +35,7 @@ const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement | null =
   const ids = panel.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const confirm = Ontology.useConfirmDelete({ type: "Panel" });
+  const confirm = Tree.useConfirmDelete({ type: "Panel" });
   const { update: del } = Panel.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {

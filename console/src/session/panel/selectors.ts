@@ -122,6 +122,12 @@ export const useGetSelected = (): (() => panel.Key | undefined) => {
 export const useSelectSelected = (): panel.Key | undefined =>
   Select.useMemo(selectSelected, []);
 
+/** @returns a getter reporting whether the active window has a selected panel. */
+export const useGetIsAnySelected = (): (() => boolean) => {
+  const getSelected = useGetSelected();
+  return useCallback(() => getSelected() != null, [getSelected]);
+};
+
 /**
  * @returns the focused (first selected) tab of a panel, or undefined when the panel
  * has no selected tabs.

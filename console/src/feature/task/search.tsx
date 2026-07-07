@@ -10,18 +10,18 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Icon, Status, Synnax } from "@synnaxlabs/pluto";
 
-import { retrieveAndPlaceLayout } from "@/feature/task/layouts";
-import { Layout } from "@/platform/layout";
+import { retrieveAndOpenTab } from "@/feature/task/views";
+import { Panel } from "@/platform/panel";
 import { Search } from "@/platform/search";
 
 const useOpen = () => {
   const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
   return ({ id, name }: ontology.Resource) => {
     if (client == null) return;
     handleError(
-      async () => await retrieveAndPlaceLayout(client, id.key, placeLayout),
+      async () => await retrieveAndOpenTab(client, id.key, openTab),
       `Could not open ${name}`,
     );
   };

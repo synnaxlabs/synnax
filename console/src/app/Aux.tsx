@@ -10,7 +10,7 @@
 import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Notifications } from "@/app/Notifications";
+import { Notifications } from "@/app/notifications";
 import { Selector } from "@/app/selector";
 import { Auth } from "@/feature/auth";
 import { Panel } from "@/feature/panel";
@@ -22,7 +22,7 @@ import { Project as PlatformProject } from "@/platform/project";
  */
 export const Aux = (): ReactElement => (
   <>
-    <Notifications />
+    <Notifications.Feed />
     <Auth.Guard>
       <PlatformProject.Guard>
         <Flex.Box x gap="tiny" grow style={{ padding: "0 1rem 1rem 1rem" }}>

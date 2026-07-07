@@ -48,7 +48,7 @@ const Wrapper = () => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "visualization",
   content: <Wrapper />,
   tooltip: "Visualize",

@@ -132,6 +132,7 @@ const {
 
 export {
   clearSelected,
+  internalSelectTab,
   reducer,
   remove,
   reset,

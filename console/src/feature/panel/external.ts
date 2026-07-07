@@ -8,6 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/panel/Mosaic";
-export * from "@/feature/panel/ontology";
 export * from "@/feature/panel/Selector";
 export * from "@/feature/panel/Toolbar";
+export * from "@/feature/panel/tree";

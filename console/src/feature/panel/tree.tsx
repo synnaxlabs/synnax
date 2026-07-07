@@ -9,10 +9,8 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Ontology } from "@/platform/ontology";
+import { Tree } from "@/platform/tree";
 
-export const ONTOLOGY_SERVICE: Ontology.Service = {
-  ...Ontology.NOOP_SERVICE,
-  type: "panel",
-  icon: <Icon.Panel />,
-};
+const TreeItem = Tree.createItem({ type: "panel", icon: <Icon.Panel /> });
+
+export const TREE_ITEMS: Tree.Items = { panel: TreeItem };

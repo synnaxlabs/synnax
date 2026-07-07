@@ -38,6 +38,7 @@ import {
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
+import { Panel } from "@/platform/panel";
 import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
 import { DEFAULT_ITEM, type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
@@ -48,7 +49,6 @@ import {
   type GetResource,
   type TreeState,
 } from "@/platform/tree/types";
-import { Panel } from "@/platform/panel";
 import { type Action, type State } from "@/session/store";
 
 interface InternalProps {

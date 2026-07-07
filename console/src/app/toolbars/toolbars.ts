@@ -31,4 +31,4 @@ export const LEFT: Nav.Toolbar[] = [
   Status.TOOLBAR,
 ];
 
-export const BOTTOM: Nav.Item = Panel.TOOLBAR;
+export const BOTTOM: Nav.Toolbar = Panel.TOOLBAR;
