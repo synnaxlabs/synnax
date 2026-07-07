@@ -127,6 +127,12 @@ func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, 
 			if err != nil {
 				return err
 			}
+			// The bootstrapper registered these channels in its own local storage;
+			// free channels live transiently in every node's storage, so register
+			// them here as well.
+			if err = s.ensureFreeStorage(ctx, remoteChannels); err != nil {
+				return err
+			}
 			oChannels = append(oChannels, remoteChannels...)
 		} else {
 			if err := s.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, opts); err != nil {
@@ -286,20 +292,24 @@ func (s *Service) createAndUpdateFreeVirtual(
 		}
 	}
 
-	// Free channels are registered transiently in this node's local storage; other
-	// nodes provision them lazily at writer open.
-	if err := s.registerFreeStorage(ctx, toCreate); err != nil {
+	// Free channels are registered transiently in every node's local storage. The
+	// full request set is ensured — not just toCreate — so a channel that already
+	// existed cluster-wide (e.g. created through another node and retrieved here by
+	// name) is registered on this node as well. Channels created while a node is
+	// down are registered when it scans the channel table at startup (see
+	// OpenService).
+	if err := s.ensureFreeStorage(ctx, *channels); err != nil {
 		return err
 	}
 
 	return s.maybeSetResources(ctx, tx, toCreate, opts)
 }
 
-// EnsureFreeStorage registers the free channels among the given channels, along with
+// ensureFreeStorage registers the free channels among the given channels, along with
 // their index channels, in this node's local storage engine as transient virtual
-// channels so that writers can be opened against them. Channels that are not free are
-// ignored, and channels already registered locally are skipped.
-func (s *Service) EnsureFreeStorage(ctx context.Context, channels []Channel) error {
+// channels. Channels that are not free are ignored, and channels already registered
+// locally are skipped.
+func (s *Service) ensureFreeStorage(ctx context.Context, channels []Channel) error {
 	free := lo.Filter(channels, func(c Channel, _ int) bool { return c.Free() })
 	if len(free) == 0 {
 		return nil
@@ -317,7 +327,7 @@ func (s *Service) EnsureFreeStorage(ctx context.Context, channels []Channel) err
 	}
 	if len(indexKeys) > 0 {
 		var indexes []Channel
-		if err := s.NewRetrieve().
+		if err := s.newRetrieve().
 			Where(MatchKeys(indexKeys...)).
 			Entries(&indexes).
 			Exec(ctx, nil); err != nil {

@@ -173,6 +173,22 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
+	// Free channels live transiently in every node's local storage engine, so
+	// register all free channels known to the cluster at startup. Channels created
+	// while this node is up are registered by the create path (see
+	// registerFreeStorage).
+	var freeChannels []Channel
+	if err = s.table.NewRetrieve().
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
+			return c.Free(), nil
+		})).
+		Entries(&freeChannels).
+		Exec(ctx, cfg.ClusterDB); !ok(err, nil) {
+		return nil, err
+	}
+	if err = s.registerFreeStorage(ctx, freeChannels); !ok(err, nil) {
+		return nil, err
+	}
 	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
 		if s.freeCounter, err = newCounter(ctx, cfg.ClusterDB, freeCounterKey); !ok(err, nil) {

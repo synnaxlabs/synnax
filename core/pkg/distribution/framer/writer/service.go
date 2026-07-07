@@ -330,11 +330,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
-	channels, err := s.validateChannelKeys(ctx, cfg.Keys)
-	if err != nil {
-		return nil, err
-	}
-	if err = s.cfg.Channel.EnsureFreeStorage(ctx, channels); err != nil {
+	if _, err = s.validateChannelKeys(ctx, cfg.Keys); err != nil {
 		return nil, err
 	}
 
