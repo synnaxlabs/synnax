@@ -25,7 +25,6 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -42,7 +41,6 @@ var _ = Describe("Calculation", Ordered, func() {
 		statusSvc     *status.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
-		writerSvc     *writer.Service
 	)
 	open := func(
 		ctx context.Context,
@@ -74,7 +72,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
 		}
 		sCtx, cancel := signal.Isolated()
-		w := MustSucceed(writerSvc.Open(
+		w := MustSucceed(dist.Framer.OpenWriter(
 			ctx,
 			framer.WriterConfig{
 				Start: 1 * telem.SecondTS,
@@ -126,12 +124,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
-		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
-			Framer: dist.Framer, Channel: channelSvc,
-		}))
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			Framer:  dist.Framer,
-			Writer:  writerSvc,
 			Channel: channelSvc,
 			Status:  statusSvc,
 		}))
