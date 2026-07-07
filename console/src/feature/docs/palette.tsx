@@ -12,11 +12,11 @@ import { Icon } from "@synnaxlabs/pluto";
 import { Docs } from "@/platform/docs";
 import { Palette } from "@/platform/palette";
 
-export const ReadCommand = Palette.createSimpleCommand({
+export const ReadCommand = Palette.createCommand({
   key: "read_the_docs",
   name: "Read the documentation",
   icon: <Icon.QuestionMark />,
-  layout: Docs.LAYOUT,
+  useOnSelect: Docs.useOpenTab,
 });
 
 export const COMMANDS = [ReadCommand];

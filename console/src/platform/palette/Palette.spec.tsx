@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type ontology } from "@synnaxlabs/client";
+import { createTestClient, type ontology, panel } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { type Layout } from "@/platform/layout";
 import { Ontology } from "@/platform/ontology";
 import { createServices } from "@/platform/ontology/testutil";
 import { Palette } from "@/platform/palette";
@@ -20,8 +19,9 @@ import {
   createPaletteWrapper,
   type CreatePaletteWrapperArgs,
 } from "@/platform/palette/testutil";
+import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
-import { stubGeometry } from "@/testutil";
+import { assertDefined, stubGeometry, uniqueName, waitForFocusedTab } from "@/testutil";
 
 const TRIGGER_CONFIG: Palette.TriggerConfig = {
   command: [["Control", "Shift", "P"]],
@@ -29,12 +29,7 @@ const TRIGGER_CONFIG: Palette.TriggerConfig = {
   search: [["Control", "P"]],
 };
 
-const layoutFor = (key: string): Layout.PlacerArgs => ({
-  key,
-  type: "cat",
-  name: `Layout ${key}`,
-  location: "mosaic",
-});
+const VIEW_TAB_TYPE = "palette_view";
 
 const renderPalette = async (args: CreatePaletteWrapperArgs = {}) => {
   const { wrapper, store } = await createPaletteWrapper(args);
@@ -67,15 +62,15 @@ stubGeometry();
 describe("Palette", () => {
   it("should filter the command list down to fuzzy matches of the typed text", async () => {
     const commands = [
-      Palette.createSimpleCommand({
+      Palette.createCommand({
         key: "a",
         name: "Create Alpha",
-        layout: layoutFor("a"),
+        useOnSelect: () => () => {},
       }),
-      Palette.createSimpleCommand({
+      Palette.createCommand({
         key: "b",
         name: "Create Beta",
-        layout: layoutFor("b"),
+        useOnSelect: () => () => {},
       }),
     ];
     await renderPalette({ commands });
@@ -92,24 +87,39 @@ describe("Palette", () => {
     });
   });
 
-  it("should place a command's layout and close the dialog when selected", async () => {
+  it("should open a command's view as a tab and close the dialog when selected", async () => {
+    const client = createTestClient();
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const commands = [
-      Palette.createSimpleCommand({
+      Palette.createCommand({
         key: "a",
         name: "Create Alpha",
-        layout: layoutFor("a"),
+        useOnSelect: () => {
+          const openTab = Panel.useOpenTab();
+          return () => openTab({ variant: "view", type: VIEW_TAB_TYPE, args: {} });
+        },
       }),
     ];
-    const { store } = await renderPalette({ commands });
+    const { store } = await renderPalette({ commands, client });
+    store.dispatch(Session.Project.select(proj.key));
     await openPalette();
     fireEvent.change(paletteInput(), { target: { value: ">" } });
     const item = await screen.findByText("Create Alpha");
     await act(async () => {
       fireEvent.click(item);
     });
-    await waitFor(() =>
-      expect(Session.Layout.select(store.getState(), "a")?.name).toBe("Layout a"),
-    );
+    const focused = await waitForFocusedTab(store);
+    const panelKey = Session.Panel.selectSelected(store.getState());
+    assertDefined(panelKey);
+    await waitFor(async () => {
+      const doc = await client.panels.retrieve(panelKey);
+      const tab = panel.findTab(doc.root, focused);
+      if (tab?.variant !== "view") throw new Error("expected a view tab");
+      expect(tab.type).toBe(VIEW_TAB_TYPE);
+    });
     await waitFor(() =>
       expect(document.querySelector(".console-palette__input")).toBeNull(),
     );

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, project } from "@synnaxlabs/client";
+import { createTestClient, panel, project } from "@synnaxlabs/client";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -26,7 +26,7 @@ import {
   assertDefined,
   createTestStore,
   uniqueName,
-  waitForPlacedLayout,
+  waitForFocusedTab,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -78,8 +78,13 @@ describe("project ontology service", () => {
       },
     );
     fireEvent.click(await screen.findByText("Create log"));
-    const key = await waitForPlacedLayout(store, "log");
-    const created = await client.logs.retrieve({ key });
+    const focusedTab = await waitForFocusedTab(store);
+    const panelKey = Session.Panel.selectSelected(store.getState());
+    assertDefined(panelKey, "no panel selected");
+    const doc = await client.panels.retrieve(panelKey);
+    const tab = panel.findTab(doc.root, focusedTab);
+    if (tab?.variant !== "resource") throw new Error("focused tab is not a resource");
+    const created = await client.logs.retrieve({ key: tab.resource.key });
     expect(created.name).toBe("Log");
     expect(Session.Project.selectOptionalSelected(store.getState())).toBe(p.key);
   });
@@ -110,7 +115,7 @@ describe("project ontology service", () => {
     await waitFor(async () => expect(await projectExists()).toBe(false));
   });
 
-  it("should select the project and install its layout on select", async () => {
+  it("should activate the project on select", async () => {
     const p = await createProject();
     const store = await createTestStore();
     assertDefined(Project.ONTOLOGY_SERVICE.onSelect);

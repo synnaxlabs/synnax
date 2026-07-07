@@ -10,19 +10,27 @@
 import {
   createTestClient,
   type ontology,
+  panel,
   type ranger,
   ranger as rangerClient,
   schematic,
 } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { Range as CommonRange } from "@/platform/range";
+import { Range as PlatformRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import {
   createConsoleWrapper,
@@ -43,7 +51,7 @@ interface RenderOverviewResult {
 const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> => {
   const onSnapshotClick = vi.fn(async () => {});
   const onSnapshotDelete = vi.fn(async () => {});
-  const services: CommonRange.SnapshotServices = {
+  const services: PlatformRange.SnapshotServices = {
     schematic: {
       icon: <Icon.Schematic />,
       onClick: onSnapshotClick,
@@ -51,11 +59,36 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
     },
   };
   const { wrapper } = await createConsoleWrapper({ client });
+  const tabKey = uuid.create();
+  const doc = panel.panelZ.parse({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root: {
+      variant: "leaf",
+      tabs: [
+        {
+          variant: "resource",
+          key: tabKey,
+          resource: rangerClient.ontologyID(rangeKey),
+        },
+      ],
+    },
+  });
+  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
+    wrapper,
+  });
+  act(() => {
+    result.current.panels.set(doc);
+  });
   render(
-    <CommonRange.SnapshotServicesProvider services={services}>
-      <Range.Overview layoutKey={rangeKey} visible focused onClose={() => {}} />
-      <Modals.Stack />
-    </CommonRange.SnapshotServicesProvider>,
+    <PlutoPanel.Scope.Provider value={doc.key}>
+      <PlutoPanel.TabScope.Provider value={tabKey}>
+        <PlatformRange.SnapshotServicesProvider services={services}>
+          <Range.Overview.Overview visible />
+          <Modals.Stack />
+        </PlatformRange.SnapshotServicesProvider>
+      </PlutoPanel.TabScope.Provider>
+    </PlutoPanel.Scope.Provider>,
     { wrapper },
   );
   return { onSnapshotClick, onSnapshotDelete };

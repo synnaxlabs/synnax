@@ -14,26 +14,24 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
-import { createLayout } from "@/feature/task/layouts";
-import { Selector } from "@/feature/task/Selector";
 import { TOOLBAR } from "@/feature/task/Toolbar";
 import { getIcon, parseType } from "@/feature/task/types";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
-import { type Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { type Palette } from "@/platform/palette";
-import { Task } from "@/platform/task";
+import { type Panel } from "@/platform/panel";
+import { type Task } from "@/platform/task";
 
-export * from "@/feature/task/layouts";
 export * from "@/feature/task/link";
 export * from "@/feature/task/ontology";
 export * from "@/feature/task/Selector";
 export * from "@/feature/task/Toolbar";
 export * from "@/feature/task/types";
+export * from "@/feature/task/views";
 export * from "@/platform/task/external";
 
-export const REGISTRY: Task.Registry = { createLayout, getIcon, parseType };
+export const REGISTRY: Task.Registry = { getIcon, parseType };
 
 export const COMMANDS: Palette.Command[] = [
   ...EtherCAT.Task.COMMANDS,
@@ -65,15 +63,14 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   ...PagerDuty.Task.FILE_INGESTERS,
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  ...EtherCAT.Task.LAYOUTS,
-  ...HTTP.Task.LAYOUTS,
-  ...LabJack.Task.LAYOUTS,
-  ...Modbus.Task.LAYOUTS,
-  ...NI.Task.LAYOUTS,
-  ...OPC.Task.LAYOUTS,
-  ...PagerDuty.Task.LAYOUTS,
-  [Task.SELECTOR_LAYOUT_TYPE]: Selector,
+export const TABS: Panel.Tabs = {
+  ...EtherCAT.Task.TABS,
+  ...HTTP.Task.TABS,
+  ...LabJack.Task.TABS,
+  ...Modbus.Task.TABS,
+  ...NI.Task.TABS,
+  ...OPC.Task.TABS,
+  ...PagerDuty.Task.TABS,
 };
 
 export const NAV_DRAWER_ITEMS: Nav.Item[] = [TOOLBAR];

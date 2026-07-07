@@ -25,7 +25,6 @@ import { Item } from "@/platform/cluster/list/Item";
 import { useConnectModal } from "@/platform/cluster/useConnectModal";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
-import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
@@ -110,7 +109,12 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
 
   const contextMenu = useCallback(
     ({ keys: [key] }: Menu.ContextMenuMenuProps): ReactElement => {
-      if (key == null) return <Layout.DefaultContextMenu />;
+      if (key == null)
+        return (
+          <ContextMenu.Menu>
+            <ContextMenu.ReloadConsoleItem />
+          </ContextMenu.Menu>
+        );
 
       return (
         <ContextMenu.Menu>

@@ -14,9 +14,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
-import { type Layout } from "@/platform/layout";
 import { createBaseProps, createResource } from "@/platform/ontology/testutil";
-import { Range as CommonRange } from "@/platform/range";
 import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import { createTestStore, renderWithConsole } from "@/testutil";
@@ -25,19 +23,16 @@ const client = createTestClient();
 
 describe("range/ontology", () => {
   describe("onSelect", () => {
-    it("adds the range to the session slice and places its overview", async () => {
+    it("adds the range to the session slice and opens its overview tab", async () => {
       const rng = await createTestRange(client);
       const store = await createTestStore();
-      const placeLayout = vi.fn((_: Layout.PlacerArgs) => ({
-        windowKey: "",
-        key: "",
-      }));
+      const openTab = vi.fn();
       Range.ONTOLOGY_SERVICE.onSelect?.({
         ...createBaseProps({
           client,
           store,
           overrides: {
-            placeLayout,
+            openTab,
             handleError: (exc) => {
               if (typeof exc === "function") void exc();
             },
@@ -50,12 +45,8 @@ describe("range/ontology", () => {
           rng.name,
         );
       });
-      await waitFor(() => expect(placeLayout).toHaveBeenCalledTimes(1));
-      const [layout] = placeLayout.mock.calls[0];
-      if (typeof layout === "function") throw new Error("expected a layout object");
-      expect(layout.key).toBe(rng.key);
-      expect(layout.name).toBe(rng.name);
-      expect(layout.type).toBe(CommonRange.OVERVIEW_LAYOUT_TYPE);
+      await waitFor(() => expect(openTab).toHaveBeenCalledTimes(1));
+      expect(openTab).toHaveBeenCalledWith({ resource: ranger.ontologyID(rng.key) });
     });
   });
 

@@ -22,7 +22,7 @@ import {
   createState,
 } from "@/platform/ontology/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -36,6 +36,11 @@ const TASK_LABELS = [
 
 const renderContextMenu = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  const proj = await client.projects.create({
+    name: uniqueName("proj"),
+    layout: {},
+  });
+  store.dispatch(Session.Project.select(proj.key));
   const resource = createDeviceResource({
     key: id.create(),
     name: "ni_dev",
@@ -56,35 +61,25 @@ const renderContextMenu = async () => {
 };
 
 describe("device ontology context menu", () => {
-  it("should offer every NI task type and place the clicked one with the device key", async () => {
+  it("should offer every NI task type and open the clicked one with the device key", async () => {
     const { store, deviceKey } = await renderContextMenu();
     for (const label of TASK_LABELS)
       await waitFor(() => expect(screen.getByText(label)).toBeTruthy());
     fireEvent.click(screen.getByText("Create digital write task"));
-    await waitFor(() => {
-      const placed = Session.Layout.selectByFilter(
-        store.getState(),
-        (l) => l.type === NI.Task.DIGITAL_WRITE_TYPE,
-      );
-      if (placed == null) throw new Error("digital write layout not placed");
-      expect(Session.Layout.selectArgs(store.getState(), placed.key)).toEqual({
-        deviceKey,
-      });
+    expect(await resolveFocusedTab(store, client)).toMatchObject({
+      variant: "view",
+      type: NI.Task.DIGITAL_WRITE_TYPE,
+      args: { deviceKey },
     });
   });
 
-  it("should place the analog read layout with the device key when clicked", async () => {
+  it("should open the analog read view with the device key when clicked", async () => {
     const { store, deviceKey } = await renderContextMenu();
     fireEvent.click(await screen.findByText("Create analog read task"));
-    await waitFor(() => {
-      const placed = Session.Layout.selectByFilter(
-        store.getState(),
-        (l) => l.type === NI.Task.ANALOG_READ_TYPE,
-      );
-      if (placed == null) throw new Error("analog read layout not placed");
-      expect(Session.Layout.selectArgs(store.getState(), placed.key)).toEqual({
-        deviceKey,
-      });
+    expect(await resolveFocusedTab(store, client)).toMatchObject({
+      variant: "view",
+      type: NI.Task.ANALOG_READ_TYPE,
+      args: { deviceKey },
     });
   });
 });

@@ -21,8 +21,7 @@ import {
   createExecutingHandleError,
   createResource,
 } from "@/platform/ontology/testutil";
-import { type Session } from "@/session";
-import { assertDefined, createTestStore, type TestStore, uniqueName } from "@/testutil";
+import { assertDefined, createTestStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -36,17 +35,6 @@ const createLog = async () => {
 
 const logResource = (key: string, name: string) =>
   createResource(log.ontologyID(key), name);
-
-// Placers accept either a layout object or a creator function; resolve the creator
-// the same way usePlacer does.
-const resolvePlaced = (
-  placeLayout: ReturnType<typeof vi.fn>,
-  store: TestStore,
-): Session.Layout.BaseState => {
-  const arg = placeLayout.mock.calls[0][0];
-  if (typeof arg !== "function") return arg as Session.Layout.BaseState;
-  return arg({ dispatch: store.dispatch, store, windowKey: "main" });
-};
 
 describe("log ontology service", () => {
   it("should expose rename, group, delete, export, and link actions", async () => {
@@ -63,19 +51,16 @@ describe("log ontology service", () => {
     expect(screen.getByText("Copy properties")).toBeTruthy();
   });
 
-  it("should delete the log, its layout, and its session state", async () => {
+  it("should delete the log from the cluster after confirmation", async () => {
     const l = await createLog();
-    const removeLayout = vi.fn();
     assertDefined(Log.ONTOLOGY_SERVICE.TreeContextMenu);
     await renderTreeContextMenu(Log.ONTOLOGY_SERVICE.TreeContextMenu, {
       client,
       resources: [logResource(l.key, l.name)],
-      baseOverrides: { removeLayout },
     });
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${l.name}?`);
     fireEvent.click(findModalButton("Delete"));
-    await waitFor(() => expect(removeLayout).toHaveBeenCalledWith(l.key));
     const logExists = async (): Promise<boolean> => {
       try {
         await client.logs.retrieve({ key: l.key });
@@ -87,48 +72,22 @@ describe("log ontology service", () => {
     await waitFor(async () => expect(await logExists()).toBe(false));
   });
 
-  it("should place a log layout when the resource is selected", async () => {
+  it("should open the log as a tab when the resource is selected", async () => {
     const l = await createLog();
     const store = await createTestStore();
-    const placeLayout = vi.fn();
+    const openTab = vi.fn();
+    const id = log.ontologyID(l.key);
     assertDefined(Log.ONTOLOGY_SERVICE.onSelect);
     Log.ONTOLOGY_SERVICE.onSelect({
       ...createBaseProps({
         client,
         store,
-        overrides: { placeLayout, handleError: createExecutingHandleError() },
+        overrides: { openTab, handleError: createExecutingHandleError() },
       }),
       selection: [logResource(l.key, l.name)],
     });
-    await waitFor(() => expect(placeLayout).toHaveBeenCalledTimes(1));
-    const placed = resolvePlaced(placeLayout, store);
-    expect(placed).toMatchObject({ key: l.key, name: l.name, type: "log" });
-  });
-
-  it("should place a log layout in the target mosaic node on drop", async () => {
-    const l = await createLog();
-    const store = await createTestStore();
-    const placeLayout = vi.fn();
-    assertDefined(Log.ONTOLOGY_SERVICE.onMosaicDrop);
-    Log.ONTOLOGY_SERVICE.onMosaicDrop({
-      ...createBaseProps({
-        client,
-        store,
-        overrides: { placeLayout, handleError: createExecutingHandleError() },
-      }),
-      id: log.ontologyID(l.key),
-      nodeKey: 3,
-      location: "top",
-    });
-    await waitFor(() => expect(placeLayout).toHaveBeenCalledTimes(1));
-    const placed = resolvePlaced(placeLayout, store);
-    expect(placed).toMatchObject({
-      key: l.key,
-      name: l.name,
-      type: "log",
-      location: "mosaic",
-      tab: { mosaicKey: 3, location: "top" },
-    });
+    await waitFor(() => expect(openTab).toHaveBeenCalledTimes(1));
+    expect(openTab).toHaveBeenCalledWith({ resource: id });
   });
 
   it("should haul a mosaic tab creation item", () => {

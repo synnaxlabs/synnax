@@ -7,27 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { waitFor } from "@testing-library/react";
+import { createTestClient, panel } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { Docs } from "@/feature/docs";
 import { renderPalette } from "@/platform/palette/testutil";
 import { Session } from "@/session";
-import { stubGeometry } from "@/testutil";
+import { assertDefined, stubGeometry, uniqueName, waitForFocusedTab } from "@/testutil";
 
 stubGeometry();
 
+const client = createTestClient();
+
 describe("docs palette", () => {
-  it("should place the docs layout when the read command is selected", async () => {
+  it("should open the docs view as a tab when the read command is selected", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: Docs.COMMANDS,
+      client,
     });
+    store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette();
     await selectCommand("Read the documentation");
-    await waitFor(() =>
-      expect(Session.Layout.select(store.getState(), Docs.LAYOUT_TYPE)?.type).toBe(
-        Docs.LAYOUT_TYPE,
-      ),
-    );
+    const focused = await waitForFocusedTab(store);
+    const panelKey = Session.Panel.selectSelected(store.getState());
+    assertDefined(panelKey);
+    const doc = await client.panels.retrieve(panelKey);
+    const tab = panel.findTab(doc.root, focused);
+    if (tab?.variant !== "view") throw new Error("expected a view tab");
+    expect(tab.type).toBe(Docs.TAB_TYPE);
   });
 });

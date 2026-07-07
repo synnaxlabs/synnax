@@ -7,23 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type framer, type Synnax as Client, task } from "@synnaxlabs/client";
+import { type framer, panel, type Synnax as Client, task } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Form as PForm, type Status } from "@synnaxlabs/pluto";
-import { id, TimeStamp } from "@synnaxlabs/x";
+import {
+  Flux,
+  Form as PForm,
+  Panel as PlutoPanel,
+  type Status,
+} from "@synnaxlabs/pluto";
+import { id, type record, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   fireEvent,
   render,
+  renderHook,
   type RenderResult,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
-import { act, type PropsWithChildren, type ReactElement } from "react";
+import { act, type FC, type PropsWithChildren, type ReactElement } from "react";
 import { type z } from "zod";
 
-import { type Layout } from "@/platform/layout";
-import { type FormLayoutArgs } from "@/platform/task/Form";
+import { type Panel } from "@/platform/panel";
+import { type FormViewArgs } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
   CaptureStatuses,
@@ -90,6 +96,59 @@ export const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   config: { channels: [] },
 };
 
+export interface SeededPanel {
+  /** The flux store the panel doc was seeded into. */
+  fluxStore: PlutoPanel.FluxSubStore;
+  panelKey: panel.Key;
+  /** Keys of the tabs seeded into the panel's single leaf, in order. */
+  tabKeys: panel.TabKey[];
+}
+
+/**
+ * Seeds a single-leaf panel doc holding the given tabs into the wrapper's flux store
+ * and selects it in the session store, so Panel.useOpenTab and the tab-scoped panel
+ * hooks resolve against it. When a client is given, the panel is also created on the
+ * cluster so panel dispatches persist instead of rolling back.
+ */
+export const seedSelectedPanel = async (
+  wrapper: FC<PropsWithChildren>,
+  store: TestStore,
+  client: Client | null,
+  tabs: panel.Tab[] = [],
+): Promise<SeededPanel> => {
+  const doc = panel.panelZ.parse({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root: { variant: "leaf", tabs },
+  });
+  if (client != null) await client.panels.create(doc);
+  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
+    wrapper,
+  });
+  act(() => {
+    result.current.panels.set(doc);
+    store.dispatch(
+      Session.Panel.select({ key: doc.key, windowKey: Drift.MAIN_WINDOW }),
+    );
+  });
+  return {
+    fluxStore: result.current,
+    panelKey: doc.key,
+    tabKeys: tabs.map((t) => t.key),
+  };
+};
+
+/** Reads the current view args of the seeded tab from the panel doc. */
+export const selectViewArgs = (
+  { fluxStore, panelKey, tabKeys }: SeededPanel,
+  tabKey: panel.TabKey = tabKeys[0],
+): record.Unknown | null => {
+  const doc = fluxStore.panels.get(panelKey);
+  if (doc == null) return null;
+  const tab = panel.findTab(doc.root, tabKey);
+  return tab?.variant === "view" ? tab.args : null;
+};
+
 export interface RenderInTaskFormOptions extends RenderWithConsoleOptions {
   values?: TaskFormValues;
   mode?: PForm.Mode;
@@ -98,7 +157,25 @@ export interface RenderInTaskFormOptions extends RenderWithConsoleOptions {
 export interface RenderInTaskFormResult extends RenderResult {
   store: TestStore;
   form: FormRef;
+  tabKey: panel.TabKey;
 }
+
+interface PanelScopesProps extends PropsWithChildren {
+  panelKey: panel.Key;
+  tabKey: panel.TabKey;
+}
+
+/**
+ * Provides the pluto panel and tab scopes the way the panel mosaic does, so
+ * tab-scoped hooks (Session.Panel.useSelectIsFocused, panel view args) resolve.
+ */
+const PanelScopes = ({ panelKey, tabKey, children }: PanelScopesProps) => (
+  <PlutoPanel.Scope.Provider value={panelKey}>
+    <PlutoPanel.TabScope.Provider value={tabKey}>
+      {children}
+    </PlutoPanel.TabScope.Provider>
+  </PlutoPanel.Scope.Provider>
+);
 
 /**
  * Renders `ui` inside a real Pluto Form context wired into the full console provider
@@ -119,17 +196,25 @@ export const renderInTaskForm = async (
     ...values,
     config: { ...defaultConfig, ...(values?.config ?? {}) },
   };
+  const tabKey = uuid.create();
   const result = await renderWithConsole(
-    <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
-      {ui}
-    </TaskFormProvider>,
+    <PanelScopes panelKey={uuid.create()} tabKey={tabKey}>
+      <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
+        {ui}
+      </TaskFormProvider>
+    </PanelScopes>,
     rest,
   );
-  return { ...result, form: formRef };
+  return { ...result, form: formRef, tabKey };
 };
 
 export interface RenderInTaskFormWithClientOptions extends RenderInTaskFormOptions {
   client?: Client | null;
+}
+
+export interface RenderInTaskFormWithClientResult extends RenderInTaskFormResult {
+  /** The console wrapper backing the render, for seeding panel docs. */
+  wrapper: FC<PropsWithChildren>;
 }
 
 /**
@@ -139,7 +224,7 @@ export interface RenderInTaskFormWithClientOptions extends RenderInTaskFormOptio
 export const renderInTaskFormWithClient = async (
   ui: ReactElement,
   options: RenderInTaskFormWithClientOptions = {},
-): Promise<RenderInTaskFormResult> => {
+): Promise<RenderInTaskFormWithClientResult> => {
   const { client = null, values, mode, preloadedState, store, ...rest } = options;
   const formRef: FormRef = { current: null };
   const defaultConfig = DEFAULT_TASK_FORM_VALUES.config as TaskFormValues;
@@ -153,20 +238,23 @@ export const renderInTaskFormWithClient = async (
     preloadedState,
     store,
   });
+  const tabKey = uuid.create();
   const result = render(
-    <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
-      {ui}
-    </TaskFormProvider>,
+    <PanelScopes panelKey={uuid.create()} tabKey={tabKey}>
+      <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
+        {ui}
+      </TaskFormProvider>
+    </PanelScopes>,
     { wrapper, ...rest },
   );
-  return { ...result, store: resolvedStore, form: formRef };
+  return { ...result, store: resolvedStore, form: formRef, tabKey, wrapper };
 };
 
-export interface RenderTaskFormLayoutOptions {
+export interface RenderTaskFormViewOptions {
   /** Client backing the console wrapper; null (default) for cluster-free specs. */
   client?: Client | null;
-  /** Layout args the wrapped form reads (deviceKey, taskKey, rackKey, config). */
-  args?: FormLayoutArgs;
+  /** View args the wrapped form reads (deviceKey, taskKey, rackKey, config). */
+  args?: FormViewArgs;
   /**
    * When provided, a CaptureStatuses probe is mounted alongside the renderer and this
    * callback receives the notification list on every change.
@@ -174,46 +262,39 @@ export interface RenderTaskFormLayoutOptions {
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
 }
 
-export interface RenderTaskFormLayoutResult extends RenderResult {
+export interface RenderTaskFormViewResult extends RenderResult, SeededPanel {
   store: TestStore;
-  layoutKey: string;
+  tabKey: panel.TabKey;
 }
 
 /**
- * Renders a Task.wrapForm renderer the way the layout mosaic does: places a layout of
- * the given type carrying `args` into a real console store, then mounts the renderer
- * against it inside the full console provider stack.
+ * Renders a Task.wrapForm tab the way the panel mosaic does: seeds a panel doc whose
+ * single leaf holds a view tab of the given type carrying `args`, then mounts the tab
+ * content inside the panel and tab scopes within the full console provider stack.
  */
-export const renderTaskFormLayout = async (
-  Renderer: Layout.Renderer,
+export const renderTaskFormView = async (
+  Tab: Panel.Tab,
   type: string,
-  options: RenderTaskFormLayoutOptions = {},
-): Promise<RenderTaskFormLayoutResult> => {
+  options: RenderTaskFormViewOptions = {},
+): Promise<RenderTaskFormViewResult> => {
   const { client = null, args = {}, onStatuses } = options;
-  const layoutKey = uniqueName("layout");
   const store = await createTestStore();
-  act(() => {
-    store.dispatch(
-      Session.Layout.place({
-        key: layoutKey,
-        type,
-        name: layoutKey,
-        location: "mosaic",
-        windowKey: Drift.MAIN_WINDOW,
-        window: { title: layoutKey },
-        args,
-      }),
-    );
-  });
   const { wrapper } = await createConsoleWrapper({ client, store });
+  const tab: panel.Tab = {
+    variant: "view",
+    key: uuid.create(),
+    type,
+    args,
+  };
+  const seeded = await seedSelectedPanel(wrapper, store, client, [tab]);
   const result = render(
-    <>
-      <Renderer layoutKey={layoutKey} visible focused={false} onClose={() => {}} />
+    <PanelScopes panelKey={seeded.panelKey} tabKey={tab.key}>
+      <Tab.Content visible />
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-    </>,
+    </PanelScopes>,
     { wrapper },
   );
-  return { ...result, store, layoutKey };
+  return { ...result, ...seeded, store, tabKey: tab.key };
 };
 
 /**
@@ -232,17 +313,16 @@ export const clickConfigure = async (): Promise<void> => {
 };
 
 /**
- * Polls the layout args until the save flow writes the created task's key back onto
- * the layout, then returns it.
+ * Polls the panel doc until the save flow writes the created task's key back onto
+ * the view tab's args, then returns it.
  */
-export const awaitTaskKey = async (
-  store: TestStore,
-  layoutKey: string,
-): Promise<task.Key> =>
+export const awaitTaskKey = async (seeded: SeededPanel): Promise<task.Key> =>
   await waitFor(() => {
-    const args = Session.Layout.selectArgs<FormLayoutArgs>(store.getState(), layoutKey);
-    if (args?.taskKey == null) throw new Error("task key not set on layout args");
-    return args.taskKey;
+    const args = selectViewArgs(seeded);
+    const taskKey = args?.taskKey;
+    if (taskKey == null || typeof taskKey !== "string")
+      throw new Error("task key not set on view args");
+    return taskKey;
   });
 
 /**

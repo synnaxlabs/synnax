@@ -15,10 +15,9 @@ import {
   type Status,
   type Tree,
 } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { type Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { type Session } from "@/session";
 
 export interface GetResource {
@@ -41,8 +40,7 @@ export interface TreeState {
 export interface BaseProps {
   client: Synnax;
   store: Session.Store;
-  placeLayout: Layout.Placer;
-  removeLayout: Layout.Remover;
+  openTab: Panel.OpenTab;
   services: Services;
   addStatus: Status.Adder;
   handleError: Status.ErrorHandler;
@@ -54,16 +52,6 @@ export interface HandleSelectProps extends BaseProps {
 
 export interface HandleSelect {
   (props: HandleSelectProps): void;
-}
-
-export interface HandleMosaicDropProps extends BaseProps {
-  nodeKey: number;
-  location: location.Location;
-  id: ontology.ID;
-}
-
-export interface HandleMosaicDrop {
-  (props: HandleMosaicDropProps): void;
 }
 
 export interface TreeContextMenuProps extends BaseProps {
@@ -111,7 +99,6 @@ export interface Service {
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
   Item?: FC<TreeItemProps>;
-  onMosaicDrop?: HandleMosaicDrop;
   TreeContextMenu?: TreeContextMenu;
   PaletteListItem?: PaletteListItem;
   visible?: (resource: ontology.Resource) => boolean;

@@ -7,25 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
-import { describe, it } from "vitest";
+import { createTestClient, panel } from "@synnaxlabs/client";
+import { describe, expect, it } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
 import { renderPalette } from "@/platform/palette/testutil";
-import { stubGeometry, waitForPlacedLayout } from "@/testutil";
+import { Session } from "@/session";
+import { assertDefined, stubGeometry, uniqueName, waitForFocusedTab } from "@/testutil";
 
 stubGeometry();
 
 const client = createTestClient();
 
 describe("PagerDuty palette commands", () => {
-  it("should place the alert task layout from the create alert task command", async () => {
+  it("should open the alert task view from the create alert task command", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: PagerDuty.Task.COMMANDS,
       client,
     });
+    store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Create a PagerDuty");
     await selectCommand("Create a PagerDuty Alert Task");
-    await waitForPlacedLayout(store, PagerDuty.Task.ALERT_TYPE);
+    const focused = await waitForFocusedTab(store);
+    const panelKey = Session.Panel.selectSelected(store.getState());
+    assertDefined(panelKey);
+    const doc = await client.panels.retrieve(panelKey);
+    const tab = panel.findTab(doc.root, focused);
+    if (tab?.variant !== "view") throw new Error("expected a view tab");
+    expect(tab.type).toBe(PagerDuty.Task.ALERT_TYPE);
   });
 });

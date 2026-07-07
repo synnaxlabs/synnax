@@ -10,25 +10,25 @@
 import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { READ_LAYOUT } from "@/feature/modbus/task/Read";
-import { WRITE_LAYOUT } from "@/feature/modbus/task/Write";
+import { READ_TYPE, WRITE_TYPE } from "@/feature/modbus/task/types";
 import { Palette } from "@/platform/palette";
+import { Task } from "@/platform/task";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
-const CreateReadCommand = Palette.createSimpleCommand({
+const CreateReadCommand = Palette.createCommand({
   key: "modbus_create_read_task",
   name: "Create a Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
-  layout: READ_LAYOUT,
+  useOnSelect: Task.createOpenView(READ_TYPE),
   useVisible,
 });
 
-const CreateWriteCommand = Palette.createSimpleCommand({
+const CreateWriteCommand = Palette.createCommand({
   key: "modbus_create_write_task",
   name: "Create a Modbus Write Task",
   icon: <Icon.Logo.Modbus />,
-  layout: WRITE_LAYOUT,
+  useOnSelect: Task.createOpenView(WRITE_TYPE),
   useVisible,
 });
 

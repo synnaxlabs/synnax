@@ -13,14 +13,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, project } from "@/feature/lineplot/testutil";
-import { type Layout } from "@/platform/layout";
-import {
-  assertDefined,
-  createGrantedFluxStore,
-  createTestFluxStore,
-  createTestStore,
-  uniqueName,
-} from "@/testutil";
+import { type Panel } from "@/platform/panel";
+import { createGrantedFluxStore, createTestFluxStore, uniqueName } from "@/testutil";
 
 const zeroAxis = (key: string) => ({
   key,
@@ -301,43 +295,37 @@ describe("lineplot import", () => {
 });
 
 describe("lineplot ingest", () => {
-  it("creates the plot on the cluster and places its layout", async () => {
+  it("creates the plot on the cluster and opens it as a tab", async () => {
     const store = await createGrantedFluxStore(
       client,
       clientLineplot.TYPE_ONTOLOGY_ID,
       "update",
     );
-    const placeLayout = vi.fn<Layout.Placer>();
+    const openTab = vi.fn<Panel.OpenTab>();
     const name = uniqueName("imported");
     await LinePlot.ingest(TYPED_EXPORT, {
-      layout: { name },
-      placeLayout,
+      name,
+      openTab,
       store,
       client,
       projectKey: await project(),
     });
-    expect(placeLayout).toHaveBeenCalledTimes(1);
-    const creator = placeLayout.mock.calls[0][0] as Layout.Creator;
-    const consoleStore = await createTestStore();
-    const layout = creator({
-      dispatch: consoleStore.dispatch,
-      store: consoleStore,
-      windowKey: "main",
-    });
-    expect(layout.name).toBe(name);
-    assertDefined(layout.key);
-    const created = await client.lineplots.retrieve({ key: layout.key });
+    expect(openTab).toHaveBeenCalledTimes(1);
+    const spec = openTab.mock.calls[0][0];
+    if (!("resource" in spec)) throw new Error("expected a resource tab spec");
+    expect(spec.resource.type).toBe("lineplot");
+    const created = await client.lineplots.retrieve({ key: spec.resource.key });
     expect(created.name).toBe(name);
     expect(created.channels.y1).toEqual([65538]);
-    expect(store.lineplots.get(layout.key)?.name).toBe(name);
+    expect(store.lineplots.get(spec.resource.key)?.name).toBe(name);
   });
 
   it("rejects the import when the permission cache has no grant", async () => {
     const store = createTestFluxStore(null);
     await expect(
       LinePlot.ingest(TYPED_EXPORT, {
-        layout: { name: "denied" },
-        placeLayout: vi.fn<Layout.Placer>(),
+        name: "denied",
+        openTab: vi.fn<Panel.OpenTab>(),
         store,
         client: null,
         projectKey: "project-1",

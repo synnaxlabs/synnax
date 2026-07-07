@@ -13,7 +13,6 @@ import { color, migrate, notation, telem } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Import } from "@/platform/import";
-import { Log } from "@/platform/log";
 
 const STATE_MIGRATION_NAME = "log.state";
 
@@ -165,21 +164,14 @@ export const parseImport = (
 
 export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client, projectKey },
+  { name, openTab, store, client, projectKey },
 ) => {
   if (!Access.updateGranted({ id: log.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import logs");
   if (client == null) throw new DisconnectedError();
-  const newPayload = parseImport(data, layout?.name);
+  const newPayload = parseImport(data, name);
   const created = await client.logs.create(projectKey, newPayload);
   store.logs.set(created.key, created);
-  placeLayout(
-    Log.create({
-      ...layout,
-      key: created.key,
-      name: created.name,
-      type: Log.LAYOUT_TYPE,
-    }),
-  );
+  openTab({ variant: "resource", resource: log.ontologyID(created.key) });
   return log.ontologyID(created.key);
 };

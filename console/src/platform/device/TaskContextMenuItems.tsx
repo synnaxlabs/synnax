@@ -10,14 +10,14 @@
 import { type device, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { Layout } from "@/platform/layout";
 import { type Ontology } from "@/platform/ontology";
+import { Panel } from "@/platform/panel";
 import { Task } from "@/platform/task";
 
 export interface TaskContextMenuItemConfig {
   itemKey: string;
   label: string;
-  layout: Task.Layout;
+  type: string;
 }
 
 export interface TaskContextMenuItemsProps extends Pick<
@@ -34,7 +34,7 @@ export const TaskContextMenuItems = ({
   selection: { ids },
   taskContextMenuItemConfigs,
 }: TaskContextMenuItemsProps) => {
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const firstID = ids[0];
   const first = getResource(firstID);
@@ -45,10 +45,10 @@ export const TaskContextMenuItems = ({
   if (!hasCreatePermission) return null;
   return (
     <>
-      {taskContextMenuItemConfigs.map(({ itemKey, label, layout }) => {
+      {taskContextMenuItemConfigs.map(({ itemKey, label, type }) => {
         const handleClick = () => {
           maybeConfigure();
-          placeLayout({ ...layout, args: { deviceKey: key } });
+          openTab({ variant: "view", type, args: { deviceKey: key } });
         };
         return (
           <Task.CreateMenuItem key={itemKey} itemKey={itemKey} onClick={handleClick}>

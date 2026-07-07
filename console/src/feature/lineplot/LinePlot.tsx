@@ -9,12 +9,13 @@
 
 import "@/feature/lineplot/LinePlot.css";
 
-import { lineplot, type ranger } from "@synnaxlabs/client";
+import { lineplot, ranger } from "@synnaxlabs/client";
 import {
   Access,
   Icon,
   LinePlot as Base,
   Menu,
+  Panel as PlutoPanel,
   Ranger,
   Status,
   useDebouncedCallback,
@@ -46,7 +47,7 @@ import {
 } from "@/feature/lineplot/useDownloadAsCSV";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
@@ -66,9 +67,9 @@ const RangeAnnotationContextMenu = ({
     downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
   const addRangeToNewPlot = Range.useAddToNewPlot();
   const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const handleViewDetails = () => {
-    placeLayout({ ...Range.OVERVIEW_LAYOUT, name: range.name, key: range.key });
+    openTab({ variant: "resource", resource: ranger.ontologyID(range.key) });
   };
   return (
     <ContextMenu.Menu>
@@ -167,11 +168,15 @@ const ContextMenuContent = ({
   );
 };
 
-const Internal: Layout.Renderer = ({ focused, visible }) => {
+interface InternalProps {
+  visible: boolean;
+  focused: boolean;
+}
+
+const Internal = ({ focused, visible }: InternalProps): ReactElement => {
   const key = Base.useKey();
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
-  const store = Session.useStore();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
   const ranges = Base.useSelectRanges();
   const rangeKeys = useMemo(
@@ -221,11 +226,10 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
   );
 
   const modals = Session.Modals.useStore("LinePlot");
+  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
   const enableTriggers = useCallback(
-    () =>
-      Session.Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) ===
-        key && hasUpdatePermission,
-    [store, key, hasUpdatePermission, modals],
+    () => !modals.isAnyOpen() && getTabIsFocused() && hasUpdatePermission,
+    [hasUpdatePermission, modals],
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
@@ -319,12 +323,12 @@ const Internal: Layout.Renderer = ({ focused, visible }) => {
   );
 };
 
-export const LinePlot: Layout.Renderer = (props) => (
-  <Base.Suspended linePlotKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-LinePlot.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-);
+export const LinePlot: Panel.Content = ({ visible }) => {
+  const { key } = PlutoPanel.useSelectTabResource();
+  const focused = Session.Panel.useSelectIsTabOverlaid();
+  return (
+    <Base.Suspended linePlotKey={key}>
+      <Internal visible={visible} focused={focused} />
+    </Base.Suspended>
+  );
+};

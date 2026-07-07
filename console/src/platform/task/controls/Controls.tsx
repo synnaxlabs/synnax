@@ -27,7 +27,6 @@ import { useStatus } from "@/platform/task/useStatus";
 import { Session } from "@/session";
 
 export interface ControlsProps extends Flex.BoxProps {
-  layoutKey: string;
   formStatus: Flux.Result<undefined>["status"];
   onConfigure: () => void;
 }
@@ -38,18 +37,13 @@ const EXCLUDE_STATUS_VARIANTS: status.Variant[] = ["loading", "disabled"] as con
  * Task controls component that wires up the presentational controls
  * with task-specific data from Form context.
  */
-export const Controls = ({
-  layoutKey,
-  onConfigure,
-  formStatus,
-  ...props
-}: ControlsProps) => {
+export const Controls = ({ onConfigure, formStatus, ...props }: ControlsProps) => {
   const taskStatus = useStatus();
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const handleError = BaseStatus.useErrorHandler();
   const client = Synnax.use();
   const key = useKey();
-  const hasTriggers = Session.Layout.useSelectActiveMosaicTabKeyAndNotBlurred() != null;
+  const hasTriggers = Session.Panel.useSelectIsTabFocused();
 
   const [expanded, setExpanded] = useState(false);
 

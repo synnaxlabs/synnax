@@ -8,76 +8,64 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/pluto";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Selector } from "@/platform/selector";
-import { Session } from "@/session";
 import { renderWithConsole } from "@/testutil";
 
-const layout: Session.Layout.BaseState = {
-  type: "cat",
-  name: "Cat",
-  location: "mosaic",
-};
-
-describe("Selector.Selector", () => {
-  it("renders the prompt text and one item per selectable", async () => {
-    const cat = Selector.createSimpleItem({ title: "Cat", icon: <Icon.Add />, layout });
-    const dog = Selector.createSimpleItem({
+describe("Selector.create", () => {
+  it("renders one item per selectable and routes the click to that item's callback", async () => {
+    const onCat = vi.fn();
+    const onDog = vi.fn();
+    const cat = Selector.createSelectable({
+      type: "cat",
+      title: "Cat",
+      icon: <Icon.Add />,
+      useOnSelect: () => onCat,
+    });
+    const dog = Selector.createSelectable({
+      type: "dog",
       title: "Dog",
       icon: <Icon.Add />,
-      layout: { type: "dog", name: "Dog", location: "mosaic" },
+      useOnSelect: () => onDog,
     });
-    await renderWithConsole(
-      <Selector.Selector
-        layoutKey="lk"
-        visible
-        focused={false}
-        onClose={() => {}}
-        selectables={[cat, dog]}
-        text="Choose one"
-      />,
-    );
+    const { Content } = Selector.create({
+      selectables: [cat, dog],
+      tabTitle: "Create",
+      text: "Choose one",
+      icon: <Icon.Add />,
+    });
+    await renderWithConsole(<Content visible />);
     expect(screen.getByText("Choose one")).toBeTruthy();
     expect(screen.getByText("Cat")).toBeTruthy();
-    expect(screen.getByText("Dog")).toBeTruthy();
+    fireEvent.click(screen.getByText("Dog"));
+    expect(onDog).toHaveBeenCalledTimes(1);
+    expect(onCat).not.toHaveBeenCalled();
   });
 
-  it("places the selectable's layout under the selector's key when clicked", async () => {
-    const cat = Selector.createSimpleItem({ title: "Cat", icon: <Icon.Add />, layout });
-    const { store } = await renderWithConsole(
-      <Selector.Selector
-        layoutKey="lk"
-        visible
-        focused={false}
-        onClose={() => {}}
-        selectables={[cat]}
-        text="Choose one"
-      />,
-    );
-    fireEvent.click(screen.getByText("Cat"));
-    await waitFor(() => {
-      const placed = Session.Layout.select(store.getState(), "lk");
-      expect(placed?.type).toBe("cat");
-      expect(placed?.name).toBe("Cat");
-      expect(placed?.location).toBe("mosaic");
+  it("hides selectables whose useVisible returns false", async () => {
+    const cat = Selector.createSelectable({
+      type: "cat",
+      title: "Cat",
+      icon: <Icon.Add />,
+      useOnSelect: () => vi.fn(),
     });
-  });
-});
-
-describe("Selector.create", () => {
-  it("builds a renderer that mounts the Selector with the given selectables", async () => {
-    const cat = Selector.createSimpleItem({ title: "Cat", icon: <Icon.Add />, layout });
-    const Renderer = Selector.create([cat], "Pick a visualization");
-    expect(Renderer.displayName).toBe("LayoutSelector");
-    const { store } = await renderWithConsole(
-      <Renderer layoutKey="lk" visible focused={false} onClose={() => {}} />,
-    );
-    expect(screen.getByText("Pick a visualization")).toBeTruthy();
-    fireEvent.click(screen.getByText("Cat"));
-    await waitFor(() => {
-      expect(Session.Layout.select(store.getState(), "lk")?.type).toBe("cat");
+    const dog = Selector.createSelectable({
+      type: "dog",
+      title: "Dog",
+      icon: <Icon.Add />,
+      useOnSelect: () => vi.fn(),
+      useVisible: () => false,
     });
+    const { Content } = Selector.create({
+      selectables: [cat, dog],
+      tabTitle: "Create",
+      text: "Choose one",
+      icon: <Icon.Add />,
+    });
+    await renderWithConsole(<Content visible />);
+    expect(screen.getByText("Cat")).toBeTruthy();
+    expect(screen.queryByText("Dog")).toBeNull();
   });
 });

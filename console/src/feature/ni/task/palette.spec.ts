@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { createTestClient, panel } from "@synnaxlabs/client";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { renderPalette } from "@/platform/palette/testutil";
 import { Session } from "@/session";
-import { stubGeometry, uniqueName } from "@/testutil";
+import { assertDefined, stubGeometry, uniqueName, waitForFocusedTab } from "@/testutil";
 
 stubGeometry();
 
@@ -50,21 +50,25 @@ describe("palette", () => {
       await waitFor(() => expect(document.body.textContent).toContain(name));
   });
 
-  it("should place the analog read layout when its command is selected", async () => {
+  it("should open the analog read view when its command is selected", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: NI.Task.COMMANDS,
       client,
     });
+    store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Analog Read");
     await selectCommand("Create an NI Analog Read Task");
-    await waitFor(() => {
-      const placed = Session.Layout.selectByFilter(
-        store.getState(),
-        (l) => l.type === NI.Task.ANALOG_READ_TYPE,
-      );
-      if (placed == null) throw new Error("analog read layout not placed");
-      expect(placed.name).toBe(NI.Task.ZERO_ANALOG_READ_PAYLOAD.name);
-    });
+    const focused = await waitForFocusedTab(store);
+    const panelKey = Session.Panel.selectSelected(store.getState());
+    assertDefined(panelKey);
+    const doc = await client.panels.retrieve(panelKey);
+    const tab = panel.findTab(doc.root, focused);
+    if (tab?.variant !== "view") throw new Error("expected a view tab");
+    expect(tab.type).toBe(NI.Task.ANALOG_READ_TYPE);
   });
 
   it("should toggle the scanner task's enabled flag when the toggle command runs", async () => {

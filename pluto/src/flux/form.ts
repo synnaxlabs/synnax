@@ -39,7 +39,10 @@ export interface FormUpdateParams<
   ScopedStore extends base.Store = {},
 >
   extends
-    Omit<UpdateParams<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
+    Omit<
+      UpdateParams<z.infer<Schema>, ScopedStore>,
+      "data" | "onChange" | "onOptimisticComplete"
+    >,
     Omit<Form.UseReturn<Schema>, "setStatus"> {}
 
 export interface FormRetrieveParams<

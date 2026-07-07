@@ -7,10 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type log } from "@synnaxlabs/client";
-import { Log } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
-import { act, render, within } from "@testing-library/react";
+import {
+  createTestClient,
+  log as clientLog,
+  type log,
+  panel,
+} from "@synnaxlabs/client";
+import { Flux, Log, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { id, uuid } from "@synnaxlabs/x";
+import { act, render, renderHook, within } from "@testing-library/react";
 import {
   type ComponentType,
   type FC,
@@ -19,7 +24,11 @@ import {
   Suspense,
 } from "react";
 
-import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
+import {
+  type ConsolePreloadedState,
+  createConsoleWrapper,
+  uniqueName,
+} from "@/testutil";
 
 export const client = createTestClient();
 
@@ -53,10 +62,37 @@ export interface RenderLogOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
 }
 
-// renderLog creates a log on the server, mounts Component with the log loaded into the
-// flux cache, and returns the render result plus the Redux store and log key.
+// seedResourceTab seeds a single-leaf panel holding one resource tab that backs the
+// given log into the wrapper's flux store, so the panel scope hooks a mounted tab
+// content reads (useSelectTabResource) resolve to the log's ontology ID.
+const seedResourceTab = (
+  Wrapper: FC<PropsWithChildren>,
+  key: string,
+): { panelKey: string; tabKey: string } => {
+  const tabKey = uuid.create();
+  const doc = panel.panelZ.parse({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root: {
+      variant: "leaf",
+      tabs: [{ variant: "resource", key: tabKey, resource: clientLog.ontologyID(key) }],
+    },
+  });
+  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
+    wrapper: Wrapper,
+  });
+  act(() => {
+    result.current.panels.set(doc);
+  });
+  return { panelKey: doc.key, tabKey };
+};
+
+// renderLog creates a log on the server, mounts Component inside the panel and tab
+// scopes of a seeded resource tab (the way the mosaic renders a tab) with the log
+// loaded into the flux cache, and returns the render result plus the Redux store and
+// log key.
 export const renderLog = async (
-  Component: ComponentType<{ layoutKey: string }>,
+  Component: ComponentType,
   { log: logOverrides, preloadedState }: RenderLogOptions = {},
 ) => {
   const created = await client.logs.create(await project(), {
@@ -68,10 +104,15 @@ export const renderLog = async (
     preloadedState: preloadedState?.(created.key),
   });
   await loadLog(Wrapper, created.key);
+  const { panelKey, tabKey } = seedResourceTab(Wrapper, created.key);
   const result = render(
-    <Log.Scope.Provider value={created.key}>
-      <Component layoutKey={created.key} />
-    </Log.Scope.Provider>,
+    <PlutoPanel.Scope.Provider value={panelKey}>
+      <PlutoPanel.TabScope.Provider value={tabKey}>
+        <Log.Scope.Provider value={created.key}>
+          <Component />
+        </Log.Scope.Provider>
+      </PlutoPanel.TabScope.Provider>
+    </PlutoPanel.Scope.Provider>,
     { wrapper: Wrapper },
   );
   return { key: created.key, result, store };

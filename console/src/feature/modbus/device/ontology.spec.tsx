@@ -20,7 +20,7 @@ import {
   createState,
 } from "@/platform/ontology/testutil";
 import { Session } from "@/session";
-import { createTestStore, waitForPlacedLayout } from "@/testutil";
+import { createTestStore, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -40,25 +40,32 @@ const renderItems = async () => {
     />,
     { client },
   );
+  const proj = await client.projects.create({
+    name: uniqueName("proj"),
+    layout: {},
+  });
+  handle.store.dispatch(Session.Project.select(proj.key));
   return { ...handle, dev };
 };
 
 describe("Modbus.Device.ContextMenuItems", () => {
-  it("should place the write task layout carrying the device key", async () => {
+  it("should open the write task view carrying the device key", async () => {
     const { store, dev } = await renderItems();
     fireEvent.click(await screen.findByText("Create write task"));
-    const key = await waitForPlacedLayout(store, Modbus.Task.WRITE_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), key)).toEqual({
-      deviceKey: dev.key,
+    expect(await resolveFocusedTab(store, client)).toMatchObject({
+      variant: "view",
+      type: Modbus.Task.WRITE_TYPE,
+      args: { deviceKey: dev.key },
     });
   });
 
-  it("should place the read task layout carrying the device key", async () => {
+  it("should open the read task view carrying the device key", async () => {
     const { store, dev } = await renderItems();
     fireEvent.click(await screen.findByText("Create read task"));
-    const key = await waitForPlacedLayout(store, Modbus.Task.READ_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), key)).toEqual({
-      deviceKey: dev.key,
+    expect(await resolveFocusedTab(store, client)).toMatchObject({
+      variant: "view",
+      type: Modbus.Task.READ_TYPE,
+      args: { deviceKey: dev.key },
     });
   });
 

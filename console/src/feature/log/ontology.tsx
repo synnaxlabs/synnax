@@ -16,18 +16,16 @@ import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
-import { type Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
-import { Log as PlatformLog } from "@/platform/log";
 import { Ontology } from "@/platform/ontology";
+import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
 const useDelete = Ontology.createUseDelete({
   type: "Log",
   query: Log.useDelete,
   convertKey: String,
-  beforeUpdate: async ({ data, removeLayout, store }) => {
-    removeLayout(...data);
+  beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Log.remove({ keys: array.toArray(data) }));
     return data;
   },
@@ -37,12 +35,6 @@ const useRename = Ontology.createUseRename({
   query: Log.useRename,
   ontologyID: log.ontologyID,
   convertKey: String,
-  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
-    const { key, name } = data;
-    store.dispatch(Session.Layout.rename({ key, name }));
-    rollbacks.push(() => store.dispatch(Session.Layout.rename({ key, name: oldName })));
-    return { ...data, name };
-  },
 });
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -93,19 +85,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const loadLog = async (
   client: Synnax,
   { key }: ontology.ID,
-  placeLayout: Layout.Placer,
+  openTab: Panel.OpenTab,
 ) => {
   const l = await client.logs.retrieve({ key });
-  placeLayout(PlatformLog.create({ key: l.key, name: l.name }));
+  openTab({ variant: "resource", resource: log.ontologyID(l.key) });
 };
 
 const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
-  placeLayout,
+  openTab,
   handleError,
 }) => {
-  loadLog(client, selection[0].id, placeLayout).catch((e: unknown) => {
+  loadLog(client, selection[0].id, openTab).catch((e: unknown) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
       "log",
@@ -114,26 +106,6 @@ const handleSelect: Ontology.HandleSelect = ({
   });
 };
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
-  client,
-  id: { key },
-  location,
-  nodeKey,
-  placeLayout,
-  handleError,
-}) =>
-  handleError(async () => {
-    const l = await client.logs.retrieve({ key });
-    placeLayout(
-      PlatformLog.create({
-        key: l.key,
-        name: l.name,
-        location: "mosaic",
-        tab: { mosaicKey: nodeKey, location },
-      }),
-    );
-  }, "Failed to load log");
-
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "log",
@@ -141,6 +113,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   hasChildren: false,
   onSelect: handleSelect,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
-  onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/platform/table";
 import { Session } from "@/session";
-import { createConsoleWrapper, waitForPlacedLayout } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -34,10 +34,12 @@ const buildHarness = async ({ activeProject }: BuildHarnessArgs = {}) =>
   });
 
 const newProject = async (): Promise<project.Project> =>
-  await client.projects.create({
-    name: `proj-${id.create()}`,
-    layout: Session.Layout.ZERO_SLICE_STATE,
-  });
+  await client.projects.create({ name: `proj-${id.create()}`, layout: {} });
+
+const renderCreate = (
+  harness: Awaited<ReturnType<typeof buildHarness>>,
+  props: Parameters<typeof Table.useCreate>[0] = {},
+) => renderHook(() => Table.useCreate(props), { wrapper: harness.wrapper });
 
 describe("useCreate", () => {
   let projectA: project.Project;
@@ -50,67 +52,73 @@ describe("useCreate", () => {
 
   describe("project resolution", () => {
     it("prefers the prop project over the active project", async () => {
-      const { wrapper, store } = await buildHarness({ activeProject: projectA });
-      const { result } = renderHook(() => Table.useCreate({ project: projectB.key }), {
-        wrapper,
-      });
+      const harness = await buildHarness({ activeProject: projectA });
+      const { result } = renderCreate(harness, { project: projectB.key });
+      const key = uuid.create();
       await act(async () => {
-        result.current({ name: "ProvidedProject" });
+        result.current({ key, name: "ProvidedProject" });
       });
-      const placedKey = await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
-      const retrieved = await client.tables.retrieve({ key: placedKey });
-      expect(retrieved.name).toEqual("ProvidedProject");
-      expect(Session.Project.selectSelected(store.getState())).toEqual(projectB.key);
+      await waitFor(async () =>
+        expect((await client.tables.retrieve({ key })).name).toEqual("ProvidedProject"),
+      );
+      expect(Session.Project.selectSelected(harness.store.getState())).toEqual(
+        projectB.key,
+      );
     });
 
     it("falls back to the active project when no prop is given", async () => {
-      const { wrapper, store } = await buildHarness({ activeProject: projectA });
-      const { result } = renderHook(() => Table.useCreate({}), { wrapper });
+      const harness = await buildHarness({ activeProject: projectA });
+      const { result } = renderCreate(harness);
+      const key = uuid.create();
       await act(async () => {
-        result.current({ name: "ActiveProject" });
+        result.current({ key, name: "ActiveProject" });
       });
-      const placedKey = await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
-      const retrieved = await client.tables.retrieve({ key: placedKey });
-      expect(retrieved.name).toEqual("ActiveProject");
-      expect(Session.Project.selectSelected(store.getState())).toEqual(projectA.key);
+      await waitFor(async () =>
+        expect((await client.tables.retrieve({ key })).name).toEqual("ActiveProject"),
+      );
+      expect(Session.Project.selectSelected(harness.store.getState())).toEqual(
+        projectA.key,
+      );
     });
   });
 
-  describe("layout placement", () => {
-    it("places the layout with editable=true after the server returns", async () => {
-      const { wrapper, store } = await buildHarness({ activeProject: projectA });
-      const { result } = renderHook(() => Table.useCreate({}), { wrapper });
+  describe("session seeding", () => {
+    it("seeds the table session state with editable=true", async () => {
+      const harness = await buildHarness({ activeProject: projectA });
+      const { result } = renderCreate(harness);
+      const key = uuid.create();
       await act(async () => {
-        result.current({ name: "Editable" });
+        result.current({ key, name: "Editable" });
       });
-      const placedKey = await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
-      const state = store.getState();
-      expect(Session.Table.selectEditable({ state, key: placedKey })).toBe(true);
-      expect(Session.Layout.select(state, placedKey)?.name).toEqual("Editable");
-      expect(Session.Layout.selectType(state, placedKey)).toEqual(Table.LAYOUT_TYPE);
+      await waitFor(() =>
+        expect(
+          Session.Table.selectEditable({ state: harness.store.getState(), key }),
+        ).toBe(true),
+      );
     });
 
-    it("defaults the layout name to 'Table' when init does not provide one", async () => {
-      const { wrapper, store } = await buildHarness({ activeProject: projectA });
-      const { result } = renderHook(() => Table.useCreate({}), { wrapper });
+    it("defaults the table name to 'Table' when init omits one", async () => {
+      const harness = await buildHarness({ activeProject: projectA });
+      const { result } = renderCreate(harness);
+      const key = uuid.create();
       await act(async () => {
-        result.current();
+        result.current({ key });
       });
-      const placedKey = await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
-      expect(Session.Layout.select(store.getState(), placedKey)?.name).toEqual("Table");
+      await waitFor(async () =>
+        expect((await client.tables.retrieve({ key })).name).toEqual("Table"),
+      );
     });
 
-    it("uses the caller-provided key for both the server table and the layout", async () => {
-      const { wrapper, store } = await buildHarness({ activeProject: projectA });
-      const { result } = renderHook(() => Table.useCreate({}), { wrapper });
+    it("uses the caller-provided key for the server table", async () => {
+      const harness = await buildHarness({ activeProject: projectA });
+      const { result } = renderCreate(harness);
       const callerKey = uuid.create();
       await act(async () => {
         result.current({ key: callerKey, name: "WithKey" });
       });
-      await waitFor(() => {
-        expect(Session.Layout.select(store.getState(), callerKey)).toBeDefined();
-      });
-      const retrieved = await client.tables.retrieve({ key: callerKey });
+      const retrieved = await waitFor(
+        async () => await client.tables.retrieve({ key: callerKey }),
+      );
       expect(retrieved.key).toEqual(callerKey);
       expect(retrieved.name).toEqual("WithKey");
     });
@@ -118,16 +126,17 @@ describe("useCreate", () => {
 
   describe("project switching", () => {
     it("does not flip the active project when the table is created in the active one", async () => {
-      const { wrapper, store } = await buildHarness({ activeProject: projectA });
-      const beforeActive = Session.Project.selectSelected(store.getState());
-      const { result } = renderHook(() => Table.useCreate({ project: projectA.key }), {
-        wrapper,
-      });
+      const harness = await buildHarness({ activeProject: projectA });
+      const beforeActive = Session.Project.selectSelected(harness.store.getState());
+      const { result } = renderCreate(harness, { project: projectA.key });
+      const key = uuid.create();
       await act(async () => {
-        result.current({ name: "SameProject" });
+        result.current({ key, name: "SameProject" });
       });
-      await waitForPlacedLayout(store, Table.LAYOUT_TYPE);
-      expect(Session.Project.selectSelected(store.getState())).toBe(beforeActive);
+      await waitFor(async () => await client.tables.retrieve({ key }));
+      expect(Session.Project.selectSelected(harness.store.getState())).toBe(
+        beforeActive,
+      );
     });
   });
 });

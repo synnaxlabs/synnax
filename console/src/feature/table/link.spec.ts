@@ -7,24 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { createTestClient, panel } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Table } from "@/feature/table";
 import { Session } from "@/session";
-import { renderLinkHook } from "@/testutil";
+import { assertDefined, renderLinkHook, waitForFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Table.useLink", () => {
-  it("should place a table layout for the retrieved table", async () => {
-    const project = await client.projects.create({ name: id.create(), layout: {} });
+  it("should retrieve the table and open it as a tab", async () => {
+    const { layout: _, ...project } = await client.projects.create({
+      name: id.create(),
+      layout: {},
+    });
     const table = await client.tables.create(project.key, { name: "Sensor Table" });
-    const { handler, store } = await renderLinkHook(Table.useLink);
+    const { handler, store } = await renderLinkHook(Table.useLink, { client });
+    store.dispatch(Session.Project.select(project.key));
     await handler({ client, key: table.key });
-    expect(Session.Layout.select(store.getState(), table.key)?.name).toBe(
-      "Sensor Table",
-    );
+    const focused = await waitForFocusedTab(store);
+    const panelKey = Session.Panel.selectSelected(store.getState());
+    assertDefined(panelKey);
+    const doc = await client.panels.retrieve(panelKey);
+    const tab = panel.findTab(doc.root, focused);
+    if (tab?.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe("table");
+    const retrieved = await client.tables.retrieve({ key: tab.resource.key });
+    expect(retrieved.name).toBe("Sensor Table");
   });
 });

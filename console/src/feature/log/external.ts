@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log } from "@synnaxlabs/client";
+
 import { extract } from "@/feature/log/export";
 import { ingest } from "@/feature/log/import";
 import { Log } from "@/feature/log/Log";
 import { Selectable } from "@/feature/log/Selectable";
+import { TabName } from "@/feature/log/TabName";
+import { Toolbar } from "@/feature/log/toolbar";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
-import { type Layout } from "@/platform/layout";
-import { Log as PlatformLog } from "@/platform/log";
+import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/log/import";
@@ -25,14 +28,20 @@ export * from "@/feature/log/Selectable";
 export * from "@/feature/log/toolbar";
 export * from "@/platform/log/external";
 
-export const EXTRACTORS: Export.Extractors = { [PlatformLog.LAYOUT_TYPE]: extract };
+const TAB_TYPE = log.TYPE_ONTOLOGY_ID.type;
 
-export const FILE_INGESTERS: Import.FileIngesters = {
-  [PlatformLog.LAYOUT_TYPE]: ingest,
-};
+export const EXTRACTORS: Export.Extractors = { [TAB_TYPE]: extract };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [PlatformLog.LAYOUT_TYPE]: Log,
-};
+export const FILE_INGESTERS: Import.FileIngesters = { [TAB_TYPE]: ingest };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
+
+const TAB: Panel.Tab = {
+  Content: Log,
+  Toolbar,
+  Name: TabName,
+};
+
+export const TABS: Panel.Tabs = {
+  [TAB_TYPE]: TAB,
+};

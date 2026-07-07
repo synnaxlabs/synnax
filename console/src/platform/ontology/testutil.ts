@@ -119,7 +119,7 @@ export interface CreateBasePropsArgs {
 }
 
 /**
- * Builds {@link Ontology.BaseProps} with the given client and store. The layout and
+ * Builds {@link Ontology.BaseProps} with the given client and store. The tab and
  * status callbacks default to no-ops; pass overrides (e.g. injected vi.fn() spies) to
  * observe them.
  */
@@ -132,8 +132,7 @@ export const createBaseProps = ({
   client,
   store,
   services,
-  placeLayout: () => ({ windowKey: "", key: "" }),
-  removeLayout: () => undefined,
+  openTab: () => undefined,
   addStatus: () => undefined,
   handleError: () => undefined,
   ...overrides,

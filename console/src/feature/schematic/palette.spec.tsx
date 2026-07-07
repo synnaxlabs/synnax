@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { panel } from "@synnaxlabs/client";
 import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -14,14 +15,14 @@ import { describe, expect, it } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import { client, testProjectKey } from "@/feature/schematic/testutil";
-import { Layout } from "@/platform/layout";
 import { Modals } from "@/platform/modals";
 import { type Palette } from "@/platform/palette";
+import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
   renderHookWithConsole,
-  waitForPlacedLayout,
+  waitForFocusedTab,
 } from "@/testutil";
 
 interface CommandHarnessProps {
@@ -33,7 +34,7 @@ const CommandHarness = ({ Command }: CommandHarnessProps): ReactElement => (
     key={Command.key}
     itemKey={Command.key}
     index={0}
-    placeLayout={Layout.usePlacer()}
+    openTab={Panel.useOpenTab()}
     confirm={Modals.useConfirm()}
     rename={Modals.useRename()}
     handleError={Status.useErrorHandler()}
@@ -66,9 +67,15 @@ describe("Schematic.COMMANDS", () => {
     });
     render(<CommandHarness Command={Schematic.COMMANDS[0]} />, { wrapper });
     fireEvent.click(await screen.findByText("Create a schematic"));
-    const placedKey = await waitForPlacedLayout(store, "schematic");
+    const focusedTab = await waitForFocusedTab(store);
+    const panelKey = Session.Panel.selectSelected(store.getState());
+    if (panelKey == null) throw new Error("no panel selected");
     await waitFor(async () => {
-      const created = await client.schematics.retrieve({ key: placedKey });
+      const doc = await client.panels.retrieve(panelKey);
+      const tab = panel.findTab(doc.root, focusedTab);
+      if (tab == null || tab.variant !== "resource")
+        throw new Error("focused tab is not a schematic resource");
+      const created = await client.schematics.retrieve({ key: tab.resource.key });
       expect(created.name).toBe("Schematic");
     });
   });

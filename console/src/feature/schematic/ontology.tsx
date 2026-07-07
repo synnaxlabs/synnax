@@ -27,19 +27,17 @@ import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
-import { type Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
+import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Schematic } from "@/platform/schematic";
 import { Session } from "@/session";
 
 const useDelete = Ontology.createUseDelete({
   type: "Schematic",
   query: Base.useDelete,
   convertKey: String,
-  beforeUpdate: async ({ data, removeLayout, store }) => {
-    removeLayout(...data);
+  beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Schematic.remove({ keys: array.toArray(data) }));
     return data;
   },
@@ -116,12 +114,6 @@ const useRename = Ontology.createUseRename({
   query: Base.useRename,
   ontologyID: schematic.ontologyID,
   convertKey: String,
-  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
-    const { key, name } = data;
-    store.dispatch(Session.Layout.rename({ key, name }));
-    rollbacks.push(() => store.dispatch(Session.Layout.rename({ key, name: oldName })));
-    return { ...data, name };
-  },
 });
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -181,19 +173,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const loadSchematic = async (
   client: Synnax,
   { key }: ontology.ID,
-  placeLayout: Layout.Placer,
+  openTab: Panel.OpenTab,
 ) => {
-  const schematic = await client.schematics.retrieve({ key });
-  placeLayout(Schematic.create({ key: schematic.key, name: schematic.name }));
+  const retrieved = await client.schematics.retrieve({ key });
+  openTab({ variant: "resource", resource: schematic.ontologyID(retrieved.key) });
 };
 
 const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
-  placeLayout,
+  openTab,
   handleError,
 }) => {
-  loadSchematic(client, selection[0].id, placeLayout).catch((e: unknown) => {
+  loadSchematic(client, selection[0].id, openTab).catch((e: unknown) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
       "schematic",
@@ -202,25 +194,6 @@ const handleSelect: Ontology.HandleSelect = ({
   });
 };
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
-  client,
-  id: { key },
-  location,
-  nodeKey,
-  placeLayout,
-  handleError,
-}) =>
-  handleError(async () => {
-    const schematic = await client.schematics.retrieve({ key });
-    placeLayout(
-      Schematic.create({
-        key: schematic.key,
-        name: schematic.name,
-        tab: { mosaicKey: nodeKey, location },
-      }),
-    );
-  }, "Failed to load schematic");
-
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "schematic",
@@ -228,6 +201,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   hasChildren: false,
   onSelect: handleSelect,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
-  onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, ranger, schematic } from "@synnaxlabs/client";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Status } from "@synnaxlabs/pluto";
 import { errors, uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -20,7 +19,6 @@ import {
   createSchematic,
   renderSchematicTree,
 } from "@/feature/schematic/testutil";
-import { type Layout } from "@/platform/layout";
 import { findButton } from "@/platform/modals/testutil";
 import {
   createBaseProps,
@@ -36,31 +34,12 @@ import {
   commitTextEdit,
   createTestStore,
   renderHookWithConsole,
-  type TestStore,
   uniqueName,
 } from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
-
-interface RecordingPlacer {
-  placeLayout: Layout.Placer;
-  placed: Session.Layout.BaseState[];
-}
-
-const createRecordingPlacer = (store: TestStore): RecordingPlacer => {
-  const placed: Session.Layout.BaseState[] = [];
-  const placeLayout: Layout.Placer = (base) => {
-    const layout =
-      typeof base === "function"
-        ? base({ dispatch: store.dispatch, store, windowKey: MAIN_WINDOW })
-        : base;
-    placed.push(layout);
-    return { windowKey: MAIN_WINDOW, key: layout.key ?? "" };
-  };
-  return { placeLayout, placed };
-};
 
 const schematicExists = async (key: schematic.Key): Promise<boolean> => {
   try {
@@ -82,34 +61,37 @@ describe("Schematic.ONTOLOGY_SERVICE", () => {
   });
 
   describe("onSelect", () => {
-    it("places a schematic layout for the selected resource", async () => {
+    it("retrieves the schematic and opens it as a tab", async () => {
       const s = await createSchematic();
       const store = await createTestStore();
-      const { placeLayout, placed } = createRecordingPlacer(store);
+      const openTab = vi.fn();
+      const id = schematic.ontologyID(s.key);
       Schematic.ONTOLOGY_SERVICE.onSelect?.({
-        ...createBaseProps({ client, store, overrides: { placeLayout } }),
-        selection: [createResource(schematic.ontologyID(s.key), s.name)],
+        ...createBaseProps({
+          client,
+          store,
+          overrides: {
+            openTab,
+            handleError: (excOrFn) => {
+              if (typeof excOrFn === "function") void excOrFn();
+            },
+          },
+        }),
+        selection: [createResource(id, s.name)],
       });
-      await waitFor(() => expect(placed).toHaveLength(1));
-      expect(placed[0]).toMatchObject({
-        key: s.key,
-        name: s.name,
-        type: "schematic",
-      });
-      expect(
-        Session.Schematic.selectSliceState(store.getState()).schematics[s.key],
-      ).toBeDefined();
+      await waitFor(() => expect(openTab).toHaveBeenCalledTimes(1));
+      expect(openTab).toHaveBeenCalledWith({ resource: id });
     });
 
     it("routes retrieval failures to the error handler with the schematic name", async () => {
       const store = await createTestStore();
       const handleError = vi.fn();
-      const placeLayout = vi.fn(() => ({ windowKey: "", key: "" }));
+      const openTab = vi.fn();
       Schematic.ONTOLOGY_SERVICE.onSelect?.({
         ...createBaseProps({
           client,
           store,
-          overrides: { placeLayout, handleError },
+          overrides: { openTab, handleError },
         }),
         selection: [
           createResource(schematic.ontologyID(uuid.create()), "Ghost Schematic"),
@@ -117,34 +99,7 @@ describe("Schematic.ONTOLOGY_SERVICE", () => {
       });
       await waitFor(() => expect(handleError).toHaveBeenCalledTimes(1));
       expect(handleError.mock.calls[0][1]).toBe("Failed to select Ghost Schematic");
-      expect(placeLayout).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("onMosaicDrop", () => {
-    it("places the schematic into the target mosaic node", async () => {
-      const s = await createSchematic();
-      const store = await createTestStore();
-      const { placeLayout, placed } = createRecordingPlacer(store);
-      const handleError: Status.ErrorHandler = (excOrFunc) => {
-        if (typeof excOrFunc === "function") void excOrFunc();
-      };
-      Schematic.ONTOLOGY_SERVICE.onMosaicDrop?.({
-        ...createBaseProps({
-          client,
-          store,
-          overrides: { placeLayout, handleError },
-        }),
-        id: schematic.ontologyID(s.key),
-        nodeKey: 3,
-        location: "center",
-      });
-      await waitFor(() => expect(placed).toHaveLength(1));
-      expect(placed[0]).toMatchObject({
-        key: s.key,
-        name: s.name,
-        tab: { mosaicKey: 3, location: "center" },
-      });
+      expect(openTab).not.toHaveBeenCalled();
     });
   });
 });

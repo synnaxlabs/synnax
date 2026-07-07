@@ -25,27 +25,25 @@ const { onSelect } = Arc.ONTOLOGY_SERVICE;
 assertDefined(onSelect, "arc ontology service has no onSelect");
 
 describe("arc ontology", () => {
-  it("should place the arc editor layout on select", async () => {
+  it("should retrieve the arc and open it as a tab on select", async () => {
     const arc = await client.arcs.create({
       name: uniqueName("arc"),
       mode: "graph",
       graph: { nodes: [], edges: [] },
     });
-    const placeLayout = vi.fn();
+    const openTab = vi.fn();
     const store = await createTestStore();
+    const id = clientArc.ontologyID(arc.key);
     onSelect({
       ...createBaseProps({
         client,
         store,
-        overrides: { placeLayout, handleError: createExecutingHandleError() },
+        overrides: { openTab, handleError: createExecutingHandleError() },
       }),
-      selection: [createResource(clientArc.ontologyID(arc.key), arc.name)],
+      selection: [createResource(id, arc.name)],
     });
-    await waitFor(() => expect(placeLayout).toHaveBeenCalledTimes(1));
-    const placed = placeLayout.mock.calls[0][0]({ dispatch: store.dispatch });
-    expect(placed.key).toBe(arc.key);
-    expect(placed.name).toBe(arc.name);
-    expect(placed.type).toBe(Arc.EDITOR_LAYOUT_TYPE);
+    await waitFor(() => expect(openTab).toHaveBeenCalledTimes(1));
+    expect(openTab).toHaveBeenCalledWith({ resource: id });
   });
 
   it("should report an error when the arc cannot be loaded", async () => {

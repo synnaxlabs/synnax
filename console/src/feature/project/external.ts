@@ -13,5 +13,4 @@ export * from "@/feature/project/link";
 export * from "@/feature/project/ontology";
 export * from "@/feature/project/palette";
 export * from "@/feature/project/Toolbar";
-export * from "@/feature/project/useSyncLayout";
 export * from "@/platform/project/external";

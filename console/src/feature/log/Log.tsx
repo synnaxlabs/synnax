@@ -7,30 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Log as Base } from "@synnaxlabs/pluto";
+import { Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
-import { Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
-const Internal: Layout.Renderer = ({ visible }) => {
+const Internal: Panel.Content = ({ visible }) => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
-  const store = Session.useStore();
   const channelKeys = Base.useSelectChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
-
   const modals = Session.Modals.useStore("Log");
+  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
   const enableTriggers = useCallback(
-    () =>
-      Session.Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) ===
-      key,
-    [store, key, modals],
+    () => !modals.isAnyOpen() && getTabIsFocused(),
+    [getTabIsFocused, modals],
   );
 
   const handleDoubleClick = useCallback(() => {
@@ -63,9 +60,11 @@ const Internal: Layout.Renderer = ({ visible }) => {
   );
 };
 
-export const Log: Layout.Renderer = (props) => (
-  <Base.Suspended logKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-Log.useName = Layout.createUseFluxName(Base.useRename, Base.useRetrieveObservableName);
+export const Log: Panel.Content = ({ visible }) => {
+  const { key } = PPanel.useSelectTabResource();
+  return (
+    <Base.Suspended logKey={key}>
+      <Internal visible={visible} />
+    </Base.Suspended>
+  );
+};

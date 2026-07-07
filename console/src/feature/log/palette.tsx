@@ -13,21 +13,12 @@ import { Access, Log } from "@synnaxlabs/pluto";
 import { Log as PlatformLog } from "@/platform/log";
 import { Palette } from "@/platform/palette";
 
-const COMMAND_NAME = "Create a log";
-
-const CreateCommand: Palette.Command = (listProps) => {
-  const create = PlatformLog.useCreate({});
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name={COMMAND_NAME}
-      icon={<Log.CreateIcon />}
-      onSelect={create}
-    />
-  );
-};
-CreateCommand.key = "create_log";
-CreateCommand.commandName = COMMAND_NAME;
-CreateCommand.useVisible = () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
+const CreateCommand = Palette.createCommand({
+  key: "create_log",
+  name: "Create a log",
+  icon: <Log.CreateIcon />,
+  useOnSelect: PlatformLog.useCreate,
+  useVisible: () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID),
+});
 
 export const COMMANDS = [CreateCommand];

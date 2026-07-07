@@ -7,29 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, panel } from "@synnaxlabs/client";
-import { type location, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { panel } from "@synnaxlabs/client";
+import { type location } from "@synnaxlabs/x";
+import { type ReactElement, useCallback } from "react";
 
 import { type Component } from "@/component";
 import { Mosaic as Base } from "@/mosaic";
-import {
-  type TabContent,
-  tabContent,
-  useDispatch,
-  useEnsureRetrieved,
-  useSelectRoot,
-  useSelectTab,
-} from "@/panel/queries";
+import { useDispatch, useSelectStructure } from "@/panel/queries";
+import { Scope, TabScope } from "@/panel/scope";
+import { useKey } from "@/panel/Suspended";
 import { Portal } from "@/portal";
-import { type Tabs } from "@/tabs";
+import { Tabs } from "@/tabs";
 
-export interface MosaicTabRenderProps extends TabContent {
+export interface MosaicTabRenderProps {
   tabKey: string;
   visible: boolean;
 }
 
-export interface MosaicTabNameProps extends Tabs.NameProps, TabContent {}
+export interface MosaicTabNameProps extends Omit<Tabs.NameProps, "tabKey"> {}
 
 export interface MosaicProps extends Omit<
   Base.MosaicProps,
@@ -43,83 +38,48 @@ export interface MosaicProps extends Omit<
   | "onCreate"
   | "onSelect"
 > {
-  panelKey: panel.Key;
   focused?: string;
   selected?: string[];
   onSelect?: (tabKey: string) => void;
   children: Component.RenderProp<MosaicTabRenderProps>;
   tabName?: Component.RenderProp<MosaicTabNameProps>;
+  onCreateTab?: () => panel.NewTab | undefined;
+  resolveDroppedTab?: (key: string) => panel.NewTab | undefined;
 }
-
-const adaptToMosaic = (root: panel.Node, selected: string[] | undefined): Base.Node => {
-  const preference = selected ?? [];
-  const visit = (node: panel.Node | undefined, key: number): Base.Node => {
-    if (node == null) return { key };
-    if (node.variant === "split")
-      return {
-        key,
-        direction: node.direction,
-        size: node.size,
-        first: visit(node.first, panel.childPath(key, "first")),
-        last: visit(node.last, panel.childPath(key, "last")),
-      };
-    const tabs: Tabs.Tab[] = node.tabs.map((t) => ({
-      tabKey: t.key,
-      name: "",
-      closable: true,
-      editable: t.variant !== "empty",
-    }));
-    const selected =
-      preference.find((key) => tabs.some((t) => t.tabKey === key)) ?? tabs[0]?.tabKey;
-    return { key, tabs, selected };
-  };
-  return visit(root, panel.ROOT_PATH);
-};
-
-interface TabNameProps extends Tabs.NameProps {
-  panelKey: panel.Key;
-  tabName: Component.RenderProp<MosaicTabNameProps>;
-}
-
-// TabName must stay module-level: render-prop closures below only re-parameterize
-// it, so React updates name nodes in place. A component type created per render
-// would remount every name node, dropping rename-edit state.
-const TabName = ({
-  panelKey: key,
-  tabName,
-  ...rest
-}: TabNameProps): ReactElement | null => {
-  const content = useSelectTab({ key, tabKey: rest.tabKey });
-  return tabName({ ...rest, ...tabContent(content) });
-};
 
 interface ContentProps extends Pick<MosaicProps, "children"> {
-  panelKey: panel.Key;
   tabKey: string;
   visible: boolean;
 }
 
-const Content = ({
-  panelKey: key,
-  tabKey,
-  visible,
-  children,
-}: ContentProps): ReactElement | null =>
-  children({ ...tabContent(useSelectTab({ key, tabKey })), tabKey, visible });
+// Content publishes the tab scope around the consumer's render so it can read the tab's
+// type/args with the granular tab-scoped selectors instead of receiving them as props.
+const Content = ({ tabKey, visible, children }: ContentProps): ReactElement => (
+  <TabScope.Provider value={tabKey}>{children({ tabKey, visible })}</TabScope.Provider>
+);
+
+export interface DefaultTabNameProps extends Omit<Tabs.DefaultNameProps, "tabKey"> {}
+
+// DefaultTabName renders a tab's name from the surrounding tab scope, so callers that
+// don't supply a custom tabName get the standard editable name bound to the active tab.
+export const DefaultTabName = (props: DefaultTabNameProps): ReactElement => {
+  const tabKey = TabScope.use();
+  return <Tabs.DefaultName tabKey={tabKey} {...props} />;
+};
 
 export const Mosaic = ({
-  panelKey: key,
   focused,
   selected,
   onSelect,
   children,
   tabName,
+  onCreateTab,
+  resolveDroppedTab,
   ...rest
 }: MosaicProps): ReactElement | null => {
-  useEnsureRetrieved({ key });
+  const key = useKey();
   const { dispatch } = useDispatch();
-  const treeRoot = useSelectRoot({ key });
-  const root = useMemo(() => adaptToMosaic(treeRoot, selected), [treeRoot, selected]);
+  const root = useSelectStructure({ key, selected });
 
   const handleDrop = useCallback(
     (targetLeaf: number, tabKey: string, location: location.Location, index?: number) =>
@@ -143,34 +103,31 @@ export const Mosaic = ({
 
   const handleCreate = useCallback(
     (node: number, location: location.Location, tabKeys?: string[]) => {
-      let tabs: panel.Tab[];
-      if (tabKeys == null) tabs = [{ variant: "empty", key: uuid.create() }];
-      else
-        tabs = tabKeys.flatMap((raw) => {
-          const parsed = ontology.idZ.safeParse(raw);
-          return parsed.success
-            ? [{ variant: "resource", key: uuid.create(), resource: parsed.data }]
-            : [];
-        });
+      const tabs = (
+        tabKeys == null
+          ? [onCreateTab?.()]
+          : tabKeys.map((tabKey) => resolveDroppedTab?.(tabKey))
+      ).filter((tab): tab is panel.NewTab => tab != null);
       if (tabs.length === 0) return;
       const restLeaf =
         location === "center" ? node : panel.childPath(node, panel.splitSide(location));
-      const actions = tabs.map((tab, i) => {
-        let payload: panel.InsertTabPayload = { tab, targetLeaf: restLeaf };
-        if (i === 0) payload = { tab, targetLeaf: node, location };
-        return panel.insertTab(payload);
-      });
+      const actions = tabs.map((tab, i) =>
+        panel.insertTab(
+          i === 0 ? { tab, targetLeaf: node, location } : { tab, targetLeaf: restLeaf },
+        ),
+      );
       dispatch({ key, actions });
-      onSelect?.(tabs[tabs.length - 1].key);
+      const last = actions.at(-1);
+      if (last?.type === "insert_tab") onSelect?.(last.insertTab.tab.key);
     },
-    [dispatch, key, onSelect],
+    [dispatch, key, onSelect, onCreateTab, resolveDroppedTab],
   );
 
   const [portalRef, portalNodes] = Base.usePortal({
     root,
     onSelect,
     children: ({ tabKey, visible }) => (
-      <Content panelKey={key} tabKey={tabKey} visible={visible !== false}>
+      <Content tabKey={tabKey} visible={visible !== false}>
         {children}
       </Content>
     ),
@@ -178,8 +135,10 @@ export const Mosaic = ({
 
   const renderTabName = useCallback(
     (props: Tabs.NameProps): ReactElement | null =>
-      tabName == null ? null : <TabName {...props} panelKey={key} tabName={tabName} />,
-    [key, tabName],
+      tabName == null ? null : (
+        <TabScope.Provider value={props.tabKey}>{tabName(props)}</TabScope.Provider>
+      ),
+    [tabName],
   );
 
   const renderProp = useCallback<Tabs.RenderProp>(
@@ -192,7 +151,7 @@ export const Mosaic = ({
   );
 
   return (
-    <>
+    <Scope.Provider value={key}>
       {portalNodes}
       <Base.Mosaic
         {...rest}
@@ -207,6 +166,6 @@ export const Mosaic = ({
       >
         {renderProp}
       </Base.Mosaic>
-    </>
+    </Scope.Provider>
   );
 };

@@ -35,17 +35,11 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const READ_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.LabJack",
-};
-
-export const ReadSelectable = Selector.createSimpleItem({
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  layout: READ_LAYOUT,
+  useOnSelect: Task.createOpenView(READ_TYPE),
 });
 
 const Properties = () => (
@@ -87,7 +81,7 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
   const canTare = enabled && isRunning;
   const renderedPort = getRenderedPort(port, deviceModel, type);
   return (
-    <Task.Layouts.ListAndDetailsChannelItem
+    <Task.Views.ListAndDetailsChannelItem
       {...rest}
       port={renderedPort}
       canTare={canTare}
@@ -100,7 +94,7 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
   );
 };
 
-interface ChannelDetailsProps extends Task.Layouts.DetailsProps {
+interface ChannelDetailsProps extends Task.Views.DetailsProps {
   deviceModel: Device.Model;
 }
 
@@ -205,13 +199,13 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
     [tare, device.model],
   );
   const details = useCallback(
-    (p: Task.Layouts.DetailsProps) => (
+    (p: Task.Views.DetailsProps) => (
       <ChannelDetails {...p} deviceModel={device.model} />
     ),
     [device.model],
   );
   return (
-    <Task.Layouts.ListAndDetails<InputChannel>
+    <Task.Views.ListAndDetails<InputChannel>
       listItem={listItem}
       details={details}
       createChannel={createChannel}

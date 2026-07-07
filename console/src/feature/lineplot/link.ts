@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot } from "@synnaxlabs/client";
 import { useCallback } from "react";
 
-import { Layout } from "@/platform/layout";
-import { LinePlot } from "@/platform/lineplot";
 import { type Link } from "@/platform/link";
+import { Panel } from "@/platform/panel";
 
 export const useLink = (): Link.Handler => {
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   return useCallback(
     async ({ client, key }) => {
       const linePlot = await client.lineplots.retrieve({ key });
-      placeLayout(LinePlot.create({ key: linePlot.key, name: linePlot.name }));
+      openTab({ variant: "resource", resource: lineplot.ontologyID(linePlot.key) });
     },
-    [placeLayout],
+    [openTab],
   );
 };

@@ -30,13 +30,13 @@ import {
   useMemo,
 } from "react";
 
-import { Layout } from "@/platform/layout";
 import { Modals } from "@/platform/modals";
 import { type UseListReturn } from "@/platform/palette/list";
+import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
 export interface CommandProps extends List.ItemProps<string> {
-  placeLayout: Layout.Placer;
+  openTab: Panel.OpenTab;
   confirm: Modals.PromptConfirm;
   rename: Modals.PromptRename;
   handleError: Status.ErrorHandler;
@@ -98,7 +98,7 @@ const BaseCommandListItem = ({
 };
 
 export const CommandListItem = Component.removeProps(BaseCommandListItem, [
-  "placeLayout",
+  "openTab",
   "confirm",
   "rename",
   "handleError",
@@ -108,41 +108,10 @@ export const CommandListItem = Component.removeProps(BaseCommandListItem, [
   "client",
 ]);
 
-export interface SimpleCommandConfig {
+export interface CreateCommandParams {
   key: string;
   name: string;
   icon?: Icon.ReactElement;
-  layout: Layout.PlacerArgs;
-  useVisible?: () => boolean;
-  sortOrder?: number;
-}
-
-export const createSimpleCommand = ({
-  key,
-  name,
-  icon,
-  layout,
-  useVisible,
-  sortOrder,
-}: SimpleCommandConfig): Command => {
-  const C: Command = ({ placeLayout, ...listProps }) => {
-    const handleSelect = useCallback(() => placeLayout(layout), [placeLayout]);
-    return (
-      <CommandListItem {...listProps} name={name} icon={icon} onSelect={handleSelect} />
-    );
-  };
-  C.key = key;
-  C.commandName = name;
-  C.sortOrder = sortOrder;
-  C.useVisible = useVisible;
-  return C;
-};
-
-export interface CommandConfig {
-  key: string;
-  name: string;
-  icon?: Icon.ReactElement;
-  /** A hook returning the callback to invoke when the command is selected. */
   useOnSelect: () => () => void;
   useVisible?: () => boolean;
   sortOrder?: number;
@@ -150,9 +119,9 @@ export interface CommandConfig {
 
 /**
  * createCommand builds a Command whose onSelect is produced by a hook. On render the
- * command calls useOnSelect and binds its returned callback to the list item, suiting
- * commands that open a modal or otherwise act through a hook rather than placing a
- * layout (see createSimpleCommand for the layout case).
+ * command calls useOnSelect and binds the returned callback to the list item. The
+ * callback is invoked with no arguments, so a hook may return a callback that takes
+ * optional arguments (e.g. a resource create hook) without the click event leaking in.
  */
 export const createCommand = ({
   key,
@@ -161,7 +130,7 @@ export const createCommand = ({
   useOnSelect,
   useVisible,
   sortOrder,
-}: CommandConfig): Command => {
+}: CreateCommandParams): Command => {
   const C: Command = (listProps) => (
     <CommandListItem {...listProps} name={name} icon={icon} onSelect={useOnSelect()} />
   );
@@ -205,13 +174,13 @@ export const useCommandList = (): UseListReturn<Command> => {
 
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const confirm = Modals.useConfirm();
   const rename = Modals.useRename();
 
   const commandProps = useMemo(
     () => ({
-      placeLayout,
+      openTab,
       confirm,
       rename,
       handleError,
@@ -220,7 +189,7 @@ export const useCommandList = (): UseListReturn<Command> => {
       fluxStore,
       client,
     }),
-    [placeLayout, confirm, rename, handleError, addStatus, store, fluxStore, client],
+    [openTab, confirm, rename, handleError, addStatus, store, fluxStore, client],
   );
 
   const commandMap = useMemo(

@@ -10,14 +10,15 @@
 import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { ALERT_LAYOUT } from "@/feature/pagerduty/task/Alert";
+import { ALERT_TYPE } from "@/feature/pagerduty/task/types";
 import { Palette } from "@/platform/palette";
+import { Task } from "@/platform/task";
 
-const CreateAlertCommand = Palette.createSimpleCommand({
+const CreateAlertCommand = Palette.createCommand({
   key: "pagerduty_create_alert_task",
   name: "Create a PagerDuty Alert Task",
   icon: <Icon.Logo.PagerDuty />,
-  layout: ALERT_LAYOUT,
+  useOnSelect: Task.createOpenView(ALERT_TYPE),
   useVisible: () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID),
 });
 

@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type table } from "@synnaxlabs/client";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Table as PTable } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
-import { act, render, within } from "@testing-library/react";
+import {
+  createTestClient,
+  panel,
+  table as clientTable,
+  type table,
+} from "@synnaxlabs/client";
+import { Flux, Panel as PlutoPanel, Table as PTable } from "@synnaxlabs/pluto";
+import { id, uuid } from "@synnaxlabs/x";
+import { act, render, renderHook, within } from "@testing-library/react";
 import {
   type ComponentType,
   type FC,
@@ -22,7 +26,11 @@ import {
 
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
+import {
+  type ConsolePreloadedState,
+  createConsoleWrapper,
+  uniqueName,
+} from "@/testutil";
 
 export const client = createTestClient();
 
@@ -72,34 +80,10 @@ const loadTable = async (
   await within(utils.container).findByTestId("loaded");
 };
 
-export const createLayoutState = (key: string, name: string): Session.Layout.State => ({
-  key,
-  windowKey: MAIN_WINDOW,
-  type: "table",
-  name,
-  location: "mosaic",
-});
-
 export const createPreloadedState = (
   key: string,
-  name: string,
   tableState: Partial<Session.Table.State> = {},
 ): ConsolePreloadedState => ({
-  [Session.Layout.SLICE_NAME]: {
-    ...Session.Layout.ZERO_SLICE_STATE,
-    layouts: {
-      ...Session.Layout.ZERO_SLICE_STATE.layouts,
-      [key]: createLayoutState(key, name),
-    },
-    mosaics: {
-      ...Session.Layout.ZERO_SLICE_STATE.mosaics,
-      [MAIN_WINDOW]: {
-        activeTab: key,
-        focused: null,
-        root: { key: 1, tabs: [{ tabKey: key, name }] },
-      },
-    },
-  },
   [Session.Table.SLICE_NAME]: {
     ...Session.Table.ZERO_SLICE_STATE,
     tables: { [key]: { ...Session.Table.ZERO_STATE, ...tableState } },
@@ -111,11 +95,39 @@ export interface RenderTableOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
 }
 
-// renderTable creates a table on the server, mounts Component with the table loaded
-// into the flux cache and a live Modals.Stack, and returns the render result plus the
-// Redux store and table key.
+// seedResourceTab seeds a single-leaf panel holding one resource tab that backs the
+// given table into the wrapper's flux store, so the panel scope hooks a mounted tab
+// content reads (useSelectTabResource) resolve to the table's ontology ID.
+const seedResourceTab = (
+  Wrapper: FC<PropsWithChildren>,
+  key: string,
+): { panelKey: string; tabKey: string } => {
+  const tabKey = uuid.create();
+  const doc = panel.panelZ.parse({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root: {
+      variant: "leaf",
+      tabs: [
+        { variant: "resource", key: tabKey, resource: clientTable.ontologyID(key) },
+      ],
+    },
+  });
+  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
+    wrapper: Wrapper,
+  });
+  act(() => {
+    result.current.panels.set(doc);
+  });
+  return { panelKey: doc.key, tabKey };
+};
+
+// renderTable creates a table on the server, mounts Component inside the panel and tab
+// scopes of a seeded resource tab (the way the mosaic renders a tab) with the table
+// loaded into the flux cache and a live Modals.Stack, and returns the render result
+// plus the Redux store and table key.
 export const renderTable = async (
-  Component: ComponentType<{ layoutKey: string }>,
+  Component: ComponentType,
   { table: overrides, preloadedState }: RenderTableOptions = {},
 ) => {
   const created = await client.tables.create(await project(), {
@@ -127,11 +139,14 @@ export const renderTable = async (
     preloadedState: preloadedState?.(created.key),
   });
   await loadTable(Wrapper, created.key);
+  const { panelKey, tabKey } = seedResourceTab(Wrapper, created.key);
   const result = render(
-    <>
-      <Component layoutKey={created.key} />
-      <Modals.Stack />
-    </>,
+    <PlutoPanel.Scope.Provider value={panelKey}>
+      <PlutoPanel.TabScope.Provider value={tabKey}>
+        <Component />
+        <Modals.Stack />
+      </PlutoPanel.TabScope.Provider>
+    </PlutoPanel.Scope.Provider>,
     { wrapper: Wrapper },
   );
   return { key: created.key, result, store };

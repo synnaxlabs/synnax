@@ -18,7 +18,7 @@ import { renderLinkHook } from "@/testutil";
 const client = createTestClient();
 
 describe("Range.useLink", () => {
-  it("should add, activate, and place the retrieved range", async () => {
+  it("should add and activate the retrieved range", async () => {
     const range = await client.ranges.create({
       name: "Burn Test",
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
@@ -28,6 +28,5 @@ describe("Range.useLink", () => {
     const state = store.getState();
     expect(Session.Range.selectSelectedKey(state)).toBe(range.key);
     expect(Session.Range.selectState(state, range.key)?.name).toBe("Burn Test");
-    expect(Session.Layout.select(state, range.key)?.name).toBe("Burn Test");
   });
 });

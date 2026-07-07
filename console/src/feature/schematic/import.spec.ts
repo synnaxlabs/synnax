@@ -12,14 +12,8 @@ import { color, type record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
-import { type Layout } from "@/platform/layout";
-import {
-  assertDefined,
-  createGrantedFluxStore,
-  createTestFluxStore,
-  createTestStore,
-  uniqueName,
-} from "@/testutil";
+import { type Panel } from "@/platform/panel";
+import { createGrantedFluxStore, createTestFluxStore, uniqueName } from "@/testutil";
 
 const V0_ZERO = {
   version: "0.0.0",
@@ -392,7 +386,7 @@ describe("schematic import", () => {
   });
 
   describe("ingest", () => {
-    it("creates the schematic on the cluster and places its layout", async () => {
+    it("creates the schematic on the cluster and opens its tab", async () => {
       const client = createTestClient();
       const store = await createGrantedFluxStore(
         client,
@@ -403,37 +397,30 @@ describe("schematic import", () => {
         name: uniqueName("proj"),
         layout: {},
       });
-      const placeLayout = vi.fn<Layout.Placer>();
+      const openTab = vi.fn<Panel.OpenTab>();
       const name = uniqueName("imported");
-      await Schematic.ingest(TYPED_EXPORT, {
-        layout: { name },
-        placeLayout,
+      const id = await Schematic.ingest(TYPED_EXPORT, {
+        name,
+        openTab,
         store,
         client,
         projectKey: project.key,
       });
-      expect(placeLayout).toHaveBeenCalledTimes(1);
-      const creator = placeLayout.mock.calls[0][0] as Layout.Creator;
-      const consoleStore = await createTestStore();
-      const layout = creator({
-        dispatch: consoleStore.dispatch,
-        store: consoleStore,
-        windowKey: "main",
-      });
-      expect(layout.name).toBe(name);
-      assertDefined(layout.key);
-      const created = await client.schematics.retrieve({ key: layout.key });
+      if (id == null) throw new Error("ingest did not return an ontology id");
+      expect(openTab).toHaveBeenCalledTimes(1);
+      expect(openTab).toHaveBeenCalledWith({ resource: id });
+      const created = await client.schematics.retrieve({ key: id.key });
       expect(created.name).toBe(name);
       expect(created.nodes).toHaveLength(1);
-      expect(store.schematics.get(layout.key)?.name).toBe(name);
+      expect(store.schematics.get(id.key)?.name).toBe(name);
     });
 
     it("rejects the import when the permission cache has no grant", async () => {
       const store = createTestFluxStore(null);
       await expect(
         Schematic.ingest(TYPED_EXPORT, {
-          layout: { name: "denied" },
-          placeLayout: vi.fn<Layout.Placer>(),
+          name: "denied",
+          openTab: vi.fn<Panel.OpenTab>(),
           store,
           client: null,
           projectKey: "project-1",

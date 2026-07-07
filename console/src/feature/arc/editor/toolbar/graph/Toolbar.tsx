@@ -15,6 +15,7 @@ import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Stages } from "@/feature/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/feature/arc/editor/toolbar/graph/Properties";
+import { useExport } from "@/feature/arc/export";
 import { Cluster } from "@/platform/cluster";
 import { Export } from "@/platform/export";
 import { Toolbar as Base } from "@/platform/toolbar";
@@ -53,11 +54,7 @@ const NotEditableContent = (): ReactElement => {
   );
 };
 
-export interface ToolbarProps {
-  onExport: (key: arc.Key) => void;
-}
-
-export const Toolbar = ({ onExport }: ToolbarProps): ReactElement | null => {
+export const Toolbar = (): ReactElement | null => {
   const key = Arc.useKey();
   const dispatch = Session.useDispatch();
   const toolbar = Session.Arc.useSelectToolbar();
@@ -66,7 +63,7 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement | null => {
   const singleNodeKey = selected.length === 1 ? selected[0] : "";
   const singleConfig = Arc.useSelectNodeConfig({ nodeKey: singleNodeKey });
   const name = Arc.useSelectName();
-  const handleExport = useCallback(() => onExport(key), [key]);
+  const handleExport = useExport();
   const selectedName =
     singleConfig != null
       ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
@@ -116,7 +113,7 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement | null => {
         </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty>
           <Flex.Box x empty style={{ height: "100%", width: 66 }}>
-            <Export.ToolbarButton onExport={handleExport} />
+            <Export.ToolbarButton onExport={() => handleExport(key)} />
             <Cluster.CopyLinkToolbarButton
               name={name}
               ontologyID={arc.ontologyID(key)}

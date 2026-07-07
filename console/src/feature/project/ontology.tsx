@@ -52,7 +52,7 @@ const useDelete = Ontology.createUseDelete({
     const active = array.toArray(data).find((k) => k === activeKey);
     if (active == null) return;
     store.dispatch(Session.Project.clearSelected());
-    store.dispatch(Session.Layout.clearProject());
+    store.dispatch(Session.Panel.reset());
   },
 });
 
@@ -171,9 +171,6 @@ const handleSelect: Ontology.HandleSelect = ({
   handleError(async () => {
     const proj = await client.projects.retrieve(selection[0].id.key);
     store.dispatch(Session.Project.select(proj.key));
-    store.dispatch(
-      Session.Layout.setProject({ slice: Session.Layout.migrateLayout(proj.layout) }),
-    );
   }, `Failed to select ${names}`);
 };
 

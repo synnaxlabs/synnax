@@ -7,9 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, project, type Synnax } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  type ontology,
+  panel,
+  project,
+  schematic,
+  type Synnax,
+  table,
+} from "@synnaxlabs/client";
 import { Access, Flux, type Pluto } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -17,13 +25,12 @@ import { Project } from "@/feature/project";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { type Import } from "@/platform/import";
-import { Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
-const WINDOW_KEY = "main";
 const SCHEMATIC_TYPE = "schematic";
 const TABLE_TYPE = "table";
 const OPERATOR_KEY = "34c0a87c-3f72-42d2-8cac-75bc1e2631b1";
@@ -57,50 +64,72 @@ const TABLE_DATA = {
   cells: { c1: { key: "c1", variant: "text", props: { value: "hello" } } },
 };
 
-// An exported layout slice with a schematic and a table tab, each keyed to match the
-// resource key in the corresponding component file.
-const exportedSlice = (): Session.Layout.SliceState => {
-  let s = Session.Layout.reducer(undefined, { type: "@@INIT" });
-  s = Session.Layout.reducer(
-    s,
-    Session.Layout.place({
-      windowKey: WINDOW_KEY,
+// An exported panel with a schematic and a table tab, each referencing the resource
+// key in the corresponding component file.
+const exportedPanels = (): panel.Panel[] => [
+  panel.panelZ.parse({
+    name: "Main",
+    root: {
+      variant: "leaf",
+      tabs: [
+        {
+          variant: "resource",
+          key: uuid.create(),
+          resource: schematic.ontologyID(OPERATOR_KEY),
+        },
+        {
+          variant: "resource",
+          key: uuid.create(),
+          resource: table.ontologyID(THERMO_KEY),
+        },
+      ],
+    },
+  }),
+];
+
+// A legacy (layout-slice era) export tiling file for the same two components.
+const legacyLayoutSlice = (): unknown => ({
+  layouts: {
+    [OPERATOR_KEY]: {
       key: OPERATOR_KEY,
+      windowKey: "main",
       type: SCHEMATIC_TYPE,
       name: "Operator",
       location: "mosaic",
-    }),
-  );
-  s = Session.Layout.reducer(
-    s,
-    Session.Layout.place({
-      windowKey: WINDOW_KEY,
+    },
+    [THERMO_KEY]: {
       key: THERMO_KEY,
+      windowKey: "main",
       type: TABLE_TYPE,
       name: "Thermocouples",
       location: "mosaic",
-    }),
-  );
-  return s;
-};
-
-const layoutsOfType = (store: TestStore, type: string): Session.Layout.State[] =>
-  Object.values(Session.Layout.selectSliceState(store.getState()).layouts).filter(
-    (l) => l.type === type,
-  );
+    },
+  },
+});
 
 interface HarnessValue {
-  placer: Layout.Placer;
+  openTab: Panel.OpenTab;
   fluxStore: Pluto.FluxStore;
   granted: boolean;
 }
 
+const selectImportedProject = (store: TestStore): project.Key => {
+  const key = Session.Project.selectOptionalSelected(store.getState());
+  if (key == null) throw new Error("no project selected after import");
+  return key;
+};
+
+const retrieveProjectChildren = async (
+  key: project.Key,
+): Promise<ontology.Resource[]> =>
+  await client.ontology.retrieveChildren(project.ontologyID(key));
+
 describe("project import", () => {
-  const runImport = async (fileList: Import.File[] = files()): Promise<TestStore> => {
+  const runImport = async (fileList: Import.File[]): Promise<TestStore> => {
     const { wrapper, store } = await createConsoleWrapper({ client });
     const { result } = renderHook<HarnessValue, unknown>(
       () => ({
-        placer: Layout.usePlacer(),
+        openTab: Panel.useOpenTab(),
         fluxStore: Flux.useStore<Pluto.FluxStore>(),
         granted: Access.useUpdateGranted(project.TYPE_ONTOLOGY_ID),
       }),
@@ -111,7 +140,7 @@ describe("project import", () => {
       await Project.ingest(`proj-${id.create()}`, fileList, {
         client,
         fileIngesters: FILE_INGESTERS,
-        placeLayout: result.current.placer,
+        openTab: result.current.openTab,
         store,
         fluxStore: result.current.fluxStore,
       });
@@ -119,27 +148,52 @@ describe("project import", () => {
     return store;
   };
 
-  const files = (layoutSlice: unknown = exportedSlice()): Import.File[] => [
-    { name: Project.LAYOUT_FILE_NAME, data: layoutSlice },
+  const componentFiles = (): Import.File[] => [
     { name: "Operator.json", data: SCHEMATIC_DATA },
     { name: "Thermocouples.json", data: TABLE_DATA },
   ];
 
-  it("places exactly one tab per imported schematic and table", async () => {
-    const store = await runImport();
-    expect(layoutsOfType(store, SCHEMATIC_TYPE)).toHaveLength(1);
-    expect(layoutsOfType(store, TABLE_TYPE)).toHaveLength(1);
+  const files = (): Import.File[] => [
+    { name: Project.PANELS_FILE_NAME, data: exportedPanels() },
+    ...componentFiles(),
+  ];
+
+  it("creates the project's panels with tabs pointing at the created resources", async () => {
+    const store = await runImport(files());
+    const projectKey = selectImportedProject(store);
+    const children = await retrieveProjectChildren(projectKey);
+    const panelKeys = children
+      .filter(({ id }) => id.type === "panel")
+      .map(({ id }) => id.key);
+    expect(panelKeys).toHaveLength(1);
+    const [imported] = await client.panels.retrieve(panelKeys);
+    expect(imported.name).toBe("Main");
+    if (imported.root.variant !== "leaf") throw new Error("expected a leaf root");
+    const resources = imported.root.tabs.map((tab) => {
+      if (tab.variant !== "resource") throw new Error("expected resource tabs");
+      return tab.resource;
+    });
+    expect(resources.map(({ type }) => type)).toEqual([SCHEMATIC_TYPE, TABLE_TYPE]);
+    const [schematicID, tableID] = resources;
+    const importedSchematic = await client.schematics.retrieve({
+      key: schematicID.key,
+    });
+    expect(importedSchematic.name).toBe("Operator");
+    const importedTable = await client.tables.retrieve({ key: tableID.key });
+    expect(importedTable.name).toBe("Thermocouples");
   });
 
-  it("links every imported tab to a resource that exists in the cluster", async () => {
-    const store = await runImport();
-    const [schematicLayout] = layoutsOfType(store, SCHEMATIC_TYPE);
-    const [tableLayout] = layoutsOfType(store, TABLE_TYPE);
-    await expect(
-      client.schematics.retrieve({ key: schematicLayout.key }),
-    ).resolves.toBeDefined();
-    await expect(
-      client.tables.retrieve({ key: tableLayout.key }),
-    ).resolves.toBeDefined();
+  it("recreates the visualization documents of a legacy export without panels", async () => {
+    const store = await runImport([
+      { name: Project.LAYOUT_FILE_NAME, data: legacyLayoutSlice() },
+      ...componentFiles(),
+    ]);
+    const projectKey = selectImportedProject(store);
+    const children = await retrieveProjectChildren(projectKey);
+    const types = children.map(({ id }) => id.type);
+    expect(types).toContain(SCHEMATIC_TYPE);
+    expect(types).toContain(TABLE_TYPE);
+    // Legacy mosaic tilings are dropped on import, so no panels are created.
+    expect(types).not.toContain("panel");
   });
 });

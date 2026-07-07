@@ -60,7 +60,7 @@ interface SetupArgs {
 const renderMenu = async ({ plots, overrides, withCluster = false }: SetupArgs) => {
   const store = await createTestStore({
     preloadedState: {
-      ...createPreloadedState(plots[0].key, plots[0].name),
+      ...createPreloadedState(plots[0].key),
       ...(withCluster ? createClusterState([createCluster("test")], "test") : {}),
     },
   });
@@ -111,13 +111,9 @@ describe("lineplot/ontology", () => {
       expect(screen.queryByText("Copy link")).toBeNull();
     });
 
-    it("deletes the plot, its layout, and its session state after confirmation", async () => {
+    it("deletes the plot and its session state after confirmation", async () => {
       const plot = await createLinePlot();
-      const removeLayout = vi.fn();
-      const { store } = await renderMenu({
-        plots: [plot],
-        overrides: { removeLayout },
-      });
+      const { store } = await renderMenu({ plots: [plot] });
       fireEvent.click(await screen.findByText("Delete"));
       await waitFor(() =>
         expect(
@@ -126,15 +122,14 @@ describe("lineplot/ontology", () => {
       );
       fireEvent.click(findLastButton("Delete"));
       await waitFor(async () => expect(await plotExists(plot.key)).toBe(false));
-      expect(removeLayout).toHaveBeenCalledWith(plot.key);
       expect(
         Session.LinePlot.selectSliceState(store.getState()).plots[plot.key],
       ).toBeUndefined();
     });
 
-    it("renames the plot on the cluster and in the layout store", async () => {
+    it("renames the plot on the cluster", async () => {
       const plot = await createLinePlot();
-      const { store, itemID } = await renderMenu({ plots: [plot] });
+      const { itemID } = await renderMenu({ plots: [plot] });
       fireEvent.click(await screen.findByText("Rename"));
       const el = await awaitTextEditing(itemID);
       const newName = uniqueName("renamed");
@@ -145,7 +140,6 @@ describe("lineplot/ontology", () => {
         const renamed = await client.lineplots.retrieve({ key: plot.key });
         expect(renamed.name).toBe(newName);
       });
-      expect(Session.Layout.select(store.getState(), plot.key)?.name).toBe(newName);
     });
 
     it("exports the plot as a JSON download", async () => {
@@ -196,17 +190,17 @@ describe("lineplot/ontology", () => {
   });
 
   describe("onSelect", () => {
-    it("retrieves the plot and places its layout", async () => {
+    it("retrieves the plot and opens it as a tab", async () => {
       const plot = await createLinePlot();
       const store = await createTestStore();
-      const placeLayout = vi.fn().mockReturnValue({ windowKey: "main", key: "" });
+      const openTab = vi.fn();
       const id = clientLineplot.ontologyID(plot.key);
       LinePlot.ONTOLOGY_SERVICE.onSelect?.({
         ...createBaseProps({
           client,
           store,
           overrides: {
-            placeLayout,
+            openTab,
             handleError: (excOrFn) => {
               if (typeof excOrFn === "function") void excOrFn();
             },
@@ -214,48 +208,8 @@ describe("lineplot/ontology", () => {
         }),
         selection: [createResource(id, plot.name)],
       });
-      await waitFor(() => expect(placeLayout).toHaveBeenCalledTimes(1));
-      const creator = placeLayout.mock.calls[0][0];
-      const layout = creator({
-        dispatch: store.dispatch,
-        store,
-        windowKey: "main",
-      });
-      expect(layout.type).toBe(LinePlot.LAYOUT_TYPE);
-      expect(layout.key).toBe(plot.key);
-      expect(layout.name).toBe(plot.name);
-    });
-  });
-
-  describe("onMosaicDrop", () => {
-    it("places the plot into the target mosaic node", async () => {
-      const plot = await createLinePlot();
-      const store = await createTestStore();
-      const placeLayout = vi.fn().mockReturnValue({ windowKey: "main", key: "" });
-      LinePlot.ONTOLOGY_SERVICE.onMosaicDrop?.({
-        ...createBaseProps({
-          client,
-          store,
-          overrides: {
-            placeLayout,
-            handleError: (excOrFn) => {
-              if (typeof excOrFn === "function") void excOrFn();
-            },
-          },
-        }),
-        id: clientLineplot.ontologyID(plot.key),
-        nodeKey: 3,
-        location: "top",
-      });
-      await waitFor(() => expect(placeLayout).toHaveBeenCalledTimes(1));
-      const creator = placeLayout.mock.calls[0][0];
-      const layout = creator({
-        dispatch: store.dispatch,
-        store,
-        windowKey: "main",
-      });
-      expect(layout.location).toBe("mosaic");
-      expect(layout.tab).toMatchObject({ mosaicKey: 3, location: "top" });
+      await waitFor(() => expect(openTab).toHaveBeenCalledTimes(1));
+      expect(openTab).toHaveBeenCalledWith({ resource: id });
     });
   });
 

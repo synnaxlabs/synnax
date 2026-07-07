@@ -16,7 +16,6 @@ import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
-import { create } from "@/platform/lineplot/layout";
 import { Link } from "@/platform/link";
 import { Ontology } from "@/platform/ontology";
 import { Session } from "@/session";
@@ -26,8 +25,7 @@ const useDelete = Ontology.createUseDelete({
   icon: "LinePlot",
   query: Base.useDelete,
   convertKey: String,
-  beforeUpdate: async ({ data, removeLayout, store }) => {
-    removeLayout(...data);
+  beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.LinePlot.remove({ keys: array.toArray(data) }));
     return data;
   },
@@ -37,12 +35,6 @@ const useRename = Ontology.createUseRename({
   query: Base.useRename,
   ontologyID: lineplot.ontologyID,
   convertKey: String,
-  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
-    const { key, name } = data;
-    store.dispatch(Session.Layout.rename({ key, name }));
-    rollbacks.push(() => store.dispatch(Session.Layout.rename({ key, name: oldName })));
-    return { ...data, name };
-  },
 });
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -98,7 +90,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
-  placeLayout,
+  openTab,
   handleError,
 }) => {
   const names = strings.naturalLanguageJoin(
@@ -109,29 +101,9 @@ const handleSelect: Ontology.HandleSelect = ({
     const linePlot = await client.lineplots.retrieve({
       key: selection[0].id.key,
     });
-    placeLayout(create({ key: linePlot.key, name: linePlot.name }));
+    openTab({ variant: "resource", resource: lineplot.ontologyID(linePlot.key) });
   }, `Failed to select ${names}`);
 };
-
-const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
-  client,
-  id: { key },
-  location,
-  nodeKey,
-  placeLayout,
-  handleError,
-}): void =>
-  handleError(async () => {
-    const linePlot = await client.lineplots.retrieve({ key });
-    placeLayout(
-      create({
-        key: linePlot.key,
-        name: linePlot.name,
-        location: "mosaic",
-        tab: { mosaicKey: nodeKey, location },
-      }),
-    );
-  }, "Failed to load line plot");
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
@@ -140,6 +112,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   hasChildren: false,
   onSelect: handleSelect,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
-  onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

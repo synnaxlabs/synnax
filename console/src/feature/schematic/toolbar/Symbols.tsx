@@ -554,12 +554,12 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
 
 export const Symbols = (): ReactElement => {
   const dispatch = Session.useDispatch();
-  const layoutKey = Schematic.useKey();
-  const groupKey = Session.Schematic.useSelectSelectedSymbolGroup({ key: layoutKey });
+  const key = Schematic.useKey();
+  const groupKey = Session.Schematic.useSelectSelectedSymbolGroup({ key });
   const setGroupKey = useCallback(
     (group: group.Key) =>
-      dispatch(Session.Schematic.setSelectedSymbolGroup({ key: layoutKey, group })),
-    [dispatch, layoutKey],
+      dispatch(Session.Schematic.setSelectedSymbolGroup({ key, group })),
+    [dispatch, key],
   );
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
 

@@ -10,6 +10,8 @@
 import { type table } from "@synnaxlabs/client";
 import { Table } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
+import { useCallback } from "react";
+import { useStore } from "react-redux";
 
 import { Select } from "@/session/select";
 import {
@@ -31,39 +33,59 @@ const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
     Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
   );
 
-export const selectState = ({ state, key }: KeyedSelectorParams): State =>
+const createGetter =
+  <R>(selector: (params: KeyedSelectorParams) => R) =>
+  (): ((args?: { key?: table.Key }) => R) => {
+    const store = useStore<StoreState>();
+    const scopeKey = Table.Scope.useOptional();
+    return useCallback(
+      (args) =>
+        selector({
+          state: store.getState(),
+          key: (args?.key ?? scopeKey) as table.Key,
+        }),
+      [store, scopeKey],
+    );
+  };
+
+const selectState = ({ state, key }: KeyedSelectorParams): State =>
   selectSliceState(state).tables[key] ?? ZERO_STATE;
 
 export const useSelect = createSelector(selectState);
+export const useGet = createGetter(selectState);
 
-export const selectOptional = ({
-  state,
-  key,
-}: KeyedSelectorParams): State | undefined => selectSliceState(state).tables[key];
+const selectOptional = ({ state, key }: KeyedSelectorParams): State | undefined =>
+  selectSliceState(state).tables[key];
 
 export const useSelectOptional = createSelector(selectOptional);
+export const useGetOptional = createGetter(selectOptional);
 
-export const selectExists = (params: KeyedSelectorParams): boolean =>
+const selectExists = (params: KeyedSelectorParams): boolean =>
   selectOptional(params) != null;
 
 export const useSelectExists = createSelector(selectExists);
+export const useGetExists = createGetter(selectExists);
 
 export const selectEditable = (params: KeyedSelectorParams): boolean =>
   selectState(params).editable;
 
 export const useSelectEditable = createSelector(selectEditable);
+export const useGetEditable = createGetter(selectEditable);
 
-export const selectHideIndicators = (params: KeyedSelectorParams): boolean =>
+const selectHideIndicators = (params: KeyedSelectorParams): boolean =>
   selectState(params).hideIndicators;
 
 export const useSelectHideIndicators = createSelector(selectHideIndicators);
+export const useGetHideIndicators = createGetter(selectHideIndicators);
 
-export const selectSelectedCellKeys = (params: KeyedSelectorParams): string[] =>
+const selectSelectedCellKeys = (params: KeyedSelectorParams): string[] =>
   selectState(params).selectedCells;
 
 export const useSelectSelectedCellKeys = createSelector(selectSelectedCellKeys);
+export const useGetSelectedCellKeys = createGetter(selectSelectedCellKeys);
 
-export const selectLastSelected = (params: KeyedSelectorParams): string | null =>
+const selectLastSelected = (params: KeyedSelectorParams): string | null =>
   selectState(params).lastSelected;
 
 export const useSelectLastSelected = createSelector(selectLastSelected);
+export const useGetLastSelected = createGetter(selectLastSelected);

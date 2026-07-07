@@ -9,11 +9,18 @@
 
 import { describe, expect, it } from "vitest";
 
+import { type ontology } from "@/ontology";
 import { panel } from "@/panel";
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
   variant: "leaf",
-  tabs: tabKeys.map((key) => ({ variant: "empty", key })),
+  tabs: tabKeys.map((key) => ({
+    variant: "view",
+    key,
+    type: "selector",
+    name: "",
+    args: {},
+  })),
 });
 
 // root splits into [a, b] | [c]; the left side splits again into [a] / [b].
@@ -75,6 +82,32 @@ describe("tree", () => {
 
     it("should return null when the tab is absent", () => {
       expect(panel.findTab(TREE, "nope")).toBeNull();
+    });
+  });
+
+  describe("findTabByResource", () => {
+    const lp: ontology.ID = { type: "lineplot", key: "lp-1" };
+    const withResource: panel.Node = {
+      variant: "split",
+      direction: "x",
+      size: 0.5,
+      first: leaf("a"),
+      last: {
+        variant: "leaf",
+        tabs: [{ variant: "resource", key: "r", resource: lp }],
+      },
+    };
+
+    it("should find the tab backing the resource anywhere in the tree", () => {
+      expect(panel.findTabByResource(withResource, lp)?.key).toEqual("r");
+    });
+
+    it("should return null when no tab backs the resource", () => {
+      expect(
+        panel.findTabByResource(withResource, { type: "schematic", key: "lp-1" }),
+      ).toBeNull();
+      expect(panel.findTabByResource(TREE, lp)).toBeNull();
+      expect(panel.findTabByResource(null, lp)).toBeNull();
     });
   });
 

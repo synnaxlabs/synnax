@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, isCalculated, ontology, ranger, status } from "@synnaxlabs/client";
+import {
+  channel,
+  isCalculated,
+  lineplot,
+  ontology,
+  panel,
+  ranger,
+  status,
+} from "@synnaxlabs/client";
 import {
   Access,
   Channel as PChannel,
@@ -38,12 +46,10 @@ import { Session } from "@/session";
 const handleSelect: Ontology.HandleSelect = ({
   client,
   store,
-  placeLayout,
+  openTab,
   selection,
   handleError,
 }): void => {
-  const state = store.getState();
-  const layout = Session.Layout.selectActiveMosaicLayout(state);
   if (selection.length === 0) return;
 
   const nonVirtualSelection = selection
@@ -51,30 +57,36 @@ const handleSelect: Ontology.HandleSelect = ({
     .map((s) => Number(s.id.key));
 
   if (nonVirtualSelection.length === 0) return;
+  const getFocusedTab = Session.Panel.useGetFocusedTab();
+  const getSelectedPanel = Session.Panel.useGetSelected();
+  const getSelectedProject = Session.Project.useGetSelected();
+  const getSelectedRange = Session.Range.useGetSelectedKey();
 
-  // Otherwise, update the layout with the selected channels.
-  switch (layout?.type) {
-    case LinePlot.LAYOUT_TYPE: {
-      handleError(
-        () => LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
-        "Failed to add channels to plot",
-      );
-      break;
+  handleError(async () => {
+    const focusedTab = getFocusedTab();
+    const panelKey = getSelectedPanel();
+    if (focusedTab != null && panelKey != null) {
+      const doc = await client.panels.retrieve(panelKey);
+      const tab = panel.findTab(doc.root, focusedTab);
+      if (tab?.variant === "resource" && tab.resource.type === "lineplot") {
+        await LinePlot.addChannelsToActivePlot(
+          client,
+          tab.resource.key,
+          nonVirtualSelection,
+        );
+        return;
+      }
     }
-    default: {
-      const project = Session.Project.selectSelected(state);
-      const activeRange =
-        Session.Range.selectSelectedKey(state) ?? Session.Range.RECENT_KEY;
-      handleError(async () => {
-        const { key, name } = await client.lineplots.create(project, {
-          name: "Line Plot",
-          channels: { y1: nonVirtualSelection },
-          ranges: { x1: [activeRange] },
-        });
-        placeLayout(LinePlot.create({ key, name }));
-      }, "Failed to create plot");
-    }
-  }
+    const project = getSelectedProject();
+    const selectedRange = getSelectedRange() ?? Session.Range.RECENT_KEY;
+    const { key } = await client.lineplots.create(project, {
+      name: "Line Plot",
+      channels: { y1: nonVirtualSelection },
+      ranges: { x1: [selectedRange] },
+    });
+    store.dispatch(Session.LinePlot.create({ key }));
+    openTab({ variant: "resource", resource: lineplot.ontologyID(key) });
+  }, "Failed to add channels to plot");
 };
 
 const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {

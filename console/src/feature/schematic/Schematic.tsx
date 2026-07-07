@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Control, Diagram, Menu, Schematic as Base, Viewport } from "@synnaxlabs/pluto";
+import {
+  Control,
+  Diagram,
+  Menu,
+  Panel as PlutoPanel,
+  Schematic as Base,
+  Viewport,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Controller } from "@/feature/schematic/Controller";
@@ -15,10 +22,14 @@ import { Controls } from "@/feature/schematic/Controls";
 import { Legend } from "@/feature/schematic/Legend";
 import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
 import { ContextMenu } from "@/platform/context-menu";
-import { Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
-const Internal: Layout.Renderer = ({ visible }) => {
+interface InternalProps {
+  visible: boolean;
+}
+
+const Internal = ({ visible }: InternalProps): ReactElement => {
   const key = Base.useKey();
   const isSnapshot = Base.useSelectSnapshot();
   const dispatch = Session.useDispatch();
@@ -76,14 +87,12 @@ const Internal: Layout.Renderer = ({ visible }) => {
     [handleNodeClickAction],
   );
 
-  const store = Session.useStore();
   const modals = Session.Modals.useStore("Schematic");
+  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
 
   const enableTriggers = useCallback(
-    () =>
-      Session.Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState(), modals) ===
-        key && isCurrentlyEditable,
-    [store, key, isCurrentlyEditable, modals],
+    () => !modals.isAnyOpen() && getTabIsFocused() && isCurrentlyEditable,
+    [getTabIsFocused, isCurrentlyEditable, modals],
   );
 
   const renderExtraMenuItems = useCallback(
@@ -127,12 +136,11 @@ const Internal: Layout.Renderer = ({ visible }) => {
   );
 };
 
-export const Schematic: Layout.Renderer = (props) => (
-  <Base.Suspended schematicKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-Schematic.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-);
+export const Schematic: Panel.Content = ({ visible }) => {
+  const { key } = PlutoPanel.useSelectTabResource();
+  return (
+    <Base.Suspended schematicKey={key}>
+      <Internal visible={visible} />
+    </Base.Suspended>
+  );
+};

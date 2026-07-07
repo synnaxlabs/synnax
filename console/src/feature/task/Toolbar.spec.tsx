@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError, task } from "@synnaxlabs/client";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { createTestClient, NotFoundError, type panel, task } from "@synnaxlabs/client";
+import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -16,17 +16,20 @@ import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { Task as CommonTask } from "@/platform/task";
-import { awaitCommand, createTaskStatus } from "@/platform/task/testutil";
+import {
+  awaitCommand,
+  createTaskStatus,
+  type SeededPanel,
+  seedSelectedPanel,
+} from "@/platform/task/testutil";
 import { Session } from "@/session";
 import {
+  assertDefined,
   awaitTextEditing,
   commitTextEdit,
   createConsoleWrapper,
   getIconButton,
-  type TestStore,
   uniqueName,
-  waitForPlacedLayout,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -70,8 +73,9 @@ const createTask = async ({ config = {}, running }: CreateTaskOptions = {}) => {
   return t;
 };
 
-const renderToolbar = async (): Promise<{ store: TestStore }> => {
+const renderToolbar = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  const seeded = await seedSelectedPanel(wrapper, store, client);
   render(
     <Task.RegistryProvider registry={Task.REGISTRY}>
       {Task.TOOLBAR.content}
@@ -79,8 +83,23 @@ const renderToolbar = async (): Promise<{ store: TestStore }> => {
     </Task.RegistryProvider>,
     { wrapper },
   );
-  return { store };
+  return { seeded, store };
 };
+
+const awaitViewTab = async (
+  seeded: SeededPanel,
+  type: string,
+): Promise<record.Unknown> =>
+  await waitFor(() => {
+    const doc = seeded.fluxStore.panels.get(seeded.panelKey);
+    assertDefined(doc, "panel doc missing from flux store");
+    if (doc.root.variant !== "leaf") throw new Error("panel root is not a leaf");
+    const tab = doc.root.tabs.find(
+      (t): t is panel.TabView => t.variant === "view" && t.type === type,
+    );
+    assertDefined(tab, `no ${type} view tab was opened`);
+    return tab.args;
+  });
 
 const openContextMenu = async (name: string): Promise<void> => {
   fireEvent.contextMenu(await screen.findByText(name));
@@ -107,29 +126,30 @@ describe("task/Toolbar", () => {
     );
   });
 
-  it("places the task selector layout from the create action", async () => {
-    const { store } = await renderToolbar();
+  it("opens the task selector view from the create action", async () => {
+    const { seeded } = await renderToolbar();
     await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(getIconButton(document.body, "add"));
-    await waitForPlacedLayout(store, CommonTask.SELECTOR_LAYOUT_TYPE);
+    const args = await awaitViewTab(seeded, "selector");
+    expect(args).toEqual({ variant: "task" });
   });
 
-  it("opens the task's configuration layout on double click", async () => {
+  it("opens the task's configuration view on double click", async () => {
     const t = await createTask();
-    const { store } = await renderToolbar();
+    const { seeded } = await renderToolbar();
     fireEvent.doubleClick(await screen.findByText(t.name));
-    const key = await waitForPlacedLayout(store, NI.Task.ANALOG_READ_TYPE);
-    expect(key).toBe(t.key);
+    const args = await awaitViewTab(seeded, NI.Task.ANALOG_READ_TYPE);
+    expect(args).toEqual({ taskKey: t.key });
   });
 
   describe("context menu", () => {
-    it("opens the configuration layout from Edit configuration", async () => {
+    it("opens the configuration view from Edit configuration", async () => {
       const t = await createTask();
-      const { store } = await renderToolbar();
+      const { seeded } = await renderToolbar();
       await openContextMenu(t.name);
       fireEvent.click(await screen.findByText("Edit configuration"));
-      const key = await waitForPlacedLayout(store, NI.Task.ANALOG_READ_TYPE);
-      expect(key).toBe(t.key);
+      const args = await awaitViewTab(seeded, NI.Task.ANALOG_READ_TYPE);
+      expect(args).toEqual({ taskKey: t.key });
     });
 
     it("issues a start command for a stopped task", async () => {

@@ -7,26 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Arc } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Arc, Panel as PPanel } from "@synnaxlabs/pluto";
 
 import { Graph } from "@/feature/arc/editor/toolbar/graph";
 import { Text } from "@/feature/arc/editor/toolbar/text";
-import { useExport } from "@/feature/arc/export";
+import { type Panel } from "@/platform/panel";
 
-const Internal = (): ReactElement | null => {
-  const mode = Arc.useSelectMode();
-  const handleExport = useExport();
-  const C = mode === "text" ? Text.Toolbar : Graph.Toolbar;
-  return <C onExport={handleExport} />;
+export const Toolbar: Panel.Toolbar = () => {
+  const { key } = PPanel.useSelectTabResource();
+  const mode = Arc.useSelectMode({ key });
+  return (
+    <Arc.Suspended arcKey={key}>
+      {mode === "text" ? <Text.Toolbar /> : <Graph.Toolbar />}
+    </Arc.Suspended>
+  );
 };
-
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Arc.Suspended arcKey={layoutKey}>
-    <Internal />
-  </Arc.Suspended>
-);

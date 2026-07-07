@@ -10,35 +10,27 @@
 import { arc } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { EXPLORER_LAYOUT } from "@/feature/arc/Explorer";
 import { Arc } from "@/platform/arc";
 import { Palette } from "@/platform/palette";
+
+import { Explorer } from "./explorer";
 
 const useCreateVisible = () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
 const useViewVisible = () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
 
-const COMMAND_NAME = "Create an Arc automation";
+export const CreateCommand = Palette.createCommand({
+  key: "create_arc",
+  name: "Create an Arc Automation",
+  icon: <Icon.Arc />,
+  useOnSelect: Arc.useCreate,
+  useVisible: useCreateVisible,
+});
 
-export const CreateCommand: Palette.Command = ({ rename, ...listProps }) => {
-  const create = Arc.useCreate();
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name={COMMAND_NAME}
-      icon={<Icon.Arc />}
-      onSelect={create}
-    />
-  );
-};
-CreateCommand.key = "create_arc";
-CreateCommand.commandName = COMMAND_NAME;
-CreateCommand.useVisible = useCreateVisible;
-
-export const OpenExplorerCommand = Palette.createSimpleCommand({
+export const OpenExplorerCommand = Palette.createCommand({
   key: "open_arc_explorer",
   name: "Open the Arc Explorer",
   icon: <Icon.Explore />,
-  layout: EXPLORER_LAYOUT,
+  useOnSelect: Explorer.useOpenTab,
   useVisible: useViewVisible,
 });
 

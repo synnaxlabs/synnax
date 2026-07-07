@@ -11,8 +11,8 @@ import { ontology, task } from "@synnaxlabs/client";
 import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
-import { createLayout, retrieveAndPlaceLayout } from "@/feature/task/layouts";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
+import { retrieveAndOpenTab } from "@/feature/task/views";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
@@ -25,7 +25,7 @@ import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
-  placeLayout,
+  openTab,
   client,
   handleError,
 }) => {
@@ -33,7 +33,7 @@ const handleSelect: Ontology.HandleSelect = ({
   const key = selection[0].id.key;
   const name = selection[0].name;
   handleError(
-    async () => await retrieveAndPlaceLayout(client, key, placeLayout),
+    async () => await retrieveAndOpenTab(client, key, openTab),
     `Could not open ${name}`,
   );
 };
@@ -42,28 +42,12 @@ const useDelete = Ontology.createUseDelete({
   type: "Task",
   query: Base.useDelete,
   convertKey: String,
-  beforeUpdate: async ({ data, removeLayout }) => {
-    removeLayout(...data);
-    return data;
-  },
 });
 
 export const useRename = Ontology.createUseRename({
   query: Base.useRename,
   ontologyID: task.ontologyID,
   convertKey: String,
-  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
-    const { key, name } = data;
-    const layout = Session.Layout.selectByFilter(
-      store.getState(),
-      (l) => (l.args as PlatformTask.FormLayoutArgs)?.taskKey === key,
-    );
-    if (layout != null) {
-      store.dispatch(Session.Layout.rename({ key: layout.key, name }));
-      rollbacks.push(() => Session.Layout.rename({ key: layout.key, name: oldName }));
-    }
-    return { ...data, name };
-  },
 });
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -162,20 +146,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
-  client,
-  id,
-  placeLayout,
-  nodeKey,
-  location,
-  handleError,
-}) =>
-  handleError(async () => {
-    const task = await client.tasks.retrieve({ key: id.key });
-    const layout = createLayout(task);
-    placeLayout({ ...layout, tab: { mosaicKey: nodeKey, location } });
-  }, "Failed to load task layout");
-
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "task",
@@ -183,6 +153,5 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   hasChildren: false,
   onSelect: handleSelect,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
-  onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

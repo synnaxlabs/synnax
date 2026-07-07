@@ -8,7 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
+import { renderHook } from "@testing-library/react";
+import {
+  createElement,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+} from "react";
+import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/session/schematic";
@@ -28,95 +37,101 @@ describe("Schematic Slice", () => {
     store = storeWith(Schematic.ZERO_SLICE_STATE);
   });
 
-  const select = <R>(
-    selector: (params: Schematic.KeyedSelectorParams) => R,
+  const wrapper: FC<PropsWithChildren> = ({ children }): ReactElement =>
+    createElement(Provider, { store, children });
+
+  const read = <R>(
+    useGetter: () => (args?: { key?: schematic.Key }) => R,
     key: string = KEY,
-  ): R => selector({ state: store.getState(), key });
+  ): R => {
+    const { result } = renderHook(useGetter, { wrapper });
+    return result.current({ key });
+  };
+
+  const schematics = () => store.getState()[Schematic.SLICE_NAME].schematics;
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
-      expect(select(Schematic.selectState)).toEqual(Schematic.ZERO_STATE);
+      store.dispatch(Schematic.create({ key: KEY }));
+      expect(read(Schematic.useGet)).toEqual(Schematic.ZERO_STATE);
     });
 
     it("should create multiple schematics independently", () => {
-      store.dispatch(Schematic.internalCreate({ key: "schematic-1" }));
-      store.dispatch(Schematic.internalCreate({ key: "schematic-2" }));
-      expect(
-        Object.keys(Schematic.selectSliceState(store.getState()).schematics),
-      ).toHaveLength(2);
+      store.dispatch(Schematic.create({ key: "schematic-1" }));
+      store.dispatch(Schematic.create({ key: "schematic-2" }));
+      expect(Object.keys(schematics())).toHaveLength(2);
     });
 
     it("should apply provided fields over the defaults", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY, editable: true }));
-      expect(select(Schematic.selectEditable)).toBe(true);
+      store.dispatch(Schematic.create({ key: KEY, editable: true }));
+      expect(read(Schematic.useGetEditable)).toBe(true);
     });
 
     it("should not overwrite an existing entry", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: true }));
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
-      expect(select(Schematic.selectEditable)).toBe(true);
+      store.dispatch(Schematic.create({ key: KEY }));
+      expect(read(Schematic.useGetEditable)).toBe(true);
     });
   });
 
   describe("setSelected", () => {
     it("should set the selected elements", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a", "b"] }));
-      expect(select(Schematic.selectSelected)).toEqual(["a", "b"]);
+      expect(read(Schematic.useGetSelected)).toEqual(["a", "b"]);
     });
 
     it("should switch the toolbar to properties when something is selected", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
-      expect(select(Schematic.selectActiveToolbarTab)).toBe("properties");
+      expect(read(Schematic.useGetActiveToolbarTab)).toBe("properties");
     });
 
     it("should switch the toolbar back to symbols when nothing is selected", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: [] }));
-      expect(select(Schematic.selectActiveToolbarTab)).toBe("symbols");
+      expect(read(Schematic.useGetActiveToolbarTab)).toBe("symbols");
     });
 
     it("should lazily create the entry when the key does not exist", () => {
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
-      expect(select(Schematic.selectSelected)).toEqual(["a"]);
+      expect(read(Schematic.useGetSelected)).toEqual(["a"]);
     });
   });
 
   describe("setControlStatus", () => {
     it("should set the control status", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setControlStatus({ key: KEY, status: "acquired" }));
-      expect(select(Schematic.selectControlStatus)).toBe("acquired");
+      expect(read(Schematic.useGetControlStatus)).toBe("acquired");
     });
 
     it("should clear the selection and disable editing when control is acquired", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: true }));
       store.dispatch(Schematic.setControlStatus({ key: KEY, status: "acquired" }));
-      expect(select(Schematic.selectSelected)).toEqual([]);
-      expect(select(Schematic.selectEditable)).toBe(false);
+      expect(read(Schematic.useGetSelected)).toEqual([]);
+      expect(read(Schematic.useGetEditable)).toBe(false);
     });
 
     it("should not touch selection or editing for non-acquired statuses", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: true }));
       store.dispatch(Schematic.setControlStatus({ key: KEY, status: "released" }));
-      expect(select(Schematic.selectSelected)).toEqual(["a"]);
-      expect(select(Schematic.selectEditable)).toBe(true);
+      expect(read(Schematic.useGetSelected)).toEqual(["a"]);
+      expect(read(Schematic.useGetEditable)).toBe(true);
     });
   });
 
   describe("setControlAuthority", () => {
     it("should set the control authority", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setControlAuthority({ key: KEY, authority: 200 }));
-      expect(select(Schematic.selectAuthority)).toBe(200);
+      expect(read(Schematic.useGetAuthority)).toBe(200);
     });
   });
 
@@ -128,81 +143,81 @@ describe("Schematic Slice", () => {
         root: { x: "left", y: "top" },
         units: { x: "px", y: "px" },
       } as const;
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.moveLegend({ key: KEY, position }));
-      expect(select(Schematic.selectLegend).position).toEqual(position);
+      expect(read(Schematic.useGetLegend).position).toEqual(position);
     });
 
     it("should set the legend colors", () => {
       const colors = { a: color.ZERO };
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setLegendColors({ key: KEY, colors }));
-      expect(select(Schematic.selectLegend).colors).toEqual(colors);
+      expect(read(Schematic.useGetLegend).colors).toEqual(colors);
     });
 
     it("should set the legend visibility", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setLegendVisible({ key: KEY, visible: false }));
-      expect(select(Schematic.selectLegendVisible)).toBe(false);
+      expect(read(Schematic.useGetLegendVisible)).toBe(false);
     });
   });
 
   describe("toolbar", () => {
     it("should set the active toolbar tab", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.selectToolbarTab({ key: KEY, tab: "properties" }));
-      expect(select(Schematic.selectActiveToolbarTab)).toBe("properties");
+      expect(read(Schematic.useGetActiveToolbarTab)).toBe("properties");
     });
 
     it("should set the selected symbol group", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelectedSymbolGroup({ key: KEY, group: "valves" }));
-      expect(select(Schematic.selectSelectedSymbolGroup)).toBe("valves");
+      expect(read(Schematic.useGetSelectedSymbolGroup)).toBe("valves");
     });
   });
 
   describe("setEditable", () => {
     it("should enable editing", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: true }));
-      expect(select(Schematic.selectEditable)).toBe(true);
+      expect(read(Schematic.useGetEditable)).toBe(true);
     });
 
     it("should clear the selection when editing is disabled", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: false }));
-      expect(select(Schematic.selectSelected)).toEqual([]);
+      expect(read(Schematic.useGetSelected)).toEqual([]);
     });
   });
 
   describe("setFitViewOnResize", () => {
     it("should set fit view on resize", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setFitViewOnResize({ key: KEY, fitViewOnResize: true }));
-      expect(select(Schematic.selectFitViewOnResize)).toBe(true);
+      expect(read(Schematic.useGetFitViewOnResize)).toBe(true);
     });
   });
 
   describe("viewport", () => {
     it("should merge the viewport over the existing one", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(
         Schematic.setViewport({
           key: KEY,
           viewport: { position: { x: 10, y: 20 }, zoom: 3 },
         }),
       );
-      const viewport = select(Schematic.selectViewport);
+      const viewport = read(Schematic.useGetViewport);
       expect(viewport.position).toEqual({ x: 10, y: 20 });
       expect(viewport.zoom).toBe(3);
       expect(viewport.mode).toBe(Schematic.ZERO_STATE.viewport.mode);
     });
 
     it("should set the viewport mode without touching position or zoom", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setViewportMode({ key: KEY, mode: "pan" }));
-      const viewport = select(Schematic.selectViewport);
+      const viewport = read(Schematic.useGetViewport);
       expect(viewport.mode).toBe("pan");
       expect(viewport.position).toEqual(Schematic.ZERO_STATE.viewport.position);
     });
@@ -210,26 +225,22 @@ describe("Schematic Slice", () => {
 
   describe("remove", () => {
     it("should remove a schematic by key", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.remove({ keys: [KEY] }));
-      expect(
-        Schematic.selectSliceState(store.getState()).schematics[KEY],
-      ).toBeUndefined();
+      expect(schematics()[KEY]).toBeUndefined();
     });
 
     it("should remove multiple schematics at once", () => {
-      store.dispatch(Schematic.internalCreate({ key: "schematic-1" }));
-      store.dispatch(Schematic.internalCreate({ key: "schematic-2" }));
+      store.dispatch(Schematic.create({ key: "schematic-1" }));
+      store.dispatch(Schematic.create({ key: "schematic-2" }));
       store.dispatch(Schematic.remove({ keys: ["schematic-1", "schematic-2"] }));
-      expect(
-        Object.keys(Schematic.selectSliceState(store.getState()).schematics),
-      ).toHaveLength(0);
+      expect(Object.keys(schematics())).toHaveLength(0);
     });
 
     it("should ignore keys that do not exist", () => {
-      store.dispatch(Schematic.internalCreate({ key: KEY }));
+      store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.remove({ keys: ["absent"] }));
-      expect(select(Schematic.selectState)).toEqual(Schematic.ZERO_STATE);
+      expect(read(Schematic.useGet)).toEqual(Schematic.ZERO_STATE);
     });
   });
 
@@ -277,12 +288,12 @@ describe("Schematic Slice", () => {
         },
       };
       const purged = Schematic.purgeSliceState(state);
-      expect(
-        purged[Schematic.SLICE_NAME].schematics["schematic-1"].control.status,
-      ).toBe("released");
-      expect(
-        purged[Schematic.SLICE_NAME].schematics["schematic-2"].control.status,
-      ).toBe("released");
+      expect(purged[Schematic.SLICE_NAME].schematics["schematic-1"].control.status).toBe(
+        "released",
+      );
+      expect(purged[Schematic.SLICE_NAME].schematics["schematic-2"].control.status).toBe(
+        "released",
+      );
     });
   });
 });

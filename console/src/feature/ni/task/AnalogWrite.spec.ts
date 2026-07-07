@@ -101,7 +101,7 @@ describe("AnalogWrite", () => {
   describe("configure against a live cluster", () => {
     it("should create command and state channels and update the device", async () => {
       const dev = await createNIDevice(client);
-      const { store, layoutKey } = await renderAnalogWrite({
+      const rendered = await renderAnalogWrite({
         config: createConfig(
           [
             createChannel("ao_voltage", 0, {
@@ -113,7 +113,7 @@ describe("AnalogWrite", () => {
         ),
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
@@ -152,7 +152,7 @@ describe("AnalogWrite", () => {
       const dev = await createNIDevice(client);
       const cmdName = uniqueName("ao_cmd");
       const stateName = uniqueName("ao_state");
-      const { store, layoutKey } = await renderAnalogWrite({
+      const rendered = await renderAnalogWrite({
         config: createConfig(
           [
             createChannel("ao_voltage", 0, {
@@ -164,7 +164,7 @@ describe("AnalogWrite", () => {
         ),
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
@@ -180,7 +180,7 @@ describe("AnalogWrite", () => {
 
     it("should reuse existing channels when reconfigured", async () => {
       const dev = await createNIDevice(client);
-      const { store, layoutKey } = await renderAnalogWrite({
+      const rendered = await renderAnalogWrite({
         config: createConfig(
           [
             createChannel("ao_voltage", 0, {
@@ -192,7 +192,7 @@ describe("AnalogWrite", () => {
         ),
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const first = await client.tasks.retrieve({
         key: taskKey,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,

@@ -7,18 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ContextMenu } from "@/feature/lineplot/ContextMenu";
+import { lineplot } from "@synnaxlabs/client";
+
 import { extract } from "@/feature/lineplot/export";
 import { ingest } from "@/feature/lineplot/import";
 import { LinePlot } from "@/feature/lineplot/LinePlot";
 import { Selectable } from "@/feature/lineplot/Selectable";
+import { TabName } from "@/feature/lineplot/TabName";
+import { Toolbar } from "@/feature/lineplot/toolbar";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
-import { type Layout } from "@/platform/layout";
-import { LinePlot as PlatformLinePlot } from "@/platform/lineplot";
+import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/lineplot/import";
+export * from "@/feature/lineplot/LinePlot";
 export * from "@/feature/lineplot/link";
 export * from "@/feature/lineplot/ontology";
 export * from "@/feature/lineplot/palette";
@@ -26,20 +29,20 @@ export * from "@/feature/lineplot/toolbar";
 export * from "@/feature/lineplot/useTriggerHold";
 export * from "@/platform/lineplot/external";
 
-export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
-  [PlatformLinePlot.LAYOUT_TYPE]: ContextMenu,
-};
+const TAB_TYPE = lineplot.TYPE_ONTOLOGY_ID.type;
 
-export const EXTRACTORS: Export.Extractors = {
-  [PlatformLinePlot.LAYOUT_TYPE]: extract,
-};
+export const EXTRACTORS: Export.Extractors = { [TAB_TYPE]: extract };
 
-export const FILE_INGESTERS: Import.FileIngesters = {
-  [PlatformLinePlot.LAYOUT_TYPE]: ingest,
-};
-
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [PlatformLinePlot.LAYOUT_TYPE]: LinePlot,
-};
+export const FILE_INGESTERS: Import.FileIngesters = { [TAB_TYPE]: ingest };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
+
+const TAB: Panel.Tab = {
+  Content: LinePlot,
+  Toolbar,
+  Name: TabName,
+};
+
+export const TABS: Panel.Tabs = {
+  [TAB_TYPE]: TAB,
+};

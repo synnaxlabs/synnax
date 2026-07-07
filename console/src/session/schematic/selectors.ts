@@ -10,6 +10,8 @@
 import { schematic } from "@synnaxlabs/client";
 import { Access, type Control, Schematic } from "@synnaxlabs/pluto";
 import { type control, type record } from "@synnaxlabs/x";
+import { useCallback } from "react";
+import { useStore } from "react-redux";
 
 import {
   type LegendState,
@@ -24,7 +26,7 @@ import {
 } from "@/session/schematic/slice";
 import { Select } from "@/session/select";
 
-export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
+const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export interface KeyedSelectorParams extends record.Keyed<schematic.Key> {
   state: StoreState;
@@ -35,70 +37,98 @@ const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
     Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
   );
 
+const createGetter =
+  <R>(selector: (params: KeyedSelectorParams) => R) =>
+  (): ((args?: { key?: schematic.Key }) => R) => {
+    const store = useStore<StoreState>();
+    const scopeKey = Schematic.Scope.useOptional();
+    return useCallback(
+      (args) =>
+        selector({
+          state: store.getState(),
+          key: (args?.key ?? scopeKey) as schematic.Key,
+        }),
+      [store, scopeKey],
+    );
+  };
+
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>
   selectSliceState(state).schematics[key] ?? ZERO_STATE;
 
 export const useSelect = createSelector(selectState);
+export const useGet = createGetter(selectState);
 
-export const selectSelected = (params: KeyedSelectorParams): string[] =>
+const selectSelected = (params: KeyedSelectorParams): string[] =>
   selectState(params)?.selected;
 
 export const useSelectSelected = createSelector(selectSelected);
+export const useGetSelected = createGetter(selectSelected);
 
-export const selectControlStatus = (params: KeyedSelectorParams): Control.Status =>
+const selectControlStatus = (params: KeyedSelectorParams): Control.Status =>
   selectState(params).control.status;
 
 export const useSelectControlStatus = createSelector(selectControlStatus);
+export const useGetControlStatus = createGetter(selectControlStatus);
 
-export const selectControlIsAcquired = (params: KeyedSelectorParams): boolean =>
+const selectControlIsAcquired = (params: KeyedSelectorParams): boolean =>
   selectControlStatus(params) === "acquired";
 
 export const useSelectControlIsAcquired = createSelector(selectControlIsAcquired);
+export const useGetControlIsAcquired = createGetter(selectControlIsAcquired);
 
-export const selectAuthority = (params: KeyedSelectorParams): control.Authority =>
+const selectAuthority = (params: KeyedSelectorParams): control.Authority =>
   selectState(params).control.authority;
 
 export const useSelectAuthority = createSelector(selectAuthority);
-
-export const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
-  selectToolbar(params).selectedTab;
-
-export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
+export const useGetAuthority = createGetter(selectAuthority);
 
 export const selectToolbar = (params: KeyedSelectorParams): ToolbarState =>
   selectState(params).toolbar;
 
 export const useSelectToolbar = createSelector(selectToolbar);
+export const useGetToolbar = createGetter(selectToolbar);
+
+const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
+  selectToolbar(params).selectedTab;
+
+export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
+export const useGetActiveToolbarTab = createGetter(selectActiveToolbarTab);
 
 export const selectSelectedSymbolGroup = (params: KeyedSelectorParams): string =>
   selectToolbar(params).selectedSymbolGroup;
 
 export const useSelectSelectedSymbolGroup = createSelector(selectSelectedSymbolGroup);
+export const useGetSelectedSymbolGroup = createGetter(selectSelectedSymbolGroup);
 
 export const selectLegend = (params: KeyedSelectorParams): LegendState =>
   selectState(params).legend;
 
 export const useSelectLegend = createSelector(selectLegend);
+export const useGetLegend = createGetter(selectLegend);
 
-export const selectLegendVisible = (params: KeyedSelectorParams): boolean =>
+const selectLegendVisible = (params: KeyedSelectorParams): boolean =>
   selectState(params).legend.visible;
 
 export const useSelectLegendVisible = createSelector(selectLegendVisible);
+export const useGetLegendVisible = createGetter(selectLegendVisible);
 
 export const selectEditable = (params: KeyedSelectorParams): boolean =>
   selectState(params).editable;
 
 const useSelectEditableBase = createSelector(selectEditable);
+export const useGetEditable = createGetter(selectEditable);
 
-export const selectFitViewOnResize = (params: KeyedSelectorParams): boolean =>
+const selectFitViewOnResize = (params: KeyedSelectorParams): boolean =>
   selectState(params).fitViewOnResize;
 
 export const useSelectFitViewOnResize = createSelector(selectFitViewOnResize);
+export const useGetFitViewOnResize = createGetter(selectFitViewOnResize);
 
-export const selectViewport = (params: KeyedSelectorParams): Viewport =>
+const selectViewport = (params: KeyedSelectorParams): Viewport =>
   selectState(params).viewport;
 
 export const useSelectViewport = createSelector(selectViewport);
+export const useGetViewport = createGetter(selectViewport);
 
 export interface UseSelectEditableReturn {
   isCurrentlyEditable: boolean;

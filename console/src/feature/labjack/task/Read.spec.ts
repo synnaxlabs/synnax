@@ -22,7 +22,7 @@ import {
   awaitTaskKey,
   clickConfigure,
   findDialogTriggerByText,
-  renderTaskFormLayout,
+  renderTaskFormView,
 } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
 
@@ -31,7 +31,7 @@ const client = createTestClient();
 stubGeometry();
 
 const renderRead = async (args = {}) =>
-  await renderTaskFormLayout(LabJack.Task.Read, LabJack.Task.READ_TYPE, {
+  await renderTaskFormView(LabJack.Task.Read, LabJack.Task.READ_TYPE, {
     client,
     args,
   });
@@ -132,14 +132,14 @@ describe("LabJack Read", () => {
     it("should create the index and data channels, update the device, and save the task", async () => {
       const dev = await createLabJackDevice(client);
       const namedChannel = uniqueName("lj_named");
-      const { store, layoutKey } = await renderRead({
+      const rendered = await renderRead({
         config: createConfig(dev.key, [
           createAIChannel("AIN0"),
           createDIChannel("DIO8", { name: namedChannel }),
         ]),
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: LabJack.Task.READ_SCHEMAS,
@@ -175,7 +175,7 @@ describe("LabJack Read", () => {
       const config = createConfig(dev.key, [createAIChannel("AIN0")]);
       const first = await renderRead({ config });
       await clickConfigure();
-      const firstKey = await awaitTaskKey(first.store, first.layoutKey);
+      const firstKey = await awaitTaskKey(first);
       const firstTask = await client.tasks.retrieve({
         key: firstKey,
         schemas: LabJack.Task.READ_SCHEMAS,
@@ -184,7 +184,7 @@ describe("LabJack Read", () => {
 
       const second = await renderRead({ config });
       await clickConfigure();
-      const secondKey = await awaitTaskKey(second.store, second.layoutKey);
+      const secondKey = await awaitTaskKey(second);
       const secondTask = await client.tasks.retrieve({
         key: secondKey,
         schemas: LabJack.Task.READ_SCHEMAS,
@@ -198,11 +198,11 @@ describe("LabJack Read", () => {
       const dev = await createLabJackDevice(client, {
         properties: { readIndex: 999999999 },
       });
-      const { store, layoutKey } = await renderRead({
+      const rendered = await renderRead({
         config: createConfig(dev.key, [createAIChannel("AIN0")]),
       });
       await clickConfigure();
-      await awaitTaskKey(store, layoutKey);
+      await awaitTaskKey(rendered);
       const updated = await client.devices.retrieve({
         key: dev.key,
         schemas: LabJack.Device.SCHEMAS,

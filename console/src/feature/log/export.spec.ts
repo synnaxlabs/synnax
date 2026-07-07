@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, DisconnectedError } from "@synnaxlabs/client";
+import { createTestClient, DisconnectedError, log } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
@@ -23,17 +23,17 @@ describe("log extractor", () => {
     });
     const l = await client.logs.create(project.key, { name: uniqueName("log") });
     const store = await createTestStore();
-    const extract = Log.EXTRACTORS[Log.LAYOUT_TYPE];
+    const extract = Log.EXTRACTORS[log.TYPE_ONTOLOGY_ID.type];
     const { data, name } = await extract(l.key, { client, store });
     expect(name).toBe(l.name);
     const parsed = JSON.parse(data);
-    expect(parsed).toMatchObject({ key: l.key, type: Log.LAYOUT_TYPE });
+    expect(parsed).toMatchObject({ key: l.key, type: log.TYPE_ONTOLOGY_ID.type });
     expect(parsed.version).toBe("2.0.0");
   });
 
   it("should reject with a disconnected error when no client exists", async () => {
     const store = await createTestStore();
-    const extract = Log.EXTRACTORS[Log.LAYOUT_TYPE];
+    const extract = Log.EXTRACTORS[log.TYPE_ONTOLOGY_ID.type];
     await expect(extract("some_key", { client: null, store })).rejects.toSatisfy((e) =>
       DisconnectedError.matches(e),
     );

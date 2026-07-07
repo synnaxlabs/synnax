@@ -7,21 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
+import { DisconnectedError, table } from "@synnaxlabs/client";
 
 import { Export } from "@/platform/export";
-import { Table } from "@/platform/table";
-import { Session } from "@/session";
 
 export const VERSION = "1.0.0";
 
-export const extract: Export.Extractor = async (key, { store, client }) => {
-  const name = Session.Layout.select(store.getState(), key)?.name;
+export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
   const t = await client.tables.retrieve({ key });
   return {
-    data: JSON.stringify({ ...t, type: Table.LAYOUT_TYPE, version: VERSION }),
-    name: name ?? t.name,
+    data: JSON.stringify({ ...t, type: table.TYPE_ONTOLOGY_ID.type, version: VERSION }),
+    name: t.name,
   };
 };
 

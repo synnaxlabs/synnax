@@ -13,21 +13,12 @@ import { Access, Table } from "@synnaxlabs/pluto";
 import { Palette } from "@/platform/palette";
 import { Table as PlatformTable } from "@/platform/table";
 
-const COMMAND_NAME = "Create a table";
-
-const CreateCommand: Palette.Command = (listProps) => {
-  const create = PlatformTable.useCreate({});
-  return (
-    <Palette.CommandListItem
-      {...listProps}
-      name={COMMAND_NAME}
-      icon={<Table.CreateIcon />}
-      onSelect={create}
-    />
-  );
-};
-CreateCommand.key = "create_table";
-CreateCommand.commandName = COMMAND_NAME;
-CreateCommand.useVisible = () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
+const CreateCommand = Palette.createCommand({
+  key: "create_table",
+  name: "Create a table",
+  icon: <Table.CreateIcon />,
+  useOnSelect: PlatformTable.useCreate,
+  useVisible: () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID),
+});
 
 export const COMMANDS = [CreateCommand];

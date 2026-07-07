@@ -12,22 +12,27 @@ import {
   createTestClient,
   DataType,
   group,
+  lineplot,
   NotFoundError,
   ontology,
+  project,
 } from "@synnaxlabs/client";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { type Layout } from "@/platform/layout";
-import { placeLayout } from "@/platform/layout/testutil";
 import { findButton } from "@/platform/modals/testutil";
-import { createBaseProps, createResource } from "@/platform/ontology/testutil";
+import {
+  createBaseProps,
+  createExecutingHandleError,
+  createResource,
+} from "@/platform/ontology/testutil";
 import {
   openTreeRowContextMenu,
   renderOntologyTree,
 } from "@/platform/ontology/treeTestutil";
+import { type Panel } from "@/platform/panel";
 import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import {
@@ -100,60 +105,71 @@ describe("channel/ontology", () => {
   });
 
   describe("onSelect", () => {
-    it("creates a line plot for the selection when no plot is active", async () => {
+    it("creates a line plot for the selection when no plot is focused", async () => {
       const ch = await createChannel();
-      const project = await client.projects.create({
+      const proj = await client.projects.create({
         name: uniqueName("proj"),
         layout: {},
       });
       const store = await createTestStore();
-      store.dispatch(Session.Project.select(project.key));
-      const place = vi.fn((_: Layout.PlacerArgs) => ({ windowKey: "", key: "" }));
+      store.dispatch(Session.Project.select(proj.key));
+      const openTab = vi.fn<Panel.OpenTab>();
       Channel.ONTOLOGY_SERVICE.onSelect?.({
         ...createBaseProps({
           client,
           store,
-          overrides: {
-            placeLayout: place,
-            handleError: (exc) => {
-              if (typeof exc === "function") void exc();
-            },
-          },
+          overrides: { openTab, handleError: createExecutingHandleError() },
         }),
         selection: [await retrieveResource(ch.key)],
       });
-      await waitFor(() => expect(place).toHaveBeenCalledTimes(1));
-      const [arg] = place.mock.calls[0];
-      if (typeof arg !== "function") throw new Error("expected a layout creator");
-      const layout = arg({
-        dispatch: store.dispatch,
-        store,
-        windowKey: MAIN_WINDOW,
-      });
-      expect(layout.type).toBe("lineplot");
-      expect(layout.name).toBe("Line Plot");
+      await waitFor(() => expect(openTab).toHaveBeenCalledTimes(1));
+      const [spec] = openTab.mock.calls[0];
+      if (!("resource" in spec)) throw new Error("expected a resource tab spec");
+      expect(spec.resource.type).toBe("lineplot");
+      const plot = await client.lineplots.retrieve({ key: spec.resource.key });
+      expect(plot.name).toBe("Line Plot");
+      expect(plot.channels.y1).toContain(ch.key);
     });
 
-    it("adds the selection to the active line plot", async () => {
+    it("adds the selection to the focused line plot", async () => {
       const ch = await createChannel();
-      const project = await client.projects.create({
+      const proj = await client.projects.create({
         name: uniqueName("proj"),
         layout: {},
       });
-      const plot = await client.lineplots.create(project.key, {
+      const plot = await client.lineplots.create(proj.key, {
         name: uniqueName("plot"),
       });
+      const tabKey = uuid.create();
+      const pan = await client.panels.create({
+        name: uniqueName("panel"),
+        parent: project.ontologyID(proj.key),
+        root: {
+          variant: "leaf",
+          tabs: [
+            {
+              variant: "resource",
+              key: tabKey,
+              resource: lineplot.ontologyID(plot.key),
+            },
+          ],
+        },
+      });
       const store = await createTestStore();
-      placeLayout(store, plot.key, { type: "lineplot" });
+      store.dispatch(Session.Project.select(proj.key));
+      store.dispatch(Session.Panel.select({ key: pan.key }));
+      store.dispatch(
+        Session.Panel.internalSelectTab({
+          key: pan.key,
+          tabKey,
+          otherTabKeys: [tabKey],
+        }),
+      );
       Channel.ONTOLOGY_SERVICE.onSelect?.({
         ...createBaseProps({
           client,
           store,
-          overrides: {
-            handleError: (exc) => {
-              if (typeof exc === "function") void exc();
-            },
-          },
+          overrides: { handleError: createExecutingHandleError() },
         }),
         selection: [await retrieveResource(ch.key)],
       });
@@ -166,24 +182,23 @@ describe("channel/ontology", () => {
     it("does nothing for virtual channels without an expression", async () => {
       const ch = await createChannel({ isIndex: false, virtual: true });
       const store = await createTestStore();
-      const place = vi.fn((_: Layout.PlacerArgs) => ({ windowKey: "", key: "" }));
+      const openTab = vi.fn<Panel.OpenTab>();
       const errors: unknown[] = [];
       Channel.ONTOLOGY_SERVICE.onSelect?.({
         ...createBaseProps({
           client,
           store,
           overrides: {
-            placeLayout: place,
-            handleError: (exc) => {
-              errors.push(exc);
-              if (typeof exc === "function") void exc();
-            },
+            openTab,
+            handleError: createExecutingHandleError((message, exc) =>
+              errors.push([message, exc]),
+            ),
           },
         }),
         selection: [await retrieveResource(ch.key)],
       });
       expect(errors).toHaveLength(0);
-      expect(place).not.toHaveBeenCalled();
+      expect(openTab).not.toHaveBeenCalled();
     });
   });
 

@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, DisconnectedError } from "@synnaxlabs/client";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import {
+  arc as clientArc,
+  createTestClient,
+  DisconnectedError,
+} from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
-import { Session } from "@/session";
 import { createTestStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -31,26 +33,9 @@ describe("arc extract", () => {
     const result = await Arc.extract(arc.key, { store, client });
     expect(result.name).toBe(arc.name);
     const data = JSON.parse(result.data);
-    expect(data.type).toBe(Arc.EDITOR_LAYOUT_TYPE);
+    expect(data.type).toBe(clientArc.TYPE_ONTOLOGY_ID.type);
     expect(data.key).toBe(arc.key);
     expect(data.name).toBe(arc.name);
-  });
-
-  it("should prefer the open layout's name over the stored one", async () => {
-    const arc = await createArc();
-    const store = await createTestStore();
-    const layoutName = uniqueName("layout");
-    store.dispatch(
-      Session.Layout.place({
-        key: arc.key,
-        windowKey: MAIN_WINDOW,
-        type: Arc.EDITOR_LAYOUT_TYPE,
-        name: layoutName,
-        location: "mosaic",
-      }),
-    );
-    const result = await Arc.extract(arc.key, { store, client });
-    expect(result.name).toBe(layoutName);
   });
 
   it("should throw a DisconnectedError without a client", async () => {

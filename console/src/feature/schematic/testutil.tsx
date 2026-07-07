@@ -7,11 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, project, type schematic } from "@synnaxlabs/client";
-import { Haul, Schematic as PSchematic, Triggers } from "@synnaxlabs/pluto";
+import { createTestClient, panel, project, schematic } from "@synnaxlabs/client";
+import {
+  Flux,
+  Haul,
+  Panel as PlutoPanel,
+  Schematic as PSchematic,
+  Triggers,
+} from "@synnaxlabs/pluto";
 import { type aether } from "@synnaxlabs/pluto/ether";
-import { id } from "@synnaxlabs/x";
-import { act, render, screen, within } from "@testing-library/react";
+import { id, uuid } from "@synnaxlabs/x";
+import { act, render, renderHook, screen, within } from "@testing-library/react";
 import {
   type ComponentType,
   type FC,
@@ -86,6 +92,29 @@ const loadSchematic = async (
   await within(utils.container).findByTestId("loaded");
 };
 
+// seedResourceTab seeds a single-leaf panel holding one resource tab that backs the
+// given schematic into the wrapper's flux store, so the panel scope hooks a mounted
+// tab content reads (useSelectTabResource) resolve to the schematic's ontology ID.
+const seedResourceTab = (
+  Wrapper: FC<PropsWithChildren>,
+  key: string,
+): { panelKey: string; tabKey: string } => {
+  const tabKey = uuid.create();
+  const doc = panel.panelZ.parse({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root: {
+      variant: "leaf",
+      tabs: [{ variant: "resource", key: tabKey, resource: schematic.ontologyID(key) }],
+    },
+  });
+  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
+    wrapper: Wrapper,
+  });
+  act(() => void result.current.panels.set(doc));
+  return { panelKey: doc.key, tabKey };
+};
+
 export interface RenderSchematicOptions {
   schematic?: Partial<schematic.New>;
   sessionState?: Partial<Session.Schematic.State>;
@@ -94,12 +123,13 @@ export interface RenderSchematicOptions {
 }
 
 /**
- * renderSchematic creates a schematic on the server, mounts Component with the
- * schematic loaded into the flux cache and its Session state preloaded, and returns
- * the render result plus the Redux store and schematic.
+ * renderSchematic creates a schematic on the server, mounts Component inside the panel
+ * and tab scopes of a seeded resource tab (the way the mosaic renders a tab) with the
+ * schematic loaded into the flux cache and its Session state preloaded, and returns the
+ * render result plus the Redux store and schematic.
  */
 export const renderSchematic = async (
-  Component: ComponentType<{ layoutKey: string }>,
+  Component: ComponentType,
   {
     schematic: overrides,
     sessionState,
@@ -113,11 +143,14 @@ export const renderSchematic = async (
     additionalRegistry,
   });
   await loadSchematic(Wrapper, created.key);
+  const { panelKey, tabKey } = seedResourceTab(Wrapper, created.key);
   const result = render(
-    <PSchematic.Scope.Provider value={created.key}>
-      <Component layoutKey={created.key} />
-      <Modals.Stack />
-    </PSchematic.Scope.Provider>,
+    <PlutoPanel.Scope.Provider value={panelKey}>
+      <PlutoPanel.TabScope.Provider value={tabKey}>
+        <Component />
+        <Modals.Stack />
+      </PlutoPanel.TabScope.Provider>
+    </PlutoPanel.Scope.Provider>,
     { wrapper: Wrapper },
   );
   return { key: created.key, schematic: created, result, store };

@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { table } from "@synnaxlabs/client";
+
 import { extract } from "@/feature/table/export";
 import { ingest } from "@/feature/table/import";
 import { Selectable } from "@/feature/table/Selectable";
 import { Table } from "@/feature/table/Table";
+import { TabName } from "@/feature/table/TabName";
+import { Toolbar } from "@/feature/table/Toolbar";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
-import { type Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
-import { Table as PlatformTable } from "@/platform/table";
 
 export * from "@/feature/table/import";
 export * from "@/feature/table/link";
@@ -24,14 +27,20 @@ export * from "@/feature/table/palette";
 export * from "@/feature/table/Toolbar";
 export * from "@/platform/table/external";
 
-export const EXTRACTORS: Export.Extractors = { [PlatformTable.LAYOUT_TYPE]: extract };
+const TAB_TYPE = table.TYPE_ONTOLOGY_ID.type;
 
-export const FILE_INGESTERS: Import.FileIngesters = {
-  [PlatformTable.LAYOUT_TYPE]: ingest,
-};
+export const EXTRACTORS: Export.Extractors = { [TAB_TYPE]: extract };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [PlatformTable.LAYOUT_TYPE]: Table,
-};
+export const FILE_INGESTERS: Import.FileIngesters = { [TAB_TYPE]: ingest };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
+
+const TAB: Panel.Tab = {
+  Content: Table,
+  Toolbar,
+  Name: TabName,
+};
+
+export const TABS: Panel.Tabs = {
+  [TAB_TYPE]: TAB,
+};

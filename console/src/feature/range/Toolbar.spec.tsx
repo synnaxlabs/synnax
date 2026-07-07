@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError, type ranger } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError, panel, ranger } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,7 +15,6 @@ import { describe, expect, it } from "vitest";
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { Range as CommonRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import {
@@ -23,11 +22,24 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   getIconButton,
+  selectTestProject,
   type TestStore,
-  waitForPlacedLayout,
+  waitForFocusedTab,
 } from "@/testutil";
 
 const client = createTestClient();
+
+const expectFocusedRange = async (store: TestStore, key: string): Promise<void> => {
+  const focusedTab = await waitForFocusedTab(store);
+  const panelKey = Session.Panel.selectSelected(store.getState());
+  if (panelKey == null) throw new Error("no panel selected");
+  const doc = await client.panels.retrieve(panelKey);
+  const tab = panel.findTab(doc.root, focusedTab);
+  if (tab == null || tab.variant !== "resource")
+    throw new Error("focused tab is not a range resource");
+  expect(tab.resource.type).toBe(ranger.TYPE_ONTOLOGY_ID.type);
+  expect(tab.resource.key).toBe(key);
+};
 
 const createLocalRangeState = (name: string): Session.Range.StaticState => {
   const start = TimeStamp.now();
@@ -53,6 +65,7 @@ const renderToolbar = async ({
   active,
 }: RenderToolbarOptions = {}): Promise<{ store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  await selectTestProject(store, client);
   render(
     <>
       {Range.TOOLBAR.content}
@@ -75,7 +88,14 @@ describe("range/Toolbar", () => {
     const { store } = await renderToolbar();
     expect(await screen.findByText("No favorited ranges.")).toBeTruthy();
     fireEvent.click(await screen.findByText("Open Range Explorer"));
-    await waitForPlacedLayout(store, Range.EXPLORER_LAYOUT_TYPE);
+    const focusedTab = await waitForFocusedTab(store);
+    const panelKey = Session.Panel.selectSelected(store.getState());
+    if (panelKey == null) throw new Error("no panel selected");
+    const doc = await client.panels.retrieve(panelKey);
+    const tab = panel.findTab(doc.root, focusedTab);
+    if (tab == null || tab.variant !== "view")
+      throw new Error("focused tab is not the range explorer view");
+    expect(tab.type).toBe(Range.Explorer.TAB_TYPE);
   });
 
   it("renders favorited ranges and marks local ones with the L badge", async () => {
@@ -117,13 +137,12 @@ describe("range/Toolbar", () => {
       );
     });
 
-    it("places the overview layout from View details", async () => {
+    it("opens the overview tab from View details", async () => {
       const rng = toState(await createTestRange(client));
       const { store } = await renderToolbar({ ranges: [rng] });
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("View details"));
-      const key = await waitForPlacedLayout(store, CommonRange.OVERVIEW_LAYOUT_TYPE);
-      expect(key).toBe(rng.key);
+      await expectFocusedRange(store, rng.key);
     });
 
     it("removes the range from favorites without deleting it on the server", async () => {

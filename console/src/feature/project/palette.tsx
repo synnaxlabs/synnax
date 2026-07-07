@@ -31,7 +31,7 @@ const CreateCommand = Palette.createCommand({
 const IMPORT_COMMAND_NAME = "Import a project";
 
 const ImportProjectCommand: Palette.Command = ({
-  placeLayout,
+  openTab,
   handleError,
   store,
   client,
@@ -40,9 +40,8 @@ const ImportProjectCommand: Palette.Command = ({
 }) => {
   const fileIngesters = Import.useFileIngesters();
   const handleSelect = useCallback(
-    () =>
-      import_({ placeLayout, handleError, store, client, fluxStore, fileIngesters }),
-    [placeLayout, handleError, store, client, fluxStore, fileIngesters],
+    () => import_({ openTab, handleError, store, client, fluxStore, fileIngesters }),
+    [openTab, handleError, store, client, fluxStore, fileIngesters],
   );
   return (
     <Palette.CommandListItem

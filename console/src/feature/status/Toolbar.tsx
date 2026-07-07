@@ -25,24 +25,23 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
-import { EXPLORER_LAYOUT } from "@/feature/status/Explorer";
+import { Explorer } from "@/feature/status/explorer";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { Status as PlatformStatus } from "@/platform/status";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
 const NoStatuses = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
+  const openExplorer = Explorer.useOpenTab();
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
       message="No favorited statuses."
       action={hasRetrievePermission ? "Open Status Explorer" : undefined}
-      onClick={() => placeLayout(EXPLORER_LAYOUT)}
+      onClick={openExplorer}
     />
   );
 };
@@ -135,7 +134,7 @@ const Content = (): ReactElement => (
 );
 
 const Actions = (): ReactElement | null => {
-  const placeLayout = Layout.usePlacer();
+  const openExplorer = Explorer.useOpenTab();
   const openCreate = PlatformStatus.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
@@ -150,7 +149,7 @@ const Actions = (): ReactElement | null => {
       {hasRetrievePermission && (
         <Toolbar.Action
           tooltip="Open Status Explorer"
-          onClick={() => placeLayout(EXPLORER_LAYOUT)}
+          onClick={openExplorer}
           variant="filled"
         >
           <Icon.Explore />

@@ -10,7 +10,15 @@
 import "@/feature/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
-import { Access, Button, Flex, Icon, LinePlot, Tabs } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Button,
+  Flex,
+  Icon,
+  LinePlot,
+  Panel as PlutoPanel,
+  Tabs,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { useExport } from "@/feature/lineplot/export";
@@ -117,12 +125,11 @@ const Internal = (): ReactElement => {
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <LinePlot.Suspended linePlotKey={layoutKey}>
-    <Internal />
-  </LinePlot.Suspended>
-);
+export const Toolbar = (): ReactElement => {
+  const { key } = PlutoPanel.useSelectTabResource();
+  return (
+    <LinePlot.Suspended linePlotKey={key}>
+      <Internal />
+    </LinePlot.Suspended>
+  );
+};

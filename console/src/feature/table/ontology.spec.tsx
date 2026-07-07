@@ -57,7 +57,7 @@ const renderMenu = async ({ tables, overrides, withCluster = false }: SetupArgs)
   const ids = tables.map((t) => clientTable.ontologyID(t.key));
   const store = await createTestStore({
     preloadedState: {
-      ...createPreloadedState(tables[0].key, tables[0].name),
+      ...createPreloadedState(tables[0].key),
       ...(withCluster ? createClusterState([createCluster("test")], "test") : {}),
     },
   });
@@ -101,13 +101,9 @@ describe("table/ontology", () => {
       expect(screen.queryByText("Copy link")).toBeNull();
     });
 
-    it("deletes the table, its layout, and its session state after confirmation", async () => {
+    it("deletes the table and its session state after confirmation", async () => {
       const t = await createTable();
-      const removeLayout = vi.fn();
-      const { store } = await renderMenu({
-        tables: [t],
-        overrides: { removeLayout },
-      });
+      const { store } = await renderMenu({ tables: [t] });
       fireEvent.click(await screen.findByText("Delete"));
       await waitFor(() =>
         expect(
@@ -116,15 +112,14 @@ describe("table/ontology", () => {
       );
       fireEvent.click(findLastButton("Delete"));
       await waitFor(async () => expect(await tableExists(t.key)).toBe(false));
-      expect(removeLayout).toHaveBeenCalledWith(t.key);
       expect(
         Session.Table.selectSliceState(store.getState()).tables[t.key],
       ).toBeUndefined();
     });
 
-    it("renames the table on the cluster and in the layout store", async () => {
+    it("renames the table on the cluster", async () => {
       const t = await createTable();
-      const { store, itemID } = await renderMenu({ tables: [t] });
+      const { itemID } = await renderMenu({ tables: [t] });
       fireEvent.click(await screen.findByText("Rename"));
       const el = await awaitTextEditing(itemID);
       const newName = uniqueName("renamed");
@@ -135,7 +130,6 @@ describe("table/ontology", () => {
         const renamed = await client.tables.retrieve({ key: t.key });
         expect(renamed.name).toBe(newName);
       });
-      expect(Session.Layout.select(store.getState(), t.key)?.name).toBe(newName);
     });
 
     it("exports the table as a JSON download", async () => {
@@ -158,65 +152,33 @@ describe("table/ontology", () => {
   });
 
   describe("onSelect", () => {
-    it("retrieves the table and places its layout", async () => {
+    it("retrieves the table and opens it as a tab", async () => {
       const t = await createTable();
       const store = await createTestStore();
-      const placeLayout = vi.fn().mockReturnValue({ windowKey: "main", key: "" });
+      const openTab = vi.fn();
       const handleError = vi.fn();
       const id = clientTable.ontologyID(t.key);
       Table.ONTOLOGY_SERVICE.onSelect?.({
-        ...createBaseProps({ client, store, overrides: { placeLayout, handleError } }),
+        ...createBaseProps({ client, store, overrides: { openTab, handleError } }),
         selection: [createResource(id, t.name)],
       });
-      await waitFor(() => expect(placeLayout).toHaveBeenCalledTimes(1));
-      const creator = placeLayout.mock.calls[0][0];
-      const layout = creator({ dispatch: store.dispatch, store, windowKey: "main" });
-      expect(layout.type).toBe(Table.LAYOUT_TYPE);
-      expect(layout.key).toBe(t.key);
-      expect(layout.name).toBe(t.name);
+      await waitFor(() => expect(openTab).toHaveBeenCalledTimes(1));
+      expect(openTab).toHaveBeenCalledWith({ resource: id });
       expect(handleError).not.toHaveBeenCalled();
     });
 
     it("reports an error when the table does not exist", async () => {
       const store = await createTestStore();
-      const placeLayout = vi.fn();
+      const openTab = vi.fn();
       const handleError = vi.fn();
       const id = clientTable.ontologyID("11111111-1111-4111-8111-111111111111");
       Table.ONTOLOGY_SERVICE.onSelect?.({
-        ...createBaseProps({ client, store, overrides: { placeLayout, handleError } }),
+        ...createBaseProps({ client, store, overrides: { openTab, handleError } }),
         selection: [createResource(id, "Ghost Table")],
       });
       await waitFor(() => expect(handleError).toHaveBeenCalledTimes(1));
       expect(handleError.mock.calls[0][1]).toContain("Failed to select Ghost Table");
-      expect(placeLayout).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("onMosaicDrop", () => {
-    it("places the table into the target mosaic node", async () => {
-      const t = await createTable();
-      const store = await createTestStore();
-      const placeLayout = vi.fn().mockReturnValue({ windowKey: "main", key: "" });
-      Table.ONTOLOGY_SERVICE.onMosaicDrop?.({
-        ...createBaseProps({
-          client,
-          store,
-          overrides: {
-            placeLayout,
-            handleError: (excOrFn) => {
-              if (typeof excOrFn === "function") void excOrFn();
-            },
-          },
-        }),
-        id: clientTable.ontologyID(t.key),
-        nodeKey: 2,
-        location: "bottom",
-      });
-      await waitFor(() => expect(placeLayout).toHaveBeenCalledTimes(1));
-      const creator = placeLayout.mock.calls[0][0];
-      const layout = creator({ dispatch: store.dispatch, store, windowKey: "main" });
-      expect(layout.location).toBe("mosaic");
-      expect(layout.tab).toMatchObject({ mosaicKey: 2, location: "bottom" });
+      expect(openTab).not.toHaveBeenCalled();
     });
   });
 

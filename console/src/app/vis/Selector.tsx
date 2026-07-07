@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/pluto";
 
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
-import { type Layout } from "@/platform/layout";
 import { Selector as Base } from "@/platform/selector";
-import { type Session } from "@/session";
 
 export const SELECTABLES: Base.Selectable[] = [
   ...LinePlot.SELECTABLES,
@@ -24,25 +22,14 @@ export const SELECTABLES: Base.Selectable[] = [
   ...Table.SELECTABLES,
 ];
 
-export const SELECTOR_LAYOUT_TYPE = "visualizationSelector";
-
 export const useSelectorVisible = (): boolean =>
   // It's safe to call hooks in map since SELECTABLES is a module-level constant
   // and never changes between renders, ensuring consistent hook order.
   SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
 
-export const createSelectorLayout = (): Session.Layout.BaseState => ({
-  type: SELECTOR_LAYOUT_TYPE,
-  icon: "Visualize",
-  location: "mosaic",
-  name: "New Visualization",
-  key: uuid.create(),
+export const Selector = Base.create({
+  selectables: SELECTABLES,
+  icon: <Icon.Visualize />,
+  tabTitle: "Create visualization",
+  text: "Create a visualization",
 });
-
-export const Selector: Layout.Renderer = (props) => (
-  <Base.Selector
-    selectables={SELECTABLES}
-    text="Select a Visualization Type"
-    {...props}
-  />
-);

@@ -10,8 +10,8 @@
 import { useCallback } from "react";
 
 import { Cluster } from "@/session/cluster";
-import { Layout } from "@/session/layout";
 import { Nav } from "@/session/nav";
+import { Panel } from "@/session/panel";
 import { Project } from "@/session/project";
 import { useDispatch } from "@/session/store";
 
@@ -20,7 +20,7 @@ export const useLogout = () => {
   return useCallback(() => {
     dispatch(Cluster.clearSelected());
     dispatch(Project.clearSelected());
-    dispatch(Layout.clearProject());
+    dispatch(Panel.reset());
     dispatch(Nav.hideAll({}));
   }, [dispatch]);
 };

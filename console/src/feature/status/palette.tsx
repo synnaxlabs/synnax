@@ -10,7 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { Access, Icon, Status } from "@synnaxlabs/pluto";
 
-import { EXPLORER_LAYOUT } from "@/feature/status/Explorer";
+import { Explorer } from "@/feature/status/explorer";
 import { Palette } from "@/platform/palette";
 import { Status as PlatformStatus } from "@/platform/status";
 
@@ -22,11 +22,11 @@ const CreateCommand = Palette.createCommand({
   useVisible: () => Access.useCreateGranted(status.TYPE_ONTOLOGY_ID),
 });
 
-const OpenExplorerCommand = Palette.createSimpleCommand({
+const OpenExplorerCommand = Palette.createCommand({
   key: "open_status_explorer",
   name: "Open the Status Explorer",
   icon: <Icon.Explore />,
-  layout: EXPLORER_LAYOUT,
+  useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
 });
 

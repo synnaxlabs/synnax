@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type ranger } from "@synnaxlabs/client";
+import { type ontology, ranger } from "@synnaxlabs/client";
 import { type Haul, Icon, List, Ranger, Select, Telem, Text } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, strings } from "@synnaxlabs/x";
 
 import { Ontology } from "@/platform/ontology";
-import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 const handleSelect: Ontology.HandleSelect = ({
   selection,
   client,
   store,
-  placeLayout,
+  openTab,
   handleError,
 }) => {
   const names = strings.naturalLanguageJoin(
@@ -29,8 +28,7 @@ const handleSelect: Ontology.HandleSelect = ({
   handleError(async () => {
     const ranges = await client.ranges.retrieve(selection.map((s) => s.id.key));
     store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
-    const first = ranges[0];
-    placeLayout({ ...Range.OVERVIEW_LAYOUT, name: first.name, key: first.key });
+    openTab({ variant: "resource", resource: ranger.ontologyID(ranges[0].key) });
   }, `Failed to select ${names}`);
 };
 

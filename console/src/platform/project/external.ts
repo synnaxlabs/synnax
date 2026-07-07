@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/project/createUseCreate";
 export * from "@/platform/project/Guard";
 export * from "@/platform/project/Selector";
 export * from "@/platform/project/Splash";

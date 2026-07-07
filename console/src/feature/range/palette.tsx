@@ -10,7 +10,7 @@
 import { ranger } from "@synnaxlabs/client";
 import { Access, Icon, Ranger } from "@synnaxlabs/pluto";
 
-import { EXPLORER_LAYOUT } from "@/feature/range/Explorer";
+import { Explorer } from "@/feature/range/explorer";
 import { Palette } from "@/platform/palette";
 import { Range } from "@/platform/range";
 
@@ -22,11 +22,11 @@ export const CreateCommand = Palette.createCommand({
   useVisible: () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
 });
 
-export const OpenExplorerCommand = Palette.createSimpleCommand({
+export const OpenExplorerCommand = Palette.createCommand({
   key: "open_explorer",
   name: "Open the Range Explorer",
   icon: <Icon.Explore />,
-  layout: EXPLORER_LAYOUT,
+  useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
 });
 

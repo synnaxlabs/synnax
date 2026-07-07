@@ -7,21 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
+import { DisconnectedError, schematic } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
-import { Task } from "@/feature/task";
 import { type Range } from "@/platform/range";
-import { Schematic } from "@/platform/schematic";
 
+// TODO(SY-4370): snapshot tabs opened here were previously marked non-editable;
+// read-only tab state needs a panel equivalent.
 export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
   schematic: {
     icon: <Icon.Schematic />,
-    onClick: async ({ id: { key } }, { client, placeLayout }) => {
-      if (client == null) throw new DisconnectedError();
-      const s = await client.schematics.retrieve({ key });
-      placeLayout(Schematic.create({ key: s.key, name: s.name, editable: false }));
-    },
+    onClick: async ({ id: { key } }, { openTab }) =>
+      openTab({ variant: "resource", resource: schematic.ontologyID(key) }),
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
       await client.schematics.delete(key);
@@ -29,8 +26,11 @@ export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
   },
   task: {
     icon: <Icon.Task />,
-    onClick: async ({ id: { key } }, { client, placeLayout }) =>
-      await Task.retrieveAndPlaceLayout(client, key, placeLayout),
+    onClick: async ({ id: { key } }, { client, openTab }) => {
+      if (client == null) throw new DisconnectedError();
+      const t = await client.tasks.retrieve({ key });
+      openTab({ variant: "view", type: t.type, args: { taskKey: t.key } });
+    },
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
       await client.tasks.delete(key);

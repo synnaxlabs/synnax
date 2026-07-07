@@ -39,9 +39,10 @@ const BottomToggleButton = (): ReactElement => {
   );
 };
 
+// TODO(SY-4370): surface the focused tab's name in the aux window title; resource
+// tab names resolve through per-type flux name hooks, which the bar cannot reach yet.
 export const AuxTop = (): ReactElement => {
   const os = OS.use();
-  const activeName = Session.Layout.useSelectActiveMosaicTabName();
   const activeProjectKey = Session.Project.useSelectOptionalSelected();
   const { data: activeProject } = PProject.useRetrieve(
     { key: activeProjectKey ?? "" },
@@ -72,7 +73,7 @@ export const AuxTop = (): ReactElement => {
           data-tauri-drag-region
           style={{ cursor: "default" }}
         >
-          {activeName} {activeProject?.name && `- ${activeProject.name}`}
+          {activeProject?.name}
         </Text.Text>
       </Nav.Bar.AbsoluteCenter>
       <Nav.Bar.End data-tauri-drag-region align="center" justify="end">

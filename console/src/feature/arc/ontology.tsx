@@ -7,32 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type Synnax } from "@synnaxlabs/client";
+import { arc, type ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 
-import { Arc } from "@/platform/arc";
-import { type Layout } from "@/platform/layout";
 import { Ontology } from "@/platform/ontology";
+import { type Panel } from "@/platform/panel";
+
+const load = async (client: Synnax, { key }: ontology.ID, openTab: Panel.OpenTab) => {
+  const a = await client.arcs.retrieve({ key });
+  openTab({ variant: "resource", resource: arc.ontologyID(a.key) });
+};
 
 const handleSelect: Ontology.HandleSelect = ({
   client,
   selection,
-  placeLayout,
+  openTab,
   handleError,
 }) => {
-  load(client, selection[0].id, placeLayout).catch((e: unknown) => {
+  load(client, selection[0].id, openTab).catch((e: unknown) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
       "Arc",
     );
     handleError(e, `Failed to load ${names}`);
   });
-};
-
-const load = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer) => {
-  const { name, key } = await client.arcs.retrieve({ key: id.key });
-  placeLayout(Arc.create({ name, key }));
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
