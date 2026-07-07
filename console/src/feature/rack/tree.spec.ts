@@ -18,14 +18,17 @@ import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
+const item = Rack.TREE_ITEMS.rack;
+assertDefined(item, "no rack tree item");
+
 const createRack = async () => await client.racks.create({ name: uniqueName("rack") });
 
 const rackResource = (key: number, name: string) =>
   createResource(rack.ontologyID(key), name);
 
 const renderMenu = async (racks: { key: number; name: string }[]) => {
-  assertDefined(Rack.TREE_ITEM.ContextMenu);
-  return await renderTreeContextMenu(Rack.TREE_ITEM.ContextMenu, {
+  assertDefined(item.ContextMenu);
+  return await renderTreeContextMenu(item.ContextMenu, {
     client,
     resources: racks.map((r) => rackResource(r.key, r.name)),
   });

@@ -108,7 +108,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "user",
   icon: <Icon.User />,
   ContextMenu: TreeContextMenu,
@@ -116,3 +116,5 @@ export const TREE_ITEM = Tree.createItem({
   haulItems: ({ data }) =>
     data == null ? [] : [User.createHaulItem(data as user.User)],
 });
+
+export const TREE_ITEMS: Tree.Items = { user: TreeItem };

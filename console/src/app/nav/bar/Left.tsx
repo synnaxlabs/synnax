@@ -10,8 +10,8 @@
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { Items } from "@/app/nav/items";
 import { Palette } from "@/app/palette";
+import { Toolbars } from "@/app/toolbars";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { Session } from "@/session";
 
@@ -37,8 +37,8 @@ const BottomMenu = () => {
   );
   return (
     <PlatformNav.Menu
-      items={Items.BOTTOM}
-      selected={visible ? Items.BOTTOM.key : undefined}
+      items={Toolbars.BOTTOM}
+      selected={visible ? Toolbars.BOTTOM.key : undefined}
       onSelect={handleSelect}
       onToggle={handleToggle}
       onPin={handlePin}
@@ -73,7 +73,7 @@ const LeftMenu = () => {
   );
   return (
     <PlatformNav.Menu
-      items={Items.LEFT}
+      items={Toolbars.LEFT}
       selected={selected}
       onSelect={handleSelect}
       onToggle={handleToggle}

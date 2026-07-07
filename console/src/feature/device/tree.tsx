@@ -141,9 +141,11 @@ const Content = ({
   );
 };
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "device",
   icon,
   ContextMenu: TreeContextMenu,
   Content,
 });
+
+export const TREE_ITEMS: Tree.Items = { device: TreeItem };

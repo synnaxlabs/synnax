@@ -43,7 +43,9 @@ export interface PaletteHandle {
 }
 
 const paletteInput = (): HTMLInputElement => {
-  const input = document.querySelector<HTMLInputElement>(".console-palette__input input");
+  const input = document.querySelector<HTMLInputElement>(
+    ".console-palette__input input",
+  );
   if (input == null) throw new Error("palette input not found");
   return input;
 };

@@ -9,7 +9,7 @@
 
 export * from "@/feature/channel/commands";
 export * from "@/feature/channel/link";
-export * from "@/feature/channel/tree";
 export * from "@/feature/channel/search";
 export * from "@/feature/channel/Toolbar";
+export * from "@/feature/channel/tree";
 export * from "@/platform/channel/external";

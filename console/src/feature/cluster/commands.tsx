@@ -14,7 +14,7 @@ import { Session } from "@/session";
 
 export const LogoutCommand = Command.create({
   key: "logout",
-  name: "Log Out",
+  name: "Log out",
   icon: <Icon.Logout />,
   useVisible: () => true,
   useOnSelect: Session.useLogout,

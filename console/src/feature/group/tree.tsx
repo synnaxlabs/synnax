@@ -181,7 +181,7 @@ const useUngroupSelection = () =>
     afterFailure: afterUngroupFailure,
   });
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "group",
   icon: <Icon.Group />,
   canDrop: () => true,
@@ -189,3 +189,5 @@ export const TREE_ITEM = Tree.createItem({
   haulItems: ({ id }) => [id],
   ContextMenu: TreeContextMenu,
 });
+
+export const TREE_ITEMS: Tree.Items = { group: TreeItem };

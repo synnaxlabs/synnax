@@ -175,7 +175,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "task",
   icon: <Icon.Task />,
   hasChildren: false,
@@ -183,3 +183,5 @@ export const TREE_ITEM = Tree.createItem({
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
+
+export const TREE_ITEMS: Tree.Items = { task: TreeItem };

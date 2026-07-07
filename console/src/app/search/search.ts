@@ -14,11 +14,11 @@ import { Log } from "@/feature/log";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
-import { Search } from "@/feature/search";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { type Search } from "@/platform/search";
 
-export const SearchList = Search.createList({
+export const SEARCH_LIST_ITEMS: Search.ListItems = {
   ...Arc.SEARCH_LIST_ITEMS,
   ...Channel.SEARCH_LIST_ITEMS,
   ...LinePlot.SEARCH_LIST_ITEMS,
@@ -28,4 +28,4 @@ export const SearchList = Search.createList({
   ...Schematic.SEARCH_LIST_ITEMS,
   ...Table.SEARCH_LIST_ITEMS,
   ...Task.SEARCH_LIST_ITEMS,
-});
+};

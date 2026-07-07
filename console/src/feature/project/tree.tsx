@@ -189,7 +189,7 @@ const VALID_CHILDREN: ontology.ResourceType[] = [
   "group",
 ];
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "project",
   icon: <Icon.Project />,
   useOnSelect,
@@ -197,3 +197,5 @@ export const TREE_ITEM = Tree.createItem({
   canDrop: ({ items }) =>
     items.every(({ key }) => VALID_CHILDREN.some((c) => key.toString().includes(c))),
 });
+
+export const TREE_ITEMS: Tree.Items = { project: TreeItem };

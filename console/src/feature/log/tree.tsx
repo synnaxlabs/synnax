@@ -115,7 +115,7 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   );
 };
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "log",
   icon: <Icon.Log />,
   hasChildren: false,
@@ -123,3 +123,5 @@ export const TREE_ITEM = Tree.createItem({
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
+
+export const TREE_ITEMS: Tree.Items = { log: TreeItem };

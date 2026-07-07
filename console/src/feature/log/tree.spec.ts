@@ -20,6 +20,9 @@ import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
+const item = Log.TREE_ITEMS.log;
+assertDefined(item, "no log tree item");
+
 const createLog = async () => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
@@ -34,8 +37,8 @@ const logResource = (key: string, name: string) =>
 describe("log ontology service", () => {
   it("should expose rename, group, delete, export, and link actions", async () => {
     const l = await createLog();
-    assertDefined(Log.TREE_ITEM.ContextMenu);
-    await renderTreeContextMenu(Log.TREE_ITEM.ContextMenu, {
+    assertDefined(item.ContextMenu);
+    await renderTreeContextMenu(item.ContextMenu, {
       client,
       resources: [logResource(l.key, l.name)],
     });
@@ -49,8 +52,8 @@ describe("log ontology service", () => {
   it("should delete the log, its layout, and its session state", async () => {
     const l = await createLog();
     const removeLayout = vi.fn();
-    assertDefined(Log.TREE_ITEM.ContextMenu);
-    await renderTreeContextMenu(Log.TREE_ITEM.ContextMenu, {
+    assertDefined(item.ContextMenu);
+    await renderTreeContextMenu(item.ContextMenu, {
       client,
       resources: [logResource(l.key, l.name)],
       baseOverrides: { removeLayout },
@@ -79,7 +82,7 @@ describe("log ontology service", () => {
     const { store } = await renderOntologyTree({
       client,
       root: project.ontologyID(proj.key),
-      items: { log: Log.TREE_ITEM },
+      items: Log.TREE_ITEMS,
     });
     fireEvent.doubleClick(await findTreeRow(l.name));
     await waitFor(() =>
@@ -89,7 +92,7 @@ describe("log ontology service", () => {
 
   it("should haul a mosaic tab creation item", () => {
     const res = logResource("abc", "l");
-    const items = Log.TREE_ITEM.haulItems(res);
+    const items = item.haulItems(res);
     expect(items).toHaveLength(1);
   });
 });

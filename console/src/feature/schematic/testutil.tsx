@@ -144,7 +144,7 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
       </Triggers.Provider>
     </Console>
   );
-  const items = createTreeItems({ schematic: Schematic.TREE_ITEM });
+  const items = createTreeItems(Schematic.TREE_ITEMS);
   const result = render(
     <Tree.Provider items={items}>
       <Tree.Tree root={rootID} />

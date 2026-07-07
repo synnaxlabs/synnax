@@ -25,6 +25,9 @@ import {
 
 const client = createTestClient();
 
+const item = Project.TREE_ITEMS.project;
+assertDefined(item, "no project tree item");
+
 const createProject = async () =>
   await client.projects.create({ name: uniqueName("project"), layout: {} });
 
@@ -43,8 +46,8 @@ const createStoreWithActive = async (key: string) =>
 describe("project ontology service", () => {
   it("should expose creation, import, export, and link actions", async () => {
     const p = await createProject();
-    assertDefined(Project.TREE_ITEM.ContextMenu);
-    await renderTreeContextMenu(Project.TREE_ITEM.ContextMenu, {
+    assertDefined(item.ContextMenu);
+    await renderTreeContextMenu(item.ContextMenu, {
       client,
       resources: [projectResource(p.key, p.name)],
       store: await createStoreWithActive(p.key),
@@ -62,8 +65,8 @@ describe("project ontology service", () => {
 
   it("should create a log inside the project from the context menu", async () => {
     const p = await createProject();
-    assertDefined(Project.TREE_ITEM.ContextMenu);
-    const { store } = await renderTreeContextMenu(Project.TREE_ITEM.ContextMenu, {
+    assertDefined(item.ContextMenu);
+    const { store } = await renderTreeContextMenu(item.ContextMenu, {
       client,
       resources: [projectResource(p.key, p.name)],
       store: await createStoreWithActive(p.key),
@@ -78,8 +81,8 @@ describe("project ontology service", () => {
   it("should clear the active project when it is deleted", async () => {
     const p = await createProject();
     const store = await createStoreWithActive(p.key);
-    assertDefined(Project.TREE_ITEM.ContextMenu);
-    await renderTreeContextMenu(Project.TREE_ITEM.ContextMenu, {
+    assertDefined(item.ContextMenu);
+    await renderTreeContextMenu(item.ContextMenu, {
       client,
       resources: [projectResource(p.key, p.name)],
       store,
@@ -107,7 +110,7 @@ describe("project ontology service", () => {
     const { store } = await renderOntologyTree({
       client,
       root: parent.id,
-      items: { project: Project.TREE_ITEM },
+      items: Project.TREE_ITEMS,
     });
     fireEvent.doubleClick(await findTreeRow(p.name));
     await waitFor(() =>
@@ -116,7 +119,7 @@ describe("project ontology service", () => {
   });
 
   it("should only accept mosaic-compatible children on drop", () => {
-    const { canDrop } = Project.TREE_ITEM;
+    const { canDrop } = item;
     const source = { key: "s", type: "t" };
     expect(canDrop({ source, items: [{ key: "log:abc", type: "log" }] })).toBe(true);
     expect(canDrop({ source, items: [{ key: "schematic:abc", type: "x" }] })).toBe(

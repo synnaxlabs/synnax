@@ -16,8 +16,8 @@ import { ContextMenu as Base } from "@/platform/context-menu";
 import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
-import { Tree } from "@/platform/tree";
 import { Range } from "@/platform/range";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {

@@ -11,9 +11,11 @@ import { Icon } from "@synnaxlabs/pluto";
 
 import { Tree } from "@/platform/tree";
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "policy",
   icon: <Icon.Policy />,
   hasChildren: false,
   visible: () => false,
 });
+
+export const TREE_ITEMS: Tree.Items = { policy: TreeItem };

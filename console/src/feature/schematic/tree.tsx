@@ -24,6 +24,7 @@ import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { useExport } from "@/feature/schematic/export";
+import { Symbol } from "@/feature/schematic/symbol";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
@@ -200,7 +201,7 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   );
 };
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "schematic",
   icon: <Icon.Schematic />,
   hasChildren: false,
@@ -208,3 +209,8 @@ export const TREE_ITEM = Tree.createItem({
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
+
+export const TREE_ITEMS: Tree.Items = {
+  schematic: TreeItem,
+  ...Symbol.TREE_ITEMS,
+};

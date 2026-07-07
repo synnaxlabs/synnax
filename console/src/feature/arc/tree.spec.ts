@@ -42,7 +42,7 @@ describe("arc/ontology", () => {
       const { store } = await renderOntologyTree({
         client,
         root: group.ontologyID(grp.key),
-        items: { arc: Arc.TREE_ITEM },
+        items: Arc.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(arc.name));
       await waitFor(() =>

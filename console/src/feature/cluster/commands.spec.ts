@@ -36,7 +36,7 @@ describe("Cluster Commands", () => {
     store.dispatch(Session.Cluster.select("local"));
     expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("local");
     await openCommandPalette();
-    await selectCommand("Log Out");
+    await selectCommand("Log out");
     await waitFor(() =>
       expect(Session.Cluster.selectSelectedKey(store.getState())).toBeUndefined(),
     );

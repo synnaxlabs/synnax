@@ -65,7 +65,7 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "channel",
   icon: <Icon.Channel />,
   content: <Content />,

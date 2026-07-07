@@ -16,7 +16,7 @@ import { Command } from "@/platform/command";
 
 export const CreateCommand = Command.create({
   key: "create_arc",
-  name: "Create an Arc Automation",
+  name: "Create an Arc automation",
   icon: <Icon.Arc />,
   useVisible: () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID),
   useOnSelect: Arc.useCreate,

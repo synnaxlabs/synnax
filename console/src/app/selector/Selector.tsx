@@ -9,36 +9,28 @@
 
 import { uuid } from "@synnaxlabs/x";
 
-import { Vis } from "@/app/vis";
-import { Arc } from "@/feature/arc";
-import { Task } from "@/feature/task";
+import { SELECTABLES } from "@/app/selector/selectables";
 import { type Layout } from "@/platform/layout";
 import { Selector as Base } from "@/platform/selector";
 import { type Session } from "@/session";
 
-const SELECTABLES: Base.Selectable[] = [
-  ...Vis.SELECTABLES,
-  ...Task.SELECTABLES,
-  ...Arc.SELECTABLES,
-];
-
-export const useSelectorVisible = (): boolean =>
+export const useVisible = (): boolean =>
   // It's safe to call hooks in map since SELECTABLES is a module-level constant
   // and never changes between renders, ensuring consistent hook order.
   SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
 
-export const SELECTOR_LAYOUT_TYPE = "layoutSelector";
+export const LAYOUT_TYPE = "layoutSelector";
 
 export interface CreateSelectorLayoutArgs extends Omit<
   Session.Layout.BaseState,
   "type" | "icon" | "location" | "name" | "key"
 > {}
 
-export const createSelectorLayout = (
+export const create = (
   args: CreateSelectorLayoutArgs = {},
 ): Session.Layout.BaseState => ({
   ...args,
-  type: SELECTOR_LAYOUT_TYPE,
+  type: LAYOUT_TYPE,
   icon: "Visualize",
   location: "mosaic",
   name: "New Component",

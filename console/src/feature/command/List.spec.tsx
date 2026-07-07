@@ -43,6 +43,14 @@ describe("Command.createList", () => {
     await waitFor(() => expect(screen.queryByText("Beta")).toBeNull());
   });
 
+  it("should show the empty state when no command matches the query", async () => {
+    const { openCommandPalette } = await renderPalette({
+      commands: [command("a", "Alpha")],
+    });
+    await openCommandPalette("no_such_command");
+    await waitFor(() => expect(screen.getByText("No commands found")).toBeTruthy());
+  });
+
   it("should order commands by sortOrder ahead of their name", async () => {
     const { openCommandPalette } = await renderPalette({
       commands: [

@@ -13,14 +13,16 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Access } from "@/feature/access";
-import {
-  findModalButton,
-  renderTreeContextMenu,
-} from "@/platform/tree/menuTestutil";
+import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import { createResource } from "@/platform/tree/testutil";
 import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
+
+const roleItem = Access.Role.TREE_ITEMS.role;
+assertDefined(roleItem, "no role tree item");
+const policyItem = Access.Policy.TREE_ITEMS.policy;
+assertDefined(policyItem, "no policy tree item");
 
 const createRole = async () =>
   await client.access.roles.create({ name: uniqueName("role") });
@@ -31,8 +33,8 @@ const roleResource = (key: string, name: string, internal: boolean) =>
 describe("role ontology service", () => {
   it("should expose rename and delete for a non-internal role", async () => {
     const role = await createRole();
-    assertDefined(Access.Role.TREE_ITEM.ContextMenu);
-    await renderTreeContextMenu(Access.Role.TREE_ITEM.ContextMenu, {
+    assertDefined(roleItem.ContextMenu);
+    await renderTreeContextMenu(roleItem.ContextMenu, {
       client,
       resources: [roleResource(role.key, role.name, false)],
     });
@@ -43,8 +45,8 @@ describe("role ontology service", () => {
 
   it("should hide rename and delete for internal roles", async () => {
     const role = await createRole();
-    assertDefined(Access.Role.TREE_ITEM.ContextMenu);
-    await renderTreeContextMenu(Access.Role.TREE_ITEM.ContextMenu, {
+    assertDefined(roleItem.ContextMenu);
+    await renderTreeContextMenu(roleItem.ContextMenu, {
       client,
       resources: [roleResource(role.key, role.name, true)],
     });
@@ -55,8 +57,8 @@ describe("role ontology service", () => {
 
   it("should delete the role on the cluster after confirmation", async () => {
     const role = await createRole();
-    assertDefined(Access.Role.TREE_ITEM.ContextMenu);
-    await renderTreeContextMenu(Access.Role.TREE_ITEM.ContextMenu, {
+    assertDefined(roleItem.ContextMenu);
+    await renderTreeContextMenu(roleItem.ContextMenu, {
       client,
       resources: [roleResource(role.key, role.name, false)],
     });
@@ -75,7 +77,7 @@ describe("role ontology service", () => {
   });
 
   it("should accept only non-root user haul items on drop", () => {
-    const { canDrop } = Access.Role.TREE_ITEM;
+    const { canDrop } = roleItem;
     const source: Haul.Item = { key: "tree", type: "Tree.Item" };
     const userItem = (rootUser: boolean): Haul.Item =>
       User.createHaulItem({
@@ -95,12 +97,10 @@ describe("role ontology service", () => {
 
 describe("policy ontology service", () => {
   it("should stay hidden in the tree and declare no children", () => {
-    expect(Access.Policy.TREE_ITEM.type).toBe("policy");
+    expect(policyItem.type).toBe("policy");
     expect(
-      Access.Policy.TREE_ITEM.visible?.(
-        createResource(access.policy.ontologyID("p1"), "p1"),
-      ),
+      policyItem.visible?.(createResource(access.policy.ontologyID("p1"), "p1")),
     ).toBe(false);
-    expect(Access.Policy.TREE_ITEM.hasChildren).toBe(false);
+    expect(policyItem.hasChildren).toBe(false);
   });
 });

@@ -317,7 +317,7 @@ const Content = ({ id, resource, icon: _, ...rest }: Tree.ContentProps) => {
   );
 };
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "channel",
   icon: <Icon.Channel />,
   hasChildren: false,
@@ -326,3 +326,5 @@ export const TREE_ITEM = Tree.createItem({
   Content,
   ContextMenu: TreeContextMenu,
 });
+
+export const TREE_ITEMS: Tree.Items = { channel: TreeItem };

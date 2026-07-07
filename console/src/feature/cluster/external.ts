@@ -13,6 +13,7 @@ import { type Notifications } from "@/platform/notifications";
 export * from "@/feature/cluster/commands";
 export * from "@/feature/cluster/ConnectionBadge";
 export * from "@/feature/cluster/link";
+export * from "@/feature/cluster/tree";
 export * from "@/platform/cluster/external";
 
 export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [versionOutdatedAdapter];

@@ -60,7 +60,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "role",
   icon: <Icon.Role />,
   ContextMenu: TreeContextMenu,
@@ -70,3 +70,5 @@ export const TREE_ITEM = Tree.createItem({
     return users.length === items.length && users.every(({ data }) => !data.rootUser);
   },
 });
+
+export const TREE_ITEMS: Tree.Items = { role: TreeItem };

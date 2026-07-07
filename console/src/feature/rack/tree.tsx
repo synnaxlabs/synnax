@@ -109,9 +109,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "rack",
   icon: <Icon.Rack />,
   ContextMenu: TreeContextMenu,
   Content,
 });
+
+export const TREE_ITEMS: Tree.Items = { rack: TreeItem };

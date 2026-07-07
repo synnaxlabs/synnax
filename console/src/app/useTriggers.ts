@@ -11,7 +11,7 @@ import { Drift, selectWindowKey } from "@synnaxlabs/drift";
 import { Text, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
-import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
+import { Selector } from "@/app/selector";
 import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 import { Modals } from "@/session/modals";
@@ -25,7 +25,7 @@ export const useTriggers = (): void => {
   const openInNewWindow = Layout.useOpenInNewWindow();
   const placeLayout = Layout.usePlacer();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const createComponentEnabled = useSelectorVisible();
+  const createComponentEnabled = Selector.useVisible();
   Triggers.use({
     triggers: [["Control", "L"]],
     loose: true,
@@ -103,7 +103,7 @@ export const useTriggers = (): void => {
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start" || !createComponentEnabled) return;
-        placeLayout(createSelectorLayout({ tab: { location: "center" } }));
+        placeLayout(Selector.create({ tab: { location: "center" } }));
       },
       [createComponentEnabled, placeLayout],
     ),

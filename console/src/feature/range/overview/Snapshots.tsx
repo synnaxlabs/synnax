@@ -24,8 +24,8 @@ import { type FC } from "react";
 
 import { CSS } from "@/platform/css";
 import { Layout } from "@/platform/layout";
-import { Tree } from "@/platform/tree";
 import { Range } from "@/platform/range";
+import { Tree } from "@/platform/tree";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;

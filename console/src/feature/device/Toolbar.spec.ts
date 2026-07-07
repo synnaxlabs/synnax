@@ -24,7 +24,7 @@ describe("device/Toolbar", () => {
     const rack = await client.racks.retrieve({ key: dev.rack });
     await renderToolbar(Device.TOOLBAR.content, {
       client,
-      items: { device: Device.TREE_ITEM },
+      items: Device.TREE_ITEMS,
     });
     await screen.findByText("Devices");
     fireEvent.click(await findTreeRow(rack.name));

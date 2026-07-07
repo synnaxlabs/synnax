@@ -32,6 +32,7 @@ import {
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
+  assertDefined,
   awaitTextEditing,
   captureBrowserDownloads,
   commitTextEdit,
@@ -40,6 +41,9 @@ import {
   stubClipboardWriteText,
   uniqueName,
 } from "@/testutil";
+
+const item = LinePlot.TREE_ITEMS.lineplot;
+assertDefined(item, "no lineplot tree item");
 
 const createLinePlot = async (): Promise<lineplot.LinePlot> =>
   await client.lineplots.create(await project(), { name: uniqueName("plot") });
@@ -66,7 +70,7 @@ const renderMenu = async ({ plots, overrides, withCluster = false }: SetupArgs) 
       ...(withCluster ? createClusterState([createCluster("test")], "test") : {}),
     },
   });
-  const Menu = LinePlot.TREE_ITEM.ContextMenu;
+  const Menu = item.ContextMenu;
   if (Menu == null) throw new Error("TreeContextMenu not defined");
   const buildUI = (current: lineplot.LinePlot[]) => {
     const ids = current.map((p) => clientLineplot.ontologyID(p.key));
@@ -203,7 +207,7 @@ describe("lineplot/ontology", () => {
       const { store } = await renderOntologyTree({
         client,
         root: clientProject.ontologyID(await project()),
-        items: { lineplot: LinePlot.TREE_ITEM },
+        items: LinePlot.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(plot.name));
       await waitFor(() =>
@@ -218,7 +222,7 @@ describe("lineplot/ontology", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientLineplot.ontologyID("11111111-1111-1111-1111-111111111111");
-      const items = LinePlot.TREE_ITEM.haulItems(createResource(id, "My Plot"));
+      const items = item.haulItems(createResource(id, "My Plot"));
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("lineplot:11111111-1111-1111-1111-111111111111");
     });

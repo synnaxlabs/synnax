@@ -13,9 +13,9 @@ import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { Tree } from "@/platform/tree";
 import { Project as PlatformProject } from "@/platform/project";
 import { Toolbar } from "@/platform/toolbar";
+import { Tree } from "@/platform/tree";
 
 const Actions = (): ReactElement | null => {
   const openCreate = PlatformProject.useCreateModal();
@@ -56,7 +56,7 @@ const EmptyContent = () => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "project",
   icon: <Icon.Project />,
   content: <Content />,

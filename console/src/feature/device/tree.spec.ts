@@ -49,7 +49,7 @@ const renderDeviceTree = async (root: ontology.ID) =>
   await renderOntologyTree({
     client,
     root,
-    items: { device: Device.TREE_ITEM },
+    items: Device.TREE_ITEMS,
   });
 
 describe("device/ontology", () => {

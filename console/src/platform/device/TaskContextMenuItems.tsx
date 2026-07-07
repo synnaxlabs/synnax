@@ -11,8 +11,8 @@ import { type device, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/platform/layout";
-import { type Tree } from "@/platform/tree";
 import { Task } from "@/platform/task";
+import { type Tree } from "@/platform/tree";
 
 export interface TaskContextMenuItemConfig {
   itemKey: string;

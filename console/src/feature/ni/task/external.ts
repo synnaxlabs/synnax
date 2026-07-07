@@ -52,10 +52,10 @@ import { Task } from "@/platform/task";
 
 export * from "@/feature/ni/task/AnalogRead";
 export * from "@/feature/ni/task/AnalogWrite";
+export * from "@/feature/ni/task/commands";
 export * from "@/feature/ni/task/CounterRead";
 export * from "@/feature/ni/task/DigitalRead";
 export * from "@/feature/ni/task/DigitalWrite";
-export * from "@/feature/ni/task/commands";
 export * from "@/feature/ni/task/types";
 
 export const EXTRACTORS: Export.Extractors = {

@@ -24,54 +24,16 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
 
-import { EXTRACTORS } from "@/app/extractors";
-import { FILE_INGESTERS } from "@/app/ingesters";
-import { Main, MAIN_LAYOUT_TYPE } from "@/app/Main";
-import { Mosaic, MOSAIC_LAYOUT_TYPE, MosaicWindow } from "@/app/Mosaic";
-import { Selector, SELECTOR_LAYOUT_TYPE } from "@/app/Selector";
-import { TREE_ITEMS } from "@/app/treeItems";
-import { SNAPSHOT_SERVICES } from "@/app/snapshots";
+import { Imex } from "@/app/imex";
+import { Layout } from "@/app/layout";
+import { Range } from "@/app/range";
+import { Tree } from "@/app/tree";
 import { Vis } from "@/app/vis";
-import { Arc } from "@/feature/arc";
-import { Docs } from "@/feature/docs";
-import { LinePlot } from "@/feature/lineplot";
-import { Log } from "@/feature/log";
-import { Range } from "@/feature/range";
-import { Schematic } from "@/feature/schematic";
-import { Status } from "@/feature/status";
-import { Table } from "@/feature/table";
-import { Task } from "@/feature/task";
 import { Errors } from "@/platform/errors";
-import { Export } from "@/platform/export";
-import { Import } from "@/platform/import";
-import { Layout } from "@/platform/layout";
-import { Range as PlatformRange } from "@/platform/range";
+import { Layout as PlatformLayout } from "@/platform/layout";
 import { Runtime } from "@/platform/runtime";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import WorkerURL from "@/worker?worker&url";
-
-const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
-  ...Docs.LAYOUTS,
-  ...Task.LAYOUTS,
-  [MAIN_LAYOUT_TYPE]: Main,
-  [SELECTOR_LAYOUT_TYPE]: Selector,
-  [MOSAIC_LAYOUT_TYPE]: Mosaic,
-  [Session.Layout.MOSAIC_WINDOW_TYPE]: MosaicWindow,
-  ...LinePlot.LAYOUTS,
-  ...Log.LAYOUTS,
-  ...Range.LAYOUTS,
-  ...Schematic.LAYOUTS,
-  ...Table.LAYOUTS,
-  ...Vis.LAYOUTS,
-  ...Arc.LAYOUTS,
-  ...Status.LAYOUTS,
-};
-
-const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
-  ...Schematic.CONTEXT_MENUS,
-  ...LinePlot.CONTEXT_MENUS,
-};
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "P"],
@@ -140,7 +102,7 @@ const AppUnderContext = (): ReactElement => {
     >
       <Vis.Canvas>
         <Session.Modals.Provider>
-          <Layout.Window />
+          <PlatformLayout.Window />
         </Session.Modals.Provider>
       </Vis.Canvas>
     </Pluto.Provider>
@@ -153,23 +115,15 @@ export const App = (): ReactElement => {
     <Errors.OverlayWithoutStore>
       <Provider store={storeRef.current}>
         <Errors.OverlayWithStore>
-          <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-            <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-              <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
-                <Export.ExtractorsProvider extractors={EXTRACTORS}>
-                  <Tree.Provider items={TREE_ITEMS}>
-                    <PlatformRange.SnapshotServicesProvider
-                      services={SNAPSHOT_SERVICES}
-                    >
-                      <Task.RegistryProvider registry={Task.REGISTRY}>
-                        <AppUnderContext />
-                      </Task.RegistryProvider>
-                    </PlatformRange.SnapshotServicesProvider>
-                  </Tree.Provider>
-                </Export.ExtractorsProvider>
-              </Import.FileIngestersProvider>
-            </Layout.ContextMenuProvider>
-          </Layout.RendererProvider>
+          <Layout.Context>
+            <Tree.Context>
+              <Range.Context>
+                <Imex.Context>
+                  <AppUnderContext />
+                </Imex.Context>
+              </Range.Context>
+            </Tree.Context>
+          </Layout.Context>
         </Errors.OverlayWithStore>
       </Provider>
     </Errors.OverlayWithoutStore>

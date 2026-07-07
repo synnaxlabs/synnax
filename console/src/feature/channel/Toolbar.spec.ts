@@ -21,7 +21,7 @@ const client = createTestClient();
 const renderChannelToolbar = async (): Promise<void> => {
   await renderToolbar(Channel.TOOLBAR.content, {
     client,
-    items: { channel: Channel.TREE_ITEM },
+    items: Channel.TREE_ITEMS,
   });
   await screen.findByText("Channels");
 };

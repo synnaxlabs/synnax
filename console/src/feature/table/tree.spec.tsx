@@ -32,6 +32,7 @@ import {
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
+  assertDefined,
   awaitTextEditing,
   captureBrowserDownloads,
   commitTextEdit,
@@ -40,6 +41,9 @@ import {
   stubClipboardWriteText,
   uniqueName,
 } from "@/testutil";
+
+const item = Table.TREE_ITEMS.table;
+assertDefined(item, "no table tree item");
 
 const createTable = async (): Promise<table.Table> =>
   await client.tables.create(await project(), { name: uniqueName("table") });
@@ -73,7 +77,7 @@ const renderMenu = async ({ tables, overrides, withCluster = false }: SetupArgs)
     state: createState(tables.map((t, i) => createResource(ids[i], t.name))),
   };
   const { wrapper } = await createConsoleWrapper({ client, store });
-  const Menu = Table.TREE_ITEM.ContextMenu;
+  const Menu = item.ContextMenu;
   if (Menu == null) throw new Error("TreeContextMenu not defined");
   const itemID = List.itemNameID(ontology.idToString(ids[0]));
   render(
@@ -169,7 +173,7 @@ describe("table/ontology", () => {
       const { store } = await renderOntologyTree({
         client,
         root: clientProject.ontologyID(await project()),
-        items: { table: Table.TREE_ITEM },
+        items: Table.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(t.name));
       await waitFor(() =>
@@ -184,7 +188,7 @@ describe("table/ontology", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientTable.ontologyID("11111111-1111-1111-1111-111111111111");
-      const items = Table.TREE_ITEM.haulItems(createResource(id, "My Table"));
+      const items = item.haulItems(createResource(id, "My Table"));
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("table:11111111-1111-1111-1111-111111111111");
     });

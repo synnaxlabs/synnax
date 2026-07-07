@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/label/commands";
+export * from "@/feature/label/tree";
 export * from "@/platform/label/external";

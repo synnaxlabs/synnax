@@ -45,7 +45,9 @@ import {
 
 const client = createTestClient();
 
-const { ContextMenu: Menu } = Task.TREE_ITEM;
+const item = Task.TREE_ITEMS.task;
+assertDefined(item, "no task tree item");
+const { ContextMenu: Menu } = item;
 assertDefined(Menu, "task ontology service has no ContextMenu");
 
 const createTask = async () => {
@@ -71,7 +73,7 @@ const renderTaskTree = async (t: task.Task) => {
   return await renderOntologyTree({
     client,
     root: group.ontologyID(grp.key),
-    items: { task: Task.TREE_ITEM },
+    items: Task.TREE_ITEMS,
   });
 };
 

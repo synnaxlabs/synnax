@@ -41,10 +41,12 @@ const haulItems = (resource: ontology.Resource): Haul.Item[] => {
   return [Ranger.createHaulItem(payload)];
 };
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "range",
   icon: <Icon.Range />,
   useOnSelect,
   canDrop: () => true,
   haulItems,
 });
+
+export const TREE_ITEMS: Tree.Items = { range: TreeItem };

@@ -18,6 +18,9 @@ import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
+const item = User.TREE_ITEMS.user;
+assertDefined(item, "no user tree item");
+
 const createUser = async () =>
   await client.users.create({ username: uniqueName("user"), password: "pwd12345" });
 
@@ -27,8 +30,8 @@ const userResource = (key: string, username: string, rootUser = false) =>
 const renderMenu = async (
   resources: ReturnType<typeof userResource>[],
 ): Promise<void> => {
-  assertDefined(User.TREE_ITEM.ContextMenu);
-  await renderTreeContextMenu(User.TREE_ITEM.ContextMenu, {
+  assertDefined(item.ContextMenu);
+  await renderTreeContextMenu(item.ContextMenu, {
     client,
     resources,
   });
@@ -92,13 +95,9 @@ describe("user ontology service", () => {
       lastName: "",
       rootUser: false,
     };
-    const items = User.TREE_ITEM.haulItems(
-      createResource(user.ontologyID("u1"), "u", data),
-    );
+    const items = item.haulItems(createResource(user.ontologyID("u1"), "u", data));
     expect(items).toHaveLength(1);
     expect(items[0].key).toBe("u1");
-    expect(
-      User.TREE_ITEM.haulItems(createResource(user.ontologyID("u2"), "u2")),
-    ).toHaveLength(0);
+    expect(item.haulItems(createResource(user.ontologyID("u2"), "u2"))).toHaveLength(0);
   });
 });

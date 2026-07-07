@@ -31,6 +31,7 @@ import {
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
+  assertDefined,
   awaitTextEditingElement,
   captureBrowserDownloads,
   commitTextEdit,
@@ -53,11 +54,14 @@ const schematicExists = async (key: schematic.Key): Promise<boolean> => {
   }
 };
 
-describe("Schematic.TREE_ITEM", () => {
+const item = Schematic.TREE_ITEMS.schematic;
+assertDefined(item, "no schematic tree item");
+
+describe("Schematic.TREE_ITEMS", () => {
   it("hauls a mosaic tab create item keyed by the ontology id", async () => {
     const s = await createSchematic();
     const id = schematic.ontologyID(s.key);
-    const items = Schematic.TREE_ITEM.haulItems(createResource(id, s.name));
+    const items = item.haulItems(createResource(id, s.name));
     expect(items).toHaveLength(1);
     expect(items[0].key).toContain(s.key);
   });
@@ -68,7 +72,7 @@ describe("Schematic.TREE_ITEM", () => {
       const { store } = await renderOntologyTree({
         client,
         root: project.ontologyID(await testProjectKey()),
-        items: { schematic: Schematic.TREE_ITEM },
+        items: Schematic.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(s.name));
       await waitFor(() =>

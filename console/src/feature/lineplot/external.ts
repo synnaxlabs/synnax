@@ -18,13 +18,13 @@ import { type Layout } from "@/platform/layout";
 import { LinePlot as PlatformLinePlot } from "@/platform/lineplot";
 import { type Selector } from "@/platform/selector";
 
+export * from "@/feature/lineplot/commands";
 export * from "@/feature/lineplot/import";
 export * from "@/feature/lineplot/link";
-export * from "@/feature/lineplot/useMosaicDrop";
-export * from "@/feature/lineplot/tree";
 export * from "@/feature/lineplot/search";
-export * from "@/feature/lineplot/commands";
 export * from "@/feature/lineplot/toolbar";
+export * from "@/feature/lineplot/tree";
+export * from "@/feature/lineplot/useMosaicDrop";
 export * from "@/feature/lineplot/useTriggerHold";
 export * from "@/platform/lineplot/external";
 

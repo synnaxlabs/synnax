@@ -27,8 +27,8 @@ import { ContextMenu as Base } from "@/platform/context-menu";
 import { Layout } from "@/platform/layout";
 import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
-import { Tree } from "@/platform/tree";
 import { Range } from "@/platform/range";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export const fetchIfNotInState = async (

@@ -17,9 +17,12 @@ import { createTestRange } from "@/platform/range/testutil";
 import { createResource } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { uniqueName } from "@/testutil";
+import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
+
+const item = Range.TREE_ITEMS.range;
+assertDefined(item, "no range tree item");
 
 describe("range/ontology", () => {
   describe("onSelect", () => {
@@ -36,7 +39,7 @@ describe("range/ontology", () => {
       const { store } = await renderOntologyTree({
         client,
         root: group.ontologyID(grp.key),
-        items: { range: Range.TREE_ITEM },
+        items: Range.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(rng.name));
       await waitFor(() =>
@@ -61,14 +64,14 @@ describe("range/ontology", () => {
         name: rng.name,
         timeRange: rng.timeRange,
       });
-      const items = Range.TREE_ITEM.haulItems(resource);
+      const items = item.haulItems(resource);
       expect(items).toHaveLength(1);
       expect(items[0].key).toBe(rng.key);
     });
 
     it("returns nothing when the resource has no data payload", () => {
       const resource = createResource(ranger.ontologyID("some-key"), "no-data");
-      expect(Range.TREE_ITEM.haulItems(resource)).toHaveLength(0);
+      expect(item.haulItems(resource)).toHaveLength(0);
     });
   });
 });

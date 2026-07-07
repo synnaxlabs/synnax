@@ -21,9 +21,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
-import { CommandList } from "@/app/palette/CommandList";
-import { SearchList } from "@/app/palette/SearchList";
-import { Command } from "@/feature/command";
+import { Command } from "@/app/command";
+import { Search } from "@/app/search";
+import { Command as FeatureCommand } from "@/feature/command";
 import { CSS } from "@/platform/css";
 
 const SEARCH_TRIGGER: Triggers.Trigger = ["Control", "P"];
@@ -57,7 +57,7 @@ const flattenedConfig = Triggers.flattenConfig(TRIGGER_CONFIG);
 const inputPlaceholder = (
   <>
     <Icon.Search />
-    Type to search or {Command.PREFIX} to view commands
+    Type to search or {FeatureCommand.PREFIX} to view commands
   </>
 );
 
@@ -69,17 +69,17 @@ export const Palette = (): ReactElement => {
     ({ triggers, stage }: Triggers.UseEvent) => {
       if (stage !== "start" || visibleRef.current) return;
       const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
-      setValue(mode === "command" ? Command.PREFIX : "");
+      setValue(mode === "command" ? FeatureCommand.PREFIX : "");
       setVisible(true);
     },
-    [TRIGGER_CONFIG, Command.PREFIX, visibleRef],
+    [visibleRef],
   );
 
   const triggers = useMemo(() => flattenedConfig, [flattenedConfig]);
 
   Triggers.use({ triggers, callback: handleTrigger });
 
-  const List = value.startsWith(Command.PREFIX) ? CommandList : SearchList;
+  const List = value.startsWith(FeatureCommand.PREFIX) ? Command.List : Search.List;
 
   return (
     <Tooltip.Dialog location="right" hide={visible}>

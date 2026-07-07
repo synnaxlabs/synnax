@@ -31,7 +31,8 @@ const useOpen = () => {
     switch (layout?.type) {
       case LinePlot.LAYOUT_TYPE: {
         handleError(
-          () => LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
+          () =>
+            LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
           "Failed to add channels to plot",
         );
         break;

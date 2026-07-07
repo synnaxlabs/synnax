@@ -73,7 +73,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "visualization",
   content: <Content />,
   tooltip: "Visualize",

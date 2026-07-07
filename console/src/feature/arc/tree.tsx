@@ -35,9 +35,11 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   );
 };
 
-export const TREE_ITEM = Tree.createItem({
+const TreeItem = Tree.createItem({
   type: "arc",
   icon: <Icon.Arc />,
   canDrop: () => true,
   useOnSelect,
 });
+
+export const TREE_ITEMS: Tree.Items = { arc: TreeItem };

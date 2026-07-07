@@ -10,7 +10,6 @@
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Cluster } from "@/feature/cluster";
-import { Command } from "@/feature/command";
 import { Device } from "@/feature/device";
 import { Docs } from "@/feature/docs";
 import { Framer } from "@/feature/framer";
@@ -27,8 +26,9 @@ import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
+import { type Command } from "@/platform/command";
 
-export const CommandList = Command.createList([
+export const COMMANDS: Command.Command[] = [
   ...Channel.COMMANDS,
   ...Cluster.COMMANDS,
   ...Device.COMMANDS,
@@ -48,4 +48,4 @@ export const CommandList = Command.createList([
   ...Arc.COMMANDS,
   ...Status.COMMANDS,
   ...Theme.COMMANDS,
-]);
+];

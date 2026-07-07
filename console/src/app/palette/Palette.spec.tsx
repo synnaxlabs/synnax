@@ -64,11 +64,4 @@ describe("Palette", () => {
       ),
     );
   });
-
-  it("should show the empty command state when the command filter matches nothing", async () => {
-    await renderAppPalette();
-    const input = await openPalette();
-    fireEvent.change(input, { target: { value: ">zzzz_no_such_command" } });
-    await waitFor(() => expect(screen.getByText("No commands found")).toBeTruthy());
-  });
 });

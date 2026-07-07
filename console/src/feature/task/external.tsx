@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { DisconnectedError } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/pluto";
+
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { LabJack } from "@/feature/labjack";
@@ -14,7 +17,7 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
-import { createLayout } from "@/feature/task/layouts";
+import { createLayout, retrieveAndPlaceLayout } from "@/feature/task/layouts";
 import { Selector } from "@/feature/task/Selector";
 import { TOOLBAR } from "@/feature/task/Toolbar";
 import { getIcon, parseType } from "@/feature/task/types";
@@ -23,16 +26,17 @@ import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
+import { type Range } from "@/platform/range";
 import { Task } from "@/platform/task";
 
 export * from "@/feature/task/layouts";
 export * from "@/feature/task/link";
-export * from "@/feature/task/useMosaicDrop";
-export * from "@/feature/task/tree";
 export * from "@/feature/task/search";
 export * from "@/feature/task/Selector";
 export * from "@/feature/task/Toolbar";
+export * from "@/feature/task/tree";
 export * from "@/feature/task/types";
+export * from "@/feature/task/useMosaicDrop";
 export * from "@/platform/task/external";
 
 export const REGISTRY: Task.Registry = { createLayout, getIcon, parseType };
@@ -78,4 +82,16 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [Task.SELECTOR_LAYOUT_TYPE]: Selector,
 };
 
-export const NAV_DRAWER_ITEMS: Nav.Item[] = [TOOLBAR];
+export const TOOLBARS: Nav.Toolbar[] = [TOOLBAR];
+
+export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
+  task: {
+    icon: <Icon.Task />,
+    onClick: async ({ id: { key } }, { client, placeLayout }) =>
+      await retrieveAndPlaceLayout(client, key, placeLayout),
+    onDelete: async ({ id: { key } }, { client }) => {
+      if (client == null) throw new DisconnectedError();
+      await client.tasks.delete(key);
+    },
+  },
+};

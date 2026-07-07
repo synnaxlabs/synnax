@@ -11,15 +11,15 @@ import { Drift } from "@synnaxlabs/drift";
 import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useLinks } from "@/app/links";
+import { Link } from "@/app/link";
 import { Mosaic } from "@/app/Mosaic";
 import { Nav } from "@/app/nav";
-import { Notifications } from "@/app/Notifications";
+import { Notifications } from "@/app/notifications";
 import { useTriggers } from "@/app/useTriggers";
 import { Auth } from "@/feature/auth";
+import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
 import { Project } from "@/feature/project";
-import { Cluster } from "@/platform/cluster";
 import { Layout } from "@/platform/layout";
 import { Project as PlatformProject } from "@/platform/project";
 import { Range } from "@/platform/range";
@@ -32,7 +32,7 @@ const SideEffect = (): null => {
   Range.useListenForChanges();
   PlatformProject.useCheckCore();
   Status.useListenForChanges();
-  useLinks();
+  Link.useDeep();
   useTriggers();
   return null;
 };
@@ -55,7 +55,7 @@ export const MAIN_LAYOUT_TYPE = Drift.MAIN_WINDOW;
 export const Main = (): ReactElement => (
   <>
     {/* We need to place notifications here so they are in the proper stacking context */}
-    <Notifications />
+    <Notifications.Notifications />
     <SideEffect />
     <Auth.Guard>
       <PlatformProject.Guard>

@@ -27,7 +27,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "device",
   icon: <Icon.Device />,
   content: <Content />,

@@ -40,7 +40,7 @@ describe("Arc Commands", () => {
       client,
     });
     await openCommandPalette();
-    const item = await screen.findByText("Create an Arc Automation");
+    const item = await screen.findByText("Create an Arc automation");
     await act(async () => {
       fireEvent.click(item);
     });

@@ -70,9 +70,7 @@ describe("useCreateEmpty", () => {
       parent: parentID,
       name: uniqueName("child"),
     });
-    const CreateUnderSelectionMenu = (
-      props: Tree.ContextMenuProps,
-    ): ReactElement => {
+    const CreateUnderSelectionMenu = (props: Tree.ContextMenuProps): ReactElement => {
       const {
         selection: { ids, rootID },
         state,

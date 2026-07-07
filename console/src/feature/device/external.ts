@@ -27,4 +27,4 @@ export const COMMANDS: Command.Command[] = [
   ...OPC.Device.COMMANDS,
 ];
 
-export const NAV_DRAWER_ITEMS: Nav.Item[] = [TOOLBAR];
+export const TOOLBARS: Nav.Toolbar[] = [TOOLBAR];

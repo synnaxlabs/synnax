@@ -42,7 +42,7 @@ import {
 } from "react";
 
 import { Nav as AppNav } from "@/app/nav";
-import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
+import { Selector } from "@/app/selector";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Project } from "@/feature/project";
@@ -57,7 +57,7 @@ import { type Mosaic as PMosaic } from "@/platform/mosaic";
 import { Session } from "@/session";
 
 const EmptyContent = (): ReactElement => {
-  const createComponentEnabled = useSelectorVisible();
+  const createComponentEnabled = Selector.useVisible();
   return (
     <Eraser.Eraser>
       <Flex.Box gap={5} center>
@@ -260,7 +260,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
-        placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
+        placeLayout(Selector.create({ tab: { mosaicKey, location } }));
         return;
       }
       tabKeys.forEach((tabKey) => {
@@ -271,7 +271,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             nodeKey: mosaicKey,
             location,
           });
-        else placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
+        else placeLayout(Selector.create({ tab: { mosaicKey, location } }));
       });
     },
     [placeLayout, mosaicDrops],
@@ -358,7 +358,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     ),
     [],
   );
-  const selectorVisible = useSelectorVisible();
+  const selectorVisible = Selector.useVisible();
 
   return (
     <>
