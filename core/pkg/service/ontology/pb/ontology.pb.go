@@ -157,7 +157,7 @@ type ID struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// type defines the type of resource the key refers to. For example, a channel is a
 	// resource of type "channel". A user is a resource of type "user".
-	Type ResourceType `protobuf:"varint,1,opt,name=type,proto3,enum=distribution.ontology.pb.ResourceType" json:"type,omitempty"`
+	Type ResourceType `protobuf:"varint,1,opt,name=type,proto3,enum=service.ontology.pb.ResourceType" json:"type,omitempty"`
 	// key is the unique key identifying the resource within its type.
 	Key           string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -212,9 +212,9 @@ var File_core_pkg_service_ontology_pb_ontology_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_ontology_pb_ontology_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/service/ontology/pb/ontology.proto\x12\x18distribution.ontology.pb\"R\n" +
-	"\x02ID\x12:\n" +
-	"\x04type\x18\x01 \x01(\x0e2&.distribution.ontology.pb.ResourceTypeR\x04type\x12\x10\n" +
+	"+core/pkg/service/ontology/pb/ontology.proto\x12\x13service.ontology.pb\"M\n" +
+	"\x02ID\x125\n" +
+	"\x04type\x18\x01 \x01(\x0e2!.service.ontology.pb.ResourceTypeR\x04type\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key*\xfe\x04\n" +
 	"\fResourceType\x12\x15\n" +
 	"\x11RESOURCE_TYPE_ARC\x10\x00\x12\x19\n" +
@@ -241,8 +241,8 @@ const file_core_pkg_service_ontology_pb_ontology_proto_rawDesc = "" +
 	"\x13RESOURCE_TYPE_TABLE\x10\x14\x12\x16\n" +
 	"\x12RESOURCE_TYPE_TASK\x10\x15\x12\x16\n" +
 	"\x12RESOURCE_TYPE_USER\x10\x16\x12\x16\n" +
-	"\x12RESOURCE_TYPE_VIEW\x10\x17B\xe5\x01\n" +
-	"\x1ccom.distribution.ontology.pbB\rOntologyProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/service/ontology/pb\xa2\x02\x03DOP\xaa\x02\x18Distribution.Ontology.Pb\xca\x02\x18Distribution\\Ontology\\Pb\xe2\x02$Distribution\\Ontology\\Pb\\GPBMetadata\xea\x02\x1aDistribution::Ontology::Pbb\x06proto3"
+	"\x12RESOURCE_TYPE_VIEW\x10\x17B\xcc\x01\n" +
+	"\x17com.service.ontology.pbB\rOntologyProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/service/ontology/pb\xa2\x02\x03SOP\xaa\x02\x13Service.Ontology.Pb\xca\x02\x13Service\\Ontology\\Pb\xe2\x02\x1fService\\Ontology\\Pb\\GPBMetadata\xea\x02\x15Service::Ontology::Pbb\x06proto3"
 
 var (
 	file_core_pkg_service_ontology_pb_ontology_proto_rawDescOnce sync.Once
@@ -259,11 +259,11 @@ func file_core_pkg_service_ontology_pb_ontology_proto_rawDescGZIP() []byte {
 var file_core_pkg_service_ontology_pb_ontology_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_core_pkg_service_ontology_pb_ontology_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_ontology_pb_ontology_proto_goTypes = []any{
-	(ResourceType)(0), // 0: distribution.ontology.pb.ResourceType
-	(*ID)(nil),        // 1: distribution.ontology.pb.ID
+	(ResourceType)(0), // 0: service.ontology.pb.ResourceType
+	(*ID)(nil),        // 1: service.ontology.pb.ID
 }
 var file_core_pkg_service_ontology_pb_ontology_proto_depIdxs = []int32{
-	0, // 0: distribution.ontology.pb.ID.type:type_name -> distribution.ontology.pb.ResourceType
+	0, // 0: service.ontology.pb.ID.type:type_name -> service.ontology.pb.ResourceType
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

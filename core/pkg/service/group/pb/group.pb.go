@@ -92,12 +92,12 @@ var File_core_pkg_service_group_pb_group_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_group_pb_group_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/service/group/pb/group.proto\x12\x15distribution.group.pb\"-\n" +
+	"%core/pkg/service/group/pb/group.proto\x12\x10service.group.pb\"-\n" +
 	"\x05Group\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04nameB\xd0\x01\n" +
-	"\x19com.distribution.group.pbB\n" +
-	"GroupProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/service/group/pb\xa2\x02\x03DGP\xaa\x02\x15Distribution.Group.Pb\xca\x02\x15Distribution\\Group\\Pb\xe2\x02!Distribution\\Group\\Pb\\GPBMetadata\xea\x02\x17Distribution::Group::Pbb\x06proto3"
+	"\x04name\x18\x02 \x01(\tR\x04nameB\xb7\x01\n" +
+	"\x14com.service.group.pbB\n" +
+	"GroupProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/service/group/pb\xa2\x02\x03SGP\xaa\x02\x10Service.Group.Pb\xca\x02\x10Service\\Group\\Pb\xe2\x02\x1cService\\Group\\Pb\\GPBMetadata\xea\x02\x12Service::Group::Pbb\x06proto3"
 
 var (
 	file_core_pkg_service_group_pb_group_proto_rawDescOnce sync.Once
@@ -113,7 +113,7 @@ func file_core_pkg_service_group_pb_group_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_service_group_pb_group_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_group_pb_group_proto_goTypes = []any{
-	(*Group)(nil), // 0: distribution.group.pb.Group
+	(*Group)(nil), // 0: service.group.pb.Group
 }
 var file_core_pkg_service_group_pb_group_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

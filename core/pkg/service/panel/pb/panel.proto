@@ -76,11 +76,11 @@ message Panel {
   // create, the panel is parented to the creating user as a draft. Parenthood lives in
   // the ontology graph, so the field is not persisted on the panel record and is absent
   // on retrieve.
-  optional .distribution.ontology.pb.ID parent = 4;
+  optional .service.ontology.pb.ID parent = 4;
 }
 message TabResourcePayload {
   // resource is the visualization resource displayed by this tab, set via SetTabResource.
-  .distribution.ontology.pb.ID resource = 1;
+  .service.ontology.pb.ID resource = 1;
 }
 message TabEmptyPayload {}
 

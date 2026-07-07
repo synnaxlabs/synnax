@@ -54,5 +54,5 @@ message Device {
   optional .service.status.pb.Status status = 9;
   // parent is an optional parent resource ID for hierarchical device organization (e.g.,
   // NI chassis containing modules).
-  optional .distribution.ontology.pb.ID parent = 10;
+  optional .service.ontology.pb.ID parent = 10;
 }

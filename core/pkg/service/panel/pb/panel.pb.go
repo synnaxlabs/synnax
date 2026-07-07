@@ -645,15 +645,15 @@ const file_core_pkg_service_panel_pb_panel_proto_rawDesc = "" +
 	"\tdirection\x18\x01 \x01(\x0e2\x17.x.spatial.pb.DirectionR\tdirection\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\x01R\x04size\x12,\n" +
 	"\x05first\x18\x03 \x01(\v2\x16.service.panel.pb.NodeR\x05first\x12*\n" +
-	"\x04last\x18\x04 \x01(\v2\x16.service.panel.pb.NodeR\x04last\"\x9f\x01\n" +
+	"\x04last\x18\x04 \x01(\v2\x16.service.panel.pb.NodeR\x04last\"\x9a\x01\n" +
 	"\x05Panel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12*\n" +
-	"\x04root\x18\x03 \x01(\v2\x16.service.panel.pb.NodeR\x04root\x129\n" +
-	"\x06parent\x18\x04 \x01(\v2\x1c.distribution.ontology.pb.IDH\x00R\x06parent\x88\x01\x01B\t\n" +
-	"\a_parent\"N\n" +
-	"\x12TabResourcePayload\x128\n" +
-	"\bresource\x18\x01 \x01(\v2\x1c.distribution.ontology.pb.IDR\bresource\"\x11\n" +
+	"\x04root\x18\x03 \x01(\v2\x16.service.panel.pb.NodeR\x04root\x124\n" +
+	"\x06parent\x18\x04 \x01(\v2\x17.service.ontology.pb.IDH\x00R\x06parent\x88\x01\x01B\t\n" +
+	"\a_parent\"I\n" +
+	"\x12TabResourcePayload\x123\n" +
+	"\bresource\x18\x01 \x01(\v2\x17.service.ontology.pb.IDR\bresource\"\x11\n" +
 	"\x0fTabEmptyPayload\"\xf3\x01\n" +
 	"\x03Tab\x124\n" +
 	"\btab_base\x18\x01 \x01(\v2\x19.service.panel.pb.TabBaseR\atabBase\x12B\n" +
@@ -693,7 +693,7 @@ var file_core_pkg_service_panel_pb_panel_proto_goTypes = []any{
 	(*Node)(nil),               // 8: service.panel.pb.Node
 	(*structpb.Struct)(nil),    // 9: google.protobuf.Struct
 	(pb.Direction)(0),          // 10: x.spatial.pb.Direction
-	(*pb1.ID)(nil),             // 11: distribution.ontology.pb.ID
+	(*pb1.ID)(nil),             // 11: service.ontology.pb.ID
 }
 var file_core_pkg_service_panel_pb_panel_proto_depIdxs = []int32{
 	9,  // 0: service.panel.pb.View.args:type_name -> google.protobuf.Struct
@@ -702,8 +702,8 @@ var file_core_pkg_service_panel_pb_panel_proto_depIdxs = []int32{
 	8,  // 3: service.panel.pb.Split.first:type_name -> service.panel.pb.Node
 	8,  // 4: service.panel.pb.Split.last:type_name -> service.panel.pb.Node
 	8,  // 5: service.panel.pb.Panel.root:type_name -> service.panel.pb.Node
-	11, // 6: service.panel.pb.Panel.parent:type_name -> distribution.ontology.pb.ID
-	11, // 7: service.panel.pb.TabResourcePayload.resource:type_name -> distribution.ontology.pb.ID
+	11, // 6: service.panel.pb.Panel.parent:type_name -> service.ontology.pb.ID
+	11, // 7: service.panel.pb.TabResourcePayload.resource:type_name -> service.ontology.pb.ID
 	0,  // 8: service.panel.pb.Tab.tab_base:type_name -> service.panel.pb.TabBase
 	5,  // 9: service.panel.pb.Tab.resource:type_name -> service.panel.pb.TabResourcePayload
 	1,  // 10: service.panel.pb.Tab.view:type_name -> service.panel.pb.View
