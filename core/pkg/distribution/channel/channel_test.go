@@ -162,6 +162,30 @@ var _ = Describe("Channel Tests", func() {
 			})
 		})
 	})
+	Describe("Storage", func() {
+		It("Should mark a free channel's storage registration as transient", func() {
+			ch := channel.Channel{
+				Name:        "free_ch",
+				LocalKey:    1,
+				Leaseholder: node.KeyFree,
+				DataType:    telem.Int64T,
+				Virtual:     true,
+			}
+			stored := ch.Storage()
+			Expect(stored.Key).To(Equal(ch.Key().StorageKey()))
+			Expect(stored.Virtual).To(BeTrue())
+			Expect(stored.Transient).To(BeTrue())
+		})
+		It("Should not mark a leased channel's storage registration as transient", func() {
+			ch := channel.Channel{
+				Name:        "leased_ch",
+				LocalKey:    1,
+				Leaseholder: 1,
+				DataType:    telem.Int64T,
+			}
+			Expect(ch.Storage().Transient).To(BeFalse())
+		})
+	})
 	Describe("UnmarshalJSON", func() {
 		It("Should unmarshal a channel with the leaseholder field", func() {
 			data := []byte(`{"name":"test","leaseholder":5,"data_type":"float32","local_key":1}`)
