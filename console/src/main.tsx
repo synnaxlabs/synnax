@@ -6,10 +6,11 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-
+//
 import { createRoot } from "react-dom/client";
 
 import { App } from "@/app";
+import workerURL from "@/worker?worker&url";
 
 if (import.meta.env.DEV) {
   const script = document.createElement("script");
@@ -19,4 +20,4 @@ if (import.meta.env.DEV) {
 
 const rootEl = document.getElementById("root") as HTMLElement;
 
-createRoot(rootEl).render(<App.App />);
+createRoot(rootEl).render(<App.App workerURL={workerURL} />);

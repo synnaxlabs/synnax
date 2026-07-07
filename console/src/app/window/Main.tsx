@@ -31,7 +31,7 @@ const SideEffect = (): null => {
   PlatformProject.useCheckCore();
   Status.useListenForChanges();
   Link.useDeep();
-  Triggers.useTriggers();
+  Triggers.use();
   return null;
 };
 

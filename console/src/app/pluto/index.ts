@@ -7,11 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
-
-import { Panel } from "@/platform/panel";
-
-export const TabName: Panel.TabName = Panel.createStaticTabName({
-  name: "Status Explorer",
-  icon: <Icon.Status />,
-});
+export * as Pluto from "@/app/pluto/Context";

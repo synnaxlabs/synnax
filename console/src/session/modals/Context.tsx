@@ -68,7 +68,7 @@ export interface Entry {
 type Listener = () => void;
 
 /**
- * An in-memory, per-window stack of open modals. Created once by {@link Provider} and
+ * An in-memory, per-window stack of open modals. Created once by {@link Context} and
  * read via {@link useStore}. The store is both a React external store (via
  * {@link subscribe}/{@link getState}) and imperatively readable (via {@link isAnyOpen})
  * for event-handler consumers that cannot use hooks.
@@ -129,7 +129,7 @@ export class Store {
   }
 }
 
-const [Context, useStore] = context.create<Store>({
+const [BaseContext, useStore] = context.create<Store>({
   displayName: "Modal.StoreContext",
   providerName: "Modal.StoreProvider",
 });
@@ -141,9 +141,9 @@ export { useStore };
  * context. Mount once near the root of each window; the store lives for the window's
  * lifetime and is never shared across windows or persisted.
  */
-export const Provider = ({ children }: PropsWithChildren): ReactElement => {
+export const Context = ({ children }: PropsWithChildren): ReactElement => {
   const [store] = useState(() => new Store());
-  return <Context value={store}>{children}</Context>;
+  return <BaseContext value={store}>{children}</BaseContext>;
 };
 
 /** useStack subscribes to and returns the current modal stack. */

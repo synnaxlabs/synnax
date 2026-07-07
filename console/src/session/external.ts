@@ -10,6 +10,7 @@
 export * from "@/session/arc";
 export * from "@/session/cluster";
 export * from "@/session/color";
+export * from "@/session/Context";
 export * from "@/session/docs";
 export * from "@/session/haul";
 export * from "@/session/lineplot";

@@ -21,8 +21,9 @@ const createStore = () =>
 
 const createWrapper =
   (store: ReturnType<typeof createStore>) =>
-  ({ children }: PropsWithChildren): ReactElement =>
-    <Provider store={store}>{children}</Provider>;
+  ({ children }: PropsWithChildren): ReactElement => (
+    <Provider store={store}>{children}</Provider>
+  );
 
 const withFrequent: PColor.ContextState = {
   ...PColor.ZERO_CONTEXT_STATE,
@@ -63,6 +64,30 @@ describe("color selectors", () => {
         store.dispatch(Color.setContext(withFrequent));
       });
       expect(get()).toEqual(withFrequent);
+    });
+  });
+
+  describe("useProviderProps", () => {
+    const renderProviderState = (store: ReturnType<typeof createStore>) =>
+      renderHook(() => Color.useProviderProps().useState?.(PColor.ZERO_CONTEXT_STATE), {
+        wrapper: createWrapper(store),
+      });
+
+    it("exposes a useState hook reflecting the color context", () => {
+      const store = createStore();
+      const { result } = renderProviderState(store);
+      expect(result.current?.[0]).toEqual(PColor.ZERO_CONTEXT_STATE);
+      act(() => {
+        store.dispatch(Color.setContext(withFrequent));
+      });
+      expect(result.current?.[0]).toEqual(withFrequent);
+    });
+
+    it("dispatches setContext when the setter is called", () => {
+      const store = createStore();
+      const { result } = renderProviderState(store);
+      act(() => result.current?.[1](withFrequent));
+      expect(store.getState()[Color.SLICE_NAME].context).toEqual(withFrequent);
     });
   });
 });

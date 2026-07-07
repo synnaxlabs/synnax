@@ -21,8 +21,9 @@ const createStore = () =>
 
 const createWrapper =
   (store: ReturnType<typeof createStore>) =>
-  ({ children }: PropsWithChildren): ReactElement =>
-    <Provider store={store}>{children}</Provider>;
+  ({ children }: PropsWithChildren): ReactElement => (
+    <Provider store={store}>{children}</Provider>
+  );
 
 const dragging: PHaul.DraggingState = {
   source: { key: "src", type: "channel" },
@@ -63,6 +64,31 @@ describe("haul selectors", () => {
         store.dispatch(Haul.setHauled(dragging));
       });
       expect(get()).toEqual(dragging);
+    });
+  });
+
+  describe("useProviderProps", () => {
+    const renderProviderState = (store: ReturnType<typeof createStore>) =>
+      renderHook(
+        () => Haul.useProviderProps().useState?.(Haul.ZERO_SLICE_STATE.state),
+        { wrapper: createWrapper(store) },
+      );
+
+    it("exposes a useState hook reflecting the dragging state", () => {
+      const store = createStore();
+      const { result } = renderProviderState(store);
+      expect(result.current?.[0]).toEqual(Haul.ZERO_SLICE_STATE.state);
+      act(() => {
+        store.dispatch(Haul.setHauled(dragging));
+      });
+      expect(result.current?.[0]).toEqual(dragging);
+    });
+
+    it("dispatches setHauled when the setter is called", () => {
+      const store = createStore();
+      const { result } = renderProviderState(store);
+      act(() => result.current?.[1](dragging));
+      expect(store.getState()[Haul.SLICE_NAME].state).toEqual(dragging);
     });
   });
 });

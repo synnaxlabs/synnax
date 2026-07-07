@@ -9,20 +9,18 @@
 
 import "@/app/Window.css";
 
-import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
+import { Drift } from "@synnaxlabs/drift";
 import { Component, Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 
-import { Aux } from "@/app/Aux";
-import { Main } from "@/app/main/Main";
+import { Aux } from "@/app/window/Aux";
+import { Main } from "@/app/window/Main";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-export const DefaultContextMenu = (): ReactElement => (
+const DefaultContextMenu = (): ReactElement => (
   <ContextMenu.Menu>
     <ContextMenu.ReloadConsoleItem />
   </ContextMenu.Menu>
@@ -30,29 +28,19 @@ export const DefaultContextMenu = (): ReactElement => (
 
 const menu = Component.renderProp(DefaultContextMenu);
 
-// WindowInternal is the shell every OS window renders: the main window hosts
-// Main (nav + panel workspace); every other window hosts Aux (a bare panel
-// viewport). Pre-render windows stay hidden until they are handed a panel.
-const WindowInternal = (): ReactElement | null => {
-  const currLabel =
-    Session.Runtime.ENGINE === "tauri" ? getCurrentWindow().label : MAIN_WINDOW;
-  const isMain = currLabel === MAIN_WINDOW;
-  const windowKey = useSelectWindowKey(currLabel);
-  const selectedPanel = Session.Panel.useSelectSelected();
-  const hasContent = isMain || selectedPanel != null;
+export const Window = memo((): ReactElement | null => {
+  const isMain = Session.Runtime.isMainWindow();
   const os = OS.use({ default: "Windows" });
   const dispatch = Session.useDispatch();
   useEffect(() => {
-    if (windowKey == null || !hasContent) return;
     dispatch(
-      setWindowProps({
-        key: windowKey,
+      Drift.setWindowProps({
         visible: true,
         minimized: false,
         decorations: os !== "Windows",
       }),
     );
-  }, [os, windowKey, hasContent]);
+  }, [os]);
 
   const menuProps = Menu.useContextMenu();
   const ctx = Haul.useContext();
@@ -80,7 +68,5 @@ const WindowInternal = (): ReactElement | null => {
       </Menu.ContextMenu>
     </Flex.Box>
   );
-};
-
-export const Window = memo(WindowInternal);
+});
 Window.displayName = "Window";

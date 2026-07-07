@@ -17,12 +17,24 @@ import { useSelectorVisible } from "@/app/vis/Selector";
 import { Session } from "@/session";
 import { Modals } from "@/session/modals";
 
+const PREVENT_DEFAULT_ON: Triggers.Trigger[] = [
+  ["Control", "P"],
+  ["Control", "Shift", "P"],
+  ["Control", "MouseLeft"],
+  ["Control", "W"],
+];
+
+export const PROVIDER_PROPS: Triggers.ProviderProps = {
+  preventDefaultOn: PREVENT_DEFAULT_ON,
+  preventDefaultOptions: { double: true },
+};
+
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 
 // TODO(SY-4370): open-in-new-window gesture (formerly Control+O) needs a panel
 // equivalent: create a Drift window and select the panel in it.
 
-export const useTriggers = (): void => {
+export const use = (): void => {
   const sessionDispatch = Session.useDispatch();
   const modals = Modals.useStore("useTriggers");
   const getSelectedPanel = Session.Panel.useGetSelected();
