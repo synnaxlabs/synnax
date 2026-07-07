@@ -51,11 +51,6 @@ type Service struct {
 	// only populated on the bootstrapper node.
 	leasedCounter *counter
 	freeCounter   *counter
-	// freeStorageMu serializes transient free-channel registrations in the local
-	// storage engine, whose check-then-create is not atomic: concurrent create
-	// requests registering the same channel would otherwise race and surface
-	// spurious already-exists errors from storage.
-	freeStorageMu sync.Mutex
 	// mu guards externalNonVirtualSet, which tracks the key set used by
 	// validateChannels to enforce the uint20 channel-index overflow limit.
 	// Retrieve.Validate routes through here, and createGateway/deleteGateway
@@ -175,10 +170,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
-	// Free channels live transiently in every node's local storage engine, so
-	// register all free channels known to the cluster at startup. Channels created
-	// while this node is up are registered by the create path (see
-	// registerFreeStorage).
+	// Free channels live transiently in every node's local storage engine, which
+	// starts empty on every boot, so create all free channels known to the cluster
+	// at startup. Channels created while this node is up are created in storage by
+	// the create path on the bootstrapper (see createFreeVirtual).
 	var freeChannels []Channel
 	if err = s.table.NewRetrieve().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
@@ -188,7 +183,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Exec(ctx, cfg.ClusterDB); !ok(err, nil) {
 		return nil, err
 	}
-	if err = s.registerFreeStorage(ctx, freeChannels); !ok(err, nil) {
+	if err = s.createFreeStorage(ctx, freeChannels); !ok(err, nil) {
 		return nil, err
 	}
 	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {

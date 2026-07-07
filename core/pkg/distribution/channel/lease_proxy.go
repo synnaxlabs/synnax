@@ -127,12 +127,6 @@ func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, 
 			if err != nil {
 				return err
 			}
-			// The bootstrapper registered these channels in its own local storage;
-			// free channels live transiently in every node's storage, so register
-			// them here as well.
-			if err = s.ensureFreeStorage(ctx, remoteChannels); err != nil {
-				return err
-			}
 			oChannels = append(oChannels, remoteChannels...)
 		} else {
 			if err := s.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, opts); err != nil {
@@ -292,88 +286,30 @@ func (s *Service) createAndUpdateFreeVirtual(
 		}
 	}
 
-	// Free channels are registered transiently in every node's local storage. The
-	// full request set is ensured — not just toCreate — so a channel that already
-	// existed cluster-wide (e.g. created through another node and retrieved here by
-	// name) is registered on this node as well. Channels created while a node is
-	// down are registered when it scans the channel table at startup (see
-	// OpenService).
-	if err := s.ensureFreeStorage(ctx, *channels); err != nil {
+	// Free channels are created in the local storage engine on the same path as
+	// gateway-leased channels. Every free create executes here on the bootstrapper,
+	// so a newly created channel can never collide with an existing storage
+	// registration; other nodes register free channels when they scan the channel
+	// table at startup (see OpenService).
+	if err := s.createFreeStorage(ctx, toCreate); err != nil {
 		return err
 	}
 
 	return s.maybeSetResources(ctx, tx, toCreate, opts)
 }
 
-// ensureFreeStorage registers the free channels among the given channels, along with
-// their index channels, in this node's local storage engine as transient virtual
-// channels. Channels that are not free are ignored, and channels already registered
-// locally are skipped.
-func (s *Service) ensureFreeStorage(ctx context.Context, channels []Channel) error {
-	free := lo.Filter(channels, func(c Channel, _ int) bool { return c.Free() })
-	if len(free) == 0 {
+// createFreeStorage creates the given free channels in the local storage engine as
+// transient virtual channels, creating index channels before the channels that
+// reference them.
+func (s *Service) createFreeStorage(ctx context.Context, channels []Channel) error {
+	if len(channels) == 0 {
 		return nil
 	}
-	present := lo.SliceToMap(free, func(c Channel) (Key, struct{}) {
-		return c.Key(), struct{}{}
-	})
-	var indexKeys Keys
-	for _, ch := range free {
-		idx := ch.Index()
-		if _, ok := present[idx]; idx != 0 && !ok {
-			indexKeys = append(indexKeys, idx)
-			present[idx] = struct{}{}
-		}
-	}
-	if len(indexKeys) > 0 {
-		var indexes []Channel
-		if err := s.newRetrieve().
-			Where(MatchKeys(indexKeys...)).
-			Entries(&indexes).
-			Exec(ctx, nil); err != nil {
-			return err
-		}
-		free = append(free, indexes...)
-	}
-	return s.registerFreeStorage(ctx, free)
-}
-
-// registerFreeStorage registers the free channels among the given channels in the
-// local storage engine, skipping channels that are already registered. A channel whose
-// index is not registered locally is skipped as well: the index was created through
-// another node, and the group is resolved on the next provision.
-func (s *Service) registerFreeStorage(ctx context.Context, channels []Channel) error {
-	s.freeStorageMu.Lock()
-	defer s.freeStorageMu.Unlock()
-	free := lo.Filter(channels, func(c Channel, _ int) bool { return c.Free() })
-	// Indexes must be registered before the channels they index.
-	slices.SortStableFunc(free, func(a, b Channel) int {
+	sorted := slices.Clone(channels)
+	slices.SortStableFunc(sorted, func(a, b Channel) int {
 		return boolToInt(b.IsIndex) - boolToInt(a.IsIndex)
 	})
-	for _, ch := range free {
-		if _, err := s.cfg.TSChannel.RetrieveChannel(ctx, ch.Key().StorageKey()); err == nil {
-			continue
-		} else if !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-		if err := s.cfg.TSChannel.CreateChannel(ctx, ch.Storage()); err != nil {
-			if isStorageNotFound(err) {
-				continue
-			}
-			return err
-		}
-	}
-	return nil
-}
-
-// isStorageNotFound reports whether err is a not-found error from the storage engine,
-// piercing validate.PathError, which does not implement Unwrap.
-func isStorageNotFound(err error) bool {
-	if errors.Is(err, query.ErrNotFound) {
-		return true
-	}
-	var pathErr validate.PathError
-	return errors.As(err, &pathErr) && errors.Is(pathErr.Err, query.ErrNotFound)
+	return s.cfg.TSChannel.CreateChannel(ctx, toStorage(sorted)...)
 }
 
 func boolToInt(b bool) int {
