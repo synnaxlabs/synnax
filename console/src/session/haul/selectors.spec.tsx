@@ -67,10 +67,10 @@ describe("haul selectors", () => {
     });
   });
 
-  describe("useProviderProps", () => {
+  describe("PROVIDER_PROPS", () => {
     const renderProviderState = (store: ReturnType<typeof createStore>) =>
       renderHook(
-        () => Haul.useProviderProps().useState?.(Haul.ZERO_SLICE_STATE.state),
+        () => Haul.PROVIDER_PROPS.useState?.(Haul.ZERO_SLICE_STATE.state),
         { wrapper: createWrapper(store) },
       );
 

@@ -67,9 +67,9 @@ describe("color selectors", () => {
     });
   });
 
-  describe("useProviderProps", () => {
+  describe("PROVIDER_PROPS", () => {
     const renderProviderState = (store: ReturnType<typeof createStore>) =>
-      renderHook(() => Color.useProviderProps().useState?.(PColor.ZERO_CONTEXT_STATE), {
+      renderHook(() => Color.PROVIDER_PROPS.useState?.(PColor.ZERO_CONTEXT_STATE), {
         wrapper: createWrapper(store),
       });
 

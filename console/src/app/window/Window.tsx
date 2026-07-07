@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/app/Window.css";
+import "@/app/window/Window.css";
 
 import { Drift } from "@synnaxlabs/drift";
 import { Component, Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
