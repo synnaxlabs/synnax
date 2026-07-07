@@ -61,18 +61,17 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int64](7, 8, 9),
 				},
 			)
-			local, remote, free := f.SplitByHost(1)
-			Expect(local).To(Equal(frame.NewUnary(
-				localNodeCh,
-				telem.NewSeriesV[int64](1, 2, 3),
+			local, remote := f.SplitByHost(1)
+			Expect(local).To(Equal(frame.NewMulti(
+				[]channel.Key{localNodeCh, freeNodeCh},
+				[]telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](7, 8, 9),
+				},
 			)))
 			Expect(remote).To(Equal(frame.NewUnary(
 				remoteNodeCh,
 				telem.NewSeriesV[int64](4, 5, 6),
-			)))
-			Expect(free).To(Equal(frame.NewUnary(
-				freeNodeCh,
-				telem.NewSeriesV[int64](7, 8, 9),
 			)))
 		})
 	})

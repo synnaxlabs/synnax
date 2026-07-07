@@ -14,12 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -29,8 +29,8 @@ import (
 )
 
 var (
-	channelSvc    *channel.Service
-	apiChannelSvc *apichannel.Service
+	channelSvc    *svcchannel.Service
+	apiChannelSvc *channel.Service
 )
 
 func TestFramer(t *testing.T) {
@@ -61,7 +61,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
-	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+	channelSvc = MustOpen(svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostResolver: node.Cluster,
@@ -70,7 +70,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
-	apiChannelSvc = MustSucceed(apichannel.NewService(config.LayerConfig{
+	apiChannelSvc = MustSucceed(channel.NewService(config.LayerConfig{
 		Distribution: &distribution.Layer{DB: node.DB},
 		Service:      &service.Layer{Channel: channelSvc},
 	}))

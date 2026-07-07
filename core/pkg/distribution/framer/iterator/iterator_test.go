@@ -40,10 +40,9 @@ var _ = Describe("Iterator", func() {
 					ShouldNotLeakGoroutines()
 					s = DeferClose(sF(ctx))
 					writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-						Channels: s.channels,
-						Keys:     s.keys,
-						Start:    10 * telem.SecondTS,
-						Sync:     new(true),
+						Keys:  s.keys,
+						Start: 10 * telem.SecondTS,
+						Sync:  new(true),
 					}))
 					writeBatch := func(ts ...telem.TimeStamp) {
 						series := make([]telem.Series, len(s.keys))

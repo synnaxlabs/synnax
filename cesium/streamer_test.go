@@ -78,6 +78,43 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
 				})
+
+				It("Should receive frames for every channel when MatchAll is set", func(ctx SpecContext) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: key, Name: "Curie", DataType: telem.TimeStampT, IsIndex: true},
+					)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{key},
+						Start:    10 * telem.SecondTS,
+					}))
+					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{MatchAll: true}))
+					i, o := confluence.Attach(r, 1)
+					sCtx, cancel := signal.WithCancel(ctx)
+					defer cancel()
+					r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{key},
+						[]telem.Series{telem.NewSeriesSecondsTSV(10, 11)},
+					)))
+
+					// The match-all subscription also surfaces control digest frames, so
+					// poll until the written frame arrives rather than asserting on the
+					// first response.
+					Eventually(func() []cesium.ChannelKey {
+						select {
+						case res := <-o.Outlet():
+							return res.Frame.KeysSlice()
+						default:
+							return nil
+						}
+					}).Should(ContainElement(key))
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+				})
 			})
 
 			Describe("Writer is in PersistOnly mode", func() {

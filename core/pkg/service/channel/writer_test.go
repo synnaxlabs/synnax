@@ -587,17 +587,18 @@ var _ = Describe("Writer", func() {
 			var ch channel.Channel
 			var ch2 channel.Channel
 			BeforeEach(func(ctx SpecContext) {
-				ch.Name = UniqueChannelName()
-				ch.DataType = telem.Float64T
-				ch.Virtual = true
-				ch.Internal = false
-				ch.Leaseholder = node.KeyFree
-
-				ch2.IsIndex = true
-				ch2.Name = UniqueChannelName()
-				ch2.DataType = telem.TimeStampT
-				ch2.Leaseholder = 1
-
+				ch = channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Float64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+				}
+				ch2 = channel.Channel{
+					IsIndex:     true,
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimeStampT,
+					Leaseholder: 1,
+				}
 				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 				Expect(channelWriter.Create(ctx, &ch2)).To(Succeed())
 			})

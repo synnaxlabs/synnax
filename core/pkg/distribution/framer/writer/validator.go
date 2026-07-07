@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -27,9 +26,8 @@ type validator struct {
 		confluence.NopFlow
 		confluence.AbstractUnarySource[Response]
 	}
-	keys     channel.Keys
-	channels map[channel.Key]channel.Channel
-	seqNum   int
+	keys   channel.Keys
+	seqNum int
 }
 
 // Flow implements the confluence.Flow interface.
@@ -60,6 +58,10 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
+// validate checks the request's command and, for writes, that every series in the
+// frame targets one of the writer's keys and is internally consistent. Data types are
+// validated by the storage engine on the node that services each channel, against its
+// own authoritative channel record.
 func (v *validator) validate(req Request) error {
 	if err := validateCommand(req.Command); err != nil {
 		return err
@@ -73,30 +75,10 @@ func (v *validator) validate(req Request) error {
 				return errors.Wrapf(validate.ErrValidation, "invalid key: %s", k)
 			}
 			s := req.Frame.RawSeriesAt(rawI)
-			if ch, ok := v.channels[k]; ok {
-				if err := s.Validate(); err != nil {
-					return errors.Wrapf(err, "channel %s", ch)
-				}
-				if err := validateSeriesDataType(ch, s); err != nil {
-					return err
-				}
+			if err := s.Validate(); err != nil {
+				return errors.Wrapf(err, "channel %s", k)
 			}
 		}
-	}
-	return nil
-}
-
-func validateSeriesDataType(ch channel.Channel, s telem.Series) error {
-	sDt := s.DataType
-	cDt := ch.DataType
-	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimeStampT) &&
-		(cDt == telem.Int64T || cDt == telem.TimeStampT)
-	if cDt != sDt && !isEquivalent {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"channel %s: expected data type %s, got %s",
-			ch, cDt, sDt,
-		)
 	}
 	return nil
 }

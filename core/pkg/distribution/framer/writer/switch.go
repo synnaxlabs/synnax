@@ -60,32 +60,29 @@ func (rs *peerSwitchSender) _switch(
 	return nil
 }
 
-type peerGatewayFreeSwitch struct {
+type peerGatewaySwitch struct {
 	confluence.BatchSwitch[Request, Request]
 	host node.Key
 	has  struct {
 		peer    bool
 		gateway bool
-		free    bool
 	}
 }
 
-func newPeerGatewayFreeSwitch(
+func newPeerGatewaySwitch(
 	host node.Key,
 	hasPeer bool,
 	hasGateway bool,
-	hasFree bool,
-) *peerGatewayFreeSwitch {
-	rl := &peerGatewayFreeSwitch{host: host}
+) *peerGatewaySwitch {
+	rl := &peerGatewaySwitch{host: host}
 	rl.Switch = rl._switch
 	rl.has.peer = hasPeer
 	rl.has.gateway = hasGateway
-	rl.has.free = hasFree
 	return rl
 }
 
-func (rl *peerGatewayFreeSwitch) _switch(ctx context.Context, r Request, oReqs map[address.Address]Request) error {
-	local, remote, free := r.Frame.SplitByHost(rl.host)
+func (rl *peerGatewaySwitch) _switch(ctx context.Context, r Request, oReqs map[address.Address]Request) error {
+	local, remote := r.Frame.SplitByHost(rl.host)
 	if rl.has.peer {
 		pr := r
 		pr.Frame = remote
@@ -95,11 +92,6 @@ func (rl *peerGatewayFreeSwitch) _switch(ctx context.Context, r Request, oReqs m
 		gr := r
 		gr.Frame = local
 		oReqs[gatewayWriterAddr] = gr
-	}
-	if rl.has.free {
-		fr := r
-		fr.Frame = free
-		oReqs[freeWriterAddr] = fr
 	}
 	return nil
 }
