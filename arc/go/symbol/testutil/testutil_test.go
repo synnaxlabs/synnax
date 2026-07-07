@@ -23,16 +23,16 @@ var _ = Describe("StaticResolver", func() {
 	Describe("Resolve", func() {
 		It("Should return the symbol matching the given name", func(ctx SpecContext) {
 			r := StaticResolver{
-				{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				{Name: "tau", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "pi", Kind: symbol.KindInput, Type: types.F64()},
+				{Name: "tau", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			sym := MustSucceed(r.Resolve(ctx, "tau"))
 			Expect(sym.Name).To(Equal("tau"))
-			Expect(sym.Kind).To(Equal(symbol.KindConfig))
+			Expect(sym.Kind).To(Equal(symbol.KindInput))
 		})
 
 		It("Should return query.ErrNotFound when the name is absent", func(ctx SpecContext) {
-			r := StaticResolver{{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()}}
+			r := StaticResolver{{Name: "pi", Kind: symbol.KindInput, Type: types.F64()}}
 			Expect(r.Resolve(ctx, "phi")).Error().To(SatisfyAll(
 				MatchError(query.ErrNotFound),
 				MatchError(ContainSubstring("symbol phi not found")),
@@ -45,7 +45,7 @@ var _ = Describe("StaticResolver", func() {
 		})
 
 		It("Should return a copy so callers cannot mutate the resolver via the result", func(ctx SpecContext) {
-			r := StaticResolver{{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()}}
+			r := StaticResolver{{Name: "pi", Kind: symbol.KindInput, Type: types.F64()}}
 			sym := MustSucceed(r.Resolve(ctx, "pi"))
 			sym.Name = "mutated"
 			again := MustSucceed(r.Resolve(ctx, "pi"))
@@ -56,9 +56,9 @@ var _ = Describe("StaticResolver", func() {
 	Describe("Search", func() {
 		It("Should return entries whose name has the given prefix", func(ctx SpecContext) {
 			r := StaticResolver{
-				{Name: "pi", Kind: symbol.KindConfig},
+				{Name: "pi", Kind: symbol.KindInput},
 				{Name: "print", Kind: symbol.KindFunction},
-				{Name: "tau", Kind: symbol.KindConfig},
+				{Name: "tau", Kind: symbol.KindInput},
 			}
 			results := MustSucceed(r.Search(ctx, "p"))
 			Expect(results).To(HaveLen(2))
