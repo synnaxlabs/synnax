@@ -75,8 +75,8 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// OpenIndex opens a new search index using the provided configuration. The index
-// must be closed after use.
+// OpenIndex opens a new search index using the provided configuration. The index must
+// be closed after use.
 func OpenIndex(configs ...Config) (*Index, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {

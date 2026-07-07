@@ -32,7 +32,6 @@ import (
 
 var _ = Describe("StreamIterator", Ordered, func() {
 	var (
-		node          mock.Node
 		iteratorSvc   *iterator.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
@@ -40,7 +39,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node = mock.NewNode(ctx)
+		node := mock.NewNode(ctx)
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{

@@ -87,7 +87,9 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		dist:          dist,
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),
-		closer:        io.MultiCloser{dist, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc},
+		closer: io.MultiCloser{
+			dist, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+		},
 	}
 }
 

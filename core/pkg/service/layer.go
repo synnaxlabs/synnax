@@ -215,9 +215,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
-	defer func() {
-		err = cleanup(err)
-	}()
+	defer func() { err = cleanup(err) }()
 	if l.Ontology, err = ontology.Open(ctx, ontology.Config{
 		Instrumentation: cfg.Child("ontology"),
 		DB:              cfg.Distribution.DB,

@@ -36,7 +36,6 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	node       mock.Node
 	otg        *ontology.Ontology
 	svc        *changeService
 	framerSvc  *framer.Service
@@ -45,7 +44,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node := mock.NewNode(ctx)
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{

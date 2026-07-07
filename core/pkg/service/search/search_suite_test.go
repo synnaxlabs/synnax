@@ -19,7 +19,7 @@ import (
 
 func TestSearch(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Search Suite")
+	RunSpecs(t, "Service Search Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

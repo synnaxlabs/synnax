@@ -113,9 +113,11 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	}
 
 	return &benchIterEnv{
-		ctx:           b.Context(),
-		node:          node,
-		closer:        io.MultiCloser{node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc},
+		ctx:  b.Context(),
+		node: node,
+		closer: io.MultiCloser{
+			node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+		},
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),
 		writerSvc:     writerSvc,

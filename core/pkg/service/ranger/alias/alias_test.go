@@ -33,7 +33,7 @@ import (
 
 var _ = Describe("Alias", Ordered, func() {
 	var (
-		node       mock.Node
+		db         *gorp.DB
 		otg        *ontology.Ontology
 		rangerSvc  *ranger.Service
 		aliasSvc   *alias.Service
@@ -42,7 +42,8 @@ var _ = Describe("Alias", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node = mock.NewNode(ctx)
+		node := mock.NewNode(ctx)
+		db = node.DB
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -89,7 +90,7 @@ var _ = Describe("Alias", Ordered, func() {
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func() {
-		tx = DeferClose(node.DB.OpenTx())
+		tx = DeferClose(db.OpenTx())
 	})
 
 	channelCount := 0
