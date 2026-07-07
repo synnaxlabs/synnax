@@ -58,22 +58,24 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-// validate checks the request's command and, for writes, that every series in the
-// frame targets one of the writer's keys. Series structure and data types are
-// validated by the storage engine on the node that services each channel, against
-// its own authoritative channel record.
+// validate checks that every series in a write request targets one of the writer's
+// keys. The check must happen here, before the frame is split across nodes: the
+// storage engine ignores keys outside its writers and the peer switches cannot
+// route keys outside the writer's topology, so an unchecked foreign key would be
+// silently dropped rather than rejected. All other request validation happens in
+// the storage engine on the node that services each channel: series structure and
+// data types are checked against the channel's authoritative record, and invalid
+// commands are rejected by the storage writer's own command bounds check.
 func (v *validator) validate(req Request) error {
-	if err := validateCommand(req.Command); err != nil {
-		return err
+	if req.Command != CommandWrite {
+		return nil
 	}
-	if req.Command == CommandWrite {
-		for rawI, k := range req.Frame.RawKeys() {
-			if req.Frame.ShouldExcludeRaw(rawI) {
-				continue
-			}
-			if !lo.Contains(v.keys, k) {
-				return errors.Wrapf(validate.ErrValidation, "invalid key: %s", k)
-			}
+	for rawI, k := range req.Frame.RawKeys() {
+		if req.Frame.ShouldExcludeRaw(rawI) {
+			continue
+		}
+		if !lo.Contains(v.keys, k) {
+			return errors.Wrapf(validate.ErrValidation, "invalid key: %s", k)
 		}
 	}
 	return nil
