@@ -20,6 +20,7 @@ import { Table as PlatformTable } from "@/platform/table";
 export * from "@/feature/table/import";
 export * from "@/feature/table/link";
 export * from "@/feature/table/ontology";
+export * from "@/feature/table/search";
 export * from "@/feature/table/commands";
 export * from "@/feature/table/Toolbar";
 export * from "@/platform/table/external";

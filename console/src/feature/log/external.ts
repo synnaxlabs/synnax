@@ -20,6 +20,7 @@ import { type Selector } from "@/platform/selector";
 export * from "@/feature/log/import";
 export * from "@/feature/log/link";
 export * from "@/feature/log/ontology";
+export * from "@/feature/log/search";
 export * from "@/feature/log/commands";
 export * from "@/feature/log/Selectable";
 export * from "@/feature/log/toolbar";

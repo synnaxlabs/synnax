@@ -8,8 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { Arc } from "@/feature/arc";
+import { Channel } from "@/feature/channel";
+import { LinePlot } from "@/feature/lineplot";
+import { Log } from "@/feature/log";
+import { Project } from "@/feature/project";
+import { Range } from "@/feature/range";
+import { Schematic } from "@/feature/schematic";
 import { Search } from "@/feature/search";
+import { Table } from "@/feature/table";
+import { Task } from "@/feature/task";
 
 export const SearchList = Search.createList({
   ...Arc.SEARCH_LIST_ITEMS,
+  ...Channel.SEARCH_LIST_ITEMS,
+  ...LinePlot.SEARCH_LIST_ITEMS,
+  ...Log.SEARCH_LIST_ITEMS,
+  ...Project.SEARCH_LIST_ITEMS,
+  ...Range.SEARCH_LIST_ITEMS,
+  ...Schematic.SEARCH_LIST_ITEMS,
+  ...Table.SEARCH_LIST_ITEMS,
+  ...Task.SEARCH_LIST_ITEMS,
 });

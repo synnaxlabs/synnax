@@ -28,7 +28,7 @@ import { Task } from "@/feature/task";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
 
-const COMMANDS: Command.Command[] = [
+export const CommandList = Command.createList([
   ...Channel.COMMANDS,
   ...Cluster.COMMANDS,
   ...Device.COMMANDS,
@@ -48,6 +48,4 @@ const COMMANDS: Command.Command[] = [
   ...Arc.COMMANDS,
   ...Status.COMMANDS,
   ...Theme.COMMANDS,
-];
-
-export const CommandList = Command.createList(COMMANDS);
+]);

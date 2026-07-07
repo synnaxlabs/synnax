@@ -9,20 +9,20 @@
 
 import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
-import { Arc } from "@/platform/arc";
 import { Layout } from "@/platform/layout";
+import { Log } from "@/platform/log";
 import { Search } from "@/platform/search";
 
-const useOnSelect = () => {
+const useOpen = () => {
   const placeLayout = Layout.usePlacer();
-  return useCallback(
-    ({ key, name }: ontology.Resource) => placeLayout(Arc.create({ key, name })),
-    [placeLayout],
-  );
+  return ({ id, name }: ontology.Resource) =>
+    placeLayout(Log.create({ key: id.key, name }));
 };
 
-const SearchListItem = Search.createListItem({ icon: <Icon.Arc />, useOnSelect });
+export const SearchListItem = Search.createListItem({
+  icon: <Icon.Log />,
+  useOnSelect: useOpen,
+});
 
-export const SEARCH_LIST_ITEMS: Search.ListItems = { arc: SearchListItem };
+export const SEARCH_LIST_ITEMS: Search.ListItems = { log: SearchListItem };

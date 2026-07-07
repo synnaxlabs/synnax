@@ -17,6 +17,7 @@ export * from "@/feature/range/Explorer";
 export * from "@/feature/range/link";
 export * from "@/feature/range/list";
 export * from "@/feature/range/ontology";
+export * from "@/feature/range/search";
 export * from "@/feature/range/overview/Overview";
 export * from "@/feature/range/commands";
 export * from "@/feature/range/Toolbar";
