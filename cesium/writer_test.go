@@ -1570,6 +1570,47 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err).To(MatchError(ContainSubstring("invalid data type")))
 					Expect(w.Close()).To(MatchError(validate.ErrValidation))
 				})
+				Specify("Series for a channel outside the writer's channel set", func(ctx SpecContext) {
+					var (
+						key     = GenerateChannelKey()
+						foreign = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Name:     "Owned",
+							Key:      key,
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+						cesium.Channel{
+							Name:     "Foreign",
+							Key:      foreign,
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(
+						ctx,
+						cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{key},
+							Start:    10 * telem.SecondTS,
+							Sync:     new(true),
+						}))
+					authorized, err := w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{key, foreign},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(10, 11),
+							telem.NewSeriesSecondsTSV(10, 11),
+						},
+					))
+					Expect(authorized).To(BeFalse())
+					Expect(err).To(MatchError(validate.ErrValidation))
+					Expect(err).To(MatchError(
+						ContainSubstring("not part of the writer's channel set"),
+					))
+					Expect(w.Close()).To(MatchError(validate.ErrValidation))
+				})
 				Specify("Structurally invalid series buffer", func(ctx SpecContext) {
 					var key = GenerateChannelKey()
 					Expect(db.CreateChannel(

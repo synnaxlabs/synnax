@@ -286,8 +286,8 @@ const (
 	peerSenderAddr         = address.Address("peer_sender")
 	gatewayWriterAddr      = address.Address("gateway_writer")
 	peerGatewaySwitchAddr  = address.Address("peer_gateway_switch")
-	validatorAddr          = address.Address("validator")
-	validatorResponsesAddr = address.Address("validator_responses")
+	sequencerAddr          = address.Address("sequencer")
+	sequencerResponsesAddr = address.Address("sequencer_responses")
 )
 
 // Open a new writer using the given configuration. The provided context is used to
@@ -339,7 +339,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		batch             = proxy.BatchFactory[keyAuthority](hostKey).Batch(cfg.keyAuthorities())
 		pipe              = plumber.New()
 		receiverAddresses []address.Address
-		routeValidatorTo  address.Address
+		routeSequencerTo  address.Address
 	)
 	// Free channels are registered as transient virtual channels in the local
 	// storage engine, so their writes ride the gateway branch.
@@ -349,9 +349,9 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		hasGateway = len(batch.Gateway) > 0
 	)
 
-	v := &validator{keys: cfg.Keys}
-	plumber.SetSegment(pipe, validatorAddr, v)
-	plumber.SetSource(pipe, validatorResponsesAddr, &v.responses)
+	seq := &sequencer{}
+	plumber.SetSegment(pipe, sequencerAddr, seq)
+	plumber.SetSource(pipe, sequencerResponsesAddr, &seq.responses)
 	plumber.SetSegment(
 		pipe,
 		synchronizerAddr,
@@ -360,7 +360,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 
 	switchTargets := make([]address.Address, 0, 2)
 	if hasPeer {
-		routeValidatorTo = peerSenderAddr
+		routeSequencerTo = peerSenderAddr
 		switchTargets = append(switchTargets, peerSenderAddr)
 		sender, receivers, _receiverAddresses, err := s.openManyPeers(
 			ctx,
@@ -378,7 +378,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}
 
 	if hasGateway {
-		routeValidatorTo = gatewayWriterAddr
+		routeSequencerTo = gatewayWriterAddr
 		switchTargets = append(switchTargets, gatewayWriterAddr)
 		w, err := s.newGateway(ctx, cfg.setKeyAuthorities(batch.Gateway))
 		if err != nil {
@@ -389,7 +389,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}
 
 	if len(switchTargets) > 1 {
-		routeValidatorTo = peerGatewaySwitchAddr
+		routeSequencerTo = peerGatewaySwitchAddr
 		plumber.SetSegment(
 			pipe,
 			peerGatewaySwitchAddr,
@@ -403,7 +403,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		}.MustRoute(pipe)
 	}
 
-	plumber.MustConnect[Request](pipe, validatorAddr, routeValidatorTo, 30)
+	plumber.MustConnect[Request](pipe, sequencerAddr, routeSequencerTo, 30)
 
 	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,
@@ -413,8 +413,8 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}.MustRoute(pipe)
 
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo(validatorAddr))
-	lo.Must0(seg.RouteOutletFrom(validatorResponsesAddr, synchronizerAddr))
+	lo.Must0(seg.RouteInletTo(sequencerAddr))
+	lo.Must0(seg.RouteOutletFrom(sequencerResponsesAddr, synchronizerAddr))
 	return seg, nil
 }
 

@@ -288,13 +288,20 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 	return accumulatedErr
 }
 
-// validateSeries checks that every series in fr targeting one of the writer's
-// channels has a structurally valid data buffer for its declared data type (see
-// telem.Series.Validate), rejecting the write before any data is applied.
+// validateSeries checks that every series in fr targets a channel the writer is
+// responsible for and has a structurally valid data buffer for its declared data
+// type (see telem.Series.Validate), rejecting the write before any data is applied.
 func (w *streamWriter) validateSeries(fr Frame) error {
 	for rawI, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(rawI) || !w.owns(k) {
+		if fr.ShouldExcludeRaw(rawI) {
 			continue
+		}
+		if !w.owns(k) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"channel %d is not part of the writer's channel set",
+				k,
+			)
 		}
 		s := fr.RawSeriesAt(rawI)
 		if err := s.Validate(); err != nil {
