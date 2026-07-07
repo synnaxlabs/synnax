@@ -59,9 +59,12 @@ export const walkPath = (
 };
 
 /** findTab returns the tab with the given key, or null when absent. */
-export const findTab = (node: Node | undefined | null, key: string): Tab | null => {
-  if (node == null) return null;
-  if (node.variant === "leaf") return node.tabs.find((t) => t.key === key) ?? null;
+export const findTab = (
+  node: Node | undefined | null,
+  key?: string,
+): Tab | undefined => {
+  if (node == null || key == null) return undefined;
+  if (node.variant === "leaf") return node.tabs.find((t) => t.key === key);
   return findTab(node.first, key) ?? findTab(node.last, key);
 };
 

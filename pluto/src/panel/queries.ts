@@ -236,7 +236,8 @@ export const [useSelectName, useGetName] = Scope.bindSelector(
 );
 
 export const allTabKeys = (store: FluxSubStore, key: panel.Key): panel.TabKey[] => {
-  const p = requirePanel(store, key);
+  const p = store.panels.get(key);
+  if (p == null) return [];
   const keys: panel.TabKey[] = [];
   const visit = (node: panel.Node | undefined) => {
     if (node == null) return;
@@ -267,6 +268,22 @@ export const [useSelectFilteredTabKeys, useGetFilteredTabKeys] = Scope.bindSelec
       return tabKeys.filter((k) => existingSet.has(k));
     },
     equal: deep.equal,
+  }),
+);
+
+export interface SelectFilterTabKeyArgs extends SelectKeyArgs {
+  tabKey?: panel.TabKey;
+}
+
+export const [useSelectFilterTabKey, useGetFilterTabKey] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectFilterTabKeyArgs, panel.TabKey | undefined>({
+    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
+    select: (store, { key, tabKey }) => {
+      if (tabKey == null) return undefined;
+      const p = store.panels.get(key);
+      if (p == null) return undefined;
+      return panel.findTab(p.root, tabKey) == null ? undefined : tabKey;
+    },
   }),
 );
 
