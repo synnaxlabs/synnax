@@ -825,3 +825,39 @@ var _ = Describe("Delete", func() {
 		})
 	}
 })
+
+var _ = Describe("Transient and Virtual Index Channel Deletion", func() {
+	for fsName, openFS := range FileSystems {
+		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
+			var db *cesium.DB
+			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
+				db = openDBOnFS(ctx, openFS())
+			})
+			AfterAll(func() {
+				Expect(db.Close()).To(Succeed())
+			})
+
+			It("Should delete a transient channel without touching the file system", func(ctx SpecContext) {
+				key := GenerateChannelKey()
+				Expect(db.CreateChannel(ctx, transientChannel(key, "deleted"))).To(Succeed())
+				Expect(db.DeleteChannel(key)).To(Succeed())
+				Expect(db.RetrieveChannel(ctx, key)).Error().
+					To(MatchError(cesium.ErrChannelNotFound))
+			})
+
+			It("Should not delete a virtual index that other virtual channels depend on", func(ctx SpecContext) {
+				idx := GenerateChannelKey()
+				data := GenerateChannelKey()
+				Expect(db.CreateChannel(ctx,
+					virtualIndexChannel(idx, "guarded_idx"),
+					virtualDataChannel(data, idx, "dependent"),
+				)).To(Succeed())
+				Expect(db.DeleteChannel(idx)).To(MatchError(ContainSubstring("indexes data in channel")))
+				Expect(db.DeleteChannel(data)).To(Succeed())
+				Expect(db.DeleteChannel(idx)).To(Succeed())
+			})
+		})
+	}
+})

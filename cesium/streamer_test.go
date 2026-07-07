@@ -310,3 +310,47 @@ var _ = Describe("Streamer Behavior", func() {
 		})
 	}
 })
+
+var _ = Describe("Transient Channel Streaming", func() {
+	for fsName, openFS := range FileSystems {
+		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
+			var db *cesium.DB
+			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
+				db = openDBOnFS(ctx, openFS())
+			})
+			AfterAll(func() {
+				Expect(db.Close()).To(Succeed())
+			})
+
+			It("Should deliver written frames to streamers", func(ctx SpecContext) {
+				key := GenerateChannelKey()
+				Expect(db.CreateChannel(ctx, transientChannel(key, "streamed"))).To(Succeed())
+				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{key},
+					Start:    10 * telem.SecondTS,
+				}))
+				r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+					Channels: []cesium.ChannelKey{key},
+				}))
+				i, o := confluence.Attach(r, 1)
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+				d := telem.NewSeriesV[int64](1, 2, 3)
+				MustSucceed(w.Write(telem.UnaryFrame(key, d)))
+
+				var res cesium.StreamerResponse
+				Eventually(o.Outlet()).Should(Receive(&res))
+				Expect(res.Frame.Count()).To(Equal(1))
+				d.Alignment = alignment.Leading(1, 0)
+				Expect(res.Frame.SeriesAt(0)).To(Equal(d))
+				i.Close()
+				Expect(sCtx.Wait()).To(Succeed())
+				Expect(w.Close()).To(Succeed())
+			})
+		})
+	}
+})

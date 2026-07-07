@@ -44,20 +44,40 @@ type demand struct {
 	ack chan struct{}
 }
 
-// tap is a tap into a relay, whether another node's distribution relay or the hosts
-// relay. It can receive updates for channels to stream, and sends frames it receives
-// from the relay to an outlet.
-type tap = confluence.Segment[Request, Response]
+// tap is a tap into a source of frames, whether another node's distribution relay or
+// the host's local storage engine. A tap streams the frames it receives to the relay's
+// delta until closed.
+type tap interface {
+	io.Closer
+	// setChannels replaces the set of channels the tap subscribes to. Gateway taps
+	// apply the new set before returning, which is what lets a demand acknowledged by
+	// the tapper guarantee its keys are already being filtered in (see demand.ack).
+	// Peer taps apply the new set asynchronously over the network and carry no such
+	// guarantee.
+	setChannels(channel.Keys)
+}
 
-type tapController struct {
-	confluence.Inlet[Request]
-	closer io.Closer
-	// setChannels, when non-nil, synchronously replaces the tap's subscribed
-	// channel set. It is set for gateway taps into local storage, where key
-	// updates must be applied before a demand is acknowledged (see demand.ack).
-	// Taps without setChannels receive key updates asynchronously through the
-	// request inlet.
-	setChannels func(channel.Keys)
+// gatewayTap streams frames from the host's local storage engine, which serves both
+// host-leased and free channels.
+type gatewayTap struct {
+	io.Closer
+	streamer cesium.Streamer[Request, Response]
+}
+
+// setChannels implements tap.
+func (g *gatewayTap) setChannels(keys channel.Keys) {
+	g.streamer.SetChannels(keys.Storage())
+}
+
+// peerTap streams frames from another node's relay.
+type peerTap struct {
+	io.Closer
+	requests confluence.Inlet[Request]
+}
+
+// setChannels implements tap.
+func (p *peerTap) setChannels(keys channel.Keys) {
+	p.requests.Inlet() <- Request{Keys: keys}
 }
 
 // tapper tracks readers demands for channel's to stream. It uses these demands to tap
@@ -73,7 +93,7 @@ type tapper struct {
 	// demands track the current channels demanded by each entity.
 	demands map[address.Address]channel.Keys
 	// taps tracks the current taps we have open.
-	taps map[node.Key]tapController
+	taps map[node.Key]tap
 	Config
 }
 
@@ -81,7 +101,7 @@ func newTapper(config Config) confluence.Segment[demand, Response] {
 	t := &tapper{
 		Config:  config,
 		demands: make(map[address.Address]channel.Keys),
-		taps:    make(map[node.Key]tapController),
+		taps:    make(map[node.Key]tap),
 	}
 	t.Sink = t.sink
 	return t
@@ -111,8 +131,8 @@ func (t *tapper) updateDemands(d demand) map[node.Key]channel.Keys {
 	for _, d := range t.demands {
 		for _, k := range d {
 			nk := k.Lease()
-			// Free channels are registered transiently in every node's local
-			// storage, so their writes are served by the gateway tap.
+			// Free channels are registered transiently in every node's local storage,
+			// so their writes are served by the gateway tap.
 			if nk.IsFree() {
 				nk = host
 			}
@@ -122,8 +142,8 @@ func (t *tapper) updateDemands(d demand) map[node.Key]channel.Keys {
 	return nodeDemands
 }
 
-// Flow starts the tapper goroutines, which listen for demands that update relevant
-// taps into remote nodes or the host time-series db.
+// Flow starts the tapper goroutines, which listen for demands that update relevant taps
+// into remote nodes or the host time-series db.
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	t.UnarySink.Flow(sCtx, append(opts,
 		// Order is very important here, we need to make sure the tapper deferral
@@ -158,19 +178,11 @@ func (t *tapper) updateTaps(
 	for nk, tc := range t.taps {
 		if keys, ok := nodeDemands[nk]; ok {
 			// If we still need the tap, send the updated key set
-			if tc.setChannels != nil {
-				// Applied synchronously so that a demand acknowledged by the
-				// tapper is guaranteed to already be filtering its keys in - the
-				// happens-before barrier SendOpenAck provides for channels served
-				// from local storage.
-				tc.setChannels(keys)
-			} else {
-				tc.Inlet.Inlet() <- Request{Keys: keys}
-			}
+			tc.setChannels(keys)
 		} else {
 			// This does a hard shutdown on the tap, cancelling its context and causing
 			// it to immediately exit.
-			if err := tc.closer.Close(); err != nil {
+			if err := tc.Close(); err != nil {
 				t.L.Error("tap failed to close", zap.Error(err))
 			}
 			// If we need this tap again, we'll just open it again.
@@ -183,39 +195,30 @@ func (t *tapper) tapInto(
 	ctx context.Context,
 	nodeKey node.Key,
 	keys channel.Keys,
-) (tapController, error) {
-	var (
-		tp          tap
-		err         error
-		tapKey      string
-		setChannels func(channel.Keys)
-	)
+) (tap, error) {
 	if nodeKey == t.HostResolver.HostKey() {
-		tp, setChannels, err = t.tapIntoGateway(keys)
-		tapKey = "gateway_tap"
-	} else {
-		tp, err = t.tapIntoPeer(ctx, nodeKey)
-		tapKey = fmt.Sprintf("peer_tap_%v", nodeKey)
+		return t.tapIntoGateway(keys)
 	}
-	if err != nil {
-		return tapController{}, err
-	}
-	requests := confluence.NewStream[Request](1)
-	tp.InFrom(requests)
-	tp.OutTo(t.Out)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Child(tapKey)))
-	tp.Flow(sCtx, confluence.RecoverWithErrOnPanic(), confluence.WithAddress(address.Address(tapKey)))
-	return tapController{
-		Inlet:       requests,
-		closer:      signal.NewHardShutdown(sCtx, cancel),
-		setChannels: setChannels,
-	}, nil
+	return t.tapIntoPeer(ctx, nodeKey)
 }
 
-// tapIntoGateway opens a new tap over the given storage layer streamer. The returned
-// function synchronously replaces the tap's subscribed channel set (see
-// cesium.Streamer.SetChannels).
-func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, func(channel.Keys), error) {
+// startTap wires the given segment's frames into the tapper's outlet and starts it,
+// returning the segment's request inlet and a closer that hard-shuts it down.
+func (t *tapper) startTap(
+	seg confluence.Segment[Request, Response],
+	tapKey string,
+) (confluence.Inlet[Request], io.Closer) {
+	requests := confluence.NewStream[Request](1)
+	seg.InFrom(requests)
+	seg.OutTo(t.Out)
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Child(tapKey)))
+	seg.Flow(sCtx, confluence.RecoverWithErrOnPanic(), confluence.WithAddress(address.Address(tapKey)))
+	return requests, signal.NewHardShutdown(sCtx, cancel)
+}
+
+// tapIntoGateway opens a new tap over the host's local storage engine, subscribed to
+// the given channels.
+func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, error) {
 	str, err := cesium.NewTranslatedStreamer(
 		t.TS,
 		ts.StreamerConfig{Channels: keys.Storage()},
@@ -223,9 +226,10 @@ func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, func(channel.Keys), err
 		resFromStorage,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return str, func(keys channel.Keys) { str.SetChannels(keys.Storage()) }, nil
+	_, closer := t.startTap(str, "gateway_tap")
+	return &gatewayTap{Closer: closer, streamer: str}, nil
 }
 
 // tapIntoPeer opens a new tap that sends requests and receives responses
@@ -247,5 +251,6 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.Key) (tap, error)
 	seg := &plumber.Segment[Request, Response]{Pipeline: p}
 	lo.Must0(seg.RouteOutletFrom("receiver"))
 	lo.Must0(seg.RouteInletTo("sender"))
-	return seg, nil
+	requests, closer := t.startTap(seg, fmt.Sprintf("peer_tap_%v", nodeKey))
+	return &peerTap{Closer: closer, requests: requests}, nil
 }
