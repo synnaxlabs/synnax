@@ -116,14 +116,16 @@ export const useSelectAnnotationsVisible = createSelector(selectAnnotationsVisib
 export const useGetAnnotationsVisible = createGetter(selectAnnotationsVisible);
 
 export const useGetFocusedKey = (): (() => client.Key | undefined) => {
+  const getSelectedPanel = Panel.useGetSelected();
   const getFocusedTabKey = Panel.useGetFocusedTab();
   const getTab = PPanel.useGetTab();
   return useCallback(() => {
-    const focusedKey = getFocusedTabKey();
-    if (focusedKey == null) return undefined;
-    const tab = getTab({ key: focusedKey });
+    const panelKey = getSelectedPanel();
+    const tabKey = getFocusedTabKey();
+    if (panelKey == null || tabKey == null) return undefined;
+    const tab = getTab({ key: panelKey, tabKey });
     if (tab.variant === "resource" && tab.resource.type === "lineplot")
       return tab.resource.key;
     return undefined;
-  }, [getFocusedTabKey, getTab]);
+  }, [getSelectedPanel, getFocusedTabKey, getTab]);
 };

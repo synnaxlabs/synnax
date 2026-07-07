@@ -423,7 +423,12 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     const optimistic = panel.panelZ.parse(data);
     rollbacks.push(store.panels.set(optimistic));
     await onOptimisticComplete(optimistic);
-    const created = await client.panels.create(optimistic);
+    // onOptimisticComplete may have dispatched further local mutations against this
+    // same key (e.g. inserting a tab) before the panel exists on the cluster. Send the
+    // latest cached doc rather than the pre-mutation snapshot, or the server response
+    // below would stomp those local changes back out.
+    const latest = store.panels.get(optimistic.key) ?? optimistic;
+    const created = await client.panels.create(latest);
     store.panels.set(created);
     return created;
   },
