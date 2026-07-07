@@ -9,11 +9,21 @@
 
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
-import { type Notifications } from "@/platform/notifications";
+import { Notifications as Base } from "@/platform/notifications";
 import { Version } from "@/platform/version";
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [
-  ...Cluster.NOTIFICATION_ADAPTERS,
-  ...Device.NOTIFICATION_ADAPTERS,
-  ...Version.NOTIFICATION_ADAPTERS,
+const suppressRoutine = (prefix: string): Base.Notification =>
+  Base.createSuppressed(
+    (status) =>
+      (status.variant === "success" || status.variant === "loading") &&
+      status.key.startsWith(prefix),
+  );
+
+export const NOTIFICATIONS: Base.Notification[] = [
+  suppressRoutine("rack"),
+  suppressRoutine("device"),
+  suppressRoutine("task"),
+  ...Cluster.NOTIFICATIONS,
+  ...Device.NOTIFICATIONS,
+  ...Version.NOTIFICATIONS,
 ];

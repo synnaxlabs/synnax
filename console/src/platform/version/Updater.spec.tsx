@@ -10,7 +10,6 @@
 import { type Status } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { isValidElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri"; update: unknown } => ({
@@ -55,22 +54,24 @@ describe("version Updater", () => {
     vi.clearAllMocks();
   });
 
-  describe("notificationAdapter", () => {
-    it("should ignore statuses that are not version updates", () => {
-      expect(Version.notificationAdapter(spec("someOtherStatus"), vi.fn())).toBeNull();
+  describe("Notification", () => {
+    it("should not match statuses that are not version updates", () => {
+      expect(Version.Notification.match(spec("someOtherStatus"))).toBe(false);
     });
 
-    it("should attach an update action to a version update status", () => {
-      const result = Version.notificationAdapter(spec("versionUpdate-123"), vi.fn());
-      expect(result).not.toBeNull();
-      expect(result?.key).toEqual("versionUpdate-123");
-      const actions = result?.actions;
-      expect(Array.isArray(actions)).toBe(true);
-      expect(isValidElement((actions as unknown[])[0])).toBe(true);
+    it("should match version update statuses", () => {
+      expect(Version.Notification.match(spec("versionUpdate-123"))).toBe(true);
     });
 
-    it("should be registered in NOTIFICATION_ADAPTERS", () => {
-      expect(Version.NOTIFICATION_ADAPTERS).toContain(Version.notificationAdapter);
+    it("should render an update action for a version update status", () => {
+      renderWithModals(
+        <Version.Notification status={spec("versionUpdate-123")} silence={vi.fn()} />,
+      );
+      expect(screen.getByRole("button", { name: "Update" })).toBeTruthy();
+    });
+
+    it("should be registered in NOTIFICATIONS", () => {
+      expect(Version.NOTIFICATIONS).toContain(Version.Notification);
     });
   });
 

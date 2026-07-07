@@ -22,23 +22,22 @@ func _() {
 	_ = x[KindChannel-2]
 	_ = x[KindFunction-3]
 	_ = x[KindBlock-4]
-	_ = x[KindConfig-5]
-	_ = x[KindInput-6]
-	_ = x[KindOutput-7]
-	_ = x[KindSequence-8]
-	_ = x[KindStage-9]
-	_ = x[KindConstant-10]
-	_ = x[KindGlobalConstant-11]
-	_ = x[KindLoop-12]
-	_ = x[KindLoopVariable-13]
-	_ = x[KindModule-14]
-	_ = x[KindModuleAlias-15]
-	_ = x[KindAmbient-16]
+	_ = x[KindInput-5]
+	_ = x[KindOutput-6]
+	_ = x[KindSequence-7]
+	_ = x[KindStage-8]
+	_ = x[KindConstant-9]
+	_ = x[KindGlobalConstant-10]
+	_ = x[KindLoop-11]
+	_ = x[KindLoopVariable-12]
+	_ = x[KindModule-13]
+	_ = x[KindModuleAlias-14]
+	_ = x[KindAmbient-15]
 }
 
-const _Kind_name = "KindVariableKindStatefulVariableKindChannelKindFunctionKindBlockKindConfigKindInputKindOutputKindSequenceKindStageKindConstantKindGlobalConstantKindLoopKindLoopVariableKindModuleKindModuleAliasKindAmbient"
+const _Kind_name = "KindVariableKindStatefulVariableKindChannelKindFunctionKindBlockKindInputKindOutputKindSequenceKindStageKindConstantKindGlobalConstantKindLoopKindLoopVariableKindModuleKindModuleAliasKindAmbient"
 
-var _Kind_index = [...]uint8{0, 12, 32, 43, 55, 64, 74, 83, 93, 105, 114, 126, 144, 152, 168, 178, 193, 204}
+var _Kind_index = [...]uint8{0, 12, 32, 43, 55, 64, 73, 83, 95, 104, 116, 134, 142, 158, 168, 183, 194}
 
 func (i Kind) String() string {
 	idx := int(i) - 0

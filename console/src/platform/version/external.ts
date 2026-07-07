@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Notifications } from "@/platform/notifications";
-import { notificationAdapter } from "@/platform/version/Updater";
+import { Notification } from "@/platform/version/Updater";
 
 export * from "@/platform/version/Badge";
 export * from "@/platform/version/Updater";
 export * from "@/platform/version/useInfoModal";
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter[] = [notificationAdapter];
+export const NOTIFICATIONS: Notifications.Notification[] = [Notification];

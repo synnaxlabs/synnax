@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NOTIFICATION_ADAPTERS } from "@/app/notifications/adapters";
+import { NOTIFICATIONS } from "@/app/notifications/notifications";
 import { Notifications as Base } from "@/platform/notifications";
 
-export const Notifications = () => (
-  <Base.Notifications adapters={NOTIFICATION_ADAPTERS} />
-);
+export const Feed = () => <Base.Feed notifications={NOTIFICATIONS} />;

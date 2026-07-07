@@ -55,7 +55,7 @@ export const MAIN_LAYOUT_TYPE = Drift.MAIN_WINDOW;
 export const Main = (): ReactElement => (
   <>
     {/* We need to place notifications here so they are in the proper stacking context */}
-    <Notifications.Notifications />
+    <Notifications.Feed />
     <SideEffect />
     <Auth.Guard>
       <PlatformProject.Guard>
