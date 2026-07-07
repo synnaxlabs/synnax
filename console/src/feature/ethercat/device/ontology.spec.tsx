@@ -16,12 +16,12 @@ import { describe, expect, it } from "vitest";
 import { EtherCAT } from "@/feature/ethercat";
 import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
 import { createDeviceResource } from "@/platform/device/testutil";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createSelection,
   createState,
-} from "@/platform/ontology/testutil";
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, uniqueName, waitForPlacedLayout } from "@/testutil";
 
@@ -51,7 +51,7 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   const resources = devices.map((d) =>
     createDeviceResource({ key: d.key, name: d.name, configured: d.configured }),
   );
-  const props: Ontology.TreeContextMenuProps = {
+  const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: resources.map((r) => r.id) }),
     state: createState(resources),

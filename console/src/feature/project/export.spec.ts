@@ -12,7 +12,7 @@ import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Project } from "@/feature/project";
-import { createExecutingHandleError } from "@/platform/ontology/testutil";
+import { createExecutingHandleError } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
   createTestStore,

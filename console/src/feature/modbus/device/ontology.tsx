@@ -13,7 +13,7 @@ import { Menu } from "@synnaxlabs/pluto";
 import { useConnectModal } from "@/feature/modbus/device/useConnectModal";
 import { Task } from "@/feature/modbus/task";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[] = [
   { itemKey: "modbus.readTask", label: "Create read task", layout: Task.READ_LAYOUT },
@@ -24,7 +24,7 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[]
   },
 ];
 
-export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
+export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
   const connect = useConnectModal();
   const onConfigure = (deviceKey: device.Key) => connect({ deviceKey });
   return (

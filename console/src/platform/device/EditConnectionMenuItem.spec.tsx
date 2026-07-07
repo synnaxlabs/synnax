@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { renderMenuItem } from "@/platform/device/testutil";
-import { createSelection } from "@/platform/ontology/testutil";
+import { createSelection } from "@/platform/tree/testutil";
 
 const idFor = (key: string) => device.ontologyID(key);
 

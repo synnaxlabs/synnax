@@ -15,12 +15,12 @@ import { describe, expect, it } from "vitest";
 
 import { LabJack } from "@/feature/labjack";
 import { createDeviceResource } from "@/platform/device/testutil";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createSelection,
   createState,
-} from "@/platform/ontology/testutil";
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, waitForPlacedLayout } from "@/testutil";
 
@@ -33,7 +33,7 @@ const renderItems = async () => {
     name: "lj-dev",
     configured: true,
   });
-  const props: Ontology.TreeContextMenuProps = {
+  const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
     state: createState([resource]),

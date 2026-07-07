@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { Ontology } from "@/platform/ontology";
+import { Tree } from "@/platform/tree";
 import { Project as PlatformProject } from "@/platform/project";
 import { Toolbar } from "@/platform/toolbar";
 
@@ -38,7 +38,7 @@ const Content = (): ReactElement => {
         <Toolbar.Title icon={<Icon.Project />}>Projects</Toolbar.Title>
         <Actions />
       </Toolbar.Header>
-      <Ontology.Tree root={groupID} emptyContent={<EmptyContent />} />
+      <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
     </Toolbar.Content>
   );
 };

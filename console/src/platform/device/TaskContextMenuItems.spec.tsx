@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createDeviceResource, renderMenuItem } from "@/platform/device/testutil";
-import { createSelection, createState } from "@/platform/ontology/testutil";
+import { createSelection, createState } from "@/platform/tree/testutil";
 import { Task } from "@/platform/task";
 import { Session } from "@/session";
 

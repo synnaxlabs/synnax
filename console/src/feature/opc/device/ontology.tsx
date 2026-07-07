@@ -13,14 +13,14 @@ import { Menu } from "@synnaxlabs/pluto";
 import { useConnectModal } from "@/feature/opc/device/useConnectModal";
 import { Task } from "@/feature/opc/task";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 
 const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[] = [
   { itemKey: "opc.readTask", label: "Create read task", layout: Task.READ_LAYOUT },
   { itemKey: "opc.writeTask", label: "Create write task", layout: Task.WRITE_LAYOUT },
 ];
 
-export const ContextMenuItems = (props: Ontology.TreeContextMenuProps) => {
+export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
   const connect = useConnectModal();
   const onConfigure = (deviceKey: device.Key) => connect({ deviceKey });
   return (

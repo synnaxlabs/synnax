@@ -12,23 +12,23 @@ import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { READ_LAYOUT } from "@/feature/ethercat/task/Read";
 import { WRITE_LAYOUT } from "@/feature/ethercat/task/Write";
-import { Palette } from "@/platform/palette";
+import { Command } from "@/platform/command";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
-const CreateReadCommand = Palette.createSimpleCommand({
+const CreateReadCommand = Command.create({
   key: "ethercat_create_read_task",
   name: "Create an EtherCAT Read Task",
   icon: <Icon.Logo.EtherCAT />,
-  layout: READ_LAYOUT,
+  useOnSelect: Command.createPlacerUseOnSelect(READ_LAYOUT),
   useVisible,
 });
 
-const CreateWriteCommand = Palette.createSimpleCommand({
+const CreateWriteCommand = Command.create({
   key: "ethercat_create_write_task",
   name: "Create an EtherCAT Write Task",
   icon: <Icon.Logo.EtherCAT />,
-  layout: WRITE_LAYOUT,
+  useOnSelect: Command.createPlacerUseOnSelect(WRITE_LAYOUT),
   useVisible,
 });
 

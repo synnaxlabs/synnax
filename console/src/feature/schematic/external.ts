@@ -20,7 +20,8 @@ import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/schematic/import";
 export * from "@/feature/schematic/link";
-export * from "@/feature/schematic/ontology";
+export * from "@/feature/schematic/useMosaicDrop";
+export * from "@/feature/schematic/tree";
 export * from "@/feature/schematic/search";
 export * from "@/feature/schematic/commands";
 export * from "@/feature/schematic/symbol";

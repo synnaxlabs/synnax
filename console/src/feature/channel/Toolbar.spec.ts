@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { getSwitch } from "@/platform/modals/testutil";
-import { renderToolbar } from "@/platform/ontology/menuTestutil";
+import { renderToolbar } from "@/platform/tree/menuTestutil";
 import { getIconButton, getIconButtons } from "@/testutil";
 
 const client = createTestClient();
@@ -21,7 +21,7 @@ const client = createTestClient();
 const renderChannelToolbar = async (): Promise<void> => {
   await renderToolbar(Channel.TOOLBAR.content, {
     client,
-    services: { channel: Channel.ONTOLOGY_SERVICE },
+    items: { channel: Channel.TREE_ITEM },
   });
   await screen.findByText("Channels");
 };

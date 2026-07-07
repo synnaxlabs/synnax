@@ -18,7 +18,7 @@ import {
   createBaseProps,
   createSelection,
   createState,
-} from "@/platform/ontology/testutil";
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createTestStore, waitForPlacedLayout } from "@/testutil";
 

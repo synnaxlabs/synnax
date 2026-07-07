@@ -11,17 +11,17 @@ import { TOOLBAR } from "@/feature/device/Toolbar";
 import { HTTP } from "@/feature/http";
 import { Modbus } from "@/feature/modbus";
 import { OPC } from "@/feature/opc";
+import { type Command } from "@/platform/command";
 import { type Nav } from "@/platform/nav";
-import { type Palette } from "@/platform/palette";
 
 export * from "@/feature/device/link";
 export * from "@/feature/device/notifications";
-export * from "@/feature/device/ontology";
 export * from "@/feature/device/Toolbar";
+export * from "@/feature/device/tree";
 export * from "@/feature/device/useListenForChanges";
 export * from "@/platform/device/external";
 
-export const COMMANDS: Palette.Command[] = [
+export const COMMANDS: Command.Command[] = [
   ...HTTP.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
   ...OPC.Device.COMMANDS,

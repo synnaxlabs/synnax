@@ -18,7 +18,7 @@ import {
   createTestDevice,
   renderMenuItem,
 } from "@/platform/device/testutil";
-import { createSelection, createState } from "@/platform/ontology/testutil";
+import { createSelection, createState } from "@/platform/tree/testutil";
 
 const client = createTestClient();
 

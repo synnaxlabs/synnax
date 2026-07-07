@@ -29,7 +29,7 @@ import { FILE_INGESTERS } from "@/app/ingesters";
 import { Main, MAIN_LAYOUT_TYPE } from "@/app/Main";
 import { Mosaic, MOSAIC_LAYOUT_TYPE, MosaicWindow } from "@/app/Mosaic";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/app/Selector";
-import { SERVICES } from "@/app/services";
+import { TREE_ITEMS } from "@/app/treeItems";
 import { SNAPSHOT_SERVICES } from "@/app/snapshots";
 import { Vis } from "@/app/vis";
 import { Arc } from "@/feature/arc";
@@ -45,9 +45,9 @@ import { Errors } from "@/platform/errors";
 import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
-import { Ontology } from "@/platform/ontology";
 import { Range as PlatformRange } from "@/platform/range";
 import { Runtime } from "@/platform/runtime";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import WorkerURL from "@/worker?worker&url";
 
@@ -157,7 +157,7 @@ export const App = (): ReactElement => {
             <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
               <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
                 <Export.ExtractorsProvider extractors={EXTRACTORS}>
-                  <Ontology.ServicesProvider services={SERVICES}>
+                  <Tree.Provider items={TREE_ITEMS}>
                     <PlatformRange.SnapshotServicesProvider
                       services={SNAPSHOT_SERVICES}
                     >
@@ -165,7 +165,7 @@ export const App = (): ReactElement => {
                         <AppUnderContext />
                       </Task.RegistryProvider>
                     </PlatformRange.SnapshotServicesProvider>
-                  </Ontology.ServicesProvider>
+                  </Tree.Provider>
                 </Export.ExtractorsProvider>
               </Import.FileIngestersProvider>
             </Layout.ContextMenuProvider>

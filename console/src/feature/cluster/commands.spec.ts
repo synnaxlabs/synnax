@@ -11,7 +11,7 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Cluster } from "@/feature/cluster";
-import { renderPalette } from "@/platform/palette/testutil";
+import { renderPalette } from "@/feature/command/testutil";
 import { Session } from "@/session";
 import { stubGeometry } from "@/testutil";
 

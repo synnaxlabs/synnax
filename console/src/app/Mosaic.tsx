@@ -44,12 +44,16 @@ import {
 import { Nav as AppNav } from "@/app/nav";
 import { createSelectorLayout, useSelectorVisible } from "@/app/Selector";
 import { LinePlot } from "@/feature/lineplot";
+import { Log } from "@/feature/log";
 import { Project } from "@/feature/project";
+import { Schematic } from "@/feature/schematic";
+import { Table } from "@/feature/table";
+import { Task } from "@/feature/task";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Import } from "@/platform/import";
 import { Layout } from "@/platform/layout";
-import { Ontology } from "@/platform/ontology";
+import { type Mosaic as PMosaic } from "@/platform/mosaic";
 import { Session } from "@/session";
 
 const EmptyContent = (): ReactElement => {
@@ -225,15 +229,21 @@ export const Mosaic = memo((): ReactElement | null => {
 });
 Mosaic.displayName = "Mosaic";
 
+const useMosaicDrops = (): Record<string, PMosaic.DropHandler> => ({
+  schematic: Schematic.useMosaicDrop(),
+  table: Table.useMosaicDrop(),
+  lineplot: LinePlot.useMosaicDrop(),
+  task: Task.useMosaicDrop(),
+  log: Log.useMosaicDrop(),
+});
+
 /** LayoutMosaic renders the central layout mosaic of the application. */
 const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = Session.useStore();
   const activeTab = Session.Layout.useSelectActiveMosaicTabState();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
-  const removeLayout = Layout.useRemover();
   const dispatch = Session.useDispatch();
-  const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const handleDrop = useCallback(
@@ -244,7 +254,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [dispatch, windowKey],
   );
 
-  const services = Ontology.useServices();
+  const mosaicDrops = useMosaicDrops();
   const fileIngesters = Import.useFileIngesters();
 
   const handleCreate = useCallback(
@@ -255,25 +265,16 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
       }
       tabKeys.forEach((tabKey) => {
         const res = ontology.idZ.safeParse(tabKey);
-        if (res.success) {
-          const id = res.data;
-          if (client == null) return;
-          services[id.type].onMosaicDrop?.({
-            client,
-            store,
-            id,
+        if (res.success)
+          mosaicDrops[res.data.type]?.({
+            id: res.data,
             nodeKey: mosaicKey,
             location,
-            placeLayout,
-            addStatus,
-            handleError,
-            removeLayout,
-            services,
           });
-        } else placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
+        else placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
       });
     },
-    [placeLayout, store, client, addStatus, handleError, removeLayout, services],
+    [placeLayout, mosaicDrops],
   );
 
   LinePlot.useTriggerHold();

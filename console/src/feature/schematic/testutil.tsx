@@ -22,8 +22,8 @@ import {
 
 import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
-import { Ontology } from "@/platform/ontology";
-import { createServices } from "@/platform/ontology/testutil";
+import { Tree } from "@/platform/tree";
+import { createTreeItems } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
@@ -144,12 +144,12 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
       </Triggers.Provider>
     </Console>
   );
-  const services = createServices({ schematic: Schematic.ONTOLOGY_SERVICE });
+  const items = createTreeItems({ schematic: Schematic.TREE_ITEM });
   const result = render(
-    <Ontology.ServicesProvider services={services}>
-      <Ontology.Tree root={rootID} />
+    <Tree.Provider items={items}>
+      <Tree.Tree root={rootID} />
       <Modals.Stack />
-    </Ontology.ServicesProvider>,
+    </Tree.Provider>,
     { wrapper: Wrapper },
   );
   return { schematic: created, rootID, result, store };

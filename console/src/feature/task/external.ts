@@ -18,16 +18,17 @@ import { createLayout } from "@/feature/task/layouts";
 import { Selector } from "@/feature/task/Selector";
 import { TOOLBAR } from "@/feature/task/Toolbar";
 import { getIcon, parseType } from "@/feature/task/types";
+import { type Command } from "@/platform/command";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
-import { type Palette } from "@/platform/palette";
 import { Task } from "@/platform/task";
 
 export * from "@/feature/task/layouts";
 export * from "@/feature/task/link";
-export * from "@/feature/task/ontology";
+export * from "@/feature/task/useMosaicDrop";
+export * from "@/feature/task/tree";
 export * from "@/feature/task/search";
 export * from "@/feature/task/Selector";
 export * from "@/feature/task/Toolbar";
@@ -36,7 +37,7 @@ export * from "@/platform/task/external";
 
 export const REGISTRY: Task.Registry = { createLayout, getIcon, parseType };
 
-export const COMMANDS: Palette.Command[] = [
+export const COMMANDS: Command.Command[] = [
   ...EtherCAT.Task.COMMANDS,
   ...HTTP.Task.COMMANDS,
   ...LabJack.Task.COMMANDS,

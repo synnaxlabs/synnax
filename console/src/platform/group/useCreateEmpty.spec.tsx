@@ -13,9 +13,9 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
-import { Ontology } from "@/platform/ontology";
-import { getTreeRow } from "@/platform/ontology/menuTestutil";
-import { renderOntologyTree } from "@/platform/ontology/treeTestutil";
+import { Tree } from "@/platform/tree";
+import { getTreeRow } from "@/platform/tree/menuTestutil";
+import { renderOntologyTree } from "@/platform/tree/treeTestutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
@@ -71,7 +71,7 @@ describe("useCreateEmpty", () => {
       name: uniqueName("child"),
     });
     const CreateUnderSelectionMenu = (
-      props: Ontology.TreeContextMenuProps,
+      props: Tree.ContextMenuProps,
     ): ReactElement => {
       const {
         selection: { ids, rootID },
@@ -84,12 +84,11 @@ describe("useCreateEmpty", () => {
     await renderOntologyTree({
       client,
       root: parentID,
-      services: {
-        group: {
-          ...Ontology.NOOP_SERVICE,
+      items: {
+        group: Tree.createItem({
           type: "group",
-          TreeContextMenu: CreateUnderSelectionMenu,
-        },
+          ContextMenu: CreateUnderSelectionMenu,
+        }),
       },
     });
     await screen.findByText(child.name);

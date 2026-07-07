@@ -16,12 +16,12 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createDeviceResource } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createSelection,
   createState,
-} from "@/platform/ontology/testutil";
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, waitForPlacedLayout } from "@/testutil";
 
@@ -34,7 +34,7 @@ const renderContextMenuItems = async (configured: boolean) => {
     configured,
   });
   const { wrapper, store } = await createConsoleWrapper({ client });
-  const props: Ontology.TreeContextMenuProps = {
+  const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
     state: createState([resource]),

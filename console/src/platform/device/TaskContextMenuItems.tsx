@@ -11,7 +11,7 @@ import { type device, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/platform/layout";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 import { Task } from "@/platform/task";
 
 export interface TaskContextMenuItemConfig {
@@ -21,7 +21,7 @@ export interface TaskContextMenuItemConfig {
 }
 
 export interface TaskContextMenuItemsProps extends Pick<
-  Ontology.TreeContextMenuProps,
+  Tree.ContextMenuProps,
   "selection" | "state"
 > {
   onConfigure: (deviceKey: device.Key) => void;

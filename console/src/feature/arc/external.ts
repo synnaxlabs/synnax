@@ -24,7 +24,7 @@ export * from "@/feature/arc/Explorer";
 export * from "@/feature/arc/export";
 export * from "@/feature/arc/import";
 export * from "@/feature/arc/link";
-export * from "@/feature/arc/ontology";
+export * from "@/feature/arc/tree";
 export * from "@/feature/arc/search";
 export * from "@/feature/arc/toolbar/Toolbar";
 export * from "@/platform/arc/external";
