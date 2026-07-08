@@ -29,7 +29,7 @@ import (
 
 type benchEnv struct {
 	ctx           context.Context
-	dist          mock.Node
+	node          mock.Node
 	closer        io.MultiCloser
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
@@ -37,35 +37,35 @@ type benchEnv struct {
 
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
-	dist := mock.OpenNode(b.Context())
+	node := mock.OpenNode(b.Context())
 	labelSvc := MustSucceed(label.OpenService(b.Context(), label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Search:   dist.Search,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
 	}))
 	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
 		Label:    labelSvc,
-		Search:   dist.Search,
+		Search:   node.Search,
 	}))
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostResolver: dist.Cluster,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		Search:       dist.Search,
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
 		Status:       statusSvc,
 	}))
 	return &benchEnv{
 		ctx:           b.Context(),
-		dist:          dist,
+		node:          node,
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),
-		closer:        io.MultiCloser{dist, channelSvc, statusSvc, labelSvc},
+		closer:        io.MultiCloser{node, channelSvc, statusSvc, labelSvc},
 	}
 }
 
