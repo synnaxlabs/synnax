@@ -35,7 +35,7 @@ func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 			{Key: "input"},
 			{Key: "math"},
 		},
-		Configs: map[string]msgpack.EncodedJSON{
+		Inputs: map[string]msgpack.EncodedJSON{
 			"input": {"type": "input"},
 			"math":  {"type": nodeType},
 		},
@@ -57,7 +57,7 @@ func makeMathGraphWithReset(nodeType string, dt types.Type) graph.Graph {
 			{Key: "reset_signal"},
 			{Key: "math"},
 		},
-		Configs: map[string]msgpack.EncodedJSON{
+		Inputs: map[string]msgpack.EncodedJSON{
 			"input":        {"type": "input"},
 			"reset_signal": {"type": "reset_signal"},
 			"math":         {"type": nodeType},
@@ -701,7 +701,7 @@ var _ = Describe("Derivative", func() {
 				{Key: "input"},
 				{Key: "deriv"},
 			},
-			Configs: map[string]msgpack.EncodedJSON{
+			Inputs: map[string]msgpack.EncodedJSON{
 				"input": {"type": "input"},
 				"deriv": {"type": "derivative"},
 			},

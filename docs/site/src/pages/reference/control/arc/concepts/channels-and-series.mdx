@@ -86,9 +86,9 @@ the `setpoint` channel. If nothing has been written yet, it returns zero.
 | Empty channel | Skips execution     | Returns zero                  |
 | Use case      | Main data pipelines | Side-channel reads, setpoints |
 
-### Channels as Config Parameters
+### Channels as Inputs
 
-Channels can be passed to functions through config parameters:
+Channels can be passed to functions as input parameters:
 
 ```arc
 func monitor{sensor chan f64, limit f64} () u8 {
@@ -185,7 +185,7 @@ lengths cause a runtime error.
 
 ## Channel Types
 
-When passing channels through config parameters, you declare their type:
+When passing channels as input parameters, you declare their type:
 
 ```arc
 func process{input chan f64, output chan f64} () {

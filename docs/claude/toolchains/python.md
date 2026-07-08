@@ -50,7 +50,7 @@ requires-python = ">=3.12,<4"
 dependencies = ["alamos", "synnax-freighter", "pydantic>=2.12.5", "numpy>=2.3.5"]
 
 [dependency-groups]
-dev = ["black>=25.12.0", "isort>=7.0.0", "mypy>=1.19.0", "pytest>=9.0.2"]
+dev = ["ruff>=0.15.18,<1", "mypy>=2.1.0,<3", "pytest>=9.1.1,<10"]
 
 [build-system]
 requires = ["hatchling"]
@@ -59,17 +59,12 @@ build-backend = "hatchling.build"
 
 ## Code Style
 
-### Black (Formatter)
+### Ruff (Formatter + Linter)
 
-- 88 character line length
-- Automatically formats code
-- Run: `uv run black .`
-
-### isort (Import Sorter)
-
-- Configured with `profile = "black"` for compatibility
-- Automatically organizes imports
-- Run: `uv run isort .`
+- 88 character line length, target `py312`
+- Formats code and sorts imports (pyflakes + isort rules via `select = ["F", "I"]`)
+- Run: `uv run ruff format .` to format, `uv run ruff check --fix` to lint and sort
+  imports
 
 ### mypy (Type Checker)
 

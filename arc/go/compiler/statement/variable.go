@@ -57,7 +57,7 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	// Special case: if LHS has channel type and RHS is a symbol with channel type,
 	// just copy the channel key instead of reading from the channel.
 	// This handles patterns like:
-	//   sp := set_point  (where set_point is a config param with chan f32)
+	//   sp := set_point  (where set_point is an input param with chan f32)
 	//   sp2 := sp        (where sp is a variable with chan f32)
 	//   alias := channel (where channel is a global KindChannel)
 	if varType.Kind == types.KindChan || varScope.Kind == symbol.KindChannel {

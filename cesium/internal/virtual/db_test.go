@@ -29,7 +29,7 @@ var _ = Describe("DB Metadata Operations", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		dbKey = GenerateChannelKey()
-		db = MustSucceed(virtual.Open(ctx, virtual.Config{
+		db = MustSucceed(virtual.Open(virtual.Config{
 			Channel: channel.Channel{
 				Key:      dbKey,
 				Name:     "test",
@@ -80,7 +80,7 @@ var _ = Describe("DB Metadata Operations", func() {
 
 	Describe("Close", func() {
 		It("Should return an error when methods are called on a closed DB", func(ctx SpecContext) {
-			db := MustSucceed(virtual.Open(ctx, virtual.Config{
+			db := MustSucceed(virtual.Open(virtual.Config{
 				Channel: channel.Channel{
 					Key:      GenerateChannelKey(),
 					Name:     "test",
@@ -94,7 +94,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		})
 
 		It("Should return an error when a DB is closed while writers are still accessing it", func(ctx SpecContext) {
-			db := MustSucceed(virtual.Open(ctx, virtual.Config{
+			db := MustSucceed(virtual.Open(virtual.Config{
 				Channel: channel.Channel{
 					Key:      GenerateChannelKey(),
 					Name:     "test",

@@ -64,7 +64,7 @@ type Streamer[RQ any, RS any] interface {
 	// the new set applies to every frame written after SetChannels returns, so it
 	// can be used as a readiness barrier. Callers should update the channel set
 	// through SetChannels or through requests, not both.
-	SetChannels(keys []channel.Key)
+	SetChannels([]channel.Key)
 }
 
 func passThroughStreamerRequestTranslator(req StreamerRequest) StreamerRequest {
@@ -112,12 +112,12 @@ type streamer[I any, O any] struct {
 	relay             *relay
 	translateRequest  func(I) StreamerRequest
 	translateResponse func(StreamerResponse) O
-	// sendOpenAck indicates whether to emit an empty response once the streamer
-	// starts flowing.
+	// sendOpenAck indicates whether to emit an empty response once the streamer starts
+	// flowing.
 	sendOpenAck bool
 	// channels is the currently subscribed channel set. Stored atomically so
-	// SetChannels can apply updates synchronously while Flow's delivery loop
-	// reads the set on every frame.
+	// SetChannels can apply updates synchronously while Flow's delivery loop reads the
+	// set on every frame.
 	channels atomic.Pointer[[]channel.Key]
 }
 
