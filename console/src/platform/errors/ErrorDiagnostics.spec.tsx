@@ -81,9 +81,7 @@ describe("ErrorDiagnostics", () => {
     const error = new Error("boom");
     error.name = "NotFoundError";
     await renderBoundary(store, <Throw error={error} />);
-    const nameText = document.querySelector(
-      ".pluto-error-fallback__name",
-    )?.textContent;
+    const nameText = document.querySelector(".pluto-error-fallback__name")?.textContent;
     expect(nameText).toBe("NotFoundError");
     expect(messageText()).toBe("boom\nCore: none");
   });
