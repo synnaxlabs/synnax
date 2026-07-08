@@ -50,7 +50,7 @@ requires-python = ">=3.12,<4"
 dependencies = ["alamos", "synnax-freighter", "pydantic>=2.12.5", "numpy>=2.3.5"]
 
 [dependency-groups]
-dev = ["ruff>=0.15.18", "mypy>=2.1.0", "pytest>=9.0.2"]
+dev = ["ruff>=0.15.18,<1", "mypy>=2.1.0,<3", "pytest>=9.1.1,<10"]
 
 [build-system]
 requires = ["hatchling"]
