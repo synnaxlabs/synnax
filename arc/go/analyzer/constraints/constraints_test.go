@@ -142,7 +142,7 @@ var _ = Describe("Constraint System", func() {
 			Expect(outputParam.Type).To(Equal(types.I64()))
 		})
 
-		It("should apply substitutions to function config types", func() {
+		It("should apply substitutions to function input types", func() {
 			var (
 				tv    = types.Variable("T", nil)
 				props = types.FunctionProperties{
@@ -151,10 +151,10 @@ var _ = Describe("Constraint System", func() {
 			)
 			system.Substitutions["T"] = types.F64()
 			var (
-				result      = system.ApplySubstitutions(fnType)
-				configParam = MustBeOk(result.Inputs.Get("threshold"))
+				result     = system.ApplySubstitutions(fnType)
+				inputParam = MustBeOk(result.Inputs.Get("threshold"))
 			)
-			Expect(configParam.Type).To(Equal(types.F64()))
+			Expect(inputParam.Type).To(Equal(types.F64()))
 		})
 
 		It("should apply substitutions to multiple function parameters", func() {
@@ -176,13 +176,13 @@ var _ = Describe("Constraint System", func() {
 			system.Substitutions["T3"] = types.String()
 			var (
 				result      = system.ApplySubstitutions(fnType)
-				inputParam  = MustBeOk(result.Inputs.Get("x"))
+				inputParamX = MustBeOk(result.Inputs.Get("x"))
 				outputParam = MustBeOk(result.Outputs.Get("y"))
-				configParam = MustBeOk(result.Inputs.Get("z"))
+				inputParamZ = MustBeOk(result.Inputs.Get("z"))
 			)
-			Expect(inputParam.Type).To(Equal(types.F32()))
+			Expect(inputParamX.Type).To(Equal(types.F32()))
 			Expect(outputParam.Type).To(Equal(types.I32()))
-			Expect(configParam.Type).To(Equal(types.String()))
+			Expect(inputParamZ.Type).To(Equal(types.String()))
 		})
 
 		It("should handle circular substitution chains correctly", func() {

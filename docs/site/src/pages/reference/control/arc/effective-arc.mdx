@@ -318,7 +318,7 @@ func process(value f64) f64 {
     scale := 2.0 * 3.14159 * 0.5 // Computed every call
     return value * scale
 }
-// More efficient: use config parameter
+// More efficient: use an input parameter
 func process{scale f64} (value f64) f64 {
     return value * scale
 }

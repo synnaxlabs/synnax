@@ -177,7 +177,7 @@ func Analyze(
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
-					symbol.ResolveConfigChannel(
+					symbol.ResolveInputChannel(
 						&node.Channels,
 						fnSym,
 						param.Name,
