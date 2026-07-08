@@ -829,14 +829,10 @@ var _ = Describe("Delete", func() {
 var _ = Describe("Transient and Virtual Index Channel Deletion", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				db = openDBOnFS(ctx, openFS())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = DeferClose(openDBOnFS(ctx, openFS()))
 			})
 
 			It("Should delete a transient channel without touching the file system", func(ctx SpecContext) {
