@@ -19,11 +19,10 @@ import { Symbol } from "@/schematic/node/general/select/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
-import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/select/config";
 
-export const defaultConfig = (_t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: color.ZERO,
