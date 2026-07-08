@@ -106,11 +106,14 @@ var _ = Describe("DB Metadata Operations", func() {
 					Virtual:  true,
 				},
 			}))
-			writer, _ := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+			writer, transfer := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
 				Subject: control.Subject{Key: "string"},
 			}))
+			Expect(transfer.Occurred()).To(BeTrue())
 			Expect(db.Close()).To(MatchError(resource.ErrOpen))
-			_ = MustSucceed(writer.Close())
+			transfer = MustSucceed(writer.Close())
+			Expect(transfer.Occurred()).To(BeTrue())
+			Expect(transfer.IsRelease()).To(BeTrue())
 			Expect(db.Close()).To(Succeed())
 		})
 	})
