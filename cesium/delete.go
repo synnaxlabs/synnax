@@ -97,11 +97,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 		if virtual {
 			return nil
 		}
-		err := db.fs.Rename(oldName, newName)
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil
-		}
-		return err
+		return errors.Skip(db.fs.Rename(oldName, newName), fs.ErrNotExist)
 	})(); err != nil {
 		return err
 	}

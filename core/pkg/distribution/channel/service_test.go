@@ -129,9 +129,9 @@ var _ = Describe("Service", Ordered, func() {
 })
 
 var _ = Describe("Startup Virtual Storage Registration", func() {
-	// restartWithFreshTS restarts the node's distribution layer with the same
-	// key-value store but a fresh time-series engine, mirroring a process restart:
-	// the channel table survives on disk while virtual channel registrations do not.
+	// restartWithFreshTS restarts the node's distribution layer with the same key-value
+	// store but a fresh time-series engine, mirroring a process restart: the channel
+	// table survives on disk while virtual channel registrations do not.
 	restartWithFreshTS := func(
 		ctx context.Context,
 		c *mock.Cluster,

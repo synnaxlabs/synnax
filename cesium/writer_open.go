@@ -266,7 +266,12 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
-			virtualWriters[key], transfer, err = v.OpenWriter(virtual.WriterConfig{Subject: cfg.ControlSubject, Start: cfg.Start, Authority: cfg.authority(i), ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorized})
+			virtualWriters[key], transfer, err = v.OpenWriter(virtual.WriterConfig{
+				Subject:               cfg.ControlSubject,
+				Start:                 cfg.Start,
+				Authority:             cfg.authority(i),
+				ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorized,
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -377,8 +382,12 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		WriterConfig: cfg,
 		internal:     make([]*idxWriter, 0, len(domainWriters)),
 		relay:        db.relay.inlet,
-		virtual:      &virtualWriter{internal: virtualWriters, digestKey: db.mu.digests.key, groups: memberGroups},
-		keyToIdx:     keyToIdx,
+		virtual: &virtualWriter{
+			internal:  virtualWriters,
+			digestKey: db.mu.digests.key,
+			groups:    memberGroups,
+		},
+		keyToIdx: keyToIdx,
 		updateDBControl: func(ctx context.Context, update ControlUpdate) error {
 			db.mu.RLock()
 			defer db.mu.RUnlock()
