@@ -153,14 +153,14 @@ var _ = Describe("Virtual Channels On Reopen", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
-			var xFS fs.FS
+			var fs fs.FS
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
-				xFS = openFS()
+				fs = openFS()
 			})
 
 			It("Should not survive a database reopen, while stored channels do", func(ctx SpecContext) {
-				subFS := MustSucceed(xFS.Sub("restart"))
+				subFS := MustSucceed(fs.Sub("restart"))
 				restartDB := openDBOnFS(ctx, subFS)
 				virtualKey := GenerateChannelKey()
 				storedKey := GenerateChannelKey()
@@ -184,7 +184,7 @@ var _ = Describe("Virtual Channels On Reopen", func() {
 			})
 
 			It("Should remove directories persisted for virtual channels by previous versions", func(ctx SpecContext) {
-				subFS := MustSucceed(xFS.Sub("legacy"))
+				subFS := MustSucceed(fs.Sub("legacy"))
 				key := GenerateChannelKey()
 				chFS := MustSucceed(subFS.Sub(channelKeyToPath(key)))
 				f := MustSucceed(chFS.Open("meta.json", os.O_CREATE|os.O_WRONLY))
