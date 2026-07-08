@@ -20,7 +20,7 @@ import {
   removeNode,
   rename,
   setNode,
-  setNodeConfig,
+  setNodeInputs,
   setNodePosition,
 } from "@/arc/actions.gen";
 import { type ir } from "@/arc/ir";
@@ -62,27 +62,27 @@ const handlers: Handlers = {
       targets: [payload.key],
     };
   },
-  // The inverse of SetNodeConfig is imperfect for keys the action newly
-  // introduces: SetNodeConfig only merges, so it cannot remove keys that did
+  // The inverse of SetNodeInputs is imperfect for keys the action newly
+  // introduces: SetNodeInputs only merges, so it cannot remove keys that did
   // not previously exist. The inverse here restores values for keys that DID
   // exist before the merge; keys added by the action remain on undo as phantom
-  // fields. A future ReplaceNodeConfig action can close the gap by enabling
+  // fields. A future ReplaceNodeInputs action can close the gap by enabling
   // wholesale replacement.
-  setNodeConfig: (state, payload) => {
-    const existingRaw = state.graph.configs[payload.key];
+  setNodeInputs: (state, payload) => {
+    const existingRaw = state.graph.inputs[payload.key];
     if (existingRaw == null) {
-      state.graph.configs[payload.key] = payload.config;
+      state.graph.inputs[payload.key] = payload.inputs;
       return { inverse: [], targets: [payload.key] };
     }
     const existing = actions.snapshotDraft(existingRaw);
     const restoreFields: record.Unknown = {};
-    for (const k of Object.keys(payload.config))
+    for (const k of Object.keys(payload.inputs))
       if (existing[k] !== undefined) restoreFields[k] = existing[k];
-    state.graph.configs[payload.key] = { ...existing, ...payload.config };
+    state.graph.inputs[payload.key] = { ...existing, ...payload.inputs };
     if (Object.keys(restoreFields).length === 0)
       return { inverse: [], targets: [payload.key] };
     return {
-      inverse: [setNodeConfig({ key: payload.key, config: restoreFields })],
+      inverse: [setNodeInputs({ key: payload.key, inputs: restoreFields })],
       targets: [payload.key],
     };
   },
@@ -90,18 +90,18 @@ const handlers: Handlers = {
     const idx = state.graph.nodes.findIndex((n) => n.key === payload.key);
     if (idx === -1) return actions.NO_OP_RESULT;
     const oldNode = actions.snapshotDraft(state.graph.nodes[idx]);
-    const oldConfig = actions.snapshotDraft(state.graph.configs[payload.key]);
+    const oldInputs = actions.snapshotDraft(state.graph.inputs[payload.key]);
     const removedEdges = state.graph.edges
       .filter((e) => e.source.node === payload.key || e.target.node === payload.key)
       .map((e) => actions.snapshotDraft(e));
     state.graph.nodes.splice(idx, 1);
-    delete state.graph.configs[payload.key];
+    delete state.graph.inputs[payload.key];
     state.graph.edges = state.graph.edges.filter(
       (e) => e.source.node !== payload.key && e.target.node !== payload.key,
     );
     const inverse: Action[] = [setNode({ node: oldNode })];
-    if (oldConfig != null)
-      inverse.push(setNodeConfig({ key: payload.key, config: oldConfig }));
+    if (oldInputs != null)
+      inverse.push(setNodeInputs({ key: payload.key, inputs: oldInputs }));
     inverse.push(...removedEdges.map((e) => addEdge({ edge: e })));
     return { inverse, targets: [payload.key] };
   },

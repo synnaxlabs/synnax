@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -45,14 +44,11 @@ type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	// Framer is the underlying frame service used to stream cached channel values.
+	// Framer is the underlying frame service used to stream cached channel values and
+	// to open the writers that write calculated samples back to the cluster.
 	//
 	// [REQUIRED]
 	Framer *framer.Service
-	// Writer opens the writers used to write calculated samples back to the cluster.
-	//
-	// [REQUIRED]
-	Writer *writer.Service
 	// Channel is used to retrieve information about the channels being calculated and
 	// to resolve channel symbols for Arc expression compilation.
 	//
@@ -74,7 +70,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "writer", c.Writer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
@@ -84,7 +79,6 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
-	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
@@ -276,7 +270,6 @@ func (s *Service) updateGroup(
 			calculators:     calculators,
 			onStatusChange:  s.setStatus,
 			framer:          s.cfg.Framer,
-			writer:          s.cfg.Writer,
 		},
 	)
 	if err != nil {

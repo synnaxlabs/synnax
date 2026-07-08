@@ -81,8 +81,8 @@ var _ = Describe("Codec", func() {
 							Key: "test_28",
 						},
 					},
-					Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
-					Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
+					Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+					Inputs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 				},
 				Text: text.Text{
 					Doc: text.Document{
@@ -106,7 +106,7 @@ var _ = Describe("Codec", func() {
 					Functions: nil,
 					Edges:     nil,
 					Nodes:     nil,
-					Configs:   nil,
+					Inputs:    nil,
 				},
 				Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
 			}),
@@ -169,8 +169,8 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 					Key: "test_28",
 				},
 			},
-			Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
-			Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
+			Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+			Inputs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 		},
 		Text: text.Text{
 			Doc: text.Document{
@@ -259,8 +259,8 @@ func FuzzDecodeArc(f *testing.F) {
 						Key: "test_28",
 					},
 				},
-				Nodes:   []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
-				Configs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
+				Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+				Inputs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 			},
 			Text: text.Text{
 				Doc: text.Document{
@@ -291,7 +291,7 @@ func FuzzDecodeArc(f *testing.F) {
 				Functions: nil,
 				Edges:     nil,
 				Nodes:     nil,
-				Configs:   nil,
+				Inputs:    nil,
 			},
 			Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
 		}

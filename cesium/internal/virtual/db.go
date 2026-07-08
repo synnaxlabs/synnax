@@ -10,7 +10,6 @@
 package virtual
 
 import (
-	"context"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
@@ -66,6 +65,9 @@ var (
 // Config is the configuration for opening a DB. The DB is a purely in-memory engine:
 // persistence of the channel's metadata, if any, is the caller's responsibility.
 type Config struct {
+	// Instrumentation is for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// Channel that the database will operate on. All fields must be fully resolved by
 	// the caller before opening the DB.
@@ -74,10 +76,7 @@ type Config struct {
 	Channel channel.Channel
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
@@ -95,8 +94,8 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-func Open(_ context.Context, configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func Open(configs ...Config) (*DB, error) {
+	cfg, err := config.New(Config{}, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -128,8 +127,8 @@ func (db *DB) Channel() channel.Channel {
 }
 
 // AllocateLeadingAlignment reserves and returns a fresh leading alignment domain for
-// the channel. Writers on an index group allocate one domain per group from the
-// group's index channel so that alignments correlate across the group's members.
+// the channel. Writers on an index group allocate one domain per group from the group's
+// index channel so that alignments correlate across the group's members.
 func (db *DB) AllocateLeadingAlignment() telem.Alignment {
 	return telem.NewAlignment(db.leadingAlignment.Add(1), 0)
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -36,7 +35,6 @@ type benchIterEnv struct {
 	closer        io.MultiCloser
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
-	writerSvc     *writer.Service
 	iteratorSvc   *iterator.Service
 }
 
@@ -105,13 +103,6 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		b.Fatalf("failed to open iterator service: %v", err)
 	}
 
-	writerSvc, err := writer.NewService(writer.ServiceConfig{
-		Framer: node.Framer, Channel: channelSvc,
-	})
-	if err != nil {
-		b.Fatalf("failed to open writer service: %v", err)
-	}
-
 	return &benchIterEnv{
 		ctx:  b.Context(),
 		node: node,
@@ -120,7 +111,6 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		},
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),
-		writerSvc:     writerSvc,
 		iteratorSvc:   iteratorSvc,
 	}
 }
@@ -169,7 +159,7 @@ func (e *benchIterEnv) writeData(
 	for i, ch := range dataChannels {
 		keys[i+1] = ch.Key()
 	}
-	w, err := e.writerSvc.Open(e.ctx, framer.WriterConfig{
+	w, err := e.node.Framer.OpenWriter(e.ctx, framer.WriterConfig{
 		Start:            telem.SecondTS,
 		Keys:             keys,
 		EnableAutoCommit: new(true),
@@ -408,7 +398,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
 			for d := range numDomains {
 				startTS := telem.TimeStamp(d*1000+1) * telem.SecondTS
-				w, err := env.writerSvc.Open(env.ctx, framer.WriterConfig{
+				w, err := env.node.Framer.OpenWriter(env.ctx, framer.WriterConfig{
 					Start:            startTS,
 					Keys:             keys,
 					EnableAutoCommit: new(true),

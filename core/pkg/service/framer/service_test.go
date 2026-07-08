@@ -21,8 +21,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -178,6 +178,16 @@ var _ = Describe("Service", func() {
 				},
 			))).To(BeTrue())
 		})
+		It("Should return an error when a key has no corresponding channel", func(ctx SpecContext) {
+			Expect(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  []channel.Key{channel.NewKey(node.Cluster.HostKey(), 9999)},
+			})).Error().To(MatchError(query.ErrNotFound))
+		})
+		It("Should return a validation error when no keys are provided", func(ctx SpecContext) {
+			Expect(framerSvc.OpenWriter(ctx, framer.WriterConfig{Start: telem.SecondTS})).
+				Error().To(MatchError(ContainSubstring("keys: must be non-empty")))
+		})
 	})
 
 	Describe("NewStreamWriter", func() {
@@ -192,7 +202,7 @@ var _ = Describe("Service", func() {
 			inlet, outlet := confluence.Attach(s)
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			inlet.Inlet() <- framer.WriterRequest{
-				Command: writer.CommandWrite,
+				Command: framer.WriterCommandWrite,
 				Frame: frame.NewMulti(
 					[]channel.Key{idxCh.Key(), dataCh.Key()},
 					[]telem.Series{
@@ -203,6 +213,12 @@ var _ = Describe("Service", func() {
 			}
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
+		})
+		It("Should return an error when a key has no corresponding channel", func(ctx SpecContext) {
+			Expect(framerSvc.NewStreamWriter(ctx, framer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  []channel.Key{channel.NewKey(node.Cluster.HostKey(), 9999)},
+			})).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 

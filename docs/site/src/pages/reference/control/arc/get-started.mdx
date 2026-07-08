@@ -211,8 +211,8 @@ after about one second (when count reaches 16).
 
 New concepts in this example:
 
-- **Config parameter** (`{limit f64}`): A constant set when the function is
-  instantiated. Here, `limit=15.0` sets the threshold
+- **Input parameter** (`{limit f64}`): A constant set when the function is instantiated.
+  Here, `limit=15.0` sets the threshold
 - **Return type `u8`**: An unsigned 8-bit integer. The comparison `reading > limit`
   returns 1 (true) or 0 (false)
 - **Conditional edge** (`=>`) -> fires the target while the source is truthy. Unlike

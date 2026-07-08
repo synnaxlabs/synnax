@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
@@ -1068,7 +1067,7 @@ var _ = Describe("Writer", func() {
 				Expect(limitWriter.Create(ctx, &ch)).To(Succeed())
 				createdChannels[i] = ch
 			}
-			MustOpen(MustSucceed(writer.NewService(writer.ServiceConfig{Framer: dist.Framer, Channel: limitSvc})).Open(ctx, framer.WriterConfig{
+			MustOpen(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Keys: []channel.Key{createdChannels[0].Key()},
 			}))
 			Expect(limitWriter.Delete(ctx, createdChannels[0].Key(), false)).

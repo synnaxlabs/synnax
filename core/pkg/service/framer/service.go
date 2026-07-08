@@ -18,12 +18,12 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
@@ -129,13 +129,12 @@ type Service struct {
 	closer   io.MultiCloser
 	streamer *streamer.Service
 	iterator *iterator.Service
-	writer   *writer.Service
 	cfg      ServiceConfig
 }
 
 // OpenService opens a framer Service from the provided configuration. All fields are
-// required. It wires up the writer, calculation-backed streaming and iteration, and
-// configures the host node's control update channel.
+// required. It wires up calculation-backed streaming and iteration, and configures the
+// host node's control update channel.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -144,19 +143,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.writer, err = writer.NewService(writer.ServiceConfig{
-		Instrumentation: cfg.Child("writer"),
-		Framer:          cfg.Framer,
-		Channel:         cfg.Channel,
-	}); err != nil {
-		return nil, err
-	}
 	var calcSvc *calculation.Service
 	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation: cfg.Child("calculation"),
 		Channel:         cfg.Channel,
 		Framer:          cfg.Framer,
-		Writer:          s.writer,
 		Status:          cfg.Status,
 	}); !ok(err, calcSvc) {
 		return nil, err
@@ -186,7 +177,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // caller must Close the returned Writer to release its control over the written region.
 // It returns an error if cfg is invalid or any channel in cfg.Keys cannot be resolved.
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	return s.writer.Open(ctx, cfg)
+	return s.cfg.Framer.OpenWriter(ctx, cfg)
 }
 
 // NewStreamWriter opens a StreamWriter for the channels in cfg, driven through
@@ -195,7 +186,7 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 func (s *Service) NewStreamWriter(
 	ctx context.Context, cfg WriterConfig,
 ) (StreamWriter, error) {
-	return s.writer.NewStream(ctx, cfg)
+	return s.cfg.Framer.NewStreamWriter(ctx, cfg)
 }
 
 // OpenIterator opens a buffered Iterator that reads telemetry from the channels in cfg
