@@ -31,19 +31,21 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	ErrOnUnauthorizedOpen *bool
-	// Subject is the subject that is authorized to write to the writer.
+	// Subject identifies the writer in the channel's control system, and is reported
+	// in control transfers involving the writer.
 	//
 	// [REQUIRED]
 	Subject xcontrol.Subject
-	// Start is the start time of the writer.
+	// Start is the start of the time range the writer claims control over.
 	//
 	// [OPTIONAL]
 	Start telem.TimeStamp
-	// End is the end time of the writer.
+	// End is the end of the time range the writer claims control over.
 	//
-	// [OPTIONAL]
+	// [OPTIONAL] - Defaults to telem.TimeStampMax.
 	End telem.TimeStamp
-	// Authority is the authority to open the writer with.
+	// Authority is the control authority the writer opens with. Writes are only
+	// authorized while the writer holds the highest authority over the channel.
 	//
 	// [OPTIONAL]
 	Authority xcontrol.Authority
@@ -78,7 +80,8 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 	}
 }
 
-// A Writer is used to write to a virtual channel.
+// A Writer is used to write to a virtual channel. Writer is not safe for concurrent
+// use; open one per goroutine.
 type Writer struct {
 	// onClose is called when the writer is closed.
 	onClose func()
@@ -93,7 +96,10 @@ type Writer struct {
 	closed    bool
 }
 
-// OpenWriter opens a writer for the given configuration.
+// OpenWriter opens a writer on the DB's channel with the given configuration,
+// returning the control transfer that occurred as a result of the open. It returns
+// ErrDBClosed if the DB is closed, and control.ErrUnauthorized if the writer fails to
+// acquire control and ErrOnUnauthorizedOpen is set.
 func (db *DB) OpenWriter(cfgs ...WriterConfig) (*Writer, control.Transfer, error) {
 	if db.closed.Load() {
 		return nil, control.Transfer{}, db.wrapError(ErrDBClosed)
@@ -127,6 +133,9 @@ func (db *DB) OpenWriter(cfgs ...WriterConfig) (*Writer, control.Transfer, error
 }
 
 // Write writes a series to the writer, returning the alignment of the first sample.
+// It returns ErrWriterClosed if the writer is closed, a validation error if the series
+// data type is incompatible with the channel, and control.ErrUnauthorized if the
+// writer does not currently hold control.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
 		return 0, w.wrapError(ErrWriterClosed)
@@ -145,7 +154,8 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	return a, nil
 }
 
-// SetAuthority sets the authority of the writer.
+// SetAuthority sets the writer's control authority, returning any control transfer
+// that occurred as a result of the change.
 func (w *Writer) SetAuthority(authority xcontrol.Authority) control.Transfer {
 	return w.control.SetAuthority(authority)
 }
@@ -153,7 +163,9 @@ func (w *Writer) SetAuthority(authority xcontrol.Authority) control.Transfer {
 // Channel returns the channel being written to.
 func (w *Writer) Channel() channel.Channel { return w.channel }
 
-// Close closes the writer and releases all control.
+// Close closes the writer and releases its control over the channel, returning any
+// control transfer that occurred as a result. Closing an already-closed writer is a
+// no-op.
 func (w *Writer) Close() (control.Transfer, error) {
 	if w.closed {
 		return control.Transfer{}, nil

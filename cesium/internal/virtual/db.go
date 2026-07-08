@@ -48,7 +48,9 @@ func (r *controlResource) storeAlignment(a telem.Alignment) {
 	r.alignment.Store(uint64(a))
 }
 
-// DB is a purely in-memory engine for virtual channels.
+// DB is a purely in-memory engine for a single virtual channel: it registers the
+// channel and coordinates control handoff and write alignment between writers opened
+// on it. Nothing about the channel is ever written to the file system.
 type DB struct {
 	controller       *control.Controller[*controlResource]
 	wrapError        func(error) error
@@ -93,6 +95,8 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
+// Open opens a DB on the virtual channel in the given configuration. It returns a
+// validation error if the configuration is invalid or the channel is not virtual.
 func Open(configs ...Config) (*DB, error) {
 	cfg, err := config.New(Config{}, configs...)
 	if err != nil {
@@ -121,6 +125,7 @@ func Open(configs ...Config) (*DB, error) {
 	return db, nil
 }
 
+// Channel returns the channel the DB operates on.
 func (db *DB) Channel() channel.Channel {
 	return db.cfg.Channel
 }
@@ -132,10 +137,15 @@ func (db *DB) AllocateLeadingAlignment() telem.Alignment {
 	return telem.NewAlignment(db.leadingAlignment.Add(1), 0)
 }
 
+// LeadingControlState returns the control state of the subject currently in control of
+// the channel, or nil if no writers are open on the DB.
 func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 
+// Close closes the DB. It returns an error wrapping resource.ErrOpen if any writers
+// are still open on the DB, in which case the DB remains usable. Closing an
+// already-closed DB is a no-op.
 func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
@@ -149,7 +159,8 @@ func (db *DB) Close() error {
 	return nil
 }
 
-// RenameChannel renames the DB's channel to the given name.
+// RenameChannel renames the DB's channel to the given name. It returns ErrDBClosed if
+// the DB is closed.
 func (db *DB) RenameChannel(newName string) error {
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -158,7 +169,8 @@ func (db *DB) RenameChannel(newName string) error {
 	return nil
 }
 
-// SetChannelKey sets the key of the channel for this DB.
+// SetChannelKey sets the key of the channel for this DB. It returns ErrDBClosed if the
+// DB is closed.
 func (db *DB) SetChannelKey(key channel.Key) error {
 	if db.closed.Load() {
 		return ErrDBClosed
