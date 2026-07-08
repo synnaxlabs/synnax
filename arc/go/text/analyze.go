@@ -819,7 +819,7 @@ func lowerReExpr[T antlr.ParserRuleContext](
 	}
 	sw, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Kind:    symbol.KindVariable,
-		VarKind: symbol.VarKindConstant,
+		VarKind: symbol.VarKindReactive,
 		Type:    types.U8(),
 	})
 	if err != nil {
@@ -844,7 +844,7 @@ func lowerReExpr[T antlr.ParserRuleContext](
 }
 
 // buildReExprMachine builds target's feeder machine (init + reassignment states) and
-// returns its switch-reader nodes; each state reads the next feeder's switch to advance.
+// returns its switch-reader nodes; a fresh switch write jumps to that feeder's state.
 func buildReExprMachine(
 	target *symbol.Symbol,
 	initNodes []ir.Node,
@@ -863,16 +863,18 @@ func buildReExprMachine(
 		stateNodes[k+1] = feeders[k].nodes
 	}
 	var readers []ir.Node
-	for k, f := range feeders {
-		read, ok := buildChannelReadNode(f.switchSym.Name, f.switchSym, kg)
-		if !ok {
-			return ir.Scope{}, nil, false
+	for i := range stateNodes {
+		for k, f := range feeders {
+			read, ok := buildChannelReadNode(f.switchSym.Name, f.switchSym, kg)
+			if !ok {
+				return ir.Scope{}, nil, false
+			}
+			stateNodes[i] = append(stateNodes[i], read.node)
+			readers = append(readers, read.node)
+			targetKey := fmt.Sprintf("%s_s%d", machineKey, k+1)
+			machine.Transitions = append(machine.Transitions,
+				ir.Transition{On: read.output, TargetKey: new(targetKey)})
 		}
-		stateNodes[k] = append(stateNodes[k], read.node)
-		readers = append(readers, read.node)
-		targetKey := fmt.Sprintf("%s_s%d", machineKey, k+1)
-		machine.Transitions = append(machine.Transitions,
-			ir.Transition{On: read.output, TargetKey: new(targetKey)})
 	}
 	for i, nodes := range stateNodes {
 		state := flowScope(fmt.Sprintf("%s_s%d", machineKey, i), nodes)

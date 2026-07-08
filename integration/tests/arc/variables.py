@@ -179,6 +179,37 @@ sequence reset_matrix_main {
         1 -> reset_done
     }
 }
+
+// ---------- reactive re-expr across jumps (skip + reorder) ----------
+vars_start => rx_main
+
+sequence rx_main {
+    rx str := "init: " + rx_src
+
+    stage rx_entry {
+        rx -> rx_out
+        e_to_b >= 1 => rx_b
+        e_to_c >= 1 => rx_c
+    }
+    stage rx_a {
+        rx = "a: " + rx_src
+        rx -> rx_out
+        a_to_d >= 1 => rx_d
+    }
+    stage rx_b {
+        rx = "b: " + rx_src
+        rx -> rx_out
+    }
+    stage rx_c {
+        rx = "c: " + rx_src
+        rx -> rx_out
+        c_to_a >= 1 => rx_a
+    }
+    stage rx_d {
+        rx = "d: " + rx_src
+        rx -> rx_out
+    }
+}
 """
 
 VAR_OUTPUTS = [
@@ -214,7 +245,10 @@ RESET_OUTPUTS = [
     "counter_out_7",
     "reset_done",
 ]
-OUTPUTS = VAR_OUTPUTS + INHERIT_OUTPUTS + SCOPE_OUTPUTS + RESET_OUTPUTS
+REEXPR_OUTPUTS = [
+    "rx_out",
+]
+OUTPUTS = VAR_OUTPUTS + INHERIT_OUTPUTS + SCOPE_OUTPUTS + RESET_OUTPUTS + REEXPR_OUTPUTS
 
 F64_CHANNELS = [
     "alias_f64_a",
@@ -262,10 +296,16 @@ STR_CHANNELS = [
     "inherit_alias_direct",
     "inherit_alias_fmt",
     "inherit_react_direct",
+    "rx_src",
+    "rx_out",
 ]
 U8_CHANNELS = [
     "inherit_to_run_cmd",
     "reset_done",
+    "e_to_c",
+    "e_to_b",
+    "c_to_a",
+    "a_to_d",
 ]
 
 CHANNELS: list[tuple[str, sy.DataType]] = (
@@ -303,6 +343,7 @@ class Variables(ArcCase):
         self._verify_stage_scope()
         self._verify_kind_inheritance()
         self._verify_scope_reset_matrix()
+        self._verify_reexpr()
 
     def _verify_const(self) -> None:
         self.log("=== Const ===")
@@ -390,3 +431,20 @@ class Variables(ArcCase):
         self.wait_for_eq("counter_out_4", 3)
         self.wait_for_eq("counter_out_6", 8)
         self.wait_for_eq("counter_out_7", 3)
+
+    def _verify_reexpr(self) -> None:
+        self.log("=== reactive re-expr across jumps (skip + reorder) ===")
+        # rx is re-expressed by jumping stages out of source order (entry->c->a->d,
+        # skipping b). A reassignment only swaps rx's derivation and fires on the
+        # next rx_src write, so each hop writes a fresh rx_src and asserts on it.
+        self.writer.write("rx_src", "1")
+        self.wait_for_eq("rx_out", "init: 1")
+        self.writer.write("e_to_c", 1)
+        self.writer.write("rx_src", "2")
+        self.wait_for_eq("rx_out", "c: 2")
+        self.writer.write("c_to_a", 1)
+        self.writer.write("rx_src", "3")
+        self.wait_for_eq("rx_out", "a: 3")
+        self.writer.write("a_to_d", 1)
+        self.writer.write("rx_src", "4")
+        self.wait_for_eq("rx_out", "d: 4")

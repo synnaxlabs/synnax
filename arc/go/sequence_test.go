@@ -68,6 +68,89 @@ var _ = Describe("Sequence", func() {
 		h.channelState.ClearReads()
 	}
 
+	// A reassignment takes effect when its stage runs, even reached out of source
+	// order or after a skipped stage; guards against the old source-order chain.
+	Describe("Reactive re-expression", func() {
+		src := `
+    sequence main {
+        rx f32 := rx_src + 1
+        stage rx_entry {
+            rx -> rx_out
+            e_to_b >= 1 => rx_b
+            e_to_c >= 1 => rx_c
+        }
+        stage rx_a {
+            rx = rx_src + 10
+            rx -> rx_out
+            a_to_d >= 1 => rx_d
+        }
+        stage rx_b {
+            rx = rx_src + 20
+            rx -> rx_out
+        }
+        stage rx_c {
+            rx = rx_src + 30
+            rx -> rx_out
+            c_to_a >= 1 => rx_a
+        }
+        stage rx_d {
+            rx = rx_src + 40
+            rx -> rx_out
+        }
+    }
+    start_cmd => main`
+		newH := func(ctx SpecContext) *runtimeHarness {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"rx_src":    {types.F32(), 101},
+				"rx_out":    {types.F32(), 102},
+				"e_to_c":    {types.U8(), 103},
+				"e_to_b":    {types.U8(), 104},
+				"c_to_a":    {types.U8(), 105},
+				"a_to_d":    {types.U8(), 106},
+			})
+			return newRuntimeHarness(ctx, src, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Float32T},
+				channels.Digest{Key: 102, DataType: telem.Float32T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.Uint8T},
+				channels.Digest{Key: 105, DataType: telem.Uint8T},
+				channels.Digest{Key: 106, DataType: telem.Uint8T},
+			)
+		}
+		pushSrc := func(h *runtimeHarness, ctx SpecContext, v float32) {
+			h.Ingest(101, telem.NewSeriesV[float32](v))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+		}
+
+		It("jumps to a re-expression reached by skipping earlier stages", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 100)
+			trigger(h, ctx, 103) // entry => rx_c, skipping rx_a and rx_b
+			pushSrc(h, ctx, 2)
+			out, _ := h.Flush()
+			Expect(lastF32(out, 102)).To(Equal(float32(32))) // rx_c: rx_src + 30
+		})
+
+		It("re-expresses to an earlier-source stage after a later one", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 100)
+			trigger(h, ctx, 103) // entry => rx_c
+			pushSrc(h, ctx, 2)
+			out, _ := h.Flush()
+			Expect(lastF32(out, 102)).To(Equal(float32(32)))
+			trigger(h, ctx, 105) // rx_c => rx_a (earlier in source order)
+			pushSrc(h, ctx, 3)
+			out, _ = h.Flush()
+			Expect(lastF32(out, 102)).To(Equal(float32(13))) // rx_a: rx_src + 10
+		})
+	})
+
 	Describe("Negative literal variable seeds", func() {
 		chanFor := func(expected any) (types.Type, telem.DataType) {
 			switch expected.(type) {
