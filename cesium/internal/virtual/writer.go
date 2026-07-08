@@ -31,8 +31,8 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	ErrOnUnauthorizedOpen *bool
-	// Subject identifies the writer in the channel's control system, and is reported
-	// in control transfers involving the writer.
+	// Subject identifies the writer in the channel's control system, and is reported in
+	// control transfers involving the writer.
 	//
 	// [REQUIRED]
 	Subject xcontrol.Subject
@@ -96,10 +96,10 @@ type Writer struct {
 	closed    bool
 }
 
-// OpenWriter opens a writer on the DB's channel with the given configuration,
-// returning the control transfer that occurred as a result of the open. It returns
-// ErrDBClosed if the DB is closed, and control.ErrUnauthorized if the writer fails to
-// acquire control and ErrOnUnauthorizedOpen is set.
+// OpenWriter opens a writer on the DB's channel with the given configuration, returning
+// the control transfer that occurred as a result of the open. It returns ErrDBClosed if
+// the DB is closed, and control.ErrUnauthorized if the writer fails to acquire control
+// and ErrOnUnauthorizedOpen is set.
 func (db *DB) OpenWriter(cfgs ...WriterConfig) (*Writer, control.Transfer, error) {
 	if db.closed.Load() {
 		return nil, control.Transfer{}, db.wrapError(ErrDBClosed)
@@ -132,10 +132,10 @@ func (db *DB) OpenWriter(cfgs ...WriterConfig) (*Writer, control.Transfer, error
 	return w, transfer, nil
 }
 
-// Write writes a series to the writer, returning the alignment of the first sample.
-// It returns ErrWriterClosed if the writer is closed, a validation error if the series
-// data type is incompatible with the channel, and control.ErrUnauthorized if the
-// writer does not currently hold control.
+// Write writes a series to the writer, returning the alignment of the first sample. It
+// returns ErrWriterClosed if the writer is closed, a validation error if the series
+// data type is incompatible with the channel, and control.ErrUnauthorized if the writer
+// does not currently hold control.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
 		return 0, w.wrapError(ErrWriterClosed)
@@ -154,8 +154,8 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	return a, nil
 }
 
-// SetAuthority sets the writer's control authority, returning any control transfer
-// that occurred as a result of the change.
+// SetAuthority sets the writer's control authority, returning any control transfer that
+// occurred as a result of the change.
 func (w *Writer) SetAuthority(authority xcontrol.Authority) control.Transfer {
 	return w.control.SetAuthority(authority)
 }

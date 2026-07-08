@@ -49,8 +49,8 @@ func (r *controlResource) storeAlignment(a telem.Alignment) {
 }
 
 // DB is a purely in-memory engine for a single virtual channel: it registers the
-// channel and coordinates control handoff and write alignment between writers opened
-// on it. Nothing about the channel is ever written to the file system.
+// channel and coordinates control handoff and write alignment between writers opened on
+// it. Nothing about the channel is ever written to the file system.
 type DB struct {
 	controller       *control.Controller[*controlResource]
 	wrapError        func(error) error
@@ -126,9 +126,7 @@ func Open(configs ...Config) (*DB, error) {
 }
 
 // Channel returns the channel the DB operates on.
-func (db *DB) Channel() channel.Channel {
-	return db.cfg.Channel
-}
+func (db *DB) Channel() channel.Channel { return db.cfg.Channel }
 
 // AllocateLeadingAlignment reserves and returns a fresh leading alignment domain for
 // the channel. Writers on an index group allocate one domain per group from the group's
@@ -143,16 +141,20 @@ func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 
-// Close closes the DB. It returns an error wrapping resource.ErrOpen if any writers
-// are still open on the DB, in which case the DB remains usable. Closing an
-// already-closed DB is a no-op.
+// Close closes the DB. It returns an error wrapping resource.ErrOpen if any writers are
+// still open on the DB, in which case the DB remains usable. Closing an already-closed
+// DB is a no-op.
 func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
 	count := db.openWriters.Load()
 	if count > 0 {
-		err := db.wrapError(errors.Wrapf(resource.ErrOpen, "cannot close channel because there are %d unclosed writers accessing it", count))
+		err := db.wrapError(errors.Wrapf(
+			resource.ErrOpen,
+			"cannot close channel because there are %d unclosed writers accessing it",
+			count,
+		))
 		db.closed.Store(false)
 		return err
 	}
