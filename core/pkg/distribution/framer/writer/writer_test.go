@@ -83,26 +83,24 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			builder := mock.OpenCluster(ctx, 1)
-			dist := builder.Nodes[1]
+			node := mock.OpenNode(ctx)
 			idxCh = channel.Channel{
 				Name:     "variable_time",
 				IsIndex:  true,
 				DataType: telem.TimeStampT,
 			}
-			idxCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+			idxCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 			strCh = channel.Channel{
 				Name:       "variable_str",
 				DataType:   telem.StringT,
 				LocalIndex: idxCh.LocalKey,
 			}
-			strCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{strCh}))[0]
+			strCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{strCh}))[0]
 			s = DeferClose(scenario{
-				dist:     dist,
-				closer:   builder,
-				name:     "Variable",
-				keys:     []channel.Key{idxCh.Key(), strCh.Key()},
-				channels: []channel.Channel{idxCh, strCh},
+				dist:   node,
+				closer: node,
+				name:   "Variable",
+				keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 			})
 		})
 		It("Should write and read persisted string data", func(ctx SpecContext) {
@@ -256,27 +254,25 @@ var _ = Describe("Writer", func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				builder := mock.OpenCluster(ctx, 1)
-				dist := builder.Nodes[1]
+				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     "invalid_json_time",
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				idxCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+					node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 				jsonCh := channel.Channel{
 					Name:       "invalid_json",
 					DataType:   telem.JSONT,
 					LocalIndex: idxCh.LocalKey,
 				}
 				jsonCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{jsonCh}))[0]
+					node.Channel.Create(ctx, []channel.Channel{jsonCh}))[0]
 				s = DeferClose(scenario{
-					dist:     dist,
-					closer:   builder,
-					keys:     []channel.Key{idxCh.Key(), jsonCh.Key()},
-					channels: []channel.Channel{idxCh, jsonCh},
+					dist:   node,
+					closer: node,
+					keys:   []channel.Key{idxCh.Key(), jsonCh.Key()},
 				})
 			})
 			It("Should return an error when JSON series contains invalid JSON", func(ctx SpecContext) {
@@ -301,27 +297,25 @@ var _ = Describe("Writer", func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				builder := mock.OpenCluster(ctx, 1)
-				dist := builder.Nodes[1]
+				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     "invalid_utf8_time",
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				idxCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+					node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 				strCh := channel.Channel{
 					Name:       "invalid_utf8_str",
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
 				strCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{strCh}))[0]
+					node.Channel.Create(ctx, []channel.Channel{strCh}))[0]
 				s = DeferClose(scenario{
-					dist:     dist,
-					closer:   builder,
-					keys:     []channel.Key{idxCh.Key(), strCh.Key()},
-					channels: []channel.Channel{idxCh, strCh},
+					dist:   node,
+					closer: node,
+					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 				})
 			})
 			It("Should return an error when string series contains invalid UTF-8", func(ctx SpecContext) {
@@ -346,15 +340,14 @@ var _ = Describe("Writer", func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				builder := mock.OpenCluster(ctx, 1)
-				dist := builder.Nodes[1]
+				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     "malformed_prefix_time",
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				idxCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{idxCh}),
+					node.Channel.Create(ctx, []channel.Channel{idxCh}),
 				)[0]
 				strCh := channel.Channel{
 					Name:       "malformed_prefix_str",
@@ -362,13 +355,12 @@ var _ = Describe("Writer", func() {
 					LocalIndex: idxCh.LocalKey,
 				}
 				strCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{strCh}),
+					node.Channel.Create(ctx, []channel.Channel{strCh}),
 				)[0]
 				s = DeferClose(scenario{
-					dist:     dist,
-					closer:   builder,
-					keys:     []channel.Key{idxCh.Key(), strCh.Key()},
-					channels: []channel.Channel{idxCh, strCh},
+					dist:   node,
+					closer: node,
+					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 				})
 			})
 			It("Should return an error when variable-density prefix is malformed", func(ctx SpecContext) {
@@ -501,8 +493,8 @@ var _ = Describe("Writer", func() {
 
 	Describe("Auto-Index", func() {
 		It("Should auto-stamp from the leaseholder when the data channel lives on a peer", func(ctx SpecContext) {
-			builder := mock.NewCluster(ctx, 2)
-			gw := builder.Nodes[1]
+			cluster := mock.NewCluster(ctx, 2)
+			gw := cluster.Nodes[1]
 			peer := node.Key(2)
 
 			idx := channel.Channel{
@@ -630,11 +622,10 @@ var _ = Describe("Writer", func() {
 })
 
 type scenario struct {
-	dist     mock.Node
-	closer   io.Closer
-	name     string
-	keys     channel.Keys
-	channels []channel.Channel
+	dist   mock.Node
+	closer io.Closer
+	name   string
+	keys   channel.Keys
 }
 
 func (s scenario) Close() error { return s.closer.Close() }
@@ -661,73 +652,58 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 1)
-	dist := builder.Nodes[1]
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	node := mock.OpenNode(ctx)
+	channels = MustSucceed(node.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
-		name:     "Gateway Only",
-		keys:     keys,
-		dist:     dist,
-		closer:   builder,
-		channels: channels,
+		name:   "Gateway Only",
+		keys:   keys,
+		dist:   node,
+		closer: node,
 	}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 4)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 4)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
 	}
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:     "Peer Only",
-		keys:     keys,
-		dist:     dist,
-		closer:   builder,
-		channels: channels,
-	}
+	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: cluster}
 }
 
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 3)
-	svc := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 3)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
 		channels[i] = ch
 	}
-	channels = MustSucceed(svc.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
-		name:     "Mixed Gateway and Peer",
-		keys:     keys,
-		dist:     svc,
-		closer:   builder,
-		channels: channels,
+		name:   "Mixed Gateway and Peer",
+		keys:   keys,
+		dist:   dist,
+		closer: cluster,
 	}
 }
 
 func freeWriterScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 3)
-	svc := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 3)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	channels = MustSucceed(svc.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:     "Free Writes",
-		keys:     keys,
-		dist:     svc,
-		closer:   builder,
-		channels: channels,
-	}
+	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: cluster}
 }
