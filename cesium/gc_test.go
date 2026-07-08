@@ -46,7 +46,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
 					fs = openFS()
-					db = MustSucceed(cesium.Open(ctx, "",
+					db = MustOpen(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine: 10,
 							TryInterval:  10 * telem.Millisecond.Duration(),
@@ -54,10 +54,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						}),
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(899*telem.Byte),
-						cesium.WithInstrumentation(PanicLogger())))
-				})
-				AfterAll(func() {
-					Expect(db.Close()).To(Succeed())
+						cesium.WithInstrumentation(PanicLogger()))))
 				})
 
 				It("Should recycle properly for deletion on an indexed channel", func(ctx SpecContext) {
@@ -115,7 +112,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
 					fs = openFS()
-					db = MustSucceed(cesium.Open(ctx, "",
+					db = MustOpen(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine: 10,
 							TryInterval:  10 * telem.Millisecond.Duration(),
@@ -123,10 +120,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						}),
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(899*telem.Byte),
-						cesium.WithInstrumentation(PanicLogger())))
-				})
-				AfterAll(func() {
-					Expect(db.Close()).To(Succeed())
+						cesium.WithInstrumentation(PanicLogger()))))
 				})
 				It("Should only garbage collect after a certain amount garbage has accumulated", func(ctx SpecContext) {
 					By("Creating a channel")
@@ -191,7 +185,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
 					fs = openFS()
-					db = MustSucceed(cesium.Open(ctx, "",
+					db = MustOpen(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine: 10,
 							TryInterval:  10 * telem.Millisecond.Duration(),
@@ -200,10 +194,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(49*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger()),
-					))
-				})
-				AfterAll(func() {
-					Expect(db.Close()).To(Succeed())
+					)))
 				})
 				It("Should only garbage collect after a certain amount garbage has accumulated", func(ctx SpecContext) {
 					By("Creating channels")

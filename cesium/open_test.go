@@ -27,14 +27,10 @@ var _ = Describe("Open", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
-			var (
-				fs fs.FS
-			)
+			var fs fs.FS
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-			})
-			AfterAll(func() {
 			})
 			Describe("Opening db on existing folder", func() {
 				It("Should not panic when opening a db in a directory with already existing files", func(ctx SpecContext) {

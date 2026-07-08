@@ -32,9 +32,13 @@ func openDBOnFS(ctx context.Context, fs xfs.FS) *cesium.DB {
 	))
 }
 
-func channelKeyToPath(key cesium.ChannelKey) string {
-	return strconv.Itoa(int(key))
+// mustOpenDBOnFS opens a DB on the given file system and schedules its closure via
+// DeferCleanup, removing the need for a matching close block in AfterAll/AfterEach.
+func mustOpenDBOnFS(ctx context.Context, fs xfs.FS) *cesium.DB {
+	return DeferClose(openDBOnFS(ctx, fs))
 }
+
+func channelKeyToPath(key cesium.ChannelKey) string { return strconv.Itoa(int(key)) }
 
 // virtualChannel returns a virtual channel with the given key and name.
 func virtualChannel(key cesium.ChannelKey, name string) cesium.Channel {
@@ -73,7 +77,3 @@ func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }
-
-var _ = BeforeSuite(func() {
-	ShouldNotLeakGoroutines()
-})

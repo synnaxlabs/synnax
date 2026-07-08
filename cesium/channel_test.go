@@ -37,10 +37,7 @@ var _ = Describe("Channel", Ordered, func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, fs)
 			})
 
 			Describe("Create", func() {
@@ -502,7 +499,7 @@ var _ = Describe("Virtual Channels", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = DeferClose(openDBOnFS(ctx, fs))
+				db = mustOpenDBOnFS(ctx, fs)
 			})
 
 			Describe("Create", func() {
@@ -581,7 +578,7 @@ var _ = Describe("Virtual Index Channel Creation", func() {
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				db = DeferClose(openDBOnFS(ctx, openFS()))
+				db = mustOpenDBOnFS(ctx, openFS())
 			})
 
 			It("Should create a virtual index channel and a virtual data channel indexed by it", func(ctx SpecContext) {

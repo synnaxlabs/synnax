@@ -47,13 +47,10 @@ var _ = Describe("Writer Behavior", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
+				db = mustOpenDBOnFS(ctx, fs)
 				Expect(db.ConfigureControlUpdateChannel(
 					ctx, controlKey, "sy_cesium_control",
 				)).To(Succeed())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Describe("Happy Path", func() {
@@ -1915,10 +1912,7 @@ var _ = Describe("Virtual Channel Writes", func() {
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				db = openDBOnFS(ctx, openFS())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, openFS())
 			})
 
 			It("Should validate series data types on write", func(ctx SpecContext) {
@@ -1947,10 +1941,7 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				db = openDBOnFS(ctx, openFS())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, openFS())
 			})
 
 			openGroup := func(ctx SpecContext) (idx, d1, d2 cesium.ChannelKey) {

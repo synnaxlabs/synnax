@@ -37,11 +37,8 @@ var _ = Describe("Streamer Behavior", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
+				db = mustOpenDBOnFS(ctx, fs)
 				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "cesium_control")).To(Succeed())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Describe("Happy Path", func() {
@@ -318,10 +315,7 @@ var _ = Describe("Virtual Channel Streaming", func() {
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				db = openDBOnFS(ctx, openFS())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, openFS())
 			})
 
 			It("Should deliver written frames to streamers", func(ctx SpecContext) {

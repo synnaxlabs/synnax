@@ -37,10 +37,7 @@ var _ = Describe("Delete", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, fs)
 			})
 			Describe("Delete Channel", func() {
 				var (
@@ -830,7 +827,7 @@ var _ = Describe("Virtual Channel Deletion", func() {
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				db = DeferClose(openDBOnFS(ctx, openFS()))
+				db = mustOpenDBOnFS(ctx, openFS())
 			})
 
 			It("Should delete a virtual channel without touching the file system", func(ctx SpecContext) {

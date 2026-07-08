@@ -31,10 +31,7 @@ var _ = Describe("Iterator Behavior", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, fs)
 			})
 
 			Describe("Accuracy", func() {
