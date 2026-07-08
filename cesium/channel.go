@@ -14,7 +14,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -133,20 +132,8 @@ func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string)
 		return nil
 	}
 	if v, ok := db.mu.dbs.virtual[key]; ok {
-		if v.Channel().Name == newName {
-			return nil
-		}
-		if err := v.RenameChannel(newName); err != nil {
+		if err := v.RenameChannel(ctx, newName); err != nil {
 			return err
-		}
-		if !v.Channel().Transient {
-			chFS, err := db.fs.Sub(keyToDirName(key))
-			if err != nil {
-				return err
-			}
-			if err := meta.Create(ctx, chFS, db.metaCodec, v.Channel()); err != nil {
-				return err
-			}
 		}
 		db.mu.dbs.virtual[key] = v
 		return nil
@@ -313,23 +300,26 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 		}
 		newChannel := vDB.Channel()
 		newChannel.Key = newKey
+		cfg := virtual.Config{
+			Instrumentation: db.Instrumentation,
+			Channel:         newChannel,
+		}
 		if !newChannel.Transient {
 			if err := db.fs.Rename(oldDir, newDir); err != nil {
 				return err
 			}
-			newFS, err := db.fs.Sub(keyToDirName(newKey))
+			newFS, err := db.fs.Sub(newDir)
 			if err != nil {
 				return err
 			}
-			if err = meta.Create(ctx, newFS, db.metaCodec, newChannel); err != nil {
-				return err
-			}
+			cfg.FS = newFS
+			cfg.MetaCodec = db.metaCodec
 		}
-		newDB, err := virtual.Open(virtual.Config{
-			Instrumentation: db.Instrumentation,
-			Channel:         newChannel,
-		})
+		newDB, err := virtual.Open(ctx, cfg)
 		if err != nil {
+			return err
+		}
+		if err = newDB.SetChannelKey(ctx, newKey); err != nil {
 			return err
 		}
 		delete(db.mu.dbs.virtual, oldKey)
