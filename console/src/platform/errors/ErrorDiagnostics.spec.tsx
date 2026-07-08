@@ -76,7 +76,19 @@ describe("ErrorDiagnostics", () => {
     expect(messageText()).toBe("boom\nCore: none");
   });
 
-  it("appends page type, name, and key for a layout page crash", async () => {
+  it("preserves the original error name in the fallback", async () => {
+    const store = await createTestStore();
+    const error = new Error("boom");
+    error.name = "NotFoundError";
+    await renderBoundary(store, <Throw error={error} />);
+    const nameText = document.querySelector(
+      ".pluto-error-fallback__name",
+    )?.textContent;
+    expect(nameText).toBe("NotFoundError");
+    expect(messageText()).toBe("boom\nCore: none");
+  });
+
+  it("appends page name and key for a layout page crash", async () => {
     const store = await createTestStore();
     placeLayout(store, "l1", { type: "schematic", name: "fridge_schem" });
     void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
@@ -96,5 +108,19 @@ describe("ErrorDiagnostics", () => {
       '"fridge_schem" (l1)',
     ].join("\n");
     expect(messageText()).toBe(expected);
+  });
+
+  it("omits the name when a layout page has no name", async () => {
+    const store = await createTestStore();
+    const renderFallback = (props: Errors.FallbackProps): ReactElement => (
+      <ErrorDiagnostics page={{ key: "l1" }} {...props} />
+    );
+    await renderWithConsole(
+      <Errors.Boundary FallbackComponent={renderFallback}>
+        <Throw error={new Error("boom")} />
+      </Errors.Boundary>,
+      { store },
+    );
+    expect(messageText()).toBe("boom\nCore: none\n(l1)");
   });
 });

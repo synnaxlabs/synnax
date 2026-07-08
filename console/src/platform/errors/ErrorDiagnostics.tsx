@@ -40,6 +40,7 @@ export const ErrorDiagnostics = ({
   const message = [error.message, `Core: ${core}`, pageLine(page)]
     .filter((line): line is string => line != null)
     .join("\n");
+  // Clone rather than mutate the caught error, preserving its name, stack, and cause.
   const displayError = new Error(message, { cause: error.cause });
   displayError.name = error.name;
   displayError.stack = error.stack;
