@@ -290,6 +290,13 @@ describe("Editor", () => {
       );
     });
 
+    it("should always auto-close quotes so f-string prefixes close", () => {
+      renderEditor();
+      expect(monaco.editor.create.mock.calls[0][1]).toMatchObject({
+        autoClosingQuotes: "always",
+      });
+    });
+
     it("should default scrollBeyondLastLine to false", () => {
       renderEditor();
       expect(monaco.editor.create.mock.calls[0][1]).toMatchObject({

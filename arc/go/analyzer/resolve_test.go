@@ -155,7 +155,7 @@ var _ = Describe("ResolveNodeTypes", func() {
 		Expect(diag.Ok()).To(BeTrue())
 	})
 
-	It("Should apply substitutions to config params", func() {
+	It("Should apply substitutions to input params", func() {
 		nodes := ir.Nodes{
 			{Key: "source", Type: "on", Outputs: types.Params{{Name: "output", Type: types.F32()}}},
 			{

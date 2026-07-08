@@ -91,7 +91,7 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 			{Key: "b"},
 			{Key: "affine"},
 		},
-		Configs: map[string]msgpack.EncodedJSON{
+		Inputs: map[string]msgpack.EncodedJSON{
 			"x":      {"type": "x"},
 			"a":      {"type": "a"},
 			"b":      {"type": "b"},
@@ -257,7 +257,7 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 			{Key: "b"},
 			{Key: "affine"},
 		},
-		Configs: map[string]msgpack.EncodedJSON{
+		Inputs: map[string]msgpack.EncodedJSON{
 			"x":      {"type": "x"},
 			"a":      {"type": "a"},
 			"b":      {"type": "b"},

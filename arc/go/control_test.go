@@ -54,7 +54,7 @@ var _ = Describe("Authority", func() {
 		Expect(changes).To(HaveLen(1),
 			"set_authority should buffer exactly one authority change per activation")
 		Expect(changes[0].Authority).To(Equal(uint8(200)),
-			"buffered change should carry the value from the config block")
+			"buffered change should carry the value from the input block")
 		Expect(changes[0].Channel).ToNot(BeNil(),
 			"channel=valve_cmd was configured, so Channel must not be nil (nil means global)")
 		Expect(*changes[0].Channel).To(Equal(uint32(101)),

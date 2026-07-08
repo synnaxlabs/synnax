@@ -82,9 +82,9 @@ const (
 	ExecWASM ExecContext = 1 << iota
 	// ExecFlow marks a symbol as only usable in flow statements (graph nodes).
 	ExecFlow
-	// ExecBoth marks a symbol as usable in both contexts. Inputs must mirror
-	// Config one-for-one (N=0 allowed); upstream edges in flow form are
-	// triggers, not typed inputs. Invariant enforced in stl_test.go.
+	// ExecBoth marks a symbol as usable in both contexts. WASM-form inputs must
+	// mirror flow-form inputs one-for-one (N=0 allowed); upstream edges in flow
+	// form are triggers, not typed inputs. Invariant enforced in stl_test.go.
 	ExecBoth = ExecWASM | ExecFlow
 )
 
@@ -179,10 +179,10 @@ type Symbol struct {
 	// assigned to symbols whose Kind allocates a runtime slot.
 	ID int
 	// SourceID tracks the ID of the source symbol for channel type propagation.
-	// When a variable or config param holds a channel reference, this field
-	// stores the ID of the original source (config param or global channel) so
+	// When a variable or input param holds a channel reference, this field
+	// stores the ID of the original source (input param or global channel) so
 	// that Channels.Read/Write can be correctly resolved at instantiation time.
-	// A nil value means this symbol is the original source (e.g., a config param).
+	// A nil value means this symbol is the original source (e.g., an input param).
 	SourceID *int
 	// Internal marks symbols that are only accessible to the compiler (e.g.,
 	// WASM host function signatures used for type suffix derivation). Internal
@@ -531,7 +531,7 @@ func (s *Symbol) Resolve(
 // When name parses as a uint32, the walk matches symbols by ID instead
 // of by Name. The Arc lexer forbids identifiers starting with a digit,
 // so an all-numeric input is unambiguously an ID reference (graph
-// configs, channel-key literals in source). The branches share the walk
+// inputs, channel-key literals in source). The branches share the walk
 // shape (children → global resolver → parent) so a caller passing either
 // kind of key gets the same scoping semantics.
 //
@@ -640,12 +640,12 @@ func (s *Symbol) ClosestAncestorOfKind(kind Kind) (*Symbol, error) {
 	return s.Parent.ClosestAncestorOfKind(kind)
 }
 
-// ResolveConfigChannel replaces an internal config param ID with the actual
+// ResolveInputChannel replaces an internal input param ID with the actual
 // channel ID. For user-defined functions, the analyzer populates fnSym.Channels
 // with internal param IDs when processing the function body, so we replace
 // those with actual channel IDs. For built-in functions, fnSym has no children
 // or channels, so we fall back to adding the channel to Read.
-func ResolveConfigChannel(
+func ResolveInputChannel(
 	c *types.Channels,
 	fnSym *Symbol,
 	paramName string,
@@ -653,15 +653,15 @@ func ResolveConfigChannel(
 	channelName string,
 ) {
 	replaced := false
-	if configParamSym := fnSym.FindChild(paramName); configParamSym != nil {
-		configParamID := uint32(configParamSym.ID)
-		if _, ok := fnSym.Channels.Write[configParamID]; ok {
-			delete(c.Write, configParamID)
+	if inputParamSym := fnSym.FindChild(paramName); inputParamSym != nil {
+		inputParamID := uint32(inputParamSym.ID)
+		if _, ok := fnSym.Channels.Write[inputParamID]; ok {
+			delete(c.Write, inputParamID)
 			c.Write[channelKey] = channelName
 			replaced = true
 		}
-		if _, ok := fnSym.Channels.Read[configParamID]; ok {
-			delete(c.Read, configParamID)
+		if _, ok := fnSym.Channels.Read[inputParamID]; ok {
+			delete(c.Read, inputParamID)
 			c.Read[channelKey] = channelName
 			replaced = true
 		}

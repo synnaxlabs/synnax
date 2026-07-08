@@ -24,8 +24,8 @@ type Nodes []Node
 type Edges []Edge
 
 // Node is a visual node in the Arc graph editor representing a function instantiation
-// with position data. The function type and configuration parameter values are stored
-// in the graph's configs map, keyed by the node key.
+// with position data. The function type and input parameter values are stored in the
+// graph's inputs map, keyed by the node key.
 type Node struct {
 	// Key is the unique identifier for this node instance.
 	Key string `json:"key" msgpack:"key"`
@@ -51,9 +51,8 @@ type Graph struct {
 	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Nodes contains visual nodes with canvas positions.
 	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
-	// Configs contains per-node configuration keyed by node key. Each value is a JSON
-	// object holding the node's function type under "type" plus its configuration parameter
-	// values. The wire format stores it as an opaque record; the client types it per
-	// function.
-	Configs map[string]msgpack.EncodedJSON `json:"configs,omitzero" msgpack:"configs,omitzero"`
+	// Inputs contains per-node inputs keyed by node key. Each value is a JSON object
+	// holding the node's function type under "type" plus its input parameter values. The
+	// wire format stores it as an opaque record; the client types it per function.
+	Inputs map[string]msgpack.EncodedJSON `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 }

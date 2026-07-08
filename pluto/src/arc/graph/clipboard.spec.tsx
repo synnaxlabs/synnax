@@ -47,7 +47,7 @@ const createGraphArc = async (): Promise<arc.Arc> =>
           kind: arc.ir.EdgeKind.continuous,
         },
       ],
-      configs: { [N1]: { type: "constant" }, [N2]: { type: "log" } },
+      inputs: { [N1]: { type: "constant" }, [N2]: { type: "log" } },
       functions: [],
     },
     text: { raw: "" },

@@ -92,8 +92,8 @@ Arc struct {
         @doc value """
             inserts the node if no node with the same key exists, otherwise
             replaces the existing node in place. Operates only on the node's
-            position; the node's function type and config are set separately
-            via SetNodeConfig.
+            position; the node's function type and inputs are set separately
+            via SetNodeInputs.
         """
     }
 
@@ -104,15 +104,15 @@ Arc struct {
         @doc value "moves a graph node to a new canvas position."
     }
 
-    action SetNodeConfig {
+    action SetNodeInputs {
         key    string
-        config record {
+        inputs record {
             @ts preserve_case
         }
 
         @doc value """
-            merges the given config into the entry for the given key in the
-            graph configs map. Top-level fields present in the payload overwrite
+            merges the given inputs into the entry for the given key in the
+            graph inputs map. Top-level fields present in the payload overwrite
             existing fields; fields absent from the payload are preserved. The
             node's function type is held under "type".
         """
@@ -122,7 +122,7 @@ Arc struct {
         key string
 
         @doc value """
-            removes the node with the given key along with its config entry and
+            removes the node with the given key along with its inputs entry and
             any edges connected to it.
         """
     }
