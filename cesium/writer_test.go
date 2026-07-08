@@ -2031,7 +2031,7 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 			})
 
 			It("Should allocate the group domain from the index channel even when the index is not in the writer's channel set", func(ctx SpecContext) {
-				idx, d1, d2 := openGroup(ctx)
+				_, d1, d2 := openGroup(ctx)
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: []cesium.ChannelKey{d1, d2},
 					Start:    10 * telem.SecondTS,
@@ -2053,7 +2053,6 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 				Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 0)))
 				Expect(res.Frame.SeriesAt(1).Alignment).To(Equal(alignment.Leading(1, 0)))
 				Expect(w.Close()).To(Succeed())
-				_ = idx
 			})
 
 			It("Should allocate a fresh domain for each writer on the same group", func(ctx SpecContext) {
