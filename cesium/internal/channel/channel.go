@@ -20,6 +20,12 @@ import (
 
 type Key = uint32
 
+type Version = uint8
+
+const Version1 Version = 1
+const Version2 Version = 2
+const VersionCurrent = Version2
+
 // Channel is a logical collection of telemetry samples across a time-range. The data
 // within a channel typically arrives from a single source. This can be a physical
 // sensor, metric, event, or entity that emits regular, consistent, and time-order
