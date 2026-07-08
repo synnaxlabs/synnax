@@ -394,7 +394,7 @@ var _ = Describe("Writer", func() {
 	Describe("Free Write Group Propagation", func() {
 		It("Should propagate the writer's group to the streamer response", func(ctx SpecContext) {
 			s := DeferClose(freeWriterScenario(ctx))
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
 			}))
@@ -423,7 +423,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should set group to zero when the writer has no group", func(ctx SpecContext) {
 			s := DeferClose(freeWriterScenario(ctx))
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
 			}))
@@ -454,7 +454,7 @@ var _ = Describe("Writer", func() {
 	Describe("Free Write Group Isolation", func() {
 		It("Should propagate distinct groups from different writers", func(ctx SpecContext) {
 			s := DeferClose(freeWriterScenario(ctx))
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
 			}))
@@ -579,7 +579,7 @@ var _ = Describe("Writer", func() {
 			)[0]
 
 			keys := []channel.Key{idxCh.Key(), dataCh.Key()}
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))

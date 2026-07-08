@@ -60,7 +60,7 @@ var _ = Describe("Relay", func() {
 			})
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				keys := channel.KeysFromChannels(s.channels)
-				reader := MustSucceed(s.dist.Framer.NewStreamer(ctx, relay.StreamerConfig{
+				reader := MustSucceed(s.dist.Framer.NewStreamer(relay.StreamerConfig{
 					Keys: keys,
 				}))
 				sCtx, _ := signal.Isolated()
@@ -116,7 +116,7 @@ var _ = Describe("Relay", func() {
 			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -152,7 +152,7 @@ var _ = Describe("Relay", func() {
 			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -191,7 +191,7 @@ var _ = Describe("Relay", func() {
 			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -233,7 +233,7 @@ var _ = Describe("Relay", func() {
 			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{55},
 			}))
@@ -295,7 +295,7 @@ var _ = Describe("Relay", func() {
 			chs := newFreeChannels(ctx, 1)
 			keys := channel.KeysFromChannels(chs)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))
@@ -325,7 +325,7 @@ var _ = Describe("Relay", func() {
 		})
 
 		It("Should deliver the open ack when the streamer is opened with no keys", func(ctx SpecContext) {
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.Isolated()
@@ -348,7 +348,7 @@ var _ = Describe("Relay", func() {
 			chs := MustSucceed(svc.Channel.Create(ctx, newChannelSet()))
 			keys := channel.KeysFromChannels(chs)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))
@@ -369,7 +369,7 @@ var _ = Describe("Relay", func() {
 			chs := newFreeChannels(ctx, 1)
 			keys := channel.KeysFromChannels(chs)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))
@@ -393,7 +393,7 @@ var _ = Describe("Relay", func() {
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
 			for i := range streamerCount {
-				readers[i] = MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+				readers[i] = MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 					Keys:        keys,
 					SendOpenAck: new(true),
 				}))
@@ -433,7 +433,7 @@ var _ = Describe("Relay", func() {
 			chs := newFreeChannels(ctx, 1)
 			keys := channel.KeysFromChannels(chs)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.Isolated()

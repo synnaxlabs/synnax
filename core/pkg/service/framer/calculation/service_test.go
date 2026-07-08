@@ -84,7 +84,6 @@ var _ = Describe("Calculation", Ordered, func() {
 		})
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
-				ctx,
 				framer.StreamerConfig{Keys: streamKeys(filtered), SendOpenAck: new(true)},
 			),
 		)
