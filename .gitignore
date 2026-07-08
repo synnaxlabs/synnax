@@ -224,6 +224,9 @@ synnax-data/**
 **/.aswb/
 **/.clwb/
 
+# Generated clangd/IntelliSense database (e.g. Hedron compile-commands refresh).
+compile_commands.json
+
 # |||| TLS ||||
 **/certs*/**
 

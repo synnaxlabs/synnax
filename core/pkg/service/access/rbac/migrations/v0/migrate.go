@@ -65,12 +65,11 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 				userOntologyID := user.OntologyID(u.Key)
 				policies := policyByUser[userOntologyID.String()]
 				roleKey := determineRole(u, policies, cfg.Roles)
-				if err = otgWriter.DeleteRelationship(
-					ctx,
-					cfg.Role.UsersGroup().OntologyID(),
-					ontology.RelationshipTypeParentOf,
-					userOntologyID,
-				); err != nil {
+				if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+					From: cfg.Role.UsersGroup().OntologyID(),
+					Type: ontology.RelationshipTypeParentOf,
+					To:   userOntologyID,
+				}); err != nil {
 					return err
 				}
 				if err = roleWriter.AssignRole(ctx, userOntologyID, roleKey); err != nil {

@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -161,6 +162,16 @@ func (t *impl) start(ctx context.Context) (err error) {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
+	rangesMod, err := ranges.NewModule(ctx, ranges.ModuleConfig{
+		Ranger:   t.factoryCfg.Ranger,
+		Strings:  drt.state.strings,
+		Runtime:  wasmRT,
+		Reporter: t.reporter(),
+	})
+	if err != nil {
+		t.setStatus(ctx, status.VariantError, false, err.Error())
+		return err
+	}
 
 	f := node.CompoundFactory{
 		channelMod,
@@ -171,6 +182,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 		op.NewHost(),
 		stable.NewHost(),
 		statusMod,
+		rangesMod,
 		stlcontrol.NewHost(drt.state.authority),
 		mathMod,
 	}

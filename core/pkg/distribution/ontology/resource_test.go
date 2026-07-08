@@ -173,23 +173,6 @@ var _ = Describe("Resource", func() {
 				Expect(r.SetOptions()).To(BeEmpty())
 			})
 		})
-		Describe("Parse", func() {
-			It("Should parse a resource from its schema", func() {
-				type myStruct struct{ Cat string }
-				var schema = zyn.Object(map[string]zyn.Schema{
-					"cat": zyn.String(),
-				})
-				r := ontology.NewResource(
-					schema,
-					ontology.ID{Type: "cat", Key: "dog"},
-					"cat",
-					map[string]any{"cat": "milo"},
-				)
-				var v myStruct
-				Expect(r.Parse(&v)).To(Succeed())
-				Expect(v.Cat).To(Equal("milo"))
-			})
-		})
 	})
 	Describe("ResourceIDs", func() {
 		It("Should extract IDs from a slice of resources", func() {

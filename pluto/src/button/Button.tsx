@@ -25,12 +25,7 @@ export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 
 /** The variant of button */
 export type Variant =
-  | "filled"
-  | "outlined"
-  | "text"
-  | "suggestion"
-  | "preview"
-  | "shadow";
+  "filled" | "outlined" | "text" | "suggestion" | "preview" | "shadow";
 
 export interface ExtensionProps
   extends Omit<Text.ExtensionProps, "variant">, Tooltip.WrapProps {

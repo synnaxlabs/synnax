@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -63,7 +64,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		return err
 	}
 	otgID := OntologyID(r.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if len(r.Labels) > 0 {
@@ -80,11 +81,14 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	parent := r.Parent.OntologyID()
 	var relAlreadyExists bool
 	if exists {
-		if relAlreadyExists, err = w.otgWriter.HasRelationship(
+		if relAlreadyExists, err = w.otg.RelationshipExists(
 			ctx,
-			parent,
-			ontology.RelationshipTypeParentOf,
-			otgID,
+			w.tx,
+			ontology.Relationship{
+				From: parent,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   otgID,
+			},
 		); err != nil {
 			return err
 		}
@@ -99,7 +103,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		}
 	}
 	if !relAlreadyExists {
-		if err = w.otgWriter.DefineRelationship(
+		if err = w.otgWriter.DefineRelationships(
 			ctx,
 			parent,
 			ontology.RelationshipTypeParentOf,
@@ -136,6 +140,27 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		Exec(ctx, w.tx)
 }
 
+// SetEnd sets the end bound of the range with the given key, preserving all other
+// fields. Returns query.ErrNotFound if no range with the key exists.
+func (w Writer) SetEnd(ctx context.Context, key Key, end telem.TimeStamp) error {
+	return w.table.
+		NewUpdate().
+		Where(gorp.MatchKeys[Key, Range](key)).
+		ChangeErr(func(_ gorp.Context, r Range) (Range, error) {
+			if end.Before(r.TimeRange.Start) {
+				return r, errors.Wrapf(
+					validate.ErrValidation,
+					"range end %v cannot precede its start %v",
+					end,
+					r.TimeRange.Start,
+				)
+			}
+			r.TimeRange.End = end
+			return r, nil
+		}).
+		Exec(ctx, w.tx)
+}
+
 // Delete deletes the ranges with the given keys. Delete also recursively removes every
 // descendant range (via the parent-of relationship). Delete is idempotent: missing keys
 // are silently ignored. The full subtree is collected in a single batched breadth-first
@@ -149,7 +174,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	frontier := keys
 	for len(frontier) > 0 {
 		var children []ontology.Resource
-		if err := w.otgWriter.
+		if err := w.otg.
 			NewRetrieve().
 			WhereIDs(OntologyIDs(frontier)...).
 			TraverseTo(ontology.ChildrenTraverser).
@@ -185,7 +210,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResource(ctx, OntologyIDs(allKeys)...)
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(allKeys)...)
 }
 
 func (w Writer) validate(r Range) error {

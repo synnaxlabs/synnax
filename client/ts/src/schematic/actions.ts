@@ -133,8 +133,7 @@ const handlers: Handlers = {
     const edge = state.edges.find((e) => e.key === payload.key);
     if (edge != null) {
       const srcCfg = state.configs[edge.source.node] as
-        | { color?: color.Crude }
-        | undefined;
+        { color?: color.Crude } | undefined;
       if (srcCfg?.color != null && !color.isZero(srcCfg.color))
         cfg = { ...cfg, color: srcCfg.color };
     }

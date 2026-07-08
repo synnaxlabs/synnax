@@ -70,7 +70,7 @@ const NodeRenderer = ({
   const dispatch = useSingleDispatch();
   const handleChange = useCallback(
     (config: Partial<record.Unknown>) =>
-      dispatch(arc.setNodeConfig({ key: nodeKey, config })),
+      dispatch(arc.setNodeInputs({ key: nodeKey, inputs: config })),
     [nodeKey, dispatch],
   );
   if (config == null) return null;

@@ -17,10 +17,7 @@ import { type Transport } from "@/transport";
  * bodies are sent as-is.
  */
 export type UploadBody =
-  | ReadableStream<Uint8Array>
-  | Blob
-  | ArrayBufferView<ArrayBuffer>
-  | string;
+  ReadableStream<Uint8Array> | Blob | ArrayBufferView<ArrayBuffer> | string;
 
 /**
  * The wire encodings a FileTransport can transfer.

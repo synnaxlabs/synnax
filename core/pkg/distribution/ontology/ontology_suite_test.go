@@ -49,10 +49,10 @@ var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
 func (s *sampleService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
-func (s *sampleService) Schema() zyn.Schema { return schema }
-
 func (s *sampleService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
-	return ontology.NewResource(s.Schema(), newSampleType(key), "empty", Sample{Key: key}), nil
+	return ontology.NewResource(
+		schema, newSampleType(key), "empty", Sample{Key: key},
+	), nil
 }
 
 func (s *sampleService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
@@ -68,6 +68,7 @@ var (
 )
 
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(context.Background(), ontology.Config{DB: db}))
 	otg.RegisterService(&sampleService{})
@@ -76,3 +77,5 @@ var _ = BeforeSuite(func() {
 var _ = BeforeEach(func() {
 	tx = DeferClose(db.OpenTx())
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

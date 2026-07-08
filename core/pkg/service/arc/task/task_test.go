@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
@@ -45,14 +46,14 @@ import (
 )
 
 // graphNodeSpec describes a graph node along with its function type and configuration
-// parameter values, which live in the graph's Configs map keyed by node key.
+// parameter values, which live in the graph's Inputs map keyed by node key.
 type graphNodeSpec struct {
 	key string
 	typ string
 	cfg map[string]any
 }
 
-// buildGraphNodes converts node specs into the graph's Nodes slice and Configs map,
+// buildGraphNodes converts node specs into the graph's Nodes slice and Inputs map,
 // storing each node's function type under the "type" key in its config entry.
 func buildGraphNodes(specs ...graphNodeSpec) (graph.Nodes, map[string]msgpack.EncodedJSON) {
 	nodes := make(graph.Nodes, len(specs))
@@ -76,9 +77,11 @@ var _ = Describe("Task", Ordered, func() {
 		statusSvc  *status.Service
 		channelSvc *channel.Service
 		framerSvc  *framer.Service
+		rangerSvc  *ranger.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		node = mock.NewNode(ctx)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
@@ -102,6 +105,13 @@ var _ = Describe("Task", Ordered, func() {
 			Channel: channelSvc,
 			Status:  statusSvc,
 		}))
+		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Label:    labelSvc,
+			Search:   node.Search,
+		}))
 	})
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
@@ -110,6 +120,7 @@ var _ = Describe("Task", Ordered, func() {
 			Framer:     framerSvc,
 			Status:     statusSvc,
 			GetProgram: getModule,
+			Ranger:     rangerSvc,
 		}))
 	}
 
@@ -158,7 +169,7 @@ var _ = Describe("Task", Ordered, func() {
 		nodes, configs := buildGraphNodes(
 			graphNodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": chKey}},
 		)
-		return graph.Graph{Nodes: nodes, Configs: configs}
+		return graph.Graph{Nodes: nodes, Inputs: configs}
 	}
 
 	createVirtualCh := func(ctx context.Context, prefix string, dataType telem.DataType) *channel.Channel {
@@ -245,6 +256,7 @@ var _ = Describe("Task", Ordered, func() {
 				Channel: channelSvc,
 				Framer:  framerSvc,
 				Status:  statusSvc,
+				Ranger:  rangerSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
 					return svcarc.Arc{}, nil
 				},
@@ -271,6 +283,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -287,6 +300,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -303,6 +317,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 2),
@@ -327,6 +342,7 @@ var _ = Describe("Task", Ordered, func() {
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
+				Ranger:     rangerSvc,
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 3),
@@ -405,6 +421,58 @@ var _ = Describe("Task", Ordered, func() {
 
 	})
 
+	Describe("FactoryConfig", func() {
+		full := func() arctask.FactoryConfig {
+			return arctask.FactoryConfig{
+				Channel:    channelSvc,
+				Framer:     framerSvc,
+				Status:     statusSvc,
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Ranger:     rangerSvc,
+			}
+		}
+
+		Describe("Validate", func() {
+			It("Should succeed when all required fields are set", func() {
+				Expect(full().Validate()).To(Succeed())
+			})
+
+			DescribeTable("Should fail when a required field is missing",
+				func(clear func(*arctask.FactoryConfig), field string) {
+					cfg := full()
+					clear(&cfg)
+					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
+				},
+				Entry("channel", func(c *arctask.FactoryConfig) { c.Channel = nil }, "channel"),
+				Entry("framer", func(c *arctask.FactoryConfig) { c.Framer = nil }, "framer"),
+				Entry("status", func(c *arctask.FactoryConfig) { c.Status = nil }, "status"),
+				Entry("get_program", func(c *arctask.FactoryConfig) { c.GetProgram = nil }, "get_program"),
+				Entry("ranger", func(c *arctask.FactoryConfig) { c.Ranger = nil }, "ranger"),
+			)
+		})
+
+		Describe("Override", func() {
+			It("Should prefer the other config's fields when set", func() {
+				src := full()
+				merged := arctask.FactoryConfig{}.Override(src)
+				Expect(merged.Channel).To(BeIdenticalTo(src.Channel))
+				Expect(merged.Framer).To(BeIdenticalTo(src.Framer))
+				Expect(merged.Status).To(BeIdenticalTo(src.Status))
+				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
+				Expect(merged.GetProgram).ToNot(BeNil())
+			})
+
+			It("Should preserve the receiver's fields when other's are nil", func() {
+				src := full()
+				merged := src.Override(arctask.FactoryConfig{})
+				Expect(merged.Channel).To(BeIdenticalTo(src.Channel))
+				Expect(merged.Framer).To(BeIdenticalTo(src.Framer))
+				Expect(merged.Status).To(BeIdenticalTo(src.Status))
+				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
+			})
+		})
+	})
+
 	Describe("Task Lifecycle", func() {
 		var arcTask driver.Task
 
@@ -460,7 +528,7 @@ var _ = Describe("Task", Ordered, func() {
 			badNodes, badConfigs := buildGraphNodes(
 				graphNodeSpec{key: "bad", typ: "nonexistent_type"},
 			)
-			badNodeGraph := graph.Graph{Nodes: badNodes, Configs: badConfigs}
+			badNodeGraph := graph.Graph{Nodes: badNodes, Inputs: badConfigs}
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Name:   "test-bad-node",
@@ -491,8 +559,8 @@ var _ = Describe("Task", Ordered, func() {
 				}},
 			)
 			alarmGraph := graph.Graph{
-				Nodes:   alarmNodes,
-				Configs: alarmConfigs,
+				Nodes:  alarmNodes,
+				Inputs: alarmConfigs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},
@@ -628,8 +696,8 @@ var _ = Describe("Task", Ordered, func() {
 				}},
 			)
 			reportGraph := graph.Graph{
-				Nodes:   reportNodes,
-				Configs: reportConfigs,
+				Nodes:  reportNodes,
+				Inputs: reportConfigs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
 						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},

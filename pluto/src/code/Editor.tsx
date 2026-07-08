@@ -59,6 +59,7 @@ const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
   suggestOnTriggerCharacters: true,
   showFoldingControls: "mouseover",
   hover: { above: false },
+  autoClosingQuotes: "always",
 };
 
 const disableMonacoCommandPalette = (

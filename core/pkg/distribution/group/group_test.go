@@ -35,6 +35,7 @@ var _ = Describe("Group", Ordered, func() {
 	)
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		src := MustOpen(search.Open())

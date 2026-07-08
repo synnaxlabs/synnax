@@ -102,10 +102,10 @@ inline std::pair<::arc::graph::pb::Graph, x::errors::Error> Graph::to_proto() co
         if (err) return {{}, err};
         *pb.add_nodes() = v;
     }
-    for (const auto &[k, v]: this->configs) {
+    for (const auto &[k, v]: this->inputs) {
         auto [pb_v, err] = x::json::to_struct(v);
         if (err) return {{}, err};
-        (*pb.mutable_configs())[k] = pb_v;
+        (*pb.mutable_inputs())[k] = pb_v;
     }
     return {pb, x::errors::NIL};
 }
@@ -122,10 +122,10 @@ Graph::from_proto(const ::arc::graph::pb::Graph &pb) {
         return {{}, err};
     if (auto err = x::pb::from_proto_repeated<Node>(cpp.nodes, pb.nodes()))
         return {{}, err};
-    for (const auto &[k, v]: pb.configs()) {
+    for (const auto &[k, v]: pb.inputs()) {
         auto [cpp_v, err] = x::json::from_struct(v);
         if (err) return {{}, err};
-        cpp.configs[k] = cpp_v;
+        cpp.inputs[k] = cpp_v;
     }
     return {cpp, x::errors::NIL};
 }

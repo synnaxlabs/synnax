@@ -41,7 +41,6 @@ const (
 	SemanticTokenTypeEdgeConditional
 	SemanticTokenTypeEdgeContinuous
 	SemanticTokenTypeConstant
-	SemanticTokenTypeConfig
 	SemanticTokenTypeInput
 	SemanticTokenTypeOutput
 	SemanticTokenTypeNamespace
@@ -69,7 +68,6 @@ var semanticTokenTypes = []string{
 	"edgeConditional",
 	"edgeContinuous",
 	"constant",
-	"config",
 	"input",
 	"output",
 	"namespace",
@@ -392,8 +390,6 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeConstant
 	case symbol.KindStatefulVariable:
 		tokenType = SemanticTokenTypeStatefulVariable
-	case symbol.KindConfig:
-		tokenType = SemanticTokenTypeConfig
 	case symbol.KindInput:
 		tokenType = SemanticTokenTypeInput
 	case symbol.KindOutput:

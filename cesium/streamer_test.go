@@ -35,6 +35,7 @@ var _ = Describe("Streamer Behavior", func() {
 				controlKey cesium.ChannelKey = 5
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "cesium_control")).To(Succeed())

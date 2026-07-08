@@ -36,7 +36,7 @@ func tracksChannelRead(resolved *symbol.Symbol) bool {
 	case resolved.Kind == symbol.KindChannel:
 		return true
 	case resolved.Type.Kind == basetypes.KindChan &&
-		(resolved.Kind == symbol.KindConfig || resolved.Kind == symbol.KindInput):
+		resolved.Kind == symbol.KindInput:
 		return true
 	case resolved.Type.Kind == basetypes.KindChan && resolved.SourceID != nil:
 		return true

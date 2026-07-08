@@ -146,7 +146,7 @@ var _ = Describe("Channel", func() {
 					{Key: "producer"},
 					{Key: "writer"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"test":     {"type": "on"},
 					"producer": {"type": "producer"},
 					"writer":   {"type": "write"},
@@ -184,7 +184,7 @@ var _ = Describe("Channel", func() {
 				node := MustSucceed(factory.Create(ctx, cfg))
 				Expect(node).ToNot(BeNil())
 			})
-			It("Should parse channel from config", func(ctx SpecContext) {
+			It("Should parse channel from input", func(ctx SpecContext) {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
@@ -235,7 +235,7 @@ var _ = Describe("Channel", func() {
 				Expect(err).To(Equal(query.ErrNotFound))
 				Expect(node).To(BeNil())
 			})
-			It("Should return error for invalid config", func(ctx SpecContext) {
+			It("Should return error for invalid input", func(ctx SpecContext) {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
@@ -267,7 +267,7 @@ var _ = Describe("Channel", func() {
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "source"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source": {"type": "on"},
 				},
 				Functions: []graph.Function{{
@@ -545,7 +545,7 @@ var _ = Describe("Channel", func() {
 			It("Should skip data when alignment mismatch", func(ctx SpecContext) {
 				g2 := graph.Graph{
 					Nodes: []graph.Node{{Key: "misaligned"}},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"misaligned": {"type": "on"},
 					},
 					Functions: []graph.Function{{
@@ -594,7 +594,7 @@ var _ = Describe("Channel", func() {
 					{Key: "upstream"},
 					{Key: "sink"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"upstream": {"type": "producer"},
 					"sink":     {"type": "write"},
 				},
@@ -731,7 +731,7 @@ var _ = Describe("Channel", func() {
 						{Key: "read"},
 						{Key: "write"},
 					},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"read":  {"type": "on"},
 						"write": {"type": "write"},
 					},
@@ -797,7 +797,7 @@ var _ = Describe("Channel", func() {
 						{Key: "write1"},
 						{Key: "write2"},
 					},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"read1":  {"type": "on"},
 						"read2":  {"type": "on2"},
 						"write1": {"type": "write"},

@@ -41,8 +41,7 @@ export const useQueryCache = <Q extends base.Query, D extends state.State>(
 ): base.QueryCache<Q, D> => useContext("Flux.useQueryCache").getCache<Q, D>(key);
 
 export type ProviderProps<ScopedStore extends flux.Store> = (
-  | { client: base.Client<ScopedStore> }
-  | { storeConfig: flux.StoreConfig<ScopedStore> }
+  { client: base.Client<ScopedStore> } | { storeConfig: flux.StoreConfig<ScopedStore> }
 ) &
   PropsWithChildren;
 

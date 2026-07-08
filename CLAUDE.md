@@ -7,6 +7,8 @@ this repository.
 
 - **Architecture**: See @docs/claude/architecture.md for system design and data flows
 - **Testing**: See @docs/claude/testing.md for cross-language testing guide
+- **Integration tests**: See @docs/claude/integration-test.md for writing integration
+  tests (especially Arc reactive-runtime gotchas)
 - **TypeScript**: See @docs/claude/toolchains/typescript.md for TS/JS development
 - **Go**: See @docs/claude/toolchains/go.md for Go development
 - **Python**: See @docs/claude/toolchains/python.md for Python development
@@ -60,9 +62,10 @@ cd <module> && go build ./...  # Build module
 
 ```bash
 cd client/py
-uv sync        # Install dependencies
-uv run pytest  # Run tests
-uv run black . # Format code
+uv sync                 # Install dependencies
+uv run pytest           # Run tests
+uv run ruff format .    # Format code
+uv run ruff check --fix # Lint and sort imports
 ```
 
 ### C++ Development
@@ -83,7 +86,7 @@ bazel build //driver/cmd:driver # Build driver binary
 ## Universal Code Style
 
 - **Line length**: 88 characters across all languages
-- **Formatters**: Prettier (TS), Black (Python), gofmt (Go), clang-format (C++)
+- **Formatters**: Prettier (TS), Ruff (Python), gofmt (Go), clang-format (C++)
 - **Testing**: BDD style with language-specific frameworks
 - **Imports**: Absolute imports preferred in TypeScript
 - **Comments**: Only add comments when they provide non-obvious context. Never add

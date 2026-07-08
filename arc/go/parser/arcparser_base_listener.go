@@ -83,17 +83,17 @@ func (s *BaseArcParserListener) EnterFunctionDeclaration(ctx *FunctionDeclaratio
 // ExitFunctionDeclaration is called when production functionDeclaration is exited.
 func (s *BaseArcParserListener) ExitFunctionDeclaration(ctx *FunctionDeclarationContext) {}
 
-// EnterInputList is called when production inputList is entered.
-func (s *BaseArcParserListener) EnterInputList(ctx *InputListContext) {}
+// EnterTriggerList is called when production triggerList is entered.
+func (s *BaseArcParserListener) EnterTriggerList(ctx *TriggerListContext) {}
 
-// ExitInputList is called when production inputList is exited.
-func (s *BaseArcParserListener) ExitInputList(ctx *InputListContext) {}
+// ExitTriggerList is called when production triggerList is exited.
+func (s *BaseArcParserListener) ExitTriggerList(ctx *TriggerListContext) {}
 
-// EnterInput is called when production input is entered.
-func (s *BaseArcParserListener) EnterInput(ctx *InputContext) {}
+// EnterTrigger is called when production trigger is entered.
+func (s *BaseArcParserListener) EnterTrigger(ctx *TriggerContext) {}
 
-// ExitInput is called when production input is exited.
-func (s *BaseArcParserListener) ExitInput(ctx *InputContext) {}
+// ExitTrigger is called when production trigger is exited.
+func (s *BaseArcParserListener) ExitTrigger(ctx *TriggerContext) {}
 
 // EnterOutputType is called when production outputType is entered.
 func (s *BaseArcParserListener) EnterOutputType(ctx *OutputTypeContext) {}
@@ -113,23 +113,23 @@ func (s *BaseArcParserListener) EnterNamedOutput(ctx *NamedOutputContext) {}
 // ExitNamedOutput is called when production namedOutput is exited.
 func (s *BaseArcParserListener) ExitNamedOutput(ctx *NamedOutputContext) {}
 
-// EnterConfigBlock is called when production configBlock is entered.
-func (s *BaseArcParserListener) EnterConfigBlock(ctx *ConfigBlockContext) {}
+// EnterInputBlock is called when production inputBlock is entered.
+func (s *BaseArcParserListener) EnterInputBlock(ctx *InputBlockContext) {}
 
-// ExitConfigBlock is called when production configBlock is exited.
-func (s *BaseArcParserListener) ExitConfigBlock(ctx *ConfigBlockContext) {}
+// ExitInputBlock is called when production inputBlock is exited.
+func (s *BaseArcParserListener) ExitInputBlock(ctx *InputBlockContext) {}
 
-// EnterConfigList is called when production configList is entered.
-func (s *BaseArcParserListener) EnterConfigList(ctx *ConfigListContext) {}
+// EnterInputList is called when production inputList is entered.
+func (s *BaseArcParserListener) EnterInputList(ctx *InputListContext) {}
 
-// ExitConfigList is called when production configList is exited.
-func (s *BaseArcParserListener) ExitConfigList(ctx *ConfigListContext) {}
+// ExitInputList is called when production inputList is exited.
+func (s *BaseArcParserListener) ExitInputList(ctx *InputListContext) {}
 
-// EnterConfig is called when production config is entered.
-func (s *BaseArcParserListener) EnterConfig(ctx *ConfigContext) {}
+// EnterInput is called when production input is entered.
+func (s *BaseArcParserListener) EnterInput(ctx *InputContext) {}
 
-// ExitConfig is called when production config is exited.
-func (s *BaseArcParserListener) ExitConfig(ctx *ConfigContext) {}
+// ExitInput is called when production input is exited.
+func (s *BaseArcParserListener) ExitInput(ctx *InputContext) {}
 
 // EnterSequenceDeclaration is called when production sequenceDeclaration is entered.
 func (s *BaseArcParserListener) EnterSequenceDeclaration(ctx *SequenceDeclarationContext) {}
@@ -215,29 +215,29 @@ func (s *BaseArcParserListener) EnterQualifiedIdentifier(ctx *QualifiedIdentifie
 // ExitQualifiedIdentifier is called when production qualifiedIdentifier is exited.
 func (s *BaseArcParserListener) ExitQualifiedIdentifier(ctx *QualifiedIdentifierContext) {}
 
-// EnterConfigValues is called when production configValues is entered.
-func (s *BaseArcParserListener) EnterConfigValues(ctx *ConfigValuesContext) {}
+// EnterInputValues is called when production inputValues is entered.
+func (s *BaseArcParserListener) EnterInputValues(ctx *InputValuesContext) {}
 
-// ExitConfigValues is called when production configValues is exited.
-func (s *BaseArcParserListener) ExitConfigValues(ctx *ConfigValuesContext) {}
+// ExitInputValues is called when production inputValues is exited.
+func (s *BaseArcParserListener) ExitInputValues(ctx *InputValuesContext) {}
 
-// EnterNamedConfigValues is called when production namedConfigValues is entered.
-func (s *BaseArcParserListener) EnterNamedConfigValues(ctx *NamedConfigValuesContext) {}
+// EnterNamedInputValues is called when production namedInputValues is entered.
+func (s *BaseArcParserListener) EnterNamedInputValues(ctx *NamedInputValuesContext) {}
 
-// ExitNamedConfigValues is called when production namedConfigValues is exited.
-func (s *BaseArcParserListener) ExitNamedConfigValues(ctx *NamedConfigValuesContext) {}
+// ExitNamedInputValues is called when production namedInputValues is exited.
+func (s *BaseArcParserListener) ExitNamedInputValues(ctx *NamedInputValuesContext) {}
 
-// EnterNamedConfigValue is called when production namedConfigValue is entered.
-func (s *BaseArcParserListener) EnterNamedConfigValue(ctx *NamedConfigValueContext) {}
+// EnterNamedInputValue is called when production namedInputValue is entered.
+func (s *BaseArcParserListener) EnterNamedInputValue(ctx *NamedInputValueContext) {}
 
-// ExitNamedConfigValue is called when production namedConfigValue is exited.
-func (s *BaseArcParserListener) ExitNamedConfigValue(ctx *NamedConfigValueContext) {}
+// ExitNamedInputValue is called when production namedInputValue is exited.
+func (s *BaseArcParserListener) ExitNamedInputValue(ctx *NamedInputValueContext) {}
 
-// EnterAnonymousConfigValues is called when production anonymousConfigValues is entered.
-func (s *BaseArcParserListener) EnterAnonymousConfigValues(ctx *AnonymousConfigValuesContext) {}
+// EnterAnonymousInputValues is called when production anonymousInputValues is entered.
+func (s *BaseArcParserListener) EnterAnonymousInputValues(ctx *AnonymousInputValuesContext) {}
 
-// ExitAnonymousConfigValues is called when production anonymousConfigValues is exited.
-func (s *BaseArcParserListener) ExitAnonymousConfigValues(ctx *AnonymousConfigValuesContext) {}
+// ExitAnonymousInputValues is called when production anonymousInputValues is exited.
+func (s *BaseArcParserListener) ExitAnonymousInputValues(ctx *AnonymousInputValuesContext) {}
 
 // EnterArguments is called when production arguments is entered.
 func (s *BaseArcParserListener) EnterArguments(ctx *ArgumentsContext) {}

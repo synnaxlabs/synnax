@@ -60,16 +60,6 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			return scope.Type.Unwrap(), nil
 		}
 		return scope.Type, nil
-	case symbol.KindConfig:
-		ctx.Writer.WriteLocalGet(scope.ID)
-		if scope.Type.Kind == types.KindChan {
-			if chanRef {
-				return scope.Type, nil
-			}
-			emitChannelRead(ctx, scope.Type)
-			return scope.Type.Unwrap(), nil
-		}
-		return scope.Type, nil
 	case symbol.KindStatefulVariable:
 		emitStatefulLoad(ctx, scope.ID, scope.Type)
 		return scope.Type, nil

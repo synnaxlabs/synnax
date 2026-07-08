@@ -64,9 +64,10 @@ func Analyze(
 	ctx context.Context,
 	g Graph,
 	root *symbol.Symbol,
+	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	// Step 1: Build Root Context and Register All Functions
-	aCtx := acontext.NewRoot[antlr.ParserRuleContext](ctx, nil, root)
+	aCtx := acontext.NewRoot[antlr.ParserRuleContext](ctx, nil, root).WithConfig(parser.ConfigOf(cfgs...))
 	for _, fn := range g.Functions {
 		funcScope, err := aCtx.Scope.Add(aCtx, symbol.Symbol{
 			Name: fn.Key,
@@ -115,8 +116,8 @@ func Analyze(
 	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		cfg := g.Configs[n.Key]
-		rawType, ok := cfg["type"]
+		inputs := g.Inputs[n.Key]
+		rawType, ok := inputs["type"]
 		if !ok {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(
 				nil,
@@ -149,9 +150,9 @@ func Analyze(
 			Inputs:   freshType.Inputs,
 			Outputs:  freshType.Outputs,
 		}
-		// Param values come from the node's entry in the graph configs map.
+		// Param values come from the node's entry in the graph inputs map.
 		for j, param := range freshType.Inputs {
-			paramValue, ok := cfg[param.Name]
+			paramValue, ok := inputs[param.Name]
 			if !ok {
 				continue
 			}
@@ -176,7 +177,7 @@ func Analyze(
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
-					symbol.ResolveConfigChannel(
+					symbol.ResolveInputChannel(
 						&node.Channels,
 						fnSym,
 						param.Name,

@@ -1394,6 +1394,39 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
+			It("Should compile a channel alias of a chan-typed local variable", func(bCtx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   100,
+					},
+				}
+				bytecode := compileWithChannels(bCtx, `
+					first_ref := sensor
+					second_ref := first_ref
+					value f64 := 0.0
+					value = second_ref
+				`, resolver)
+
+				Expect(bytecode).To(MatchOpcodes(
+					// first_ref := sensor (global channel → store channel ID in local 0)
+					OpI32Const, int32(100),
+					OpLocalSet, 0,
+					// second_ref := first_ref (chan-typed variable → copy channel ID, local 1)
+					OpLocalGet, 0,
+					OpLocalSet, 1,
+					// value := 0.0 (local 2)
+					OpF64Const, float64(0.0),
+					OpLocalSet, 2,
+					// value = second_ref (read channel via alias)
+					OpLocalGet, 1,
+					OpCall, uint32(0),
+					OpLocalSet, 2,
+				))
+			})
+
 			It("Should compile channel alias read assigned to stateful f64 scalar", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{

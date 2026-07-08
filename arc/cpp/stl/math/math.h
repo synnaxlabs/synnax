@@ -40,25 +40,25 @@ T int_pow(T base, T exp) {
     return result;
 }
 
-struct WindowConfig {
+struct WindowInputs {
     x::telem::TimeSpan duration{0};
     int64_t count = 0;
 
-    static std::pair<WindowConfig, x::errors::Error>
+    static std::pair<WindowInputs, x::errors::Error>
     create(const types::Params &params) {
-        WindowConfig cfg;
+        WindowInputs inputs;
         for (size_t i = 0; i < params.size(); i++) {
             const auto &p = params[i];
             if (p.name == "duration") {
                 auto sv = types::to_sample_value(p.value, p.type);
                 if (sv.has_value())
-                    cfg.duration = x::telem::TimeSpan(x::telem::cast<int64_t>(*sv));
+                    inputs.duration = x::telem::TimeSpan(x::telem::cast<int64_t>(*sv));
             } else if (p.name == "count") {
                 auto sv = types::to_sample_value(p.value, p.type);
-                if (sv.has_value()) cfg.count = x::telem::cast<int64_t>(*sv);
+                if (sv.has_value()) inputs.count = x::telem::cast<int64_t>(*sv);
             }
         }
-        return {cfg, x::errors::NIL};
+        return {inputs, x::errors::NIL};
     }
 };
 
@@ -72,7 +72,7 @@ private:
     runtime::state::Node state;
     types::Kind kind;
     Op op;
-    WindowConfig cfg;
+    WindowInputs inputs;
     int64_t sample_count = 0;
     x::telem::TimeStamp start_time{0};
     x::telem::TimeStamp last_reset_time{0};
@@ -84,14 +84,14 @@ public:
         runtime::state::Node &&state,
         types::Kind kind,
         Op op,
-        WindowConfig cfg,
+        WindowInputs inputs,
         size_t input_idx,
         std::optional<size_t> reset_idx
     ):
         state(std::move(state)),
         kind(kind),
         op(op),
-        cfg(std::move(cfg)),
+        inputs(std::move(inputs)),
         input_idx(input_idx),
         reset_idx(reset_idx) {}
 
@@ -117,16 +117,16 @@ public:
                 );
         }
 
-        if (this->cfg.duration > x::telem::TimeSpan(0) && input_time->size() > 0) {
+        if (this->inputs.duration > x::telem::TimeSpan(0) && input_time->size() > 0) {
             auto current_time = x::telem::TimeStamp(input_time->at<int64_t>(-1));
             if (x::telem::TimeSpan(current_time - this->start_time) >=
-                this->cfg.duration) {
+                this->inputs.duration) {
                 should_reset = true;
                 this->start_time = current_time;
             }
         }
 
-        if (this->cfg.count > 0 && this->sample_count >= this->cfg.count)
+        if (this->inputs.count > 0 && this->sample_count >= this->inputs.count)
             should_reset = true;
 
         if (should_reset) {
@@ -659,7 +659,7 @@ public:
             };
         }
 
-        auto [window_cfg, err] = WindowConfig::create(cfg.node.inputs);
+        auto [inputs, err] = WindowInputs::create(cfg.node.inputs);
         if (err) return {nullptr, err};
 
         Aggregator::Op op;
@@ -691,7 +691,7 @@ public:
                 std::move(cfg.state),
                 kind,
                 op,
-                window_cfg,
+                inputs,
                 input_idx,
                 reset_idx
             ),

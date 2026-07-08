@@ -43,11 +43,11 @@ type ArcParserListener interface {
 	// EnterFunctionDeclaration is called when entering the functionDeclaration production.
 	EnterFunctionDeclaration(c *FunctionDeclarationContext)
 
-	// EnterInputList is called when entering the inputList production.
-	EnterInputList(c *InputListContext)
+	// EnterTriggerList is called when entering the triggerList production.
+	EnterTriggerList(c *TriggerListContext)
 
-	// EnterInput is called when entering the input production.
-	EnterInput(c *InputContext)
+	// EnterTrigger is called when entering the trigger production.
+	EnterTrigger(c *TriggerContext)
 
 	// EnterOutputType is called when entering the outputType production.
 	EnterOutputType(c *OutputTypeContext)
@@ -58,14 +58,14 @@ type ArcParserListener interface {
 	// EnterNamedOutput is called when entering the namedOutput production.
 	EnterNamedOutput(c *NamedOutputContext)
 
-	// EnterConfigBlock is called when entering the configBlock production.
-	EnterConfigBlock(c *ConfigBlockContext)
+	// EnterInputBlock is called when entering the inputBlock production.
+	EnterInputBlock(c *InputBlockContext)
 
-	// EnterConfigList is called when entering the configList production.
-	EnterConfigList(c *ConfigListContext)
+	// EnterInputList is called when entering the inputList production.
+	EnterInputList(c *InputListContext)
 
-	// EnterConfig is called when entering the config production.
-	EnterConfig(c *ConfigContext)
+	// EnterInput is called when entering the input production.
+	EnterInput(c *InputContext)
 
 	// EnterSequenceDeclaration is called when entering the sequenceDeclaration production.
 	EnterSequenceDeclaration(c *SequenceDeclarationContext)
@@ -109,17 +109,17 @@ type ArcParserListener interface {
 	// EnterQualifiedIdentifier is called when entering the qualifiedIdentifier production.
 	EnterQualifiedIdentifier(c *QualifiedIdentifierContext)
 
-	// EnterConfigValues is called when entering the configValues production.
-	EnterConfigValues(c *ConfigValuesContext)
+	// EnterInputValues is called when entering the inputValues production.
+	EnterInputValues(c *InputValuesContext)
 
-	// EnterNamedConfigValues is called when entering the namedConfigValues production.
-	EnterNamedConfigValues(c *NamedConfigValuesContext)
+	// EnterNamedInputValues is called when entering the namedInputValues production.
+	EnterNamedInputValues(c *NamedInputValuesContext)
 
-	// EnterNamedConfigValue is called when entering the namedConfigValue production.
-	EnterNamedConfigValue(c *NamedConfigValueContext)
+	// EnterNamedInputValue is called when entering the namedInputValue production.
+	EnterNamedInputValue(c *NamedInputValueContext)
 
-	// EnterAnonymousConfigValues is called when entering the anonymousConfigValues production.
-	EnterAnonymousConfigValues(c *AnonymousConfigValuesContext)
+	// EnterAnonymousInputValues is called when entering the anonymousInputValues production.
+	EnterAnonymousInputValues(c *AnonymousInputValuesContext)
 
 	// EnterArguments is called when entering the arguments production.
 	EnterArguments(c *ArgumentsContext)
@@ -277,11 +277,11 @@ type ArcParserListener interface {
 	// ExitFunctionDeclaration is called when exiting the functionDeclaration production.
 	ExitFunctionDeclaration(c *FunctionDeclarationContext)
 
-	// ExitInputList is called when exiting the inputList production.
-	ExitInputList(c *InputListContext)
+	// ExitTriggerList is called when exiting the triggerList production.
+	ExitTriggerList(c *TriggerListContext)
 
-	// ExitInput is called when exiting the input production.
-	ExitInput(c *InputContext)
+	// ExitTrigger is called when exiting the trigger production.
+	ExitTrigger(c *TriggerContext)
 
 	// ExitOutputType is called when exiting the outputType production.
 	ExitOutputType(c *OutputTypeContext)
@@ -292,14 +292,14 @@ type ArcParserListener interface {
 	// ExitNamedOutput is called when exiting the namedOutput production.
 	ExitNamedOutput(c *NamedOutputContext)
 
-	// ExitConfigBlock is called when exiting the configBlock production.
-	ExitConfigBlock(c *ConfigBlockContext)
+	// ExitInputBlock is called when exiting the inputBlock production.
+	ExitInputBlock(c *InputBlockContext)
 
-	// ExitConfigList is called when exiting the configList production.
-	ExitConfigList(c *ConfigListContext)
+	// ExitInputList is called when exiting the inputList production.
+	ExitInputList(c *InputListContext)
 
-	// ExitConfig is called when exiting the config production.
-	ExitConfig(c *ConfigContext)
+	// ExitInput is called when exiting the input production.
+	ExitInput(c *InputContext)
 
 	// ExitSequenceDeclaration is called when exiting the sequenceDeclaration production.
 	ExitSequenceDeclaration(c *SequenceDeclarationContext)
@@ -343,17 +343,17 @@ type ArcParserListener interface {
 	// ExitQualifiedIdentifier is called when exiting the qualifiedIdentifier production.
 	ExitQualifiedIdentifier(c *QualifiedIdentifierContext)
 
-	// ExitConfigValues is called when exiting the configValues production.
-	ExitConfigValues(c *ConfigValuesContext)
+	// ExitInputValues is called when exiting the inputValues production.
+	ExitInputValues(c *InputValuesContext)
 
-	// ExitNamedConfigValues is called when exiting the namedConfigValues production.
-	ExitNamedConfigValues(c *NamedConfigValuesContext)
+	// ExitNamedInputValues is called when exiting the namedInputValues production.
+	ExitNamedInputValues(c *NamedInputValuesContext)
 
-	// ExitNamedConfigValue is called when exiting the namedConfigValue production.
-	ExitNamedConfigValue(c *NamedConfigValueContext)
+	// ExitNamedInputValue is called when exiting the namedInputValue production.
+	ExitNamedInputValue(c *NamedInputValueContext)
 
-	// ExitAnonymousConfigValues is called when exiting the anonymousConfigValues production.
-	ExitAnonymousConfigValues(c *AnonymousConfigValuesContext)
+	// ExitAnonymousInputValues is called when exiting the anonymousInputValues production.
+	ExitAnonymousInputValues(c *AnonymousInputValuesContext)
 
 	// ExitArguments is called when exiting the arguments production.
 	ExitArguments(c *ArgumentsContext)

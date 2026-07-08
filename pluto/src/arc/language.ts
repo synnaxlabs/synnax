@@ -136,11 +136,6 @@ const TOKEN_CONFIG = {
     light: "#292929",
     scopes: [],
   },
-  config: {
-    dark: "#dadada",
-    light: "#292929",
-    scopes: [],
-  },
   input: {
     dark: "#dadada",
     light: "#292929",

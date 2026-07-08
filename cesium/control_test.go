@@ -93,6 +93,7 @@ var _ = Describe("Control", func() {
 				fs fs.FS
 			)
 			BeforeAll(func() {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 			})
 			AfterAll(func() {
@@ -101,6 +102,7 @@ var _ = Describe("Control", func() {
 			Describe("Nominal", func() {
 				var db *cesium.DB
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					db = openDBOnFS(ctx, fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32, "control")).To(Succeed())
 				})

@@ -19,11 +19,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Rename", Ordered, func() {
 	var cluster *mock.Cluster
-	BeforeAll(func(ctx SpecContext) { cluster = mock.NewCluster(ctx, 3) })
+	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
+		cluster = mock.NewCluster(ctx, 3)
+	})
 	Context("Single channel", func() {
 		var ch channel.Channel
 		JustBeforeEach(func(ctx SpecContext) {

@@ -319,7 +319,7 @@ func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Sy
 		return nil
 	}
 	// Must be an actual channel symbol (KindChannel), not just a symbol with channel type.
-	// Config params with channel type (KindConfig) should be read from, not aliased.
+	// Input params with channel type (KindInput) should be read from, not aliased.
 	if sym.Kind == symbol.KindChannel && sym.Type.Kind == types.KindChan {
 		return sym
 	}
@@ -347,7 +347,7 @@ func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
 	if sym.SourceID != nil {
 		return sym.SourceID
 	}
-	// Otherwise, this symbol IS the source (e.g., a config param)
+	// Otherwise, this symbol IS the source (e.g., an input param)
 	id := sym.ID
 	return &id
 }
@@ -824,7 +824,7 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 		return
 	}
 	if fn != nil {
-		// Use SourceID if available (for variables assigned from config params),
+		// Use SourceID if available (for variables assigned from input params),
 		// otherwise use the symbol's own ID
 		writeID := uint32(channelSym.ID)
 		if channelSym.SourceID != nil {

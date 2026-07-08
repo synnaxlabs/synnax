@@ -358,8 +358,8 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
-	Describe("Function with Config Execution", func() {
-		It("Should execute a simple compiled addition function with config", func(ctx SpecContext) {
+	Describe("Function with Input Execution", func() {
+		It("Should execute a simple compiled addition function with input", func(ctx SpecContext) {
 			output := MustSucceed(compile(ctx, `
 			func add{
 				a i64

@@ -70,8 +70,7 @@ import { type Viewport } from "@/viewport";
 // in the consumer (Console's range slice), so the connected component receives
 // the static/dynamic time window per range key rather than reading it itself.
 export type ResolvedRange =
-  | { variant: "static"; timeRange: TimeRange }
-  | { variant: "dynamic"; span: TimeSpan };
+  { variant: "static"; timeRange: TimeRange } | { variant: "dynamic"; span: TimeSpan };
 
 export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
 

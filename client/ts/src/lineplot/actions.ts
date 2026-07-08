@@ -41,7 +41,8 @@ import {
   setRuleLineWidth,
   setRulePosition,
   setRuleUnits,
-  setTitle,
+  setTitleLevel,
+  setTitleVisible,
   setXChannel,
 } from "@/lineplot/actions.gen";
 import { reconcileLines } from "@/lineplot/line";
@@ -59,10 +60,22 @@ const handlers: Handlers = {
     return { inverse: [rename({ name: oldName })], targets: [state.key] };
   },
 
-  setTitle: (state, payload) => {
-    const oldTitle = actions.snapshotDraft(state.title);
-    state.title = payload.title;
-    return { inverse: [setTitle({ title: oldTitle })], targets: [state.key] };
+  setTitleVisible: (state, payload) => {
+    const oldVisible = state.title.visible;
+    state.title.visible = payload.visible;
+    return {
+      inverse: [setTitleVisible({ visible: oldVisible })],
+      targets: [state.key],
+    };
+  },
+
+  setTitleLevel: (state, payload) => {
+    const oldLevel = state.title.level;
+    state.title.level = payload.level;
+    return {
+      inverse: [setTitleLevel({ level: oldLevel })],
+      targets: [state.key],
+    };
   },
 
   setLegendHidden: (state, payload) => {

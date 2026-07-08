@@ -34,11 +34,11 @@ const (
 	tokenTypeFunction          = uint32(7)
 	tokenTypeChannel           = uint32(9)
 	tokenTypeStatefulVariable  = uint32(13)
-	tokenTypeNamespace         = uint32(20)
-	tokenTypeStringRaw         = uint32(21)
-	tokenTypeStringPlaceholder = uint32(22)
-	tokenTypeChannelAlias      = uint32(23)
-	tokenTypeReactiveVariable  = uint32(24)
+	tokenTypeNamespace         = uint32(19)
+	tokenTypeStringRaw         = uint32(20)
+	tokenTypeStringPlaceholder = uint32(21)
+	tokenTypeChannelAlias      = uint32(22)
+	tokenTypeReactiveVariable  = uint32(23)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from

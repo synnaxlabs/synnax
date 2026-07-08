@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -64,6 +65,10 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	GetProgram GetProgramFunc
+	// Ranger is used by the Arc ranges module to create and update ranges.
+	//
+	// [REQUIRED]
+	Ranger *ranger.Service
 	alamos.Instrumentation
 }
 
@@ -78,6 +83,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.GetProgram = override.Nil(c.GetProgram, other.GetProgram)
+	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	return c
 }
 
@@ -87,6 +93,7 @@ func (c FactoryConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "get_program", c.GetProgram)
+	validate.NotNil(v, "ranger", c.Ranger)
 	return v.Error()
 }
 

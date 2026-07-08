@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, ontology } from "@synnaxlabs/client";
-import { array, primitive, type record, uuid } from "@synnaxlabs/x";
+import { device, NotFoundError, ontology } from "@synnaxlabs/client";
+import { array, errors, primitive, type record, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -77,14 +77,27 @@ export const retrieveSingle = async <
 }): Promise<device.Device<Properties, Make, Model>> => {
   const cached = store.devices.get(query.key);
   if (cached != null) {
-    const status = await Status.retrieveSingle({
-      store,
-      client,
-      query: { key: device.statusKey(query.key) },
-      detailsSchema: device.statusDetailsZ,
-    });
-    const dev = { ...cached, status };
-    return dev as device.Device<Properties, Make, Model>;
+    // The cache is also fed by generic writers (list retrieves, streamed set
+    // events) that never apply vendor schemas, so a cached entry may predate the
+    // vendor's migrations and defaults. Trust it only if it satisfies the
+    // requested schemas; otherwise fall through to a network retrieve, which
+    // parses and overwrites the cached entry.
+    const parsed =
+      schemas == null ? cached : device.deviceZ(schemas).safeParse(cached).data;
+    if (parsed != null) {
+      let status: device.Status | undefined;
+      try {
+        status = await Status.retrieveSingle({
+          store,
+          client,
+          query: { key: device.statusKey(query.key) },
+          detailsSchema: device.statusDetailsZ,
+        });
+      } catch (err) {
+        if (!NotFoundError.matches(err)) throw errors.fromUnknown(err);
+      }
+      return { ...parsed, status } as device.Device<Properties, Make, Model>;
+    }
   }
   const dev =
     schemas != null
@@ -355,15 +368,21 @@ export const createForm = <
           : await client.devices.create(data);
       rollbacks.push(store.devices.set(result.key, result));
     },
-    mountListeners: ({ store, query: { key }, reset, set, get }) => {
+    mountListeners: ({ store, query: { key }, reset, set }) => {
       if (primitive.isZero(key)) return [];
+      const schema = device.deviceZ(schemas);
       return [
-        store.devices.onSet(reset),
-        store.statuses.onSet((status) => {
-          const key = get<device.Key>("key", { optional: true })?.value;
-          if (key == null || key !== device.statusKey(key)) return;
-          set("status", device.statusZ.parse(status));
-        }),
+        // Streamed set events are parsed generically, so they can carry shapes
+        // that predate the vendor's migrations and defaults. Only reset the form
+        // when the event satisfies the vendor schemas.
+        store.devices.onSet((changed) => {
+          const parsed = schema.safeParse(changed);
+          if (parsed.success) reset(parsed.data as z.infer<typeof formSchema>);
+        }, key),
+        store.statuses.onSet(
+          (status) => set("status", device.statusZ.parse(status)),
+          device.statusKey(key),
+        ),
       ];
     },
   });

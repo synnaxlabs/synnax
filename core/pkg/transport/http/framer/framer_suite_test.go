@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var dist *distribution.Layer
@@ -26,5 +27,8 @@ func TestFramer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
 	dist = mock.NewNode(ctx).Layer
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

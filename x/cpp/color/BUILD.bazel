@@ -1,18 +1,46 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "color",
+    srcs = ["color.cpp"],
     hdrs = [
         "color.h",
         "json.gen.h",
         "proto.gen.h",
         "types.gen.h",
     ],
+    # GCC's libstdc++ <regex> trips a false-positive maybe-uninitialized warning when
+    # compiling from_css; only GCC on Linux is affected.
+    copts = select({
+        "@platforms//os:linux": ["-Wno-error=maybe-uninitialized"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/pb",
         "//x/go/color:color_grpc",
+    ],
+)
+
+cc_test(
+    name = "color_test",
+    srcs = [
+        "color_test.cpp",
+    ],
+    deps = [
+        ":color",
+        "@googletest//:gtest_main",
     ],
 )

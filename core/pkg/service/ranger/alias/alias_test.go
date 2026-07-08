@@ -38,6 +38,7 @@ var _ = Describe("Alias", Ordered, func() {
 		tx         gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		node = mock.NewNode(ctx)
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
@@ -327,12 +328,17 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(node.Ontology.NewRetrieve().
 				WhereIDs(alias.OntologyID(r.Key, ch.Key())).
 				Entry(&res).
-				Exec(ctx, tx)).To(Succeed())
-			var out alias.Alias
-			Expect(res.Parse(&out)).To(Succeed())
-			Expect(out.Channel).To(Equal(ch.Key()))
-			Expect(out.Range).To(Equal(r.Key))
-			Expect(out.Alias).To(Equal("Alias"))
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(Equal(ontology.Resource{
+				ID:   alias.OntologyID(r.Key, ch.Key()),
+				Name: "Alias",
+				Data: map[string]any{
+					"range":   r.Key.String(),
+					"channel": ch.Key().StorageKey(),
+					"alias":   "Alias",
+				},
+			}))
 		})
 	})
 })

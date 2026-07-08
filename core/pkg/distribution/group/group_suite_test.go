@@ -14,9 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGroup(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Distribution Group Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
