@@ -496,16 +496,13 @@ var _ = Describe("Virtual Channels", func() {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				db  *cesium.DB
-				xFS fs.FS
+				db *cesium.DB
+				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				xFS = openFS()
-				db = openDBOnFS(ctx, xFS)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				fs = openFS()
+				db = DeferClose(openDBOnFS(ctx, fs))
 			})
 
 			Describe("Create", func() {
@@ -520,7 +517,7 @@ var _ = Describe("Virtual Channels", func() {
 				It("Should not create a directory for the channel on the file system", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, virtualChannel(key, "no_dir"))).To(Succeed())
-					Expect(xFS.Exists(channelKeyToPath(key))).To(BeFalse())
+					Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
 				})
 			})
 
@@ -531,7 +528,7 @@ var _ = Describe("Virtual Channels", func() {
 					Expect(db.RenameChannel(ctx, key, "new_name")).To(Succeed())
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 					Expect(ch.Name).To(Equal("new_name"))
-					Expect(xFS.Exists(channelKeyToPath(key))).To(BeFalse())
+					Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
 				})
 			})
 
@@ -546,7 +543,7 @@ var _ = Describe("Virtual Channels", func() {
 					Expect(ch.Virtual).To(BeTrue())
 					Expect(db.RetrieveChannel(ctx, oldKey)).Error().
 						To(MatchError(cesium.ErrChannelNotFound))
-					Expect(xFS.Exists(channelKeyToPath(newKey))).To(BeFalse())
+					Expect(fs.Exists(channelKeyToPath(newKey))).To(BeFalse())
 				})
 			})
 		})
@@ -581,14 +578,10 @@ var _ = Describe("Virtual Channels", func() {
 var _ = Describe("Virtual Index Channel Creation", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				db = openDBOnFS(ctx, openFS())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = DeferClose(openDBOnFS(ctx, openFS()))
 			})
 
 			It("Should create a virtual index channel and a virtual data channel indexed by it", func(ctx SpecContext) {
