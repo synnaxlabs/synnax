@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/input/input.css";
 
 import { type ReactElement, useState } from "react";
@@ -58,6 +59,7 @@ export const Input = ({
         <BaseButton.Button
           size={size}
           variant="filled"
+          className={CSS.B("symbol-button")}
           onClick={() => onSend?.(value)}
         >
           Send
