@@ -496,6 +496,10 @@ struct Scope {
     /// for
     /// parallel scopes.
     std::vector<Transition> transitions;
+    /// @brief reset_channels variable channels re-seeded to their declared value on
+    /// each
+    /// entry into this scope.
+    std::vector<std::uint32_t> reset_channels = {};
 
     static Scope parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

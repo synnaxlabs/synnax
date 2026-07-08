@@ -79,12 +79,14 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		ident string
 		expr  parser.IExpressionContext
 	)
+	stateful := false
 	local := ctx.AST.LocalVariable()
 	switch {
 	case local != nil:
 		ident = local.IDENTIFIER().GetText()
 		expr = local.Expression()
 	case ctx.AST.StatefulVariable() != nil:
+		stateful = true
 		ident = ctx.AST.StatefulVariable().IDENTIFIER().GetText()
 		expr = ctx.AST.StatefulVariable().Expression()
 	default:
@@ -92,6 +94,15 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	}
 	sym, err := ctx.Scope.Resolve(ctx, ident)
 	if err != nil {
+		return
+	}
+	if stateful {
+		if statefulRHSTracksChannel(ctx, expr) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				"channels and reactive expressions cannot be assigned to stateful variables"))
+			return
+		}
+		sym.VarKind = symbol.VarKindStateful
 		return
 	}
 	// A variable bound to a channel is an alias: it behaves exactly as the channel.
@@ -125,6 +136,34 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		}
 	}
 	sym.VarKind = symbol.VarKindConstant
+}
+
+// statefulRHSTracksChannel reports whether a `$=` initializer aliases a channel or
+// reads one via a reactive expression, both disallowed for stateful variables.
+func statefulRHSTracksChannel(
+	ctx context.Context[parser.IVariableDeclarationContext],
+	expr parser.IExpressionContext,
+) bool {
+	if expr == nil {
+		return false
+	}
+	childCtx := context.Child(ctx, expr)
+	if isLiteralExpression(childCtx) {
+		return false
+	}
+	// A bare reference that resolves to a channel/alias/reactive variable.
+	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
+		ref, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+		if err != nil {
+			return false
+		}
+		return ref.Kind == symbol.KindChannel || ref.Type.Kind == types.KindChan ||
+			ref.VarKind == symbol.VarKindChannelAlias || ref.VarKind == symbol.VarKindReactive
+	}
+	// A compound expression that reads one or more channels is reactive.
+	flow.AnalyzeSingleExpression(childCtx)
+	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	return err == nil && len(synth.Channels.Read) > 0
 }
 
 // AnalyzeAssignment validates an `=` or compound assignment against the variable or

@@ -484,7 +484,9 @@ func channelKey(sym *symbol.Symbol) uint32 {
 
 // isVarChannel reports whether sym is a value variable backed by an internal channel.
 func isVarChannel(sym *symbol.Symbol) bool {
-	return sym.VarKind == symbol.VarKindReactive || sym.VarKind == symbol.VarKindConstant
+	return sym.VarKind == symbol.VarKindReactive ||
+		sym.VarKind == symbol.VarKindConstant ||
+		sym.VarKind == symbol.VarKindStateful
 }
 
 // irVarKind maps a symbol's variable kind to its IR node representation.
@@ -494,11 +496,25 @@ func irVarKind(k symbol.VarKind) ir.VarKind {
 		return ir.VarKindChannelAlias
 	case symbol.VarKindReactive:
 		return ir.VarKindReactive
-	case symbol.VarKindConstant:
+	case symbol.VarKindConstant, symbol.VarKindStateful:
 		return ir.VarKindConstant
 	default:
 		return ir.VarKindUnspecified
 	}
+}
+
+// scopeResetChannels returns the channels of `:=` constant variables declared in
+// scopeSym, re-seeded on each entry; `$=` variables are omitted so they persist.
+func scopeResetChannels(scopeSym *symbol.Symbol) []uint32 {
+	var out []uint32
+	for _, c := range scopeSym.Children() {
+		if c.Kind == symbol.KindVariable &&
+			c.VarKind == symbol.VarKindConstant && c.DefaultValue != nil {
+			out = append(out, channelKey(c))
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // chanAndValueTypes returns the channel-param and value types for sym, wrapping a value variable's bare type into a channel.
@@ -777,7 +793,7 @@ func lowerAssignment[T antlr.ParserRuleContext](
 		return nil, nil, true
 	}
 	switch target.VarKind {
-	case symbol.VarKindConstant:
+	case symbol.VarKindConstant, symbol.VarKindStateful:
 		return lowerVarWrite(ctx, target, expr, kg, shell)
 	case symbol.VarKindChannelAlias:
 		rebindAlias(ctx, target, expr)
@@ -1126,8 +1142,9 @@ func Analyze(
 
 	// The root scope is always parallel and always-live.
 	i.Root = ir.Scope{
-		Mode:     ir.ScopeModeParallel,
-		Liveness: ir.LivenessAlways,
+		Mode:          ir.ScopeModeParallel,
+		Liveness:      ir.LivenessAlways,
+		ResetChannels: scopeResetChannels(aCtx.Scope.Root()),
 	}
 	// rootMembers accumulates every top-level item as a Member of the root
 	// scope. Module-scope flow nodes become leaf-node members; top-level
@@ -1848,9 +1865,10 @@ func analyzeSequence(
 		liveness = ir.LivenessGated
 	}
 	scope := ir.Scope{
-		Key:      seqName,
-		Mode:     ir.ScopeModeSequential,
-		Liveness: liveness,
+		Key:           seqName,
+		Mode:          ir.ScopeModeSequential,
+		Liveness:      liveness,
+		ResetChannels: scopeResetChannels(seqScope),
 	}
 
 	items := ctx.AST.AllSequenceItem()
@@ -2036,6 +2054,7 @@ func analyzeStage(
 	stageCtx := ctx
 	if stageScope, err := acontext.ResolveOwnScope(ctx); err == nil {
 		stageCtx = ctx.WithScope(stageScope)
+		scope.ResetChannels = scopeResetChannels(stageScope)
 	}
 
 	for _, item := range stageBody.AllStageItem() {

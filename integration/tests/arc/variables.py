@@ -12,6 +12,8 @@ from framework.utils import create_virtual_channels
 from tests.arc.arc import ArcCase
 
 ARC_VARIABLES_SOURCE = """
+import time
+
 // ──────────────────────────────── Const ────────────────────────────────
 vars_start => const_main_sequence
 
@@ -135,6 +137,45 @@ sequence inherit_kind_main {
         ik_react -> inherit_react_direct
     }
 }
+
+// ────────────── scope-entry reset across nested re-entry ────────────────
+reset_c1 i64 := 0
+reset_c2 i64 $= 0
+
+vars_start => reset_matrix_main
+
+sequence reset_matrix_main {
+    reset_c3 i64 := 0
+    reset_c4 i64 $= 0
+
+    stage s1 {
+        reset_c5 i64 := 0
+        reset_c6 i64 $= 0
+
+        1 => reset_c1 + 1 => reset_c1
+        1 => reset_c2 + 1 => reset_c2
+        1 => reset_c3 + 1 => reset_c3
+        1 => reset_c4 + 1 => reset_c4
+        1 => reset_c5 + 1 => reset_c5
+        1 => reset_c6 + 1 => reset_c6
+
+        reset_c1 -> reset_out_c1
+        reset_c2 -> reset_out_c2
+        reset_c3 -> reset_out_c3
+        reset_c4 -> reset_out_c4
+        reset_c5 -> reset_out_c5
+        reset_c6 -> reset_out_c6
+
+        reset_c6 >= 3 => reset_done_stage
+        time.wait{100ms} => s2
+    }
+    stage s2 {
+        1 => s1
+    }
+    stage reset_done_stage {
+        1 -> reset_done
+    }
+}
 """
 
 VAR_OUTPUTS = [
@@ -160,7 +201,16 @@ SCOPE_OUTPUTS = [
     "inherit_alias_fmt",
     "inherit_react_direct",
 ]
-OUTPUTS = VAR_OUTPUTS + INHERIT_OUTPUTS + SCOPE_OUTPUTS
+RESET_OUTPUTS = [
+    "reset_out_c1",
+    "reset_out_c2",
+    "reset_out_c3",
+    "reset_out_c4",
+    "reset_out_c5",
+    "reset_out_c6",
+    "reset_done",
+]
+OUTPUTS = VAR_OUTPUTS + INHERIT_OUTPUTS + SCOPE_OUTPUTS + RESET_OUTPUTS
 
 F64_CHANNELS = [
     "alias_f64_a",
@@ -185,6 +235,12 @@ I64_CHANNELS = [
     "reactive_i64",
     "i64_initial",
     "i64_final",
+    "reset_out_c1",
+    "reset_out_c2",
+    "reset_out_c3",
+    "reset_out_c4",
+    "reset_out_c5",
+    "reset_out_c6",
 ]
 STR_CHANNELS = [
     "alias_str_a",
@@ -204,6 +260,7 @@ STR_CHANNELS = [
 ]
 U8_CHANNELS = [
     "inherit_to_run_cmd",
+    "reset_done",
 ]
 
 CHANNELS: list[tuple[str, sy.DataType]] = (
@@ -240,6 +297,7 @@ class Variables(ArcCase):
         self._verify_top_level_scope()
         self._verify_stage_scope()
         self._verify_kind_inheritance()
+        self._verify_scope_reset_matrix()
 
     def _verify_const(self) -> None:
         self.log("=== Const ===")
@@ -316,3 +374,13 @@ class Variables(ArcCase):
         self.wait_for_eq("inherit_alias_direct", "A")
         self.wait_for_eq("inherit_alias_fmt", "a=A")
         self.wait_for_eq("inherit_react_direct", "R!")
+
+    def _verify_scope_reset_matrix(self) -> None:
+        self.log("=== scope-entry reset across nested re-entry ===")
+        self.wait_for_eq("reset_done", 1)
+        self.wait_for_eq("reset_out_c5", 1)
+        self.wait_for_eq("reset_out_c1", 3)
+        self.wait_for_eq("reset_out_c2", 3)
+        self.wait_for_eq("reset_out_c3", 3)
+        self.wait_for_eq("reset_out_c4", 3)
+        self.wait_for_eq("reset_out_c6", 3)

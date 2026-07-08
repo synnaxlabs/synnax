@@ -47,7 +47,7 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		return
 	}
 	switch sym.VarKind {
-	case symbol.VarKindConstant, symbol.VarKindReactive:
+	case symbol.VarKindConstant, symbol.VarKindReactive, symbol.VarKindStateful:
 		statement.AnalyzeAssignment(context.Child(ctx, assign))
 		if expr := assign.Expression(); expr != nil {
 			flow.AnalyzeSingleExpression(context.Child(ctx, expr))

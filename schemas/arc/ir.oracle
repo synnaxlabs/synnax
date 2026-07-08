@@ -119,29 +119,32 @@ Members = Member[] {
 }
 
 Scope struct {
-    key         string       {
+    key            string       {
         @doc value "is the scope identifier."
     }
-    mode        ScopeMode    {
+    mode           ScopeMode    {
         @doc value "defines whether this scope runs steps in parallel or sequentially."
     }
-    liveness    Liveness     {
+    liveness       Liveness     {
         @doc value "defines whether this scope is continuously active or must be activated."
     }
-    activation  Handle?      {
+    activation     Handle?      {
         @doc value "is the handle whose truthy value activates a gated scope. Unset for always-live scopes."
     }
-    strata      Members[]    {
+    strata         Members[]    {
         @doc value """
             contains stratified execution layers for parallel scopes. Empty
             for sequential scopes. Stratum N depends only on strata 0 to N-1.
         """
     }
-    steps       Members      {
+    steps          Members      {
         @doc value "contains ordered steps for sequential scopes. Empty for parallel scopes."
     }
-    transitions Transition[] {
+    transitions    Transition[] {
         @doc value "contains state-transition rules for sequential scopes. Empty for parallel scopes."
+    }
+    reset_channels uint32[] = [] {
+        @doc value "variable channels re-seeded to their declared value on each entry into this scope."
     }
 
     @doc value   """

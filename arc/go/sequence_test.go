@@ -3096,6 +3096,113 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	Describe("Scope-entry variable reset", func() {
+		// drainStrings collects every string value flushed to a channel in
+		// order across the loop's re-entries.
+		drainStrings := func(fr telem.Frame[uint32], key uint32) []string {
+			var out []string
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, telem.UnmarshalSeries[string](ser)...)
+			}
+			return out
+		}
+
+		// loop drives four s1->s2->s1 re-entries via a 100ms wait, two
+		// scheduler passes settling each re-entry.
+		loop := func(h *runtimeHarness, ctx SpecContext) {
+			step := func(now telem.TimeSpan) {
+				h.Tick(ctx, now)
+				h.channelState.ClearReads()
+				h.Tick(ctx, now)
+				h.channelState.ClearReads()
+			}
+			step(0)
+			step(100 * telem.Millisecond)
+			step(200 * telem.Millisecond)
+			step(300 * telem.Millisecond)
+		}
+
+		It("Resets a := variable declared in the re-entered stage", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{"log": {types.String(), 101}})
+			h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    stage s1 {
+				        counter := 0
+				        1 => counter + 1 => counter
+				        str(counter) => log
+				        time.wait{100ms} => next
+				    }
+				    stage s2 {
+				        1 => s1
+				    }
+				}
+				1 => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			loop(h, ctx)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"0", "1", "0", "1", "0", "1", "0", "1"}))
+		})
+
+		It("Persists a $= variable declared in the re-entered stage", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{"log": {types.String(), 101}})
+			h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    stage s1 {
+				        counter $= 0
+				        1 => counter + 1 => counter
+				        str(counter) => log
+				        time.wait{100ms} => next
+				    }
+				    stage s2 {
+				        1 => s1
+				    }
+				}
+				1 => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			loop(h, ctx)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"0", "1", "2", "3", "4"}))
+		})
+
+		It("Does not reset a variable declared above the sub-scope that writes it", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"log_c": {types.String(), 101},
+				"log_s": {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `import time
+				counter_c := 0
+				counter_s $= 0
+				sequence main {
+				    stage s1 {
+				        1 => counter_c + 1 => counter_c
+				        1 => counter_s + 1 => counter_s
+				        str(counter_c) => log_c
+				        str(counter_s) => log_s
+				        time.wait{100ms} => next
+				    }
+				    stage s2 {
+				        1 => s1
+				    }
+				}
+				1 => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			loop(h, ctx)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"0", "1", "2", "3", "4"}))
+			Expect(drainStrings(out, 102)).To(Equal([]string{"0", "1", "2", "3", "4"}))
+		})
+	})
+
 	Describe("Format-string interpolation of variables", func() {
 		It("Interpolates a reassigned constant variable", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{

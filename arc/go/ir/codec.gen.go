@@ -551,6 +551,13 @@ func (s Scope) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
+	w.Bool(s.ResetChannels != nil)
+	if s.ResetChannels != nil {
+		w.Uint32(uint32(len(s.ResetChannels)))
+		for i := range s.ResetChannels {
+			w.Uint32(uint32(s.ResetChannels[i]))
+		}
+	}
 	return nil
 }
 
@@ -654,6 +661,24 @@ func (s *Scope) DecodeOrc(r *orc.Reader) error {
 			s.Transitions = make([]Transition, n)
 			for i := range s.Transitions {
 				if err = s.Transitions[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			s.ResetChannels = make([]uint32, n)
+			for i := range s.ResetChannels {
+				if s.ResetChannels[i], err = r.Uint32(); err != nil {
 					return err
 				}
 			}

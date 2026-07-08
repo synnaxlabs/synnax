@@ -408,6 +408,30 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.String()).To(ContainSubstring("undefined symbol: x"))
 		})
 
+		It("Should reject assigning a channel alias to a stateful variable", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				c i64 $= count_ch
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"channels and reactive expressions cannot be assigned to stateful variables"))
+		})
+
+		It("Should reject assigning a reactive expression to a stateful variable", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				c i64 $= count_ch + 1
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"channels and reactive expressions cannot be assigned to stateful variables"))
+		})
+
 		It("Should assign distinct keys to variables in sibling sequences", func(ctx SpecContext) {
 			source := `
 			sequence a {

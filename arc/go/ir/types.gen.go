@@ -137,6 +137,9 @@ type Scope struct {
 	// Transitions contains state-transition rules for sequential scopes. Empty for parallel
 	// scopes.
 	Transitions []Transition `json:"transitions,omitzero" msgpack:"transitions,omitzero"`
+	// ResetChannels variable channels re-seeded to their declared value on each entry into
+	// this scope.
+	ResetChannels []uint32 `json:"reset_channels,omitzero" msgpack:"reset_channels,omitzero"`
 }
 
 // Body is raw function body source code with optional parsed AST.

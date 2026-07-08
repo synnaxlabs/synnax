@@ -185,6 +185,7 @@ export interface Scope {
   strata: Members[];
   steps: Members;
   transitions: Transition[];
+  resetChannels: number[];
 }
 export const scopeZ: z.ZodType<Scope> = z.object({
   /** key is the scope identifier. */
@@ -208,6 +209,11 @@ export const scopeZ: z.ZodType<Scope> = z.object({
   },
   /** transitions contains state-transition rules for sequential scopes. Empty for parallel scopes. */
   transitions: transitionZ.array().default(() => []),
+  /** resetChannels variable channels re-seeded to their declared value on each entry into this scope. */
+  resetChannels: z
+    .uint32()
+    .array()
+    .default(() => []),
 });
 
 /**

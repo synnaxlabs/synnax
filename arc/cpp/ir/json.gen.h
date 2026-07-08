@@ -90,6 +90,7 @@ inline Scope Scope::parse(x::json::Parser parser) {
         .strata = parser.field<std::vector<Members>>("strata"),
         .steps = parser.field<std::vector<Member>>("steps"),
         .transitions = parser.field<std::vector<Transition>>("transitions"),
+        .reset_channels = parser.field<std::vector<std::uint32_t>>("reset_channels"),
     };
 }
 
@@ -107,6 +108,7 @@ inline x::json::json Scope::to_json() const {
     }
     j["steps"] = x::json::to_array(this->steps);
     j["transitions"] = x::json::to_array(this->transitions);
+    j["reset_channels"] = this->reset_channels;
     return j;
 }
 

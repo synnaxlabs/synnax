@@ -164,9 +164,10 @@ const (
 	// VarKindReactive is a variable derived from an expression reading one or
 	// more channels; it is a read-only reactive stream.
 	VarKindReactive
-	// VarKindConstant is a variable holding a constant value; it reflects its
-	// current stored value and may be reassigned or written to.
+	// VarKindConstant is a `:=` variable that resets to its value each scope activation.
 	VarKindConstant
+	// VarKindStateful is a `$=` variable that persists across scope activations.
+	VarKindStateful
 )
 
 // String returns the user-facing name of the kind.
@@ -178,6 +179,8 @@ func (k VarKind) String() string {
 		return "reactive"
 	case VarKindConstant:
 		return "const"
+	case VarKindStateful:
+		return "stateful"
 	default:
 		return "none"
 	}

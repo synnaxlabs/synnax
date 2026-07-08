@@ -286,12 +286,13 @@ func ScopeToPB(r ir.Scope) (*Scope, error) {
 		return nil, err
 	}
 	pb := &Scope{
-		Key:         r.Key,
-		Mode:        modeVal,
-		Liveness:    livenessVal,
-		Strata:      strataVal,
-		Steps:       stepsVal,
-		Transitions: transitionsVal,
+		Key:           r.Key,
+		ResetChannels: r.ResetChannels,
+		Mode:          modeVal,
+		Liveness:      livenessVal,
+		Strata:        strataVal,
+		Steps:         stepsVal,
+		Transitions:   transitionsVal,
 	}
 	if r.Activation != nil {
 		var err error
@@ -341,6 +342,7 @@ func ScopeFromPB(pb *Scope) (ir.Scope, error) {
 		return ir.Scope{}, err
 	}
 	r.Key = pb.Key
+	r.ResetChannels = pb.ResetChannels
 	if pb.Activation != nil {
 		val, err := HandleFromPB(pb.Activation)
 		if err != nil {

@@ -148,6 +148,8 @@ inline std::pair<::arc::ir::pb::Scope, x::errors::Error> Scope::to_proto() const
         if (err) return {{}, err};
         *pb.add_transitions() = v;
     }
+    for (const auto &item: this->reset_channels)
+        pb.add_reset_channels(item);
     return {pb, x::errors::NIL};
 }
 
@@ -175,6 +177,8 @@ Scope::from_proto(const ::arc::ir::pb::Scope &pb) {
             pb.transitions()
         ))
         return {{}, err};
+    for (const auto &item: pb.reset_channels())
+        cpp.reset_channels.push_back(item);
     return {cpp, x::errors::NIL};
 }
 

@@ -198,6 +198,7 @@ class Scope(BaseModel):
             for sequential scopes. Stratum N depends only on strata 0 to N-1.
         steps: Contains ordered steps for sequential scopes. Empty for parallel scopes.
         transitions: Contains state-transition rules for sequential scopes. Empty for parallel scopes.
+        reset_channels: Variable channels re-seeded to their declared value on each entry into this scope.
     """
 
     key: str
@@ -207,6 +208,7 @@ class Scope(BaseModel):
     strata: list[Members] = Field(default_factory=list)
     steps: Members = Field(default_factory=list)
     transitions: list[Transition] = Field(default_factory=list)
+    reset_channels: list[int] = Field(default_factory=list)
 
 
 class IR(BaseModel):
