@@ -104,7 +104,6 @@ type WriterResponse struct {
 type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 
 type streamWriter struct {
-	WriterConfig
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
 	relay           confluence.Inlet[relayResponse]
@@ -115,7 +114,8 @@ type streamWriter struct {
 	// idxWriter.
 	keyToIdx map[ChannelKey]*idxWriter
 	internal []*idxWriter
-	errSent  bool
+	WriterConfig
+	errSent bool
 }
 
 // Flow implements the confluence.Flow interface.
@@ -503,13 +503,21 @@ type idxWriter struct {
 		// without inheriting future timestamps the caller wrote explicitly.
 		autoStampClock telem.TimeStamp
 	}
-	// numWriteCalls tracks the number of write calls made to the idxWriter.
-	numWriteCalls int
+	// lastCommitEnd stores the end timestamp from the last successful commit,
+	// returned when Commit is called with no new data to commit.
+	lastCommitEnd telem.TimeStamp
 	// sampleCount is the total number of samples written to the index as if it were a
 	// single logical channel. i.e. N channels with M samples will result in a sample
 	// count of M.
-	sampleCount     int64
-	start           telem.TimeStamp
+	sampleCount int64
+	start       telem.TimeStamp
+	// scanDataLen is a transient scratch field set during the single frame scan in
+	// streamWriter.autoStamp. Holds the length of the first non-empty data channel
+	// observed for this group (the size of the auto-stamped series). Reset to zero at
+	// the start of every autoStamp call.
+	scanDataLen int64
+	// numWriteCalls tracks the number of write calls made to the idxWriter.
+	numWriteCalls   int
 	domainAlignment uint32
 	// writingToIdx is true when the Write is writing to the index channel. This is
 	// typically true, which allows us to avoid unnecessary lookups.
@@ -518,19 +526,11 @@ type idxWriter struct {
 	// successful commit. This prevents stale commits when a control transfer
 	// advances the domain writer's prevCommit beyond this writer's highWaterMark.
 	hasUncommittedData bool
-	// lastCommitEnd stores the end timestamp from the last successful commit,
-	// returned when Commit is called with no new data to commit.
-	lastCommitEnd telem.TimeStamp
 	// scanIdxPresent is a transient scratch field set during the single frame scan in
 	// streamWriter.autoStamp. True when the caller's frame already contains this
 	// idxWriter's index key (in which case no stamping is needed). Reset to false at
 	// the start of every autoStamp call.
 	scanIdxPresent bool
-	// scanDataLen is a transient scratch field set during the single frame scan in
-	// streamWriter.autoStamp. Holds the length of the first non-empty data channel
-	// observed for this group (the size of the auto-stamped series). Reset to zero at
-	// the start of every autoStamp call.
-	scanDataLen int64
 	// setAuthExplicit is a transient scratch field used during the per-channel scan in
 	// streamWriter.propagateAuthority. True when the caller explicitly named this
 	// idxWriter's index key in the SetAuthority config, in which case the index

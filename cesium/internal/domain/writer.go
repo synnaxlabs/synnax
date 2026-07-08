@@ -126,7 +126,6 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err er
 // A Writer is not safe for concurrent use, but it is safe to have multiple writer and
 // iterators open concurrently over the same DB.
 type Writer struct {
-	WriterConfig
 	// internal is a TrackedWriteCloser used to write telemetry to FS.
 	internal io.TrackedWriteCloser
 	// onClose is called when the writer is closed.
@@ -136,6 +135,7 @@ type Writer struct {
 	// fc is the file controller for the writer's FS.
 	fc *fileController
 	alamos.Instrumentation
+	WriterConfig
 	// fileSize is the writer's file's size
 	fileSize telem.Size
 	// prevCommit is the timestamp for the previous Commit call made to the database.

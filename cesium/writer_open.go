@@ -66,6 +66,25 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	Sync *bool
+	// AutoIndex causes the writer to generate timestamps for any index channel
+	// referenced by the writer's data channels whose series is omitted from a Write
+	// frame. The first sample in each Write call is stamped with telem.Now() on this
+	// node; remaining samples in the same call are spaced 1ns apart. Auto-stamps are
+	// strictly monotonic across Write calls — the next call's first sample is greater
+	// than the last sample of the previous auto-stamp.
+	//
+	// When AutoIndex is true, any index channel referenced by a data channel in
+	// Channels but not present in Channels itself is implicitly opened for writing.
+	// SetAuthority calls that name a data channel propagate to its index channel,
+	// taking the max authority across all data channels referencing that index.
+	//
+	// When AutoIndex is true and Start is left as its zero value, Start is defaulted to
+	// telem.Now() at open time so the writer's domain aligns with the auto-stamped
+	// timestamps. Callers who pass an explicit index series whose timestamps fall
+	// before this defaulted Start will have that write rejected.
+	//
+	// [OPTIONAL] - Defaults to false.
+	AutoIndex *bool
 	// Name sets the human-readable name for the writer, which is useful for identifying
 	// it in control transfer scenarios.
 	//
@@ -96,25 +115,6 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode WriterMode
-	// AutoIndex causes the writer to generate timestamps for any index channel
-	// referenced by the writer's data channels whose series is omitted from a Write
-	// frame. The first sample in each Write call is stamped with telem.Now() on this
-	// node; remaining samples in the same call are spaced 1ns apart. Auto-stamps are
-	// strictly monotonic across Write calls — the next call's first sample is greater
-	// than the last sample of the previous auto-stamp.
-	//
-	// When AutoIndex is true, any index channel referenced by a data channel in
-	// Channels but not present in Channels itself is implicitly opened for writing.
-	// SetAuthority calls that name a data channel propagate to its index channel,
-	// taking the max authority across all data channels referencing that index.
-	//
-	// When AutoIndex is true and Start is left as its zero value, Start is defaulted to
-	// telem.Now() at open time so the writer's domain aligns with the auto-stamped
-	// timestamps. Callers who pass an explicit index series whose timestamps fall
-	// before this defaulted Start will have that write rejected.
-	//
-	// [OPTIONAL] - Defaults to false.
-	AutoIndex *bool
 }
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
