@@ -78,7 +78,7 @@ func (c StreamerConfig) Validate() error {
 // NewStreamer opens a new Streamer for consuming real-time telemetry frames from the
 // relay. Each subsequent StreamerConfig overrides the parameters specified in the
 // previous config. See the StreamerConfig struct for information on required fields.
-func (r *Relay) NewStreamer(_ context.Context, cfgs ...StreamerConfig) (Streamer, error) {
+func (r *Relay) NewStreamer(cfgs ...StreamerConfig) (Streamer, error) {
 	cfg, err := config.New(DefaultStreamerConfig, cfgs...)
 	if err != nil {
 		return nil, err

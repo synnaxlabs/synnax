@@ -33,14 +33,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func openWriter(
-	ctx context.Context,
-	n mock.Node,
-	cfg writer.Config,
-) (*writer.Writer, error) {
-	return n.Framer.OpenWriter(ctx, cfg)
-}
-
 var _ = Describe("Writer", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func(context.Context) scenario{
@@ -56,7 +48,7 @@ var _ = Describe("Writer", func() {
 				s = DeferClose(sF(ctx))
 			})
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
-				writer := MustOpen(openWriter(ctx, s.dist, writer.Config{
+				writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -91,30 +83,28 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			builder := mock.OpenCluster(ctx, 1)
-			dist := builder.Nodes[1]
+			node := mock.OpenNode(ctx)
 			idxCh = channel.Channel{
 				Name:     "variable_time",
 				IsIndex:  true,
 				DataType: telem.TimeStampT,
 			}
-			idxCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+			idxCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 			strCh = channel.Channel{
 				Name:       "variable_str",
 				DataType:   telem.StringT,
 				LocalIndex: idxCh.LocalKey,
 			}
-			strCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{strCh}))[0]
+			strCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{strCh}))[0]
 			s = DeferClose(scenario{
-				dist:     dist,
-				closer:   builder,
-				name:     "Variable",
-				keys:     []channel.Key{idxCh.Key(), strCh.Key()},
-				channels: []channel.Channel{idxCh, strCh},
+				dist:   node,
+				closer: node,
+				name:   "Variable",
+				keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 			})
 		})
 		It("Should write and read persisted string data", func(ctx SpecContext) {
-			w := MustOpen(openWriter(ctx, s.dist, writer.Config{
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -145,12 +135,11 @@ var _ = Describe("Writer", func() {
 				s.dist.Channel.Create(ctx, []channel.Channel{floatCh}),
 			)[0]
 			keys := []channel.Key{idxCh.Key(), floatCh.Key(), strCh.Key()}
-			w := MustOpen(openWriter(ctx,
-				s.dist, writer.Config{
-					Keys:  keys,
-					Start: 20 * telem.SecondTS,
-					Sync:  new(true),
-				}))
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 20 * telem.SecondTS,
+				Sync:  new(true),
+			}))
 			MustSucceed(w.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{
@@ -177,7 +166,7 @@ var _ = Describe("Writer", func() {
 			s = DeferClose(gatewayOnlyScenario(ctx))
 		})
 		It("Should return an error if no keys are provided", func(ctx SpecContext) {
-			Expect(openWriter(ctx, s.dist, writer.Config{
+			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  []channel.Key{},
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -202,7 +191,7 @@ var _ = Describe("Writer", func() {
 			s = DeferClose(peerOnlyScenario(ctx))
 		})
 		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func(ctx SpecContext) {
-			writer := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+			writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -224,7 +213,7 @@ var _ = Describe("Writer", func() {
 		Describe("Misaligned Fixed Density", func() {
 			It("Should return an error when series data is not aligned to density", func(ctx SpecContext) {
 				s := DeferClose(gatewayOnlyScenario(ctx))
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -244,7 +233,7 @@ var _ = Describe("Writer", func() {
 		Describe("Wrong Data Type", func() {
 			It("Should return an error when series data type does not match channel", func(ctx SpecContext) {
 				s := DeferClose(gatewayOnlyScenario(ctx))
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -265,31 +254,29 @@ var _ = Describe("Writer", func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				builder := mock.OpenCluster(ctx, 1)
-				dist := builder.Nodes[1]
+				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     "invalid_json_time",
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				idxCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+					node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 				jsonCh := channel.Channel{
 					Name:       "invalid_json",
 					DataType:   telem.JSONT,
 					LocalIndex: idxCh.LocalKey,
 				}
 				jsonCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{jsonCh}))[0]
+					node.Channel.Create(ctx, []channel.Channel{jsonCh}))[0]
 				s = DeferClose(scenario{
-					dist:     dist,
-					closer:   builder,
-					keys:     []channel.Key{idxCh.Key(), jsonCh.Key()},
-					channels: []channel.Channel{idxCh, jsonCh},
+					dist:   node,
+					closer: node,
+					keys:   []channel.Key{idxCh.Key(), jsonCh.Key()},
 				})
 			})
 			It("Should return an error when JSON series contains invalid JSON", func(ctx SpecContext) {
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -310,31 +297,29 @@ var _ = Describe("Writer", func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				builder := mock.OpenCluster(ctx, 1)
-				dist := builder.Nodes[1]
+				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     "invalid_utf8_time",
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				idxCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
+					node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 				strCh := channel.Channel{
 					Name:       "invalid_utf8_str",
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
 				strCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{strCh}))[0]
+					node.Channel.Create(ctx, []channel.Channel{strCh}))[0]
 				s = DeferClose(scenario{
-					dist:     dist,
-					closer:   builder,
-					keys:     []channel.Key{idxCh.Key(), strCh.Key()},
-					channels: []channel.Channel{idxCh, strCh},
+					dist:   node,
+					closer: node,
+					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 				})
 			})
 			It("Should return an error when string series contains invalid UTF-8", func(ctx SpecContext) {
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -355,15 +340,14 @@ var _ = Describe("Writer", func() {
 			var s scenario
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				builder := mock.OpenCluster(ctx, 1)
-				dist := builder.Nodes[1]
+				node := mock.OpenNode(ctx)
 				idxCh := channel.Channel{
 					Name:     "malformed_prefix_time",
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				idxCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{idxCh}),
+					node.Channel.Create(ctx, []channel.Channel{idxCh}),
 				)[0]
 				strCh := channel.Channel{
 					Name:       "malformed_prefix_str",
@@ -371,17 +355,16 @@ var _ = Describe("Writer", func() {
 					LocalIndex: idxCh.LocalKey,
 				}
 				strCh = MustSucceed(
-					dist.Channel.Create(ctx, []channel.Channel{strCh}),
+					node.Channel.Create(ctx, []channel.Channel{strCh}),
 				)[0]
 				s = DeferClose(scenario{
-					dist:     dist,
-					closer:   builder,
-					keys:     []channel.Key{idxCh.Key(), strCh.Key()},
-					channels: []channel.Channel{idxCh, strCh},
+					dist:   node,
+					closer: node,
+					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
 				})
 			})
 			It("Should return an error when variable-density prefix is malformed", func(ctx SpecContext) {
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -403,7 +386,7 @@ var _ = Describe("Writer", func() {
 	Describe("Free Write Group Propagation", func() {
 		It("Should propagate the writer's group to the streamer response", func(ctx SpecContext) {
 			s := DeferClose(freeWriterScenario(ctx))
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
 			}))
@@ -413,7 +396,7 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			w := MustOpen(openWriter(ctx, s.dist, writer.Config{
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           s.keys,
 				Start:          10 * telem.SecondTS,
 				Sync:           new(true),
@@ -432,7 +415,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should set group to zero when the writer has no group", func(ctx SpecContext) {
 			s := DeferClose(freeWriterScenario(ctx))
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
 			}))
@@ -442,7 +425,7 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			w := MustOpen(openWriter(ctx, s.dist, writer.Config{
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -463,7 +446,7 @@ var _ = Describe("Writer", func() {
 	Describe("Free Write Group Isolation", func() {
 		It("Should propagate distinct groups from different writers", func(ctx SpecContext) {
 			s := DeferClose(freeWriterScenario(ctx))
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
 			}))
@@ -473,13 +456,13 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			w1 := MustOpen(openWriter(ctx, s.dist, writer.Config{
+			w1 := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           s.keys,
 				Start:          10 * telem.SecondTS,
 				Sync:           new(true),
 				ControlSubject: control.Subject{Group: 10},
 			}))
-			w2 := MustOpen(openWriter(ctx, s.dist, writer.Config{
+			w2 := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           s.keys,
 				Start:          10 * telem.SecondTS,
 				Sync:           new(true),
@@ -510,8 +493,8 @@ var _ = Describe("Writer", func() {
 
 	Describe("Auto-Index", func() {
 		It("Should auto-stamp from the leaseholder when the data channel lives on a peer", func(ctx SpecContext) {
-			builder := mock.NewCluster(ctx, 2)
-			gw := builder.Nodes[1]
+			cluster := mock.NewCluster(ctx, 2)
+			gw := cluster.Nodes[1]
 			peer := node.Key(2)
 
 			idx := channel.Channel{
@@ -530,13 +513,12 @@ var _ = Describe("Writer", func() {
 			data = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{data}))[0]
 
 			before := telem.Now()
-			w := MustSucceed(openWriter(ctx, gw,
-				writer.Config{
-					Keys:      []channel.Key{data.Key()},
-					Sync:      new(true),
-					AutoIndex: new(true),
-					Start:     1 * telem.SecondTS,
-				}))
+			w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:      []channel.Key{data.Key()},
+				Sync:      new(true),
+				AutoIndex: new(true),
+				Start:     1 * telem.SecondTS,
+			}))
 			Expect((w.Write(frame.NewUnary(
 				data.Key(),
 				telem.NewSeriesV(1.1, 2.2, 3.3),
@@ -589,7 +571,7 @@ var _ = Describe("Writer", func() {
 			)[0]
 
 			keys := []channel.Key{idxCh.Key(), dataCh.Key()}
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))
@@ -599,12 +581,11 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			writer := MustOpen(openWriter(ctx, s.dist,
-				writer.Config{
-					Keys:  keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
+			writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
 			data := telem.NewSeriesV[float32](1, 2)
 			idx := telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS)
 			MustSucceed(writer.Write(frame.NewMulti(
@@ -641,11 +622,10 @@ var _ = Describe("Writer", func() {
 })
 
 type scenario struct {
-	dist     mock.Node
-	closer   io.Closer
-	name     string
-	keys     channel.Keys
-	channels []channel.Channel
+	dist   mock.Node
+	closer io.Closer
+	name   string
+	keys   channel.Keys
 }
 
 func (s scenario) Close() error { return s.closer.Close() }
@@ -672,73 +652,58 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 1)
-	dist := builder.Nodes[1]
-	channels = MustSucceed(dist.Channel.Create(ctx, channels))
+	node := mock.OpenNode(ctx)
+	channels = MustSucceed(node.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
-		name:     "Gateway Only",
-		keys:     keys,
-		dist:     dist,
-		closer:   builder,
-		channels: channels,
+		name:   "Gateway Only",
+		keys:   keys,
+		dist:   node,
+		closer: node,
 	}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 4)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 4)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
 	}
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:     "Peer Only",
-		keys:     keys,
-		dist:     dist,
-		closer:   builder,
-		channels: channels,
-	}
+	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: cluster}
 }
 
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 3)
-	svc := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 3)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
 		channels[i] = ch
 	}
-	channels = MustSucceed(svc.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
-		name:     "Mixed Gateway and Peer",
-		keys:     keys,
-		dist:     svc,
-		closer:   builder,
-		channels: channels,
+		name:   "Mixed Gateway and Peer",
+		keys:   keys,
+		dist:   dist,
+		closer: cluster,
 	}
 }
 
 func freeWriterScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 3)
-	svc := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 3)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	channels = MustSucceed(svc.Channel.Create(ctx, channels))
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{
-		name:     "Free Writes",
-		keys:     keys,
-		dist:     svc,
-		closer:   builder,
-		channels: channels,
-	}
+	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: cluster}
 }

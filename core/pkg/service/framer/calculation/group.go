@@ -88,9 +88,7 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		zap.Int("write_channel_count", len(writeKeys)),
 	)
 
-	strm, err := cfg.framer.NewStreamer(ctx, framer.StreamerConfig{
-		Keys: readKeys,
-	})
+	strm, err := cfg.framer.NewStreamer(framer.StreamerConfig{Keys: readKeys})
 	if err != nil {
 		return nil, err
 	}

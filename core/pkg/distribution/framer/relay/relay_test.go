@@ -42,12 +42,6 @@ type scenario struct {
 
 func (s scenario) Close() error { return s.close.Close() }
 
-func openWriter(
-	ctx context.Context, n mock.Node, cfg writer.Config,
-) (*writer.Writer, error) {
-	return n.Framer.OpenWriter(ctx, cfg)
-}
-
 var _ = Describe("Relay", func() {
 	Describe("Happy Path", Ordered, func() {
 
@@ -66,7 +60,7 @@ var _ = Describe("Relay", func() {
 			})
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				keys := channel.KeysFromChannels(s.channels)
-				reader := MustSucceed(s.dist.Framer.NewStreamer(ctx, relay.StreamerConfig{
+				reader := MustSucceed(s.dist.Framer.NewStreamer(relay.StreamerConfig{
 					Keys: keys,
 				}))
 				sCtx, _ := signal.Isolated()
@@ -74,7 +68,7 @@ var _ = Describe("Relay", func() {
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				// We need to give a few milliseconds for the reader to boot up.
 				time.Sleep(10 * time.Millisecond)
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 10 * telem.SecondTS,
 				}))
@@ -117,12 +111,11 @@ var _ = Describe("Relay", func() {
 	Describe("ExcludeGroups", Ordered, func() {
 		It("Should filter out frames from a matching group on gateway writes", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.NewCluster(ctx, 1)
-			svc := builder.Nodes[1]
-			channels = MustSucceed(svc.Channel.Create(ctx, channels))
+			node := mock.NewNode(ctx)
+			channels = MustSucceed(node.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -132,7 +125,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "grouped", Key: "grouped", Group: 99},
@@ -153,12 +146,11 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.NewCluster(ctx, 1)
-			svc := builder.Nodes[1]
-			channels = MustSucceed(svc.Channel.Create(ctx, channels))
+			node := mock.NewNode(ctx)
+			channels = MustSucceed(node.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -168,7 +160,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "other", Key: "other", Group: 200},
@@ -192,12 +184,11 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames with no group even when ExcludeGroups is set", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.NewCluster(ctx, 1)
-			svc := builder.Nodes[1]
-			channels = MustSucceed(svc.Channel.Create(ctx, channels))
+			node := mock.NewNode(ctx)
+			channels = MustSucceed(node.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -207,7 +198,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -229,8 +220,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should filter out free channel frames from a matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.NewCluster(ctx, 1)
-			svc := builder.Nodes[1]
+			svc := mock.NewNode(ctx)
 			for i, ch := range channels {
 				ch.Leaseholder = node.KeyFree
 				ch.Virtual = true
@@ -239,7 +229,7 @@ var _ = Describe("Relay", func() {
 			channels = MustSucceed(svc.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{55},
 			}))
@@ -249,7 +239,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "free-grouped", Key: "free-grouped", Group: 55},
@@ -279,8 +269,7 @@ var _ = Describe("Relay", func() {
 		var svc mock.Node
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			builder := mock.NewCluster(ctx, 1)
-			svc = builder.Nodes[1]
+			svc = mock.NewNode(ctx)
 		})
 
 		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
@@ -301,7 +290,7 @@ var _ = Describe("Relay", func() {
 			chs := newFreeChannels(ctx, 1)
 			keys := channel.KeysFromChannels(chs)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))
@@ -314,7 +303,7 @@ var _ = Describe("Relay", func() {
 			Eventually(res.Outlet()).Should(Receive(&ack))
 			Expect(ack.Frame.Empty()).To(BeTrue())
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -331,7 +320,7 @@ var _ = Describe("Relay", func() {
 		})
 
 		It("Should deliver the open ack when the streamer is opened with no keys", func(ctx SpecContext) {
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.Isolated()
@@ -354,7 +343,7 @@ var _ = Describe("Relay", func() {
 			chs := MustSucceed(svc.Channel.Create(ctx, newChannelSet()))
 			keys := channel.KeysFromChannels(chs)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))
@@ -375,7 +364,7 @@ var _ = Describe("Relay", func() {
 			chs := newFreeChannels(ctx, 1)
 			keys := channel.KeysFromChannels(chs)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))
@@ -399,7 +388,7 @@ var _ = Describe("Relay", func() {
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
 			for i := range streamerCount {
-				readers[i] = MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+				readers[i] = MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 					Keys:        keys,
 					SendOpenAck: new(true),
 				}))
@@ -412,7 +401,7 @@ var _ = Describe("Relay", func() {
 				Expect(ack.Frame.Empty()).To(BeTrue())
 			}
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -439,7 +428,7 @@ var _ = Describe("Relay", func() {
 			chs := newFreeChannels(ctx, 1)
 			keys := channel.KeysFromChannels(chs)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.Isolated()
@@ -453,7 +442,7 @@ var _ = Describe("Relay", func() {
 
 			req.Inlet() <- relay.Request{Keys: keys}
 
-			w := MustSucceed(openWriter(ctx, svc, writer.Config{
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -497,22 +486,21 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 1)
-	svc := builder.Nodes[1]
-	channels = MustSucceed(svc.Channel.Create(ctx, channels))
+	node := mock.OpenNode(ctx)
+	channels = MustSucceed(node.Channel.Create(ctx, channels))
 	return scenario{
 		resCount: 1,
 		name:     "Gateway Only",
 		channels: channels,
-		dist:     svc,
-		close:    builder,
+		dist:     node,
+		close:    node,
 	}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 4)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 4)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
@@ -523,13 +511,13 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		name:     "Peer Only",
 		channels: channels,
 		dist:     dist,
-		close:    builder,
+		close:    cluster,
 	}
 }
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	clstr := mock.OpenCluster(ctx, 3)
-	gateway := clstr.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 3)
+	gateway := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
 		channels[i] = ch
@@ -540,14 +528,13 @@ func mixedScenario(ctx context.Context) scenario {
 		name:     "Mixed Gateway and Peer",
 		channels: channels,
 		dist:     gateway,
-		close:    clstr,
+		close:    cluster,
 	}
 }
 
 func freeScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 1)
-	dist := builder.Nodes[1]
+	dist := mock.OpenNode(ctx)
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true
@@ -559,6 +546,6 @@ func freeScenario(ctx context.Context) scenario {
 		resCount: 1,
 		channels: channels,
 		dist:     dist,
-		close:    builder,
+		close:    dist,
 	}
 }

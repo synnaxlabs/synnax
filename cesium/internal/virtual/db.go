@@ -10,16 +10,20 @@
 package virtual
 
 import (
+	"context"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -62,18 +66,29 @@ var (
 	ErrDBClosed = resource.NewClosedError("virtual.db")
 )
 
-// Config is the configuration for opening a DB. The DB is a purely in-memory engine:
-// persistence of the channel's metadata, if any, is the caller's responsibility.
+// Config is the configuration for opening a DB. The DB's data path is purely
+// in-memory; when FS is provided, the DB also owns persistence of the channel's
+// metadata, mirroring the unary engine.
 type Config struct {
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// Channel that the database will operate on. All fields must be fully resolved by
-	// the caller before opening the DB.
+	// Channel that the database will operate on. When FS is not provided, all fields
+	// must be fully resolved by the caller before opening the DB. When FS is provided
+	// and a metadata file already exists, the channel is read from it instead.
 	//
 	// [REQUIRED]
 	Channel channel.Channel
+	// FS is the file system the DB persists its channel metadata to. When nil, the
+	// channel's registration is kept purely in memory (transient channels).
+	//
+	// [OPTIONAL]
+	FS fs.FS
+	// MetaCodec is used to encode and decode metadata about the channel.
+	//
+	// [REQUIRED when FS is provided]
+	MetaCodec encoding.Codec
 }
 
 var _ config.Config[Config] = Config{}
@@ -82,6 +97,9 @@ var _ config.Config[Config] = Config{}
 func (cfg Config) Validate() error {
 	v := validate.New("cesium.virtual")
 	validate.Positive(v, "channel.key", cfg.Channel.Key)
+	if cfg.FS != nil {
+		validate.NotNil(v, "meta_codec", cfg.MetaCodec)
+	}
 	return v.Error()
 }
 
@@ -91,13 +109,20 @@ func (cfg Config) Override(other Config) Config {
 		cfg.Channel = other.Channel
 	}
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
+	cfg.FS = override.Nil(cfg.FS, other.FS)
+	cfg.MetaCodec = override.Nil(cfg.MetaCodec, other.MetaCodec)
 	return cfg
 }
 
-func Open(configs ...Config) (*DB, error) {
+func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	cfg, err := config.New(Config{}, configs...)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.FS != nil {
+		if cfg.Channel, err = meta.Open(ctx, cfg.FS, cfg.Channel, cfg.MetaCodec); err != nil {
+			return nil, err
+		}
 	}
 	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if !cfg.Channel.Virtual {
@@ -150,22 +175,31 @@ func (db *DB) Close() error {
 	return nil
 }
 
-// RenameChannel renames the DB's channel to the given name. The change is in-memory
-// only; persisting it is the caller's responsibility.
-func (db *DB) RenameChannel(newName string) error {
+// RenameChannel renames the DB's channel to the given name, persisting the change to
+// the metadata file when the DB was opened with a file system.
+func (db *DB) RenameChannel(ctx context.Context, newName string) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
+	if db.cfg.Channel.Name == newName {
+		return nil
+	}
 	db.cfg.Channel.Name = newName
-	return nil
+	if db.cfg.FS == nil {
+		return nil
+	}
+	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
-// SetChannelKey sets the key of the channel for this DB. The change is in-memory only;
-// persisting it is the caller's responsibility.
-func (db *DB) SetChannelKey(key channel.Key) error {
+// SetChannelKey sets the key of the channel for this DB, persisting the change to the
+// metadata file when the DB was opened with a file system.
+func (db *DB) SetChannelKey(ctx context.Context, key channel.Key) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
 	db.cfg.Channel.Key = key
-	return nil
+	if db.cfg.FS == nil {
+		return nil
+	}
+	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
