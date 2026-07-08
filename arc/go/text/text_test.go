@@ -432,6 +432,31 @@ var _ = Describe("Text", func() {
 				"channels and reactive expressions cannot be assigned to stateful variables"))
 		})
 
+		It("Should reject a computed stateful variable initializer", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				c i64 $= 2 + 3
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"stateful variable initializer must be a literal value"))
+		})
+
+		It("Should reject initializing a ':=' variable from a stateful variable", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				s i64 $= 0
+				y := s
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"stateful variables cannot be assigned to ':=' variables"))
+		})
+
 		It("Should assign distinct keys to variables in sibling sequences", func(ctx SpecContext) {
 			source := `
 			sequence a {

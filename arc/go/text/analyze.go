@@ -485,8 +485,7 @@ func channelKey(sym *symbol.Symbol) uint32 {
 // isVarChannel reports whether sym is a value variable backed by an internal channel.
 func isVarChannel(sym *symbol.Symbol) bool {
 	return sym.VarKind == symbol.VarKindReactive ||
-		sym.VarKind == symbol.VarKindConstant ||
-		sym.VarKind == symbol.VarKindStateful
+		sym.VarKind == symbol.VarKindConstant
 }
 
 // irVarKind maps a symbol's variable kind to its IR node representation.
@@ -496,7 +495,7 @@ func irVarKind(k symbol.VarKind) ir.VarKind {
 		return ir.VarKindChannelAlias
 	case symbol.VarKindReactive:
 		return ir.VarKindReactive
-	case symbol.VarKindConstant, symbol.VarKindStateful:
+	case symbol.VarKindConstant:
 		return ir.VarKindConstant
 	default:
 		return ir.VarKindUnspecified
@@ -793,7 +792,7 @@ func lowerAssignment[T antlr.ParserRuleContext](
 		return nil, nil, true
 	}
 	switch target.VarKind {
-	case symbol.VarKindConstant, symbol.VarKindStateful:
+	case symbol.VarKindConstant:
 		return lowerVarWrite(ctx, target, expr, kg, shell)
 	case symbol.VarKindChannelAlias:
 		rebindAlias(ctx, target, expr)

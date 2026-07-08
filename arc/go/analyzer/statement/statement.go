@@ -102,7 +102,14 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 				"channels and reactive expressions cannot be assigned to stateful variables"))
 			return
 		}
-		sym.VarKind = symbol.VarKindStateful
+		// Supporting a computed seed would require folding it to a compile-time value,
+		// which is a lot of machinery, so require a plain literal.
+		if expr != nil && sym.Type.IsValid() && sym.DefaultValue == nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				"stateful variable initializer must be a literal value"))
+			return
+		}
+		sym.VarKind = symbol.VarKindConstant
 		return
 	}
 	// A variable bound to a channel is an alias: it behaves exactly as the channel.
@@ -121,6 +128,11 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	// A bare identifier inherits the referenced variable's kind.
 	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
 		if ref, rerr := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText()); rerr == nil {
+			if ref.Kind == symbol.KindStatefulVariable {
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+					"stateful variables cannot be assigned to ':=' variables"))
+				return
+			}
 			sym.VarKind = ref.VarKind
 		}
 		return
