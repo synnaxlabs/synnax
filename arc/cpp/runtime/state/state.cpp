@@ -280,10 +280,6 @@ void Node::write_series(
     this->state.channel->write_series(key, data, time);
 }
 
-void Node::append_var_read(const types::ChannelKey key, const Series &data) const {
-    this->state.channel->append_var_read(key, data);
-}
-
 const Series &Node::input_time(const size_t param_index) const {
     return this->aligned_time[param_index];
 }

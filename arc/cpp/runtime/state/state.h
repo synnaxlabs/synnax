@@ -122,10 +122,6 @@ public:
     void
     write_series(types::ChannelKey key, const Series &data, const Series &time) const;
 
-    /// Loops a variable-channel write back into the read buffer so it becomes
-    /// readable on subsequent cycles.
-    void append_var_read(types::ChannelKey key, const Series &data) const;
-
     /// @brief reports whether the cached output at the given 0-based
     /// ordinal is truthy. Out-of-range ordinals report false.
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const;

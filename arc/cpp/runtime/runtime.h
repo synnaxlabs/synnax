@@ -13,7 +13,6 @@
 #include <memory>
 #include <ranges>
 #include <set>
-#include <unordered_map>
 #include <utility>
 
 #include "glog/logging.h"
@@ -226,17 +225,13 @@ inline std::vector<x::control::Authority> build_authorities(
 
 inline std::pair<std::shared_ptr<Runtime>, x::errors::Error>
 load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
-    const std::set<types::ChannelKey> var_channels(
-        cfg.program.var_channels.begin(),
-        cfg.program.var_channels.end()
-    );
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
     for (const auto &n: cfg.program.nodes) {
-        for (const auto &key: std::views::keys(n.channels.read))
-            if (!var_channels.contains(key)) reads.insert(key);
-        for (const auto &key: std::views::keys(n.channels.write))
-            if (!var_channels.contains(key)) writes.insert(key);
+        const auto read_keys = std::views::keys(n.channels.read);
+        reads.insert(read_keys.begin(), read_keys.end());
+        const auto write_keys = std::views::keys(n.channels.write);
+        writes.insert(write_keys.begin(), write_keys.end());
     }
     for (const auto &[key, val]: cfg.program.authorities.channels)
         writes.insert(key);
@@ -251,15 +246,6 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (reads.contains(d.key) && d.index != 0) reads.insert(d.index);
         if (writes.contains(d.key) && d.index != 0) writes.insert(d.index);
     }
-
-    std::unordered_map<types::ChannelKey, stl::channels::Series> seeds;
-    for (const auto &vs: cfg.program.var_seeds)
-        if (auto sv = types::to_sample_value(vs.value, vs.type); sv.has_value())
-            seeds[vs.channel] = x::mem::make_local_shared<x::telem::Series>(
-                vs.type.telem().cast(*sv)
-            );
-    for (const auto key: var_channels)
-        digests.push_back(stl::channels::Digest{.key = key, .seed = seeds[key]});
 
     auto channel_st = std::make_shared<stl::channels::State>(digests);
     auto str_st = std::make_shared<stl::strings::State>();

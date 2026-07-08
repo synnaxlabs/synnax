@@ -32,15 +32,12 @@ inline constexpr const char *MODULE_NAME = "channels";
 class On : public runtime::node::Node {
     runtime::state::Node state;
     types::ChannelKey channel_key;
-    bool is_var;
     ::x::telem::Alignment high_water_mark{0};
     ::x::telem::MonoClock clock;
 
 public:
-    On(runtime::state::Node &&state,
-       const types::ChannelKey channel_key,
-       const bool is_var):
-        state(std::move(state)), channel_key(channel_key), is_var(is_var) {}
+    On(runtime::state::Node &&state, const types::ChannelKey channel_key):
+        state(std::move(state)), channel_key(channel_key) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         auto [data, index_data, ok] = this->state.read_series(this->channel_key);
@@ -96,12 +93,6 @@ public:
         if (!ok || data.series.empty()) return;
         const auto &last = data.series.back();
         const auto lower = last.alignment;
-        // A variable read emits its current value on (re)activation; a plain channel
-        // read skips everything already buffered before it became active.
-        if (this->is_var) {
-            this->high_water_mark = lower;
-            return;
-        }
         const auto upper_val = lower.uint64() + (last.size() > 0 ? last.size() - 1 : 0);
         const auto upper = x::telem::Alignment(upper_val + 1);
         if (upper.uint64() > this->high_water_mark.uint64())
@@ -118,20 +109,15 @@ class Write : public runtime::node::Node {
     runtime::state::Node state;
     types::ChannelKey channel_key;
     size_t input_idx;
-    bool is_var;
     ::x::telem::MonoClock clock;
 
 public:
     Write(
         runtime::state::Node &&state,
         const types::ChannelKey channel_key,
-        size_t input_idx,
-        const bool is_var
+        size_t input_idx
     ):
-        state(std::move(state)),
-        channel_key(channel_key),
-        input_idx(input_idx),
-        is_var(is_var) {}
+        state(std::move(state)), channel_key(channel_key), input_idx(input_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
@@ -145,10 +131,7 @@ public:
                 data->size()
             )
         );
-        if (this->is_var)
-            this->state.append_var_read(this->channel_key, data);
-        else
-            this->state.write_series(this->channel_key, data, time);
+        this->state.write_series(this->channel_key, data, time);
         auto &out = this->state.output(0);
         out->resize(1);
         out->set(0, static_cast<uint8_t>(1));
@@ -200,22 +183,13 @@ public:
         auto channel_key = x::telem::cast<types::ChannelKey>(*ch_sv);
         if (cfg.node.type == "on")
             return {
-                std::make_unique<On>(
-                    std::move(cfg.state),
-                    channel_key,
-                    cfg.node.is_var
-                ),
+                std::make_unique<On>(std::move(cfg.state), channel_key),
                 x::errors::NIL
             };
         auto [input_idx, in_err] = cfg.node.resolve_input(ir::default_input_param);
         if (in_err) return {nullptr, in_err};
         return {
-            std::make_unique<Write>(
-                std::move(cfg.state),
-                channel_key,
-                input_idx,
-                cfg.node.is_var
-            ),
+            std::make_unique<Write>(std::move(cfg.state), channel_key, input_idx),
             x::errors::NIL
         };
     }
