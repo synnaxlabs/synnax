@@ -21,18 +21,37 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// ErrWriterClosed is returned when an operation is attempted on a closed writer.
 var ErrWriterClosed = resource.NewClosedError("virtual.writer")
 
+// WriterConfig configures a virtual writer.
 type WriterConfig struct {
+	// ErrOnUnauthorizedOpen controls whether an error is returned when the writer is
+	// unauthorized to open.
+	//
+	// [OPTIONAL] - Defaults to false.
 	ErrOnUnauthorizedOpen *bool
-	Subject               xcontrol.Subject
-	Start                 telem.TimeStamp
-	End                   telem.TimeStamp
-	Authority             xcontrol.Authority
+	// Subject is the subject that is authorized to write to the writer.
+	//
+	// [REQUIRED]
+	Subject xcontrol.Subject
+	// Start is the start time of the writer.
+	//
+	// [OPTIONAL]
+	Start telem.TimeStamp
+	// End is the end time of the writer.
+	//
+	// [OPTIONAL]
+	End telem.TimeStamp
+	// Authority is the authority to open the writer with.
+	//
+	// [OPTIONAL]
+	Authority xcontrol.Authority
 }
 
 var _ config.Config[WriterConfig] = WriterConfig{}
 
+// Validate implements config.Config.
 func (cfg WriterConfig) Validate() error {
 	v := validate.New("virtual.writer_config")
 	validate.NotEmptyString(v, "subject.key", cfg.Subject.Key)
@@ -40,51 +59,54 @@ func (cfg WriterConfig) Validate() error {
 	return v.Error()
 }
 
+// Override implements config.Config.
 func (cfg WriterConfig) Override(other WriterConfig) WriterConfig {
 	cfg.Start = override.Zero(cfg.Start, other.Start)
 	cfg.End = override.Zero(cfg.End, other.End)
 	cfg.Subject = override.If(cfg.Subject, other.Subject, other.Subject.Key != "")
 	cfg.Authority = override.Numeric(cfg.Authority, other.Authority)
-	cfg.ErrOnUnauthorizedOpen = override.Nil(cfg.ErrOnUnauthorizedOpen, other.ErrOnUnauthorizedOpen)
+	cfg.ErrOnUnauthorizedOpen = override.Nil(
+		cfg.ErrOnUnauthorizedOpen, other.ErrOnUnauthorizedOpen,
+	)
 	return cfg
 }
 
 func (cfg WriterConfig) domain() telem.TimeRange {
-	return telem.TimeRange{Start: cfg.Start, End: lo.Ternary(cfg.End.IsZero(), telem.TimeStampMax, cfg.End)}
+	return telem.TimeRange{
+		Start: cfg.Start,
+		End:   lo.Ternary(cfg.End.IsZero(), telem.TimeStampMax, cfg.End),
+	}
 }
 
+// A Writer is used to write to a virtual channel.
 type Writer struct {
 	// onClose is called when the writer is closed.
 	onClose func()
-	// control stores the control gate held by the virtual writer, and used to track control
-	// handoff scenarios with other writers.
+	// control stores the control gate held by the virtual writer, and used to track
+	// control handoff scenarios with other writers.
 	control *control.Gate[*controlResource]
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
-	// Channel stores information about the channel being written to, most importantly
-	// the density and index.
-	Channel channel.Channel
-	WriterConfig
-	// closed stores whether the writer is closed. Operations like Write and Commit do
-	// not succeed on closed writers.
-	closed bool
+	channel   channel.Channel
+	cfg       WriterConfig
+	closed    bool
 }
 
-func (db *DB) OpenWriter(cfgs ...WriterConfig) (w *Writer, transfer control.Transfer, err error) {
+func (db *DB) OpenWriter(cfgs ...WriterConfig) (*Writer, control.Transfer, error) {
 	if db.closed.Load() {
-		err = ErrDBClosed
-		return nil, transfer, db.wrapError(err)
+		return nil, control.Transfer{}, db.wrapError(ErrDBClosed)
 	}
 	cfg, err := config.New(WriterConfig{ErrOnUnauthorizedOpen: new(false)}, cfgs...)
 	if err != nil {
-		return nil, transfer, db.wrapError(err)
+		return nil, control.Transfer{}, db.wrapError(err)
 	}
-	w = &Writer{
-		WriterConfig: cfg,
-		Channel:      db.cfg.Channel,
-		wrapError:    db.wrapError,
+	w := &Writer{
+		cfg:       cfg,
+		channel:   db.cfg.Channel,
+		wrapError: db.wrapError,
 	}
+	var transfer control.Transfer
 	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlResource]{
 		TimeRange:             cfg.domain(),
 		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
@@ -96,12 +118,10 @@ func (db *DB) OpenWriter(cfgs ...WriterConfig) (w *Writer, transfer control.Tran
 			return cr, nil
 		},
 	}); err != nil {
-		return nil, transfer, db.wrapError(err)
+		return nil, control.Transfer{}, db.wrapError(err)
 	}
 	db.openWriters.Add(1)
-	w.onClose = func() {
-		db.openWriters.Add(-1)
-	}
+	w.onClose = func() { db.openWriters.Add(-1) }
 	return w, transfer, nil
 }
 
@@ -109,7 +129,7 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
 		return 0, w.wrapError(ErrWriterClosed)
 	}
-	if err := w.Channel.ValidateSeries(series); err != nil {
+	if err := w.channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
 	e, err := w.control.Authorize()
@@ -123,10 +143,14 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	return a, nil
 }
 
-func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
-	return w.control.SetAuthority(a)
+func (w *Writer) SetAuthority(authority xcontrol.Authority) control.Transfer {
+	return w.control.SetAuthority(authority)
 }
 
+// Channel returns the channel being written to.
+func (w *Writer) Channel() channel.Channel { return w.channel }
+
+// Close closes the writer and releases all control.
 func (w *Writer) Close() (control.Transfer, error) {
 	if w.closed {
 		return control.Transfer{}, nil

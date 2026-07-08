@@ -197,7 +197,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 
 	}
 	for _, chW := range w.virtual.internal {
-		if auth, ok := getAuth(chW.Channel.Key); ok {
+		if auth, ok := getAuth(chW.Channel().Key); ok {
 			if t := chW.SetAuthority(auth); t.Occurred() {
 				u.Transfers = append(u.Transfers, t)
 			}
@@ -902,7 +902,7 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 	for _, chW := range w.internal {
 		// We do not want to clean up the digest channel since we want to use it to send
 		// updates for closures.
-		if chW.Channel.Key != w.digestKey {
+		if chW.Channel().Key != w.digestKey {
 			transfer, closeErr := chW.Close()
 			if closeErr != nil {
 				err = errors.Join(err, closeErr)

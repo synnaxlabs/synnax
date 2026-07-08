@@ -350,9 +350,9 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	if len(virtualWriters) > 0 {
 		groupsByIndex := make(map[ChannelKey]*virtualGroup)
 		for key, vw := range virtualWriters {
-			idxKey := vw.Channel.Index
-			if vw.Channel.IsIndex {
-				idxKey = vw.Channel.Key
+			idxKey := vw.Channel().Index
+			if vw.Channel().IsIndex {
+				idxKey = vw.Channel().Key
 			}
 			if idxKey == 0 {
 				continue
