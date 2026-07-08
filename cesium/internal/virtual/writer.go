@@ -93,6 +93,7 @@ type Writer struct {
 	closed    bool
 }
 
+// OpenWriter opens a writer for the given configuration.
 func (db *DB) OpenWriter(cfgs ...WriterConfig) (*Writer, control.Transfer, error) {
 	if db.closed.Load() {
 		return nil, control.Transfer{}, db.wrapError(ErrDBClosed)
@@ -125,6 +126,7 @@ func (db *DB) OpenWriter(cfgs ...WriterConfig) (*Writer, control.Transfer, error
 	return w, transfer, nil
 }
 
+// Write writes a series to the writer, returning the alignment of the first sample.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
 		return 0, w.wrapError(ErrWriterClosed)
@@ -132,17 +134,18 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if err := w.channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
-	e, err := w.control.Authorize()
+	r, err := w.control.Authorize()
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
 	// copy the alignment here because we want to return the alignment of the FIRST
 	// sample, not the last.
-	a := e.loadAlignment()
-	e.storeAlignment(a.AddSamples(uint32(series.Len())))
+	a := r.loadAlignment()
+	r.storeAlignment(a.AddSamples(uint32(series.Len())))
 	return a, nil
 }
 
+// SetAuthority sets the authority of the writer.
 func (w *Writer) SetAuthority(authority xcontrol.Authority) control.Transfer {
 	return w.control.SetAuthority(authority)
 }
