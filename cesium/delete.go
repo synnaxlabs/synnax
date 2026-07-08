@@ -192,8 +192,7 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 			for otherDBKey, otherDB := range db.mu.dbs.unary {
 				if otherDBKey != ch && otherDB.Channel().Index == uDB.Channel().Key {
 					return errors.Newf(
-						"cannot delete channel %v "+
-							"because it indexes data in channel %v",
+						"cannot delete channel %v because it indexes channel %v",
 						uDB.Channel(),
 						otherDB.Channel(),
 					)
@@ -211,8 +210,7 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 			for otherDBKey, otherDB := range db.mu.dbs.virtual {
 				if otherDBKey != ch && otherDB.Channel().Index == vDB.Channel().Key {
 					return errors.Newf(
-						"cannot delete channel %v "+
-							"because it indexes data in channel %v",
+						"cannot delete channel %v because it indexes channel %v",
 						vDB.Channel(),
 						otherDB.Channel(),
 					)

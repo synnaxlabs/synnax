@@ -215,7 +215,7 @@ var _ = Describe("Delete", func() {
 							By("Deleting channel")
 							err := db.DeleteChannel(dependent)
 							Expect(err).To(HaveOccurred())
-							Expect(err).To(MatchError(ContainSubstring("cannot delete channel [dependent]<%d> because it indexes data in channel [dependee]<%d>", dependent, dependee)))
+							Expect(err).To(MatchError(ContainSubstring("cannot delete channel [dependent]<%d> because it indexes channel [dependee]<%d>", dependent, dependee)))
 
 							By("Deleting channel that depend on it")
 							Expect(db.DeleteChannel(dependee)).To(Succeed())
@@ -850,7 +850,7 @@ var _ = Describe("Transient and Virtual Index Channel Deletion", func() {
 					virtualIndexChannel(idx, "guarded_idx"),
 					virtualDataChannel(data, idx, "dependent"),
 				)).To(Succeed())
-				Expect(db.DeleteChannel(idx)).To(MatchError(ContainSubstring("indexes data in channel")))
+				Expect(db.DeleteChannel(idx)).To(MatchError(ContainSubstring("indexes channel")))
 				Expect(db.DeleteChannel(data)).To(Succeed())
 				Expect(db.DeleteChannel(idx)).To(Succeed())
 			})
