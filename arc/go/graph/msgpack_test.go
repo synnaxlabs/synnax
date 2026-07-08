@@ -71,7 +71,7 @@ var _ = Describe("DecodeMsgpack", func() {
 			Expect(decoded.Edges).To(HaveLen(1))
 		})
 
-		It("Should lift legacy inline node type and config into the configs map", func() {
+		It("Should lift legacy inline node type and config into the inputs map", func() {
 			legacy := struct {
 				Nodes []struct {
 					Key      string               `msgpack:"key"`
@@ -94,11 +94,11 @@ var _ = Describe("DecodeMsgpack", func() {
 			var decoded graph.Graph
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Nodes).To(HaveLen(2))
-			Expect(decoded.Configs["n1"]).To(SatisfyAll(
+			Expect(decoded.Inputs["n1"]).To(SatisfyAll(
 				HaveKeyWithValue("type", "on"),
 				HaveKeyWithValue("channel", int8(12)),
 			))
-			Expect(decoded.Configs["n2"]).To(HaveKeyWithValue("type", "printer"))
+			Expect(decoded.Inputs["n2"]).To(HaveKeyWithValue("type", "printer"))
 		})
 	})
 })

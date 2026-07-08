@@ -51,7 +51,7 @@ const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | nu
     sync: true,
     onChange: useCallback(
       ({ values: config }: Form.OnChangeArgs<typeof Arc.Graph.Node.configZ>) =>
-        dispatch(arc.setNodeConfig({ key: nodeKey, config: deep.copy(config) })),
+        dispatch(arc.setNodeInputs({ key: nodeKey, inputs: deep.copy(config) })),
       [dispatch, nodeKey],
     ),
   });

@@ -209,7 +209,7 @@ const v2StateMigration = migrate.createMigration<V1State, V2State>({
 });
 
 // buildPendingGraph converts a legacy v2 redux graph into a flux graph document, lifting
-// each node's inline props (with the function type under "key") into the configs map
+// each node's inline props (with the function type under "key") into the inputs map
 // (under "type"), keyed by node key.
 const buildPendingGraph = (state: V2State): arc.graph.Graph => ({
   nodes: state.graph.nodes.map((n) => ({ key: n.key, position: n.position })),
@@ -219,7 +219,7 @@ const buildPendingGraph = (state: V2State): arc.graph.Graph => ({
     target: e.target,
     kind: arc.ir.EdgeKind.continuous,
   })),
-  configs: Object.fromEntries(
+  inputs: Object.fromEntries(
     Object.entries(state.graph.props).map(([k, { key, ...rest }]) => [
       k,
       { ...rest, type: key },

@@ -124,20 +124,20 @@ var _ = Describe("Codec", func() {
 						Key: "test_40",
 					},
 				},
-				Nodes:   []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
-				Configs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
+				Nodes:  []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
+				Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 			}),
 			Entry("zero values", graph.Graph{
 				Functions: nil,
 				Edges:     nil,
 				Nodes:     nil,
-				Configs:   nil,
+				Inputs:    nil,
 			}),
 			Entry("empty collections", graph.Graph{
 				Functions: []ir.Function{},
 				Edges:     []graph.Edge{},
 				Nodes:     []graph.Node{},
-				Configs:   map[string]msgpack.EncodedJSON{},
+				Inputs:    map[string]msgpack.EncodedJSON{},
 			}),
 		)
 	})
@@ -240,8 +240,8 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 				Key: "test_40",
 			},
 		},
-		Nodes:   []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
-		Configs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
+		Nodes:  []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
+		Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -394,8 +394,8 @@ func FuzzDecodeGraph(f *testing.F) {
 					Key: "test_40",
 				},
 			},
-			Nodes:   []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
-			Configs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
+			Nodes:  []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
+			Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -408,7 +408,7 @@ func FuzzDecodeGraph(f *testing.F) {
 			Functions: nil,
 			Edges:     nil,
 			Nodes:     nil,
-			Configs:   nil,
+			Inputs:    nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -421,7 +421,7 @@ func FuzzDecodeGraph(f *testing.F) {
 			Functions: []ir.Function{},
 			Edges:     []graph.Edge{},
 			Nodes:     []graph.Node{},
-			Configs:   map[string]msgpack.EncodedJSON{},
+			Inputs:    map[string]msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
