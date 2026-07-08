@@ -78,13 +78,15 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) openVirtual(ch Channel) error {
+func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 	if _, isOpen := db.mu.dbs.virtual[ch.Key]; isOpen {
 		return nil
 	}
-	v, err := virtual.Open(virtual.Config{
+	v, err := virtual.Open(ctx, virtual.Config{
 		Channel:         ch,
 		Instrumentation: db.Instrumentation,
+		FS:              fs,
+		MetaCodec:       db.metaCodec,
 	})
 	if err != nil {
 		return err
@@ -131,7 +133,7 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 // directory before routing; transient channels never touch the file system.
 func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
 	if ch.Transient {
-		return db.openVirtual(ch)
+		return db.openVirtual(ctx, ch, nil)
 	}
 	fs, err := db.fs.Sub(keyToDirName(ch.Key))
 	if err != nil {
@@ -142,7 +144,7 @@ func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
 		return errors.Skip(err, meta.ErrIgnoreChannel)
 	}
 	if ch.Virtual {
-		return db.openVirtual(ch)
+		return db.openVirtual(ctx, ch, fs)
 	}
 	return errors.Skip(db.openUnary(ctx, ch, fs), meta.ErrIgnoreChannel)
 }

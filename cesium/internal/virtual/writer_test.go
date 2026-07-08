@@ -23,7 +23,7 @@ import (
 var _ = Describe("Write", func() {
 	var db *virtual.DB
 	BeforeEach(func(ctx SpecContext) {
-		db = MustSucceed(virtual.Open(virtual.Config{
+		db = MustSucceed(virtual.Open(ctx, virtual.Config{
 			Channel: channel.Channel{
 				Name:     "Ray",
 				Key:      2,
