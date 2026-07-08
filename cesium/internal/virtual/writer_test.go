@@ -32,6 +32,38 @@ var _ = Describe("Write", func() {
 			},
 		}))
 	})
+	Describe("OpenWriter", func() {
+		It("Should return an error when opening a writer on a closed DB", func() {
+			closedDB := MustSucceed(virtual.Open(virtual.Config{
+				Channel: channel.Channel{
+					Name:     "Egon",
+					Key:      3,
+					DataType: telem.Int64T,
+					Virtual:  true,
+				},
+			}))
+			Expect(closedDB.Close()).To(Succeed())
+			Expect(closedDB.OpenWriter(virtual.WriterConfig{
+				Subject: control.Subject{Key: "foo"},
+			})).Error().To(MatchError(virtual.ErrDBClosed))
+		})
+	})
+
+	Describe("Channel", func() {
+		It("Should return the channel the writer writes to", func() {
+			w, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+				Start:     10 * telem.SecondTS,
+				Authority: control.AuthorityAbsolute,
+				Subject:   control.Subject{Key: "foo"},
+			}))
+			Expect(t.Occurred()).To(BeTrue())
+			Expect(w.Channel()).To(Equal(db.Channel()))
+			Expect(w.Channel().Name).To(Equal("Ray"))
+			t = MustSucceed(w.Close())
+			Expect(t.Occurred()).To(BeTrue())
+		})
+	})
+
 	Describe("Control", func() {
 		Describe("ErrOnUnauthorizedOpen", func() {
 			It("Should return an error if the writer does not acquire control", func() {

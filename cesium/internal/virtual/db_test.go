@@ -12,6 +12,7 @@ package virtual_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
@@ -47,6 +48,17 @@ var _ = Describe("DB Metadata Operations", func() {
 			newKey := GenerateChannelKey()
 			Expect(db.SetChannelKey(newKey)).To(Succeed())
 			Expect(db.Channel().Key).To(Equal(newKey))
+		})
+	})
+
+	Describe("AllocateLeadingAlignment", func() {
+		It("Should allocate distinct, increasing alignment domains in the leading region", func() {
+			first := db.AllocateLeadingAlignment()
+			second := db.AllocateLeadingAlignment()
+			Expect(first.DomainIndex()).To(BeNumerically(">", alignment.ZeroLeading))
+			Expect(second.DomainIndex()).To(Equal(first.DomainIndex() + 1))
+			Expect(first.SampleIndex()).To(BeZero())
+			Expect(second.SampleIndex()).To(BeZero())
 		})
 	})
 
