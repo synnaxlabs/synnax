@@ -80,7 +80,7 @@
         },
         {
           "case": "arc/variables",
-          "parameters": { "rack_key": [65537, 65538] }
+          "parameters": { "rack_key": [65538] }
         }
       ]
     },
