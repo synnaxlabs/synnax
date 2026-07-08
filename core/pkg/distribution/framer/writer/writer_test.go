@@ -33,14 +33,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func openWriter(
-	ctx context.Context,
-	n mock.Node,
-	cfg writer.Config,
-) (*writer.Writer, error) {
-	return n.Framer.OpenWriter(ctx, cfg)
-}
-
 var _ = Describe("Writer", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func(context.Context) scenario{
@@ -56,7 +48,7 @@ var _ = Describe("Writer", func() {
 				s = DeferClose(sF(ctx))
 			})
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
-				writer := MustOpen(openWriter(ctx, s.dist, writer.Config{
+				writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -114,7 +106,7 @@ var _ = Describe("Writer", func() {
 			})
 		})
 		It("Should write and read persisted string data", func(ctx SpecContext) {
-			w := MustOpen(openWriter(ctx, s.dist, writer.Config{
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -145,12 +137,11 @@ var _ = Describe("Writer", func() {
 				s.dist.Channel.Create(ctx, []channel.Channel{floatCh}),
 			)[0]
 			keys := []channel.Key{idxCh.Key(), floatCh.Key(), strCh.Key()}
-			w := MustOpen(openWriter(ctx,
-				s.dist, writer.Config{
-					Keys:  keys,
-					Start: 20 * telem.SecondTS,
-					Sync:  new(true),
-				}))
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 20 * telem.SecondTS,
+				Sync:  new(true),
+			}))
 			MustSucceed(w.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{
@@ -177,7 +168,7 @@ var _ = Describe("Writer", func() {
 			s = DeferClose(gatewayOnlyScenario(ctx))
 		})
 		It("Should return an error if no keys are provided", func(ctx SpecContext) {
-			Expect(openWriter(ctx, s.dist, writer.Config{
+			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  []channel.Key{},
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -202,7 +193,7 @@ var _ = Describe("Writer", func() {
 			s = DeferClose(peerOnlyScenario(ctx))
 		})
 		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func(ctx SpecContext) {
-			writer := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+			writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -224,7 +215,7 @@ var _ = Describe("Writer", func() {
 		Describe("Misaligned Fixed Density", func() {
 			It("Should return an error when series data is not aligned to density", func(ctx SpecContext) {
 				s := DeferClose(gatewayOnlyScenario(ctx))
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -244,7 +235,7 @@ var _ = Describe("Writer", func() {
 		Describe("Wrong Data Type", func() {
 			It("Should return an error when series data type does not match channel", func(ctx SpecContext) {
 				s := DeferClose(gatewayOnlyScenario(ctx))
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -289,7 +280,7 @@ var _ = Describe("Writer", func() {
 				})
 			})
 			It("Should return an error when JSON series contains invalid JSON", func(ctx SpecContext) {
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -334,7 +325,7 @@ var _ = Describe("Writer", func() {
 				})
 			})
 			It("Should return an error when string series contains invalid UTF-8", func(ctx SpecContext) {
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -381,7 +372,7 @@ var _ = Describe("Writer", func() {
 				})
 			})
 			It("Should return an error when variable-density prefix is malformed", func(ctx SpecContext) {
-				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -413,7 +404,7 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			w := MustOpen(openWriter(ctx, s.dist, writer.Config{
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           s.keys,
 				Start:          10 * telem.SecondTS,
 				Sync:           new(true),
@@ -442,7 +433,7 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			w := MustOpen(openWriter(ctx, s.dist, writer.Config{
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -473,13 +464,13 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			w1 := MustOpen(openWriter(ctx, s.dist, writer.Config{
+			w1 := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           s.keys,
 				Start:          10 * telem.SecondTS,
 				Sync:           new(true),
 				ControlSubject: control.Subject{Group: 10},
 			}))
-			w2 := MustOpen(openWriter(ctx, s.dist, writer.Config{
+			w2 := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           s.keys,
 				Start:          10 * telem.SecondTS,
 				Sync:           new(true),
@@ -530,13 +521,12 @@ var _ = Describe("Writer", func() {
 			data = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{data}))[0]
 
 			before := telem.Now()
-			w := MustSucceed(openWriter(ctx, gw,
-				writer.Config{
-					Keys:      []channel.Key{data.Key()},
-					Sync:      new(true),
-					AutoIndex: new(true),
-					Start:     1 * telem.SecondTS,
-				}))
+			w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:      []channel.Key{data.Key()},
+				Sync:      new(true),
+				AutoIndex: new(true),
+				Start:     1 * telem.SecondTS,
+			}))
 			Expect((w.Write(frame.NewUnary(
 				data.Key(),
 				telem.NewSeriesV(1.1, 2.2, 3.3),
@@ -599,12 +589,11 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			writer := MustOpen(openWriter(ctx, s.dist,
-				writer.Config{
-					Keys:  keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
+			writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
 			data := telem.NewSeriesV[float32](1, 2)
 			idx := telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS)
 			MustSucceed(writer.Write(frame.NewMulti(
