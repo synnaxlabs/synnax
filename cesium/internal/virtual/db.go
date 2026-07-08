@@ -31,10 +31,12 @@ type controlResource struct {
 	// bits) and sample index (lower 32 bits). This field is accessed atomically because
 	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
 	// the region's RWMutex is released before the caller accesses the field. This means
-	// one goroutine may write alignment through Authorize while another reads it through
-	// PeekResource concurrently.
+	// one goroutine may write alignment through Authorize while another reads it
+	// through PeekResource concurrently.
 	alignment atomic.Uint64
 }
+
+var _ control.Resource = &controlResource{}
 
 func (r *controlResource) ChannelKey() channel.Key { return r.ck }
 
@@ -46,6 +48,7 @@ func (r *controlResource) storeAlignment(a telem.Alignment) {
 	r.alignment.Store(uint64(a))
 }
 
+// DB is a purely in-memory engine for virtual channels.
 type DB struct {
 	controller       *control.Controller[*controlResource]
 	wrapError        func(error) error
@@ -55,12 +58,8 @@ type DB struct {
 	cfg              Config
 }
 
-var (
-	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
-	ErrNotVirtual = errors.New("channel is not virtual")
-	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = resource.NewClosedError("virtual.db")
-)
+// ErrDBClosed is returned when an operation is attempted on a closed DB.
+var ErrDBClosed = resource.NewClosedError("virtual.db")
 
 // Config is the configuration for opening a DB. The DB is a purely in-memory engine:
 // nothing about the channel is ever written to the file system.
@@ -101,7 +100,7 @@ func Open(configs ...Config) (*DB, error) {
 	}
 	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if !cfg.Channel.Virtual {
-		return nil, wrapError(ErrNotVirtual)
+		return nil, wrapError(errors.New("channel is not virtual"))
 	}
 	c, err := control.New[*controlResource](control.Config{
 		Concurrency:     xcontrol.ConcurrencyShared,

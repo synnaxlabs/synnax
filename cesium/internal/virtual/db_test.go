@@ -22,25 +22,17 @@ import (
 )
 
 var _ = Describe("DB Metadata Operations", func() {
-	var (
-		dbKey channel.Key
-		db    *virtual.DB
-	)
+	var db *virtual.DB
 
 	BeforeEach(func() {
-		dbKey = GenerateChannelKey()
-		db = MustSucceed(virtual.Open(virtual.Config{
+		db = MustOpen(virtual.Open(virtual.Config{
 			Channel: channel.Channel{
-				Key:      dbKey,
+				Key:      GenerateChannelKey(),
 				Name:     "test",
 				DataType: telem.Int64T,
 				Virtual:  true,
 			},
 		}))
-	})
-
-	AfterEach(func() {
-		Expect(db.Close()).To(Succeed())
 	})
 
 	Describe("RenameChannel", func() {
@@ -63,8 +55,12 @@ var _ = Describe("DB Metadata Operations", func() {
 			Expect(db.LeadingControlState()).To(BeNil())
 		})
 
-		It("Should return the leading control state when there are writers open on the DB", func(ctx SpecContext) {
-			w, transfer := MustSucceed2(db.OpenWriter(virtual.WriterConfig{Start: 10 * telem.SecondTS, Authority: control.AuthorityAbsolute, Subject: control.Subject{Key: "foo"}}))
+		It("Should return the leading control state when there are writers open on the DB", func() {
+			w, transfer := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+				Start:     10 * telem.SecondTS,
+				Authority: control.AuthorityAbsolute,
+				Subject:   control.Subject{Key: "foo"},
+			}))
 			Expect(transfer.Occurred()).To(BeTrue())
 			Expect(db.LeadingControlState()).ToNot(BeNil())
 			Expect(db.LeadingControlState().Authority).To(Equal(control.AuthorityAbsolute))
@@ -89,7 +85,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			Expect(db.SetChannelKey(GenerateChannelKey())).To(MatchError(virtual.ErrDBClosed))
 		})
 
-		It("Should return an error when a DB is closed while writers are still accessing it", func(ctx SpecContext) {
+		It("Should return an error when a DB is closed while writers are still accessing it", func() {
 			db := MustSucceed(virtual.Open(virtual.Config{
 				Channel: channel.Channel{
 					Key:      GenerateChannelKey(),
@@ -98,7 +94,9 @@ var _ = Describe("DB Metadata Operations", func() {
 					Virtual:  true,
 				},
 			}))
-			writer, _ := MustSucceed2(db.OpenWriter(virtual.WriterConfig{Subject: control.Subject{Key: "string"}}))
+			writer, _ := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+				Subject: control.Subject{Key: "string"},
+			}))
 			Expect(db.Close()).To(MatchError(resource.ErrOpen))
 			_ = MustSucceed(writer.Close())
 			Expect(db.Close()).To(Succeed())

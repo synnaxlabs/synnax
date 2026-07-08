@@ -31,12 +31,7 @@ type WriterConfig struct {
 	Authority             xcontrol.Authority
 }
 
-var (
-	_                   config.Config[WriterConfig] = WriterConfig{}
-	DefaultWriterConfig                             = WriterConfig{
-		ErrOnUnauthorizedOpen: new(false),
-	}
-)
+var _ config.Config[WriterConfig] = WriterConfig{}
 
 func (cfg WriterConfig) Validate() error {
 	v := validate.New("virtual.writer_config")
@@ -81,7 +76,7 @@ func (db *DB) OpenWriter(cfgs ...WriterConfig) (w *Writer, transfer control.Tran
 		err = ErrDBClosed
 		return nil, transfer, db.wrapError(err)
 	}
-	cfg, err := config.New(DefaultWriterConfig, cfgs...)
+	cfg, err := config.New(WriterConfig{ErrOnUnauthorizedOpen: new(false)}, cfgs...)
 	if err != nil {
 		return nil, transfer, db.wrapError(err)
 	}
