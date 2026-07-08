@@ -18,6 +18,7 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
+import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
 
 const X_THRESHOLD = { x: 36, y: 24 };
 const Y_THRESHOLD = xy.swap(X_THRESHOLD);
@@ -78,7 +79,9 @@ export const Drawer = ({
       borderColor={5}
       {...rest}
     >
-      <Errors.Boundary>{collapsed ? null : children}</Errors.Boundary>
+      <Errors.Boundary FallbackComponent={ErrorDiagnostics}>
+        {collapsed ? null : children}
+      </Errors.Boundary>
     </Nav.Drawer>
   );
 };

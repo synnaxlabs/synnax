@@ -10,6 +10,7 @@
 import { Dialog, Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useCallback } from "react";
 
+import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
 import { type Session } from "@/session";
 
 interface ModalProps extends Session.Modals.Entry {}
@@ -23,7 +24,9 @@ export const Modal = memo(({ dismiss, render }: ModalProps): ReactElement => {
       onVisibleChange={handleDismiss}
       background={0}
     >
-      <Errors.SuspenseBoundary>{render()}</Errors.SuspenseBoundary>
+      <Errors.SuspenseBoundary FallbackComponent={ErrorDiagnostics}>
+        {render()}
+      </Errors.SuspenseBoundary>
     </Dialog.Frame>
   );
 });

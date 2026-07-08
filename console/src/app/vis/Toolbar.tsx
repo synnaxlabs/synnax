@@ -18,6 +18,7 @@ import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Empty } from "@/platform/empty";
+import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
 import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
@@ -67,7 +68,7 @@ const Content = (): ReactElement => {
   const Toolbar = TOOLBARS[layout.type as LayoutType];
   if (Toolbar == null) return <NoVis />;
   return (
-    <Errors.SuspenseBoundary>
+    <Errors.SuspenseBoundary FallbackComponent={ErrorDiagnostics}>
       <Toolbar layoutKey={layout.key} />
     </Errors.SuspenseBoundary>
   );

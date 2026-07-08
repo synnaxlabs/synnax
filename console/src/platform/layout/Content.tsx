@@ -10,6 +10,7 @@
 import { Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useCallback } from "react";
 
+import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
 import { useRenderer } from "@/platform/layout/context";
 import { useRemover } from "@/platform/layout/useRemover";
 import { Session } from "@/session";
@@ -30,6 +31,7 @@ export interface ContentProps {
 export const Content = memo(
   ({ layoutKey, forceHidden }: ContentProps): ReactElement => {
     const type = Session.Layout.useSelectType(layoutKey) ?? "";
+    const name = Session.Layout.useSelectName(layoutKey);
     const removeLayout = useRemover(layoutKey);
     const handleClose = useCallback(() => removeLayout(), [removeLayout]);
     const Renderer = useRenderer(type);
@@ -37,8 +39,14 @@ export const Content = memo(
     const isFocused = focused === layoutKey;
     let visible = focused == null || isFocused;
     if (forceHidden) visible = false;
+    const renderFallback = useCallback(
+      (props: Errors.FallbackProps) => (
+        <ErrorDiagnostics page={{ name, key: layoutKey }} {...props} />
+      ),
+      [name, layoutKey],
+    );
     return (
-      <Errors.SuspenseBoundary>
+      <Errors.SuspenseBoundary FallbackComponent={renderFallback}>
         <Renderer
           key={layoutKey}
           layoutKey={layoutKey}
