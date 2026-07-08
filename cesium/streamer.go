@@ -112,13 +112,13 @@ type streamer[I any, O any] struct {
 	relay             *relay
 	translateRequest  func(I) StreamerRequest
 	translateResponse func(StreamerResponse) O
-	// sendOpenAck indicates whether to emit an empty response once the streamer starts
-	// flowing.
-	sendOpenAck bool
 	// channels is the currently subscribed channel set. Stored atomically so
 	// SetChannels can apply updates synchronously while Flow's delivery loop reads the
 	// set on every frame.
 	channels atomic.Pointer[[]channel.Key]
+	// sendOpenAck indicates whether to emit an empty response once the streamer starts
+	// flowing.
+	sendOpenAck bool
 }
 
 // SetChannels implements Streamer.

@@ -38,8 +38,8 @@ const scanBufferSize = 64 * telem.Kilobyte
 // pointer at the time the table was built, used to invalidate the cache when a
 // subsequent write appends more data and extends the pointer's End.
 type offsetTable struct {
-	end         telem.TimeStamp
 	offsets     []uint32
+	end         telem.TimeStamp
 	sampleCount int64
 }
 
@@ -53,8 +53,8 @@ func (t *offsetTable) byteOffsetAt(sampleIdx int64) telem.Size {
 // once set, so they are stable cache keys even when other pointers are
 // inserted or removed before this one.
 type offsetCache struct {
-	mu     sync.RWMutex
 	tables map[telem.TimeStamp]*offsetTable
+	mu     sync.RWMutex
 }
 
 func newOffsetCache() *offsetCache {
@@ -158,16 +158,16 @@ func logTruncation(
 // variable-length channels carry a per-domain offset cache that is built on
 // first access by scanning the length-prefixed records.
 type offsetResolver struct {
-	// ins is the resolver's instrumentation handle. Used by tableFor's scan
-	// path to surface on-disk truncation warnings; otherwise unused.
-	ins     alamos.Instrumentation
-	density telem.Density
-	cache   *offsetCache // nil for fixed-density channels
 	// rebuilds collapses concurrent rebuilds of the same domain into a single
 	// scan. Callers that miss on the same start timestamp wait for the leader
 	// to finish and share its result rather than each opening their own reader
 	// and walking the same length prefixes. Unused for fixed-density channels.
 	rebuilds singleflight.Group
+	cache    *offsetCache // nil for fixed-density channels
+	// ins is the resolver's instrumentation handle. Used by tableFor's scan
+	// path to surface on-disk truncation warnings; otherwise unused.
+	ins     alamos.Instrumentation
+	density telem.Density
 }
 
 func newOffsetResolver(dt telem.DataType, ins alamos.Instrumentation) *offsetResolver {
@@ -290,9 +290,9 @@ type offsetTracker struct {
 	// resolver is the offsetResolver this tracker was created from. Used by publish to
 	// install committed offsets into the resolver's cache.
 	resolver *offsetResolver
-	// density is the sample density of the channel for fixed-density trackers; zero
-	// for variable-length trackers.
-	density telem.Density
+	// domainOffsets is the running list of per-sample byte offsets within the current
+	// domain for variable-length trackers; nil for fixed-density. Reset on rollover.
+	domainOffsets []uint32
 	// currentStart is the start timestamp of the domain currently being tracked.
 	// Updated to commitEnd on rollover so subsequent publishes target the new domain.
 	// Unused for fixed-density.
@@ -302,9 +302,9 @@ type offsetTracker struct {
 	// relative to the start of the current file. Reset on rollover. Unused for
 	// fixed-density.
 	domainBytes int64
-	// domainOffsets is the running list of per-sample byte offsets within the current
-	// domain for variable-length trackers; nil for fixed-density. Reset on rollover.
-	domainOffsets []uint32
+	// density is the sample density of the channel for fixed-density trackers; zero
+	// for variable-length trackers.
+	density telem.Density
 	// sessionSamples is the cumulative sample count for variable-length trackers
 	// across every domain in the controlled resource's lifetime. Used for alignment
 	// math and the end-timestamp lookup at commit time. Survives control handoff

@@ -32,6 +32,14 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool
+	// OnRollover is invoked from inside Commit when the writer transitions from one
+	// underlying file to the next, immediately after the new file is acquired and
+	// before Commit returns. commitEnd is the timestamp of the just-finished domain's
+	// end, which is also the start timestamp of the new domain. Callers use this hook
+	// to flush per-domain state that accumulates across writes (e.g., per-domain
+	// offset tables, per-domain sample counters) and reset it for the new domain.
+	// [OPTIONAL]
+	OnRollover func(commitEnd telem.TimeStamp)
 	// Start marks the starting bound of the domain. This starting bound must not
 	// overlap with any existing domains within the DB.
 	// [REQUIRED]
@@ -48,14 +56,6 @@ type WriterConfig struct {
 	// invalid if EnableAutoCommit is off.
 	// [OPTIONAL] Defaults to 1s
 	AutoIndexPersistInterval telem.TimeSpan
-	// OnRollover is invoked from inside Commit when the writer transitions from one
-	// underlying file to the next, immediately after the new file is acquired and
-	// before Commit returns. commitEnd is the timestamp of the just-finished domain's
-	// end, which is also the start timestamp of the new domain. Callers use this hook
-	// to flush per-domain state that accumulates across writes (e.g., per-domain
-	// offset tables, per-domain sample counters) and reset it for the new domain.
-	// [OPTIONAL]
-	OnRollover func(commitEnd telem.TimeStamp)
 }
 
 var (
@@ -126,6 +126,7 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err er
 // A Writer is not safe for concurrent use, but it is safe to have multiple writer and
 // iterators open concurrently over the same DB.
 type Writer struct {
+	WriterConfig
 	// internal is a TrackedWriteCloser used to write telemetry to FS.
 	internal io.TrackedWriteCloser
 	// onClose is called when the writer is closed.
@@ -135,7 +136,6 @@ type Writer struct {
 	// fc is the file controller for the writer's FS.
 	fc *fileController
 	alamos.Instrumentation
-	WriterConfig
 	// fileSize is the writer's file's size
 	fileSize telem.Size
 	// prevCommit is the timestamp for the previous Commit call made to the database.

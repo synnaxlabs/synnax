@@ -104,18 +104,18 @@ type WriterResponse struct {
 type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 
 type streamWriter struct {
+	WriterConfig
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
 	relay           confluence.Inlet[relayResponse]
 	accumulatedErr  error
-	errSent         bool
 	virtual         *virtualWriter
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
-	internal        []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
 	keyToIdx map[ChannelKey]*idxWriter
-	WriterConfig
+	internal []*idxWriter
+	errSent  bool
 }
 
 // Flow implements the confluence.Flow interface.
@@ -482,6 +482,12 @@ type unaryWriterState struct {
 // idxWriter is a writer to a set of channels that all share the same index.
 type idxWriter struct {
 	internal map[ChannelKey]*unaryWriterState
+	// dataAuth tracks the most recent control authority for each data channel in this
+	// group (i.e. the keys of internal excluding the index itself). Populated only when
+	// the streamWriter has AutoIndex enabled and writingToIdx is true; updated by
+	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
+	// authority as the max across its referencing data channels.
+	dataAuth map[ChannelKey]xcontrol.Authority
 	idx      struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		*index.Domain
@@ -515,12 +521,6 @@ type idxWriter struct {
 	// lastCommitEnd stores the end timestamp from the last successful commit,
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
-	// dataAuth tracks the most recent control authority for each data channel in this
-	// group (i.e. the keys of internal excluding the index itself). Populated only when
-	// the streamWriter has AutoIndex enabled and writingToIdx is true; updated by
-	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
-	// authority as the max across its referencing data channels.
-	dataAuth map[ChannelKey]xcontrol.Authority
 	// scanIdxPresent is a transient scratch field set during the single frame scan in
 	// streamWriter.autoStamp. True when the caller's frame already contains this
 	// idxWriter's index key (in which case no stamping is needed). Reset to false at
@@ -850,11 +850,11 @@ type virtualGroup struct {
 }
 
 type virtualWriter struct {
-	internal  map[ChannelKey]*virtual.Writer
-	digestKey channel.Key
+	internal map[ChannelKey]*virtual.Writer
 	// groups maps each virtual channel belonging to an index group to the group's
 	// shared alignment state. Channels without an index are absent.
-	groups map[ChannelKey]*virtualGroup
+	groups    map[ChannelKey]*virtualGroup
+	digestKey channel.Key
 }
 
 func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame, error) {
