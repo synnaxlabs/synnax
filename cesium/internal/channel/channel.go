@@ -12,7 +12,6 @@ package channel
 import (
 	"fmt"
 
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -31,22 +30,22 @@ type Channel struct {
 	// is never used to index or retrieve a channel.
 	//
 	// [REQUIRED]
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"name"`
 	// DataType is the type of data stored in the channel.
 	//
 	// [REQUIRED]
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	DataType telem.DataType `json:"data_type"`
 	// Key is a unique identifier to the channel within Cesium.
 	//
 	// [REQUIRED]
-	Key Key `json:"key" msgpack:"key"`
+	Key Key `json:"key"`
 	// Index is the key of the channel used to index the channel's values. The Index is
 	// used to associate a value in a data channel with a corresponding timestamp. For
 	// virtual channels, Index is optional and groups the channel with a virtual index
 	// channel for shared write alignment.
 	//
 	// [OPTIONAL if IsIndex or Virtual is true, REQUIRED otherwise]
-	Index Key `json:"index" msgpack:"index"`
+	Index Key `json:"index"`
 	// IsIndex determines whether the channel acts as an index channel. If false, then
 	// the channel is a data channel, and the Index field must be set to the key of an
 	// existing, valid index channel.
@@ -54,25 +53,22 @@ type Channel struct {
 	// [OPTIONAL]
 	IsIndex bool
 	// Virtual specifies whether the channel is virtual. Virtual channels do not store
-	// any data and do not require an index.
+	// any data and do not require an index. Their registration is kept purely in
+	// memory: nothing is written to the file system, and the channel ceases to exist
+	// when the database is closed. Because only non-virtual channels are ever
+	// persisted, the field is excluded from serialization.
 	//
 	// [OPTIONAL]
-	Virtual bool `json:"virtual" msgpack:"virtual"`
-	// Transient specifies whether the channel's registration is kept purely in memory:
-	// no directory or metadata is written to the file system, and the channel ceases to
-	// exist when the database is closed. Only virtual channels can be transient.
-	//
-	// [OPTIONAL]
-	Transient bool `json:"transient" msgpack:"transient"`
+	Virtual bool `json:"-"`
 	// Concurrency specifies the concurrency setting for the channel's controller
 	// (Exclusive or Shared).
 	//
 	// [OPTIONAL]
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	Concurrency control.Concurrency `json:"concurrency"`
 	// Version specifies the format of files stored in this channel.
 	//
 	// [OPTIONAL]
-	Version version.Version `json:"version" msgpack:"version"`
+	Version Version `json:"version"`
 }
 
 // String implements fmt.Stringer to return nicely formatted channel info.
@@ -114,7 +110,6 @@ func (c Channel) Validate() error {
 			v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")
 		}
 	} else {
-		v.Ternary("transient", c.Transient, "only virtual channels can be transient")
 		if c.IsIndex {
 			v.Ternary("data_type", c.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")

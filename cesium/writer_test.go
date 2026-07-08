@@ -1908,7 +1908,7 @@ var _ = Describe("Writer Behavior", func() {
 	}
 })
 
-var _ = Describe("Transient Channel Writes", func() {
+var _ = Describe("Virtual Channel Writes", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
@@ -1923,7 +1923,7 @@ var _ = Describe("Transient Channel Writes", func() {
 
 			It("Should validate series data types on write", func(ctx SpecContext) {
 				key := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx, transientChannel(key, "validated"))).To(Succeed())
+				Expect(db.CreateChannel(ctx, virtualChannel(key, "validated"))).To(Succeed())
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: []cesium.ChannelKey{key},
 					Start:    10 * telem.SecondTS,
@@ -2138,7 +2138,7 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 		It("Should leave alignment behavior for index-free virtual channels unchanged", func(ctx SpecContext) {
 			db := openDBOnFS(ctx, fs.NewMem())
 			key := GenerateChannelKey()
-			Expect(db.CreateChannel(ctx, transientChannel(key, "ungrouped"))).To(Succeed())
+			Expect(db.CreateChannel(ctx, virtualChannel(key, "ungrouped"))).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{key},
 				Start:    10 * telem.SecondTS,

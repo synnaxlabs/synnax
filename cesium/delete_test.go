@@ -340,10 +340,8 @@ var _ = Describe("Delete", func() {
 					})
 					It("Should delete a virtual channel", func(ctx SpecContext) {
 						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "VirtualChannel", Virtual: true, DataType: telem.Int64T})).To(Succeed())
-						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
-						Expect(db.DeleteChannel(key)).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
-						Eventually(fs.Exists).WithArguments(channelKeyToPath(key)).Should(BeFalse())
+						Expect(db.DeleteChannel(key)).To(Succeed())
 						for _, f := range MustSucceed(fs.List("")) {
 							Expect(f.Name()).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
@@ -826,7 +824,7 @@ var _ = Describe("Delete", func() {
 	}
 })
 
-var _ = Describe("Transient and Virtual Index Channel Deletion", func() {
+var _ = Describe("Virtual Channel Deletion", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
@@ -835,9 +833,9 @@ var _ = Describe("Transient and Virtual Index Channel Deletion", func() {
 				db = DeferClose(openDBOnFS(ctx, openFS()))
 			})
 
-			It("Should delete a transient channel without touching the file system", func(ctx SpecContext) {
+			It("Should delete a virtual channel without touching the file system", func(ctx SpecContext) {
 				key := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx, transientChannel(key, "deleted"))).To(Succeed())
+				Expect(db.CreateChannel(ctx, virtualChannel(key, "deleted"))).To(Succeed())
 				Expect(db.DeleteChannel(key)).To(Succeed())
 				Expect(db.RetrieveChannel(ctx, key)).Error().
 					To(MatchError(cesium.ErrChannelNotFound))

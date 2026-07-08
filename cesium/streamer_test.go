@@ -311,7 +311,7 @@ var _ = Describe("Streamer Behavior", func() {
 	}
 })
 
-var _ = Describe("Transient Channel Streaming", func() {
+var _ = Describe("Virtual Channel Streaming", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
@@ -326,7 +326,7 @@ var _ = Describe("Transient Channel Streaming", func() {
 
 			It("Should deliver written frames to streamers", func(ctx SpecContext) {
 				key := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx, transientChannel(key, "streamed"))).To(Succeed())
+				Expect(db.CreateChannel(ctx, virtualChannel(key, "streamed"))).To(Succeed())
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: []cesium.ChannelKey{key},
 					Start:    10 * telem.SecondTS,

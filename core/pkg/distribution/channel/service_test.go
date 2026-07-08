@@ -128,7 +128,24 @@ var _ = Describe("Service", Ordered, func() {
 	})
 })
 
-var _ = Describe("Startup Free Storage Registration", func() {
+var _ = Describe("Startup Virtual Storage Registration", func() {
+	// restartWithFreshTS restarts the node's distribution layer with the same
+	// key-value store but a fresh time-series engine, mirroring a process restart:
+	// the channel table survives on disk while virtual channel registrations do not.
+	restartWithFreshTS := func(
+		ctx context.Context,
+		c *mock.Cluster,
+		n mock.Node,
+		freshStorageCluster *storagemock.Cluster,
+	) *storage.Layer {
+		Expect(n.Layer.Close()).To(Succeed())
+		freshStorage := freshStorageCluster.Provision(ctx)
+		c.Provision(ctx, distribution.LayerConfig{
+			Storage: &storage.Layer{KV: n.Storage.KV, TS: freshStorage.TS},
+		})
+		return freshStorage
+	}
+
 	It("Should register free channels found in the channel table at startup", func(ctx SpecContext) {
 		freshStorageCluster := DeferClose(storagemock.NewCluster())
 		c := mock.NewCluster(ctx, 1)
@@ -141,17 +158,29 @@ var _ = Describe("Startup Free Storage Registration", func() {
 		}
 		Expect(n.Channel.Create(ctx, &ch)).To(Succeed())
 
-		// Restart the node's distribution layer with the same key-value store but a
-		// fresh time-series engine, mirroring a process restart: the channel table
-		// survives on disk while transient channel registrations do not.
-		Expect(n.Layer.Close()).To(Succeed())
-		freshStorage := freshStorageCluster.Provision(ctx)
-		c.Provision(ctx, distribution.LayerConfig{
-			Storage: &storage.Layer{KV: n.Storage.KV, TS: freshStorage.TS},
-		})
+		freshStorage := restartWithFreshTS(ctx, c, n, freshStorageCluster)
 		stored := MustSucceed(
 			freshStorage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
 		)
-		Expect(stored.Transient).To(BeTrue())
+		Expect(stored.Virtual).To(BeTrue())
+	})
+
+	It("Should register virtual channels leased to the node at startup", func(ctx SpecContext) {
+		freshStorageCluster := DeferClose(storagemock.NewCluster())
+		c := mock.NewCluster(ctx, 1)
+		n := c.Nodes[1]
+		ch := channel.Channel{
+			Name:        channel.NewRandomName(),
+			DataType:    telem.Int64T,
+			Virtual:     true,
+			Leaseholder: 1,
+		}
+		Expect(n.Channel.Create(ctx, &ch)).To(Succeed())
+
+		freshStorage := restartWithFreshTS(ctx, c, n, freshStorageCluster)
+		stored := MustSucceed(
+			freshStorage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+		)
+		Expect(stored.Virtual).To(BeTrue())
 	})
 })

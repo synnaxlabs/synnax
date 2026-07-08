@@ -170,17 +170,20 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
-	var freeChannels []Channel
+	// Virtual channels are never persisted by the storage layer, so every boot
+	// re-registers the ones this node serves writes for: free channels and virtual
+	// channels leased to this node.
+	var virtualChannels []Channel
 	if err = s.table.NewRetrieve().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			return c.Free(), nil
+			return c.Virtual && (c.Free() || c.Leaseholder == cfg.HostResolver.HostKey()), nil
 		})).
-		Entries(&freeChannels).
+		Entries(&virtualChannels).
 		Exec(ctx, cfg.ClusterDB); !ok(err, nil) {
 		return nil, err
 	}
 	if err = s.cfg.TSChannel.CreateChannel(
-		ctx, toStorage(freeChannels)...,
+		ctx, toStorage(virtualChannels)...,
 	); !ok(err, nil) {
 		return nil, err
 	}

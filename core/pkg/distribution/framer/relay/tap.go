@@ -131,8 +131,8 @@ func (t *tapper) updateDemands(d demand) map[node.Key]channel.Keys {
 	for _, d := range t.demands {
 		for _, k := range d {
 			nk := k.Lease()
-			// Free channels are registered transiently in every node's local storage,
-			// so their writes are served by the gateway tap.
+			// Free channels are registered in every node's local storage, so their
+			// writes are served by the gateway tap.
 			if nk.IsFree() {
 				nk = host
 			}

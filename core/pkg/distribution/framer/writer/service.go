@@ -341,8 +341,8 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		receiverAddresses []address.Address
 		routeSequencerTo  address.Address
 	)
-	// Free channels are registered as transient virtual channels in the local storage
-	// engine, so their writes ride the gateway branch.
+	// Free channels are registered as virtual channels in the local storage engine, so
+	// their writes ride the gateway branch.
 	batch.Gateway = append(batch.Gateway, batch.Free...)
 	var (
 		hasPeer    = len(batch.Peers) > 0

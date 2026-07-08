@@ -66,6 +66,30 @@ func Open(
 	return ch, nil
 }
 
+// ReadVirtualFlag reports whether the metadata file in fs was persisted for a virtual
+// channel by a previous version of cesium. Virtual channels are no longer persisted and
+// channel.Channel excludes the field from serialization, so the flag can only be read
+// through this probe. Returns false if no metadata file exists or the file cannot be
+// decoded; decode failures are reported with full context by the subsequent Open.
+func ReadVirtualFlag(ctx context.Context, fs fs.FS, codec encoding.Decoder) (virtual bool, err error) {
+	exists, err := fs.Exists(metaFile)
+	if err != nil || !exists {
+		return false, err
+	}
+	metaF, err := fs.Open(metaFile, os.O_RDONLY)
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Combine(err, metaF.Close()) }()
+	var probe struct {
+		Virtual bool `json:"virtual"`
+	}
+	if dErr := codec.DecodeStream(ctx, metaF, &probe); dErr != nil {
+		return false, err
+	}
+	return probe.Virtual, err
+}
+
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
 func Read(ctx context.Context, fs fs.FS, codec encoding.Decoder) (ch channel.Channel, err error) {

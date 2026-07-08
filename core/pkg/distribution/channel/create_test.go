@@ -141,7 +141,7 @@ var _ = Describe("Create", Ordered, func() {
 				ch.Leaseholder = node.KeyFree
 				ch.Virtual = true
 			})
-			It("Should create the channel with a transient storage registration", func(ctx SpecContext) {
+			It("Should create the channel with a virtual storage registration", func(ctx SpecContext) {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 				stored := MustSucceed(
@@ -151,7 +151,6 @@ var _ = Describe("Create", Ordered, func() {
 					),
 				)
 				Expect(stored.Virtual).To(BeTrue())
-				Expect(stored.Transient).To(BeTrue())
 			})
 		})
 
@@ -594,7 +593,7 @@ var _ = Describe("Create", Ordered, func() {
 			stored := MustSucceed(
 				cluster.Nodes[1].Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
 			)
-			Expect(stored.Transient).To(BeTrue())
+			Expect(stored.Virtual).To(BeTrue())
 		})
 		It("Should not re-create storage registrations when a free channel is retrieved by name", func(ctx SpecContext) {
 			ch := newFreeChannel()

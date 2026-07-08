@@ -1,7 +1,8 @@
-# 44 - Transient Channels and Free Write Unification
+# 44 - Runtime Virtual Channels and Free Write Unification
 
-**Feature Name**: Transient Channels and Free Write Unification <br /> **Status**: Draft
-<br /> **Start Date**: 2026-07-06 <br /> **Authors**: Patrick Dotson <br />
+**Feature Name**: Runtime Virtual Channels and Free Write Unification <br />
+**Status**: Draft <br /> **Start Date**: 2026-07-06 <br /> **Authors**: Patrick Dotson
+<br />
 
 # 0 - Summary
 
@@ -14,22 +15,24 @@ bespoke happens-before machinery, data-type validation for free writes depends e
 on whatever metadata the caller supplied, and the service layer resolves every channel
 on every writer open just to feed it all.
 
-This RFC unifies free writes with Cesium's existing virtual-channel engine by
-introducing **transient channels**: channels registered in a node's Cesium at runtime
-whose metadata is never persisted to the file system. Free channels are provisioned
-lazily into each node's local Cesium as transient virtual channels. Free writes then
-flow through the standard gateway write path, gaining Cesium's data-type validation,
-shared-concurrency control, and streaming for free — because Cesium's virtual writer
-already implements everything `free.go` reimplements by hand, usually in a more complete
-form.
+This RFC unifies free writes with Cesium's existing virtual-channel engine by making
+**every virtual channel a runtime-only registration**: Cesium never persists virtual
+channel metadata to the file system, and a virtual registration vanishes with the
+process. The distribution metadata store (Aspen) is the sole authoritative record; each
+node re-registers the virtual channels it serves writes for — free channels and virtual
+channels leased to it — from the channel table at boot, and registers new ones at
+create time. Free writes then flow through the standard gateway write path, gaining
+Cesium's data-type validation, shared-concurrency control, and streaming for free —
+because Cesium's virtual writer already implements everything `free.go` reimplements by
+hand, usually in a more complete form.
 
-The prerequisite work is confined to Cesium: (1) transient registration, which hoists
-metadata persistence out of the virtual engine and into the channel registry; and (2)
-indexed virtual channels with a shared per-index-group alignment allocator, reproducing
-`free.go`'s alignment semantics. Once free writes ride the gateway path, the
-distribution layer deletes `free.go`, the relay's free-write tap and pipeline, and the
-writer's entry-node validator, and the distribution writer config collapses to `Keys`
-alone — the Go API and the wire format finally agree.
+The prerequisite work is confined to Cesium: (1) removing virtual metadata persistence
+entirely, leaving the virtual engine purely in-memory and the registry persisting only
+stored channels; and (2) indexed virtual channels with a shared per-index-group
+alignment allocator, reproducing `free.go`'s alignment semantics. Once free writes ride
+the gateway path, the distribution layer deletes `free.go`, the relay's free-write tap
+and pipeline, and the writer's entry-node validator, and the distribution writer config
+collapses to `Keys` alone — the Go API and the wire format finally agree.
 
 # 1 - Vocabulary
 
@@ -38,9 +41,8 @@ alone — the Go API and the wire format finally agree.
   signals such as status and control-state channels.
 - **Virtual channel** - a channel that stores no data. Writes flow through a control
   gate and out to streamers, but never touch disk. Cesium implements these in
-  `cesium/internal/virtual`.
-- **Transient channel** (new) - a channel registered in Cesium's in-memory registry with
-  no meta file on the file system. A transient registration vanishes on restart.
+  `cesium/internal/virtual`. Under this RFC, a virtual channel's registration is also
+  purely in-memory: no meta file is written, and the registration vanishes on restart.
 - **Leading alignment** - the upper 32 bits of a `telem.Alignment`, identifying a write
   domain. Alignments at or above `ZeroLeadingAlignment` mark domains with no persisted
   counterpart.
@@ -125,8 +127,8 @@ entry node, and the metadata had to be hoisted with it.
 
 ## 3.0 - Overview
 
-Free channels become transient virtual channels in each node's local Cesium, provisioned
-lazily by the service layer on first write. Free writes route through the gateway write
+Free channels become virtual channels in each node's local Cesium, registered from the
+channel table at boot and at create time. Free writes route through the gateway write
 branch like any other locally-serviced key. The relay's gateway tap picks them up
 through the standard Cesium streamer.
 
@@ -142,7 +144,8 @@ stream: relay ┬→ gateway tap → Cesium streamer
 After:
 
 ```
-write:  client → service (provision free keys if absent) → dist writer → gateway → Cesium
+boot:   channel table scan → register local virtual channels in Cesium
+write:  client → dist writer → gateway → Cesium
 stream: relay → gateway tap → Cesium streamer
 ```
 
@@ -151,37 +154,30 @@ demands route by `key.Lease()` (`relay/tap.go:115`), so a streamer only ever see
 writes that entered through its own node. Hosting free channels in each node's local
 Cesium reproduces that behavior exactly.
 
-## 3.1 - Cesium: Transient Channels
+## 3.1 - Cesium: Virtual Channels Are Never Persisted
 
-The virtual engine's only file-system dependency is metadata bookkeeping: `meta.Open` at
-open (`virtual/db.go:113`) and `meta.Create` in `RenameChannel` and
-`SetChannelKeyInMeta` (`virtual/db.go:171,184`). The controller, gates, alignment
-counters, and open-writer tracking are all in-memory. At the DB level, persistence is
-the per-channel directory created in `openVirtualOrUnary` (`open.go:132`), the restart
-rehydration scan (`open.go:69`), and directory removal on delete (`delete.go:118-127`).
-The runtime registry is the in-memory `db.mu.dbs.virtual` map, and every runtime
-consumer — the streaming relay, retrieve, writer opens, delete — operates on the map,
-not the FS.
+The virtual engine's only file-system dependency was metadata bookkeeping. The
+controller, gates, alignment counters, and open-writer tracking are all in-memory. The
+runtime registry is the in-memory `db.mu.dbs.virtual` map, and every runtime consumer —
+the streaming relay, retrieve, writer opens, delete — operates on the map, not the FS.
 
 The change:
 
-1. **Hoist metadata persistence out of the virtual engine.** `meta.Open`/`meta.Create`
-   move from `internal/virtual` up to Cesium's registry layer (`open.go` and the channel
-   CRUD paths). `virtual.DB` becomes a pure in-memory component that does not know
-   whether it is persisted. This is better layering independent of this RFC: the meta
-   file is registry state, not writer-engine state.
-2. **Add a `Transient` flag** to the Cesium channel, validated as virtual-only. On the
-   create path, a transient channel skips `fs.Sub` and the meta write and is registered
-   in `db.mu.dbs.virtual` only. The flag can never round-trip through a meta file
-   because transient channels never write one; the rehydration scan cannot produce a
-   transient channel by construction.
-3. **Branch lifecycle at the registry.** Delete removes a transient channel from the map
-   with no directory cleanup. Rename mutates the in-memory record with no meta rewrite.
+1. **Virtual channels never touch the file system.** The create path registers a
+   virtual channel in `db.mu.dbs.virtual` only — no `fs.Sub`, no meta write. Delete
+   removes it from the map with no directory cleanup; rename and rekey mutate the
+   in-memory record. `virtual.DB` is a pure in-memory component, and the `Virtual`
+   field is excluded from meta serialization entirely (`json:"-"`) — only stored
+   channels are ever written to disk.
+2. **Legacy directories are removed at open.** Previous versions persisted a meta file
+   for virtual channels. The boot rehydration scan probes each channel directory's meta
+   for the legacy virtual flag (`meta.ReadVirtualFlag`) and deletes the directory
+   rather than opening it; the caller re-registers the channels it needs (§3.3).
 
-Restart semantics are the point, not a caveat: transient registrations vanish with the
+Restart semantics are the point, not a caveat: virtual registrations vanish with the
 process, which is correct because Cesium was never the authoritative record for these
-channels — the distribution metadata store (Aspen) is. Lazy provisioning (§3.3)
-recreates them on first touch.
+channels — the distribution metadata store (Aspen) is. Boot-time registration (§3.3)
+recreates them.
 
 ## 3.2 - Cesium: Indexed Virtual Channels
 
@@ -208,29 +204,30 @@ happened to pass through the same distribution service instance.
 Alignment state is in-memory in both designs, so restart resets it in both designs.
 `ZeroLeadingAlignment` exists precisely to mark such domains.
 
-## 3.3 - Core: Lazy Provisioning
+## 3.3 - Core: Boot-Time Registration
 
-Free keys are identifiable from the key alone — `key.Lease() == node.KeyFree` — with no
-metadata lookup. At service-layer writer open, for each free key not present in the
-local Cesium, the service creates a transient virtual channel from local channel
-metadata. Every node holds the full channel metadata via Aspen, so provisioning never
-leaves the node.
+Since virtual registrations do not survive a restart, the channel service re-creates
+them when it opens: `OpenService` scans the channel table once and registers every
+virtual channel the node serves writes for — free channels (registered on every node,
+since any node accepts free writes) and virtual channels leased to this node (writes
+for channels leased elsewhere always route to their leaseholder, which holds its own
+registration). New channels are registered at create time on the same node set, so the
+boot scan and the create path are the only two storage-registration points.
 
 Storage-key collision is impossible by construction: the storage key is the full
-distribution key verbatim (`distribution/channel/channel.go:56`), and the leaseholder
-bits embedded in it make free-channel keys disjoint from every node's locally-leased
-keys.
+distribution key verbatim (`distribution/channel/channel.go:56`), the boot scan runs
+against a registry that is empty of virtual channels, and legacy on-disk virtual
+directories are removed by Cesium before the scan's creates execute (§3.1).
 
-Streamers require no provisioning at all. The Cesium streamer's key set is a pure filter
-(`cesium/streamer.go:134`): demanding a channel that does not exist locally yields no
-error and no frames, and frames begin flowing the moment a writer provisions the channel
-and writes. This matches today's behavior, where a free streamer with no matching writer
-simply receives nothing.
+Streamers require no registration at all. The Cesium streamer's key set is a pure
+filter (`cesium/streamer.go:134`): demanding a channel that does not exist locally
+yields no error and no frames, and frames begin flowing the moment a writer's channel
+is registered and written. This matches today's behavior, where a free streamer with no
+matching writer simply receives nothing.
 
-Deletes and renames need no cross-node coordination. A rename is picked up on the next
-lazy provision (or applied to the local registration in-memory by the node that
-processes it); a delete removes the local registration where present, and any node that
-never provisioned the channel has nothing to clean up. Restart clears everything.
+Deletes and renames need no cross-node coordination: they apply to the local
+registration where present, and a node that never registered the channel has nothing to
+clean up. Restart clears everything and the boot scan rebuilds it.
 
 ## 3.4 - Distribution: Free Writes Become Gateway Writes
 
@@ -254,9 +251,8 @@ Deleted outright:
   config becomes `Keys` plus the existing behavioral knobs, matching what the wire
   already carries.
 
-The service-layer writer shim stops resolving channels on every open. Its remaining job
-is the free-key provisioning check, which is skipped entirely when no key is free — the
-common case pays nothing.
+The service-layer writer shim stops resolving channels on every open entirely: virtual
+registration happens at boot and at create time (§3.3), so writer open pays nothing.
 
 ## 3.5 - Behavior Preservation
 
@@ -288,36 +284,39 @@ common case pays nothing.
   writer rather than the entry-node validator. Failure semantics through the writer are
   unchanged; for peer writes the redundant entry-node pre-check disappears, so a type
   error is reported after the network hop rather than before it.
-- **Transient channels appear in Cesium channel listings.** Anything that enumerates
-  Cesium channels (`RetrieveChannels`, metrics, debugging tooling) will see transient
-  entries that vanish on restart. An audit is required for any consumer that assumes
-  Cesium's channel set is persistent or reconciles it against distribution metadata.
-- **No migration.** Free channels have no Cesium state today; transient registration
-  writes none. The change is invisible to existing data directories.
+- **Virtual entries in Cesium channel listings vanish on restart.** Anything that
+  enumerates Cesium channels (`RetrieveChannels`, metrics, debugging tooling) will see
+  virtual entries only after the boot scan re-registers them. An audit is required for
+  any consumer that assumes Cesium's channel set is persistent or reconciles it against
+  distribution metadata.
+- **Legacy virtual directories are deleted on first open.** Existing data directories
+  contain meta files persisted for virtual channels by previous versions. Cesium
+  removes them during the boot rehydration scan; the channel table remains the source
+  of truth and the boot scan re-registers the channels. This is the change's only
+  migration, and it is destructive only of state that is now derivable.
 
 # 5 - Implementation Plan
 
 Each phase is independently shippable; phases 0–1 are confined to the `cesium` module
 and change no core behavior.
 
-- **Phase 0 - Transient registration.** Hoist `meta.*` out of `internal/virtual` into
-  the registry layer; add the `Transient` flag, creation/delete/rename branches, and
-  validation.
+- **Phase 0 - Runtime-only virtual registration.** Remove virtual metadata persistence
+  from Cesium: virtual channels register in memory only, the `Virtual` field is
+  excluded from serialization, and the boot scan removes legacy virtual directories.
 - **Phase 1 - Indexed virtual channels.** Lift the index restriction for virtual index
   groups; implement the shared per-group alignment allocator on the index channel's DB;
   port `free.go`'s alignment tests into Cesium.
-- **Phase 2 - Core cutover.** Lazily provision free keys at service-layer writer open;
-  route free keys down the gateway branch; delete `free.go`, the `FreeWrites` pipeline,
-  the `freeWriteTap` and free-specific `SendOpenAck` machinery, the distribution
-  validator, and `Config.Channels`; shrink the service-layer shim to the provisioning
-  check.
+- **Phase 2 - Core cutover.** Register local virtual channels from the channel table at
+  boot and at create time; route free keys down the gateway branch; delete `free.go`,
+  the `FreeWrites` pipeline, the `freeWriteTap` and free-specific `SendOpenAck`
+  machinery, the distribution validator, and `Config.Channels`.
 
 # 6 - Future Work
 
 - **Cross-node free streaming.** Free writes remain visible only on their entry node. If
   cluster-wide free fan-out is ever wanted, it becomes a relay-level concern (peer taps
   for free demands) and is orthogonal to where free writes are hosted.
-- **Persisting transient-channel alignment across restarts** is explicitly a non-goal;
+- **Persisting virtual-channel alignment across restarts** is explicitly a non-goal;
   `ZeroLeadingAlignment` marks these domains as non-continuous by design.
 - **RFC 0041 interplay.** This RFC removes the framer's last dependency on
   distribution-layer channel metadata, which simplifies the layer realignment in RFC
