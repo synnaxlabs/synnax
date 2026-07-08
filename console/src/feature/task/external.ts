@@ -27,6 +27,7 @@ import { Task } from "@/platform/task";
 
 export * from "@/feature/task/layouts";
 export * from "@/feature/task/link";
+export * from "@/feature/task/notifications";
 export * from "@/feature/task/ontology";
 export * from "@/feature/task/Selector";
 export * from "@/feature/task/Toolbar";

@@ -9,7 +9,7 @@
 
 import { type PropsWithChildren, type ReactNode } from "react";
 
-import { Splash } from "@/platform/project/Splash";
+import { Splash } from "@/feature/project/Splash";
 import { Session } from "@/session";
 
 export const Guard = ({ children }: PropsWithChildren): ReactNode =>

@@ -74,4 +74,113 @@ describe("Notifications", () => {
     ]);
     expect(screen.queryByText("Should not appear")).toBeNull();
   });
+
+  describe("matchVariants", () => {
+    const loadingOrSuccess = Notifications.createSuppressed(
+      Notifications.matchVariants("loading", "success"),
+    );
+
+    it("matches a status whose variant is in the list", async () => {
+      await addStatus({ key: "n1", variant: "success", message: "Done" }, [
+        loadingOrSuccess,
+      ]);
+      expect(screen.queryByText("Done")).toBeNull();
+    });
+
+    it("does not match a status whose variant is absent from the list", async () => {
+      await addStatus({ key: "n1", variant: "error", message: "Failed" }, [
+        loadingOrSuccess,
+      ]);
+      expect(screen.getByText("Failed")).toBeTruthy();
+    });
+  });
+
+  describe("matchPrefix", () => {
+    const rackPrefix = Notifications.createSuppressed(
+      Notifications.matchPrefix("rack"),
+    );
+
+    it("matches a status whose key starts with the prefix", async () => {
+      await addStatus({ key: "rack.heartbeat", variant: "info", message: "Rack" }, [
+        rackPrefix,
+      ]);
+      expect(screen.queryByText("Rack")).toBeNull();
+    });
+
+    it("does not match a status whose key lacks the prefix", async () => {
+      await addStatus({ key: "device.heartbeat", variant: "info", message: "Device" }, [
+        rackPrefix,
+      ]);
+      expect(screen.getByText("Device")).toBeTruthy();
+    });
+  });
+
+  describe("composeMatchers", () => {
+    const both = Notifications.createSuppressed(
+      Notifications.composeMatchers(
+        Notifications.matchPrefix("rack"),
+        Notifications.matchVariants("success"),
+      ),
+    );
+
+    it("matches when every composed matcher matches", async () => {
+      await addStatus(
+        { key: "rack.heartbeat", variant: "success", message: "Rack ok" },
+        [both],
+      );
+      expect(screen.queryByText("Rack ok")).toBeNull();
+    });
+
+    it("does not match when only some composed matchers match", async () => {
+      await addStatus(
+        { key: "rack.heartbeat", variant: "error", message: "Rack failed" },
+        [both],
+      );
+      expect(screen.getByText("Rack failed")).toBeTruthy();
+    });
+
+    it("matches everything when composed with no matchers", async () => {
+      const vacuous = Notifications.createSuppressed(Notifications.composeMatchers());
+      await addStatus({ key: "anything", variant: "info", message: "Anything" }, [
+        vacuous,
+      ]);
+      expect(screen.queryByText("Anything")).toBeNull();
+    });
+  });
+
+  describe("createSuppressRoutineForPrefix", () => {
+    const rackRoutine = Notifications.createSuppressRoutineForPrefix("rack");
+
+    it("suppresses a loading status with a matching key prefix", async () => {
+      await addStatus(
+        { key: "rack.heartbeat", variant: "loading", message: "Heartbeat pending" },
+        [rackRoutine],
+      );
+      expect(screen.queryByText("Heartbeat pending")).toBeNull();
+    });
+
+    it("suppresses a success status with a matching key prefix", async () => {
+      await addStatus(
+        { key: "rack.heartbeat", variant: "success", message: "Heartbeat ok" },
+        [rackRoutine],
+      );
+      expect(screen.queryByText("Heartbeat ok")).toBeNull();
+    });
+
+    it("does not suppress a matching prefix with a non-routine variant", async () => {
+      await addStatus(
+        { key: "rack.heartbeat", variant: "error", message: "Heartbeat failed" },
+        [rackRoutine],
+      );
+      expect(screen.getByText("Heartbeat failed")).toBeTruthy();
+    });
+
+    it("does not suppress a routine variant with a different key prefix", async () => {
+      await addStatus(
+        { key: "device.heartbeat", variant: "success", message: "Device ok" },
+        [rackRoutine],
+      );
+      expect(screen.getByText("Device ok")).toBeTruthy();
+    });
+  });
 });

@@ -12,7 +12,7 @@ import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Project } from "@/platform/project";
+import { Project } from "@/feature/project";
 import { createSavedLayout } from "@/platform/project/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";

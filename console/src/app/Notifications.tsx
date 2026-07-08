@@ -11,22 +11,16 @@ import { type ReactElement } from "react";
 
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
+import { Rack } from "@/feature/rack";
+import { Task } from "@/feature/task";
+import { Version } from "@/feature/version";
 import { Notifications as Base } from "@/platform/notifications";
-import { Version } from "@/platform/version";
-
-const suppressRoutine = (prefix: string): Base.Notification =>
-  Base.createSuppressed(
-    (status) =>
-      (status.variant === "success" || status.variant === "loading") &&
-      status.key.startsWith(prefix),
-  );
 
 const NOTIFICATIONS: Base.Notification[] = [
-  suppressRoutine("rack"),
-  suppressRoutine("device"),
-  suppressRoutine("task"),
   ...Cluster.NOTIFICATIONS,
   ...Device.NOTIFICATIONS,
+  ...Rack.NOTIFICATIONS,
+  ...Task.NOTIFICATIONS,
   ...Version.NOTIFICATIONS,
 ];
 
