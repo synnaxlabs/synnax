@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Errors, Icon } from "@synnaxlabs/pluto";
-import { type FC, type ReactElement } from "react";
+import { type FC, type ReactElement, useCallback } from "react";
 
 import { createSelectorLayout, useSelectorVisible } from "@/app/vis/Selector";
 import { type LayoutType } from "@/app/vis/types";
@@ -64,11 +64,20 @@ const NoVis = (): ReactElement => {
 
 const Content = (): ReactElement => {
   const layout = Session.Layout.useSelectActiveMosaicLayout();
+  const renderFallback = useCallback(
+    (props: Errors.FallbackProps) => (
+      <ErrorDiagnostics
+        page={layout == null ? undefined : { name: layout.name, key: layout.key }}
+        {...props}
+      />
+    ),
+    [layout],
+  );
   if (layout == null) return <NoVis />;
   const Toolbar = TOOLBARS[layout.type as LayoutType];
   if (Toolbar == null) return <NoVis />;
   return (
-    <Errors.SuspenseBoundary FallbackComponent={ErrorDiagnostics}>
+    <Errors.SuspenseBoundary FallbackComponent={renderFallback}>
       <Toolbar layoutKey={layout.key} />
     </Errors.SuspenseBoundary>
   );
