@@ -289,8 +289,8 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 }
 
 // validateSeries checks that every series in fr targets a channel the writer is
-// responsible for and has a structurally valid data buffer for its declared data
-// type (see telem.Series.Validate), rejecting the write before any data is applied.
+// responsible for and has a structurally valid data buffer for its declared data type
+// (see telem.Series.Validate), rejecting the write before any data is applied.
 func (w *streamWriter) validateSeries(fr Frame) error {
 	for i, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(i) {
@@ -838,10 +838,10 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 	return w.idx.Stamp(ctx, w.start, w.sampleCount-1, true)
 }
 
-// virtualGroup tracks the shared write alignment for an index group of virtual
-// channels within a single writer. Every member of the group is stamped with the
-// group's current alignment, and writes to the group's index channel advance the
-// sample position, so series written across the group correlate sample-for-sample.
+// virtualGroup tracks the shared write alignment for an index group of virtual channels
+// within a single writer. Every member of the group is stamped with the group's current
+// alignment, and writes to the group's index channel advance the sample position, so
+// series written across the group correlate sample-for-sample.
 type virtualGroup struct {
 	// indexKey is the key of the group's index channel.
 	indexKey ChannelKey

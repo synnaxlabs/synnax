@@ -169,12 +169,11 @@ var _ = Describe("Virtual Channels On Reopen", func() {
 				)).To(Succeed())
 				Expect(restartDB.Close()).To(Succeed())
 
-				restartDB = openDBOnFS(ctx, subFS)
+				restartDB = mustOpenDBOnFS(ctx, subFS)
 				Expect(restartDB.RetrieveChannel(ctx, virtualKey)).Error().
 					To(MatchError(cesium.ErrChannelNotFound))
 				ch := MustSucceed(restartDB.RetrieveChannel(ctx, storedKey))
 				Expect(ch.Name).To(Equal("kept_on_restart"))
-				Expect(restartDB.Close()).To(Succeed())
 			})
 
 			It("Should remove directories persisted for virtual channels by previous versions", func(ctx SpecContext) {
@@ -188,11 +187,10 @@ var _ = Describe("Virtual Channels On Reopen", func() {
 				)))
 				Expect(f.Close()).To(Succeed())
 
-				db := openDBOnFS(ctx, subFS)
+				db := mustOpenDBOnFS(ctx, subFS)
 				Expect(db.RetrieveChannel(ctx, key)).Error().
 					To(MatchError(cesium.ErrChannelNotFound))
 				Expect(subFS.Exists(channelKeyToPath(key))).To(BeFalse())
-				Expect(db.Close()).To(Succeed())
 			})
 		})
 	}
