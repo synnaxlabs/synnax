@@ -10,7 +10,15 @@
  */
 
 .pluto-input-symbol {
-    --pluto-border-color: var(--pluto-gray-l7-40);
+    --pluto-border-color: var(--pluto-symbol-display);
+
+    & .pluto-btn--filled {
+        --pluto-bg: var(--pluto-symbol-display);
+        --pluto-hover-bg: oklch(from var(--pluto-symbol-display) l c h / 85%);
+        --pluto-active-bg: oklch(from var(--pluto-symbol-display) l c h / 60%);
+        --pluto-border-color: var(--pluto-symbol-display);
+        --pluto-btn-text-color: var(--pluto-symbol-contrast);
+    }
 
     .pluto-input {
         width: min-content;

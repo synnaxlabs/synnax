@@ -10,7 +10,7 @@
  */
 
 .pluto-setpoint {
-    --pluto-border-color: var(--pluto-gray-l7-40);
+    --pluto-border-color: var(--pluto-symbol-display);
 
     .pluto-input {
         width: min-content;

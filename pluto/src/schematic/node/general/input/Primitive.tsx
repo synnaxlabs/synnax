@@ -17,6 +17,7 @@ import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/input/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface PrimitiveProps extends Omit<Config, "variant"> {
   initialValue?: string;
@@ -37,7 +38,8 @@ export const Input = ({
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS(CSS.B("input-symbol"), className)}
+      className={CSS(CSS.B("input-symbol"), CSS.B("symbol-colored"), className)}
+      style={{ [CSS.var("symbol-color")]: symbolColorVar(color) }}
     >
       <Handle.Rectangle
         orientation={orientation}
@@ -52,13 +54,11 @@ export const Input = ({
         size={size}
         borderWidth={1}
         disabled={disabled}
-        color={color}
       >
         <BaseButton.Button
           size={size}
           variant="filled"
           onClick={() => onSend?.(value)}
-          color={color}
         >
           Send
         </BaseButton.Button>
