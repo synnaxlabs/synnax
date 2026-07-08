@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/project/Selector.css";
+import "@/feature/project/Selector.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
 import {
@@ -27,7 +27,7 @@ import {
 import { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { useCreateModal } from "@/platform/project/useCreateModal";
+import { Project as PlatformProject } from "@/platform/project";
 import { Session } from "@/session";
 
 const listItem = Component.renderProp(
@@ -49,7 +49,7 @@ export const Selector = (): ReactElement | null => {
   const client = Synnax.use();
   const dispatch = Session.useDispatch();
   const activeKey = Session.Project.useSelectSelected();
-  const openCreate = useCreateModal();
+  const openCreate = PlatformProject.useCreateModal();
   const [dialogVisible, setDialogVisible] = useState(false);
   const { data, retrieve, getItem, subscribe } = Project.useList();
   const active = getItem(activeKey);

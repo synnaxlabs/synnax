@@ -7,4 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Rack from "@/feature/rack/external";
+export * from "@/feature/rack/notifications";
+export * from "@/feature/rack/tree";

@@ -13,7 +13,7 @@ import { id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Project } from "@/platform/project";
+import { Project } from "@/feature/project";
 import { Session } from "@/session";
 import { renderHookWithConsole, renderWithConsole } from "@/testutil";
 

@@ -9,6 +9,7 @@
 
 import "@/platform/notifications/Feed.css";
 
+import { type status } from "@synnaxlabs/client";
 import { Flex, Status } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 import { createPortal } from "react-dom";
@@ -20,8 +21,12 @@ export interface NotificationProps {
   silence: (key: string) => void;
 }
 
+export type Matcher = (
+  status: Status.NotificationSpec & { details?: unknown },
+) => boolean;
+
 export interface Notification extends FC<NotificationProps> {
-  match: (status: Status.NotificationSpec & { details?: unknown }) => boolean;
+  match: Matcher;
 }
 
 const Default: Notification = ({ status, silence }) => (
@@ -29,11 +34,31 @@ const Default: Notification = ({ status, silence }) => (
 );
 Default.match = () => true;
 
-export const createSuppressed = (match: Notification["match"]): Notification => {
+export const createSuppressed = (match: Matcher): Notification => {
   const Suppressed: Notification = () => null;
   Suppressed.match = match;
   return Suppressed;
 };
+
+export const matchVariants =
+  (...variants: status.Variant[]): Matcher =>
+  (stat: Status.NotificationSpec) =>
+    variants.includes(stat.variant);
+
+export const matchPrefix =
+  (prefix: string): Matcher =>
+  (stat: Status.NotificationSpec) =>
+    stat.key.startsWith(prefix);
+
+export const composeMatchers =
+  (...matchers: Matcher[]): Matcher =>
+  (stat: Status.NotificationSpec) =>
+    matchers.every((m) => m(stat));
+
+export const createSuppressRoutineForPrefix = (prefix: string): Notification =>
+  createSuppressed(
+    composeMatchers(matchPrefix(prefix), matchVariants("success", "loading")),
+  );
 
 interface FeedProps {
   notifications: Notification[];
