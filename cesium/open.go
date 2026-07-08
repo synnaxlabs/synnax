@@ -83,10 +83,10 @@ func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 		return nil
 	}
 	v, err := virtual.Open(ctx, virtual.Config{
+		MetaCodec:       db.metaCodec,
+		FS:              fs,
 		Channel:         ch,
 		Instrumentation: db.Instrumentation,
-		FS:              fs,
-		MetaCodec:       db.metaCodec,
 	})
 	if err != nil {
 		return err
