@@ -71,7 +71,11 @@ func Open(
 // channel.Channel excludes the field from serialization, so the flag can only be read
 // through this probe. Returns false if no metadata file exists or the file cannot be
 // decoded; decode failures are reported with full context by the subsequent Open.
-func ReadVirtualFlag(ctx context.Context, fs fs.FS, codec encoding.Decoder) (virtual bool, err error) {
+func ReadVirtualFlag(
+	ctx context.Context,
+	fs fs.FS,
+	decoder encoding.Decoder,
+) (virtual bool, err error) {
 	exists, err := fs.Exists(metaFile)
 	if err != nil || !exists {
 		return false, err
@@ -84,10 +88,10 @@ func ReadVirtualFlag(ctx context.Context, fs fs.FS, codec encoding.Decoder) (vir
 	var probe struct {
 		Virtual bool `json:"virtual"`
 	}
-	if dErr := codec.DecodeStream(ctx, metaF, &probe); dErr != nil {
+	if err := decoder.DecodeStream(ctx, metaF, &probe); err != nil {
 		return false, err
 	}
-	return probe.Virtual, err
+	return probe.Virtual, nil
 }
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
