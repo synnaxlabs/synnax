@@ -32,7 +32,7 @@ import (
 
 type benchEnv struct {
 	ctx           context.Context
-	dist          mock.Node
+	node          mock.Node
 	closer        io.MultiCloser
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
@@ -40,8 +40,8 @@ type benchEnv struct {
 
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
-	dist := mock.OpenNode(b.Context())
-	otg, err := ontology.Open(b.Context(), ontology.Config{DB: dist.DB})
+	node := mock.OpenNode(b.Context())
+	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
 	if err != nil {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
@@ -52,7 +52,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	}
 
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
-		DB:       dist.DB,
+		DB:       node.DB,
 		Ontology: otg,
 		Search:   searchIdx,
 	})
@@ -61,22 +61,22 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	}
 
 	labelSvc := MustSucceed(label.OpenService(b.Context(), label.ServiceConfig{
-		DB:       dist.DB,
+		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
-		DB:       dist.DB,
+		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      dist.Channel,
-		DB:           dist.DB,
-		HostResolver: dist.Cluster,
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Search:       searchIdx,
@@ -84,11 +84,11 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	}))
 	return &benchEnv{
 		ctx:           b.Context(),
-		dist:          dist,
+		node:          node,
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),
 		closer: io.MultiCloser{
-			dist, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+			node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
 	}
 }
