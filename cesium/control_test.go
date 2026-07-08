@@ -89,9 +89,8 @@ var _ = Describe("Control", func() {
 
 	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, Ordered, func() {
-			var (
-				fs fs.FS
-			)
+			var fs fs.FS
+
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
 				fs = openFS()

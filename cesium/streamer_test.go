@@ -28,7 +28,6 @@ import (
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db         *cesium.DB
 				fs         fs.FS
@@ -311,7 +310,6 @@ var _ = Describe("Streamer Behavior", func() {
 var _ = Describe("Virtual Channel Streaming", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()

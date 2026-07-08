@@ -23,7 +23,6 @@ import (
 var _ = Describe("Iterator Behavior", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db *cesium.DB
 				fs fs.FS

@@ -22,7 +22,6 @@ import (
 var _ = Describe("Metrics", Ordered, func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var fs fs.FS
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()

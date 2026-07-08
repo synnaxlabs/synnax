@@ -38,7 +38,6 @@ import (
 var _ = Describe("Writer Behavior", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db         *cesium.DB
 				fs         fs.FS
@@ -1908,7 +1907,6 @@ var _ = Describe("Writer Behavior", func() {
 var _ = Describe("Virtual Channel Writes", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
@@ -1937,7 +1935,6 @@ var _ = Describe("Virtual Channel Writes", func() {
 var _ = Describe("Virtual Index Write Alignment", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()

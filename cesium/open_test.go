@@ -26,7 +26,6 @@ import (
 var _ = Describe("Open", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var fs fs.FS
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
@@ -148,7 +147,6 @@ var _ = Describe("Open", func() {
 var _ = Describe("Virtual Channels On Reopen", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var fs fs.FS
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()

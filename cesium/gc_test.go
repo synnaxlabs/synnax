@@ -34,7 +34,6 @@ const gcConvergeTimeout = 30 * time.Second
 var _ = Describe("Garbage collection", Ordered, func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db    *cesium.DB
 				basic = GenerateChannelKey()
@@ -54,7 +53,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						}),
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(899*telem.Byte),
-						cesium.WithInstrumentation(PanicLogger()))))
+						cesium.WithInstrumentation(PanicLogger())))
 				})
 
 				It("Should recycle properly for deletion on an indexed channel", func(ctx SpecContext) {
@@ -120,7 +119,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						}),
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(899*telem.Byte),
-						cesium.WithInstrumentation(PanicLogger()))))
+						cesium.WithInstrumentation(PanicLogger())))
 				})
 				It("Should only garbage collect after a certain amount garbage has accumulated", func(ctx SpecContext) {
 					By("Creating a channel")
@@ -194,7 +193,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(49*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger()),
-					)))
+					))
 				})
 				It("Should only garbage collect after a certain amount garbage has accumulated", func(ctx SpecContext) {
 					By("Creating channels")

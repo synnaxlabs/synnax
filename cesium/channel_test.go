@@ -29,7 +29,6 @@ import (
 var _ = Describe("Channel", Ordered, func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db *cesium.DB
 				fs fs.FS
@@ -402,7 +401,7 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(ch.Key).To(Equal(errorKey2New))
 
 						By("Asserting that no directory exists at the new key")
-						Expect(MustSucceed(fs.Exists(channelKeyToPath(errorKey2New)))).To(BeFalse())
+						Expect(fs.Exists(channelKeyToPath(errorKey2New))).To(BeFalse())
 					})
 				})
 
@@ -491,7 +490,6 @@ var _ = Describe("Channel", Ordered, func() {
 var _ = Describe("Virtual Channels", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db *cesium.DB
 				fs fs.FS

@@ -11,7 +11,6 @@ package cesium_test
 
 import (
 	"context"
-	"runtime"
 	"strconv"
 	"testing"
 
@@ -19,12 +18,12 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func openDBOnFS(ctx context.Context, fs xfs.FS) *cesium.DB {
+func openDBOnFS(ctx context.Context, fs fs.FS) *cesium.DB {
 	return MustSucceed(cesium.Open(ctx,
 		"",
 		cesium.WithFS(fs),
@@ -32,9 +31,7 @@ func openDBOnFS(ctx context.Context, fs xfs.FS) *cesium.DB {
 	))
 }
 
-// mustOpenDBOnFS opens a DB on the given file system and schedules its closure via
-// DeferCleanup, removing the need for a matching close block in AfterAll/AfterEach.
-func mustOpenDBOnFS(ctx context.Context, fs xfs.FS) *cesium.DB {
+func mustOpenDBOnFS(ctx context.Context, fs fs.FS) *cesium.DB {
 	return DeferClose(openDBOnFS(ctx, fs))
 }
 
@@ -73,7 +70,6 @@ func virtualDataChannel(key, index cesium.ChannelKey, name string) cesium.Channe
 }
 
 func TestCesium(t *testing.T) {
-	runtime.GOMAXPROCS(4)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }
