@@ -10,8 +10,6 @@
 package virtual
 
 import (
-	"context"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
@@ -78,7 +76,7 @@ type Writer struct {
 	closed bool
 }
 
-func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer control.Transfer, err error) {
+func (db *DB) OpenWriter(cfgs ...WriterConfig) (w *Writer, transfer control.Transfer, err error) {
 	if db.closed.Load() {
 		err = ErrDBClosed
 		return nil, transfer, db.wrapError(err)

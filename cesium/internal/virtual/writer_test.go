@@ -22,8 +22,8 @@ import (
 
 var _ = Describe("Write", func() {
 	var db *virtual.DB
-	BeforeEach(func(ctx SpecContext) {
-		db = MustSucceed(virtual.Open(virtual.Config{
+	BeforeEach(func() {
+		db = MustOpen(virtual.Open(virtual.Config{
 			Channel: channel.Channel{
 				Name:     "Ray",
 				Key:      2,
@@ -32,25 +32,12 @@ var _ = Describe("Write", func() {
 			},
 		}))
 	})
-	AfterEach(func() {
-		Expect(db.Close()).To(Succeed())
-	})
 	Describe("Control", func() {
 		Describe("ErrOnUnauthorizedOpen", func() {
 			It("Should return an error if the writer does not acquire control", func(ctx SpecContext) {
-				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:                 10 * telem.SecondTS,
-					Authority:             control.AuthorityAbsolute,
-					Subject:               control.Subject{Key: "foo"},
-					ErrOnUnauthorizedOpen: new(true),
-				}))
+				w1, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{Start: 10 * telem.SecondTS, Authority: control.AuthorityAbsolute, Subject: control.Subject{Key: "foo"}, ErrOnUnauthorizedOpen: new(true)}))
 				Expect(t.Occurred()).To(BeTrue())
-				w2, t, err := db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:                 10 * telem.SecondTS,
-					Authority:             control.AuthorityAbsolute - 1,
-					Subject:               control.Subject{Key: "bar"},
-					ErrOnUnauthorizedOpen: new(true),
-				})
+				w2, t, err := db.OpenWriter(virtual.WriterConfig{Start: 10 * telem.SecondTS, Authority: control.AuthorityAbsolute - 1, Subject: control.Subject{Key: "bar"}, ErrOnUnauthorizedOpen: new(true)})
 				Expect(err).To(MatchError(control.ErrUnauthorized))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(w2).To(BeNil())
@@ -62,18 +49,9 @@ var _ = Describe("Write", func() {
 
 		Describe("Write", func() {
 			It("Should return an unauthorized error when the write is not authorized", func(ctx SpecContext) {
-				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:                 10 * telem.SecondTS,
-					Authority:             control.AuthorityAbsolute,
-					Subject:               control.Subject{Key: "foo"},
-					ErrOnUnauthorizedOpen: new(true),
-				}))
+				w1, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{Start: 10 * telem.SecondTS, Authority: control.AuthorityAbsolute, Subject: control.Subject{Key: "foo"}, ErrOnUnauthorizedOpen: new(true)}))
 				Expect(t.Occurred()).To(BeTrue())
-				w2, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:     10 * telem.SecondTS,
-					Authority: control.AuthorityAbsolute - 1,
-					Subject:   control.Subject{Key: "bar"},
-				}))
+				w2, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{Start: 10 * telem.SecondTS, Authority: control.AuthorityAbsolute - 1, Subject: control.Subject{Key: "bar"}}))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
 					Error().To(MatchError(control.ErrUnauthorized))
@@ -85,11 +63,7 @@ var _ = Describe("Write", func() {
 			})
 
 			It("Should return an error when writing a series with the wrong data type", func(ctx SpecContext) {
-				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:     10 * telem.SecondTS,
-					Authority: control.AuthorityAbsolute,
-					Subject:   control.Subject{Key: "foo"},
-				}))
+				w, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{Start: 10 * telem.SecondTS, Authority: control.AuthorityAbsolute, Subject: control.Subject{Key: "foo"}}))
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(w.Write(telem.NewSeriesV[uint8](1, 2, 3))).
 					Error().To(MatchError(validate.ErrValidation))
@@ -101,11 +75,7 @@ var _ = Describe("Write", func() {
 
 		Describe("Close", func() {
 			It("Should not return an error when the same writer is closed multiple times", func(ctx SpecContext) {
-				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:     10 * telem.SecondTS,
-					Authority: control.AuthorityAbsolute,
-					Subject:   control.Subject{Key: "foo"},
-				}))
+				w, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{Start: 10 * telem.SecondTS, Authority: control.AuthorityAbsolute, Subject: control.Subject{Key: "foo"}}))
 				Expect(t.Occurred()).To(BeTrue())
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
@@ -114,11 +84,7 @@ var _ = Describe("Write", func() {
 			})
 
 			It("Should return an error on Write when the DB is closed", func(ctx SpecContext) {
-				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:     10 * telem.SecondTS,
-					Authority: control.AuthorityAbsolute,
-					Subject:   control.Subject{Key: "foo"},
-				}))
+				w, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{Start: 10 * telem.SecondTS, Authority: control.AuthorityAbsolute, Subject: control.Subject{Key: "foo"}}))
 				Expect(t.Occurred()).To(BeTrue())
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
@@ -130,19 +96,10 @@ var _ = Describe("Write", func() {
 
 		Describe("SetAuthority", func() {
 			It("Should correctly set the authority of the writer", func(ctx SpecContext) {
-				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:                 10 * telem.SecondTS,
-					Authority:             control.AuthorityAbsolute - 2,
-					Subject:               control.Subject{Key: "foo"},
-					ErrOnUnauthorizedOpen: new(true),
-				}))
+				w1, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{Start: 10 * telem.SecondTS, Authority: control.AuthorityAbsolute - 2, Subject: control.Subject{Key: "foo"}, ErrOnUnauthorizedOpen: new(true)}))
 				Expect(t.Occurred()).To(BeTrue())
 
-				w2, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
-					Start:     10 * telem.SecondTS,
-					Authority: control.AuthorityAbsolute - 3,
-					Subject:   control.Subject{Key: "bar"},
-				}))
+				w2, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{Start: 10 * telem.SecondTS, Authority: control.AuthorityAbsolute - 3, Subject: control.Subject{Key: "bar"}}))
 				Expect(t.Occurred()).To(BeFalse())
 
 				Expect(w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
