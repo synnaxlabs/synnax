@@ -1,8 +1,7 @@
 # 44 - Runtime Virtual Channels and Free Write Unification
 
-**Feature Name**: Runtime Virtual Channels and Free Write Unification <br />
-**Status**: Draft <br /> **Start Date**: 2026-07-06 <br /> **Authors**: Patrick Dotson
-<br />
+**Feature Name**: Runtime Virtual Channels and Free Write Unification <br /> **Status**:
+Draft <br /> **Start Date**: 2026-07-06 <br /> **Authors**: Patrick Dotson <br />
 
 # 0 - Summary
 
@@ -20,11 +19,11 @@ This RFC unifies free writes with Cesium's existing virtual-channel engine by ma
 channel metadata to the file system, and a virtual registration vanishes with the
 process. The distribution metadata store (Aspen) is the sole authoritative record; each
 node re-registers the virtual channels it serves writes for — free channels and virtual
-channels leased to it — from the channel table at boot, and registers new ones at
-create time. Free writes then flow through the standard gateway write path, gaining
-Cesium's data-type validation, shared-concurrency control, and streaming for free —
-because Cesium's virtual writer already implements everything `free.go` reimplements by
-hand, usually in a more complete form.
+channels leased to it — from the channel table at boot, and registers new ones at create
+time. Free writes then flow through the standard gateway write path, gaining Cesium's
+data-type validation, shared-concurrency control, and streaming for free — because
+Cesium's virtual writer already implements everything `free.go` reimplements by hand,
+usually in a more complete form.
 
 The prerequisite work is confined to Cesium: (1) removing virtual metadata persistence
 entirely, leaving the virtual engine purely in-memory and the registry persisting only
@@ -163,16 +162,16 @@ the streaming relay, retrieve, writer opens, delete — operates on the map, not
 
 The change:
 
-1. **Virtual channels never touch the file system.** The create path registers a
-   virtual channel in `db.mu.dbs.virtual` only — no `fs.Sub`, no meta write. Delete
-   removes it from the map with no directory cleanup; rename and rekey mutate the
-   in-memory record. `virtual.DB` is a pure in-memory component, and the `Virtual`
-   field is excluded from meta serialization entirely (`json:"-"`) — only stored
-   channels are ever written to disk.
+1. **Virtual channels never touch the file system.** The create path registers a virtual
+   channel in `db.mu.dbs.virtual` only — no `fs.Sub`, no meta write. Delete removes it
+   from the map with no directory cleanup; rename and rekey mutate the in-memory record.
+   `virtual.DB` is a pure in-memory component, and the `Virtual` field is excluded from
+   meta serialization entirely (`json:"-"`) — only stored channels are ever written to
+   disk.
 2. **Legacy directories are removed at open.** Previous versions persisted a meta file
    for virtual channels. The boot rehydration scan probes each channel directory's meta
-   for the legacy virtual flag (`meta.ReadVirtualFlag`) and deletes the directory
-   rather than opening it; the caller re-registers the channels it needs (§3.3).
+   for the legacy virtual flag (`meta.ReadVirtualFlag`) and deletes the directory rather
+   than opening it; the caller re-registers the channels it needs (§3.3).
 
 Restart semantics are the point, not a caveat: virtual registrations vanish with the
 process, which is correct because Cesium was never the authoritative record for these
@@ -209,8 +208,8 @@ Alignment state is in-memory in both designs, so restart resets it in both desig
 Since virtual registrations do not survive a restart, the channel service re-creates
 them when it opens: `OpenService` scans the channel table once and registers every
 virtual channel the node serves writes for — free channels (registered on every node,
-since any node accepts free writes) and virtual channels leased to this node (writes
-for channels leased elsewhere always route to their leaseholder, which holds its own
+since any node accepts free writes) and virtual channels leased to this node (writes for
+channels leased elsewhere always route to their leaseholder, which holds its own
 registration). New channels are registered at create time on the same node set, so the
 boot scan and the create path are the only two storage-registration points.
 
@@ -219,10 +218,10 @@ distribution key verbatim (`distribution/channel/channel.go:56`), the boot scan 
 against a registry that is empty of virtual channels, and legacy on-disk virtual
 directories are removed by Cesium before the scan's creates execute (§3.1).
 
-Streamers require no registration at all. The Cesium streamer's key set is a pure
-filter (`cesium/streamer.go:134`): demanding a channel that does not exist locally
-yields no error and no frames, and frames begin flowing the moment a writer's channel
-is registered and written. This matches today's behavior, where a free streamer with no
+Streamers require no registration at all. The Cesium streamer's key set is a pure filter
+(`cesium/streamer.go:134`): demanding a channel that does not exist locally yields no
+error and no frames, and frames begin flowing the moment a writer's channel is
+registered and written. This matches today's behavior, where a free streamer with no
 matching writer simply receives nothing.
 
 Deletes and renames need no cross-node coordination: they apply to the local
@@ -290,10 +289,10 @@ registration happens at boot and at create time (§3.3), so writer open pays not
   any consumer that assumes Cesium's channel set is persistent or reconciles it against
   distribution metadata.
 - **Legacy virtual directories are deleted on first open.** Existing data directories
-  contain meta files persisted for virtual channels by previous versions. Cesium
-  removes them during the boot rehydration scan; the channel table remains the source
-  of truth and the boot scan re-registers the channels. This is the change's only
-  migration, and it is destructive only of state that is now derivable.
+  contain meta files persisted for virtual channels by previous versions. Cesium removes
+  them during the boot rehydration scan; the channel table remains the source of truth
+  and the boot scan re-registers the channels. This is the change's only migration, and
+  it is destructive only of state that is now derivable.
 
 # 5 - Implementation Plan
 
@@ -301,8 +300,8 @@ Each phase is independently shippable; phases 0–1 are confined to the `cesium`
 and change no core behavior.
 
 - **Phase 0 - Runtime-only virtual registration.** Remove virtual metadata persistence
-  from Cesium: virtual channels register in memory only, the `Virtual` field is
-  excluded from serialization, and the boot scan removes legacy virtual directories.
+  from Cesium: virtual channels register in memory only, the `Virtual` field is excluded
+  from serialization, and the boot scan removes legacy virtual directories.
 - **Phase 1 - Indexed virtual channels.** Lift the index restriction for virtual index
   groups; implement the shared per-group alignment allocator on the index channel's DB;
   port `free.go`'s alignment tests into Cesium.
