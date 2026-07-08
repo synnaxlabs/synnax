@@ -67,7 +67,7 @@ describe("ErrorDiagnostics", () => {
     const store = await createTestStore();
     void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
     await renderBoundary(store, <Throw error={new Error("boom")} />);
-    expect(messageText()).toBe("boom\nCore: Local @ localhost:9090");
+    expect(messageText()).toBe("boom\nCore: Local (localhost:9090)");
   });
 
   it("reports Core none when not connected to a Core", async () => {
@@ -102,7 +102,7 @@ describe("ErrorDiagnostics", () => {
     );
     const expected = [
       "Failed to retrieve schematic",
-      "Core: Local @ localhost:9090",
+      "Core: Local (localhost:9090)",
       '"fridge_schem" (l1)',
     ].join("\n");
     expect(messageText()).toBe(expected);

@@ -36,7 +36,7 @@ export const ErrorDiagnostics = ({
 }: ErrorDiagnosticsProps): ReactElement => {
   const cluster = Session.Cluster.useSelectState();
   const core =
-    cluster != null ? `${cluster.name} @ ${cluster.host}:${cluster.port}` : "none";
+    cluster != null ? `${cluster.name} (${cluster.host}:${cluster.port})` : "none";
   const message = [error.message, `Core: ${core}`, pageLine(page)]
     .filter((line): line is string => line != null)
     .join("\n");

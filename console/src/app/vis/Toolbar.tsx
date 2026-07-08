@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, Icon } from "@synnaxlabs/pluto";
-import { type FC, type ReactElement, useCallback } from "react";
+import { Icon } from "@synnaxlabs/pluto";
+import { type FC, type ReactElement } from "react";
 
 import { createSelectorLayout, useSelectorVisible } from "@/app/vis/Selector";
 import { type LayoutType } from "@/app/vis/types";
@@ -18,7 +18,7 @@ import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Empty } from "@/platform/empty";
-import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
+import { Errors } from "@/platform/errors";
 import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
@@ -64,20 +64,11 @@ const NoVis = (): ReactElement => {
 
 const Content = (): ReactElement => {
   const layout = Session.Layout.useSelectActiveMosaicLayout();
-  const renderFallback = useCallback(
-    (props: Errors.FallbackProps) => (
-      <ErrorDiagnostics
-        page={layout == null ? undefined : { name: layout.name, key: layout.key }}
-        {...props}
-      />
-    ),
-    [layout],
-  );
   if (layout == null) return <NoVis />;
   const Toolbar = TOOLBARS[layout.type as LayoutType];
   if (Toolbar == null) return <NoVis />;
   return (
-    <Errors.SuspenseBoundary FallbackComponent={renderFallback}>
+    <Errors.SuspenseBoundary layoutKey={layout.key}>
       <Toolbar layoutKey={layout.key} />
     </Errors.SuspenseBoundary>
   );

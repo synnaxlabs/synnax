@@ -9,7 +9,7 @@
 
 import "@/platform/nav/Nav.css";
 
-import { Eraser, Errors, Nav, type Resize } from "@synnaxlabs/pluto";
+import { Eraser, Nav, type Resize } from "@synnaxlabs/pluto";
 import { box, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -18,7 +18,7 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
-import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
+import { Errors } from "@/platform/errors";
 
 const X_THRESHOLD = { x: 36, y: 24 };
 const Y_THRESHOLD = xy.swap(X_THRESHOLD);
@@ -79,9 +79,7 @@ export const Drawer = ({
       borderColor={5}
       {...rest}
     >
-      <Errors.Boundary FallbackComponent={ErrorDiagnostics}>
-        {collapsed ? null : children}
-      </Errors.Boundary>
+      <Errors.Boundary>{collapsed ? null : children}</Errors.Boundary>
     </Nav.Drawer>
   );
 };
